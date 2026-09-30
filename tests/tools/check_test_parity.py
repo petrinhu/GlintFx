@@ -87,6 +87,10 @@ import re
 import sys
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ci_systems  # noqa: E402
 
 # ENCODING-WIN (05/09/2026, GODS_LAWS.md L-40): TODO.md's own status
 # column carries markers outside the Basic Latin/Latin-1 range (`✅`
@@ -112,7 +116,99 @@ if hasattr(sys.stderr, "reconfigure"):
 SCRIPT_NAME = "check_test_parity.py"
 
 SEM_PENDENCIA = "SEM-PENDENCIA"
-SISTEMAS_VALIDOS = ("linux", "windows")
+
+# CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-split-per-os.md): fonte
+# UNICA de sistemas, tools/ci/systems.txt via ci_systems.py - antes
+# desta fatia, esta lista (e mais cinco outras copias, redigitadas a
+# mao, no proprio arquivo e em check_measured_parity.py/ci.yml) vivia
+# escrita a mao aqui. Quando A7 acrescentar uma distro nova, edita SO'
+# tools/ci/systems.txt.
+#
+# D1 (achado do main): carregar no IMPORT (nivel de modulo) prendia
+# TODO selftest ao arquivo REAL - a A7, a primeira distro nova, mudaria
+# o resultado de autotestes que nunca deveriam depender do disco. D2
+# (achado do main): `load_systems("tools/ci/systems.txt")` resolve
+# relativo ao CWD do PROCESSO - o ctest roda a partir do diretorio de
+# build, nunca da raiz do repo, e o caminho relativo simplesmente nao
+# existe la. As tres pecas abaixo consertam os dois: a carga e' LAZY
+# (so' na primeira vez que _current_ci_systems() e' de fato chamada,
+# nunca no import), resolvida a partir de Path(__file__) (nunca do
+# cwd), e selftest_main() troca a fonte por uma FIXTURE via
+# set_ci_systems_override() antes de qualquer selftest rodar - nenhum
+# --selftest toca tools/ci/systems.txt, exceto o controle dedicado que
+# testa o arquivo real de proposito.
+_CI_SYSTEMS_CACHE = None
+_CI_SYSTEMS_OVERRIDE = None
+
+
+def set_ci_systems_override(systems):
+    """USADO SO' POR --selftest (selftest_main() chama isto antes de
+    qualquer controle rodar): troca a fonte de sistemas por uma
+    fixture em memoria, sem tocar o disco (D1). `None` restaura o
+    carregamento lazy do arquivo real."""
+    global _CI_SYSTEMS_OVERRIDE
+    _CI_SYSTEMS_OVERRIDE = systems
+
+
+def _load_real_ci_systems():
+    """Resolve tools/ci/systems.txt a partir da LOCALIZACAO DO PROPRIO
+    SCRIPT (D2), nunca do cwd do processo - este arquivo mora em
+    <raiz-do-repo>/tests/tools/, entao o terceiro pai de __file__
+    resolvido e' a raiz. Cache: carregado no maximo uma vez por
+    processo real (nunca durante --selftest, que usa o override)."""
+    global _CI_SYSTEMS_CACHE
+    if _CI_SYSTEMS_CACHE is None:
+        repo_root = Path(__file__).resolve().parents[2]
+        systems_path = repo_root / "tools" / "ci" / "systems.txt"
+        _CI_SYSTEMS_CACHE = ci_systems.load_systems(str(systems_path))
+    return _CI_SYSTEMS_CACHE
+
+
+def _current_ci_systems():
+    if _CI_SYSTEMS_OVERRIDE is not None:
+        return _CI_SYSTEMS_OVERRIDE
+    return _load_real_ci_systems()
+
+
+# CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3): antes
+# da A1 so' "linux"/"windows" existiam - o modo --compare uniao TODAS
+# as pernas Linux (Fedora/Ubuntu/Arch/CachyOS x compartilhado/estatico)
+# num so conjunto antes de comparar contra Windows, e uma lacuna
+# exclusiva de UMA distro (ex.: um teste que roda em Fedora mas falta
+# so' no CachyOS) fica invisivel dentro dessa uniao - o "nome ainda
+# existe do lado Linux" porque outra distro o registrou. O modo novo
+# (--per-system, abaixo) compara cada sistema contra a uniao de TODOS,
+# e por isso os quatro slugs de distro entram como chave valida de
+# sistema tambem (tests/parity_exceptions.txt aceita as duas formas ao
+# mesmo tempo: "linux"/"windows" para --compare, os slugs para
+# --per-system - nenhuma exceção antiga precisa mudar). "linux" fica de
+# fora de _sistemas_per_system_esperados(): e' a chave AGREGADA que so'
+# --compare usa; --per-system nunca aceita "linux" como slug de
+# sistema (ci_systems.py ja proibe "linux" como slug, incondicional).
+#
+# As quatro funcoes abaixo substituem o que antes eram constantes de
+# MODULO (SISTEMAS_VALIDOS/SISTEMAS_PER_SYSTEM_ESPERADOS/FAMILIA_POR_
+# SLUG/_COMPARE_FAMILIES) - viram funcao, nunca mais valor fixado no
+# import, porque cada uma tem de reagir ao override de --selftest.
+def _sistemas_validos():
+    return ci_systems.missing_on_vocabulary(_current_ci_systems())
+
+
+def _sistemas_per_system_esperados():
+    return ci_systems.all_slugs(_current_ci_systems())
+
+
+def _familia_por_slug():
+    return ci_systems.familia_por_slug(_current_ci_systems())
+
+
+# CI-SPLIT-PER-OS A3a (D-A12): substitui a tupla ("linux", "windows")
+# escrita a mao duas vezes mais abaixo neste arquivo - as DUAS
+# familias agregadas que --compare conhece, derivadas da mesma fonte
+# unica (as chaves de ci_systems.familia_por_slug() sao sempre
+# exatamente essas duas, por construcao de ci_systems.py).
+def _compare_families():
+    return tuple(_familia_por_slug())
 
 
 def fail(message):
@@ -195,6 +291,14 @@ _CTEST_NO_TESTS_FOUND = "No tests were found!!!"
 # sem ambiguidade).
 _CLEAN_LIST_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
+# CI-SPLIT-PER-OS A2 (docs/plano-ci-split-per-os.md secao 4.2):
+# cabecalho de completude - o passo agregador do job (nunca uma
+# fixture) escreve ESTA linha, uma vez, no fim do inventario. "STATUS"
+# maiusculo por desenho: nunca colide com _CLEAN_LIST_NAME_RE (que
+# exige minuscula) nem com um nome de fixture real (GODS_LAWS.md L-21:
+# todo identificador de codigo/teste e' snake_case, nunca MAIUSCULO).
+_STATUS_LINE_RE = re.compile(r"^STATUS:\s*(completo|incompleto)(?:\s*\(pre-requisito=([^)]+)\))?\s*$")
+
 
 # GODS_LAWS.md L-40 corolario (achado nesta mesma auditoria, 05/09/2026,
 # conserto de um SEGUNDO defeito medido no mesmo run 33995142570 - o
@@ -246,6 +350,8 @@ def parse_inventory_text(text, disabled_collector=None):
     for line in content_lines:
         if _CTEST_PROJECT_HEADER_RE.match(line):
             continue
+        if _STATUS_LINE_RE.match(line):
+            continue
         m = _CTEST_LINE_RE.match(line)
         if m:
             names.add(m.group(1))
@@ -268,6 +374,23 @@ def parse_inventory_text(text, disabled_collector=None):
             f"em snake_case): {line!r}"
         )
     return names
+
+
+# CI-SPLIT-PER-OS A2: le a linha STATUS (ver _STATUS_LINE_RE acima) do
+# MESMO texto bruto que parse_inventory_text() ja le - funcao PROPRIA,
+# nunca misturada com aquela (GODS_LAWS.md L-17: uma funcao, uma
+# pergunta - "quais nomes existem" e "o inventario e' confiavel" sao
+# perguntas diferentes). Retorna (status, pre_requisito) - status e'
+# "completo"/"incompleto", ou None quando a linha nao existe (forma
+# legada, linux/windows hoje: um unico `ctest -N`, sem passo que possa
+# escapar sozinho atras de um irmao vermelho - nunca ganhou o cabecalho
+# de completude, e ausencia da linha NAO e' erro).
+def parse_inventory_status(text):
+    for raw_line in text.splitlines():
+        m = _STATUS_LINE_RE.match(raw_line.strip())
+        if m:
+            return m.groups()
+    return None, None
 
 
 _PROVA_PARCIAL_PREFIX = "PROVA-PARCIAL="
@@ -302,7 +425,7 @@ def parse_exceptions_text(text, source_label="tests/parity_exceptions.txt"):
                 f"{source_label}: linha malformada (esperava 4 ou 5 campos separados "
                 f"por '|', achou {len(parts)}): {line!r}"
             )
-        if missing_on not in SISTEMAS_VALIDOS:
+        if missing_on not in _sistemas_validos():
             fail(
                 f"{source_label}: sistema_onde_falta invalido {missing_on!r} para "
                 f"{test_name!r} (esperado 'linux' ou 'windows')"
@@ -654,10 +777,30 @@ def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
 # que validate_exceptions ja aplica via TODO.md, aqui aplicada
 # diretamente contra o inventario real, que e mais forte: pega mesmo
 # quando ninguem lembrou de marcar o item como Concluido).
+#
+# PARITY-LOCAL-WIN-INVENTORY (achado do lider/main, run 36089901011,
+# HEAD d47f358): `missing_on` de slug de distro (fedora/ubuntu/arch/
+# cachyos) e' FORA do escopo desta funcao. --compare so' conhece as
+# duas familias, "linux" (a UNIAO inteira) e "windows"; ele nao sabe
+# distinguir uma distro da outra. Antes deste conserto, qualquer
+# missing_on que nao fosse "windows" caia no `else linux_inventory` -
+# ou seja, uma excecao 'x|arch|...' era julgada contra a UNIAO Linux
+# inteira, e como x quase sempre existe em ALGUMA outra distro (e' por
+# isso que a excecao existe), ela era declarada morta por um modo que
+# nunca deveria opinar sobre distro nenhuma - MEDIDO: 75 exceções por
+# slug reprovaram assim no run citado. O julgamento por distro e' do
+# --per-system (D-A11, _format_per_system_exception_death_errors, que
+# ja aplica a morte por PAR, nunca por familia inteira).
+def _exceptions_out_of_compare_scope(exceptions):
+    return [exc for exc in exceptions if exc["missing_on"] not in _compare_families()]
+
+
 def compute_exception_hygiene(exceptions, linux_inventory, windows_inventory):
     combined_inventory = linux_inventory | windows_inventory
     dead = []
     for exc in exceptions:
+        if exc["missing_on"] not in _compare_families():
+            continue
         test_name = exc["test_name"]
         missing_side_inventory = (
             windows_inventory if exc["missing_on"] == "windows" else linux_inventory
@@ -958,16 +1101,21 @@ def _print_real_main_counts(inputs):
         f"{len(alias_half_dead_suppressed)} meio-morto(s) suprimido(s) por irmao vivo"
     )
     exception_dead = compute_exception_hygiene(inputs.exceptions, inputs.linux_inventory, inputs.windows_inventory)
-    print(f"{SCRIPT_NAME}: {len(inputs.exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
+    exceptions_fora_de_escopo = _exceptions_out_of_compare_scope(inputs.exceptions)
+    print(
+        f"{SCRIPT_NAME}: {len(inputs.exceptions)} excecao(oes), {len(exception_dead)} morta(s), "
+        f"{len(exceptions_fora_de_escopo)} fora do escopo de --compare (slug de distro, "
+        "julgadas so' por --per-system)"
+    )
 
 
-def _exit_with_verdict(errors):
+def _exit_with_verdict(errors, success_message="paridade OK - nenhuma lacuna sem excecao registrada"):
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         sys.exit(1)
-    print(f"{SCRIPT_NAME}: paridade OK - nenhuma lacuna sem excecao registrada")
+    print(f"{SCRIPT_NAME}: {success_message}")
 
 
 def real_main(args):
@@ -978,6 +1126,458 @@ def real_main(args):
         inputs.linux_inventory, inputs.windows_inventory, inputs.exceptions, inputs.aliases, inputs.todo_status
     )
     _exit_with_verdict(errors)
+
+
+# --- textual mode (PARITY-LOCAL-MIRROR, TODO.md W7-C, GODS_LAWS.md ------
+# L-04/L-17/L-40) ----------------------------------------------------------
+#
+# --compare (real_main acima) so roda contra o servidor: precisa do
+# inventario `ctest -N` REAL dos dois sistemas, que so existe dentro de
+# um run de CI. Duas vezes em dois dias (N2, N3 - TODO.md,
+# docs/plano-w7c-adendo-revalidacao.md SS3.I) a regra "excecao aponta
+# para item concluido reprova" (validate_exceptions() acima) so mordeu
+# la, nunca nesta maquina, porque nada localmente chama essa funcao
+# contra dado real - so' o --selftest, com fixture sintetica.
+#
+# --textual fecha a METADE que nao depende de inventario nenhum: a
+# FORMA de cada linha de tests/parity_exceptions.txt e tests/
+# parity_aliases.txt (parse_exceptions_text/parse_aliases_text ja
+# reprovam malformado via fail(), reusadas aqui sem copiar - GODS_LAWS.md
+# L-17), e o item de cada excecao contra o Status de TODO.md
+# (validate_exceptions(), a MESMA funcao que --compare chama, nunca uma
+# copia). O que fica de fora, declarado (GODS_LAWS.md L-40: um portao
+# vendido como mais forte do que e' vira falso conforto): lacuna de
+# INVENTARIO (teste que existe de um lado e falta do outro sem excecao)
+# so' o servidor prova, porque o inventario do sistema que falta nesta
+# maquina nao existe aqui - tentar prever lendo o CMakeLists ja foi
+# medido enganoso ("ctest -N mede so metade").
+@dataclass(frozen=True)
+class TextualMainInputs:
+    exceptions: list
+    aliases: list
+    todo_status: dict
+
+
+def _parse_textual_main_args(args):
+    if len(args) != 3:
+        fail(
+            "usage: check_test_parity.py --textual <exceptions.txt> <aliases.txt> <TODO.md>"
+        )
+    return args
+
+
+def _load_textual_main_inputs(args):
+    exceptions_path, aliases_path, todo_path = args
+    return TextualMainInputs(
+        exceptions=parse_exceptions_text(_read_file(exceptions_path)),
+        aliases=parse_aliases_text(_read_file(aliases_path)),
+        todo_status=parse_todo_status_text(_read_file(todo_path)),
+    )
+
+
+# GODS_LAWS.md L-40: piso impresso SEMPRE, mesmo com tudo zerado - as
+# contagens de excecoes e apelidos podem legitimamente ser zero (um
+# projeto sem nenhuma lacuna aceita hoje), entao nao entram no piso de
+# reprovacao abaixo; so a contagem de itens de TODO.md entra (ver
+# _textual_empty_scan_errors).
+def _print_textual_main_counts(inputs):
+    print(
+        f"{SCRIPT_NAME} --textual: {len(inputs.exceptions)} excecao(oes), "
+        f"{len(inputs.aliases)} apelido(s), {len(inputs.todo_status)} item(ns) lido(s) de TODO.md"
+    )
+
+
+# TODO.md tem, hoje e em toda execucao real deste portao, centenas de
+# linhas de item - ler zero e sinal de coleta quebrada (caminho errado,
+# arquivo truncado, formato de tabela mudou sob o pe), nunca "tabela
+# genuinamente vazia" (GODS_LAWS.md L-40, o mesmo piso que
+# _empty_inventory_errors aplica ao inventario do lado --compare).
+def _textual_empty_scan_errors(inputs):
+    if not inputs.todo_status:
+        return [
+            "varredura vazia: TODO.md nao tem item de tabela nenhum reconhecido - "
+            "GODS_LAWS.md L-40, isto e sinal de leitura quebrada, nunca de tabela vazia"
+        ]
+    return []
+
+
+def textual_main(args):
+    args = _parse_textual_main_args(args)
+    inputs = _load_textual_main_inputs(args)
+    _print_textual_main_counts(inputs)
+    errors = _textual_empty_scan_errors(inputs)
+    errors.extend(validate_exceptions(inputs.exceptions, inputs.todo_status))
+    _exit_with_verdict(
+        errors,
+        "modo --textual OK - nenhuma excecao aponta para item concluido, nenhuma linha "
+        "malformada (lacuna de INVENTARIO nao conferida aqui, so no servidor)",
+    )
+
+
+# --- per-system mode (CI-SPLIT-PER-OS A1, docs/plano-ci-split-per-os.md ---
+# secao 4.3, C2/C3) -------------------------------------------------------
+#
+# O DEFEITO QUE ESTA FATIA CONSERTA: --compare (real_main() acima) une
+# TODAS as pernas Linux (Fedora/Ubuntu/Arch/CachyOS x compartilhado/
+# estatico) num so conjunto antes de comparar contra a uniao Windows -
+# ele compara SISTEMAS OPERACIONAIS como um todo (Linux x Windows),
+# nunca DISTRO CONTRA DISTRO. Uma lacuna exclusiva de uma UNICA distro
+# (um teste que roda em Fedora/Ubuntu/Arch mas falta so' no CachyOS)
+# fica invisivel: o nome "existe do lado Linux" porque as outras tres
+# distros o registraram, entao a uniao nunca nota a distro que faltou.
+# --per-system fecha esse buraco: a UNIAO DE REFERENCIA passa a ser a
+# uniao de TODOS os sistemas (as quatro distros MAIS Windows, nunca so'
+# dois lados), e CADA sistema e' comparado contra ela por conta propria
+# - uma lacuna exclusiva do CachyOS reprova citando "cachyos", nao
+# "Linux" generico.
+#
+# LIMITACAO DECLARADA DESTA FATIA (GODS_LAWS.md L-40: portao vendido
+# como mais forte do que e' vira falso conforto): --per-system NAO
+# aplica tests/parity_aliases.txt (apelido cross-sistema) nem a higiene
+# de apelido/excecao "morta" que --compare ja aplica - as duas foram
+# desenhadas para o par Linux/Windows (um nome por LADO, nao por
+# distro) e generaliza-las para N sistemas e' desenho que esta fatia
+# (A1) nao recebeu especificacao para fazer; --per-system so' aplica a
+# regra de morte de excecao contra item concluido (validate_exceptions(),
+# a MESMA funcao que --compare ja usa) e a comparacao de presenca por
+# sistema. Se um teste precisar de nome diferente por sistema um dia,
+# essa extensao volta ao planejamento antes de ser escrita aqui.
+@dataclass(frozen=True)
+class PerSystemInputs:
+    system_inventories: dict  # {slug: frozenset(nomes)}
+    system_status: dict  # {slug: (status, pre_requisito)} - CI-SPLIT-PER-OS A2
+    exceptions: list
+    aliases: list
+    todo_status: dict
+
+
+def _parse_per_system_args(args):
+    if len(args) < 3:
+        fail(
+            "usage: check_test_parity.py --per-system <exceptions.txt> <TODO.md> "
+            "<slug>=<inventario> [<slug>=<inventario> ...] [--aliases <arquivo>]"
+        )
+    exceptions_path, todo_path = args[0], args[1]
+    aliases_path = None
+    system_paths = {}
+    resto = list(args[2:])
+    if "--aliases" in resto:
+        idx = resto.index("--aliases")
+        if idx + 1 >= len(resto):
+            fail("--per-system: --aliases exige um caminho de arquivo")
+        aliases_path = resto[idx + 1]
+        del resto[idx:idx + 2]
+    for entry in resto:
+        if "=" not in entry:
+            fail(
+                f"--per-system: argumento de sistema malformado (esperava 'slug=caminho'): {entry!r}"
+            )
+        slug, path = entry.split("=", 1)
+        if slug not in _sistemas_per_system_esperados():
+            fail(
+                f"--per-system: slug de sistema invalido {slug!r} (validos: "
+                f"{_sistemas_per_system_esperados()})"
+            )
+        if slug in system_paths:
+            fail(f"--per-system: slug {slug!r} repetido")
+        system_paths[slug] = path
+    return exceptions_path, todo_path, system_paths, aliases_path
+
+
+def _load_per_system_inputs(exceptions_path, todo_path, system_paths, aliases_path):
+    system_texts = {slug: _read_file(path) for slug, path in system_paths.items()}
+    system_inventories = {slug: frozenset(parse_inventory_text(text)) for slug, text in system_texts.items()}
+    system_status = {slug: parse_inventory_status(text) for slug, text in system_texts.items()}
+    aliases = parse_aliases_text(_read_file(aliases_path)) if aliases_path is not None else []
+    return PerSystemInputs(
+        system_inventories=system_inventories,
+        system_status=system_status,
+        exceptions=parse_exceptions_text(_read_file(exceptions_path)),
+        aliases=aliases,
+        todo_status=parse_todo_status_text(_read_file(todo_path)),
+    )
+
+
+def _print_per_system_counts(inputs):
+    for slug in sorted(inputs.system_inventories):
+        print(
+            f"{SCRIPT_NAME} --per-system: sistema {slug!r} = "
+            f"{len(inputs.system_inventories[slug])} teste(s)"
+        )
+    print(
+        f"{SCRIPT_NAME} --per-system: {len(inputs.system_inventories)} sistema(s) recebido(s), "
+        f"{len(inputs.exceptions)} excecao(oes), {len(inputs.todo_status)} item(ns) lido(s) de TODO.md"
+    )
+
+
+# GODS_LAWS.md L-04 item 2 ("fatia nao fecha com paridade parcial") +
+# L-40 (piso de varredura nao-vazia): um sistema da lista de alvos SEM
+# inventario nenhum (nunca recebeu --per-system slug=caminho) e' o
+# mutante nomeado no proprio plano - "piso de sistemas desligado -> um
+# sistema sem inventario passa calado" - e tem de reprovar citando o
+# slug que faltou, nunca ser pulado em silencio. Inventario recebido
+# mas VAZIO (0 testes) e' o mesmo defeito que _empty_inventory_errors()
+# ja cobre para --compare, generalizado por sistema aqui.
+def _per_system_piso_errors(system_inventories):
+    errors = []
+    recebidos = set(system_inventories)
+    esperados = set(_sistemas_per_system_esperados())
+    faltando = sorted(esperados - recebidos)
+    if faltando:
+        errors.append(
+            "piso de sistemas (GODS_LAWS.md L-40): sistema(s) da lista de alvos sem "
+            f"inventario nenhum recebido, nunca pulado(s) em silencio: {faltando}"
+        )
+    inesperados = sorted(recebidos - esperados)
+    if inesperados:
+        errors.append(
+            f"sistema(s) fora da lista de alvos deste portao ({_sistemas_per_system_esperados()}): "
+            f"{inesperados} - amplie tools/ci/systems.txt antes de usar um slug novo"
+        )
+    for slug in sorted(system_inventories):
+        if not system_inventories[slug]:
+            errors.append(
+                f"varredura vazia: o inventario do sistema {slug!r} tem 0 testes - "
+                "GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca de paridade"
+            )
+    return errors
+
+
+# CI-SPLIT-PER-OS A2 (docs/plano-ci-split-per-os.md secao 4.2): "perna
+# incompleta [e' tratada] como reprovacao propria, com o nome do pre-
+# requisito, e nao como N testes faltando" - um sistema cujo passo
+# agregador escreveu STATUS: incompleto (o pre-requisito do job, ex.
+# 'build', nao teve sucesso) tem o inventario DESCARTADO como fonte de
+# verdade, nunca comparado nome a nome contra a uniao (isso produziria
+# uma enxurrada de "N testes faltando" que esconderia a causa real).
+def _per_system_incomplete_errors(system_status):
+    errors = []
+    for slug in sorted(system_status):
+        status, pre_requisito = system_status[slug]
+        if status == "incompleto":
+            errors.append(
+                f"sistema {slug!r} incompleto: pre-requisito {pre_requisito!r} nao teve "
+                "sucesso - inventario nao e confiavel (GODS_LAWS.md L-04/A2), nunca tratado "
+                "como lacuna de teste"
+            )
+    return errors
+
+
+# CI-SPLIT-PER-OS A1, achado da classificacao dos 215 problemas do run
+# 36085750444 (categoria "a", 8 pares/2 nomes): uma excecao com
+# missing_on="linux" e' o AGREGADO que --compare ja usava ANTES de
+# --per-system existir - ela cobria TODA distro Linux de uma vez, nunca
+# uma so'. Sem esta expansao, toda excecao linux/windows pre-existente
+# (tests/parity_exceptions.txt inteiro) parava de cobrir qualquer coisa
+# no modo por sistema, no dia em que ele nasceu. CI-SPLIT-PER-OS A3a
+# (D-A12): _familia_por_slug() acima, nunca mais redigitado a mao.
+def _exception_covers_slug(nome, slug, exception_index):
+    """Uma excecao cobre um slug se citar o slug exato OU a familia
+    dele (_familia_por_slug() acima) - `missing_on="windows"` NUNCA
+    cobre um slug Linux, e vice-versa (a familia errada nao cobre nada)."""
+    if (nome, slug) in exception_index:
+        return True
+    return any(
+        slug in slugs_da_familia and (nome, familia) in exception_index
+        for familia, slugs_da_familia in _familia_por_slug().items()
+    )
+
+
+# CI-SPLIT-PER-OS A1c (D-A11, docs/plano-ci-split-per-os.md secao 4.3):
+# "o apelido atravessa FAMILIA, nunca preenche buraco DENTRO dela." Um
+# apelido Linux/Windows (tests/parity_aliases.txt) casa um nome de CADA
+# lado - ele explica por que o lado Windows nao tem o nome Linux (e
+# vice-versa), nunca por que UMA distro Linux especifica nao tem o que
+# OUTRA distro Linux tem (isso e' lacuna real dentro da familia,
+# GODS_LAWS.md L-04 item 1: cobertura que some numa distro so').
+#
+# CI-SPLIT-PER-OS A3a (D-A12, vermelho de comportamento do plano): a
+# forma antiga (`"windows" if slug == "windows" else "linux"`) devolvia
+# "linux" para QUALQUER slug desconhecido, por construcao - um slug
+# digitado errado nunca reprovava, so' virava "linux" em silencio.
+# ci_systems.slug_family() reprova nomeando o slug (CiSystemsError).
+def _slug_family(slug):
+    return ci_systems.slug_family(_current_ci_systems(), slug)
+
+
+def _alias_own_family(nome, aliases):
+    """(i): de qual familia `nome` e', segundo os apelidos declarados -
+    "linux" se `nome` e' o linux_name de algum par, "windows" se e' o
+    windows_name, None se `nome` nao aparece em apelido nenhum."""
+    for alias in aliases:
+        if alias["linux_name"] == nome:
+            return "linux"
+        if alias["windows_name"] == nome:
+            return "windows"
+    return None
+
+
+def _alias_partners_in_family(nome, familia, aliases):
+    """TODOS os parceiros de `nome` do lado `familia` - um nome pode
+    ter mais de um parceiro (achado real contra o run 36085750444:
+    `win32_facade_pin_test` tem DOIS - `facade_pin_smoke` e
+    `window_active_after_map_smoke` -, e `win32_display_connect_test`
+    tem TRES). Checar so' o primeiro encontrado esconderia um parceiro
+    que prova o comportamento onde o primeiro nao prova (regra iii)."""
+    parceiros = []
+    for alias in aliases:
+        if familia == "linux" and alias["windows_name"] == nome:
+            parceiros.append(alias["linux_name"])
+        if familia == "windows" and alias["linux_name"] == nome:
+            parceiros.append(alias["windows_name"])
+    return parceiros
+
+
+def _alias_forgives_gap(nome, slug, system_inventories, aliases):
+    """As tres regras (i)-(iii) de D-A11, cada uma nomeada por um
+    mutante do plano: (i) `nome` tem de ser da familia OPOSTA a de
+    `slug` (M-familia-errada); (ii) `nome` NAO pode estar em NENHUM
+    sistema da familia de `slug` - nunca so' checado contra `slug`
+    sozinho (M1: se `nome` reaparece em outro sistema da mesma
+    familia, a lacuna em `slug` continua real); (iii) PELO MENOS UM
+    parceiro de `nome`, do lado da familia de `slug`, tem de estar no
+    inventario do PROPRIO `slug` - nunca so' em algum lugar da familia
+    (M2), e nunca so' o PRIMEIRO parceiro encontrado quando ha mais
+    de um (achado real, ver _alias_partners_in_family)."""
+    familia_slug = _slug_family(slug)
+    familia_nome = _alias_own_family(nome, aliases)
+    if familia_nome is None or familia_nome == familia_slug:
+        return False
+    slugs_da_familia = [s for s in system_inventories if _slug_family(s) == familia_slug]
+    if any(nome in system_inventories[s] for s in slugs_da_familia):
+        return False
+    parceiros = _alias_partners_in_family(nome, familia_slug, aliases)
+    return any(parceiro in system_inventories.get(slug, set()) for parceiro in parceiros)
+
+
+def compute_per_system_union_and_gaps(system_inventories, exceptions, aliases):
+    """Retorna (uniao, lacunas) - `uniao` e' o conjunto de referencia
+    (todo nome que aparece em QUALQUER sistema); `lacunas` e' {slug:
+    [nomes]} com todo nome da uniao que falta EXATAMENTE nesse sistema,
+    sem excecao (`_exception_covers_slug`) NEM apelido que perdoe
+    (`_alias_forgives_gap`, D-A11)."""
+    uniao = set()
+    for nomes in system_inventories.values():
+        uniao |= nomes
+    exception_index = {(exc["test_name"], exc["missing_on"]) for exc in exceptions}
+    lacunas = {}
+    for slug, nomes in system_inventories.items():
+        faltando = sorted(uniao - nomes)
+        lacunas[slug] = [
+            nome for nome in faltando
+            if not _exception_covers_slug(nome, slug, exception_index)
+            and not _alias_forgives_gap(nome, slug, system_inventories, aliases)
+        ]
+    return uniao, lacunas
+
+
+def _format_per_system_gap_errors(lacunas):
+    errors = []
+    for slug in sorted(lacunas):
+        for nome in lacunas[slug]:
+            errors.append(
+                f"{nome}: existe na uniao de todos os sistemas e falta em {slug!r}, sem "
+                f"excecao registrada em tests/parity_exceptions.txt (linha "
+                f"'{nome}|{slug}|<gemeo>|<item>')"
+            )
+    return errors
+
+
+# D-A11: "a higiene de apelidos ... e' a de hoje, calculada sobre a
+# uniao da familia Linux contra o Windows, sem mudanca" (M4) - nunca
+# recalculada por sistema, que acusaria apelido normal de meio-morto
+# so' porque UM slug especifico nao tem o nome (o apelido nunca
+# prometeu que TODO slug Linux teria o nome, so' que a familia tem).
+def _family_unions(system_inventories):
+    linux_uniao = set()
+    for slug in _familia_por_slug()["linux"]:
+        linux_uniao |= system_inventories.get(slug, set())
+    windows_uniao = set(system_inventories.get("windows", set()))
+    return linux_uniao, windows_uniao
+
+
+# D-A11: "morte de uma excecao e' por par (nome, sistema) ... relatada
+# no sistema onde aconteceu" (M5) - uma excecao 'X|linux|...' cobre
+# varios slugs Linux ao mesmo tempo, mas pode estar MORTA (o nome ja
+# existe la, a ausencia que ela prometia acabou) em alguns e VIVA nos
+# outros; nunca declarada morta ou viva pela familia inteira de uma vez.
+def _format_per_system_exception_death_errors(exceptions, system_inventories):
+    errors = []
+    for exc in exceptions:
+        nome, missing_on = exc["test_name"], exc["missing_on"]
+        slugs_cobertos = sorted(_familia_por_slug().get(missing_on, {missing_on}))
+        for slug in slugs_cobertos:
+            if slug in system_inventories and nome in system_inventories[slug]:
+                errors.append(
+                    f"excecao morta no sistema {slug!r}: {nome}|{missing_on}|... - {nome} ja "
+                    f"aparece no inventario de {slug!r} (tests/parity_exceptions.txt)"
+                )
+    return errors
+
+
+# D-A11: "linha de escopo sempre impressa: apelidos: N linhas; perdoes
+# aplicados: fedora a, ubuntu b, ...; excecoes expandidas por familia:
+# c; lacunas por sistema: ..." (GODS_LAWS.md L-40) - reusa os mesmos
+# predicados de compute_per_system_union_and_gaps() (nunca reimplementa
+# a regra), so' para CONTAR em vez de filtrar.
+def _print_per_system_scope_line(system_inventories, exceptions, aliases, lacunas):
+    uniao = set()
+    for nomes in system_inventories.values():
+        uniao |= nomes
+    exception_index = {(exc["test_name"], exc["missing_on"]) for exc in exceptions}
+    familias_expandidas = sum(1 for exc in exceptions if exc["missing_on"] in _familia_por_slug())
+    perdoes_por_slug = {}
+    for slug, nomes in system_inventories.items():
+        faltando = sorted(uniao - nomes)
+        perdoes_por_slug[slug] = sum(
+            1 for nome in faltando
+            if not _exception_covers_slug(nome, slug, exception_index)
+            and _alias_forgives_gap(nome, slug, system_inventories, aliases)
+        )
+    perdoes_txt = ", ".join(f"{slug} {perdoes_por_slug[slug]}" for slug in sorted(perdoes_por_slug))
+    lacunas_txt = ", ".join(f"{slug} {len(lacunas.get(slug, []))}" for slug in sorted(system_inventories))
+    print(
+        f"{SCRIPT_NAME} --per-system: apelidos: {len(aliases)} linha(s); perdoes aplicados: "
+        f"{perdoes_txt}; excecoes expandidas por familia: {familias_expandidas}; "
+        f"lacunas por sistema: {lacunas_txt}"
+    )
+
+
+# CI-SPLIT-PER-OS A2, achado proprio (GODS_LAWS.md L-04): a linha
+# STATUS: incompleto (parse_inventory_status()) precisa de um QUINTO
+# dado (system_status) que os quatro parametros antigos desta funcao
+# ja tinham esgotado (GODS_LAWS.md L-17: no maximo 4). Recebe o
+# PerSystemInputs inteiro em vez de agrupar mais um solto - o mesmo
+# remedio que o resto do arquivo ja usa (AliasSiblingContext,
+# RealMainInputs) quando um conjunto de dados cresce junto.
+def run_per_system_comparison(inputs):
+    errors = _per_system_piso_errors(inputs.system_inventories)
+    errors.extend(_per_system_incomplete_errors(inputs.system_status))
+    if errors:
+        # Sistema faltando, vazio ou incompleto: a uniao ficaria
+        # mentirosa (um nome pareceria faltar em TODO MUNDO menos quem
+        # tem), entao nao compara - o mesmo desvio que run_comparison()
+        # ja faz quando um dos dois lados vem vazio.
+        return errors
+    errors.extend(validate_exceptions(inputs.exceptions, inputs.todo_status))
+    linux_uniao, windows_uniao = _family_unions(inputs.system_inventories)
+    errors.extend(_format_alias_hygiene_errors(inputs.aliases, linux_uniao, windows_uniao))
+    errors.extend(_format_per_system_exception_death_errors(inputs.exceptions, inputs.system_inventories))
+    _uniao, lacunas = compute_per_system_union_and_gaps(inputs.system_inventories, inputs.exceptions, inputs.aliases)
+    errors.extend(_format_per_system_gap_errors(lacunas))
+    _print_per_system_scope_line(inputs.system_inventories, inputs.exceptions, inputs.aliases, lacunas)
+    return errors
+
+
+def per_system_main(args):
+    exceptions_path, todo_path, system_paths, aliases_path = _parse_per_system_args(args)
+    inputs = _load_per_system_inputs(exceptions_path, todo_path, system_paths, aliases_path)
+    _print_per_system_counts(inputs)
+    errors = run_per_system_comparison(inputs)
+    _exit_with_verdict(
+        errors,
+        "modo --per-system OK - nenhum sistema tem lacuna sem excecao registrada para ele",
+    )
 
 
 # --- fixtures and controls for --selftest -----------------------------
@@ -1546,6 +2146,76 @@ def selftest_disabled_line_recognized_not_swallowed():
     return ok
 
 
+# CI-SPLIT-PER-OS A2 (docs/plano-ci-split-per-os.md secao 4.2): parsing
+# puro de parse_inventory_status(), separado de qualquer coisa que
+# envolva run_per_system_comparison() (essa parte fica em
+# _per_system_mode_controls() mais abaixo - GODS_LAWS.md L-17, "quais
+# nomes existem" e "o inventario e' confiavel" sao perguntas
+# diferentes, e o CONTROLE de cada uma tambem). Tres formas na mesma
+# funcao (regra de 3 do L-17 nao se aplica aqui - sao 3 ramos do MESMO
+# regex, nao 3 abstracoes candidatas a extrair):
+def selftest_parse_inventory_status_control():
+    completo_status, completo_pre = parse_inventory_status("foo_test\nSTATUS: completo\n")
+    if (completo_status, completo_pre) != ("completo", None):
+        print(
+            f"selftest: STATUS-PARSE FALHOU (completo, sem pre-requisito): {(completo_status, completo_pre)!r}",
+            file=sys.stderr,
+        )
+        return False
+    incompleto_status, incompleto_pre = parse_inventory_status(
+        "foo_test\nSTATUS: incompleto (pre-requisito=build)\n"
+    )
+    if (incompleto_status, incompleto_pre) != ("incompleto", "build"):
+        print(
+            f"selftest: STATUS-PARSE FALHOU (incompleto, pre-requisito=build): "
+            f"{(incompleto_status, incompleto_pre)!r}",
+            file=sys.stderr,
+        )
+        return False
+    legado_status, legado_pre = parse_inventory_status("foo_test\nbar_test\n")
+    if (legado_status, legado_pre) != (None, None):
+        print(
+            f"selftest: STATUS-PARSE FALHOU (forma legada, sem linha STATUS nenhuma, "
+            f"tinha de vir (None, None)): {(legado_status, legado_pre)!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: STATUS-PARSE OK (completo, incompleto com pre-requisito, e a forma "
+        "legada sem linha STATUS - as tres formas que parse_inventory_status() aceita)"
+    )
+    return True
+
+
+# VERMELHO DE ESTREIA desta sub-fatia: ANTES de _STATUS_LINE_RE ser
+# tratada dentro de parse_inventory_text() (o `if _STATUS_LINE_RE.
+# match(line): continue` logo apos o cabecalho de ctest), uma linha
+# "STATUS: completo" nao batia em NENHUM ramo do parser (nao e'
+# cabecalho/rodape de ctest, nao e' "Test #N: nome", e _CLEAN_LIST_
+# NAME_RE exige minusculas - "STATUS:" tem maiuscula e dois-pontos) -
+# ou seja, cairia exatamente no mesmo fail() que ENTRADA-CORROMPIDA
+# testa acima. Visto vermelho de verdade (NameError/fail()) antes do
+# `continue` ser escrito. Este controle prova as duas metades juntas,
+# no MESMO texto: a linha STATUS nao quebra o parse E nao vira nome de
+# teste fantasma.
+def selftest_status_line_ignored_by_name_parser():
+    text = "foo_test\nbar_test\nSTATUS: incompleto (pre-requisito=build)\n"
+    names = parse_inventory_text(text)
+    if names != {"foo_test", "bar_test"}:
+        print(
+            f"selftest: STATUS-LINHA-IGNORADA-PELO-PARSER-DE-NOMES FALHOU (esperava "
+            f"{{'foo_test', 'bar_test'}}, veio {names} - a linha STATUS quebrou o parse "
+            "ou virou nome fantasma)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: STATUS-LINHA-IGNORADA-PELO-PARSER-DE-NOMES OK (parse_inventory_text() "
+        "nunca quebra nem inventa nome por causa da linha STATUS)"
+    )
+    return True
+
+
 # PARITY-ALIAS-HYGIENE C1 (VERMELHO): um apelido cujos dois nomes nao
 # aparecem em inventario nenhum - o teste que ele apontava sumiu e a
 # linha ficou orfa. Esperado: reprova, citando o par.
@@ -2080,6 +2750,112 @@ def selftest_exception_dead_orphaned_reproves():
     return True
 
 
+# PARITY-LOCAL-WIN-INVENTORY (achado do lider/main, run 36089901011,
+# HEAD d47f358, GODS_LAWS.md L-04): compute_exception_hygiene() so
+# conhece DUAS familias - `missing_on == "windows"` cai no lado
+# Windows, e QUALQUER outra coisa (inclusive um slug de distro como
+# "arch"/"cachyos"/"ubuntu") cai no `else linux_inventory`, que e a
+# UNIAO Linux inteira. Uma excecao 'x|arch|...' cujo x existe em
+# QUALQUER outra distro Linux (o caso normal - a excecao existe
+# justamente porque falta so' NAQUELA distro) e' julgada morta por um
+# modo que nao entende distro nenhuma - MEDIDO: 75 exceções por slug
+# reprovaram assim no run citado. O julgamento por distro e' do
+# --per-system (D-A11, _format_per_system_exception_death_errors, que
+# ja aplica a morte por PAR, nao por familia inteira) - --compare
+# passa a PULAR essas exceções, nunca julga-las.
+def selftest_exception_dead_ignores_distro_slug_missing_on():
+    linux_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    windows_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    exceptions = [
+        {
+            "test_name": "so_fedora_e_ubuntu_test",
+            "missing_on": "arch",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], {})
+    if errors:
+        print(
+            f"selftest: PARITY-LOCAL-WIN-INVENTORY FALHOU (excecao com missing_on='arch' "
+            f"nao pode ser julgada por --compare, que so conhece linux/windows): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PARITY-LOCAL-WIN-INVENTORY OK (excecao de slug de distro nunca julgada "
+        "'morta' por --compare - o julgamento por distro e' do --per-system)"
+    )
+    return True
+
+
+# Gemeo negativo explicito, pedido pelo lider/main: a MESMA situacao
+# (teste existe na uniao Linux), mas com missing_on="linux" (familia
+# que o --compare DE FATO conhece) continua reprovando como morta -
+# prova que o pulo acima e' seletivo por slug de distro, nunca um
+# desligamento geral da checagem para a familia Linux inteira.
+def selftest_exception_dead_linux_family_still_reproves_negative_twin():
+    linux_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    windows_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    exceptions = [
+        {
+            "test_name": "so_fedora_e_ubuntu_test",
+            "missing_on": "linux",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], {})
+    if not _check_exception_dead_message(
+        errors, "so_fedora_e_ubuntu_test", "linux", "PARITY-LOCAL-WIN-INVENTORY-GEMEO-NEGATIVO"
+    ):
+        return False
+    print(
+        "selftest: PARITY-LOCAL-WIN-INVENTORY-GEMEO-NEGATIVO OK (missing_on='linux' "
+        "continua reprovando como morta - o pulo e' seletivo, so' para slug de distro)"
+    )
+    return True
+
+
+# PARITY-LOCAL-WIN-INVENTORY (item 2 do pedido): a contagem das
+# excecoes puladas por serem slug de distro tem de aparecer numa linha
+# de escopo SEMPRE, mesmo quando zero (GODS_LAWS.md L-40) - nunca um
+# pulo silencioso que ninguem consegue auditar.
+def selftest_exceptions_out_of_compare_scope_count_always_printed():
+    exceptions = [
+        {
+            "test_name": "so_fedora_e_ubuntu_test",
+            "missing_on": "arch",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    fora_de_escopo = _exceptions_out_of_compare_scope(exceptions)
+    if len(fora_de_escopo) != 1:
+        print(
+            f"selftest: PARITY-LOCAL-WIN-INVENTORY-ESCOPO FALHOU (esperava 1 excecao fora do "
+            f"escopo, veio {len(fora_de_escopo)}): {fora_de_escopo}",
+            file=sys.stderr,
+        )
+        return False
+    fora_de_escopo_vazio = _exceptions_out_of_compare_scope([])
+    if fora_de_escopo_vazio != []:
+        print(
+            f"selftest: PARITY-LOCAL-WIN-INVENTORY-ESCOPO FALHOU (lista vazia de excecoes "
+            f"deveria dar 0 fora do escopo, veio {fora_de_escopo_vazio}): {fora_de_escopo_vazio}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PARITY-LOCAL-WIN-INVENTORY-ESCOPO OK (contagem de excecoes fora do "
+        "escopo de --compare calculavel e' 0 quando nao ha nenhuma, nunca ausente)"
+    )
+    return True
+
+
 # PARITY-ALIAS-HYGIENE C4a (VERMELHO): excecao com PROVA-PARCIAL
 # cujo gemeo citado NAO existe no inventario do sistema declarado em
 # missing_on - a forma nao pode ser aceita de leitura humana.
@@ -2462,6 +3238,691 @@ def selftest_real_main_half_dead_and_suppressed_counts_distinct():
     return True
 
 
+# PARITY-LOCAL-MIRROR I1 (24/09/2026, TODO.md W7-C, GODS_LAWS.md
+# L-04/L-20/L-40) - os controles do modo --textual, ponta a ponta
+# (arquivo em disco -> textual_main() -> stdout+stderr capturados),
+# no mesmo molde de _run_real_main_capturing acima. Diferente
+# daquele helper, redireciona TAMBEM stderr para o mesmo buffer: a
+# mensagem de "REPROVADO" que prova a estreia contra o caso real
+# (gpu_kind_report_smoke/WIN-RUNNER-PROPRIO, docs/plano-w7c-adendo-
+# revalidacao.md SS3.I) sai por stderr (_exit_with_verdict acima),
+# e a citacao literal do nome/item so e verificavel capturando as
+# duas saidas - a mesma coisa que quem roda o comando no terminal
+# ve junta.
+@dataclass(frozen=True)
+class TextualMainFixtureTexts:
+    exceptions_text: str
+    aliases_text: str
+    todo_text: str
+
+
+def _run_textual_main_capturing(fixture_texts):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        args = [
+            _write_temp(tmpdir, "exceptions.txt", fixture_texts.exceptions_text),
+            _write_temp(tmpdir, "aliases.txt", fixture_texts.aliases_text),
+            _write_temp(tmpdir, "TODO.md", fixture_texts.todo_text),
+        ]
+        buffer = io.StringIO()
+        exit_code = None
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            try:
+                textual_main(args)
+            except SystemExit as exc:
+                exit_code = exc.code
+        return exit_code, buffer.getvalue()
+
+
+# Controle POSITIVO: excecao apontando para item PENDENTE, apelido
+# bem formado - passa, e o piso L-40 imprime as tres contagens.
+def selftest_textual_positive_control():
+    exit_code, output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "algum_teste|windows|motivo qualquer, com mais de quatro palavras|ITEM-A\n",
+            "nome_linux_test|nome_windows_test\n",
+            _todo_fixture("ITEM-A", "⏳ Pendente"),
+        )
+    )
+    if exit_code not in (None, 0):
+        print(
+            f"selftest: TEXTUAL-POSITIVO FALHOU (esperava sucesso, saiu com codigo {exit_code!r}): "
+            f"{output}",
+            file=sys.stderr,
+        )
+        return False
+    if "1 excecao(oes), 1 apelido(s), 1 item(ns) lido(s) de TODO.md" not in output:
+        print(
+            f"selftest: TEXTUAL-POSITIVO FALHOU (piso L-40 nao imprimiu as tres contagens): "
+            f"{output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: TEXTUAL-POSITIVO OK (modo --textual passa com excecao pendente)")
+    return True
+
+
+# O VERMELHO central desta sub-fatia: reproduz, com fixture sintetica,
+# a FORMA EXATA do caso real medido em 023e1c7 (excecao de
+# gpu_kind_report_smoke apontando para WIN-RUNNER-PROPRIO, que virou
+# Concluido em 84877aa e so foi consertado em c0fb96f depois de
+# avisado ao main - docs/plano-w7c-adendo-revalidacao.md N2). Mutante
+# que mata: pular a chamada a validate_exceptions() dentro de
+# textual_main() - sem ela este controle passaria calado (exit 0),
+# exatamente o furo que esta sub-fatia existe para fechar.
+def selftest_textual_concluded_item_reproves():
+    exit_code, output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "gpu_kind_report_smoke|windows|mutacao real nao provada no lado Windows nesta "
+            "maquina|WIN-RUNNER-PROPRIO\n",
+            "",
+            _todo_fixture("WIN-RUNNER-PROPRIO", "✅ Concluído"),
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-VERMELHO-023e1c7 FALHOU (esperava reprovar com codigo 1, veio "
+            f"{exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "gpu_kind_report_smoke" not in output or "WIN-RUNNER-PROPRIO" not in output:
+        print(
+            f"selftest: TEXTUAL-VERMELHO-023e1c7 FALHOU (reprovou, mas nao citou o caso real "
+            f"de 023e1c7/c0fb96f): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-VERMELHO-023e1c7 OK (excecao apontando para item concluido "
+        "reprova no modo --textual - reproduz o caso real de 023e1c7, consertado em c0fb96f)"
+    )
+    return True
+
+
+# Linha malformada de tests/parity_exceptions.txt (nem 4 nem 5 campos)
+# tem de reprovar DENTRO do modo --textual, nao so quando chamado por
+# --compare: parse_exceptions_text() e reusada, nunca copiada
+# (GODS_LAWS.md L-17), e fail() ali chama sys.exit(1) direto.
+def selftest_textual_malformed_exception_reproves():
+    exit_code, _output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "nome_quebrado|so|tres_campos\n",
+            "",
+            _todo_fixture("ITEM-A", "⏳ Pendente"),
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-EXCECAO-MALFORMADA FALHOU (esperava reprovar com codigo 1, "
+            f"veio {exit_code!r})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-EXCECAO-MALFORMADA OK (linha malformada de parity_exceptions.txt "
+        "reprova no modo --textual)"
+    )
+    return True
+
+
+# O gemeo para tests/parity_aliases.txt: linha malformada (nem 2 nem
+# 3 campos) tambem reprova no modo --textual.
+def selftest_textual_malformed_alias_reproves():
+    exit_code, _output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "",
+            "so_um_campo_sem_par\n",
+            _todo_fixture("ITEM-A", "⏳ Pendente"),
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-APELIDO-MALFORMADO FALHOU (esperava reprovar com codigo 1, "
+            f"veio {exit_code!r})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-APELIDO-MALFORMADO OK (linha malformada de parity_aliases.txt "
+        "reprova no modo --textual)"
+    )
+    return True
+
+
+# Piso L-40 do proprio modo --textual: TODO.md sem NENHUMA linha de
+# tabela reconhecida (formato mudou sob o pe, caminho errado, arquivo
+# truncado) tem de reprovar como varredura vazia, nunca passar calado
+# so porque nao havia excecao nenhuma para citar.
+def selftest_textual_empty_todo_reproves():
+    exit_code, output = _run_textual_main_capturing(
+        TextualMainFixtureTexts("", "", "so prosa aqui, nenhuma linha de tabela\n")
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-TODO-VAZIO FALHOU (esperava reprovar com codigo 1, veio "
+            f"{exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "varredura vazia" not in output:
+        print(
+            f"selftest: TEXTUAL-TODO-VAZIO FALHOU (reprovou, mas nao com a mensagem de "
+            f"varredura vazia - GODS_LAWS.md L-40): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: TEXTUAL-TODO-VAZIO OK (TODO.md sem item nenhum reconhecido reprova)")
+    return True
+
+
+def _textual_mode_controls():
+    return [
+        selftest_textual_positive_control(),
+        selftest_textual_concluded_item_reproves(),
+        selftest_textual_malformed_exception_reproves(),
+        selftest_textual_malformed_alias_reproves(),
+        selftest_textual_empty_todo_reproves(),
+    ]
+
+
+# --- CI-SPLIT-PER-OS A1: controles do modo --per-system ------------------
+
+
+def _per_system_full_inventory(faltando_em=None, nome_faltante="b_test"):
+    """Cinco sistemas identicos ({a_test, b_test}), exceto o slug
+    `faltando_em` (se dado), que perde `nome_faltante` - a fixtura
+    compartilhada por quase todo controle abaixo, para nao repetir os
+    cinco dicionarios em cada funcao (GODS_LAWS.md L-17, regra de 3)."""
+    inventario = {slug: frozenset({"a_test", "b_test"}) for slug in _sistemas_per_system_esperados()}
+    if faltando_em is not None:
+        inventario[faltando_em] = frozenset(inventario[faltando_em] - {nome_faltante})
+    return inventario
+
+
+# Constroi o PerSystemInputs que run_per_system_comparison() agora
+# exige (GODS_LAWS.md L-17: a funcao passou a receber o pacote inteiro
+# em vez de 5 parametros soltos) - `system_status` vazio por padrao
+# (nenhum sistema incompleto), so' os poucos controles de A2 passam algo.
+def _per_system_inputs(inventario, exceptions=(), aliases=(), todo_status=None, system_status=None):
+    return PerSystemInputs(
+        system_inventories=inventario,
+        system_status=system_status or {},
+        exceptions=list(exceptions),
+        aliases=list(aliases),
+        todo_status=todo_status or {},
+    )
+
+
+def selftest_per_system_positive_control():
+    inventario = _per_system_full_inventory()
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
+    if errors:
+        print(f"selftest: cinco sistemas identicos, sem lacuna, reprovou - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-POSITIVO OK (cinco sistemas identicos, nenhuma lacuna)")
+    return True
+
+
+# C2 (docs/plano-ci-split-per-os.md secao 5, A1): "autoteste com
+# inventario sem um nome so' no CachyOS ... reprova citando 'cachyos'"
+# - o TESTE VERMELHO DE ESTREIA desta fatia. Antes desta fatia existir,
+# nao havia run_per_system_comparison() nenhuma para chamar (NameError,
+# vermelho genuino, visto antes desta funcao ser escrita).
+def selftest_per_system_gap_only_in_one_system_reproves():
+    inventario = _per_system_full_inventory(faltando_em="cachyos")
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
+    encontrou = any("b_test" in e and "'cachyos'" in e for e in errors)
+    if not encontrou:
+        print(
+            f"selftest: lacuna exclusiva do cachyos nao foi reprovada citando o slug - erros: {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: PER-SYSTEM-LACUNA-UNICA OK (lacuna so' no cachyos reprova citando 'cachyos')")
+    return True
+
+
+# Mutante nomeado no proprio plano (secao 7, linha A1: "Mutantes:
+# voltar a uniao -> C2 passa (tem de reprovar)"): esta e' a PROVA POR
+# ESCRITO de que a comparacao antiga (--compare, run_comparison(), a
+# uniao Linux inteira contra Windows) e' cega exatamente a esta lacuna
+# - a mesma entrada que selftest_per_system_gap_only_in_one_system_
+# reproves() acima reprova, aqui passa calada quando reduzida a uniao
+# Linux x Windows (fedora+ubuntu+arch+cachyos unidos = so' perde
+# b_test se TODAS perderem, nao so' uma).
+def selftest_per_system_naive_union_would_miss_the_gap_control():
+    linux_uniao = frozenset({"a_test", "b_test"})  # fedora+ubuntu+arch+cachyos unidos
+    windows_uniao = frozenset({"a_test", "b_test"})
+    errors = run_comparison(linux_uniao, windows_uniao, [], [], {})
+    if errors:
+        print(
+            "selftest: premissa do controle quebrada - a comparacao por uniao (antiga) "
+            f"deveria passar calada aqui, mas reprovou: {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PER-SYSTEM-MUTANTE-UNIAO OK (comparacao por uniao, antiga, passa calada na "
+        "mesma lacuna que --per-system pega - prova de por que esta fatia existe)"
+    )
+    return True
+
+
+def selftest_per_system_declared_exception_suppresses_gap():
+    inventario = _per_system_full_inventory(faltando_em="cachyos")
+    excecoes = [
+        {
+            "test_name": "b_test",
+            "missing_on": "cachyos",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
+    if errors:
+        print(f"selftest: excecao declarada para cachyos nao suprimiu a lacuna - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-DECLARADA OK (excecao 'b_test|cachyos|...' suprime a lacuna)")
+    return True
+
+
+# CI-SPLIT-PER-OS A1, achado da classificacao dos 215 do run
+# 36085750444 (categoria "a"): uma excecao com missing_on="linux" (o
+# AGREGADO que --compare ja usava) tem de cobrir QUALQUER slug Linux,
+# nunca so' um. O vermelho REAL que motivou este controle: `win32_
+# runner_probe_test|linux|...|SEM-PENDENCIA` (tests/parity_exceptions.txt)
+# nao cobria 'arch' no --per-system de ae5dd7e - 8 pares reprovaram
+# exatamente por isso na estreia do modo em produção.
+def selftest_per_system_family_exception_covers_all_linux_slugs():
+    # b_test genuinamente ausente de TODA a familia Linux (nunca so' de
+    # UM slug) - depois de A1c (M5, morte por par), uma excecao
+    # 'linux' truthful nao pode citar um nome que ja existe em algum
+    # membro da familia, senao ela mesma sai morta ali (por desenho).
+    inventario = _per_system_alias_inventory(
+        fedora=["a_test"], ubuntu=["a_test"], arch=["a_test"], cachyos=["a_test"], windows=["a_test", "b_test"]
+    )
+    excecoes = [
+        {"test_name": "b_test", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
+    ]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
+    if errors:
+        print(f"selftest: excecao de familia 'linux' nao cobriu todos os slugs Linux - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-FAMILIA-LINUX OK ('b_test|linux|...' cobre qualquer slug Linux)")
+    return True
+
+
+# Gemeo negativo: excecao de familia ERRADA (windows) nunca pode cobrir
+# um slug Linux - prova que a expansao e' por familia, nao "qualquer
+# excecao existente para este nome vale".
+def selftest_per_system_windows_exception_never_covers_linux_slug():
+    # b_test genuinamente ausente do Windows (nunca so' do arch) -
+    # torna a excecao 'windows' truthful, sem disparar a morte por par
+    # de A1c por um motivo alheio ao que este controle prova.
+    inventario = _per_system_alias_inventory(
+        fedora=["a_test", "b_test"], ubuntu=["a_test", "b_test"], arch=["a_test"],
+        cachyos=["a_test", "b_test"], windows=["a_test"],
+    )
+    excecoes = [
+        {"test_name": "b_test", "missing_on": "windows", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
+    ]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
+    encontrou = any("b_test" in e and "'arch'" in e for e in errors)
+    if not encontrou:
+        print(f"selftest: excecao 'windows' cobriu indevidamente o slug 'arch' - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-FAMILIA-WINDOWS-NAO-VAZA OK (familia errada nunca cobre)")
+    return True
+
+
+# O outro mutante nomeado no plano: "piso de sistemas desligado -> um
+# sistema sem inventario passa calado". Aqui "windows" nunca recebe
+# --per-system slug=caminho nenhum (dict sem a chave, nao inventario
+# vazio - os dois defeitos sao distintos e os dois tem de reprovar).
+def selftest_per_system_missing_system_reproves():
+    inventario = _per_system_full_inventory()
+    del inventario["windows"]
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
+    encontrou = any("windows" in e for e in errors)
+    if not encontrou:
+        print(f"selftest: sistema esperado (windows) sem inventario nenhum nao reprovou - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-PISO-SISTEMA-AUSENTE OK (sistema esperado sem inventario reprova)")
+    return True
+
+
+def selftest_per_system_empty_inventory_reproves():
+    inventario = _per_system_full_inventory()
+    inventario["arch"] = frozenset()
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
+    encontrou = any("arch" in e and "0 testes" in e for e in errors)
+    if not encontrou:
+        print(f"selftest: sistema com inventario vazio (arch) nao reprovou - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VARREDURA-VAZIA OK (inventario recebido mas com 0 testes reprova)")
+    return True
+
+
+def selftest_per_system_unexpected_slug_rejected():
+    ok = _expect_fail_exit(_parse_per_system_args, ["exc.txt", "TODO.md", "bogus-slug=/tmp/x"])
+    if not ok:
+        print("selftest: slug fora de SISTEMAS_PER_SYSTEM_ESPERADOS nao foi recusado por --per-system", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-SLUG-INVALIDO OK (slug desconhecido em --per-system e' recusado)")
+    return True
+
+
+def selftest_per_system_exception_pointing_to_concluded_item_reproves():
+    """--per-system reusa validate_exceptions() sem copiar - a mesma
+    regra de morte 'concluido sem par' que --compare ja aplica vale
+    aqui tambem, por construcao (a funcao e' a mesma, nao uma copia)."""
+    inventario = _per_system_full_inventory(faltando_em="cachyos")
+    excecoes = [
+        {
+            "test_name": "b_test",
+            "missing_on": "cachyos",
+            "gemeo": "outro_test",
+            "item": "ITEM-FECHADO",
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    todo_status = {"ITEM-FECHADO": {"status_text": "✅ Concluido", "concluded": True}}
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes, todo_status=todo_status))
+    encontrou = any("CONCLUIDO" in e for e in errors)
+    if not encontrou:
+        print(f"selftest: excecao apontando para item concluido nao reprovou em --per-system - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-CONCLUIDA OK (regra de morte de --compare vale em --per-system)")
+    return True
+
+
+# --- CI-SPLIT-PER-OS A2: perna incompleta e' reprovacao propria -------
+#
+# docs/plano-ci-split-per-os.md secao 4.2: "check_test_parity.py trata
+# perna incompleta como reprovacao propria, com o nome do pre-
+# requisito, e nao como N testes faltando" - os tres controles abaixo
+# provam, respectivamente: (1) STATUS: completo em todos os sistemas
+# nao introduz erro nenhum por si so' (controle positivo do recurso
+# novo, distinto do positivo geral que ja existia antes de A2); (2)
+# STATUS: incompleto num sistema reprova UMA VEZ, citando o slug e o
+# pre-requisito, e _per_system_incomplete_errors() faz
+# run_per_system_comparison() retornar CEDO (mesma linha de
+# `if errors: return errors` que o piso ja usava) - entao NUNCA produz
+# a enxurrada "N testes faltando" que a comparacao nome-a-nome geraria
+# se comparasse um inventario que o proprio job disse ser nao-confiavel;
+# (3) a forma legada (nenhuma linha STATUS, `system_status={}` como os
+# controles anteriores a A2 sempre passaram) continua sem erro nenhum -
+# prova de retrocompatibilidade com linux/windows hoje.
+
+
+def selftest_per_system_status_completo_is_not_an_error():
+    inventario = _per_system_full_inventory()
+    system_status = {slug: ("completo", None) for slug in inventario}
+    errors = run_per_system_comparison(_per_system_inputs(inventario, system_status=system_status))
+    if errors:
+        print(
+            f"selftest: STATUS-COMPLETO-EM-TODOS FALHOU (esperava zero erros, veio {errors})",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: PER-SYSTEM-STATUS-COMPLETO OK (STATUS: completo em todo sistema, zero erro)")
+    return True
+
+
+def selftest_per_system_status_incompleto_reproves_citing_prerequisite():
+    # cachyos tambem perde 'b_test' aqui (_per_system_full_inventory),
+    # mas isso e' de proposito: prova que a lacuna NAO aparece na lista
+    # de erros quando o sistema esta incompleto - se comparasse nome a
+    # nome mesmo assim, 'b_test' apareceria como lacuna e este controle
+    # pegaria o regresso.
+    inventario = _per_system_full_inventory(faltando_em="cachyos")
+    system_status = {slug: ("completo", None) for slug in inventario}
+    system_status["cachyos"] = ("incompleto", "build")
+    errors = run_per_system_comparison(_per_system_inputs(inventario, system_status=system_status))
+    encontrou_incompleto = any(
+        "cachyos" in e and "build" in e and "incompleto" in e for e in errors
+    )
+    if not encontrou_incompleto:
+        print(
+            f"selftest: PER-SYSTEM-STATUS-INCOMPLETO FALHOU (nao reprovou citando slug e "
+            f"pre-requisito): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    vazou_lacuna_de_nome = any("b_test" in e and "existe na uniao" in e for e in errors)
+    if vazou_lacuna_de_nome:
+        print(
+            f"selftest: PER-SYSTEM-STATUS-INCOMPLETO FALHOU (perna incompleta virou 'N "
+            f"testes faltando' em vez de reprovacao propria - plano secao 4.2): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PER-SYSTEM-STATUS-INCOMPLETO OK (sistema incompleto reprova citando "
+        "slug e pre-requisito, nunca vira lacuna nome-a-nome)"
+    )
+    return True
+
+
+def selftest_per_system_status_legacy_no_line_is_not_an_error():
+    # Forma real de linux/windows hoje: nenhuma linha STATUS no
+    # inventario, entao parse_inventory_status() devolve (None, None)
+    # para cada slug - simulado aqui em vez de _load_per_system_inputs()
+    # porque este controle testa run_per_system_comparison() isolada,
+    # nao a leitura de arquivo (essa ja e' o selftest STATUS-PARSE
+    # acima, _inventory_parsing_controls()).
+    inventario = _per_system_full_inventory()
+    system_status = {slug: (None, None) for slug in inventario}
+    errors = run_per_system_comparison(_per_system_inputs(inventario, system_status=system_status))
+    if errors:
+        print(
+            f"selftest: PER-SYSTEM-STATUS-LEGADO FALHOU (ausencia de linha STATUS nao "
+            f"pode virar erro - esperava zero, veio {errors})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PER-SYSTEM-STATUS-LEGADO OK (forma legada sem linha STATUS nenhuma, "
+        "retrocompativel com linux/windows de hoje)"
+    )
+    return True
+
+
+# --- CI-SPLIT-PER-OS A1c (D-A11): apelidos e excecoes de familia -------
+
+
+def _per_system_alias_inventory(fedora=(), ubuntu=(), arch=(), cachyos=(), windows=()):
+    return {
+        "fedora": frozenset(fedora),
+        "ubuntu": frozenset(ubuntu),
+        "arch": frozenset(arch),
+        "cachyos": frozenset(cachyos),
+        "windows": frozenset(windows),
+    }
+
+
+# O VERMELHO REAL da A1c (docs/plano-ci-split-per-os.md secao 7, linha
+# A1c): apelido L|W, com L em TODAS as distros Linux e W so' no
+# Windows - o caso comum (win32_runner_probe_test e companhia). Antes
+# desta fatia (921f320/2f4de6b), --per-system nao aplicava apelido
+# nenhum: W apareceria como lacuna em fedora/ubuntu/arch/cachyos, e L
+# como lacuna em windows. Depois: zero erros - e' exatamente o padrao
+# que causou 132 dos 215 problemas do run 36085750444.
+def selftest_per_system_alias_forgives_across_family_uniformly():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test"], ubuntu=["l_test"], arch=["l_test"], cachyos=["l_test"], windows=["w_test"]
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
+    if errors:
+        print(f"selftest: apelido L\\|W nao perdoou uniformemente todas as distros Linux - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-UNIFORME OK (L\\|W perdoa W em toda distro Linux e L no Windows)")
+    return True
+
+
+# M1: regra (ii) - w_test reaparece em fedora (visao "bilateral"), e a
+# ausencia em ubuntu deixa de ser perdoavel: w_test NAO esta mais
+# ausente de TODA a familia Linux, entao o perdao (que so vale para
+# ausencia total da familia oposta) nao se aplica mais.
+def selftest_per_system_alias_reappearing_partner_breaks_forgiveness():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test", "w_test"], ubuntu=["l_test"], arch=["l_test"], cachyos=["l_test"], windows=["w_test"]
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
+    encontrou = any("w_test" in e and "'ubuntu'" in e for e in errors)
+    if not encontrou:
+        print(f"selftest: w_test reaparecendo no fedora nao quebrou o perdao em ubuntu - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-REGRA-II OK (parceiro reaparecendo em OUTRO slug Linux quebra o perdao)")
+    return True
+
+
+# M2: regra (iii) - l_test so' existe no fedora (nao no ubuntu), entao
+# o "parceiro no PROPRIO sistema" falha para ubuntu: nem l_test (lacuna
+# real, familia errada) nem w_test (parceiro ausente do proprio ubuntu)
+# podem ser perdoados ali.
+def selftest_per_system_alias_partner_must_be_in_the_slug_itself():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test", "comum"], ubuntu=["comum"], arch=["l_test", "comum"],
+        cachyos=["l_test", "comum"], windows=["w_test", "comum"],
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
+    tem_l = any("l_test" in e and "'ubuntu'" in e for e in errors)
+    tem_w = any("w_test" in e and "'ubuntu'" in e for e in errors)
+    if not (tem_l and tem_w):
+        print(f"selftest: ubuntu sem l_test tinha de reportar l_test E w_test - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-REGRA-III OK (parceiro em OUTRO slug da familia nao perdoa o proprio slug)")
+    return True
+
+
+# Achado real contra o run 36085750444 (reprocessamento pos-A1c, 15
+# problemas remanescentes): `win32_facade_pin_test` tem DOIS parceiros
+# Linux (`facade_pin_smoke` e `window_active_after_map_smoke`) e
+# `win32_display_connect_test` tem TRES. Um nome com N>1 parceiros so'
+# precisa de UM presente no proprio slug - nunca so' o primeiro
+# encontrado na lista de apelidos (que pode ser, por azar de ordem,
+# exatamente o que NAO existe naquele slug).
+def selftest_per_system_alias_second_partner_forgives_when_first_does_not():
+    # w_test tem DOIS parceiros Linux (l1_test, l2_test) - fedora so'
+    # tem l1_test, ubuntu/arch/cachyos so' tem l2_test. w_test tem de
+    # sair perdoado em TODO slug Linux (cada um tem PELO MENOS um
+    # parceiro), mesmo que nenhum slug tenha os DOIS parceiros juntos.
+    # l1_test/l2_test em si continuam lacuna real onde faltam (regra i:
+    # sao da MESMA familia do slug, apelido nunca cobre isso) - so' o
+    # que este controle prova e' que w_test (a familia OPOSTA) nao
+    # aparece em erro nenhum.
+    inventario = _per_system_alias_inventory(
+        fedora=["l1_test", "comum"], ubuntu=["l2_test", "comum"],
+        arch=["l2_test", "comum"], cachyos=["l2_test", "comum"], windows=["w_test", "comum"],
+    )
+    aliases = [_alias_fixture("l1_test", "w_test"), _alias_fixture("l2_test", "w_test")]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
+    encontrou = any("w_test" in e and "existe na uniao" in e for e in errors)
+    if encontrou:
+        print(f"selftest: w_test nao foi perdoado em todo slug Linux, mesmo com um parceiro presente em cada um - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-MULTIPLOS-PARCEIROS OK (perdoa com QUALQUER parceiro presente, nao so' o primeiro)")
+    return True
+
+
+# M5: morte de excecao por PAR (nome, sistema), nunca pela familia
+# inteira - x_test|linux declara ausencia em TODA distro Linux, mas
+# x_test na verdade existe no fedora: a excecao esta MORTA no fedora
+# (a ausencia que ela prometia acabou), e continua VIVA em ubuntu/
+# arch/cachyos (onde x_test genuinamente falta).
+def selftest_per_system_exception_death_is_per_pair_not_per_family():
+    inventario = _per_system_alias_inventory(
+        fedora=["x_test", "comum"], ubuntu=["comum"], arch=["comum"], cachyos=["comum"], windows=["comum"]
+    )
+    excecoes = [
+        {"test_name": "x_test", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
+    ]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
+    morta_no_fedora = any("morta" in e and "x_test" in e and "'fedora'" in e for e in errors)
+    morta_em_outro = any(
+        "morta" in e and "x_test" in e and slug in e for e in errors for slug in ("'ubuntu'", "'arch'", "'cachyos'")
+    )
+    if not morta_no_fedora or morta_em_outro:
+        print(f"selftest: morte da excecao nao foi por par (nome,sistema) - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-MORTE-POR-PAR OK (morta so' no sistema onde o nome reapareceu)")
+    return True
+
+
+# M4: higiene de apelidos continua calculada sobre a UNIAO da familia,
+# nunca por sistema - o cenario limpo (positive control acima) ja prova
+# isto indiretamente (zero erros totais), mas este controle isola a
+# alegacao: um apelido comum, com L em so' UM slug Linux (nao em
+# todos), nao pode virar "meio-morto" so' por causa disso.
+def selftest_per_system_alias_hygiene_stays_on_family_union():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test", "comum"], ubuntu=["comum"], arch=["comum"], cachyos=["comum"], windows=["w_test", "comum"]
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
+    encontrou_hygiene = any("meio-morto" in e or "morto" in e and "apelido" in e for e in errors)
+    if encontrou_hygiene:
+        print(f"selftest: higiene de apelido acusou meio-morto so' porque um slug Linux nao tem o nome - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-HIGIENE-POR-FAMILIA OK (higiene nao penaliza cobertura parcial dentro da familia)")
+    return True
+
+
+# CI-SPLIT-PER-OS A3a (D-A12, vermelho de comportamento fixado no
+# plano): _slug_family("rocky-9") tinha que devolver "linux" em
+# silencio ANTES desta fatia (a forma antiga, `"windows" if slug ==
+# "windows" else "linux"`, nunca reprovava um slug desconhecido) -
+# depois, e' erro, nomeando o slug. Prova o defeito exato que
+# ci_systems.slug_family() (D-A12) existe para fechar.
+def selftest_slug_family_unknown_slug_is_error_not_linux_by_default():
+    try:
+        _slug_family("rocky-9")
+    except ci_systems.CiSystemsError as exc:
+        if "rocky-9" not in str(exc):
+            print(f"selftest: SLUG-FAMILY-DESCONHECIDO-NAO-VIRA-LINUX FALHOU (reprovou, mas nao citou o slug): {exc}", file=sys.stderr)
+            return False
+        print("selftest: SLUG-FAMILY-DESCONHECIDO-NAO-VIRA-LINUX OK (slug desconhecido e' erro, nunca 'linux' por omissao)")
+        return True
+    print("selftest: SLUG-FAMILY-DESCONHECIDO-NAO-VIRA-LINUX FALHOU (deveria ter reprovado - a regressao exata do _slug_family antigo)", file=sys.stderr)
+    return False
+
+
+def _per_system_alias_controls():
+    return [
+        selftest_per_system_alias_forgives_across_family_uniformly(),
+        selftest_per_system_alias_reappearing_partner_breaks_forgiveness(),
+        selftest_per_system_alias_partner_must_be_in_the_slug_itself(),
+        selftest_per_system_alias_second_partner_forgives_when_first_does_not(),
+        selftest_per_system_exception_death_is_per_pair_not_per_family(),
+        selftest_per_system_alias_hygiene_stays_on_family_union(),
+        selftest_slug_family_unknown_slug_is_error_not_linux_by_default(),
+    ]
+
+
+def _per_system_mode_controls():
+    return [
+        selftest_per_system_positive_control(),
+        selftest_per_system_gap_only_in_one_system_reproves(),
+        selftest_per_system_naive_union_would_miss_the_gap_control(),
+        selftest_per_system_declared_exception_suppresses_gap(),
+        selftest_per_system_family_exception_covers_all_linux_slugs(),
+        selftest_per_system_windows_exception_never_covers_linux_slug(),
+        selftest_per_system_missing_system_reproves(),
+        selftest_per_system_empty_inventory_reproves(),
+        selftest_per_system_unexpected_slug_rejected(),
+        selftest_per_system_exception_pointing_to_concluded_item_reproves(),
+        selftest_per_system_status_completo_is_not_an_error(),
+        selftest_per_system_status_incompleto_reproves_citing_prerequisite(),
+        selftest_per_system_status_legacy_no_line_is_not_an_error(),
+        *_per_system_alias_controls(),
+    ]
+
+
 # PARITY-ALIAS-HYGIENE P-3 (23/09/2026, GODS_LAWS.md L-17): selftest_
 # main() cresceu de 31 para 36 chamadas nesta fatia - mais uma linha
 # nova a cada controle acrescentado, PARA SEMPRE, e' exatamente o
@@ -2495,6 +3956,8 @@ def _inventory_parsing_controls():
         selftest_mixed_ctest_and_clean_list_control(),
         selftest_corrupted_inventory_line_reproves(),
         selftest_disabled_line_recognized_not_swallowed(),
+        selftest_parse_inventory_status_control(),
+        selftest_status_line_ignored_by_name_parser(),
     ]
 
 
@@ -2513,6 +3976,9 @@ def _alias_hygiene_controls():
         selftest_alias_bilateral_false_declaration_reproves(),
         selftest_exception_dead_gap_closed_reproves(),
         selftest_exception_dead_orphaned_reproves(),
+        selftest_exception_dead_ignores_distro_slug_missing_on(),
+        selftest_exception_dead_linux_family_still_reproves_negative_twin(),
+        selftest_exceptions_out_of_compare_scope_count_always_printed(),
         selftest_prova_parcial_gemeo_absent_reproves(),
         selftest_prova_parcial_gemeo_present_control(),
     ]
@@ -2532,13 +3998,62 @@ def _parsing_guard_and_real_main_controls():
     ]
 
 
+# CI-SPLIT-PER-OS A3a (D-A12, D1 - achado do main): a fixture que
+# TODO o resto do --selftest usa - nenhum controle deste arquivo toca
+# tools/ci/systems.txt, exceto selftest_real_ci_systems_loads_from_
+# script_location() abaixo, que testa o arquivo real de proposito.
+# Acrescentar uma distro nova ao arquivo real nunca muda o resultado
+# de nenhum outro controle.
+_SELFTEST_CI_SYSTEMS = {
+    "fedora": "linux",
+    "ubuntu": "linux",
+    "arch": "linux",
+    "cachyos": "linux",
+    "windows": "windows",
+}
+
+
+# D2 (achado do main): o caminho resolvido a partir de Path(__file__)
+# tem de funcionar mesmo quando o processo roda de outro cwd - o
+# ctest roda a partir do diretorio de build, nunca da raiz do repo.
+# Chama _load_real_ci_systems() DIRETAMENTE (nunca via override), pra
+# provar o caminho de producao de verdade. Confere so' a FORMA (carrega
+# sem erro, tem pelo menos um sistema `windows` e um `linux`) - NUNCA o
+# conjunto exato de slugs (D1: a A7 acrescentando uma distro tem que
+# deixar este controle intacto, e' o mesmo cuidado que motivou D1).
+def selftest_real_ci_systems_loads_from_script_location():
+    global _CI_SYSTEMS_CACHE
+    _CI_SYSTEMS_CACHE = None  # forca recarregar, nunca confiar em cache de chamada anterior
+    try:
+        systems = _load_real_ci_systems()
+    except (OSError, ci_systems.CiSystemsError) as exc:
+        print(f"selftest: CI-SYSTEMS-CAMINHO-REAL FALHOU (tools/ci/systems.txt nao carregou): {exc}", file=sys.stderr)
+        return False
+    familias_presentes = set(systems.values())
+    if familias_presentes != {"linux", "windows"}:
+        print(f"selftest: CI-SYSTEMS-CAMINHO-REAL FALHOU (esperava as familias linux e windows, veio {familias_presentes})", file=sys.stderr)
+        return False
+    print(
+        "selftest: CI-SYSTEMS-CAMINHO-REAL OK (tools/ci/systems.txt real carrega via "
+        "Path(__file__), nao depende do cwd - D2)"
+    )
+    return True
+
+
 def selftest_main():
-    controls = [
-        *_core_controls(),
-        *_inventory_parsing_controls(),
-        *_alias_hygiene_controls(),
-        *_parsing_guard_and_real_main_controls(),
-    ]
+    set_ci_systems_override(_SELFTEST_CI_SYSTEMS)
+    try:
+        controls = [
+            *_core_controls(),
+            *_inventory_parsing_controls(),
+            *_alias_hygiene_controls(),
+            *_parsing_guard_and_real_main_controls(),
+            *_textual_mode_controls(),
+            *_per_system_mode_controls(),
+            selftest_real_ci_systems_loads_from_script_location(),
+        ]
+    finally:
+        set_ci_systems_override(None)
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)
@@ -2551,8 +4066,16 @@ def main():
         selftest_main()
     elif args and args[0] == "--compare":
         real_main(args[1:])
+    elif args and args[0] == "--textual":
+        textual_main(args[1:])
+    elif args and args[0] == "--per-system":
+        per_system_main(args[1:])
     else:
-        fail("usage: check_test_parity.py --compare <inv-linux> <inv-windows> <exceptions.txt> <aliases.txt> <TODO.md>  |  --selftest")
+        fail(
+            "usage: check_test_parity.py --compare <inv-linux> <inv-windows> <exceptions.txt> "
+            "<aliases.txt> <TODO.md>  |  --textual <exceptions.txt> <aliases.txt> <TODO.md>  |  "
+            "--per-system <exceptions.txt> <TODO.md> <slug>=<inventario> [...]  |  --selftest"
+        )
 
 
 if __name__ == "__main__":

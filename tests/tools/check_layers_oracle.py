@@ -56,6 +56,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 SCRIPT_NAME = "check_layers_oracle.py"
 
@@ -1417,6 +1418,25 @@ def _read_compile_command(build_dir, dialect):
     return tokens, flags, raw_include_dirs
 
 
+# LAYERS-ORACLE-REPORT sub-fatia J3 (docs/plano-w7c-adendo-revalidacao.md
+# secao 3.J, decisao D-A11, 24/09/2026): forma FIXA da linha de tempo,
+# fixada ANTES de qualquer medicao real existir (GODS_LAWS.md L-43 do
+# projeto) - a promessa do adendo de calibracao (docs/plano-layers-l5-
+# adendo-calibracao.md secao 5.1 item 2) de imprimir o tempo de parede
+# do oraculo nunca tinha sido cumprida (INBOX LAYERS-ORACULO-SEM-TEMPO-
+# IMPRESSO).
+_ORACLE_WALL_TIME_PREFIX = f"{SCRIPT_NAME}: tempo de parede do oraculo: "
+
+
+def _print_oracle_wall_time(elapsed_seconds):
+    """Imprime SEMPRE, com duas casas decimais fixas. Quem chama isto
+    fica no `finally:` de `oracle_main`, incondicional - roda tanto no
+    sucesso quanto na reprovacao, NUNCA so' quando o oraculo reprova
+    (selftest_oracle_o32_wall_time_always_printed prova isso por leitura
+    da propria fonte, L-45: o oraculo real nunca roda nesta maquina)."""
+    print(f"{_ORACLE_WALL_TIME_PREFIX}{elapsed_seconds:.2f}s")
+
+
 def oracle_main(args):
     if len(args) != 5:
         fail(
@@ -1430,6 +1450,7 @@ def oracle_main(args):
     tokens, flags, raw_include_dirs = _read_compile_command(build_dir, dialect)
 
     scratch = tempfile.mkdtemp(prefix="glintfx-layers-oracle-", dir=os.environ.get("TMPDIR"))
+    start_time = time.monotonic()
     try:
         export_dir = os.path.join(scratch, "export")
         subprocess.run(
@@ -1445,6 +1466,7 @@ def oracle_main(args):
         ok = run_oracle(ctx, manifest, export_dir, scratch)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+        _print_oracle_wall_time(time.monotonic() - start_time)
     if not ok:
         fail("oraculo de camadas: reprovado (ver mensagens acima)")
     print(f"{SCRIPT_NAME}: oraculo de camadas OK")
@@ -2733,6 +2755,64 @@ def selftest_oracle_o31_named_cases_match_adendo_source(scratch, capture):
     return ok, 1
 
 
+def _check_wall_time_line_form():
+    """Metade 1 de O-32: a FORMA fixa da linha impressa por
+    `_print_oracle_wall_time` - devolve (forma_ok, texto_impresso)."""
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        _print_oracle_wall_time(1.5)
+    printed = buffer.getvalue().strip()
+    forma_pattern = re.compile(rf"^{re.escape(_ORACLE_WALL_TIME_PREFIX)}\d+\.\d{{2}}s$")
+    return bool(forma_pattern.match(printed)), printed
+
+
+def _check_wall_time_print_is_unconditional():
+    """Metade 2 de O-32: a chamada que imprime o tempo esta dentro do
+    `finally:` de `oracle_main`, ANTES do `if not ok:` - lida na
+    PROPRIA FONTE deste arquivo (GODS_LAWS.md L-45 impede rodar o
+    oraculo real aqui; mesmo padrao de selftest_oracle_o13_preci_sh_
+    guard e selftest_oracle_o31_named_cases_match_adendo_source acima).
+    Devolve (estrutural_ok, detalhe)."""
+    with open(__file__, "r", encoding="utf-8") as handle:
+        own_source = handle.read()
+    func_match = re.search(r"\ndef oracle_main\(args\):\n(.*?)\n\n\n", own_source, re.DOTALL)
+    if not func_match:
+        return False, "funcao oracle_main nao encontrada no proprio arquivo"
+    finally_match = re.search(r"    finally:\n(.*?)(?=\n    if not ok:)", func_match.group(1), re.DOTALL)
+    if not finally_match:
+        return False, "bloco finally: de oracle_main nao encontrado antes do 'if not ok:'"
+    if "_print_oracle_wall_time(" not in finally_match.group(1):
+        return False, "chamada de _print_oracle_wall_time nao esta dentro do finally:"
+    return True, "ok"
+
+
+def selftest_oracle_o32_wall_time_always_printed(scratch, capture):
+    """O-32 (LAYERS-ORACLE-REPORT J3, docs/plano-w7c-adendo-revalidacao.md
+    secao 3.J, decisao D-A11): prova, SEM compilador nenhum, a FORMA
+    fixa da linha de tempo (_check_wall_time_line_form) e que a chamada
+    que a imprime e' INCONDICIONAL, dentro do `finally:` de
+    `oracle_main` (_check_wall_time_print_is_unconditional). Mutante que
+    mata: mover a chamada para DENTRO do `if not ok:` (so' imprimiria
+    na reprovacao) - o controle estrutural reprova, mesmo com a forma
+    da linha continuando correta."""
+    del scratch, capture
+    forma_ok, printed = _check_wall_time_line_form()
+    estrutural_ok, detalhe = _check_wall_time_print_is_unconditional()
+
+    ok = forma_ok and estrutural_ok
+    label = "selftest: O-32"
+    print(
+        f"{label} OK (linha={printed!r})" if ok else
+        f"{label} FALHOU (forma_ok={forma_ok}, estrutural_ok={estrutural_ok}: {detalhe}, "
+        f"linha={printed!r})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
 _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o0_real_executor_guard,),
     (selftest_oracle_positive_control,),
@@ -2770,6 +2850,7 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o29_named_case_recusado_fails,),
     (selftest_oracle_o30_named_case_buckets_printed,),
     (selftest_oracle_o31_named_cases_match_adendo_source,),
+    (selftest_oracle_o32_wall_time_always_printed,),
 )
 
 

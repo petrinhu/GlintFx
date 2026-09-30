@@ -4353,3 +4353,724 @@ Opções: as duas pistas do plano; **fila única com laboratório do relé fora 
 
 ---
 
+
+## 24/09/2026 01:35 - W7-B mesclada em main e marcada v0.5.1.0 (decisão autônoma, confirmar retroativamente)
+
+- **Merge:** PR #11 (onda-w7b -> main), commit de merge `393ec30` (árvore idêntica a `032884f`), mesmo método dos PRs 8 a 10 (commit de merge). O PR estava em rascunho; foi marcado pronto e mesclado. Base: L-11 do projeto (ao fim de onda com tudo verde, merge e marca sem perguntar) e modo autônomo válido até 24/09 19:12.
+- **Evidência:** execução `35954516222` (pull_request, `032884f`): 25 de 26 verdes, 0 falhas, 1 pulado por desenho (VERSION-TAG-SYNC); lista de trabalhos idêntica à de `35951999649` e `35949812345`. Espelho local `tools/preci.sh --fast`: 232 de 232 (`/var/tmp/glintfx-preci-w7b-fecho.rc` = 0).
+- **Marca:** `v0.5.1.0` anotada em `393ec30`, pela D-13 (conserto de produto CONT-WARMUP C-2 entrou: sobe o terceiro número). `git ls-remote` prova `refs/tags/v0.5.1.0^{}` = `393ec30`. O job de marca rodou ao vivo na execução `35955986832` e passou.
+- **Execução redundante:** `35954517146` (workflow_dispatch no mesmo `032884f`) cancelada: o evento de PR já cobria o mesmo commit.
+
+## 24/09/2026 05:58 - W7-C: decisões de revisão da madrugada (decisão autônoma, confirmar retroativamente)
+
+- **DOCS-COUNT-VOCAB D2c/D2d (estreitamento de isenção, não isenção nova):** a revisão main achou 23 de 25 frases "resolvidas" só pondo a contagem entre crases (a3a0128). Decidido: trecho de código só isenta a contagem que contém quando tem sinal de código ou literal de ferramenta; prosa pura entre crases não isenta; pareamento de crases pela regra do CommonMark (mesmo comprimento, esquerda para a direita), porque o pareamento antigo (rfind/find) isentava contagem ENTRE dois trechos de código. Compatível com a D-A9 ("nenhuma isenção nova": isto estreita). As frases foram reescritas de verdade na D3b. Reverter: barato.
+- **LINK-PREFIX-RESIDUOS B1b:** a âncora de `/build` por contagem de letras foi reprovada (errava nas duas direções); trocada por regra de papel (opção colada, separador de valor ou início de token versus continuação de caminho), com 20 sondas de fronteira. Reverter: barato.
+- **CLAIM-CITATIONS E1c:** o grep de fechamento conta uma exclusão declarada, `check_precommit_hook_chain.py:72` (corte de comentário de SHELL do gancho, não de CMake). Mão única: não.
+- **Rodadas de espelho invalidadas:** três agentes editaram a árvore durante o `preci.sh`; as rodadas foram descartadas e refeitas. O main passou a gravar a assinatura da árvore no início e conferir no fim (conferência manual, ainda não trava mecânica; candidata a item próprio).
+- **Rerun do Windows-Debug (35973142096):** falha só na calibração do instrumento de CPU do `loop_hidden_test` (718 contra piso 800 permille, critérios reais OK), passou no rerun do mesmo commit. Se repetir, vira item da INBOX.
+
+## 24/09/2026 - 07:35 | O líder ratificou as decisões pendentes (`AskUserQuestion`)
+
+Pergunta: "Como ratifica as 19 decisões autônomas listadas (23/09 12:06 até agora)?". Resposta do líder: **"Ratifico todas (Recomendado)"**. Ficam ratificadas todas as entradas deste arquivo de 23/09 13:24 até 24/09 05:58: D-L5-1 a D-L5-4, a revisão da D-L5-3 (teste pulado em vez de desligado), D-L5d-1 a D-L5d-3, D-L5e-1, D-L5e-2, D-L5g-1, L-5h, CONT-WARMUP C-8, V-5c, V-5/D-6 (ordem da quarta sessão e bloco de 2 MiB), troca de dono da exceção de `gpu_kind_report_smoke`, D-A1 a D-A13 da W7-C, merge da W7-B com a marca `v0.5.1.0`, e as decisões de revisão da madrugada (D2c/D2d, B1b, exclusão declarada da E1c, rodadas invalidadas, rerun do Windows-Debug). A entrada de 23/09 19:15 (V-5) já era do líder.
+
+## 24/09/2026 - 09:10 | W7-D: adendo de revalidação e decisões D-W7D-R1 a R10 (Caetano/CTO, opus, esforço alto; confirmar retroativamente)
+
+**Plano:** `docs/plano-w7d-adendo-revalidacao.md` (md5 `ac0bff40932ca45607cae908f89a2ad8`, conferido nas duas pontas). `--audit` numa cópia de `6f9a300` com o adendo: rc 0, 18 planos, 7 em v1; sabotagem da coluna "Par no portão" reprova. Decisões na §6 do adendo, transcritas lá com opções, porquê e fontes: R1 (nome real de teste e caminho real nas colunas, sem ausência antecipada), R2 (alegação de cabeçalho no mesmo commit do teste que cita), R3 (portão próprio `check_layer_direction.py` reusando o leitor de `check_layers.py` por ponto de troca de política; perda do oráculo declarada), R4 (`power_source`, `auto_choice_reason` e `suggested_preset` medidos nos dois lados, regra fixada antes do dado), R5 (onda abre por portão permanente de ordem de dependência `TODO-DEP-ORDER`, depois a arrumação da tabela), R6 (`Containerfile` em P3), R7 (B1 vira sonda commitada `draw2d_gl_baseline_test`), R8 (pareceres versionados em `docs/auditoria-*`), R9 (critério de `GFX-PRESET` por enumeração dos sete sítios mais varredura de gêmeo), R10 (a W7-D abre do `origin/main` depois do merge da W7-C). Nenhuma muda o que a biblioteca aceita além do que o plano original já previa.
+
+**Decisão do main sobre o achado N6/N18 do mesmo adendo:** `PLAN-SCOPE-COLUMNS` foi marcado ✅ em `6f9a300`, mas o critério 10 da W7-C (plano e adendo da W7-C passando pelo portão no esquema v1) não está cumprido: 16 de 27 linhas de `plano-w7c.md` e 1 de 14 do adendo reprovam o `--compare`, e uma ausência declarada morta porque o caminho passou a existir passa calada. O item é REABERTO na W7-C (o caminho completo, pela ordem do líder), e a linha `PLAN-SCOPE-COMPARE-ALL` proposta como Q1 da W7-D fica riscada. O ✅ foi erro do main: CI verde não é critério de fechamento (L-24 global).
+
+## 24/09/2026 - 12:25 | WL-ACK-SMOKE-BLUNT: A3c (relé multi-cliente) e item de teto de tempo (decisão autônoma do main, confirmar retroativamente)
+
+**Fato (prova de produto, impl-w7c-relay2):** com a variante sem confirmação de configuração, `window_smoke` reprovou certo através do relé (1 violação), mas `gl_context_parity_test` ficou preso 650 s (`wchan=poll_schedule_timeout`) com o relé na frente e passou limpo em segundos direto no KWin. O teste abre uma segunda conexão Wayland antes de fechar a primeira, e o relé de A3 atende um cliente por vez (`accept(); serve_one_client();`). O teste não tem `TIMEOUT` no ctest e nenhum job passa `ctest --timeout`.
+**Decisão:** o atendimento serial é lacuna do relé contra o próprio plano ("uma conexão a montante por cliente", `docs/plano-w7c.md` §3.A; multi-cliente exigido em A5). Sub-fatia nova **A3c**: clientes concorrentes num laço de `poll`, sem thread, com controle de dois clientes simultâneos e mutante serial; depois, a prova de produto refeita com e sem o relé. O teto de tempo ausente vira item da INBOX `CTEST-TIMEOUT-FIXTURES`, com a lista medida por lei do gêmeo. Mão única: não. Reverter: barato.
+
+## 24/09/2026 - 13:30 | WL-ACK-SMOKE-BLUNT: A3e (sonda de prontidão) antes da A3d, e queda do EGL com o CTO (decisão autônoma do main, confirmar retroativamente)
+
+**Fato (impl-w7c-relay2, conferido pelo main contra a árvore):** a sonda de prontidão do relé decide pela última linha do log (`tests/container/run_compositor.sh:95-96`, `tail -n 1`). Com o relé multi-cliente da A3c, pelo menos cinco linhas legítimas de produção (`control truncated` dos dois lados, a recusa de cliente novo, `perror` de `accept` e de `poll`, em `wire_relay_connection_set.cpp`) podem ser a última sem que o relé tenha falhado. O CI considera o container pronto por uma sonda externa independente (`.github/workflows/ci.yml:1509-1518`), sem esperar a verificação do próprio entrypoint.
+**Decisão:** sub-fatia nova **A3e**, antes da medição A3d: a sonda passa a ler qualquer linha "connection closed" com N>0, com controle negativo; o entrypoint publica um marcador de prontidão e os lugares que sobem o container esperam por ele (gêmeos listados). Mão única: não. Reverter: barato.
+**Fato medido (egl_protocol_error_smoke, mesmo binário, mesmo container):** com o relé, 7 de 10 passam; direto no KWin, 10 de 10. O gap a montante da conexão longa fica em ~63-69 ms em todas as rodadas, contra um orçamento de 100 ms por swap com 2 tentativas. As rodadas anteriores, colhidas com uma instrumentação que matava o container, foram descartadas.
+**Encaminhado:** o determinismo da fixtura e o conserto da queda de `eglSwapBuffers` sobre conexão morta (`src/platform/wayland/egl_context_adapter.cpp:920`, SIGSEGV dentro do Mesa, backtrace do coredump) ficam com o plano do Caetano/CTO (opus), em curso. A A3d mede se os ~65 ms estão no relé ou no KWin.
+
+## 24/09/2026 - 13:50 | EGL-DEAD-DISPLAY-GUARD: plano do Caetano/CTO aprovado pelo main (D-S1 a D-S8, confirmar retroativamente) e D-S6 decidida pelo líder
+
+**Plano:** `/var/tmp/glintfx-plan/plano-segv-swap-protocol-error.md` (md5 `38ffe2cb1d74f26922382a572e372c5c` na leitura do main; atualização das 13:27 na seção 5, linha S4 e D-S7). O main conferiu contra o commit `egl_context_adapter.cpp:920-934` (só consulta `wl_display_get_error` depois de falha do EGL) e `egl_protocol_error_smoke.cpp:81-92` (duas trocas com orçamento). Transcrição das decisões, com opções e fontes, na seção 6 do plano:
+- **D-S1:** linha própria `EGL-DEAD-DISPLAY-GUARD`, que bloqueia o fechamento de A3 de `WL-ACK-SMOKE-BLUNT` (mudança de produto não se esconde em item de teste).
+- **D-S2:** checar `wl_display_get_error` antes E depois de cada EGL que conversa com o fio, sem I/O novo (bombear o soquete no `vsync=off` mudaria a entrega de evento, L-35).
+- **D-S3:** `close()` continua chamando a liberação do EGL depois da morte (pular vazaria).
+- **D-S4:** a promessa nova vai para `context.hpp`. Mão única em espírito.
+- **D-S5:** o Windows não ganha fatia (não há fio nem erro externo no Win32); `swap_calls_issued()` é espelhado e as ausências entram com motivo.
+- **D-S7:** `egl_protocol_error_smoke` sincroniza pela barreira `wl_display_roundtrip`; a expectativa e o orçamento de 100 ms do produto não mudam; a prova do ramo `ready_to_read` desce para um teste hermético sobre `socketpair`.
+- **D-S8:** a queda é reproduzida dentro da árvore (S0) antes de qualquer linha de produto.
+**D-S6, decisão do líder (`AskUserQuestion`, 24/09/2026 ~13:49):** a pergunta "Abro um relato público no rastreador do Mesa, com um programa mínimo que reproduz a queda?" teve a resposta, verbatim: *"Relate e veja como a comunidade resolveu"*. Item de INBOX `MESA-SWRAST-NULL-BACK`. A pesquisa do que a comunidade já fez e o rascunho do relato estão com o CTO; a publicação espera o reprodutor de S0 provado.
+**Fato medido (A3d, impl-w7c-relay2, uma amostra):** o relé é transparente (<100 us entre ler e escrever) e o KWin respondeu em ~6,5 ms. Os gaps de até 66 ms, somando ~90 ms na conexão longa, estão no CLIENTE (llvmpipe), entre receber a resposta e mandar o próximo pedido. Isso reforça a D-S7.
+**CI `36023489188`:** o Ubuntu estático ficou verde na repetição (o 404 era do espelho de pacotes); o único vermelho real é `egl_protocol_error_smoke` (provoked=0), que a S4 trata.
+
+## 24/09/2026 - 14:00 | MESA-SWRAST-NULL-BACK: pesquisa da comunidade e duas decisões do líder
+
+**Fato (Caetano/CTO, fontes no plano §1.5):** a issue Mesa #8428 está aberta desde 03/03/2023 com a mesma linha de queda (`dri2_wl_swrast_get_backbuffer_data`). O MR !24091 (fundido em 19/07/2023, commit `74451ed3f083`) deu à espera uma saída de falha que o chamador continua ignorando, e nada posterior trata disso. GTK e Qt chamam `_exit`, wlroots desmonta o backend; nenhum guarda a chamada EGL. Conclusão: não há conserto a montante nem técnica melhor que a D-S2.
+**Decisões do líder (`AskUserQuestion`, 24/09/2026 ~14:00):** símbolos de depuração do Mesa, "Autorizo pelo debuginfod"; conta no `gitlab.freedesktop.org`, "Crio a conta depois". O texto do relato espera pronto até a conta existir.
+**Plano atualizado (md5 `5d9bc269`, aceito pelo main):** a medição M-1 vem antes de S4 (imprimir `wl_display_get_error` depois de cada troca ok, em 20 rodadas pelo relé, para separar o defeito de S2 do puro tempo); o vermelho de S4 é re-medido depois de S2; o reprodutor em C independente (R-1) passa a ser pré-requisito do relato.
+
+## 24/09/2026 - 14:45 | WL-ACK-SMOKE-BLUNT: A3e aceita pelo main (decisão autônoma, confirmar retroativamente)
+
+**Commits:** `2f18d77`, `c4dde7f`, `fc2db70`, `431963f`, `0aea7ba`. A sonda de prontidão lê qualquer linha "connection closed" com N>0 do log inteiro; o entrypoint publica um marcador em `/run/glintfx-test/ready` só depois de `wait_for_relay_ready` passar (sequência em `bring_up()`); o CI espera o marcador (`tests/container/wait_for_ready_marker.sh`); o caminho do marcador concorda por construção entre os dois scripts pelo portão `check_sibling_lists.py`.
+**Revisão do main (L-12, sabotagem de outra família, em cópias):** o mutante M1 (`$1 >= 0`) sobreviveu ao primeiro corte e foi morto pelo caso "N=0 antes de N>0" (1b). M2 (publicar cedo) e M3 (caminho errado) foram mortos. O marcador trocado em só um lado reprova o portão de listas irmãs. `tools/preci.sh --fast` verde nas três rodadas, com o md5 da árvore igual antes e depois (rodado no hospedeiro, downgrade da L-09 até PRECI-IN-CONTAINER).
+**Rótulo:** `c4dde7f` diz "passo 1b" mas leva arquivos do passo 2 (estado intermediário em que o CI espera um marcador ainda não publicado); declarado em `431963f`, sem reescrever o histórico (L-25).
+
+## 24/09/2026 - 17:45 | Pausa ordenada pelo líder
+
+Ordem do líder: *"pause tudo 17:45"*, confirmada por `AskUserQuestion` ("Pausar às 17:45"). O monitor anti-parada (`2d6142db`) foi suspenso por essa ordem; ele volta via `CronCreate` quando o líder mandar retomar (L-61).
+**Estado na pausa (árvore limpa, `onda-w7c` = `682b869`, empurrado):**
+- `EGL-DEAD-DISPLAY-GUARD`: S0, S1, S1b, S2 e S3 commitadas e aceitas pelo main (`73a789d`, `439c9cf`, `2531013`, `85d14ac`, `682b869`; plano em `docs/plano-egl-dead-display-guard.md`). **Falta:** S3b (laço de 10 trocas depois da morte, para matar o mutante "guarda do topo removida": o contador `swap_calls_issued` só conta sucesso e não distingue); M-1 e S4 (determinismo de `egl_protocol_error_smoke`); revisão de API da D-S4 pelo CTO; Status para 🔍 no último commit.
+- `WL-ACK-SMOKE-BLUNT`: A1 até A3e aceitas; faltam A4, A5 e A6 (com `impl-w7c-relay2`, depois do item acima).
+- `MESA-SWRAST-NULL-BACK`: rascunho pronto, falta o R-1 (reprodutor em C independente) e a conta que o líder vai criar.
+- CI `36036115151` (`d62fbf1`): vermelho só por `egl_protocol_error_smoke` (provoked=0), que a S4 trata; a subida pelo marcador da A3e passou no servidor.
+**Agentes:** `impl-egl-guard`, `impl-w7c-relay2` e `cto-segv-swap` em espera, sem trabalho em curso.
+
+## 24/09/2026 - 19:22 | Retomada ordenada pelo líder
+
+O líder escreveu *"ligue modo autonomo"* (hook: modo autônomo ligado até 25/09/2026 19:21, escopos push e clean). O main perguntou por `AskUserQuestion`: "O modo autônomo está ligado até 25/09 às 19:21 [...] O trabalho está pausado desde as 17:45 por ordem sua. Retomo agora?". Resposta do líder, verbatim: **"Retomar agora (Recomendado)"**. A pausa das 17:45 acabou. O monitor anti-parada foi recriado (`16258ddf`, L-61). Os agentes da manhã não sobreviveram à retomada da sessão; `impl-egl-guard2` foi despachado para S3b, M-1 e S4 de `EGL-DEAD-DISPLAY-GUARD`, a partir da árvore limpa em `171278c`.
+
+## 24/09/2026 - 20:15 | Ordem do líder: CI no modelo do astrometrica
+
+**Pergunta do líder:** *"o @astrometrica faz as checagens por sistemas operacionais de forma separada e conserta por cada um. Não seria mais rápido?"*. Por `AskUserQuestion`, ele escolheu "Os dois": o item da imagem lenta (`CONTAINER-BUILD-PER-FIXTURE-LAYERS`) e o estudo do modelo do astrometrica pelo CTO. A sessão do astrometrica respondeu diretamente, separando fato de opinião: um workflow por distro, com um trabalho cada, em container (`qa-arch.yml:53-56`); `audit.yml` com matriz de 5 imagens e `fail-fast: false` (`audit.yml:94`); o conserto por sistema só na instalação de dependências; a mesma suíte em todas as distros como portão de paridade (`qa-arch.yml:194-197`); `rerun_failed_jobs` só para falha antes de qualquer teste, no máximo uma vez; ganho de tempo NUNCA medido.
+**Ordem do líder, verbatim:** *"use o mesmo sistema de astrometrica"*. Registrada na L-04 de `GODS_LAWS.md`, onde mora a paridade entre sistemas, como especialização da estrutura do CI, sem afrouxar a paridade.
+**Decisão do main (autônoma, confirmar retroativamente):** linha nova `CI-SPLIT-PER-OS` na W7-C, depois de `EGL-DEAD-DISPLAY-GUARD` e antes de `CI-VERDE-W7C`. Motivo: o fechamento da W7-C exige o CI verde, e o próprio run `36036115151` mostrou ~10 passos pulados atrás de um vermelho. O plano é do Caetano/CTO (`cto-ci-speed`), a partir do estudo em curso. Mão única: não. Reverter: barato.
+
+## 24/09/2026 - 20:20 | Ordem do líder: suporte pleno às distros do astrometrica (alteração da L-04, confirmada pelo líder)
+
+**Ordem, verbatim:** *"varra também os mesmos SO que ela varre, junto com os que ja varremos"*. Pela LEI DAS LEIS, o main nomeou a lei alterada (L-04 e `ESCOPO.md` §1, as cinco plataformas de 21/08), citou o texto e argumentou contra com fatos medidos: o piso de GCC 14 falta nos pacotes padrão de Rocky 9, Debian 12 e das bases Ubuntu 22.04; Wayland/KWin são antigos; e cada fatia passa a esperar ~14 sistemas. Depois perguntou por `AskUserQuestion`, com as opções "Varrer sem declarar suporte", "Confirmar: suporte pleno nos ~14" e "Cancelar". **Resposta do líder: "Confirmar: suporte pleno nos ~14".**
+**Registrado:** L-04 (`GODS_LAWS.md`), `ESCOPO.md` §1, `CLAUDE.md` (tabela de decisões e a frase dos alvos de portabilidade, gêmeos) e a linha nova `PLATFORMS-ASTRO-PARITY` na W7-C.
+**Decisão do main (autônoma, confirmar retroativamente):** a ampliação entra na W7-C junto com `CI-SPLIT-PER-OS`, antes de `CI-VERDE-W7C`. A W7-C passa a fechar com a matriz ampliada verde, porque a L-04 não admite fechar com paridade parcial. Custo aceito: a W7-C cresce. Mão única: não (o líder pode reduzir a lista). Reverter: médio.
+
+## 24/09/2026 - 20:25 | Forma do CI no modelo do astrometrica, decidida pelo líder
+
+**Fato (Caetano/CTO, estudo em `/var/tmp/glintfx-plan/estudo-velocidade-ci.md`, só leitura):** o astrometrica tem 12 workflows independentes, um trabalho cada; a rapidez vem de cada trabalho ser pequeno (~4-5 min), não da separação. O GlintFx já roda os 26 trabalhos em paralelo (`fail-fast: false`), e só `parity` espera (7-8 s). Separar em arquivos ganha 0 min no "tudo verde" (a parede é o trabalho mais longo, o Windows, 13-22 min) e obriga o portão de paridade a juntar execuções diferentes. Onde o tempo está: `ctest` em série (Fedora 450 s de 640 s) e o clang-tidy do Windows (1293 s).
+**Pergunta ao líder (`AskUserQuestion`), resposta verbatim:** ***"Espírito do astrometrica (Recomendado)"***: um trabalho por sistema no mesmo arquivo, com as ~14 distros, `fail-fast` desligado, nenhum passo vermelho escondendo os seguintes, rerun só para falha de infraestrutura, e a paridade numa única execução, junto com os ganhos medidos (testes em paralelo, análise do Windows dividida). Registrado na L-04 e em `CI-SPLIT-PER-OS`.
+**Decisões do CTO que não vão ao líder agora:** D-B2 (ccache) fica recomendado "não", e como não fazer nada não instala nada, não há o que autorizar; D-B4 (paralelismo do BuildKit contra o teto de RAM da L-11) se resolve limitando o paralelismo, que é execução da lei e não a quebra.
+
+## 24/09/2026 - 20:35 | Plano do CTO para CI-SPLIT-PER-OS e PLATFORMS-ASTRO-PARITY, e quatro decisões do líder
+
+**Plano:** `/var/tmp/glintfx-plan/estudo-velocidade-ci.md` (3ª versão; Parte II = CI e distros, fatias A0-A9; Parte III = imagem incremental, B0-B3), a versionar em `docs/` pelo implementador. Achados do CTO (FATO, com linha): o `parity` compara a UNIÃO dos Linux contra o Windows (um buraco só numa distro passa); o nome da fixtura entra no inventário DEPOIS de passar (`ci.yml:1794-1796`), e a publicação não tem `!cancelled()` (`:2211`); no run `36036115151`, 22 passos foram pulados, inclusive o inventário e os 4 controles negativos de isolamento; `ubuntu:latest` hoje é o 26.04, não o 24.04; o piso real é GCC 14 e CMake 4.1; hoje só o Fedora roda os testes de janela contra o compositor.
+**Decisões do líder (`AskUserQuestion`, verbatim):** Debian 12 → "Trocar por Debian 13 (Recomendado)"; Pop!_OS/Zorin → "Imagem real de cada um (Recomendado)"; análises extras → "Só no Fedora (Recomendado)"; frase do python3 em `GODS_LAWS.md:170`/`ESCOPO.md:80` → "Corrigir (Recomendado)". Aplicadas na L-04, no `ESCOPO.md` e na frase corrigida.
+**Decisões do CTO D-A1 a D-A9, D-B*: confirmar retroativamente**, transcritas na seção de decisões do plano. Mão única: não.
+
+## 24/09/2026 - 20:40 | Plano v4 do CTO: Debian 13, Pop!_OS 24.04 e Zorin 18 reais (confirmar retroativamente)
+
+**Fato (Caetano/CTO, fontes oficiais lidas):** Debian 13 tem `gcc-14` 14.2.0 e `cmake` 4.3.4 em `trixie-backports` (o CMake vem da própria Debian); Pop!_OS real, suíte `noble` (24.04), sobrepõe `libwayland-client0` 1.23.1-3pop1 e Mesa 26.1.6-1pop0, ou seja, o substituto `ubuntu:24.04` do astrometrica testaria outra pilha; Zorin 18 vem dos PPAs oficiais `zorinos/*`, sem sobrepor wayland/Mesa/GCC/CMake. A estreia de A7e reprova se o preparo imprimir as versões do Ubuntu puro, e a chave do repositório é conferida por impressão digital.
+**Decisão do CTO a confirmar pelo líder:** Pop!_OS na **24.04**, não na 22 que o astrometrica rotula, pela mesma razão do Debian 12 (a base 22.04 não tem caminho oficial para o GCC 14). Mesma lógica da decisão "Trocar por Debian 13" do líder. Mão única: não.
+
+## 24/09/2026 - 23:05 | D-A10: comparação de valor MEASURED entre N sistemas por unanimidade (Caetano/CTO, confirmar retroativamente)
+
+**Lacuna levantada pelo implementador do CI (sem inventar):** o plano dizia só "(idem)" para `check_measured_parity.py`, e generalizar "divergente" de dois lados para N sistemas é desenho. **Decisão do CTO:** unanimidade, sem árbitro. Uma chave só é "igual" se TODOS os sistemas que a medem dão o mesmo valor; não há sistema de referência (nem o Fedora, nem maioria); há seção própria para valor instável dentro de um sistema; na coluna `lado`, `todos`/`familias`/slug substituem `ambos`, com migração linha a linha. Motivo: a maioria erra quando o defeito é comum a várias distros; o Fedora é o alvo primário para falhar como a máquina do líder, não fonte de verdade. Fonte: prática do Interop do WPT. Nasce a fatia A1b, com os mutantes M1-M6. Texto em `/var/tmp/glintfx-plan/ci-split-A1b-texto.md`, aplicado verbatim no plano versionado. Mão única: não.
+
+## 24/09/2026 - 23:50 | D-A11: apelidos e exceções de família em N sistemas (Caetano/CTO, confirmar retroativamente)
+
+**Fato (CI `36085750444`, `d74d0b0`):** o `--per-system` reprovou com lacunas 29/54/54/54/24 (fedora/arch/cachyos/ubuntu/windows), por três causas: apelidos Linux × Windows não aplicados por sistema; exceção de família (`missing_on=linux`) não expandida para os slugs; e as fixturas de container que só rodam no Fedora até a fatia A8 (lacuna real da L-04). **Decisão do CTO:** o apelido atravessa FAMÍLIA, nunca preenche buraco dentro dela (regras (i)-(iii), a mesma de `apply_aliases()`, por sistema); higiene de apelidos sem mudança, por família; `linux` expande para todo slug Linux; morte de exceção por par (nome, sistema); as fixturas de container só-Fedora ficam declaradas com o item vivo `CI-SPLIT-PER-OS` e morrem sozinhas na A8. Nasce a fatia A1c, com os mutantes M1-M5 e o vermelho real reprocessando os inventários do run. Divergência de contagem entre CTO (25 fixturas) e implementador (18) mandada resolver por medição antes das exceções. Mão única: não.
+
+## 25/09/2026 - 01:55 | Branch descartável de sabotagem para provar a A2 no servidor (main, confirmar retroativamente)
+
+**Fato:** a A2 de CI-SPLIT-PER-OS (e3b87f3/ae7d43b) promete que um teste vermelho no job wayland-container não pula os seguintes, que o agregado conta `falharam: 1` com declarados = executados e que o `parity` fica verde em cobertura (critérios C1/C4, docs/plano-ci-split-per-os.md:297). Isso só se prova com um vermelho real no servidor. **Decisão:** empurrar a branch `sabotagem/a2-c1c4` (389c7b5, `shell_smoke.cpp` devolvendo EXIT_FAILURE depois do comportamento real) e disparar o CI nela (run 36096112039), em paralelo ao run verde da onda (36096110117). Os critérios foram fixados antes do dado. A branch nunca é mesclada e é apagada do remoto quando o run terminar. Mão única: não.
+
+## 25/09/2026 - 02:00 | D-A12: fonte única de sistemas em sub-fatia própria, A3a (Caetano/CTO, confirmar retroativamente)
+
+**Fato:** o plano de CI-SPLIT-PER-OS dizia duas coisas diferentes sobre a A3. A linha da tabela (docs/plano-ci-split-per-os.md:298) descreve o preparo por sistema; a nota de sequência (:289) diz que a A3 cria a fonte única de slugs. A varredura do implementador achou 11 cópias vivas da lista de sistemas ou da regra de família, e o CTO achou mais duas no próprio ci.yml, no job parity. **Decisão:** sub-fatia própria A3a, antes do preparo, que passa a se chamar A3b. A fonte é um arquivo de dados `tools/ci/systems.txt` (`slug|familia`), lido por um carregador `tests/tools/ci_systems.py` que os portões de paridade importam; slug desconhecido é erro, nunca "linux" por omissão. A matriz do ci.yml continua estática, conferida por um portão novo (`check_ci_systems_source.py`), e não vira matriz dinâmica: onze portões leem o ci.yml parado, e a matriz dinâmica esconde a lista de jobs de quem lê o arquivo (pesquisa L-43: docs.github.com, cynkra, devopsdirective, community/discussions/46752). O critério de equivalência foi fixado antes: saída idêntica dos dois modos sobre o run 36085750444, e zero cópias à mão nas linhas listadas. São seis mutantes. Texto verbatim: /var/tmp/glintfx-plan/ci-split-A3a-texto.md (md5 0891acd5…). Mão única: não.
+
+## 25/09/2026 - 02:05 | Emenda da D-A12 e desenho do conserto da linha STATUS (Caetano/CTO, confirmar retroativamente)
+
+**Emenda da D-A12.** O texto original proibia `linux` e `windows` como slug, mas o único sistema Windows tem o slug `windows` em toda a superfície, e renomeá-lo quebraria o critério de equivalência. Decisão: proibir só `linux`; um slug igual ao nome de uma família só é aceito se for o único sistema dela (hoje, `windows|windows`), e o carregador passa a reprovar no dia em que entrar um segundo sistema Windows. Entram os mutantes M7-M9. A contradição foi apontada pelo implementador, e o CTO assumiu o erro de texto.
+
+**Conserto do vermelho da A2 (run 36096110117, perna asan do container).** A linha `STATUS:` que a A2 grava dentro do parity_inventory.txt é lida como nome de fixture por três leitores locais (check_alloc_report.sh, a prova ldd e a contagem do sanitizer). Decisão: não filtrar nos leitores, porque o quarto que nascer esquece. O STATUS vai para um arquivo separado, e só o arquivo publicado para o job parity é montado com a linha STATUS. A causa assumida pelo CTO é o desenho da seção 4.2 do plano. Mão única: não, nos dois casos.
+
+## 25/09/2026 - 05:10 | D-A13: checkout de bootstrap, preparo, checkout real; marcos prep/build em todos os jobs (Caetano/CTO, confirmar retroativamente)
+
+**Fato:** o run 36110716884 (4a3f1fd) reprovou as pernas Linux de Fedora, Ubuntu e Arch no passo "Configurar diretorio seguro do git". A A3b inverteu a ordem do job linux (checkout antes do preparo, porque o preparo agora é o script `tools/ci/env/<slug>.sh`), e o git, que vem do preparo, ainda não existia. Sem git, o actions/checkout cai no download por API (README: "falls back to the REST API") e entrega o conteúdo sem .git, o que quebra o safe.directory e mais de 17 portões do ctest. Além disso, o implementador achou que a A2 não criou o `id: prep` exigido pelo plano (:139), e o main tinha aceitado a A2 sem conferir esse ponto. **Decisão:** nova fatia A3c.
+- No job linux: checkout de bootstrap em `_bootstrap` (sem git, de propósito); preparo pelo script, que grava o sha256 dele mesmo; remoção do `_bootstrap`; checkout real, já com git; e o passo "Checkout é repositório git", que confere o `.git`, o `HEAD` igual a `$GITHUB_SHA` e o sha do script.
+- Marcos `id: prep` e `id: build` em todos os jobs.
+- Prova estática no portão (G1-G4), com os mutantes MO1-MO6. O MO2 é o próprio ci.yml de 4a3f1fd.
+- Prova dinâmica só no Fedora local, em container descartável: git ausente antes e presente depois do preparo. É rebaixamento declarado, e as outras distros são provadas pelo CI.
+- Critério no servidor, fixado antes: as 8 pernas linux com a prova do git verde, a contagem de testes igual à da A0, e zero "not a git repository".
+- Rejeitados: o download do script por API (exige curl e reimplementa a autenticação) e instalar o git antes do checkout (lógica por sistema fora do preparo, contra a 4.4).
+Texto da linha em /var/tmp/glintfx-plan/ci-split-A3c-texto.md (md5 fb88c13a…). Mão única: não.
+
+## 25/09/2026 - 06:08 | D-A14: G2 estendida e piso com fonte única por família (Caetano/CTO, confirmar retroativamente)
+
+**Fato:** o implementador deixou duas escolhas sem aceite na leva c3e3b64. A prova do .git ficou só nos jobs com bootstrap, e o piso do Windows só no job `windows`. Medido pelo CTO em c3e3b64: a instalação do CMake 4.1 do Windows está copiada 4 vezes (ci.yml:911, :3091, :3570, :3787), mas só o job windows prova o piso (:981), e os 5 jobs Linux de container fixo não têm piso. **Decisão:**
+- estender a prova do .git (G2) a todo job com `container:`;
+- todo job com `id: build` prova o piso antes do `id: prep`, a partir de uma fonte única por família (`tools/ci/floor.sh` e `tools/ci/windows/prep.ps1`), com o portão reprovando cópia à mão;
+- mutantes P1-P3.
+Entra como conserto pequeno sobre c3e3b64, na retomada. Texto em /var/tmp/glintfx-plan/ci-split-D-A14-texto.md (md5 15978e04…). Mão única: não.
+
+## 25/09/2026 - 06:15 | PAUSA ordenada pelo líder ("pause tudo 25/09/2026 06:15h AM horário local")
+
+Estado de cada frente na pausa:
+- **onda-w7c:** remoto = HEAD local = c3e3b64 (conferido por `git ls-remote`); árvore limpa.
+- **Fechadas no servidor:**
+  - A1/A1b/A1c: CI 36093524398, verde, 26/26;
+  - A2 com o conserto da linha STATUS: CI 36099771141, verde; C1/C4 provados no run sabotado 36096112039, branch apagada;
+  - A3a: CI 36103373287, verde.
+- **Leva A3c + A3a-fix + A3b-fix (fcd8e4f + c3e3b64):**
+  - aceita pelo main (preci rc=0; MO1, MO2, MO4 e MO5 mortos);
+  - CI 36116495207 ainda rodando na pausa: as 8 pernas linux passaram a prova do .git, sem falha até 06:15;
+  - pendente: a revisão do CTO e o resultado final do run.
+- **Na fila da retomada, em ordem:**
+  1. o run 36116495207;
+  2. a revisão do CTO da leva;
+  3. a D-A14;
+  4. a A4 (rerun_guard, que já tem o chão de `id: prep`);
+  5. A5, A6, A7a-e, B0-B3, A8, A9;
+  6. PLATFORMS-ASTRO-PARITY, WL-ACK A4-A6, DISPLAY-PASSKEY-CONTROL, CI-VERDE-W7C;
+  7. merge e tag;
+  8. W7-D e W8.
+- **Agentes:** impl-ci-split e cto-ci-speed em espera.
+- **Monitor anti-parada:** cron 16258ddf apagado (L-61: recriar na retomada).
+- **Watchcode:** o loop de leitura (cron 3718f75a) foi apagado. O `watchcode.sh off` foi negado pelo classificador de permissões, e o daemon continua no ar, gravando.
+- **Modo autônomo:** desligado pelo hook na pausa. Este commit fica só local, sem push.
+
+## 25/09/2026 - 07:50 | O líder ratificou as decisões pendentes (`AskUserQuestion`)
+
+Respostas verbatim do líder:
+- **Pop!_OS na 24.04 (plano v4 do CTO):** "Aprovar 24.04 (Recomendado)".
+- **Separação do CI por sistema** (D-A10, D-A11, D-A12 com a emenda, D-A13, D-A14, o conserto da linha STATUS e o ramo descartável de sabotagem da A2): "Aprovar todas (Recomendado)".
+- **Janela e contexto gráfico** (A3c relé multi-cliente, A3e sonda de prontidão e o aceite dela, e o plano EGL-DEAD-DISPLAY-GUARD D-S1 a D-S8): "Aprovar (Recomendado)".
+- **Revalidação da W7-D** (D-W7D-R1 a R10) e a reabertura de PLAN-SCOPE-COLUMNS: "Aprovar (Recomendado)".
+Nenhuma decisão desta lista segue pendente de confirmação.
+
+## 29/09/2026 - 00:18 | Retomada em modo autônomo
+
+- **Ordem do líder, verbatim:** "ligue modo autonomo". O hook registrou o modo ligado até 30/09/2026 00:18 (24h), com escopos push e clean. A pausa de 25/09 fica encerrada, e a ordem permanente de 22/09 ("continue até fechar w8") volta a valer.
+- **Feito entre a pausa e a retomada, por ordem direta do líder:**
+  - onda de RNG W9-D projetada e empurrada (f3e0f8b);
+  - conserto do `main.obj` do piso Windows (46b21c1), com CI 36202987723 VERDE em a149dc0: 25 trabalhos verdes e 1 pulado, Windows 251/251 nos dois modos;
+  - L-11 quarta emenda (a149dc0) e ramos remotos reduzidos a `main` e `onda-w7c`;
+  - pino do cloudflared para 2026.9.3, verificado contra a release oficial.
+- **Fila, na ordem:**
+  1. revisão do CTO da leva c3e3b64;
+  2. D-A14 (G2 estendida, `tools/ci/floor.sh`, `tools/ci/windows/prep.ps1`, mutantes P1-P3);
+  3. A4 em diante, conforme a entrada de 25/09 06:15.
+- **Agentes:** cto-ci-speed e impl-ci-split. Monitor anti-parada recriado (cron 846bb0c2, L-61) e watchcode ligado.
+- **29/09/2026 00:24, ordem do líder, verbatim:** "autorizo tag/push/merge". Aplicação pela L-11:
+  - push para o ramo da onda (`onda-w7c`) a cada leva verificada;
+  - merge em `main` e tag `vA.B.C.D` (número pela L-26) só quando a W7-C fechar com tudo verde, conferido no `CI-VERDE-W7C`, seguidos da exclusão do ramo da onda (quarta emenda da L-11);
+  - merge antes do fim da onda continua fora: seria quebrar a L-11, o que só o líder pode ordenar, com confirmação (LEI DAS LEIS).
+
+## 29/09/2026 - 00:30 | D-A15: revisão do CTO da leva c3e3b64 e roteamento dos achados
+
+- **Veredito do CTO (cto-review, 00:29):** aceita com conserto pequeno antes da A4. D-A13 cumprida no servidor (run 36202987723: 8 pernas linux com a prova do .git, sem nenhum "not a git repository"). Os seis mutantes do texto (MO1-MO6) morrem; o MO6 não tinha definição escrita, e o CTO o definiu como "id: build antes de id: prep" (INFERÊNCIA dele, registrada). Os 13 mutantes novos dele sobrevivem, com o harness em /var/tmp/cto-review-cisplit/.
+- **Conferido pelo main no blob HEAD:** a tautologia do agregado (ci.yml:699 `executados=$declarados` e :1234 no Windows) e o passo Testes do Windows sem `if:` (:1193, contra :637 no linux).
+- **Decisão:** os achados 1-7, que tocam check_ci_step_independence.py, check_ci_systems_source.py e ci.yml, vão para o mesmo implementador da D-A14, em commits próprios depois do núcleo dela; um agente paralelo no mesmo arquivo repetiria o erro de [dois agentes na mesma árvore]. O achado 4 (a tautologia, anterior à leva) entra no mesmo conserto por ser da família "afirma que mede e não mede". O achado 8 vai para a INBOX (L-63). Os consertos 3 e 5 são pré-requisito da A4.
+- **Achado 9 (texto de commits já publicados), correção registrada aqui porque commit publicado não se reescreve (L-25):**
+  - o c3e3b64 diz "id: build em TODOS os 16 jobs", mas só 11 de 16 têm (parity, ps-syntax, gitleaks, leis e version-tag não têm);
+  - a varredura de gêmeos do 46b21c1 diz que todo `cmake -S` é `-S . -B build-*`, mas ci.yml tem `cmake -S probe -B probe/build` dentro da árvore (a pasta é removida em seguida).
+- **Critério "contagem igual à da A0": não verificável.** Nenhum documento guarda a contagem da A0. Fica declarado; a partir daqui, o agregado medido (achado 4) passa a ser a referência.
+
+## 29/09/2026 - 01:13 | D-A16: lote D-A14 + consertos aceito e empurrado; leva A1/A2/C3
+
+- **Veredito do CTO (01:12):** aceita com conserto pequeno; pode empurrar. D-A14 cumprida nos selftests. Morreram 11 dos 13 sobreviventes anteriores; seguem vivos o X9 e o MO3c (INBOX, D-A15) e o X3.
+- **Decisão autônoma do CTO, a confirmar retroativamente:** o wayland-container fica fora do G5 (piso no hospedeiro), porque o compilador que importa ali é o de dentro da imagem. Rodar o floor.sh no build da imagem vai para a INBOX.
+- **Push:** onda-w7c = 3f2e3b8, provado por ls-remote. CI 36520626677 disparado.
+- **Próxima leva, antes da A4, com o mesmo implementador:**
+  - A1: o agregado conta Skipped/Disabled do ctest como "passou" (medido com ctest real); conserto pelo `--output-junit`, com status separado e selftest sobre log de ctest real;
+  - A2: regra única de "passo obrigatório efetivo" para a prova, o piso e o agregado (sem `continue-on-error`, sem `if:` que desligue, sem `||`, sem comentário de fim de linha enganando a busca);
+  - C3: trava em execução para a sonda do MSVC nunca cair no workspace.
+- **Não decidido nesta leva:** o piso de versão do Clang. O CTO registrou só o risco C2 (um job GCC trocado para clang perde o piso de GCC 14 sem aviso); a lacuna segue aberta.
+
+## 29/09/2026 - 01:15 | D-A17: decisões do CTO sobre X3, piso de Clang e critério do servidor
+
+- **X3, risco aceito com prova:** remover o passo "Remove o checkout de bootstrap" não tem efeito, porque o checkout final apaga o conteúdo do diretório quando falta `.git` na raiz. As provas são a fonte (actions/checkout, git-directory-helper.ts, prepareExistingDirectory) e o log do run 36202987723, job 108293407081 ("Deleting the contents of '/__w/GlintFx/GlintFx'"). A premissa cai se o checkout final ganhar `path:` (o G1 já reprova isso) ou se a raiz passar a ter `.git` antes dele.
+- **Piso de Clang: nenhum por enquanto.** O Clang é compilador de conferência no CI, não suportado declarado. O piso implícito vem do CMake: Clang >= 12 com -std=c++2b, -std=c++23 a partir do 17 (Clang.cmake:197-211). A árvore não usa recurso que force versão. Declarar suporte é decisão de produto do líder e vai para a INBOX como CLANG-SUPPORT-DECL, com a recomendação de piso 17 e job pinado, se ele declarar.
+- **Critério do servidor para a leva D-A14 + consertos (run 36520626677):**
+  - (i) `cmake --version` = 4.1.6 depois do prep nos 4 jobs Windows: não medível ainda; entra na próxima leva;
+  - (ii) vendor_purity_test verde nas 2 pernas windows, lido no log pelo nome;
+  - (iii) nas pernas windows, o agregado imprime "declarados: N, executados: N" com N medido;
+  - (iv) as 6 pernas Linux com container imprimem "inside-work-tree=true" e "HEAD=<sha>";
+  - além disso, os 10 jobs imprimem "piso de ferramentas OK".
+
+## 29/09/2026 - 01:47 | D-A18: leva A1/A2/C3/(i) aceita; próxima leva A3/A4/C1
+
+- **Veredito do CTO (01:47):** aceita com conserto pequeno.
+  - A1 cumprido contra ctest real: o DISABLED reprova até onde o próprio ctest sai com rc=0.
+  - Morrem os mutantes N4, N5, N10, N11, N12, N15, N16 e PSB.
+  - A versão errada do CMake reprova.
+- **Correção de mensagem de commit já publicada (L-25, não se reescreve):** o 117204a diz que o N1 é coberto por um selftest do próprio `prova_checkout.sh`. É falso: o script não tem selftest, e o N1 continua vivo (limite de portão textual, cosmético).
+- **Próxima leva, antes da A4, com o mesmo implementador:**
+  - A3: o autoteste do prep.ps1 passa a rodar os modos reais num pwsh filho; hoje trocar Stop-Floor por Write-Host anula o -VerifyCmake sem nenhum sinal (Q6), e a trava do workspace pode ser removida sem nada acusar (Q1);
+  - A4: "Not Run" por executável ausente, arquivo requerido ausente ou fixture falha conta como falha, não como pulado; só SKIP_RETURN_CODE e SKIP_REGULAR_EXPRESSION_MATCHED contam como pulado;
+  - C1: o pino do CMake no prep.ps1 amarrado a major.minor do `cmake_minimum_required`.
+- **Push:** onda-w7c = 92c7bf6 e CI disparado nesta mesma hora.
+
+## 29/09/2026 - 02:26 | D-A19: CI vermelho 36523231561 consertado; lote e7e79df aceito e verde
+
+- **Vermelho (run 36523231561, 3 jobs Windows):**
+  - FATO medido pelo CTO na fonte do actions/runner (ScriptHandlerHelpers.cs) e reproduzido em pwsh 7.4.2: o `Select-Object -First 1` sobre `cmake --version` deixava `$LASTEXITCODE` nulo, e `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` encerrava o passo com rc=0 sem rodar o resto;
+  - nos 2 jobs `windows`, o probe de C++23 foi pulado calado (log confirmado);
+  - a revisão aceitou a leva porque todos os mutantes testavam só a falha, nunca o resto do passo depois de um sucesso (memória nova: caminho de sucesso do passo composto).
+- **Conserto (e7e79df):**
+  - -VerifyCmake em passo próprio de uma linha nos 4 jobs;
+  - `exit 0` explícito no prep.ps1 e nenhum `Select-Object` sobre nativo;
+  - portão proibindo linha depois de .ps1 do projeto;
+  - prova com marcador.
+  Foi empurrado antes da revisão, pela L-15 (ramo da onda, não main).
+- **CTO:** aceitou b4f3320..e7e79df (A3, A4, C1 e o conserto), sem achado importante e com 3 cosméticos.
+- **CI 36525037497 sobre e7e79df: VERDE**, 25 verdes e 1 pulado. No log: cmake pinado OK nos 5 Windows, probe de C++23 rodando e agregado com pulados à parte.
+- **Próximo:** os cosméticos C3 (rótulo "executados") e C1 (piso do autoteste), depois a fatia A4 (rerun_guard).
+
+## 29/09/2026 - 02:46 | D-A20: A4 (rerun_guard) aceita com conserto; C1/C3 cumpridos
+
+- **CTO (02:45):** C5 do plano cumprido (4 de 4 vereditos certos, selftest 20/20). As fixtures são respostas REAIS da API, conferidas contra o gh api ao vivo. As permissões estreitam o padrão do repositório; não alargam.
+- **Decisões autônomas do CTO, a confirmar retroativamente:**
+  - **Posição do guard:** ele fica logo antes do marco `id: prep`, e não como primeiro passo, porque o script só existe depois do checkout. É mudança feita pelo implementador no plano (§4.5 e linha A4), aqui ratificada, não aceita calada (L-18). O veredito não muda.
+  - **I1, o desenho do conserto:** o job com `needs:` declara `RERUN_DERIVADO: "1"`. Na tentativa 2 ele segue só se todos os OUTROS jobs que falharam na tentativa 1 falharam em preparo. Sem isso, o parity reprova toda reexecução legítima.
+- **Próxima leva, antes de declarar a A4 fechada:**
+  - I1: job derivado;
+  - I2: a mutação de preparo realista, com os passos `!cancelled()` falhando e "a primeira falha decide";
+  - I3: nome do marco igual a PREP_MARKER, importado do rerun_guard.py como fonte única;
+  - C-a: proibir `permissions:` dentro de job.
+  Os cosméticos C-b (run cancelado reprova, de propósito) e C-c ficam só documentados.
+- **Push:** c000bb0 e este registro vão para onda-w7c agora. Na tentativa 1 o guard é inerte.
+
+## 29/09/2026 - 03:00 | D-A21: consertos da A4 aceitos; risco aceito na regra do job derivado
+
+- **CTO (02:59), lote 3f18e3f..f389de6: aceito.**
+  - Selftests: rerun_guard 29/29 e step_independence 85/85.
+  - I1, I2, I3 e C-a cumpridos. RG6, G6e e G6l morrem, e os mutantes D1-D8 da regra do derivado também (D7 é equivalente).
+  - PREP_MARKER tem fonte única, importada pelo portão.
+- **Correção de texto na D-A20 (feita aqui, porque ela já foi empurrada):** lá está escrito que a regra do derivado olha "todos os OUTROS jobs que falharam". A regra é MAIS ESTRITA para outras falhas de teste e MAIS FROUXA para falhas de preparo fora dos `needs`. Medido: o parity com falha própria de teste, somado ao gitleaks (fora dos needs) falhando no checkout, SEGUE.
+- **Decisão autônoma do CTO, a confirmar retroativamente: risco aceito, com a prova acima.**
+  - Efeito máximo: uma execução extra para uma falha real do parity. Se ela for determinística, repete, e a tentativa 3 é bloqueada.
+  - Restringir aos `needs` exigiria uma tabela de nome de exibição para chave de job, mais uma cópia à mão, porque a API só devolve o nome expandido pela matriz.
+  - Se o parity ficar instável, isso vira item.
+- **Estado:** a A4 fica fechada do lado da revisão; falta o CI do servidor sobre f389de6.
+
+## 29/09/2026 - 03:42 | D-A22: A5 em três etapas; etapa 2 retida até I1/I2/I3
+
+- **Fatiamento da A5 (decisão do main):**
+  - etapa 1: portão, trincos e declarações;
+  - etapa 2: `ctest --parallel` no CI, com o grau e as durações impressos;
+  - etapa 3: TIMEOUT e PROCESSORS calibrados com as durações medidas no servidor.
+  A razão é que o P1 e o P2 do plano só se medem no runner, e a máquina do líder só tem ~2G de folga sobre o piso de 10G livres da L-11.
+- **Decisões autônomas do CTO, a confirmar retroativamente:**
+  - o preci LOCAL fica serial por padrão, e o paralelo só vem por GLINTFX_CTEST_JOBS, limitado pela L-11; o plano dizia "mesmo grau";
+  - I1: os 7 portões de build aninhado ganham o trinco provisório `glintfx_nested_build` na etapa 2, trocado por `PROCESSORS n` medido na etapa 3. Sem ele, dois ou três Ninjas juntos num runner de 4 vCPUs estouram o TIMEOUT de 120 s (pkgconfig_validate 72,8 s e embed 72,6 s em série, medidos no run 36202987723).
+- **Retido antes do push da etapa 2:**
+  - I2: as recusas do preci falham abertas (docker falhando conta 0; MemAvailable vazio libera), e falta a checagem de "outro build do projeto no ar";
+  - I3: o JUnit tem de ser publicado como artefato, porque o P2 exige a duração de cada teste.
+- **Incidente de processo (L-11):**
+  - O build de revisão do CTO rodou junto com o preci-i do implementador, de 03:18 a 03:24.
+  - A culpa é do main, que despachou a revisão sem coordenar a janela.
+  - Regra adotada: trabalho local pesado do revisor só com liberação do main, e com aviso de começo e de fim.
+  - O preci-i saiu rc=0 mesmo assim.
+
+## 29/09/2026 - 04:13 | D-A23: A5 etapas 1 e 2 aceitas com todos os consertos; push
+
+- **CTO (04:12), lote 61aff55..2c2171f: aceito.** Com isso fecham, nas duas etapas, os achados A/B, I1/I2/I3 e J1/J2.
+  - Pesados de Linux e Windows (11) com o trinco provisório glintfx_nested_build.
+  - Cruzamento MEDIDO duração×propriedade (json-v1 + JUnit) reprovando pesado sem trinco acima de 40 s, provado com ctest real.
+  - Recusas do preci fecham na falha.
+  - A varredura de build vê a máquina inteira (caminho relativo, ninja-build, cópia fora da árvore), com um único `ps`.
+  - JUnit como artefato por perna.
+- **Cosméticos para a etapa 3:**
+  - C1: o portão estático parte a lista de RESOURCE_LOCK por `;`;
+  - C2: TIMEOUT/3 por teste, e não 40 s fixo;
+  - C3: o encoding do json no pwsh, que só o servidor prova.
+- **Push:** a A5 etapas 1 e 2 vão agora para onda-w7c. O CI que roda sobre elas é a primeira rodada paralela real, e as durações dela (artefato JUnit) calibram a etapa 3.
+
+## 29/09/2026 - 04:49 | D-A24: decisões do CTO para a etapa 3 da A5; primeira rodada paralela
+
+- **CI 36535342498 (primeira rodada paralela, sobre 96ec956): VERMELHO só no Windows.**
+  - O cruzamento medido reprovou o dep_zero_selftest (56,7 e 60,7 s, sem trinco), exatamente para o que foi desenhado; a suíte passou 253/253.
+  - Conserto: 62df4f2.
+  - No Linux, só os 7 pesados passam de 40 s, todos já com trinco.
+  - Empurrado pela L-15 (0b41332), com o CI 36537812458 rodando.
+- **Decisões autônomas do CTO, a confirmar retroativamente:**
+  - **Régua de pesados separada da folga.** O trinco é exigido por uma régua absoluta de 40 s. A folga TIMEOUT/3 só imprime na etapa 2. Na etapa 3 ela reprova só em TIMEOUT/2 (FOLGA_REPROVA_FATOR=2), porque reprovar em /3 cairia em ~11% de margem pela regra 4.
+  - **Rodadas da etapa 3:** 6 ramos descartáveis `calib/a5-r0`..`r5`, no mesmo SHA e disparados juntos (o `concurrency` por ref cancelaria dispatches no mesmo ramo). Os ramos são apagados ao fim (L-11, quarta emenda).
+  - **Sistemas:** todos, nos dois modos. O pesado que só inflou no Windows prova que calibrar em um sistema só não basta (L-04).
+  - **PROCESSORS:** calibrar com o trinco, que vira definitivo se o P3 fechar. A via (c), com CMAKE_BUILD_PARALLEL_LEVEL=n, só entra se o P3 falhar. Aviso registrado: os pesados somam ~408 de 450 s no Linux, e o P3 (≤50%) é quase inalcançável. Se não fechar, a régua não se move depois do dado (L-43), e manter o paralelo pelo ganho medido vai ao líder.
+  - **P4 substituído ANTES da fase de CI**, por falta de poder estatístico e não por resultado: um trinco de escritor fica se, e só se, uma medição por snapshot mostrar 2 ou mais testes escrevendo o MESMO caminho.
+
+## 29/09/2026 - 05:31 | D-A25: etapa 3 aceita; calibração disparada
+
+- **CTO (05:29), lote d9baf3e..f5c3737: aceito.** Verificado FORA da working tree, sobre `git archive`, com todos os selftests rc=0.
+  - C-1: as fixtures do P1 estavam num `build-shared/` ignorado pelo .gitignore; foram para `bd/` (48 no blob).
+  - I-1: o P3 mede só "Testes (compartilhado)/(estatico)".
+  - I-2: plano alinhado.
+  - Trava nova: check_ignored_fixtures.
+- **Calibração disparada, SHA f5c3737**, ramos descartáveis `calib/a5-r0..r5` (apagar ao fim; L-11, quarta emenda):
+  - r0 (serial, ctest_paralelo=1): run 36543163345;
+  - r1: 36543167200;
+  - r2: 36543171161;
+  - r3: 36543176046;
+  - r4: 36543180063;
+  - r5: 36543183920.
+  Os artefatos `ctest-junit-*` ficam retidos por 7 dias: baixar logo que fecharem.
+- **Antes de rodar o ctest_p1_compare sobre essas rodadas:** o P3 com 0 jobs medidos (ou menos que as pernas do P1) tem de REPROVAR, porque é varredura vazia (L-40). Achado do CTO.
+- **Decisão autônoma do CTO, a confirmar retroativamente:** fazer `preci.sh --blob` DEPOIS da calibração.
+  - Ele roda os selftests Python sobre o ÍNDICE (`git checkout-index`), e não sobre `git archive HEAD`, que testaria o commit anterior.
+  - Entra no `--fast` por padrão, com o tempo impresso; o universo vem de `LABELS selftest` Python no CMakeLists.
+  - O mutante de estreia é uma fixture em pasta build-* sem `add -f`.
+
+## 29/09/2026 - 08:18 | D-A26: calibração A5 medida; P3 reprovado; decisão do LÍDER sobre o grau
+
+- **Relatório:** `/var/tmp/calib-a5/RELATORIO.md`, do impl-da14. O main conferiu por conta própria as durações do passo "Testes" de Fedora-compartilhado e Windows-estático nas 6 rodadas, pelos jobs da API, e elas batem. Os critérios do plano 4.8 foram aplicados sem ajuste (L-43).
+  - **Artefatos:** 60 de 60.
+  - **P1: PASSA.** Conjunto de aprovados idêntico nas 10 pernas e nas 6 rodadas.
+  - **P2:** 11 testes sem folga contra TIMEOUT/3; a regra 4 dá o TIMEOUT novo de cada um.
+  - **P3: REPROVADO em 10 de 10.** O ganho medido ficou entre -58% e 15%, com mediana de -3%.
+  - **Causa medida:** os 12 testes com `glintfx_nested_build` são 90-93% da soma serial no Linux e 73-75% no Windows, e o trinco os serializa.
+  - **As 2 falhas da r1:**
+    - o flake FACADE-PIN T1/G3 da INBOX;
+    - a régua absoluta de 40 s acusando layers_selftest e dep_zero_trace_selftest numa parada de runner do Windows-estático. Essa segunda é um achado NOVO, a régua flaky, e vai ao CTO.
+- **Pergunta ao líder, feita por AskUserQuestion como manda o plano.** Resposta dele, verbatim: "Ocupe  até 2/3 dos núcleos em paralelo". No esclarecimento, verbatim: "Pensei que era no meu computador. No gha pode ir ao limite."
+  - **Leitura do main (preenchimento, L-07):**
+    - **Local (preci, máquina do líder, 16 núcleos):** paralelo de no máximo 2/3 dos núcleos, ou seja floor(16*2/3) = 10, abaixo do teto de 13 threads da L-11.
+    - **GitHub Actions:** paralelo no limite dos núcleos do runner, com os pesados deixando de ficar em fila única (via (c) do plano ou equivalente, desenho do CTO).
+    - **A régua do P3 não se move:** a nova configuração é medida de novo em 6 rodadas.
+- **Estado dos ramos:** os `calib/a5-r0..r5` ficam até a nova calibração; apagar ao fim (L-11).
+
+## 29/09/2026 - 08:20 | Pausa ordenada pelo líder
+
+- Ordem verbatim: "pause quando forem 08:00h". Executada às 08:19, depois da resposta dele à pergunta do P3 (D-A26).
+- **Agentes parados:**
+  - cto-review com a revisão do ce0f4ff PARCIAL; o estado dele fica em /var/tmp/cto-review-a1/ESTADO.md;
+  - impl-da14 ocioso.
+- **Nada empurrado:** ce0f4ff ainda não foi aceito, e há 8 commits locais à frente de origin/onda-w7c.
+- **Crons:** o monitor anti-parada (846bb0c2) foi desligado; a restauração da suspensão da VM às 12:25 (43114180) continua.
+
+## 29/09/2026 - 08:22 | D-A27: veredito CTO do ce0f4ff (entregue antes da pausa)
+
+- **Cruzamento A-1: ACEITO COM RESSALVA.** A revisão foi sobre o blob, e o MV com o json regenerado morre.
+  - **R-1:** um `fora` fantasma só passa se o add_test estiver dentro de um if(), e é impresso com a condição.
+  - **R-2:** se o `tests/CMakeLists.txt` estiver fora do índice, reprova com "rode git add".
+- **win-vm-lab: REPROVADO, CRÍTICO LATENTE.**
+  - Com o stub sabotado, o selftest do rodar-caminho.sh manda `qemu-agent-command glintfx-win11-lab guest-exec` pelo virsh REAL, porque ele está no PATH logo atrás do stub. Isso seria execução dentro da VM viva do líder (L-09, L-50). Foi provado numa sandbox bwrap isolada, sem alcançar a VM.
+  - Hoje não vaza: os 6 passam limpos e a armadilha disparou 0 vezes. Mas a exposição é anterior ao ce0f4ff (o ctest do preci já rodava os 6), e o ce0f4ff a dobra ao pô-los também no --blob.
+  - A armadilha que o implementador declarou não existe no blob: achado de integridade de relato.
+- **Conserto (decisão autônoma do CTO, confirmar retroativamente):**
+  1. conexão `test:///default` e domínio falso nos 6 --selftest;
+  2. armadilha versionada na frente do PATH dos 6 testes, com reprovação se o log dela não estiver vazio;
+  3. estreia com os 3 mutantes (rodar-caminho, consolidar, sessao);
+  4. até lá, repor os `fora` dos 6.
+- **Execução:** é a PRIMEIRA fatia ao retomar, antes do desenho do paralelo. Durante a pausa não há exposição, porque nenhum preci roda.
+
+## 29/09/2026 - 10:16 | Retomada, desenho do paralelo e decisão do LÍDER sobre o build local
+
+- **Retomada:** ordem do líder, verbatim, "pode continuar. que fatia estamos?". O monitor anti-parada foi religado (cron 6e1fec13).
+- **Frentes abertas:**
+  - impl-da14 faz o conserto do win-vm-lab (D-A27), com os selftests rodando só em bwrap até a armadilha entrar;
+  - o CTO entregou o desenho do paralelo em /var/tmp/cto-a5-paralelo/DESENHO.md, com fontes.
+- **O desenho do CTO (decisão autônoma dele, confirmar retroativamente):**
+  - o trinco glintfx_nested_build sai;
+  - entram PROCESSORS n e CMAKE_BUILD_PARALLEL_LEVEL=n pelo mesmo helper, com COST alto nos pesados;
+  - grau: J = nproc no GHA e min(floor(nproc*2/3), 13) = 10 no local, com o preci paralelo por padrão;
+  - o n é fixado antes do dado, pela fração de um núcleo só dos pesados;
+  - critério P5 novo: o paralelismo aninhado efetivo é igual ao PROCESSORS;
+  - a régua de 40 s vira aviso por rodada e fica fatal só pela mediana das 5 rodadas;
+  - os 12 pesados atuais ficam;
+  - o FOLGA_REPROVA_FATOR e os TIMEOUTs ficam para depois da calibração nova;
+  - P1, P2 e P3 não mudam.
+- **Pergunta ao líder:** os 2/3 valem também para o build do preci, que hoje usa o padrão do ninja, 18 tarefas, acima do teto de 13 da L-11? Resposta: "Vale para tudo (Recomendado)". Ou seja, a compilação e os testes do espelho local usam no máximo 10 núcleos.
+
+## 29/09/2026 - 10:38 | D-A28: veredito CTO da fatia D-A27; C-1 no qemu-img
+
+- **Fatia D-A27** (e915427, e090fc4, 3679533, c97f82d): REPROVADA por 1 CRÍTICO; o resto está ACEITO.
+  - Aceito: test:///default com domínio falso; os 3 mutantes de stub cortado reprovam nomeando a armadilha; os 6 add_test e o --blob passam pelo envoltório; R-1 e R-2.
+- **C-1:** a armadilha do qemu-img liberava o binário real pelo argv.
+  - Provado pelo CTO em bwrap, com um disco FALSO (o disco real de 33G, conferido antes e depois, ficou fora da sandbox): `qemu-img commit -- ov.qcow2` saiu com rc=0 e log vazio, e GRAVOU no disco base citado só no cabeçalho, a forma exata de consolidar.sh:162.
+  - Também liberam: `..`, caminho relativo, caminho dentro de opção, `-b=`, symlink e glob largo. Os três primeiros foram apontados pelo main na leitura; os outros, achados pelo CTO.
+- **Conserto (decisão do CTO, confirmar retroativamente):**
+  - o envoltório roda os 6 selftests DENTRO do bwrap, com /var/tmp, /run e /home privados e o isolamento provado antes;
+  - sem bwrap, sai 77 (o CI Linux já pula esses 6 por falta de qemu-img);
+  - o qemu-img perde a liberação.
+- **Pergunta do main respondida:** a alternativa de um qemu-img falso ficou dispensada pela sandbox.
+- **Integridade de relato:** o desvio 2 do implementador (a liberação) foi declarado e rejeitado.
+
+## 29/09/2026 - 11:07 | D-A29: conserto C-1 aceito com ressalva; os cosméticos entram antes do push
+
+- **Veredito do CTO sobre e2aabad e 31080ed: ACEITO COM RESSALVA**, sem CRÍTICO nem IMPORTANTE.
+  - Provado em bwrap externo, com um laboratório falso: o disco real de 33G continua intocado.
+  - `qemu-img commit` por cabeçalho e `qemu-io write` dão "No such file".
+  - O mutante `--bind /var/tmp /var/tmp` e a raiz sob glintfx-win-lab REPROVAM; o mutante sem o bind do vt cai no gate estático.
+- **Desvios aceitos (retroativos, do implementador):**
+  - o vt é descartável no FS do hospedeiro, e não tmpfs, porque o `cp --reflink` do consolidar.sh não funciona em tmpfs (medido);
+  - só o win-vm-lab passa pelo envoltório no --blob;
+  - os parênteses aninhados foram para o e2aabad.
+- **Cosméticos, que entram agora pela regra de não buscar o caminho mais fácil:**
+  - C-a: uma raiz lógica que resolve para /var/tmp expõe o laboratório, só-leitura (M1c). O conserto é `pwd -P` e a busca do glintfx-win-lab em qualquer lugar visível;
+  - C-b: gate estático que exige o envoltório para todo selftest que execute o laboratório ou as ferramentas de VM/rede;
+  - C-c: `--new-session`.
+
+## 29/09/2026 - 11:39 | D-A30: fatia D-A27 fechada e empurrada; paralelo da A5 aberto
+
+- **CTO aceitou o 352442e (I-1, C-1, C-2, C-3), com execução em bwrap externo:**
+  - controles C0, C0b e R0 verdes;
+  - os mutantes R1, R2, R3, K4, K5, K6 e K7 morreram;
+  - nenhum script do laboratório rodou fora do envoltório;
+  - o disco real de 33G continua intocado.
+- **Resíduos registrados só aqui, sem item:**
+  - (a) um isento vale quando o COMMAND não toca a VM, mesmo que o texto do script cite o laboratório: é o caso legítimo das fixtures;
+  - (b) `_primeiro_token_e_envoltorio` aceita um impostor com o mesmo nome de arquivo (artificial; o --blob usa o envoltório do blob).
+- **Push:** onda-w7c = 352442e, provado por ls-remote. O CI é o run 36584047687 (workflow_dispatch).
+- **Próximo:** paralelo da A5 pelo /var/tmp/cto-a5-paralelo/DESENHO.md. O implementador fatia, e o CTO ataca o fatiamento antes do código.
+- **Aviso:** abriu uma sessão interativa glintfx-30 às ~11:34. Os agentes conferem `git status` antes de cada commit.
+
+## 29/09/2026 - 12:46 | D-A31: CI do 352442e vermelho, consertos, fim da janela da VM e pausa às 16:00
+
+- **CI 36584047687 (352442e): failure, 15 jobs.** Todos caem no blob_selftests_selftest ou na paridade:
+  - Linux: o controle D-A27 executava o envoltório real e o container não tem bwrap;
+  - Windows: as fixtures .sh rodavam com o bash do WSL;
+  - Paridade: o armadilha_selftest estava sem exceção.
+  - A família é "portão que congela um fato do ambiente": nem o CTO nem o main conferiram as instalações do ci.yml antes do aceite.
+- **Consertos, com decisões do CTO (confirmar retroativamente):**
+  - 2f501b2 (F0): o vazamento de raízes glintfx-blob-*; o main apagou 460 antigas;
+  - 39eb670: dublê do envoltório na raiz falsa; blob_selftests_selftest em if(UNIX); as 2 exceções de paridade; armadilha_selftest em dois grupos. Provado num container cachyos sem bwrap, com o vermelho do CI reproduzido;
+  - d04f908: auto-prova sem -maxdepth (I-1 do CTO, que corrige o aceite dele no 55cd3d5); grupo 1 com a raiz gravável e o contrato do dublê;
+  - 886a8ec: as checagens baratas vêm antes de qualquer find, com um find armadilha no 6º controle. É um achado do main: no d04f908 a auto-prova fora da sandbox varria o hospedeiro inteiro (só leitura de nomes, incluindo /home/petrus/VM-Windows e /run/user/1000), durante os preci de ~12:24 a ~12:45. O d04f908 foi aceito só com a condição de subir junto com o 886a8ec.
+- **VM:** a janela de 12h terminou às 12:25, com o standby-timeout-ac de volta a 15 min (conferido por /query). A VM continua ligada.
+- **Ordem do líder, verbatim:** "suspenda a janela de 12h, pode continuar trabalhando normalmente e pause somente 16:00h de hoje" e "16:00h horário de recife pernambuco brasil". Cron e56c483c às 16:00 America/Recife; o fuso da máquina foi conferido.
+
+## 29/09/2026 - 13:5x | D-A32: a máquina travou (esgotamento de processos); modo autônomo religado
+
+- **Ordens do líder, verbatim:** "teve um erro tao intenso que precisei desligar o computador segurando o botao de desligar"; "ligue modo autonomo, corrija o que causaou o problema e continue o que estava fazendo com mais cuidado".
+- **Causa** (journal do boot -1 lido pelo main; detalhe em /var/tmp/glintfx-retomada-pos-crash.md):
+  - o controle 7 do shim de cmake (tests/tools/fase_shim/, código de um desenho REVOGADO pelo CTO às 13:20) foi rodado sem commit às 13:22;
+  - o dublê recursivo, com FAKE_NESTED herdado, esgotou os 4000 processos do usuário;
+  - caíram a VM (qemu SIGABRT às 13:22:23), o firefox, o brave e a sessão.
+- **Conserto da causa** (desenho do CTO em curso, /var/tmp/cto-a5-paralelo/CONTENCAO.md):
+  - todo preci e todo teste avulso de agente rodam dentro de `systemd-run --user --scope -p TasksMax`;
+  - contenção provada pelo main às 13:5x;
+  - todo dublê de chamada aninhada ganha trava de profundidade.
+- **Estado:** a VM ficou desligada pela trava (não religada). O watchcode foi religado. Os agentes da sessão anterior se perderam; o CTO foi redespachado.
+
+## 29/09/2026 - 15:45 | D-A33: contenção desenhada e em curso; CI do d0a9806 vermelho por cmp; estado para a pausa das 16:00
+
+- **Contenção** (/var/tmp/cto-a5-paralelo/CONTENCAO.md, fatias C0-C4):
+  - M1 medida: pico do preci --fast de 42 tarefas, teto que não mordeu;
+  - N_PRECI=128, T_PRECI=1800 s;
+  - docker com GLINTFX_DOCKER_PIDS_LIMIT (fatia C3).
+- **Commits aceitos pelo CTO e empurrados** (onda-w7c = d0a9806):
+  - F1c 983f977;
+  - INBOX 3a333f6;
+  - C1a 6d1aed6;
+  - F1d d0a9806 (eol=lf nas fixtures de FASE e no fase.ps1; o CRLF volta a ser declarado no 5d).
+- **Commit local aceito, não empurrado:** C1a-fix f1b82e3.
+- **C1b:** STAGED, sem commit, preci rc 0. Pendentes: a prova dinâmica D0-D7 e o C-2 (a fixture v1 fraca, com o mutante y6 sobrevivendo). Retomada em /var/tmp/c1b-guardado/RETOMADA.md.
+- **CI 36611349824 (d0a9806): failure, 7 jobs Linux** (Arch, Fedora, Clang, Debug). Causa única: `cmp: command not found` no fase_sh_selftest, porque as imagens do CI não têm diffutils.
+  - É a família "ferramenta presente só aqui", pela 2ª vez no dia.
+  - As pernas Windows passaram, com o fase_ps1 e o fase_py rodando de verdade.
+  - O conserto foi decidido pelo CTO (confirmar retroativamente) em /var/tmp/cto-a5-paralelo/CI-CMP.md: comparação em bash puro, com o gêmeo do check_gl_codegen_host_cross.sh na mesma fatia. É a PRIMEIRA fatia ao retomar.
+- **Resíduo:** /var/tmp/cto-cicmp/ (vazio, root:root, criado por um `docker -v` com a fonte inexistente). Só root remove; é inofensivo.
+- **Sistema:** alertas do SELinux contra o containerd/dockerd (contexto não reconhecido depois do desligamento forçado), em ritmo baixo, com o Docker funcionando. Não mexido (L-60); informado ao líder.
+
+## 29/09/2026 - 15:59 | Pausa ordenada pelo líder
+
+- **Ordem verbatim:** "pause somente 16:00h de hoje" / "16:00h horário de recife pernambuco brasil".
+- **Agentes:** parados, sem preci no ar.
+  - impl-da14: a C1b STAGED, sem commit, com o estado em /var/tmp/c1b-guardado/RETOMADA.md;
+  - cto-review: o conserto do CI decidido em /var/tmp/cto-a5-paralelo/CI-CMP.md.
+- **Empurrado:** onda-w7c = af10a31 (C1a-fix f1b82e3, aceita pelo CTO, mais o D-A33).
+- **O CI do onda-w7c segue VERMELHO** (cmp ausente nas imagens). É a primeira fatia ao retomar.
+- **Crons:** o monitor anti-parada foi apagado e o tick do watchcode parado.
+
+## 29/09/2026 - 21:22 | Retomada, com modo autônomo e pausa marcada para 06:30 de 30/09
+
+- **Ordem do líder, verbatim:** "ligue modo autonomo. Autorizo push/tag/merge. Pode continuar. Pause 06:30am em 30/09/2026".
+- **Modo autônomo:** flag em ~/.claude/autonomo/GlintFx.json, válida até 30/09 21:21.
+- **Crons:** pausa em e93ea906 (06:30 de 30/09); monitor anti-parada em d58e756a.
+- **Agentes redespachados** (a sessão é nova): impl-da14 começa pelo CI-CMP (/var/tmp/cto-a5-paralelo/CI-CMP.md), depois a C1a-fix2 e a C1b; cto-review revisa com execução.
+
+## 29/09/2026 - 21:4x | D-A34: a L-34 aplicada de trás para frente às decisões do dia (CTO, pesquisa na web e nas bibliotecas semelhantes)
+
+Texto completo no formato da lei, com URLs: /var/tmp/cto-a5-paralelo/L34-RETRO.md (md5 c69f0465). Nenhuma das três é porta de mão única.
+
+- **R1, fatia CI-CMP.** *Pergunta que teria ido ao líder:* "Como os selftests comparam arquivos byte a byte sem depender do cmp, que falta nas imagens do CI?"
+  - *Opções:* builtin do bash; diffutils nas imagens; `cmake -E compare_files`.
+  - *Escolha:* `cmake -E compare_files` nos dois scripts. É o golden portátil da comunidade CMake, o CMake já é dependência declarada (L-03), e o diagnóstico mostra esperado contra obtido (lição do test_cmp do Git).
+  - *Custo de reverter:* barato. Substitui a forma de 25ae5e0 e 6022380 num commit novo (CI-CMP-3).
+- **R2, fatia C1b.** *Pergunta:* "Como o contido encerra o que ele contém no prazo, sem violar o systemd e sem deixar escapar netos?"
+  - *Opções:* (A) manter o staged; (B) remendar com systemctl kill e tempo de graça; (C) escopo com Delegate=pids, subpastas próprias, TERM seguido de graça e cgroup.kill da subpasta, e RuntimeMaxSec= como encosto.
+  - *Escolha:* (C). Fonte: a doc de delegação do systemd, "Never write to any of the attributes of a cgroup systemd created for you"; mais o Bazel e o nsjail.
+  - *Custo de reverter:* moderado. A C1b staged fica intocada até as sondas P5 a P7 darem o desenho final.
+- **R3, fatia C3.** *Pergunta:* "Como impedir que um container esgote os processos da máquina?"
+  - *Opções:* --pids-limit por container; default-pids-limit no daemon; limite por container mais teto de memória.
+  - *Escolha:* --pids-limit em todo docker run/create (CIS Docker Benchmark 5.28).
+  - *Para decisão do líder:* o default-pids-limit no daemon.json (exige root, vale para a máquina inteira) e uma fatia C3b de teto de memória.
+  - *Custo de reverter:* barato.
+
+## 29/09/2026 - 21:45 | D-A35: desenho final da C1b (execução contida) pelas sondas P5-P7 (CTO, L-34)
+
+- *Pergunta que teria ido ao líder:* "Como o contido encerra e confina o que roda dentro dele, inclusive o aninhado, sem escrever no cgroup do systemd e sem deixar um neto com setsid escapar?"
+- *Opções:* (A) o staged (cgroup.kill no escopo do systemd, pgid no aninhado); (B) remendo com systemctl kill; (C) delegação do cgroup com subpastas próprias.
+- *Escolha:* (C) v2.
+  - Fontes: a doc de delegação do systemd, o Bazel e o nsjail. Medições: P5 (RuntimeMaxSec funciona, e sem --collect o Result=timeout fica legível), P6 (Delegate=pids deixa subpastas graváveis, e o cgroup.kill da subpasta mata o neto com setsid), P7 (ninho irmão funciona; ninho sob a carga dá EOPNOTSUPP).
+  - Detalhe em /var/tmp/cto-a5-paralelo/L34-RETRO.md, §R2-final, md5 bceb624f.
+- *Porta de mão única:* não. *Custo de reverter:* moderado (refaz o contido_dentro.sh e o embrulho).
+- *Achado lateral:* o bash repete o fork em EAGAIN. Controle de "fork recusado" usa um processo que não repete.
+
+## 29/09/2026 - 22:05 | D-A36: dúvidas da C1b v2 decididas pelo CTO (L-34), mais um furo do R2-final corrigido
+
+Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 (md5 c03fe9c9). Nenhuma das duas é porta de mão única, e reverter é barato.
+
+- **Q1.** *Pergunta que teria ido ao líder:* "quando o teto pedido difere do herdado, quando avisar?"
+  - *Opções:* aviso por modo; recusar; sempre imprimir o teto efetivo e avisar quando ele difere do pedido.
+  - *Escolha:* sempre imprimir e avisar. Fontes: a doc de cgroup-v2 do kernel e a dor documentada do Bazel com limite que não se aplica calado.
+- **Q2.** *Pergunta:* "com o comando já terminado, espera-se a graça inteira antes do KILL?"
+  - *Opções:* sempre G; pular se o cgroup.procs estiver vazio; a semântica do systemd (esperar até G, sair em populated 0, KILL sempre depois).
+  - *Escolha:* a semântica do systemd. Fontes: o man do systemd.kill e do systemd.service, o kernel (populated), dois relatos de netos órfãos quando o KILL é pulado, e o MR do gitlab-runner.
+- **Furo corrigido pelo próprio CTO:** o ninho, irmão da carga, não era alcançado pela matança do proprio. O conserto mata no fim {carga, ninho-*}, adiciona o TimeoutStopSec=G e faz o `systemctl --user stop` como varredura final (prova D12).
+
+## 29/09/2026 - 22:08 | D-A37: C1b v2, supervisor morto derruba o escopo (CTO, L-34, §R2-Q3)
+
+- *Pergunta que teria ido ao líder:* "Se o supervisor do contido morre, o que acontece com o que ele supervisionava, e o que se reporta?"
+- *Opções:* (a) esperar o fim do escopo e ler o Result; (b) derrubar o escopo na hora e reportar um fim próprio; (c) 137 cru, com órfão até o prazo de encosto.
+- *Escolha:* (b), com rc 73 novo (`fim=supervisor-morto`).
+- *Fontes:* pid_namespaces(7), systemd.service ExitType=main, prctl PR_SET_PDEATHSIG, e relatos da comunidade sobre órfãos esgotando o teto de processos.
+- Texto completo: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q3, md5 aefbdc41.
+- *Porta de mão única:* não. *Custo de reverter:* barato.
+- O risco foi levantado pelo implementador, e a instância anterior do CTO tinha deixado o ramo incompleto.
+
+## 29/09/2026 - 22:24 | D-A38: pulo de controle declarado pelo próprio ctest, não por texto conferido por regex (CTO, L-34, §R1-Q4)
+
+- *Pergunta que teria ido ao líder:* "Como o ctest exige que os controles pulados (arquivo ilegível, que não vale como root no CI) fiquem declarados, sem perder o código de saída como veredito?"
+- *Opções:* (a) PASS_REGULAR_EXPRESSION sobre a linha `pulados:`; (b) FAIL_REGULAR_EXPRESSION mais o código de saída; (c) conferir a linha dentro do próprio selftest; (d) separar os controles de chmod 000 num teste próprio, `fase_sh_selftest_ilegivel`, que sai com 77 e o motivo quando roda como root, registrado com `SKIP_RETURN_CODE 77`.
+- *Escolha:* (d). O CTO derrubou a (a) com execução: o manual do CMake diz "The process exit code is ignored", e um selftest que imprime OK e sai com 1 ou 3 passava verde. A (b) deixava a declaração sumir calada, e a (c) deixa a conferência dentro do processo que pode mentir. Com a (d), o ctest imprime `***Skipped` e lista o teste em "did not run", e o pulo fica contado no log do CI.
+- *Fontes:* o manual do CMake (PASS_REGULAR_EXPRESSION, SKIP_RETURN_CODE), a convenção 77 do automake e os 25 usos de SKIP_RETURN_CODE que o projeto já tem.
+- Texto completo: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R1-Q4, md5 485009c9.
+- *Porta de mão única:* não. *Custo de reverter:* barato.
+- Efeito: o d8641c9 (CI-CMP-4) fica REPROVADO e não sobe sozinho. O conserto vem em commit novo por cima (CI-CMP-5), e os dois sobem juntos depois da revisão.
+
+## 29/09/2026 - 22:28 | D-A39: dois desvios do implementador na C1b v2 aceitos pelo CTO (L-34)
+
+- *Pergunta que teria ido ao líder:* "O contido lê o estado da unidade do systemd pela posição das linhas ou pelo nome da chave? E quando o supervisor de dentro recusa a execução, o de fora devolve 'recusa' (71) ou 'supervisor morto' (73)?"
+- *Opções (1):* ler com `--value`, pela posição, ou sem `--value`, pela chave. *Escolha:* pela chave. O CTO mediu que, com `--value`, a ordem das linhas é a interna do systemd, não a pedida. Se faltar uma das chaves, a falha é fechada.
+- *Opções (2):* (a) todo 71 vira 73; (b) todo 71 vira recusa; (c) a recusa sai pelo marcador `fim=recusa:<motivo>`, e um 71 sem marcador só vale como recusa com a unidade já inativa. *Escolha:* (c). Um 71 com a unidade ainda ativa significa que algo rodou sem supervisor, e isso é 73 com `stop`.
+- *Fontes:* medição de `systemctl show` nesta máquina pelo CTO, e o contrato de marcador único da própria C1b (D-A35 a D-A37).
+- *Porta de mão única:* não. *Custo de reverter:* barato.
+
+## 29/09/2026 - 22:33 | DECISÃO DO LÍDER (não autônoma): código do framework já; a trilha de CI e teste da W7-C vai para depois da W8
+
+- *Cobrança do líder, verbatim:* "Já mais de um dia que você tá escrevendo teste!!! Onde fica o CÓDIGO do framework?!"
+- *Fato medido, o que motivou a pergunta:* os 109 commits desde 28/09 não tocaram `src/` nem `include/`. O último commit de código do framework é aa83f69, de 24/09 22:42.
+- *Pergunta (AskUserQuestion, 22:33):* "Como seguir?" Opções: código já, fechando só a contenção; código já, sem a contenção; terminar a W7-C antes.
+- *Escolha do líder:* "Código já (Recomendado)":
+  - fecha-se só a contenção que impede outro travamento da máquina (a C1b, na checagem final);
+  - segue-se direto ao framework: W7-D (desenho em lote, eventos de entrada, predefinição gráfica, escrita Wayland sem timeout fatal), depois W8 (demo, textura, API de mapa, herança de gfss);
+  - o resto da trilha de CI e teste da W7-C (C1c-C4, o ctest paralelo F2-F13, A6-A9, B0-B3, e o CI-CMP-5 que conserta o d8641c9) fica para depois da W8.
+
+## 29/09/2026 - 22:4x | DECISÃO DO LÍDER (não autônoma): as pendências da W7-C viram a onda INFRA-CI, depois da W8
+
+- *Ordem do líder, verbatim:* "Troque o nome de w7-c para eu não me confundir e mude a posição na tabela".
+- *Perguntas (AskUserQuestion):* o nome novo e o alcance. *Respostas:* nome "INFRA-CI"; "Só as 6 pendentes (Recomendado)".
+- *Aplicado no TODO.md:*
+  - as 6 linhas pendentes (CI-SPLIT-PER-OS, PLATFORMS-ASTRO-PARITY, WL-ACK-SMOKE-BLUNT, PLAN-SCOPE-COLUMNS, DISPLAY-PASSKEY-CONTROL, CI-VERDE-W7C) passam a ter Onda = INFRA-CI e vão para logo depois da CI-VERDE-W8;
+  - as 9 linhas concluídas ficam como W7-C, registro do que já foi feito;
+  - os IDs não mudam, porque os commits os citam.
+
+## 29/09/2026 - 22:5x | D-A40: plano da W7-D, o código do framework (CTO, L-34; verificado pelo main)
+
+Plano completo: /var/tmp/cto-w7d/PLANO.md, md5 892f16ce331c8d43cb37fc5f7d30f085. Cada decisão abaixo está no formato L-34 inteiro na §3 dele.
+
+**Contagem:**
+- 11 fatias de produto em `src/`/`include/`, cada uma com o teste vermelho antes: P1-P3 (predefinição gráfica) e B2a-B4 (desenho 2D);
+- 7 de revisão, prova ou texto;
+- ferramental novo: zero.
+
+**Decisões:**
+- **D-W7D-18:** o desenho 2D agrupa por triângulo indexado, que é como fazem o SDL3 (SDL_RenderGeometry), a interface de desenho do RmlUi 6 e o raylib. A API pública v1 fica só com retângulo e quadrilátero: a L-32 barra escopo novo antes da demo, e as leis vencem o desejo da comunidade. As formas mais pedidas pela comunidade (geometria livre, linha, contorno, elipse) viram o item R2D-SHAPES, logo depois da DEMO-1. Porta de mão única só na API v1, que a revisão B0 congela.
+- **D-W7D-19:** os portões novos dos planos de 23 e 24/09 vão para a INFRA-CI, depois da W8. A perda está declarada: até lá, a direção de camada do desenho é conferida por um `grep` com controles plantados na revisão B7.
+- **D-W7D-20:** a W7-C fecha com o recorte do líder, e o fluxo é:
+  - push, depois CI verde;
+  - PR e merge no main (commit de merge sem conflito, medido com `git merge-tree`);
+  - a marca v0.5.2.0, porque a guarda do EGL é correção de produto;
+  - onda-w7d nasce do main novo.
+  A autorização vem de "Autorizo push/tag/merge" e da L-11 do projeto. O fecho sem as 6 pendências é inferência do CTO a partir do recorte do líder, que as moveu para INFRA-CI.
+- **D-W7D-21:** o d8641c9 reprovado recebe um conserto mínimo por cima: sai o PASS_REGULAR_EXPRESSION e o rc volta a ser o veredito. A perda está declarada: a linha `pulados:` fica sem conferência até a INFRA-CI. Não se reverte, porque o revert jogaria fora o que a revisão aceitou.
+- **D-W7D-22:** a entrada é arrumada na tabela como já tinha sido ratificado em 24/09. INPUT-EVENTS vai para a W9, e o main aplica as linhas novas no primeiro commit de onda-w7d.
+
+**Ordem:** fecho da W7-C, depois a tabela, depois P1-P5, depois B2a-B2d, depois B3a-B7, depois CI-VERDE-W7D e v0.6.0.0. As revisões de API P0 e B0 já andam em paralelo, com o agente `api-review`, distinto do planejador e do implementador.
+
+## 29/09/2026 - 22:5x | D-A41: definição de fechamento da W7-C depois do recorte do líder (L-24)
+
+- *Por que existe:* a L-24 diz que o critério de fechamento é o que a onda tem escrito, nunca o CI verde sozinho. O recorte do líder (612db94, e948847) tirou da W7-C as 6 pendências, e a linha CI-VERDE-W7C foi junto. Sem uma definição nova registrada, merge e marca não rodam.
+- **Definição de fechamento da W7-C (vigente):**
+  1. as 9 linhas que ficaram na W7-C estão ✅: EGL-DEAD-DISPLAY-GUARD, PLAN-SCOPE-REGEX-BLIND, LINK-PREFIX-SUBSTRING, LINK-PREFIX-RESIDUOS, PARITY-ALIAS-HYGIENE, PARITY-LOCAL-MIRROR, LAYERS-ORACLE-REPORT, DOCS-COUNT-VOCAB e CLAIM-CITATIONS;
+  2. as 6 pendentes ficam na INFRA-CI por ordem do líder;
+  3. o trabalho da contenção que o líder mandou fechar está commitado e aceito pelo CTO: a C1b (b626bef) e o C1b-fix;
+  4. o conserto mínimo do d8641c9 (D-W7D-21) está commitado e aceito pelo CTO;
+  5. o CI do SERVIDOR está verde no commit de fechamento, lido direto de `gh run view --json conclusion,jobs`, com a lista de jobs conferida contra o `ci.yml`. CI vermelho bloqueia (L-11).
+- *Depois disso:* PR, merge no main (commit de merge), a marca v0.5.2.0 no merge (L-26) e o ramo remoto onda-w7c apagado ao mesclar (L-11 do projeto).
+- *Autoridade:* "Autorizo push/tag/merge" (29/09) e a L-11 do projeto.
+
+## 29/09/2026 - 23:16 | D-A42: revisão de API dedicada de P0 (predefinição gráfica) e B0 (desenho 2D), julgada pelo CTO (L-34)
+
+- *Quem:* o revisor `api-review`, agente distinto do planejador e do implementador (L-12), fez os pareceres; o CTO que planejou julgou cada achado.
+- *Pareceres:*
+  - /var/tmp/cto-w7d/auditoria-api-gfx-preset.md, md5 0f60cbf6: 0 crítico, 5 importantes, 2 cosméticos;
+  - /var/tmp/cto-w7d/auditoria-api-draw2d.md, md5 1006552f: 2 críticos, 10 importantes, 4 cosméticos.
+- *Errata do plano:* /var/tmp/cto-w7d/PLANO-errata.md, md5 bd4c9345. O PLANO.md segue congelado em bd73502a.
+- **Os dois críticos, aceitos (porta de mão única: API pública):**
+  - *B0-C1:* a câmera entrava em float e perdia precisão longe da origem. Medido: em 16 777 217, a peça sai no pixel 2 em vez de 1. Passa a entrar em double, com `begin_batch(gltfx_transform)`. O teste antigo usava 2^24, que é exato em float, e não pegava o defeito.
+  - *B0-C2:* o tipo resultado carrega valor OU erro, e a promessa era "erro com as contagens". O relato do quadro passa a ser lido também depois da falha, por `last_frame_report()`.
+- *D-API-01 a 10 (desenho 2D):* todas aceitas; o porquê de cada uma está na errata §2. Entre elas, a geometria pura do quadrilátero vai para o núcleo (`core/quad.hpp`, pela L-19), e a B4 publica 6 cabeçalhos.
+- *P0 (predefinição):*
+  - as 14 constantes públicas com nome e o parâmetro `row_index` foram aceitos;
+  - a **emenda E1 do CTO:** um índice fora da faixa não reescreve o rótulo do consumidor, porque o rótulo é dele;
+  - a **E2:** `vsync` ganha constantes públicas em P3; `gpu_preference` fica na INBOX (L-32: nada de escopo novo antes da demo).
+- *Para o líder, quando pedir o registro:* **B0-K1**. O código da árvore usa `m_impl` em 128 lugares, contra a regra de nomes da L-21 do projeto. O código novo segue a lei. O conflito entre a árvore e a lei é dele decidir (L-67); por ora está na INBOX como renomeação mecânica.
+- *Custo de reverter:* alto depois do commit de P3/B4 (API publicada) e baixo antes, que é por que a revisão veio antes do código.
+
+## 29/09/2026 - 23:5x | D-A43: três dúvidas de desenho da P1 decididas pelo CTO (L-34)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §5, md5 29dd63f6.
+
+- **D-P1-1: onde nasce o tipo da fonte de energia.**
+  - *Pergunta:* o tipo da fonte de energia é pedido pela P1, mas o plano o fazia nascer só na P2.
+  - *Opções:* (a) o cabeçalho da porta criado já em P1; (b) o enum na regra e movido depois; (c) inteiro com constantes locais.
+  - *Escolha do CTO:* um cabeçalho próprio de VALOR, `src/platform/port/power_source.hpp`, criado em P1, que a porta da P2 inclui. Isso evita misturar valor e porta num arquivo e evita o move.
+- **D-P1-2: a célula E1 vai para a P3.**
+  - O átomo interno devolve `std::optional`, que é ausência honesta.
+  - A política pública `{suggested_preset, manual}` mora na função pública, sem cópia temporária das constantes públicas. Isso corrige a errata §3.
+- **D-P1-3: o CTO contestou a saída por span proposta pelo implementador.**
+  - `expand_preset` devolve um tipo de valor com `std::array` de capacidade igual às linhas do registro, garantida por `static_assert`.
+  - Assim não existe caminho de "não coube", como o plano já fixava.
+- *Porta de mão única:* nenhuma das três, porque são internas. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 00:0x | D-A44: mais duas decisões da P1 pelo CTO (L-34): D-P1-4 e D-P1-5
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §6 e §7, md5 37966018.
+
+- **D-P1-4: a expansão da predefinição é imune a corte por construção.**
+  - O que muda: a saída tem no máximo uma entrada por opção, e com opção repetida vale a primeira, a mesma regra da validação que já existe.
+  - Por quê: a correção do átomo não pode depender de outra unidade validar antes; um chamador futuro que esquecesse a validação perderia a cauda da lista em silêncio.
+  - Na P3: a fachada ainda valida antes, e um teste prova a recusa da lista repetida.
+- **D-P1-5: os números das tabelas antes de os nomes públicos existirem.**
+  - *Pergunta:* os nomes públicos (`k_gltfx_*`) só nascem na P3, mas as tabelas da P1 e da P2 precisam dos números agora.
+  - *Opções:* (i) constantes internas espalhadas; (ii) publicar os nomes fora de ordem; (iii) números mágicos; (iv) uma fonte interna única, `gfx_option_values.hpp`, apagada na P3.
+  - *Escolha:* (iv). Nunca há duas fontes ao mesmo tempo, e os testes afirmam os números literais decididos em D-W6b-44, não as constantes do código.
+- *Porta de mão única:* não, porque tudo é interno. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 00:08 | D-A45: a P2 é refeita sem alocação e com o teste primeiro (CTO, L-34: D-P2-1 e D-P2-2)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §8, md5 6da49760.
+
+- **D-P2-1: redesenho sem alocação.**
+  - *Pergunta:* o leitor de energia do Linux usava `std::string`/`std::vector`, e o portão de alocação sob `noexcept` reprovava 6 pontos novos. Acrescentar os 6 à lista de tolerados, ou redesenhar?
+  - *Escolha:* redesenhar, com buffers de char fixos e leitura entrada a entrada; um valor longo vira "desconhecido" (falha fechada).
+  - *Por quê:* a Decisão 15 do líder mandou consertar essa família de defeito, não congelá-la, e a lista existe para não crescer. Aumentá-la seria o caminho menos difícil. O vocabulário do sysfs é curto e fechado, então o buffer fixo não perde nada.
+- **D-P2-2: a quebra declarada da L-20 não é aceita.** O teste do leitor foi escrito depois do código. No redesenho, o teste da forma nova vem primeiro e é visto vermelho.
+- *Custo declarado:* a P2 volta um passo; o lado Windows e as regras puras não mudam.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 00:5x | D-A46: a contenção espera o efeito do KILL antes de sair (CTO, L-34: D-C1b-6)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §9, md5 5ff5706f.
+
+- *Pergunta que teria ido ao líder:* o CI mostrou, de forma intermitente, um neto ainda vivo logo depois de a contenção sair (caso D10b). O teste pergunta cedo demais, ou a contenção sai cedo demais?
+- *Resposta do CTO:* é o mesmo fato visto de dois lados, porque o SIGKILL é assíncrono.
+- *Escolha:* a contenção passa a ESPERAR, com limite de max(1, G) segundos, o alvo esvaziar depois do KILL:
+  - no cgroup, pelo `populated 0`;
+  - no grupo de processos, varrendo o /proc só por membro VIVO. Isso ignora zumbis e resolve de vez o "kill -0 vê zumbi".
+  - Ela sempre imprime `sobreviventes_apos_kill=<n>`, sem mascarar o código de saída.
+- *Fontes:* o mesmo defeito e conserto em outros projetos de supervisão de processos, e o systemd, que espera depois do SIGKILL final e relata "Processes still around after final SIGKILL".
+- *Condição do main:* a varredura do /proc é só com comandos internos do bash, sem um processo por item (L-11 global).
+- *Porta de mão única:* não. *Custo de reverter:* baixo.

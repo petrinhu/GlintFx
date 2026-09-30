@@ -821,7 +821,7 @@ glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 # libwayland-client on Linux.
 #
 # opengl32/gdi32 were added for X-GL-0 (docs/plano-w6a-janela.md sec.
-# 2.2 row 2): the file's own two new cases call ChoosePixelFormat/
+# 2.2 row 2): the file's own new cases call ChoosePixelFormat/
 # SetPixelFormat (Gdi32.lib/Gdi32.dll per their own Microsoft Learn
 # pages) and wglCreateContext/wglMakeCurrent/wglDeleteContext/
 # wglGetProcAddress/glGetString (Opengl32.lib/Opengl32.dll per theirs) -
@@ -903,7 +903,7 @@ add_test(NAME gl_sha256_test COMMAND gl_sha256_test)
 set_tests_properties(gl_sha256_test PROPERTIES LABELS unit)
 
 # GL-LOADER (GODS_LAWS.md L-40): the CLI itself, end to end, proving the
-# three required controls at the process-exit-code level - positive
+# required controls at the process-exit-code level - positive
 # (the real vendored file with its real, matching sha256 succeeds),
 # negative (a deliberately wrong --expect-sha256 reproves, GODS_LAWS.md
 # L-07 EXCECAO No 1 obligation 3), and empty-scan (a well-formed
@@ -913,6 +913,7 @@ set_tests_properties(gl_sha256_test PROPERTIES LABELS unit)
 # no shell script needed. GLINTFX_GL_XML_SHA256 comes from src/render/
 # CMakeLists.txt's own file(SHA256 ...) call (CACHE INTERNAL, computed
 # once, single source of truth with the real build wiring).
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/real/ (MEDIDO 29/09/2026 pelo CTO: cria gl_functions.cpp e .hpp so' ali)
 add_test(
     NAME gl_registry_codegen_real_vendored_file_succeeds_test
     COMMAND gl_registry_codegen
@@ -923,6 +924,8 @@ add_test(
 )
 set_tests_properties(gl_registry_codegen_real_vendored_file_succeeds_test PROPERTIES LABELS unit)
 
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/sha_mismatch/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
+
 add_test(
     NAME gl_registry_codegen_sha_mismatch_reproves_test
     COMMAND gl_registry_codegen
@@ -932,6 +935,8 @@ add_test(
         "--expect-sha256=0000000000000000000000000000000000000000000000000000000000000000"
 )
 set_tests_properties(gl_registry_codegen_sha_mismatch_reproves_test PROPERTIES LABELS unit WILL_FAIL TRUE)
+
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/empty/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
 
 add_test(
     NAME gl_registry_codegen_empty_registry_reproves_test
@@ -947,7 +952,7 @@ set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES
 # - std::stod() on a malformed max-version argument threw
 # std::invalid_argument straight past main(), std::terminate()d, and
 # SIGABRT'd with a message that never even named the bad argument text.
-# Deliberately NOT WILL_FAIL-only (like the two gates above): the OLD,
+# Deliberately NOT WILL_FAIL-only (like the gates above): the OLD,
 # broken behavior ALSO exits non-zero (a crash's return code is
 # non-zero too), so a plain "did the process fail" check would stay
 # green across the regression this test exists to catch.
@@ -957,6 +962,7 @@ set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES
 # prints, naming both the culprit ARGUMENT ("argumento max-version")
 # and the culprit VALUE (the exact invalid text), never the generic
 # libstdc++ terminate() banner the crash used to print.
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/bad_max_version/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
 add_test(
     NAME gl_registry_codegen_bad_max_version_argument_reproves_test
     COMMAND gl_registry_codegen
@@ -1028,7 +1034,7 @@ endif()
 # "${CMAKE_CURRENT_SOURCE_DIR}" (= tests/) include dir through
 # glintfx_add_test()'s PRIVATE link to it.
 #
-# The three cases below used to sit inside the if(UNIX) guard that
+# The cases below used to sit inside the if(UNIX) guard that
 # still wraps display_connect_failure_test further down, on the theory
 # that everything in this ARCH-PORTS block was Wayland-only. That
 # theory was wrong for these three (GODS_LAWS.md L-04, "comportamento
@@ -1039,7 +1045,7 @@ endif()
 # fake_test.cpp exercise display_connection_port/display_connection<A>
 # purely through fake_display_adapter and a deliberately deficient
 # local type - no Wayland type reachable from either TU. Guarding them
-# meant these three cases silently never ran on Windows; they are
+# meant these cases silently never ran on Windows; they are
 # registered unconditionally now, same as asset_load_test/
 # hygiene_coverage_test/spdx_test above.
 #
@@ -1076,7 +1082,7 @@ target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURC
 # comment for why fake_display_adapter is reused UNCHANGED as this
 # concept's own NEGATIVE control instead of being extended with a
 # pump_events() it was never meant to carry. OS-agnostic, same
-# reasoning as the two cases just above (no Wayland/Win32 type
+# reasoning as the cases just above (no Wayland/Win32 type
 # reachable from this TU).
 glintfx_add_test(display_backend_port_concept_test)
 target_include_directories(display_backend_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -1444,7 +1450,7 @@ target_sources(loop_open_alloc_failure_test PRIVATE
 # owned_loop_context_test - LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-
 # loop-callbacks.md sec. S1b): pure header test, no .cpp
 # dependency - platform::owned_loop_context (owned_loop_context.hpp) is
-# entirely inline, and this file's own six cases only ever call
+# entirely inline, and this file's own cases only ever call
 # function pointers this TU itself declares - nothing from src/.
 glintfx_add_test(owned_loop_context_test)
 target_include_directories(owned_loop_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -1790,6 +1796,50 @@ if(UNIX)
     )
     glintfx_add_wayland_xdg_shell_binding(incoming_poll_wiring_test)
     glintfx_add_egl(incoming_poll_wiring_test)
+
+    # EGL-DEAD-DISPLAY-GUARD S1 (docs/plano-egl-dead-display-guard.md
+    # sec. 3, D-S2): hermético, mesma família de incoming_poll_wiring_
+    # test logo acima - socketpair() + wl_display_connect_to_fd() real,
+    # sem compositor e sem container (GODS_LAWS.md L-09). Precisa da
+    # MESMA árvore de fontes que incoming_poll_wiring_test (poll_and_
+    # dispatch_with_budget() vive em egl_context_adapter.cpp e arrasta
+    # o resto), porque o segundo caso deste alvo escreve um evento
+    # wl_display.error de verdade e despacha por ela antes de conferir
+    # connection_failure_if_dead().
+    glintfx_add_test(connection_failure_test)
+    target_include_directories(connection_failure_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(connection_failure_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    glintfx_add_wayland_xdg_shell_binding(connection_failure_test)
+    glintfx_add_egl(connection_failure_test)
 
     # NOEXCEPT-ALLOC-B8 fatia F2 (/var/tmp/glintfx-plan/plano-conserto-
     # noexcept.md sec. "F2", GODS_LAWS.md L-04/L-09/L-20/L-22): read_drm_
@@ -2705,6 +2755,7 @@ set_tests_properties(vendor_purity_selftest PROPERTIES LABELS selftest)
 # resolved earlier in this file (hygiene_coverage_test's own
 # registration above) - find_program() is idempotent across repeated
 # calls with the same cache variable, so it is not re-called here.
+# glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (310,66 s serial no Windows compartilhado (TIMEOUT 900), run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 add_test(
     NAME public_name_collision_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -2713,7 +2764,7 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_CXX_COMPILER_ID}"
 )
-set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
+set_tests_properties(public_name_collision_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44, achado
 # real de 06/09/2026, CI run 34033291326): this test had been inheriting
@@ -2770,7 +2821,7 @@ set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
 # tests is the signature of a contended shared runner, not this one
 # script waiting on something that never arrives. A dedicated sweep of
 # every `LABELS consume` test's measured time across these same 8 job
-# logs (43 of 53 apply to a Windows job; the other 10 are Unix-only or
+# logs (most apply to a Windows job; the other handful are Unix-only or
 # Linux-side twins, e.g. `visibility_test`/`pkgconfig_test`) found
 # exactly ONE test within 20% of its own ceiling: this one - no other
 # consume test needed its timeout touched.
@@ -2990,6 +3041,7 @@ set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
 # opcao OFF (default, ou em qualquer perna/trabalho fora dos seis
 # escolhidos), o `ctest` local mostra "Skipped" - visivel (GODS_LAWS.md
 # L-40), nunca um pulo calado - e NENHUM processo do oraculo nasce.
+# glintfx-build-dir: reads-only - so' le compile_commands.json do build dir; escreve so' em fixtures temporarias (snapshot antes/depois: 0 alteracoes, 29/09/2026)
 add_test(
     NAME layers_oracle_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3012,6 +3064,25 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers_oracle.py" --selftest
 )
 set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest)
+
+# LAYERS-ORACLE-REPORT sub-fatia J1 (docs/plano-w7c-adendo-
+# revalidacao.md secao 3.J, achado N8, decisao D-A11, 24/09/2026): as
+# tres copias do passo "Relatorio do oraculo de camadas" em ci.yml
+# extraiam o relatorio do oraculo com `grep '^check_layers_oracle.py:'`
+# sobre o LastTest.log INTEIRO - o layers_oracle_selftest ACIMA imprime
+# linhas com o mesmo prefixo (a mesma funcao f"{SCRIPT_NAME}: ..." roda
+# nos dois caminhos), entao se layers_oracle_test parar de rodar, o
+# passo que existe para acusar essa ausencia passa VERDE FALSO com o
+# texto do autoteste. extract_oracle_report.py extrai por BLOCO de
+# teste do proprio ctest, nunca por prefixo de linha solto - ver o
+# cabecalho do script para o furo medido e reproduzido no --selftest
+# dele.
+add_test(
+    NAME extract_oracle_report_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/extract_oracle_report.py" --selftest
+)
+set_tests_properties(extract_oracle_report_selftest PROPERTIES LABELS selftest)
 
 # FACADE-PIN, G2 (docs/plano-conserto-fachadas-uaf.md sec. 9, GODS_
 # LAWS.md L-19/L-36): the portao G1 (the pinned_adapter<A> concept
@@ -3230,6 +3301,8 @@ add_test(
 )
 set_tests_properties(dep_zero_test PROPERTIES LABELS consume)
 
+# glintfx-nested-build: heavy - o --selftest do check_dep_zero.py configura projetos CMake de fixtura (56,7 s no Windows estatico e 60,7 s no compartilhado sob --parallel, CI 36535342498, acima de 40 s); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
+# glintfx-blob: fora - configura projetos CMake de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME dep_zero_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3241,6 +3314,7 @@ add_test(
 # the taxonomy uniform across every selftest in this file.
 set_tests_properties(dep_zero_selftest PROPERTIES
     LABELS selftest
+    RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FAILED")
 
 # PARITY-GATE: sub-check (c) given a NAME OF ITS OWN, unconditional
@@ -3261,6 +3335,8 @@ add_test(
         --binary-only "${GLINTFX_DEP_ZERO_LIB_ARG}"
 )
 set_tests_properties(dep_zero_binary_test PROPERTIES LABELS consume)
+
+# glintfx-blob: fora - chama cmake/ferramentas de binario (pesado); coberto pelo ctest do preci
 
 add_test(
     NAME dep_zero_binary_selftest
@@ -3337,7 +3413,9 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${PROJECT_BINARY_DIR}"
 )
-set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE)
+# glintfx-build-dir: escreve - reconfigura o build dir inteiro (MEDIDO 29/09/2026: 56 arquivos alterados). Mantem RUN_SERIAL (os leitores acima
+# leem compile_commands.json e CTestTestfile.cmake, que ele reescreve) e ganha o mesmo trinco dos outros escritores.
+set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE RESOURCE_LOCK glintfx_build_dir)
 
 # --selftest here runs entirely against DISPOSABLE fixtures under
 # mktemp (tests/tools/check_dep_zero_trace.py's own selftest_main(),
@@ -3352,6 +3430,7 @@ set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE)
 # fixed in the sibling sh gates) does not share that specific failure
 # mode, but the belt costs nothing and keeps the taxonomy uniform
 # across every selftest in this file, sh or python3 alike.
+# glintfx-blob: fora - configura projetos CMake de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME dep_zero_trace_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3632,6 +3711,7 @@ set_tests_properties(loop_mark_precondition_test PROPERTIES LABELS consume)
 # as layers_test above (Windows coverage is a dedicated CI step, not a
 # ctest case, because it does not have `sh` by default).
 if(UNIX)
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - MEDIDO 29/09/2026: `cmake --install` escreve install_manifest.txt e GlintfxPkgConfigValidateScratch/glintfx.pc no build dir
     add_test(
         NAME consume_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_consume.sh"
@@ -3639,7 +3719,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/package"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(consume_test PROPERTIES LABELS consume)
+    set_tests_properties(consume_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 endif()
 
 # Embedding gate (FIX-CONSUMO, achado A7; FIX-CONSUMO-2, achado QA-2):
@@ -3658,6 +3738,7 @@ endif()
 # the GLINTFX_INSTALL=ON opt-in genuinely installing them), invoked from
 # the `windows` job in .github/workflows/ci.yml (CI-CONSUME).
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME embed_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_embed.sh"
@@ -3665,7 +3746,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/embed"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(embed_test PROPERTIES LABELS consume)
+    set_tests_properties(embed_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # EMBED-DLL decision-logic gate: proves glintfx_colocate_embedded_
@@ -3759,6 +3840,7 @@ endif()
 #   - PATH: o `cmake` do processo aninhado ja vem de "${CMAKE_COMMAND}"
 #     (caminho absoluto resolvido pelo pai), nao de um `cmake` nu que
 #     dependeria do PATH do ambiente onde o teste roda.
+# glintfx-build-dir: private-subdir - tests/embed_dll_colocation_check/ (MEDIDO 29/09/2026 pelo CTO: configura um build aninhado so' ali, 9 arquivos)
 add_test(
     NAME embed_dll_colocation_test
     COMMAND "${CMAKE_COMMAND}"
@@ -3779,13 +3861,14 @@ set_tests_properties(embed_dll_colocation_test PROPERTIES LABELS consume)
 # this ctest run is already part of). POSIX sh; same declared downgrade
 # as the other consumption gates above.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME install_includedir_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_includedir.sh"
             "${PROJECT_SOURCE_DIR}"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(install_includedir_test PROPERTIES LABELS consume)
+    set_tests_properties(install_includedir_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # Packager layout gate (FIX-CONSUMO-2, achado QA-4): proves
@@ -3796,6 +3879,7 @@ endif()
 # install_includedir_test above. POSIX sh; same declared downgrade as
 # the other consumption gates above.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME install_packager_layout_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_packager_layout.sh"
@@ -3803,7 +3887,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/package"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume)
+    set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # GL-CODEGEN-HOST-TOOL H-5 (D-11 of docs/plano-fecho-w7b.md, the Qt 6
@@ -3814,6 +3898,7 @@ endif()
 # check_pkgconfig_validate.py already proved works on all five
 # platforms - unlike its sh siblings above, this gate never shells out
 # to anything but `cmake` itself).
+# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
 add_test(
     NAME gl_codegen_host_leak_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3822,7 +3907,9 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_GENERATOR}"
 )
-set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume)
+set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+
+# glintfx-blob: fora - monta CMake + Ninja de fixtura (pesado); coberto pelo ctest do preci
 
 add_test(
     NAME gl_codegen_host_leak_selftest
@@ -3844,6 +3931,7 @@ set_tests_properties(gl_codegen_host_leak_selftest PROPERTIES
 # the CMake target, so none of them would notice OUTPUT_NAME regressing.
 # POSIX sh; same declared downgrade as the other consumption gates above.
 if(UNIX)
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - MEDIDO 29/09/2026: `cmake --install` escreve install_manifest.txt e GlintfxPkgConfigValidateScratch/glintfx.pc no build dir
     add_test(
         NAME output_name_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_output_name.sh"
@@ -3851,7 +3939,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(output_name_test PROPERTIES LABELS consume)
+    set_tests_properties(output_name_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 endif()
 
 # Target name collision gate (FIX-CONSUMO-2, achado QA-3): proves an
@@ -3860,6 +3948,7 @@ endif()
 # library target (renamed to glintfx_library; see src/CMakeLists.txt).
 # POSIX sh; same declared downgrade as the other consumption gates above.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME no_target_collision_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_target_collision.sh"
@@ -3867,13 +3956,13 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(no_target_collision_test PROPERTIES LABELS consume)
+    set_tests_properties(no_target_collision_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # pkg-config gate (PKG-DIST): proves the INSTALLED glintfx.pc, not just
 # the CMake package - a bare `pkg-config --cflags --libs glintfx`
 # resolves and links tests/raw_link/main.cpp with no CMake and no
-# find_package(glintfx) involved at all, across six scenarios (default
+# find_package(glintfx) involved at all, across scenarios (default
 # layout, Debian-multiarch, a malformed trailing-slash libdir, absolute
 # install dirs, static mode with a load-bearing Libs.private proof, and
 # a DESTDIR-staged Fedora-format install) - see check_pkgconfig.sh's
@@ -3896,6 +3985,7 @@ endif()
 # verify against). tests/parity_exceptions.txt's own entry for this test
 # carries the same correction, with the fuller reasoning.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME pkgconfig_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkgconfig.sh"
@@ -3903,7 +3993,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(pkgconfig_test PROPERTIES LABELS consume)
+    set_tests_properties(pkgconfig_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
     # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44,
     # same precedent as public_name_collision_test's own TIMEOUT 300
@@ -3960,7 +4050,7 @@ endif()
 # hand-assembled empty-Cflags/Libs fixture (GODS_LAWS.md L-40), while
 # degrading to a WARNING (not a FATAL_ERROR) when pkg-config itself is
 # absent from PATH - see check_pkgconfig_validate.py's own header for
-# the SEVENTEEN scenarios it actually exercises. The "eight" this
+# the scenarios it actually exercises. The "eight" this
 # comment used to claim was stale prose, never updated after
 # PKG-WIN-SCOPE/PKG-NATIVE grew the file; the count now lives in the
 # script's own header, next to the list it is derived from. This is a
@@ -3996,6 +4086,7 @@ endif()
 # ever biting. The port reproves outright when that removal count comes
 # up zero (GODS_LAWS.md L-40), instead of trusting a later assertion to
 # catch it by accident. The old .sh is deleted in the same fatia.
+# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
 add_test(
     NAME pkgconfig_validate_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4003,7 +4094,7 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CXX_COMPILER}"
 )
-set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume)
+set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # --selftest: pure logic controls (normalize_wrapped_message's own
 # wrap-immunity across a range of widths - the fix that also closes the
@@ -4013,6 +4104,7 @@ set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume)
 # enumeration, find/remove_library_artifacts, and rewrite_libdir_line).
 # No cmake configure, no compiler, no real install needed. Same shape
 # blank_install_dir_rejected_selftest already established.
+# glintfx-blob: fora - monta CMake de fixtura e valida .pc instalado (pesado); coberto pelo ctest do preci
 add_test(
     NAME pkgconfig_validate_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4063,6 +4155,7 @@ set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
 # needed. Closes the same "own gate never proved against itself" gap
 # layers_selftest/public_name_collision_selftest already closed for
 # their siblings (GODS_LAWS.md L-40).
+# glintfx-blob: fora - roda cmake --install de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME blank_install_dir_rejected_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4096,6 +4189,7 @@ set_tests_properties(libdir_includedir_mix_rejected_test PROPERTIES LABELS consu
 # - no nested cmake configure, no compiler needed. Same
 # "own gate never proved against itself" closure as
 # blank_install_dir_rejected_selftest above (GODS_LAWS.md L-40).
+# glintfx-blob: fora - roda cmake --install de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME libdir_includedir_mix_rejected_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4196,7 +4290,7 @@ add_test(
 set_tests_properties(env_sweep_selftest PROPERTIES LABELS selftest)
 
 # preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves
-# itself (three controls - clean fixture passes, dirty fixture is
+# itself with its own controls (clean fixture passes, dirty fixture is
 # reproved, empty directory fails the enumeration floor - see
 # tools/preci.sh and tests/preci_fixtures/). Registered ONLY when the
 # three tools tools/preci.sh's cheap stages need are actually present
@@ -4214,6 +4308,7 @@ if(UNIX)
     find_program(GLINTFX_CLANG_TIDY_EXE clang-tidy)
     find_program(GLINTFX_CPPCHECK_EXE cppcheck)
     if(GLINTFX_CLANG_FORMAT_EXE AND GLINTFX_CLANG_TIDY_EXE AND GLINTFX_CPPCHECK_EXE)
+        # glintfx-blob: fora - roda tools/preci.sh --selftest, que exige clang-format/clang-tidy/cppcheck e docker
         add_test(
             NAME preci_selftest
             COMMAND "${PROJECT_SOURCE_DIR}/tools/preci.sh" --selftest
@@ -4232,8 +4327,8 @@ endif()
 # acima ja apodreceu TRES vezes em tres commits - uma vez pega pelo gate
 # irmao que existia aqui (check_readme_test_count.py, a frase "has N
 # registered cases..."), duas vezes NAO pegas por nada (o "Linux's 90",
-# o "88", "ten renamed pairs" contra os 19 apelidos reais em tests/
-# parity_aliases.txt, "forty controls" contra os 38 que check_dep_
+# o "88", uma contagem obsoleta de pares renomeados contra os 19 apelidos reais em tests/
+# parity_aliases.txt, uma contagem obsoleta de controles contra os 38 que check_dep_
 # zero.py realmente declara, uma mensagem de programa citada em ingles
 # que ele nunca imprimiu, e por fim o proprio par de numeros "116/114" e
 # "114/114" - nenhuma sessao deste projeto tem toolchain MSVC a mao, e o
@@ -4448,7 +4543,7 @@ set_tests_properties(version_matches_tag_selftest PROPERTIES LABELS selftest)
 # std::numeric_limits<...>::max()/::min() (src/core/time.cpp) - never
 # satisfied by ANY comparison merely being present (see check_round_
 # order.py's own header comment for the loophole this closes and the
-# two negative controls in --selftest that prove it: wrong variable,
+# negative controls in --selftest that prove it: wrong variable,
 # and untied to numeric_limits). Reproduces the 28/08/2026 finding this
 # item is named after (moving the rounding call to BEFORE the range
 # comparisons left the WHOLE suite green, ASan/UBSan included, because
@@ -4492,17 +4587,70 @@ set_tests_properties(round_order_selftest PROPERTIES LABELS selftest)
 # job in .github/workflows/ci.yml) - a single local ctest run has only
 # ITS OWN platform's inventory, never the other leg's, so it cannot
 # self-compare. --selftest proves the comparison LOGIC itself (the
-# three required red controls plus the alias/SEM-PENDENCIA edge
+# required red controls plus the alias/SEM-PENDENCIA edge
 # cases) with synthetic fixtures, the same shape check_readme_test_
 # count.py's own --selftest already uses for cross-platform sentences
 # it cannot observe locally either. Unguarded by platform - same
 # GATE-TREE-PARITY shape as every other python3 gate in this file.
+# CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-split-per-os.md): fonte
+# unica de sistemas (tools/ci/systems.txt), carregada por ci_systems.py
+# - biblioteca importada por check_test_parity.py e check_measured_
+# parity.py. D1 (achado do main, GODS_LAWS.md L-40): --selftest so'
+# usa fixtura em memoria, NUNCA toca tools/ci/systems.txt - o unico
+# controle contra o arquivo real e' o --check abaixo, um add_test
+# SEPARADO (D-A12 parte e), pra A7 acrescentar uma distro sem mudar o
+# resultado de --selftest nenhum deste projeto.
+add_test(
+    NAME ci_systems_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_systems.py" --selftest
+)
+set_tests_properties(ci_systems_selftest PROPERTIES LABELS selftest)
+
+# D2 (achado do main): real_main() resolve tools/ci/systems.txt a
+# partir de Path(__file__), nunca do cwd - por isso este add_test NAO
+# precisa de WORKING_DIRECTORY (o ctest roda a partir do diretorio de
+# build por padrao, e o script encontra o arquivo real de qualquer jeito).
+add_test(
+    NAME ci_systems_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_systems.py" --check
+)
+set_tests_properties(ci_systems_test PROPERTIES LABELS consume)
+
 add_test(
     NAME test_parity_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_test_parity.py" --selftest
 )
 set_tests_properties(test_parity_selftest PROPERTIES LABELS selftest)
+
+# PARITY-LOCAL-MIRROR I1 (TODO.md W7-C, docs/plano-w7c-adendo-
+# revalidacao.md SS3.I, GODS_LAWS.md L-04/L-20/L-40): o modo --textual
+# roda a METADE de check_test_parity.py que nao depende do inventario
+# `ctest -N` do outro sistema - a forma de cada linha de tests/
+# parity_exceptions.txt e tests/parity_aliases.txt, e o item de cada
+# excecao contra o Status real de TODO.md (validate_exceptions(), a
+# MESMA funcao que --compare chama, reusada aqui sem copiar). Ao
+# contrario de test_parity_selftest acima (so fixture sintetica), este
+# caso roda contra os TRES arquivos REAIS da arvore - e por isso
+# registrado SEM guarda de sistema (GODS_LAWS.md L-04, mesma forma
+# GATE-TREE-PARITY de check_wave_closure_coherence_test/dup_laws_test):
+# roda igual em Linux e em Windows, porque nenhum dos tres arquivos que
+# ele le e especifico de sistema. Nasceu porque a regra "excecao aponta
+# para item concluido reprova" so tinha mordido no servidor ate agora
+# (N2/N3 do adendo) - com este teste, uma excecao esquecida apos o
+# item fechar reprova localmente e no CI de qualquer sistema, nunca so
+# la.
+add_test(
+    NAME parity_textual_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_test_parity.py" --textual
+        "${CMAKE_CURRENT_SOURCE_DIR}/parity_exceptions.txt"
+        "${CMAKE_CURRENT_SOURCE_DIR}/parity_aliases.txt"
+        "${CMAKE_SOURCE_DIR}/TODO.md"
+)
+set_tests_properties(parity_textual_test PROPERTIES LABELS consume)
 
 # LINT-CONTAINER-SMOKES (TODO.md, GODS_LAWS.md L-09/L-40): puts every
 # tests/container/*.cpp fixture INTO this build's compile_commands.json
@@ -4531,6 +4679,7 @@ endif()
 # if(UNIX): same reason as the add_subdirectory() above - the fixtures
 # this gate is about exist only under that guard.
 if(UNIX)
+    # glintfx-build-dir: reads-only - so' le compile_commands.json (snapshot antes/depois: 0 alteracoes, 29/09/2026)
     add_test(
         NAME container_smokes_in_compile_db_test
         COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4628,6 +4777,205 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_kill_order.py" --selftest
 )
 set_tests_properties(container_kill_order_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A2 (GODS_LAWS.md L-04 item 3, L-40): "um passo
+# vermelho nao esconde os passos seguintes do mesmo sistema" - medido
+# ao vivo no run 36036115151, 22 passos pulados atras de um vermelho
+# no job wayland-container. Registrado sem guarda de sistema, mesma
+# forma que container_kill_order_test acima - so' le ci.yml, texto
+# puro, nenhum Docker envolvido.
+add_test(
+    NAME ci_step_independence_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_step_independence.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(ci_step_independence_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ci_step_independence_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_step_independence.py" --selftest
+)
+set_tests_properties(ci_step_independence_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A5 (docs/plano-ci-split-per-os.md 4.8): politica do ctest
+# paralelo (sem --repeat, grau impresso, todo add_test que recebe o build
+# dir declara RESOURCE_LOCK/RUN_SERIAL ou `reads-only`). Leitura de texto
+# pura; registrado sem guarda de sistema (le ci.yml e preci.sh).
+add_test(
+    NAME ctest_parallel_policy_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ctest_parallel_policy.py" --check
+        "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+        "${PROJECT_SOURCE_DIR}/.github/workflows/ci.yml"
+        "${PROJECT_SOURCE_DIR}/tools/preci.sh"
+)
+set_tests_properties(ctest_parallel_policy_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ctest_parallel_policy_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ctest_parallel_policy.py" --selftest
+)
+set_tests_properties(ctest_parallel_policy_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A5 etapa 3: comparador das 6 rodadas de calibracao (P1, P2,
+# regra 4 e P3), autoteste sobre rodadas REAIS de ctest gravadas em
+# tests/tools/fixtures/p1_rounds/. Python puro, sem guarda de sistema.
+add_test(
+    NAME ctest_p1_compare_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ctest_p1_compare.py" --selftest
+)
+set_tests_properties(ctest_p1_compare_selftest PROPERTIES LABELS selftest)
+
+# Fixture que o .gitignore engole (ex.: build-shared/ casa `build-*/`) existe em
+# disco - o preci local, que roda sobre a working tree, passa - mas nao entra no
+# commit, e o CI (sobre o blob) reprova (achado do CTO, 29/09/2026, A5 etapa 3).
+# Le `git ls-files -o -i` sob tests/; util onde o arquivo ignorado existe.
+add_test(
+    NAME ignored_fixtures_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ignored_fixtures.py" "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(ignored_fixtures_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ignored_fixtures_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ignored_fixtures.py" --selftest
+)
+set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
+# INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).
+# CI-SPLIT-PER-OS A5 F1 (DESENHO.md 3.3): helper de FASE nas tres linguagens, mesmo formato byte a byte
+# (tests/tools/fixtures/fase/). fase_py_selftest roda em todo sistema; fase_sh_selftest so' em Unix
+# (bash) e fase_ps1_selftest so' no Windows (pwsh, mais abaixo), gemeos por apelido em tests/parity_aliases.txt.
+add_test(
+    NAME fase_py_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/fase.py" --selftest
+)
+set_tests_properties(fase_py_selftest PROPERTIES LABELS selftest)
+if(UNIX)
+    add_test(
+        NAME fase_sh_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/fase.sh" --selftest
+    )
+    # O codigo de saida e' o veredito (D-W7D-21). FAIL_REGULAR_EXPRESSION e' so' um cinto: a palavra FALHOU que o
+    # selftest imprime na falha reprova o teste mesmo se um dia o rc se perder. NAO usar PASS_REGULAR_EXPRESSION
+    # aqui: com ela o ctest IGNORA o rc (um OK seguido de exit 1 passaria verde, medido pelo CTO). PERDA DECLARADA:
+    # a linha `pulados: <k>` do selftest fica sem conferencia ate a onda INFRA-CI.
+    set_tests_properties(fase_sh_selftest PROPERTIES LABELS selftest
+        FAIL_REGULAR_EXPRESSION "FALHOU")
+endif()
+
+# CI-SPLIT-PER-OS A5 C1a (PLANO-C1.md): tools/contido.sh decide, por funcao pura, se um comando roda
+# herdando o teto do cgroup, embrulhado num escopo novo, sem contencao (CI) ou recusado. So' Unix
+# (cgroup v2 e systemd --user); a excecao de paridade com o Windows esta em tests/parity_exceptions.txt.
+if(UNIX)
+    add_test(
+        NAME contido_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido.sh" --selftest
+    )
+    set_tests_properties(contido_selftest PROPERTIES LABELS selftest)
+    # C1b: a metade que roda DENTRO do escopo; todos os casos do selftest usam o modo herdado (mata por
+    # grupo de processos, nunca escreve cgroup.kill), entao rodam em qualquer cgroup, inclusive o do preci.
+    add_test(
+        NAME contido_dentro_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest
+    )
+    set_tests_properties(contido_dentro_selftest PROPERTIES LABELS selftest)
+endif()
+
+# So' em Unix (D-A27, CI do 352442e): o --blob e' estagio do preci.sh, que e' bash e nunca roda no Windows,
+# e as fixtures `.sh` do selftest exigem um `bash` que o runner Windows nao tem (o `bash` de la e' o stub do
+# WSL). Excecao de paridade permanente em tests/parity_exceptions.txt.
+if(UNIX)
+    # glintfx-armadilha: isento - so' cita virsh em fixtures inofensivas (test:///default) e roda o proprio envoltorio nos controles; escreve na arvore, nao pode rodar so' leitura
+    add_test(
+        NAME blob_selftests_selftest
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/blob_selftests.py" --selftest
+    )
+    set_tests_properties(blob_selftests_selftest PROPERTIES LABELS selftest)
+endif()
+
+add_test(
+    NAME preci_runs_blob_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/blob_selftests.py" --check-preci "${PROJECT_SOURCE_DIR}/tools/preci.sh"
+)
+set_tests_properties(preci_runs_blob_test PROPERTIES LABELS consume)
+
+# CI-SPLIT-PER-OS A4 (D-A4): a trava de reexecucao (tools/ci/rerun_guard.py)
+# roda o autoteste contra respostas REAIS da API do GitHub gravadas em
+# tests/tools/fixtures/rerun_guard/. Python puro, sem guarda de sistema.
+add_test(
+    NAME rerun_guard_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/ci/rerun_guard.py" --selftest
+)
+set_tests_properties(rerun_guard_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS (achado 4 da revisao do CTO, 29/09/2026): o agregado
+# declarados/executados/passaram/falharam dos jobs de ctest e' medido por
+# este script nos dois sistemas (era `executados=$declarados`, uma
+# tautologia). O autoteste inclui o mutante "teste pulado reprova".
+# Registrado sem guarda de sistema: python puro, roda igual no Windows.
+add_test(
+    NAME ctest_aggregate_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ctest_aggregate.py" --selftest
+)
+set_tests_properties(ctest_aggregate_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-split-per-os.md): a matriz
+# do ci.yml tem de bater com tools/ci/systems.txt (fonte unica), e
+# nenhum slug pode ser escrito a mao no passo do job `parity` - mesma
+# forma que os outros portoes de leitura pura do ci.yml.
+add_test(
+    NAME ci_systems_source_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_systems_source.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+        "${CMAKE_SOURCE_DIR}/tools/ci/systems.txt"
+)
+set_tests_properties(ci_systems_source_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ci_systems_source_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_systems_source.py" --selftest
+)
+set_tests_properties(ci_systems_source_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A3b (docs/plano-ci-split-per-os.md secao 4.4): matriz
+# enxuta so' varia nas chaves permitidas, nenhum passo fora do preparo
+# bifurca por sistema, tools/ci/env/*.sh corresponde a systems.txt (so'
+# familia linux - windows nao tem script proprio), e todo alvo linux
+# tem entrada + passo "Piso de ferramentas".
+add_test(
+    NAME ci_system_uniformity_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_system_uniformity.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+        "${CMAKE_SOURCE_DIR}/tools/ci/systems.txt"
+        "${CMAKE_SOURCE_DIR}/tools/ci/env"
+)
+set_tests_properties(ci_system_uniformity_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ci_system_uniformity_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_system_uniformity.py" --selftest
+)
+set_tests_properties(ci_system_uniformity_selftest PROPERTIES LABELS selftest)
 
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
@@ -4779,7 +5127,7 @@ endif()
 # already ACCEPTS a connection - measured live, 06/09/2026 (the first
 # real connection attempt failed with a platform error; later ones
 # passed seconds after, with the process already long visible to
-# pgrep). --selftest proves the fixed loop with two cases (a probe that
+# pgrep). --selftest proves the fixed loop with cases (a probe that
 # never accepts must reprove within budget; a probe that accepts only
 # after a fixed number of tries must be WAITED for, never declared
 # ready early) - both hermetic, no Docker/kwin_wayland involved, same
@@ -4799,6 +5147,23 @@ if(UNIX)
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/run_compositor.sh" --selftest
     )
     set_tests_properties(container_run_compositor_selftest PROPERTIES LABELS selftest)
+endif()
+
+# WL-ACK-SMOKE-BLUNT A3e, passo 2 (achado do team-lead, 24/09/2026):
+# wait_for_ready_marker.sh substitui a sonda externa que .github/
+# workflows/ci.yml's own "Sobe o compositor limpo" usava, sem nenhuma
+# sincronia com a verificacao interna do proprio entrypoint (ver o
+# cabecalho do proprio script). Mesmo idioma hermetico de --selftest
+# que container_run_compositor_selftest acima ja usa (marker_probe()
+# redefinida dentro da subshell, sem Docker nenhum) - GATE-SELFTEST-
+# ORFAO (tests/tools/check_selftest_orphan.py) e' o que evita este
+# script nascer orfao no mesmo commit.
+if(UNIX)
+    add_test(
+        NAME container_wait_for_ready_marker_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/wait_for_ready_marker.sh" --selftest
+    )
+    set_tests_properties(container_wait_for_ready_marker_selftest PROPERTIES LABELS selftest)
 endif()
 
 # WIN-CROSS-STAGE, GATE-WIN32-TEST-LINK selftest orfao (achado do
@@ -4824,6 +5189,7 @@ endif()
 # codigo de produto contra o container MSVC e so faz sentido dentro da
 # rodada completa do espelho (tools/preci.sh, estagio win32-link) ou do
 # job `windows` do CI - nunca em `ctest -N`.
+# glintfx-blob: fora - liga alvos win32 contra o cl.exe/link.exe (so' no Windows/container MSVC)
 add_test(
     NAME win32_test_link_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4892,6 +5258,25 @@ set_tests_properties(check_measured_parity_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# PARITY-LOCAL-MIRROR I2 (TODO.md W7-C, docs/plano-w7c-adendo-
+# revalidacao.md SS3.I, GODS_LAWS.md L-04/L-17/L-20/L-40): o gemeo de
+# parity_textual_test acima, para o portao de MEASURED em vez do
+# portao de ctest. O modo --textual roda so a parte que nao depende de
+# nenhuma colheita MEASURED - a forma de tests/measured_exceptions.txt
+# e o item de cada excecao por chave contra TODO.md real
+# (validate_key_exception_deaths(), reusada sem copiar). Registrado
+# SEM guarda de sistema, mesma forma GATE-TREE-PARITY de
+# parity_textual_test/check_wave_closure_coherence_test: nenhum dos
+# dois arquivos que ele le e especifico de sistema.
+add_test(
+    NAME measured_parity_textual_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_measured_parity.py" --textual
+        "${CMAKE_CURRENT_SOURCE_DIR}/measured_exceptions.txt"
+        "${CMAKE_SOURCE_DIR}/TODO.md"
+)
+set_tests_properties(measured_parity_textual_test PROPERTIES LABELS consume)
+
 # PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
 # verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,
 # EXPORTS-PARITY-WIN, PRECI-WIN, CI-CONSUME) rodavam soltas como passo
@@ -4937,12 +5322,15 @@ if(WIN32)
     # achado (antes vivia EMBUTIDA dentro do dep_zero_test bundlado, e
     # por isso nao tinha gemeo para apontar). Ver tests/parity_
     # aliases.txt.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME dep_zero_binary_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
             "${PROJECT_SOURCE_DIR}/tools/ci/check-dep-zero-win.ps1" -SelfTest
     )
     set_tests_properties(dep_zero_binary_win_selftest PROPERTIES LABELS selftest)
+
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-dep-zero-win.ps1 (nenhuma escrita); nao medido aqui (Windows)
 
     add_test(
         NAME dep_zero_binary_win_test
@@ -4956,12 +5344,15 @@ if(WIN32)
     # selftest (if(UNIX) acima, tools/check_port_privacy.sh) - os dois
     # lados tem tanto o caso real quanto o proprio autoteste do script,
     # sob o mesmo par de nomes logicos; ver tests/parity_aliases.txt.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME port_privacy_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
             "${PROJECT_SOURCE_DIR}/tools/ci/check-port-privacy-win.ps1" -SelfTest
     )
     set_tests_properties(port_privacy_win_selftest PROPERTIES LABELS selftest)
+
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-port-privacy-win.ps1 (nenhuma escrita); nao medido aqui (Windows)
 
     add_test(
         NAME port_privacy_win_test
@@ -4977,12 +5368,15 @@ if(WIN32)
     # --selftest proprio na mesma fatia que fechou este achado
     # (check_exports.sh nunca tinha um, o irmao Windows ja tinha) -
     # ver tests/parity_aliases.txt para os dois pares.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME exports_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
             "${PROJECT_SOURCE_DIR}/tools/ci/check-exports-win.ps1" -SelfTest
     )
     set_tests_properties(exports_win_selftest PROPERTIES LABELS selftest)
+
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-exports-win.ps1 (nenhuma escrita); nao medido aqui (Windows)
 
     add_test(
         NAME exports_win_test
@@ -5009,12 +5403,15 @@ if(WIN32)
     # secao) - ver tests/parity_aliases.txt para o apelido, e
     # tests/parity_exceptions.txt onde a excecao antiga foi removida na
     # mesma fatia.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME no_undef_glintfx_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
             "${PROJECT_SOURCE_DIR}/tools/ci/check-no-undef-glintfx-win.ps1" -SelfTest
     )
     set_tests_properties(no_undef_glintfx_win_selftest PROPERTIES LABELS selftest)
+
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-no-undef-glintfx-win.ps1 (escreve so' objetos sinteticos em GetTempPath); nao medido aqui (Windows)
 
     add_test(
         NAME no_undef_glintfx_win_test
@@ -5026,6 +5423,7 @@ if(WIN32)
 
     # CI-CONSUME (Concluido): par de consume_test (if(UNIX) acima,
     # tools/check_consume.sh) - ver tests/parity_aliases.txt.
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - INFERENCIA por leitura de check-consume.ps1 (`cmake --install $buildDir`, gemeo do consume_test); nao medido aqui
     add_test(
         NAME consume_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5033,10 +5431,11 @@ if(WIN32)
             -BuildDir "${PROJECT_BINARY_DIR}"
             -PackageSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/package"
     )
-    set_tests_properties(consume_win_test PROPERTIES LABELS consume)
+    set_tests_properties(consume_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 
     # CI-CONSUME (Concluido): par de embed_test (if(UNIX) acima,
     # tools/check_embed.sh) - ver tests/parity_aliases.txt.
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (75,24 s serial no Windows, com o TIMEOUT padrao de 120 s, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
     add_test(
         NAME embed_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5044,7 +5443,7 @@ if(WIN32)
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
             -EmbedSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed"
     )
-    set_tests_properties(embed_win_test PROPERTIES LABELS consume)
+    set_tests_properties(embed_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
     # PRECI-WIN (Concluido): par de preci_selftest (if(UNIX) acima) -
     # ver tests/parity_aliases.txt. Custo aceito e declarado: no job
@@ -5055,6 +5454,16 @@ if(WIN32)
     # ci.yml, igual ao preci_selftest do lado Linux ja faz. Perde o
     # "falha rapida antes do build pesado"; ganha a paridade mecanica
     # que esta fatia existe para provar.
+    # CI-SPLIT-PER-OS A5 F1: gemeo Windows de fase_sh_selftest (helper de FASE em PowerShell).
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
+    add_test(
+        NAME fase_ps1_selftest
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/fase.ps1" -SelfTest
+    )
+    set_tests_properties(fase_ps1_selftest PROPERTIES LABELS selftest)
+
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME preci_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5070,13 +5479,16 @@ if(WIN32)
     # o quarto e uma convencao de empacotamento GNU/Linux que nao
     # existe no MSVC, e por isso e ausencia DECLARADA e CONTADA, nunca
     # um teste que some (GODS_LAWS.md L-40).
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (36,25 s serial no Windows, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
     add_test(
         NAME install_includedir_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
             "${PROJECT_SOURCE_DIR}/tools/ci/check-install-includedir-win.ps1"
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
     )
-    set_tests_properties(install_includedir_win_test PROPERTIES LABELS consume)
+    set_tests_properties(install_includedir_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (37,52 s serial no Windows, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 
     add_test(
         NAME no_target_collision_win_test
@@ -5085,7 +5497,9 @@ if(WIN32)
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
             -FixtureSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
     )
-    set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume)
+    set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - INFERENCIA por leitura de check-output-name-win.ps1 (`cmake --install $buildDir`, gemeo do output_name_test); nao medido aqui
 
     add_test(
         NAME output_name_win_test
@@ -5094,7 +5508,7 @@ if(WIN32)
             -BuildDir "${PROJECT_BINARY_DIR}"
             -ConsumerSrcFile "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
     )
-    set_tests_properties(output_name_win_test PROPERTIES LABELS consume)
+    set_tests_properties(output_name_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 
     # Declarado NAO APLICAVEL de proposito (ver o cabecalho do script) -
     # nao recebe argumento nenhum, e nunca reprova nesta maquina.
@@ -5375,10 +5789,26 @@ set_tests_properties(check_format_selftest PROPERTIES SKIP_RETURN_CODE 77)
 if(UNIX)
     add_test(
         NAME win_vm_lab_isolamento_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
     )
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# D-A27 (CI-SPLIT-PER-OS, L-09/L-50, C-1 do CTO): os seis selftests de tools/win-vm-lab rodam
+# SEMPRE por run_com_armadilha.sh: DENTRO de um bwrap (--unshare-all, /var/tmp, /run e /home
+# privados, repositorio so' leitura), com o isolamento provado antes, virsh/virt-install/
+# qemu-system-*/ssh/scp na frente do PATH (registram e saem 97) e reprovacao se o log nao
+# estiver vazio; sem bwrap sai 77 (pulo). Este teste prova que o envoltorio morde; usa so'
+# test:///default, dominio falso e discos de 1 MiB dele mesmo.
+if(UNIX)
+    # glintfx-armadilha: isento - e' o teste DO envoltorio: chama o run_com_armadilha.sh por dentro e so' toca ferramentas de VM em fixtures inofensivas (test:///default, discos de 1 MiB dele)
+    add_test(
+        NAME armadilha_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/armadilha_selftest.sh" --selftest
+    )
+    set_tests_properties(armadilha_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(armadilha_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # WIN-RUNNER-PROPRIO sub-fatia V-1 (GODS_LAWS.md L-35/L-36/L-40/L-45,
@@ -5410,14 +5840,15 @@ endif()
 if(UNIX)
     add_test(
         NAME win_vm_lab_rodar_caminho_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-caminho.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-caminho.sh" --selftest
     )
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
+
     add_test(
         NAME win_vm_lab_rodar_um_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-um.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-um.sh" --selftest
     )
     set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES SKIP_RETURN_CODE 77)
@@ -5429,7 +5860,7 @@ if(UNIX)
     # aqui qemu-img/flock, ver a guarda no topo do proprio script).
     add_test(
         NAME win_vm_lab_sessao_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/sessao.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/sessao.sh" --selftest
     )
     set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES SKIP_RETURN_CODE 77)
@@ -5445,7 +5876,7 @@ if(UNIX)
     # topo do proprio script).
     add_test(
         NAME win_vm_lab_coletar_resultados_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/coletar-resultados.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/coletar-resultados.sh" --selftest
     )
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES SKIP_RETURN_CODE 77)
@@ -5464,7 +5895,7 @@ if(UNIX)
     # qemu-img/flock/sha256sum/cp, ver a guarda no topo do proprio script).
     add_test(
         NAME win_vm_lab_consolidar_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest
     )
     set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES SKIP_RETURN_CODE 77)
@@ -5539,3 +5970,255 @@ add_test(
         "${CMAKE_SOURCE_DIR}/.github/workflows"
 )
 set_tests_properties(check_ci_timeouts_selftest PROPERTIES LABELS selftest)
+
+# LAYERS-ORACLE-REPORT sub-fatia J2 (docs/plano-w7c-adendo-revalidacao.md
+# secao 3.J, achado N9, decisao D-A11, 24/09/2026): nenhum portao Python
+# registrado neste arquivo rodava sem buffer - sob ctest, stdout de
+# Python vira "block-buffered" (documentado em sys.stdout da stdlib),
+# entao a saida de erro (line-buffered) de um portao aparece ANTES da
+# saida normal dele no mesmo log. check_python_unbuffered.py confere que
+# TODO teste registrado (ctest --show-only=json-v1, GODS_LAWS.md L-45)
+# carrega PYTHONUNBUFFERED=1 no ENVIRONMENT - o conserto em si e' o
+# bloco no FIM deste arquivo (depois do ultimo add_test), que aplica a
+# variavel a TODO teste do diretorio via a propriedade TESTS, nao so'
+# aos que "parecem" chamar Python (ver o cabecalho do script para o
+# mutante que isso mata).
+# glintfx-build-dir: reads-only - so' roda `ctest --show-only=json-v1` sobre o build dir (snapshot antes/depois: 0 alteracoes, 29/09/2026)
+add_test(
+    NAME python_unbuffered_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_python_unbuffered.py"
+        --compare "${CMAKE_BINARY_DIR}"
+)
+set_tests_properties(python_unbuffered_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME python_unbuffered_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_python_unbuffered.py"
+        --selftest
+)
+set_tests_properties(python_unbuffered_selftest PROPERTIES LABELS selftest)
+
+# CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
+# sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
+# por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de
+# comentario CMake que existiam antes desta fatia (check_selftest_
+# orphan.py, check_win32_test_link.py, check_facade_export_boundary.py
+# - E1b/E1c). Hermetico (sem docker/toolchain externa), mesmo idioma
+# de collect_measured_selftest logo acima neste arquivo: so' o
+# --selftest e' registrado, nunca chamado com --check em lugar
+# nenhum ainda (a leitura real, tests/CMakeLists.txt, e' exercida
+# pelos tres leitores que o consomem, cada um com o proprio ctest).
+add_test(
+    NAME cmake_lexer_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake_lexer.py" --selftest
+)
+set_tests_properties(cmake_lexer_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# CLAIM-CITATIONS sub-fatia E1: inventario fechado de nomes de teste
+# (add_test(NAME ...)/glintfx_add_test() de tests/CMakeLists.txt via
+# cmake_lexer, fixturas do container, casos GLINTFX_TEST do harness
+# proprio) - fundacao que E3 (abaixo) consome para validar toda
+# citacao "Proved by: <nome>" em cabecalho publico. Renomeado de
+# claim_citations_selftest para test_name_inventory_selftest em E3
+# (24/09/2026) - a mesma convencao um-script-um-selftest que cmake_
+# lexer_selftest/citation_grammar_selftest/docs_count_vocab_selftest
+# ja seguem neste arquivo; o nome "claim_citations_selftest" passa a
+# pertencer ao proprio check_claim_citations.py, logo abaixo.
+add_test(
+    NAME test_name_inventory_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_name_inventory.py" --selftest
+)
+set_tests_properties(test_name_inventory_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# CLAIM-CITATIONS sub-fatia E3 (docs/plano-w7c.md sec. 3.E; docs/plano-
+# w7c-adendo-revalidacao.md sec. 3.E): o portao real. claim_citations_
+# test varre include/**/*.hpp atras do vocabulario fechado de D15
+# (igualdade entre sistemas / medicao) e reprova qualquer alegacao sem
+# uma das tres formas de citacao (teste citado, static_assert nomeado,
+# "by construction") nem excecao valida em tests/claim_exceptions.txt -
+# GODS_LAWS.md L-40 (piso de varredura nao-vazia) aplicado tambem ao
+# proprio arquivo de excecoes (regra de morte identica a check_test_
+# parity.py's own alias hygiene, C3).
+add_test(
+    NAME claim_citations_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claim_citations.py"
+        --check "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(claim_citations_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME claim_citations_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claim_citations.py" --selftest
+)
+set_tests_properties(claim_citations_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# DOCS-COUNT-VOCAB sub-fatia D1b (achado do main, 24/09/2026,
+# check_selftest_orphan_test #223): citation_grammar.py declara
+# --selftest no proprio analisador desde a D1, mas nenhum add_test()
+# o citava - o portao de orfaos (GATE-SELFTEST-ORFAO) pegou certo.
+# Registrado aqui, sem guarda de sistema (L-04) e sem excecao em
+# selftest_orphan_exceptions.txt - o registro e' o conserto, nao uma
+# excecao a documentar.
+add_test(
+    NAME citation_grammar_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/citation_grammar.py" --selftest
+)
+set_tests_properties(citation_grammar_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# DOCS-COUNT-VOCAB sub-fatias D1/D2/D2b (docs/plano-w7c.md sec. 3.D,
+# decisoes D11-D14; docs/plano-w7c-adendo-revalidacao.md sec. 3.D,
+# decisao D-A9): vocabulario fechado de forma de contagem, universo
+# importado de check_dash_pubdoc.py (nunca copiado), regra da data
+# (D2b) e citacao de medicao datada (D1, citation_grammar.py) como
+# isencao. Registrado UNGUARDED (le texto, nao constroi nada - GODS_
+# LAWS.md L-04), mesma forma de dash_pubdoc_test logo acima.
+add_test(
+    NAME docs_count_vocab_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_docs_count_vocab.py"
+        --check "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(docs_count_vocab_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME docs_count_vocab_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_docs_count_vocab.py" --selftest
+)
+set_tests_properties(docs_count_vocab_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# PLAN-SCOPE-COLUMNS sub-fatia F4 (docs/plano-w7c.md sec. 3.F, "Nasce
+# / muda": tests/CMakeLists.txt (plan_scope_diff_test com rotulo
+# consume, e o _selftest)). check_plan_scope_diff.py existia desde
+# 06/09/2026 sem NENHUM add_test() o citando (GATE-SELFTEST-ORFAO
+# achou o orfao no dia em que nasceu, 10/09/2026 - exceção reservada em
+# tests/tools/selftest_orphan_exceptions.txt, apagada neste mesmo
+# commit). plan_scope_diff_test roda o modo --audit (F0): varre TODO
+# docs/plano-*.md contra o esquema v1 e tests/plan_scope_legacy.txt,
+# nunca uma linha so - o modo --compare (fechamento de UMA fatia
+# especifica) continua sendo ferramenta manual, exercida pelo proprio
+# --selftest (28 controles, a maioria via real_main()) e por quem fecha
+# uma fatia, nao um ctest automatico contra um marcador fixo. Registrado
+# UNGUARDED (le texto e git, nao constroi nada - GODS_LAWS.md L-04),
+# mesma forma de docs_count_vocab_test/claim_citations_test acima.
+add_test(
+    NAME plan_scope_diff_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_plan_scope_diff.py"
+        --audit --root "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(plan_scope_diff_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME plan_scope_diff_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_plan_scope_diff.py" --selftest
+)
+set_tests_properties(plan_scope_diff_selftest PROPERTIES
+    LABELS selftest
+    # --selftest e' parameterless por convencao (mesma forma dos outros
+    # _selftest deste arquivo) e varios controles seus chamam real_main()
+    # SEM --root explicito, contando com os defaults fixos de F3
+    # (tests/parity_absences.txt, TODO.md) resolvidos contra o CWD do
+    # processo. O WORKING_DIRECTORY do CTest e' o diretorio de BUILD,
+    # nunca a arvore fonte (achado ao registrar isto de verdade, F4) -
+    # sem fixar aqui, os defaults nunca resolvem sob ctest, so' quando
+    # chamado a mao da raiz do repositorio.
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# WL-ACK-SMOKE-BLUNT, sub-fatias A1+A2 (docs/plano-w7c.md SS3.A,
+# docs/plano-w7c-adendo-revalidacao.md SS3.A) - wire_relay_selftest
+# proves the relay's transport+decoder atoms in transparent mode (A1)
+# and the rule engine R1/R2 + error injector atoms (A2), tests/
+# container/wire_relay/*.cpp (GODS_LAWS.md L-17: um arquivo por
+# atomo). Unlike every OTHER *.cpp under tests/container/, these do
+# NOT enter the compile-only glintfx_container_smokes OBJECT library
+# (tests/container/CMakeLists.txt) - that second listing is WL-ACK-
+# SMOKE-BLUNT's sub-fatia A0, explicitly out of scope for A1/A2 (docs/
+# plano-w7c-adendo-revalidacao.md SS3.A table). This target instead
+# runs DIRECTLY on the host, the same way every other *_selftest in
+# THIS file already does: GODS_LAWS.md L-09's own socketpair-only
+# exception (see wire_relay_selftest.cpp's own header comment) - no
+# compositor, no container, no wayland-0, no XDG_RUNTIME_DIR; the
+# autoteste uses only socketpair() and a fake upstream this process
+# writes itself.
+#
+# if(UNIX): socketpair()/sendmsg()/recvmsg()/SCM_RIGHTS are POSIX -
+# WL-ACK-SMOKE-BLUNT is Wayland-only by this project's own L-05 (no
+# X11, no Windows Wayland), so this target simply does not exist on
+# Windows (parity exception SEM-PENDENCIA, tests/parity_exceptions.txt).
+if(UNIX)
+    add_executable(wire_relay_selftest
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_decoder.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_object_table.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_rule_engine.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_error_injector.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_transport.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_pipeline.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_message.cpp"
+        # A3c (docs/plano-w7c.md SS3.A): o motor de multiplexacao
+        # multi-cliente que wire_relay_a3c_selftest.cpp exercita - nao
+        # e um atomo socketpair-puro como os sete acima (accept()/
+        # connect() de verdade sobre soquetes AF_UNIX de teste, ver o
+        # cabecalho daquele arquivo), mas continua fora do container
+        # (L-09 permite, mesma excecao "soquete AF_UNIX de teste,
+        # nunca wayland-0" que o resto deste alvo ja usa).
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_connection_set.cpp"
+        # GODS_LAWS.md L-17/L-34 applied to the TEST too (team-lead's
+        # A2 review, 24/09/2026): one selftest source per sub-fatia,
+        # sharing wire_test_encoders.hpp's inline glue instead of one
+        # 557-line file - both compile into this SAME executable
+        # (GLINTFX_TEST's self-registration collects cases from every
+        # TU linked in, ctest still sees one "wire_relay_selftest").
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a1_selftest.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a2_selftest.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a3c_selftest.cpp"
+    )
+    target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
+    glintfx_apply_compile_options(wire_relay_selftest)
+    # glintfx-blob: fora - binario C++ (nao e' script --selftest); roda no estagio de build/ctest
+    add_test(NAME wire_relay_selftest COMMAND wire_relay_selftest)
+    # Both labels, on purpose (team-lead's finding, 24/09/2026): this
+    # is a compiled C++ binary doing real low-level I/O (socketpair,
+    # recvmsg/sendmsg/SCM_RIGHTS, raw memcpy) - exactly what stage_
+    # sanitizer's `ctest -L '^unit$'` filter (tools/preci.sh) exists to
+    # exercise under ASan/UBSan, unlike every OTHER *_selftest in this
+    # file (Python/shell gate self-tests, LABELS selftest only - see
+    # this same commit's own sweep in TODO.md/the report for which of
+    # those also do real memory/IO work). Without "unit" here, the
+    # sanitizer stage never ran this binary at all - proven absent
+    # (ctest -N -L '^unit$' on build-preci-sanitize) before this line,
+    # present after.
+    set_tests_properties(wire_relay_selftest PROPERTIES LABELS "selftest;unit")
+endif()
+
+# FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a
+# propriedade de DIRETORIO "TESTS" e' a lista, mantida pelo proprio
+# CMake, de todo nome passado a add_test() neste diretorio ate aqui -
+# por isso este bloco tem de ficar DEPOIS do ultimo add_test() do
+# arquivo, nunca antes, senao testes adicionados depois dele ficariam
+# de fora. APPEND (nunca set direto) preserva qualquer ENVIRONMENT que
+# um teste especifico ja tenha declarado antes (ex.: GLINTFX_LAYERS_
+# ORACLE em layers_oracle_test).
+get_property(_glintfx_every_registered_test DIRECTORY PROPERTY TESTS)
+foreach(_glintfx_test_name IN LISTS _glintfx_every_registered_test)
+    set_property(TEST "${_glintfx_test_name}" APPEND PROPERTY ENVIRONMENT "PYTHONUNBUFFERED=1")
+endforeach()

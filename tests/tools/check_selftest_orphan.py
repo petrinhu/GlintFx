@@ -121,6 +121,8 @@ import re
 import subprocess
 import sys
 
+import cmake_lexer
+
 SCRIPT_NAME = "check_selftest_orphan.py"
 
 _CANDIDATE_SUFFIXES = (".py", ".sh", ".ps1")
@@ -232,20 +234,31 @@ def discover_declared_tools(file_texts):
 
 
 def extract_add_test_blocks(cmake_text):
+    """CLAIM-CITATIONS sub-fatia E1b (docs/plano-w7c-adendo-revalidacao.
+    md sec. 3.E, decisao D-A8): comentario removido primeiro, via
+    cmake_lexer.strip_comments() (E0), antes de procurar "add_test(" -
+    o defeito que isto fecha era VERDE FALSO: uma ferramenta orfa
+    passava por "registrada" porque o texto "add_test(...)" da
+    registracao morava dentro de um comentario de bloco (#[[ ... ]]),
+    e o scanner antigo (paren-balanceado sobre o texto CRU, sem
+    nenhuma nocao de comentario) achava o bloco do mesmo jeito.
+    A contagem de profundidade de parenteses continua respeitando
+    aspas (uma string pode ter "(" sem fechar) - isso nunca mudou."""
+    stripped_text = cmake_lexer.strip_comments(cmake_text)
     blocks = []
     marker = "add_test("
     idx = 0
     while True:
-        pos = cmake_text.find(marker, idx)
+        pos = stripped_text.find(marker, idx)
         if pos == -1:
             break
         start = pos + len(marker)
         depth = 1
         i = start
         in_string = False
-        while i < len(cmake_text) and depth > 0:
-            ch = cmake_text[i]
-            if ch == '"' and (i == 0 or cmake_text[i - 1] != "\\"):
+        while i < len(stripped_text) and depth > 0:
+            ch = stripped_text[i]
+            if ch == '"' and (i == 0 or stripped_text[i - 1] != "\\"):
                 in_string = not in_string
             elif not in_string:
                 if ch == "(":
@@ -253,7 +266,7 @@ def extract_add_test_blocks(cmake_text):
                 elif ch == ")":
                     depth -= 1
             i += 1
-        blocks.append(cmake_text[start : i - 1])
+        blocks.append(stripped_text[start : i - 1])
         idx = i
     return blocks
 
@@ -682,6 +695,50 @@ def selftest_nested_parens_in_add_test_handled():
     return True
 
 
+# CLAIM-CITATIONS sub-fatia E1b (docs/plano-w7c-adendo-revalidacao.md
+# sec. 3.E): o VERDE FALSO real que extract_add_test_blocks() consumir
+# cmake_lexer.strip_comments() (E0) fecha. ANTES da E1b, este controle
+# passava (a ferramenta parecia registrada porque o texto "add_test(
+# NAME comentado_test ...)" morava dentro de um comentario de bloco
+# #[[ ]], e o scanner antigo nao pulava comentario nenhum) - e' o
+# proprio verde falso que a tabela da secao 3.E do adendo descreve.
+# DEPOIS, tem de reprovar como orfao (a citacao de registro dentro do
+# comentario nao conta mais).
+def selftest_registration_inside_bracket_comment_still_orphan():
+    cmake_text = (
+        "#[[\n"
+        "add_test(\n"
+        "    NAME comentado_selftest\n"
+        "    COMMAND \"${CMAKE_CURRENT_SOURCE_DIR}/tools/comentado.py\" --selftest\n"
+        ")\n"
+        "]]\n"
+        "add_test(\n"
+        "    NAME outro_selftest\n"
+        "    COMMAND \"${CMAKE_CURRENT_SOURCE_DIR}/tools/outro.py\" --selftest\n"
+        ")\n"
+    )
+    declared = discover_declared_tools(
+        {
+            "tools/comentado.py": _PY_DISPATCH_BODY,
+            "tools/outro.py": _PY_DISPATCH_BODY,
+        }
+    )
+    orphans = find_orphans(declared, cmake_text)
+    orphan_paths = [p for p, _flag in orphans]
+    if orphan_paths != ["tools/comentado.py"]:
+        print(
+            f"selftest: REGISTRO-DENTRO-DE-COMENTARIO FALHOU (esperava so' tools/comentado.py orfao, "
+            f"registro dentro de #[[ ]] nao pode contar): {orphans}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: REGISTRO-DENTRO-DE-COMENTARIO OK (add_test dentro de #[[ ]] nao registra mais - "
+        f"orfao pego e nomeado): {orphans}"
+    )
+    return True
+
+
 # MEDIDO, NUNCA SUPOSTO: roda o discover_declared_tools() de verdade
 # (mesmo caminho de codigo do real_main) contra o working tree real
 # deste repositorio, e verifica que zero arquivo fora de tests/tools/,
@@ -805,6 +862,7 @@ def selftest_main():
         selftest_empty_file_map_yields_zero_declared(),
         selftest_non_candidate_extension_ignored(),
         selftest_nested_parens_in_add_test_handled(),
+        selftest_registration_inside_bracket_comment_still_orphan(),
         selftest_measured_false_positive_count_on_real_tree(),
         selftest_exception_applied_removes_from_remaining(),
         selftest_stale_exception_reproves(),

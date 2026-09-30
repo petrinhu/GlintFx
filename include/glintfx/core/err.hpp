@@ -100,8 +100,10 @@
 // and the SAME undefined behavior this code already had before this
 // guard still happens, completely unchanged: this guard adds
 // diagnosability in debug, never changes the release contract.
-// tests/tools/check_rslt_precondition.sh proves both halves live -
-// see that script's own header. docs/api-conventions.md documents
+// Proved by `rslt_precondition_test` (tests/tools/
+// check_rslt_precondition.py, the file was renamed away from a
+// POSIX-sh script - see that script's own header): both halves live.
+// docs/api-conventions.md documents
 // this for the external, unknown consumer base (LEI ZERO): they need
 // to read, in prose, that this is a precondition violation and what
 // each build mode does about it, before their own program crashes and
@@ -194,10 +196,11 @@ struct err_context;
 class gltfx_err {
   public:
     // Trivial: sets the code, leaves the context null. Inline, and
-    // NEVER allocates - proven, not promised, by
-    // tests/err_no_alloc_test.cpp (CE-2): that executable replaces
-    // the global allocator and COUNTS calls across construct, copy,
-    // move and destroy of a context-less gltfx_err.
+    // NEVER allocates - proved by `err_no_alloc_test`
+    // (tests/err_no_alloc_test.cpp, CE-2), not merely promised: that
+    // executable replaces the global allocator and COUNTS calls
+    // across construct, copy, move and destroy of a context-less
+    // gltfx_err.
     explicit gltfx_err(gltfx_err_code code) noexcept : m_code(code) {}
 
     // Shared, copy-on-write (ESCOPO.md Decisao 17, TODO.md
@@ -303,7 +306,9 @@ class gltfx_err {
 // m_context (one pointer) always rounds up to exactly that, because
 // nothing else lives in this class; nothing added later (CE-3 and
 // beyond) is allowed to move this number, only what m_context points
-// AT may grow.
+// AT may grow - the static_assert right below is what actually
+// enforces the exact byte count on every build, on every platform,
+// never just this prose.
 static_assert(sizeof(gltfx_err) == 2 * sizeof(void *),
               "gltfx_err footprint is frozen ABI, GODS_LAWS.md L-19/L-26 (CORE-ERROR CE-2)");
 
@@ -316,11 +321,12 @@ static_assert(std::is_nothrow_move_assignable_v<gltfx_err>,
               "gltfx_err move assignment must stay noexcept, CORE-ERROR CE-2");
 
 // ESCOPO.md Decisao 17 (TODO.md ERR-COPY-FIX): copy is now shared,
-// copy-on-write, and PROVEN noexcept and allocation-free by this type
-// trait, not just promised in prose - a compiler-checked gate on
-// every one of this project's five targets, at every build, strictly
-// stronger than any text-based scanner (tests/tools/
-// check_noexcept_alloc.py's own header names this exact tradeoff).
+// copy-on-write, and PROVEN noexcept and allocation-free by the two
+// static_assert(s) right below, not just promised in prose - a
+// compiler-checked gate on every one of this project's five targets,
+// at every build, strictly stronger than any text-based scanner
+// (tests/tools/check_noexcept_alloc.py's own header names this exact
+// tradeoff).
 // This is a ONE-WAY DOOR (plano da onda W-ERRCOPY secao 5.1): once a
 // consumer compiles against this guarantee, it cannot be walked back
 // without breaking them.
@@ -420,8 +426,9 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
 // mechanism gltfx_rslt<T>'s own value()/err() already use, which
 // faults structurally (page zero unmapped) on every one of this
 // project's five target platforms, independent of any library's own
-// hardening flags. tests/tools/check_rslt_precondition.sh's
-// assert_release_void_faults_via_null_dereference() proves this live -
+// hardening flags. Proved live by `rslt_precondition_test`'s own
+// assert_release_void_faults_via_null_dereference()
+// (tests/tools/check_rslt_precondition.py) -
 // it reproved the OLD behavior first (SIGABRT via libstdc++'s own
 // check on THIS toolchain, not the SIGSEGV this new form gives) before
 // this change made it pass. THE STRUCTURE TRAVELS WITH THE CODE; THE
@@ -441,8 +448,9 @@ template <> class [[nodiscard]] gltfx_rslt<void> {
     [[nodiscard]] bool has_error() const noexcept { return m_storage.index() == 1; }
 
     // Precondition: has_error(). UB otherwise if the assert below is
-    // compiled out (NDEBUG/Release) - see the storage comment above
-    // for exactly what shape that UB takes now, measured, not assumed.
+    // compiled out (NDEBUG/Release) - see the storage comment above,
+    // proved by `rslt_precondition_test`, for exactly what shape that
+    // UB takes now, not assumed.
     [[nodiscard]] const gltfx_err &err() const noexcept {
         assert(has_error() &&
                "gltfx_rslt<void>::err() called on a result that holds success (ok()), not an "

@@ -202,7 +202,12 @@ class gltfx_gl_context {
     GLINTFX_API gltfx_gl_context &operator=(gltfx_gl_context &&other) noexcept;
 
     // Closes on scope exit - RAII, the same contract every other
-    // handle in this library already gives.
+    // handle in this library already gives. Closing is never refused:
+    // after make_current()/swap_buffers() below start refusing because
+    // the connection failed, the destructor still runs its release path
+    // and returns normally. Proved by: `egl_protocol_error_smoke` (closes
+    // after the refusal and exits cleanly, plain and AddressSanitizer
+    // runs, on the Wayland adapter this destructor reaches unchanged).
     GLINTFX_API ~gltfx_gl_context();
 
     [[nodiscard]] GLINTFX_API bool is_open() const noexcept;
@@ -213,6 +218,22 @@ class gltfx_gl_context {
     // than one thread over the same context's lifetime gets whatever
     // the underlying driver does, undocumented until a later fatia
     // names it.
+    //
+    // Once the connection this context uses has failed (reachable only on
+    // the Wayland backend: Win32 has no such connection, so this has no
+    // Windows counterpart), this call returns `platform_failure` and keeps
+    // returning it. `os_error_code()` carries the system error. When the
+    // failure was a protocol error the compositor raised, `rejected_value()`
+    // names the rejected protocol interface - an identifier such as
+    // `wl_surface`, never a sentence (docs/api-conventions.md R7);
+    // otherwise (the connection simply closed) it reads back empty (R4).
+    // Proved by: `egl_protocol_error_smoke` (protocol error: one call right
+    // after it, same interface the provocation established, and kept
+    // identical - same `code()`, `rejected_value()`, `os_error_code()` -
+    // across ten more calls after that first refusal) and
+    // `connection_failure_test` (closed connection: empty `rejected_value()`,
+    // `os_error_code()` == EPIPE); the Wayland adapter this method forwards
+    // to returns that atom's error unchanged.
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> make_current() noexcept;
 
     // Presents the current frame - see this header's own top comment,
@@ -220,6 +241,13 @@ class gltfx_gl_context {
     // blocks indefinitely: a window this library cannot currently
     // repaint degrades to `skipped_hidden` within a bounded budget,
     // never a hang.
+    //
+    // The same refusal make_current() above documents applies here, and
+    // this call never reaches the driver's own present once it applies.
+    // Proved by: `egl_protocol_error_smoke` (the driver present counter
+    // stays unchanged) and `egl_error_read_inside_swap_smoke` (the refusal
+    // stays identical - same `code()`, same `rejected_value()` - on every
+    // later call, sampled ten deep with vsync off, no crash).
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_present_outcome> swap_buffers() noexcept;
 
     // Resolves a GL function's address by name - an ordinary lookup,

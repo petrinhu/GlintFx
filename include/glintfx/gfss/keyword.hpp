@@ -38,9 +38,9 @@
 // "o identificador em codigo de um valor da folha e a propria palavra
 // em snake_case ... quando a palavra e reservada em C++ (ou e token
 // alternativo), o identificador leva o sufixo `_keyword`". The GENERAL
-// rule this file's own sibling test (gfss_property_registry_test.cpp,
-// case keyword_reserved_word_suffix_rule_is_general_not_a_hardcoded_
-// pair_of_two) enumerates the FULL closed C++23 reserved-word list
+// rule - see `gfss_property_registry_test`'s own case
+// keyword_reserved_word_suffix_rule_is_general_not_a_hardcoded_
+// pair_of_two - enumerates the FULL closed C++23 reserved-word list
 // (keywords AND alternative tokens - "and"/"or"/"not"/"xor"/"bitand"/
 // "bitor"/"compl"/"and_eq"/"or_eq"/"xor_eq"/"not_eq") against every
 // enumerator below - the two members actually needing the suffix

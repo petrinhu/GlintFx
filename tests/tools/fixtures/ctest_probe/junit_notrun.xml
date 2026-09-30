@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later (saida REAL de ctest com output-junit, cmake 4.3.0, 29/09/2026) -->
+<testsuite name="(empty)"
+	tests="9"
+	failures="2"
+	disabled="1"
+	skipped="5"
+	hostname=""
+	time="1"
+	timestamp="2026-09-29T01:49:58"
+	>
+	<testcase name="passa" classname="passa" time="0.00176883" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="pula77" classname="pula77" time="0.00180364" status="notrun">
+		<skipped message="SKIP_RETURN_CODE=77"/>
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="desligado" classname="desligado" time="0" status="disabled">
+		<properties/>
+		<system-out>Disabled</system-out>
+	</testcase>
+	<testcase name="sem_exe" classname="sem_exe" time="0" status="notrun">
+		<skipped message="Unable to find executable"/>
+		<properties/>
+		<system-out>Unable to find executable: /nao-existe-glintfx-xyz</system-out>
+	</testcase>
+	<testcase name="arq_faltando" classname="arq_faltando" time="0" status="notrun">
+		<skipped message="Required Files Missing"/>
+		<properties/>
+		<system-out>Unable to find required file: /nao-existe-glintfx-arq</system-out>
+	</testcase>
+	<testcase name="setup_falha" classname="setup_falha" time="0.00162078" status="fail">
+		<failure message="Failed"/>
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="depende" classname="depende" time="0" status="notrun">
+		<skipped message="Fixture dependency failed"/>
+		<properties/>
+		<system-out>Failed test dependencies: setup_falha</system-out>
+	</testcase>
+	<testcase name="estoura" classname="estoura" time="1.00652" status="fail">
+		<failure message="Timeout"/>
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="regex_pula" classname="regex_pula" time="0.00203581" status="notrun">
+		<skipped message="SKIP_REGULAR_EXPRESSION_MATCHED"/>
+		<properties/>
+		<system-out>PULAR
+</system-out>
+	</testcase>
+</testsuite>

@@ -18,5 +18,3 @@
 # `item` e' um ID ABERTO em TODO.md (nunca "SEM-PENDENCIA" aqui: uma
 # ferramenta orfa sem dono e' exatamente o defeito que este portao
 # existe para reprovar, nao para desculpar).
-
-tests/tools/check_plan_scope_diff.py|GATE-SELFTEST-ORFAO achou este orfao no dia em que nasceu (10/09/2026), mas registra-lo aqui duplicaria/preempeteria o item PLAN-SCOPE-COLUMNS, que ja possui este mesmo script no proprio escopo declarado ("Escopo inclui registra-lo no ctest, rotulo consume") - dono e onda proprios (W7-C), ainda pendente.|PLAN-SCOPE-COLUMNS

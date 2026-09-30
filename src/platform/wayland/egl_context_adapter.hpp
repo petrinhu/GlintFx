@@ -39,6 +39,7 @@
 struct wl_surface;
 struct wl_egl_window;
 struct wl_callback;
+struct wl_display;
 
 namespace glintfx::platform {
 
@@ -217,6 +218,18 @@ class wayland_egl_context_adapter {
     // reason), not a crash and not silently assumed away.
     [[nodiscard]] bool swap_interval_honored() const noexcept { return m_swap_interval_honored; }
 
+    // EGL-DEAD-DISPLAY-GUARD S2 (docs/plano-egl-dead-display-guard.md
+    // sec. 3): mesma semântica do gêmeo Win32 (wgl_context_adapter.hpp,
+    // "how many times this adapter's own swap_buffers() actually
+    // called ::SwapBuffers()" - incrementado só quando a chamada
+    // nativa TERMINOU em sucesso, nunca por tentativa) - "internal,
+    // never installed" visibility, TEST-ONLY, mesma categoria de
+    // pending_frame_callback()/swap_interval_honored() acima. Nunca
+    // conta uma troca que a guarda de S1 recusou, mesmo que
+    // eglSwapBuffers() tenha devolvido EGL_TRUE (o próprio defeito que
+    // esta guarda existe para fechar, plano sec. 1.1).
+    [[nodiscard]] std::uint32_t swap_calls_issued() const noexcept { return m_swap_calls_issued; }
+
     // TEST-ONLY, "internal, never installed" visibility - same shape as
     // pending_frame_callback()/swap_interval_honored() above (added
     // ONLY so a fixture can read this back; nothing inside this class
@@ -258,6 +271,20 @@ class wayland_egl_context_adapter {
     void attach_frame_listener() noexcept;
     void resize_surface_if_due() noexcept;
 
+    // EGL-DEAD-DISPLAY-GUARD S2 (docs/plano-egl-dead-display-guard.md
+    // sec. 3, D-S2): o átomo único que os dois ramos de swap_buffers()
+    // (vsync=on e vsync=off) chamavam duplicado antes desta fatia -
+    // eglSwapBuffers(), a checagem POSTERIOR via connection_failure_
+    // if_dead() (S1) SEJA QUAL FOR o retorno do EGL (nunca só quando
+    // ele falha - o defeito que esta fatia fecha, plano sec. 1.1:
+    // llvmpipe/swrast devolve EGL_TRUE incondicionalmente mesmo sobre
+    // conexão já morta), o contador de trocas bem-sucedidas, o
+    // reenganche do wl_surface.frame e o armar de m_frame_sequence.
+    // `display` é sempre o mesmo wl_proxy_get_display(m_surface) que
+    // swap_buffers() já resolve uma vez no topo.
+    [[nodiscard]] gltfx_rslt<gltfx_present_outcome>
+    present_through_egl(wl_display *display) noexcept;
+
     // D-W6b-6's own number, now a member instead of a swap_buffers()
     // local (LOOP-RUN fatia 7): present_would_skip() above and swap_
     // buffers() below both consult m_frame_sequence against this SAME
@@ -294,6 +321,10 @@ class wayland_egl_context_adapter {
     // own eglSwapInterval(m_egl_display, 0) call - see swap_interval_
     // honored()'s own header comment above for what false means.
     bool m_swap_interval_honored = false;
+    // EGL-DEAD-DISPLAY-GUARD S2: written only by present_through_egl(),
+    // only on the path that answers `presented` - see swap_calls_
+    // issued()'s own header comment above.
+    std::uint32_t m_swap_calls_issued = 0;
 };
 
 } // namespace glintfx::platform

@@ -68,7 +68,7 @@ struct display_impl;
 // own "D-W5-10" comment).
 //
 // WHY A FRIEND STRUCT, NOT A METHOD ON gltfx_display (this fatia's own
-// correction of an earlier, wrong attempt at the identical goal): a
+// correction of an earlier, wrong attempt at the same goal): a
 // public method on gltfx_display grows THAT class's own frozen surface
 // - a promise the 1.0 review would have to honor or explicitly remove.
 // This struct sits OUTSIDE gltfx_display entirely; the class's own

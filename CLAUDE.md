@@ -23,14 +23,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | procurar prior art, base de código ou "como era antes" | L-01 projeto do zero |
 | ⚖ | desenhar API, escopo ou entregável | L-02 é biblioteca, não aplicação |
 | ⚖ | criar build, escolher padrão de linguagem | L-03 C++23 + CMake |
-| ⚖ | escrever CI, declarar suporte de plataforma, **fechar qualquer fatia, ou escrever ramo condicional por sistema** | L-04 cinco alvos, CachyOS próprio; **comportamento igual em todo sistema, provado em cada um** |
+| ⚖ | escrever CI, declarar suporte de plataforma, **fechar qualquer fatia, ou escrever ramo condicional por sistema** | L-04 alvos suportados (cinco originais mais as distros do astrometrica), CachyOS próprio; **comportamento igual em todo sistema, provado em cada um** |
 | ⚖ | tocar janela, input, display, ou copiar exemplo de internet | L-05 Wayland puro, sem X11 |
 | ⚖ | implementar teclado, keymap ou texto digitado | L-06 parser XKB próprio |
 | ⚖ | adicionar dependência, `FetchContent`, vendorizar | L-07 dependência zero |
 | ⚖ | criar repo, `LICENSE`, cabeçalho, publicar qualquer coisa | L-08 público, AGPL-3.0 |
 | ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 container, nunca a sessão viva |
 | ⚖ | escolher entre abordagens, decidir design ou arquitetura | L-10 opções via AskUserQuestion |
-| ⚖ | `git push`, merge em `main`, criar tag, publicar release | L-11 push por onda; ao fim de onda com tudo verde, merge e marca sem perguntar, número pela L-26 |
+| ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto | L-11 push por onda; ao fim de onda com tudo verde, merge e marca sem perguntar, número pela L-26; ramo da onda apagado ao mesclar |
 | ⚖ | escrever ou revisar código de produto | L-12 agente especialista, papéis distintos |
 | ⚖ | escrever qualquer mensagem ao líder | L-13 timestamp real |
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
@@ -111,15 +111,15 @@ Estas foram tomadas explicitamente via AskUserQuestion e são o ponto de partida
 | Natureza | Biblioteca/framework reutilizável (não aplicação final) |
 | Domínio | Framework 2D completo (janela, loop, render2d, input, gamepad, áudio, fonte, asset, math2d) |
 | Linguagem e build | **C++23 + CMake** |
-| Plataformas | **Fedora 44 (primário)**, Ubuntu, CachyOS, Arch, Windows. No Linux, **apenas Wayland** |
+| Plataformas | **Fedora 44 (primário)**, Ubuntu, CachyOS, Arch, Windows, **mais as distros que o projeto astrometrica varre, com suporte pleno (ampliação do líder, 24/09/2026: lista e regras na L-04 e em `ESCOPO.md` §1)**. No Linux, **apenas Wayland** |
 | Dependências | **Zero além da stdlib e da API do SO** |
 | Licença e visibilidade | **Público no GitHub, AGPL-3.0** |
 
 ### Plataformas: Fedora é o alvo primário; CachyOS é alvo próprio
 
-**Fedora é o alvo primário**, por ser o sistema que o líder usa (ordem dele, 21/08/2026). **A partir de 27/08/2026, a imagem do CI é `fedora:latest`** (o pino antigo em `fedora:44` foi solto por ordem dele - texto completo e verbatim em `ESCOPO.md` §1, não repetido aqui para não apodrecer): o alvo primário continua tendo de falhar quando a máquina dele falharia, e a troca para `:latest` é o que garante isso sem exigir alguém subindo o número à mão a cada atualização dele. Os outros quatro alvos são de portabilidade.
+**Fedora é o alvo primário**, por ser o sistema que o líder usa (ordem dele, 21/08/2026). **A partir de 27/08/2026, a imagem do CI é `fedora:latest`** (o pino antigo em `fedora:44` foi solto por ordem dele - texto completo e verbatim em `ESCOPO.md` §1, não repetido aqui para não apodrecer): o alvo primário continua tendo de falhar quando a máquina dele falharia, e a troca para `:latest` é o que garante isso sem exigir alguém subindo o número à mão a cada atualização dele. Os demais alvos são de portabilidade (desde 24/09/2026 incluem as distros varridas pelo astrometrica; ver `ESCOPO.md` §1).
 
-**CachyOS não é "Arch renomeado" e não é coberto pelo job de Arch.** Ordem explícita do líder. Toolchain, flags de otimização, kernel e empacotamento do CachyOS diferem; a matriz de CI precisa de **cinco entradas distintas** (Fedora, Ubuntu, CachyOS, Arch, Windows), e um verde no Arch não autoriza declarar CachyOS suportado.
+**CachyOS não é "Arch renomeado" e não é coberto pelo job de Arch.** Ordem explícita do líder. Toolchain, flags de otimização, kernel e empacotamento do CachyOS diferem; a matriz de CI precisa de **uma entrada distinta por plataforma suportada** (as cinco originais, Fedora, Ubuntu, CachyOS, Arch e Windows, mais as distros do astrometrica desde 24/09/2026), e um verde no Arch não autoriza declarar CachyOS suportado.
 
 ### Linux é Wayland puro, sem X11
 

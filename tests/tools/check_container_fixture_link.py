@@ -192,9 +192,22 @@ def split_subcommands(run_block_text):
 # `COPY _arch_ports_src /build/_arch_ports_src` mirrors the WHOLE staged
 # tree; every other `COPY <file> /build/<file>` mirrors ONE fixture
 # source straight from the build context (tests/container/). A symlink
-# is enough for the tree (this script never writes into it) and cheaper
-# than copying a tree prepare_arch_ports_fixture.sh may have staged with
-# hundreds of files.
+# is enough for the staged tree (this script never writes into it) and
+# cheaper than copying a tree prepare_arch_ports_fixture.sh may have
+# staged with hundreds of files.
+#
+# `COPY <dir>/ /build/<dir>/` (WL-ACK-SMOKE-BLUNT A3, wire_relay/ -
+# GODS_LAWS.md L-17 "gemeo": a directory copy, not a hand-maintained
+# per-file list that a file added under it later would silently miss,
+# same reasoning prepare_arch_ports_fixture.sh's own copy_source_tree()
+# already argues for) is copied for real, recursively - it is a small,
+# ordinary directory straight from the build context, not the pre-
+# staged _arch_ports_src tree above, so a symlink would be copying
+# something this throwaway build_dir does not own. dirs_exist_ok=True:
+# the os.makedirs() call above already created dst_path itself when
+# dst_token ends in '/' (os.path.dirname() of a trailing-slash path
+# returns the path minus the slash, not its parent) - shutil.copytree()
+# would otherwise refuse a destination that already exists.
 def apply_copy(src_token, dst_token, context_dir, staged_dir, build_dir):
     if not dst_token.startswith("/build/"):
         fail(f"instrucao COPY com alvo fora de /build: {dst_token}")
@@ -205,6 +218,9 @@ def apply_copy(src_token, dst_token, context_dir, staged_dir, build_dir):
         os.symlink(staged_dir, dst_path)
         return
     src_path = os.path.join(context_dir, src_token)
+    if os.path.isdir(src_path):
+        shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
+        return
     if not os.path.isfile(src_path):
         fail(f"COPY cita {src_token}, que nao existe em {context_dir}")
     shutil.copyfile(src_path, dst_path)
@@ -395,12 +411,84 @@ def is_wayland_scanner_line(subcommand):
 # so' COMECA como "/build" mas continua com outra palavra (ex.:
 # hipotetico "/buildtools", que nunca ocorre no Containerfile real,
 # mas fecha a familia por construcao, nao so o caso medido).
-_BUILD_PREFIX_TOKEN_RE = re.compile(r"(?<!\S)/build(?=/|\s|$)")
+#
+# LINK-PREFIX-RESIDUOS B1 (24/09/2026, docs/plano-w7c.md secao 3.B2,
+# TODO.md): a ancora "precedido de espaco" acima era CEGA a tres formas
+# legitimas de colagem - "--out=/build/x", "'/build/x'" e "-I/build/
+# inc" (flag de uma letra sem espaco, sintaxe GCC valida) saiam
+# intactas. `docs/plano-w7c.md` sugere a ancora `(?<![\w/.-])`, mas
+# ISSO NAO CASA "-I/build/inc" (medido: o "I" de "-I" E' \w, o
+# lookbehind bloqueia do mesmo jeito que a forma antiga).
+#
+# LINK-PREFIX-RESIDUOS B1b (revisao main de 24/09/2026 contra `2741c8c`,
+# SEGUNDA tentativa - GODS_LAWS.md L-22 pede web antes da terceira, nao
+# precisou): a PRIMEIRA tentativa deste conserto (`(?<!\w\w)`, "duas
+# letras coladas bloqueia, uma passa") tambem estava ERRADA, nas DUAS
+# direcoes - medido pela revisao em copia fora da arvore contra o blob
+# de `537166b`: "src/a/build/x", "cd a/build && make" e "ls x/build"
+# (segmento de caminho de UMA letra) viravam falso POSITIVO (reescritos
+# quando nao deveriam); "-isystem/build/inc" (opcao GCC de MUITAS
+# letras, sintaxe real, gemeo de "-I") ficava falso NEGATIVO (intocado
+# quando deveria reescrever). CONTAGEM DE LETRA COLADA NUNCA FOI A
+# REGRA CERTA - a regra real e' se o que precede "/build" e' uma OPCAO
+# INTEIRA (comeca em limite de token com "-" ou "--", nao importa
+# quantas letras o nome da opcao tem) ou uma CONTINUACAO DE CAMINHO
+# (comeca em limite de token com QUALQUER OUTRA COISA, nem que seja uma
+# unica letra). Essa distincao PRECISA de olhar pra tras um numero
+# VARIAVEL de caracteres (o nome da opcao pode ter qualquer tamanho -
+# "-I" tem uma letra, "-isystem" tem sete) - o modulo `re` da stdlib
+# SO' aceita lookbehind de LARGURA FIXA (`re.error: look-behind
+# requires fixed-width pattern`, medido tentando escrever isso como
+# regex antes de escrever a funcao abaixo), entao a decisao sai do
+# regex e vira funcao Python: _BUILD_PREFIX_CANDIDATE_RE so' acha os
+# CANDIDATOS (mesmo lookahead de sempre - protege "/builds"/"/buildtools"
+# sozinho, nunca mudou), e _is_build_prefix_boundary() decide, andando
+# PARA TRAS a partir de cada candidato, se ele e' prefixo de verdade.
+_BUILD_PREFIX_CANDIDATE_RE = re.compile(r"/build(?=/|\s|$)")
+
+
+def _is_build_prefix_boundary(text, match_start):
+    """True quando o "/build" que comeca em `match_start` e' o PREFIXO
+    do Containerfile - nunca continuacao de um caminho ja em andamento.
+    Aceita: inicio da string, espaco ou aspa direto antes (a forma
+    original); separador de valor "=" ou "," (--out=/build, -Wl,-rpath,
+    /build); ou uma OPCAO INTEIRA colada, de QUALQUER tamanho de nome
+    (anda para tras consumindo letras - "isystem" tem sete, "I" tem
+    uma - ate achar "-"/"--", que por sua vez tem de comecar num desses
+    MESMOS limites). Qualquer outra coisa colada direto (letra ou
+    digito que nao vem de uma opcao, "/", "."), mesmo um UNICO
+    caractere, e' continuacao de caminho - bloqueia."""
+    if match_start == 0:
+        return True
+    prev = text[match_start - 1]
+    if prev.isspace() or prev in ("'", '"'):
+        return True
+    if prev in ("=", ","):
+        return True
+    i = match_start
+    while i > 0 and text[i - 1].isalpha():
+        i -= 1
+    if i == match_start:
+        return False
+    if i == 0 or text[i - 1] != "-":
+        return False
+    j = i - 1
+    if j > 0 and text[j - 1] == "-":
+        j -= 1
+    return j == 0 or text[j - 1].isspace() or text[j - 1] in ("'", '"')
 
 
 def rewrite_build_prefix(subcommand, build_dir):
     build_dir_for_shell = build_dir.replace("\\", "/")
-    return _BUILD_PREFIX_TOKEN_RE.sub(lambda _m: build_dir_for_shell, subcommand)
+    pieces = []
+    last_end = 0
+    for match in _BUILD_PREFIX_CANDIDATE_RE.finditer(subcommand):
+        if _is_build_prefix_boundary(subcommand, match.start()):
+            pieces.append(subcommand[last_end:match.start()])
+            pieces.append(build_dir_for_shell)
+            last_end = match.end()
+    pieces.append(subcommand[last_end:])
+    return "".join(pieces)
 
 
 def run_subcommand(subcommand, build_dir):
@@ -848,6 +936,72 @@ def selftest_rewrite_build_prefix_ignores_unrelated_build_substring():
     return ok
 
 
+# LINK-PREFIX-RESIDUOS B1 (docs/plano-w7c.md secao 3.B2, D6; TODO.md):
+# a ancora antiga (`(?<!\S)`, "precedido de espaco ou inicio") exigia
+# ESPACO antes de "/build" - tres formas legitimas de placeholder que
+# o Containerfile poderia crescer para usar (medido: hoje 100% das 747
+# ocorrencias em tests/container/Containerfile sao precedidas de
+# espaco, mas nada IMPEDE as tres formas abaixo de aparecer numa fatia
+# futura) saiam INTACTAS: "--out=/build/x" (colado a "="), "'/build/x'"
+# (colado a aspa), "-I/build/inc" (colado a uma flag de UMA letra sem
+# espaco, sintaxe GCC valida). Se um caminho `/build` LITERAL e
+# inexistente no hospedeiro colasse assim, o teste vermelho reprovaria
+# pelo motivo ERRADO ("Arquivo ou diretorio inexistente" em vez de
+# "undefined reference") - o MESMO mascaramento que LINK-PREFIX-
+# SUBSTRING corrigiu, residual nestas tres formas (F1 do adendo de
+# revalidacao). Ver o comentario junto de _BUILD_PREFIX_CANDIDATE_RE e
+# _is_build_prefix_boundary() acima para a correcao medida ao texto do
+# plano E a correcao da PRIMEIRA tentativa deste proprio conserto
+# (B1b, revisao main de 24/09/2026): a regra real e' "opcao inteira
+# colada (qualquer tamanho de nome) reescreve; continuacao de caminho
+# (nem que seja UMA letra) nao reescreve".
+def selftest_rewrite_build_prefix_recognizes_glued_forms():
+    build_dir = "/tmp/real-build-dir"
+    # (subcommand, forma esperada) - forma None significa "continua
+    # intocado" (negativo). Os quatro ultimos negativos e os dois
+    # ultimos positivos sao a estreia de B1b: medidos VERMELHOS contra
+    # o codigo de B1 (`537166b`) antes deste commit.
+    cases = [
+        ("--out=/build/x", f"--out={build_dir}/x"),
+        ("'/build/x'", f"'{build_dir}/x'"),
+        ("-I/build/inc", f"-I{build_dir}/inc"),
+        ("-isystem/build/inc", f"-isystem{build_dir}/inc"),
+        ("-Wl,-rpath,/build/lib", f"-Wl,-rpath,{build_dir}/lib"),
+        ("the configure/build step that follows", None),
+        ("verify the staging/build/exec chain works", None),
+        ("src/a/build/x", None),
+        ("cd a/build && make", None),
+        ("ls x/build", None),
+        ("x-y/build", None),
+        ("dir_1/build", None),
+        # Tres casos que a mutacao (L-27, copia fora da arvore) achou
+        # sem controle: sobreviviam trocando um `if` de dentro de
+        # _is_build_prefix_boundary() por `if False` sem nenhum destes
+        # doze casos acima notar.
+        ("--sysroot/build", f"--sysroot{build_dir}"),  # opcao LONGA colada, sem separador
+        ("-/build", None),  # dash solto, sem nome de opcao - nao e' flag
+        ("value/build", None),  # palavra colada desde o INICIO da string, sem espaco/dash antes
+        ("value/build x", None),  # idem, com sufixo - mata o mutante que usa indice negativo por engano
+    ]
+    ok = True
+    for subcommand, expected in cases:
+        rewritten = rewrite_build_prefix(subcommand, build_dir)
+        wanted = subcommand if expected is None else expected
+        if rewritten != wanted:
+            print(
+                f"selftest: GLUED-FORMS FALHOU ({subcommand!r} -> {rewritten!r}, esperava "
+                f"{wanted!r})",
+                file=sys.stderr,
+            )
+            ok = False
+    if ok:
+        print(
+            f"selftest: GLUED-FORMS OK ({len(cases)} caso(s): opcao colada de nome curto e "
+            f"longo reescreve; prosa e segmento de caminho de uma letra continuam intocados)"
+        )
+    return ok
+
+
 def selftest_empty_containerfile_reproves(scratch):
     root = os.path.join(scratch, "empty")
     context_dir = os.path.join(root, "tests", "container")
@@ -882,10 +1036,10 @@ def selftest_empty_containerfile_reproves(scratch):
 # que falta o atomo - prova que o portao acumula TODAS as falhas, nao
 # so a primeira (o defeito real mordeu 16 alvos ao mesmo tempo; um
 # portao que parasse no primeiro nunca provaria o tamanho real do dano).
-def selftest_accumulates_multiple_failures(scratch, compiler):
-    root = os.path.join(scratch, "multi")
-    context_dir = os.path.join(root, "tests", "container")
-    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+def _write_multi_fixture_sources(context_dir, staged_dir):
+    """Escreve os fontes do cenario MULTI (atom/consumer staged, dois
+    .cpp de contexto) - metade de _build_multi_fixture (teto de linhas
+    L-17)."""
     _write(os.path.join(staged_dir, "src", "atom.hpp"), "#pragma once\nint atom_value();\n")
     _write(os.path.join(staged_dir, "src", "atom.cpp"), '#include "atom.hpp"\nint atom_value() { return 42; }\n')
     _write(os.path.join(staged_dir, "src", "consumer.hpp"), "#pragma once\nint consumer_value();\n")
@@ -901,12 +1055,16 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
         os.path.join(context_dir, "second_smoke.cpp"),
         '#include "consumer.hpp"\nint main() { return consumer_value() - 1; }\n',
     )
+
+
+def _multi_fixture_containerfile_text(compiler):
+    """O texto do Containerfile do cenario MULTI - metade de
+    _build_multi_fixture (teto de linhas L-17)."""
     # shlex.quote(): same reasoning as _build_base_fixture()'s own
     # comment beside its quoted_compiler - this token is host-discovered
     # and about to be embedded, unparsed, into text handed to `sh -c`.
     quoted_compiler = shlex.quote(compiler)
-
-    containerfile = (
+    return (
         "FROM fedora:44 AS arch-ports-builder\n"
         "COPY _arch_ports_src /build/_arch_ports_src\n"
         "COPY first_smoke.cpp /build/first_smoke.cpp\n"
@@ -923,11 +1081,33 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
         "FROM fedora:44\n"
         "RUN echo runtime-stage-never-compiles-anything\n"
     )
+
+
+def _build_multi_fixture(scratch, compiler):
+    """Fabrica o Containerfile/contexto do cenario MULTI (dois alvos que
+    faltam atom.cpp no link) - fatorado (L-17) de selftest_accumulates_
+    multiple_failures para ser reusado, sem duplicar, pela estreia de B2
+    (compilador inexistente) em selftest_multi_reproves_when_compiler_
+    missing() abaixo."""
+    root = os.path.join(scratch, "multi")
+    context_dir = os.path.join(root, "tests", "container")
+    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+    _write_multi_fixture_sources(context_dir, staged_dir)
+    containerfile = _multi_fixture_containerfile_text(compiler)
+    return containerfile, context_dir, staged_dir
+
+
+def _run_multi_case(scratch, compiler):
+    containerfile, context_dir, staged_dir = _build_multi_fixture(scratch, compiler)
     build_dir = tempfile.mkdtemp(prefix="glintfx-fixture-link-selftest-build-multi-", dir=scratch)
     try:
-        summary, errors = run_link_check(containerfile, context_dir, staged_dir, build_dir)
+        return run_link_check(containerfile, context_dir, staged_dir, build_dir)
     finally:
         shutil.rmtree(build_dir, ignore_errors=True)
+
+
+def selftest_accumulates_multiple_failures(scratch, compiler):
+    summary, _errors = _run_multi_case(scratch, compiler)
     if summary["compile_total"] != 2 or len(summary["failures"]) != 2:
         print(f"selftest: MULTI FALHOU (esperava 2 alvos e 2 falhas, veio {summary})", file=sys.stderr)
         return False
@@ -937,7 +1117,49 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
     if not any("second_smoke" in f["target"] for f in summary["failures"]):
         print(f"selftest: MULTI FALHOU (second_smoke nao citado nas falhas): {summary['failures']}", file=sys.stderr)
         return False
-    print(f"selftest: MULTI OK (os DOIS alvos que faltam o atomo foram pegos, nenhum escondeu o outro)")
+    # LINK-PREFIX-RESIDUOS B2 (TODO.md, docs/plano-w7c.md secao 3.B2):
+    # ate aqui, MULTI so' conferia CONTAGEM e NOME do alvo - nunca o
+    # MOTIVO da falha. A propria reproducao de LINK-PREFIX-SUBSTRING
+    # mediu isto ao vivo: com o compilador descoberto sob um TMPDIR
+    # colidente, os DOIS alvos falhavam por "compilador nao encontrado"
+    # em vez de "undefined reference to atom_value()", e este controle
+    # dizia OK do mesmo jeito - o mascaramento que este arquivo inteiro
+    # existe para pegar, um nivel acima. Cada falha, individualmente
+    # (nao o texto combinado - um alvo certo nao pode esconder o outro
+    # errado), tem de citar "undefined reference".
+    for failure in summary["failures"]:
+        if "undefined reference" not in failure["stderr"]:
+            print(
+                f"selftest: MULTI FALHOU (falha de {failure['target']!r} nao cita 'undefined "
+                f"reference' - motivo mascarado): {failure['stderr']!r}",
+                file=sys.stderr,
+            )
+            return False
+    print(f"selftest: MULTI OK (os DOIS alvos que faltam o atomo foram pegos, nenhum escondeu o outro, "
+          f"os DOIS citam 'undefined reference')")
+    return True
+
+
+def selftest_multi_reproves_when_compiler_missing(scratch):
+    """B2, controle de estreia (docs/plano-w7c.md secao 3.B2, TODO.md
+    LINK-PREFIX-RESIDUOS): MESMO cenario MULTI (via _run_multi_case,
+    reusado), com um compilador cujo CAMINHO nunca existe - basename
+    'g++' reconhecido por is_compile_line(), mas o binario nao existe
+    ('sh: .../g++: Arquivo ou diretorio inexistente', NUNCA 'undefined
+    reference'). Medido ao vivo contra o codigo de ANTES desta fatia
+    (copia fora da arvore, blob de e5fe067): selftest_accumulates_
+    multiple_failures() dizia OK mesmo assim - so' conferia contagem e
+    nome do alvo, nunca o motivo. Depois do conserto (checagem de
+    'undefined reference' POR falha), a MESMA chamada tem de reprovar."""
+    ok = selftest_accumulates_multiple_failures(scratch, "/definitely/does/not/exist/g++")
+    if ok:
+        print(
+            "selftest: MULTI-ESTREIA FALHOU (compilador inexistente ainda passou como OK - o "
+            "mascaramento voltou)",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: MULTI-ESTREIA OK (compilador inexistente reprova, motivo mascarado detectado)")
     return True
 
 
@@ -1071,12 +1293,17 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
                 "rewrite-prefix",
                 selftest_rewrite_build_prefix_ignores_unrelated_build_substring(),
             ),
+            (
+                "rewrite-prefix-glued-forms",
+                selftest_rewrite_build_prefix_recognizes_glued_forms(),
+            ),
         ]
         if compiler:
             named_results.append(("positive", selftest_positive_control(scratch, compiler)))
             named_results.append(("sanitize-token", selftest_sanitize_token_expands_empty(scratch, compiler)))
             named_results.append(("missing-atom", selftest_missing_atom_reproves(scratch, compiler)))
             named_results.append(("multi", selftest_accumulates_multiple_failures(scratch, compiler)))
+            named_results.append(("multi-estreia", selftest_multi_reproves_when_compiler_missing(scratch)))
             named_results.append(
                 ("gancho-header", selftest_gancho_sibling_header_resolves(scratch, compiler))
             )
@@ -1091,6 +1318,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
             named_results.append(("sanitize-token", None))
             named_results.append(("missing-atom", None))
             named_results.append(("multi", None))
+            named_results.append(("multi-estreia", None))
             named_results.append(("gancho-header", None))
             named_results.append(("gancho-header-vermelho", None))
     finally:

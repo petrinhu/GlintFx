@@ -49,6 +49,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import cmake_lexer
+
 SCRIPT_NAME = "check_facade_export_boundary.py"
 
 _API_DECL_RE = re.compile(
@@ -170,25 +172,33 @@ def find_boundary_cpp_files(src_dir, api_pairs):
 
 
 def strip_cmake_comments(text):
-    """Truncates every line at its first '#' (CMake's own comment
-    marker), so a target's block never carries PROSE alongside its
-    real directives. Closes a self-exemption defect found by
-    sabotage (this gate's sibling bug in check_precommit_hook_chain.py
-    shares the same root cause, same fatia): a block that leaks past
-    its own `endif()` into a LATER comment (this file's own "Facade
-    export-boundary gate" narrative, right below win32_facade_pin_
-    test's own block, quotes both exemption tokens -
-    'glintfx::glintfx' and 'GLINTFX_LIBRARY_STATIC_DEFINE' - and every
-    boundary .cpp filename by NAME, in prose) self-exempts the moment
-    the REAL target_compile_definitions()/target_link_libraries() line
-    is removed: block_is_exempt()/block_lists_source() below still see
-    the comment's own words and never notice the directive is gone.
-    Verified nothing under tests/CMakeLists.txt puts a literal '#'
-    inside a quoted argument (grep -n '"[^"]*#[^"]*"' - the only three
-    hits are themselves comment lines quoting "#define"/"#undef" in
-    prose), so truncating at the first '#' never eats real CMake
-    syntax here."""
-    return "\n".join(line[: line.find("#")] if "#" in line else line for line in text.splitlines())
+    """CLAIM-CITATIONS sub-fatia E1c (docs/plano-w7c-adendo-revalidacao.
+    md sec. 3.E, decisao D-A8): delega a cmake_lexer.strip_comments()
+    (E0) em vez do corte ingenuo (primeiro '#' de CADA linha) que este
+    gate tinha antes. O corte antigo fechava a auto-isencao por prosa
+    de UMA linha (ver o comentario original deste gate, preservado
+    abaixo), mas tinha um ponto cego oposto e mais grave: um comentario
+    de BLOCO (#[[ ... ]]) que se estende por VARIAS linhas nunca tem
+    '#' de novo nas linhas seguintes a abertura - elas sobreviviam
+    intactas ao corte por linha. Uma linha de PROSA dentro desse bloco
+    que comece (apos indentacao) por "add_executable("/"glintfx_add_
+    test(" virava um alvo FANTASMA para split_into_target_blocks()
+    (a mesma regex, ancorada a inicio de linha, nao distingue prosa
+    dentro de um comentario multi-linha de codigo real) - um "vermelho
+    falso" contra um alvo que nunca existiu de verdade.
+
+    A ORIGEM DO DEFEITO QUE ESTE GATE FECHA (preservado, ainda vale -
+    o mesmo raciocinio que motivou block_is_exempt()/block_lists_
+    source() lerem sempre texto sem comentario, nunca cmake_text bruto):
+    um bloco que vaza para alem do proprio 'endif()' ate um comentario
+    POSTERIOR (a propria narrativa deste arquivo, "Facade export-
+    boundary gate", citando os dois tokens de isencao e cada nome de
+    arquivo de fronteira por NOME, em prosa) se auto-isenta no momento
+    em que a diretiva REAL (target_compile_definitions()/target_link_
+    libraries()) e removida - cmake_lexer remove o comentario por
+    inteiro tambem, entao essa prosa nunca chega a split_into_target_
+    blocks() de qualquer forma."""
+    return cmake_lexer.strip_comments(text)
 
 
 def split_into_target_blocks(text):
@@ -361,6 +371,51 @@ def selftest_violation_detected(tmp_dir):
     return True
 
 
+# CLAIM-CITATIONS sub-fatia E1c: o caso da INBOX WIN-CROSS-GATE-CMAKE-
+# LEXER, plantado direto - um alvo que so' existe dentro de um
+# comentario de bloco #[[ ]] (prosa de exemplo, nunca chega a compilar)
+# nunca pode virar alvo FANTASMA reprovado por split_into_target_
+# blocks(). Antes de cmake_lexer, as linhas dentro do comentario
+# sobreviviam ao corte por linha (nenhuma tinha '#' proprio) e a
+# primeira delas, "add_executable(fantasma_test ...", casava a regex
+# ancorada a inicio de linha do mesmo jeito que codigo real.
+def selftest_bracket_commented_target_never_a_phantom(tmp_dir):
+    repo = Path(tmp_dir) / "repo_bracket_comment"
+    (repo / "include" / "glintfx").mkdir(parents=True, exist_ok=True)
+    (repo / "src" / "platform").mkdir(parents=True, exist_ok=True)
+    (repo / "tests").mkdir(parents=True, exist_ok=True)
+    (repo / "include" / "glintfx" / "thing.hpp").write_text(
+        "class gltfx_thing {\n public:\n  GLINTFX_API static gltfx_thing open() noexcept;\n};\n",
+        encoding="utf-8",
+    )
+    (repo / "src" / "platform" / "thing_facade.cpp").write_text(
+        "gltfx_thing gltfx_thing::open() noexcept { return {}; }\n", encoding="utf-8"
+    )
+    (repo / "tests" / "CMakeLists.txt").write_text(
+        "#[[\n"
+        "Exemplo de uso, nunca compilado de verdade:\n"
+        'add_executable(fantasma_test "thing_test.cpp"\n'
+        '    "${PROJECT_SOURCE_DIR}/src/platform/thing_facade.cpp"\n'
+        ")\n"
+        "]]\n"
+        'add_executable(real_ok_test "thing_test.cpp"\n'
+        '    "${PROJECT_SOURCE_DIR}/src/platform/thing_facade.cpp"\n'
+        ")\n"
+        "target_link_libraries(real_ok_test PRIVATE glintfx::glintfx glintfx_test_harness)\n",
+        encoding="utf-8",
+    )
+    ok = check_facade_export_boundary(repo)
+    if not ok:
+        print(
+            "selftest: controle COMENTARIO-DE-BLOCO-FANTASMA FALHOU (fantasma_test dentro de "
+            "#[[ ]] foi reprovado como se existisse de verdade)",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: controle COMENTARIO-DE-BLOCO-FANTASMA OK (alvo dentro de #[[ ]] nunca vira alvo real)")
+    return True
+
+
 def selftest_exempt_by_link_passes(tmp_dir):
     repo = Path(tmp_dir) / "repo_exempt_link"
     (repo / "include" / "glintfx").mkdir(parents=True, exist_ok=True)
@@ -477,6 +532,7 @@ def selftest_main():
             selftest_positive_boundary_detected(tmp_dir),
             selftest_non_boundary_not_flagged(tmp_dir),
             selftest_violation_detected(tmp_dir),
+            selftest_bracket_commented_target_never_a_phantom(tmp_dir),
             selftest_exempt_by_link_passes(tmp_dir),
             selftest_exempt_by_static_define_passes(tmp_dir),
             selftest_real_tree_passes(repo_root),

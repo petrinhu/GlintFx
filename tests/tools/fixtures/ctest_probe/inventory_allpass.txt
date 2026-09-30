@@ -1,0 +1,7 @@
+SPDX-License-Identifier: AGPL-3.0-or-later (saida REAL de ctest -N, cmake 4.3.0, 29/09/2026)
+Test project /probe/b
+  Test #1: passa1
+  Test #2: passa2
+  Test #3: passa3
+
+Total Tests: 3

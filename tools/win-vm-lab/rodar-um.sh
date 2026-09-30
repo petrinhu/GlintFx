@@ -188,6 +188,10 @@ rodar_e_esperar() {
 # corretos, contra um dubl\u00ea de virsh, nunca contra a VM real.
 
 selftest() {
+  # D-A27: o selftest NUNCA fala com a VM real. `test:///default` e' o driver de
+  # teste do libvirt (em processo, sem daemon) e `duble-dom` nao existe nele: mesmo
+  # um virsh REAL atras do stub so' recusaria o dominio. Vale por escopo dinamico.
+  local DOM="duble-dom" CONNECT="test:///default"
   local stub_dir ok=1
 
   stub_dir="$(mktemp -d /var/tmp/glintfx-win-lab-rodar-selftest.XXXXXX)"

@@ -407,10 +407,14 @@ struct gltfx_gfss_value {
     // mas se o monitor tiver 144, faria a conversao com duplicacao de
     // frame se necessario, para durar os mesmos 50ms." That is: "3
     // frames" names a FIXED duration - 3/60 s, 50 ms - against a 60 Hz
-    // REFERENCE, and that duration is IDENTICAL on every monitor; the
-    // number of ACTUAL frames a 144 Hz monitor spends realizing it (7,
-    // with one duplicated) is a rendering-loop concern, computed
-    // nowhere near this file. THIS LAYER DOES NOT DO THAT ARITHMETIC:
+    // REFERENCE, and that duration is IDENTICAL on every monitor BY
+    // CONSTRUCTION, never by measurement: this layer stores the
+    // written magnitude and does no monitor-dependent arithmetic at
+    // all, so there is nothing for a monitor's own refresh rate to
+    // change. The number of ACTUAL frames a 144 Hz monitor spends
+    // realizing it (7, with one duplicated) is a rendering-loop
+    // concern, computed nowhere near this file. THIS LAYER DOES NOT
+    // DO THAT ARITHMETIC:
     // a `gltfx_gfss_value` with kind == time and unit == frames stores
     // the magnitude EXACTLY as written (duration.magnitude == 3.0 for
     // "3frames", never 50.0) - the SAME "preserved as written, no
@@ -424,11 +428,12 @@ struct gltfx_gfss_value {
     gltfx_gfss_time duration{};
 };
 
-// GFSS-VALUE-LAYOUT-ASSERT: proves, at every build on every platform,
-// the "trivially copyable... safe to pass and return by value across
-// the .so/.dll boundary" claim this struct's own header comment
-// above makes - a claim this fatia found stated but never checked by
-// the compiler. std::is_trivially_copyable_v is exactly what that
+// GFSS-VALUE-LAYOUT-ASSERT: the static_assert right below proves, at
+// every build on every platform, the "trivially copyable... safe to
+// pass and return by value across the .so/.dll boundary" claim this
+// struct's own header comment above makes - a claim this fatia found
+// stated but never checked by the compiler.
+// std::is_trivially_copyable_v is exactly what that
 // prose promises (a bitwise copy is a valid copy, no special member
 // runs, so the SAME bytes mean the SAME value on either side of the
 // boundary regardless of which compiler built which side) - a future

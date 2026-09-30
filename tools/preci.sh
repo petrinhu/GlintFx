@@ -534,6 +534,14 @@ GLINTFX_PS_SYNTAX_EOF
         fail "estagio sintaxe PowerShell recusado (ver saida acima; GATE-PS-SYNTAX)"
     fi
     rm -rf "$scratch_dir"
+
+    # CI-SPLIT-PER-OS D-A14 (item 2): o autoteste de prep.ps1 (piso do
+    # Windows: guarda de versao do CMake vazia/antiga, sonda do cl.exe
+    # com /Fo e /Fe dentro do temp) roda no MESMO container pwsh e no
+    # MESMO estagio - so' parseia-lo nao provaria que o piso reprova.
+    docker run --rm -v "${ROOT_DIR}:/glintfx-src:ro,z" "$GLINTFX_PS_IMAGE" \
+        pwsh -NoProfile -NonInteractive -File /glintfx-src/tools/ci/windows/prep.ps1 -Autoteste \
+        || fail "estagio sintaxe PowerShell recusado (prep.ps1 -Autoteste reprovou; ver saida acima; GATE-PS-SYNTAX)"
 }
 
 # -DGLINTFX_BUILD_TESTS=ON forced explicitly (defense in depth, not a
@@ -795,10 +803,122 @@ stage_container_link() {
         fail "estagio container-link recusado: prepare_arch_ports_fixture.sh reprovou (ver acima) - GATE-CONT-LINK, GODS_LAWS.md L-17/L-36/L-40"
 }
 
+# A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): grau do ctest LOCAL. Padrao
+# SERIAL (1): nao ha medida local que mande outra coisa, e o P1 (paralelo x
+# serial, conjunto de aprovados identico) e' medido nos runners do CI. Quem
+# pede paralelo exporta GLINTFX_CTEST_JOBS=N, e o pedido e' LIMITADO pela
+# L-11 global (secao 5): no maximo 13 threads, 3 nucleos sempre livres
+# (N <= nproc - 3), e RECUSADO (nunca "roda assim mesmo") se houver container
+# no ar (`docker ps` nao vazio) ou se MemAvailable < 10 GiB (o piso de RAM
+# livre). Funcao pura: recebe os quatro fatos ja medidos, para o selftest.
+# Saida: o grau, ou "RECUSA: <motivo>" com codigo 1.
+pick_ctest_jobs() {
+    requested="$1"; nproc_now="$2"; docker_state="$3"; mem_avail_kb="$4"; other_builds="$5"
+    case "$requested" in
+        ''|1) echo 1; return 0 ;;
+        *[!0-9]*|0) echo "RECUSA: GLINTFX_CTEST_JOBS='$requested' nao e' um inteiro positivo"; return 1 ;;
+    esac
+    # Toda recusa e' FECHADA: fato ausente, vazio ou nao numerico RECUSA, nunca
+    # libera (I2, CTO 29/09: `docker ps | wc -l` com o docker falhando dava 0 e
+    # MemAvailable vazio fazia o `[ -lt ]` dar erro e liberar o paralelo).
+    case "$docker_state" in
+        absent|0) ;;
+        erro) echo "RECUSA: docker presente mas 'docker ps' falhou - nao se sabe se ha container no ar (plano 4.8, item 5)"; return 1 ;;
+        *[!0-9]*|'') echo "RECUSA: estado do docker ilegivel ('$docker_state')"; return 1 ;;
+        *) echo "RECUSA: ha $docker_state container(s) no ar (docker ps nao vazio) - rodada paralela exige a maquina isolada (plano 4.8, item 5)"; return 1 ;;
+    esac
+    case "$mem_avail_kb" in
+        ''|*[!0-9]*) echo "RECUSA: MemAvailable ilegivel ('$mem_avail_kb') - sem o fato nao se libera o paralelo"; return 1 ;;
+    esac
+    if [ "$mem_avail_kb" -lt 10485760 ]; then
+        echo "RECUSA: MemAvailable=$((mem_avail_kb / 1024)) MiB, abaixo do piso de 10 GiB livres da L-11"
+        return 1
+    fi
+    case "$other_builds" in
+        0) ;;
+        erro|'') echo "RECUSA: nao foi possivel varrer os processos - nao se sabe se ha outro build do projeto no ar (plano 4.8, item 5)"; return 1 ;;
+        *[!0-9]*) echo "RECUSA: contagem de builds no ar ilegivel ('$other_builds')"; return 1 ;;
+        *) echo "RECUSA: ha $other_builds processo(s) cmake/ctest/ninja da maquina no ar (fora da arvore do preci) - nenhum outro build pode rodar junto (plano 4.8, item 5)"; return 1 ;;
+    esac
+    case "$nproc_now" in ''|*[!0-9]*) echo "RECUSA: nproc ilegivel ('$nproc_now')"; return 1 ;; esac
+    cap=$((nproc_now - 3))
+    [ "$cap" -gt 13 ] && cap=13
+    [ "$cap" -lt 1 ] && cap=1
+    if [ "$requested" -gt "$cap" ]; then
+        echo "$cap"
+    else
+        echo "$requested"
+    fi
+}
+
+# Conta processos cmake/ctest/ninja/ninja-build da MAQUINA (qualquer caminho:
+# relativo, /usr/bin/ninja-build, copia em /var/tmp), a partir de UMA listagem
+# `ps -eo pid=,ppid=,args=` ja capturada (funcao pura, para o selftest), EXCETO a
+# arvore de processos do proprio preci ($2 e seus descendentes, pela cadeia de
+# ppid). So' builtins do bash sobre o texto: nenhum processo por item, nada de
+# pgrep (acha a si mesmo), `read -r` em vez de `set --` (que expande glob).
+# Listagem vazia = "erro" (um ps que nao lista nem o init nao serve de evidencia).
+count_project_builds() {
+    listing="$1"; self_pid="$2"
+    [ -n "$listing" ] || { echo erro; return 0; }
+    declare -A ppid_of cmd_of
+    while IFS= read -r line; do
+        read -r pid ppid cmd _ <<<"$line"
+        [ -n "$pid" ] || continue
+        ppid_of[$pid]="$ppid"
+        cmd_of[$pid]="$cmd"
+    done <<EOF_PS
+$listing
+EOF_PS
+    n=0
+    for pid in "${!cmd_of[@]}"; do
+        case "${cmd_of[$pid]##*/}" in
+            cmake|ctest|ninja|ninja-build) ;;
+            *) continue ;;
+        esac
+        cur="$pid"; propria=0; passos=0
+        while [ -n "$cur" ] && [ "$cur" != 0 ] && [ "$passos" -lt 64 ]; do
+            if [ "$cur" = "$self_pid" ]; then propria=1; break; fi
+            cur="${ppid_of[$cur]:-}"; passos=$((passos + 1))
+        done
+        [ "$propria" = 1 ] || n=$((n + 1))
+    done
+    echo "$n"
+}
+
+# Fatos MEDIDOS agora para pick_ctest_jobs (so' quando o paralelo foi pedido).
+# docker: "absent" (nao instalado: 0 legitimo), "erro" (instalado e falhando) ou N.
+docker_state_now() {
+    command -v docker >/dev/null 2>&1 || { echo absent; return 0; }
+    if out="$(docker ps -q 2>/dev/null)"; then
+        if [ -z "$out" ]; then echo 0; else printf '%s\n' "$out" | grep -c .; fi
+    else
+        echo erro
+    fi
+}
+
 stage_ctest() {
     count="$(count_ctest_tests "$BUILD_DIR")"
     require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
-    ctest --test-dir "$BUILD_DIR" --output-on-failure
+    requested="${GLINTFX_CTEST_JOBS:-1}"
+    docker_state="nao-medido"; mem_avail_kb="nao-medido"; other_builds="nao-medido"
+    if [ "$requested" != "1" ] && [ -n "$requested" ]; then
+        docker_state="$(docker_state_now)"
+        mem_avail_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+        if listing="$(ps -eo pid=,ppid=,args= 2>/dev/null)"; then
+            other_builds="$(count_project_builds "$listing" "$$")"
+        else
+            other_builds="erro"
+        fi
+    fi
+    jobs="$(pick_ctest_jobs "$requested" "$(nproc)" "$docker_state" "$mem_avail_kb" "$other_builds")" \
+        || fail "estagio ctest recusado: $jobs"
+    echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker=$docker_state, MemAvailable_kB=$mem_avail_kb, outros cmake/ctest/ninja da maquina no ar=$other_builds)"
+    if [ "$jobs" -gt 1 ]; then
+        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs"
+    else
+        ctest --test-dir "$BUILD_DIR" --output-on-failure
+    fi
 
     # MEASURED-COLLECTOR, espelho local (achado do time-lead,
     # 06/09/2026, item 5 "o espelho local"): a mesma extracao que o CI
@@ -1900,6 +2020,71 @@ run_selftest_noexcept_alloc_controls() {
     echo "selftest: noexcept-alloc OK"
 }
 
+# CI-SPLIT-PER-OS D-A14 (item 2): tools/ci/floor.sh e' o piso de
+# ferramentas de 6 jobs Linux do CI. O --autoteste dele roda o proprio
+# script contra compilador, cmake e pkg-config FALSOS (nunca contra a
+# maquina) e prova que cada piso reprova quando deve, inclusive o
+# conserto B2 (cmake sem versao). Sem esta chamada o autoteste seria
+# orfao (nada mecanico o executaria) - e o --selftest e' o que o job
+# `lint` do CI roda.
+run_selftest_floor_controls() {
+    log "selftest: tools/ci/floor.sh --autoteste (piso de ferramentas contra compilador/cmake falsos)"
+    if ! bash "$ROOT_DIR/tools/ci/floor.sh" --autoteste; then
+        fail "selftest: floor.sh --autoteste reprovou (ver saida acima)"
+    fi
+    echo "selftest: piso de ferramentas OK"
+}
+
+# A5 etapa 2: pick_ctest_jobs (funcao pura) - cada limite da L-11 recusa ou
+# recorta, e serial e' o padrao.
+run_selftest_ctest_jobs_controls() {
+    log "selftest: pick_ctest_jobs e count_project_builds (grau do ctest local limitado pela L-11, recusas fechadas)"
+    esperar() {
+        nome="$1"; esperado="$2"; shift 2
+        obtido="$(pick_ctest_jobs "$@")" || true
+        case "$obtido" in
+            "$esperado"*) echo "selftest: ctest_jobs $nome OK" ;;
+            *) fail "selftest ctest_jobs $nome: esperado '$esperado', obtido '$obtido'" ;;
+        esac
+    }
+    # ordem: pedido nproc docker mem_kb outros_builds
+    esperar "padrao serial" 1 "" 16 0 20000000 0
+    esperar "pedido 1" 1 1 16 0 20000000 0
+    esperar "pedido 8 em 16 nucleos" 8 8 16 0 20000000 0
+    esperar "docker ausente e' 0 legitimo" 8 8 16 absent 20000000 0
+    esperar "teto de 13 threads" 13 20 32 0 20000000 0
+    esperar "3 nucleos livres (8 nucleos -> 5)" 5 8 8 0 20000000 0
+    esperar "RECUSA com container no ar" "RECUSA" 8 16 1 20000000 0
+    esperar "RECUSA com docker presente e falhando" "RECUSA" 8 16 erro 20000000 0
+    esperar "RECUSA com estado do docker vazio" "RECUSA" 8 16 "" 20000000 0
+    esperar "RECUSA abaixo de 10 GiB livres" "RECUSA" 8 16 0 9000000 0
+    esperar "RECUSA com MemAvailable vazio" "RECUSA" 8 16 0 "" 0
+    esperar "RECUSA com MemAvailable nao numerico" "RECUSA" 8 16 0 abc 0
+    esperar "RECUSA com outro build do projeto no ar" "RECUSA" 8 16 0 20000000 2
+    esperar "RECUSA com a varredura de processos falhando" "RECUSA" 8 16 0 20000000 erro
+    esperar "RECUSA com contagem de builds vazia" "RECUSA" 8 16 0 20000000 ""
+    esperar "RECUSA pedido nao numerico" "RECUSA" abc 16 0 20000000 0
+    # ordem das colunas: pid ppid args. J2 (CTO 29/09): conta QUALQUER cmake/ctest/
+    # ninja/ninja-build da maquina, seja qual for o caminho, exceto a ARVORE do proprio preci.
+    ps_fixture="    1     0 /sbin/init
+  900     1 bash tools/preci.sh --fast
+  901   900 /usr/bin/cmake --build build-preci
+  902   901 /usr/bin/ninja-build -C build-preci
+  903   902 /usr/bin/ctest --test-dir build-preci
+  600     1 cmake --build build
+  601     1 /usr/bin/ninja-build -C /home/x/proj/build
+  602     1 ninja -C /var/tmp/copia/proj/build
+  603     1 /usr/bin/ctest --test-dir /var/tmp/copia/proj/build-preci
+  700     1 bash -c cmake_wrapper
+  701     1 /usr/bin/python3 tools/x.py cmake"
+    [ "$(count_project_builds "$ps_fixture" 900)" = 4 ] || fail "selftest count_project_builds: esperado 4 (cmake relativo, ninja-build, ninja de copia fora da arvore e ctest de copia; a arvore do proprio preci e bash/python que so' citam 'cmake' nao contam)"
+    [ "$(count_project_builds "$ps_fixture" 999)" = 7 ] || fail "selftest count_project_builds: com outro pid como 'proprio', a arvore 900 deveria contar (esperado 7)"
+    [ "$(count_project_builds "    1     0 /sbin/init" 900)" = 0 ] || fail "selftest count_project_builds: listagem sem build deve ser 0"
+    [ "$(count_project_builds "" 900)" = erro ] || fail "selftest count_project_builds: listagem vazia deve ser 'erro' (fechado)"
+    echo "selftest: count_project_builds OK"
+    echo "selftest: pick_ctest_jobs OK"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -1910,6 +2095,8 @@ run_selftest() {
     run_selftest_assert_count_controls
     run_selftest_win32_link_controls
     run_selftest_noexcept_alloc_controls
+    run_selftest_floor_controls
+    run_selftest_ctest_jobs_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -1959,6 +2146,48 @@ run_debug_only() {
 # de CI proprio que roda direto no runner (sem `container:`), onde o
 # Docker do host ja esta disponivel sem nenhuma camada extra (mesmo
 # padrao do job `wayland-container`).
+# A5 etapa 3 (decisao do CTO, 29/09/2026): --blob. O preci local roda sobre a WORKING
+# TREE (onde existem arquivos ignorados pelo .gitignore, nao adicionados ou gerados) e o
+# CI roda sobre o BLOB commitado - foi assim que as fixtures do P1 (build-shared/,
+# engolido por `build-*/`) passaram no preci e reprovariam toda perna do CI. Este estagio
+# extrai o INDICE (git checkout-index, nao HEAD: o preci roda antes do commit) para um
+# diretorio temporario e roda ali os `--selftest` Python registrados com LABELS selftest
+# em tests/CMakeLists.txt (universo lido pelo proprio helper, nunca de lista a mao; fora
+# so' o que traz `# glintfx-blob: fora - <motivo>`), CRUZADO com `ctest -L '^selftest$'
+# --show-only=json-v1` (o ctest real, depois do configure: diferenca em qualquer sentido
+# reprova nomeando o teste). Imprime "N registrados, R rodados, F fora, falharam K" e o tempo. Um arquivo novo precisa de `git add` para o blob enxerga-lo -
+# exatamente o que o commit faria.
+stage_blob() {
+    # R-2 (D-A27): o json do ctest vem do configure da WORKING TREE e o parse le o INDICE;
+    # qualquer CMakeLists.txt (o configure le todos) fora do indice faria os dois divergirem por esquecimento de git add.
+    git -C "$ROOT_DIR" diff --quiet -- '*CMakeLists.txt' \
+        || fail "estagio --blob recusado: algum CMakeLists.txt tem mudanca fora do indice - rode git add antes do preci"
+    blob_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-blob-XXXXXX")" \
+        || fail "mktemp -d falhou preparando o estagio --blob"
+    git -C "$ROOT_DIR" checkout-index -a -f --prefix="$blob_dir/" \
+        || { rm -rf "$blob_dir"; fail "estagio --blob recusado (git checkout-index falhou)"; }
+    # A-1: fonte INDEPENDENTE do universo - o ctest real (depois do configure), nunca o parse.
+    blob_json="$blob_dir.selftest-show.json"
+    if ! ctest --test-dir "$BUILD_DIR" -L '^selftest$' --show-only=json-v1 > "$blob_json"; then
+        rm -rf "$blob_dir" "$blob_json"
+        fail "estagio --blob recusado (ctest -L selftest --show-only=json-v1 falhou; o configure rodou antes?)"
+    fi
+    blob_inicio=$SECONDS
+    if ! python3 "$ROOT_DIR/tests/tools/blob_selftests.py" --root "$blob_dir" --ctest-json "$blob_json"; then
+        rm -rf "$blob_dir" "$blob_json"
+        fail "estagio --blob recusado (selftest reprovou sobre o INDICE; ver acima)"
+    fi
+    echo "preci.sh: estagio --blob levou $((SECONDS - blob_inicio)) s"
+    rm -rf "$blob_dir" "$blob_json"
+}
+
+run_blob_only() {
+    log "estagio blob: configure (o ctest real e' a fonte independente do universo) e --selftest Python sobre o INDICE"
+    stage_configure
+    stage_blob
+    echo "preci.sh --blob-only: VERDE"
+}
+
 run_ps_syntax_only() {
     log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
     stage_ps_syntax
@@ -1986,6 +2215,8 @@ run_full_pipeline() {
     stage_ps_syntax
     log "estagio 2: configure (-Werror)"
     stage_configure
+    log "estagio 2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real"
+    stage_blob
     log "estagio 3: build"
     stage_build
     log "estagio 4: clang-tidy"
@@ -2025,13 +2256,13 @@ run_full_pipeline() {
 # why: the real tree can legitimately have another agent's WIP
 # untracked *.cpp mid-onda, and --selftest has to stay usable by
 # anyone, any time, regardless of who else is mid-fatia).
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only|--container-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
@@ -2064,6 +2295,9 @@ main() {
             ;;
         --ps-syntax-only)
             run_ps_syntax_only
+            ;;
+        --blob-only)
+            run_blob_only
             ;;
         --win32-link-only)
             run_win32_link_only "$extra"

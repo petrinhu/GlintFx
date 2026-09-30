@@ -160,9 +160,10 @@ struct gpu_enumeration_impl;
 // mechanism (EGL device enumeration + kernel DRM ioctl on Linux,
 // DXCore adapter enumeration on Windows) reports, DEDUPLICATED (a
 // single physical card enumerated twice by the platform's own API,
-// F3's own measured NVIDIA-seen-twice case, never counted as two
-// GPUs), in the SAME gltfx_gpu_kind/name shape gltfx_gl_context::gpu()
-// already uses.
+// F3's own NVIDIA-seen-twice case - proved by `egl_device_dedup_test`'s
+// own egl_device_dedup_closed_5_cell_enumeration - never counted as
+// two GPUs), in the SAME gltfx_gpu_kind/name shape
+// gltfx_gl_context::gpu() already uses.
 //
 // query() NEVER APPLIES THE EXCLUSION/MEMORY-SEPARATION VIAS this same
 // fatia's atoms give gltfx_gl_context::gpu() for the CURRENT context

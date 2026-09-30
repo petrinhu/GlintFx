@@ -146,6 +146,64 @@ def parse_ci_appends(job_block_text):
     return names
 
 
+# CI-SPLIT-PER-OS A2/gemeo esquecido (achado do CTO, revisado pelo
+# main, GODS_LAWS.md L-17): a primeira versao desta checagem so'
+# reconhecia a forma `echo "..." >> parity_inventory.txt` - o mutante
+# do CTO (`sed` devolvendo STATUS via essa forma) morria, mas tres
+# formas EQUIVALENTES escapavam por completo (medidas pelo main:
+# `printf '...' >> parity_inventory.txt`, `cat outro.txt >>
+# parity_inventory.txt`, `echo ... | tee -a parity_inventory.txt` -
+# nenhuma delas contem literalmente `echo "` seguido de `>>`, entao a
+# checagem antiga nunca as via). O criterio agora parte do DESTINO, nao
+# da forma de um comando so': QUALQUER linha do job que escreva no
+# arquivo `parity_inventory.txt` EXATO (sem prefixo de diretorio, via
+# `>`, `>>` ou `tee`) tem que ser, a linha INTEIRA, exatamente a UNICA
+# forma aceita - `echo "<nome-valido>" >> parity_inventory.txt`.
+# Qualquer outra forma que escreva nesse destino reprova, citando a
+# linha completa.
+#
+# LIMITACAO DECLARADA (leitura de TEXTO do ci.yml, GODS_LAWS.md L-09 -
+# nunca executa nada): ainda escapam (1) escrita indireta por variavel
+# (`f=parity_inventory.txt; echo "x" >> "$f"` - o token apos `>>` e'
+# literalmente `"$f"`, nao `parity_inventory.txt`); (2) um script
+# externo invocado (`python3 algo.py`) cuja LOGICA INTERNA escreve no
+# arquivo sem que isso apareca como redirecionamento nesta linha do
+# ci.yml; (3) `cp`/`install`/`mv` sobrescrevendo o arquivo por completo
+# sem usar `>`/`>>`/`tee` (argumento posicional comum, nao operador de
+# redirecionamento). Nenhuma das tres formas apareceu neste
+# levantamento; ficam como debito conhecido, nao como bug consertado.
+_REDIRECT_TARGET_RE = re.compile(r'>>?\s*(\S+)')
+_TEE_TARGET_RE = re.compile(r'\btee\b(?:\s+-\S+)*\s+(\S+)')
+_ACCEPTED_WRITE_FORM_RE = re.compile(r'^echo\s+"([A-Za-z0-9_]+)"\s*>>\s*parity_inventory\.txt$')
+
+
+def _writes_to_bare_parity_inventory(line):
+    """True se `line` redireciona (>, >>) ou faz `tee` para o nome
+    EXATO `parity_inventory.txt` - um alvo com prefixo de diretorio
+    (ex.: `publicado/parity_inventory.txt`, o passo "Monta o
+    inventario publicado") nao bate, de proposito (e' outro arquivo)."""
+    for m in _REDIRECT_TARGET_RE.finditer(line):
+        if m.group(1) == "parity_inventory.txt":
+            return True
+    m = _TEE_TARGET_RE.search(line)
+    return bool(m and m.group(1) == "parity_inventory.txt")
+
+
+def _invalid_payload_errors(job_block_text):
+    errors = []
+    for raw_line in job_block_text.splitlines():
+        line = raw_line.strip()
+        if not _writes_to_bare_parity_inventory(line):
+            continue
+        if not _ACCEPTED_WRITE_FORM_RE.match(line):
+            errors.append(
+                f"escrita fora da forma aceita em parity_inventory.txt no job "
+                f"{WAYLAND_CONTAINER_JOB!r} - so' 'echo \"<nome>\" >> parity_inventory.txt' "
+                f"e' aceito, qualquer outra forma reprova: {line!r}"
+            )
+    return errors
+
+
 # --- comparison logic ----------------------------------------------------
 
 
@@ -229,6 +287,7 @@ def real_main(args):
     )
 
     errors = run_comparison(containerfile_fixtures, ci_appends)
+    errors.extend(_invalid_payload_errors(job_block))
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
         for error in errors:
@@ -345,6 +404,186 @@ def selftest_parsing_round_trip():
     return True
 
 
+def _run_real_main_capturing(containerfile_text, ci_yml_text):
+    import contextlib
+    import io
+    import tempfile
+    from pathlib import Path
+
+    buffer = io.StringIO()
+    exit_code = None
+    with tempfile.TemporaryDirectory() as tmp:
+        containerfile_path = Path(tmp) / "Containerfile"
+        ci_yml_path = Path(tmp) / "ci.yml"
+        containerfile_path.write_text(containerfile_text, encoding="utf-8")
+        ci_yml_path.write_text(ci_yml_text, encoding="utf-8")
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            try:
+                real_main([str(containerfile_path), str(ci_yml_path)])
+            except SystemExit as exc:
+                exit_code = exc.code
+    return exit_code, buffer.getvalue()
+
+
+# CI-SPLIT-PER-OS A2/gemeo esquecido (achado do CTO, GODS_LAWS.md
+# L-17): o mutante `sed 's/>> parity_status.txt/>> parity_inventory.
+# txt/'` no ci.yml (devolvendo STATUS pro arquivo local) sobrevive aos
+# tres portoes de container - nenhum deles conhece o CONTEUDO da linha,
+# so' a FORMA "echo \"<nome>\" >> parity_inventory.txt". Como "STATUS:
+# completo" tem espaco e dois-pontos, _APPEND_RE simplesmente nao casa
+# - a linha desaparece em silencio, nunca vira erro. Este fixture
+# reproduz exatamente essa mutacao: uma fixture real ("x") mais uma
+# escrita invalida no MESMO arquivo, no MESMO job.
+_FAKE_CI_YML_STATUS_LEAK = """\
+jobs:
+  wayland-container:
+    steps:
+      - run: |
+          docker exec glintfx-wltest-clean x
+          echo "x" >> parity_inventory.txt
+          echo "STATUS: completo" >> parity_inventory.txt
+"""
+
+
+def selftest_invalid_payload_in_parity_inventory_reproves():
+    exit_code, output = _run_real_main_capturing(_FAKE_CONTAINERFILE, _FAKE_CI_YML_STATUS_LEAK)
+    if exit_code in (None, 0):
+        print(
+            f"selftest: CARGA-INVALIDA FALHOU ('STATUS: completo' >> parity_inventory.txt "
+            f"passou calado, deveria ter reprovado): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    if "STATUS: completo" not in output:
+        print(
+            f"selftest: CARGA-INVALIDA FALHOU (reprovou, mas nao citou a carga invalida): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: CARGA-INVALIDA OK (escrita em parity_inventory.txt cuja carga nao e "
+        "nome de fixture valido reprova, citando a linha)"
+    )
+    return True
+
+
+# Controle positivo (gemeo do vermelho acima): a MESMA linha STATUS,
+# mas escrevendo em parity_status.txt (o arquivo separado, decisao do
+# CTO) em vez de parity_inventory.txt - nunca reprova. Prova que a
+# regra nova e' especifica de parity_inventory.txt, nao qualquer echo
+# com aspas em qualquer arquivo.
+_FAKE_CI_YML_STATUS_SEPARATE_FILE = """\
+jobs:
+  wayland-container:
+    steps:
+      - run: |
+          docker exec glintfx-wltest-clean x
+          echo "x" >> parity_inventory.txt
+          echo "STATUS: completo" >> parity_status.txt
+"""
+
+
+def selftest_status_in_separate_file_control():
+    exit_code, output = _run_real_main_capturing(_FAKE_CONTAINERFILE, _FAKE_CI_YML_STATUS_SEPARATE_FILE)
+    if exit_code not in (None, 0):
+        print(
+            f"selftest: STATUS-EM-ARQUIVO-SEPARADO FALHOU (reprovou uma escrita legitima "
+            f"em parity_status.txt): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: STATUS-EM-ARQUIVO-SEPARADO OK (escrita em parity_status.txt nunca "
+        "aciona a regra de parity_inventory.txt)"
+    )
+    return True
+
+
+# Revisao do main, tres formas equivalentes que escapavam da checagem
+# por CONTEUDO ("echo \"...\""): printf, cat e tee escrevem no MESMO
+# arquivo sem usar echo - o criterio tem que partir do DESTINO
+# (parity_inventory.txt como alvo de qualquer >, >> ou tee), nunca da
+# forma especifica de um comando so'. As tres fixturas abaixo espelham
+# exatamente /var/tmp/glintfx-statusfix-verif2/ci_{printf,cat,tee}.yml
+# (fixturas do main).
+_FAKE_CI_YML_STATUS_VIA_PRINTF = """\
+jobs:
+  wayland-container:
+    steps:
+      - run: |
+          docker exec glintfx-wltest-clean x
+          echo "x" >> parity_inventory.txt
+          printf 'STATUS: completo\\n' >> parity_inventory.txt
+"""
+
+_FAKE_CI_YML_STATUS_VIA_CAT = """\
+jobs:
+  wayland-container:
+    steps:
+      - run: |
+          docker exec glintfx-wltest-clean x
+          echo "x" >> parity_inventory.txt
+          echo "STATUS: completo" >> parity_status.txt
+          cat parity_status.txt >> parity_inventory.txt
+"""
+
+_FAKE_CI_YML_STATUS_VIA_TEE = """\
+jobs:
+  wayland-container:
+    steps:
+      - run: |
+          docker exec glintfx-wltest-clean x
+          echo "x" >> parity_inventory.txt
+          echo "STATUS: completo" | tee -a parity_inventory.txt
+"""
+
+
+def selftest_printf_write_to_inventory_reproves():
+    exit_code, output = _run_real_main_capturing(_FAKE_CONTAINERFILE, _FAKE_CI_YML_STATUS_VIA_PRINTF)
+    if exit_code in (None, 0):
+        print(
+            f"selftest: ESCRITA-VIA-PRINTF FALHOU (printf >> parity_inventory.txt passou "
+            f"calado): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    if "printf" not in output:
+        print(f"selftest: ESCRITA-VIA-PRINTF FALHOU (reprovou, mas nao citou a linha): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: ESCRITA-VIA-PRINTF OK (printf >> parity_inventory.txt reprova - forma fora da aceita)")
+    return True
+
+
+def selftest_cat_write_to_inventory_reproves():
+    exit_code, output = _run_real_main_capturing(_FAKE_CONTAINERFILE, _FAKE_CI_YML_STATUS_VIA_CAT)
+    if exit_code in (None, 0):
+        print(
+            f"selftest: ESCRITA-VIA-CAT FALHOU (cat >> parity_inventory.txt passou calado): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    if "cat parity_status.txt" not in output:
+        print(f"selftest: ESCRITA-VIA-CAT FALHOU (reprovou, mas nao citou a linha): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: ESCRITA-VIA-CAT OK (cat >> parity_inventory.txt reprova - forma fora da aceita)")
+    return True
+
+
+def selftest_tee_write_to_inventory_reproves():
+    exit_code, output = _run_real_main_capturing(_FAKE_CONTAINERFILE, _FAKE_CI_YML_STATUS_VIA_TEE)
+    if exit_code in (None, 0):
+        print(
+            f"selftest: ESCRITA-VIA-TEE FALHOU (tee -a parity_inventory.txt passou calado): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    if "tee -a parity_inventory.txt" not in output:
+        print(f"selftest: ESCRITA-VIA-TEE FALHOU (reprovou, mas nao citou a linha): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: ESCRITA-VIA-TEE OK (tee -a parity_inventory.txt reprova - forma fora da aceita)")
+    return True
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -353,6 +592,11 @@ def selftest_main():
         selftest_empty_containerfile_reproves(),
         selftest_empty_ci_appends_reproves(),
         selftest_parsing_round_trip(),
+        selftest_invalid_payload_in_parity_inventory_reproves(),
+        selftest_status_in_separate_file_control(),
+        selftest_printf_write_to_inventory_reproves(),
+        selftest_cat_write_to_inventory_reproves(),
+        selftest_tee_write_to_inventory_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

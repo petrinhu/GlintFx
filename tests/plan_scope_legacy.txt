@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tests/plan_scope_legacy.txt - PLAN-SCOPE-COLUMNS (D-A7, docs/plano-w7c-
+# adendo-revalidacao.md, secao 3.F, sub-fatia F0): lista FECHADA, que so
+# encolhe, dos docs/plano-*.md que nao tem tabela no esquema v1. Um plano
+# fora desta lista e sem tabela v1 reprova a auditoria (check_plan_scope_
+# diff.py --audit); um plano NESTA lista que ganhar tabela v1 reprova como
+# "legado morto" (mesma regra de morte de tests/parity_exceptions.txt).
+#
+# Forma de cada linha: caminho|categoria|motivo
+#   categoria: "sem-tabela-de-fatia" (nenhuma tabela do plano tem coluna
+#   chamada exatamente "Fatia" ou "Sub-fatia") ou "tabela-fora-do-esquema"
+#   (tem ao menos uma dessas tabelas, mas nenhuma cumpre o esquema v1
+#   inteiro - a saida da auditoria imprime, por tabela, as colunas
+#   obrigatorias que faltam). A categoria e' CONFERIDA por maquina contra
+#   o proprio plano a cada execucao - nao basta escrever a categoria certa
+#   aqui, ela tem de ser verdadeira.
+#   motivo: pelo menos cinco palavras reais, nunca um marcador da lista
+#   fechada (legado, antigo, historico, n/a, na, todo, idem, ver acima,
+#   mesmo motivo, sem motivo), e nunca igual (apos normalizar acento,
+#   caixa e pontuacao) ao motivo de outra linha.
+#
+# docs/plano-w7d.md NAO entra aqui: converte-se para o esquema v1 no
+# proprio F0, porque a W7-D ainda nao comecou e o plano dela sera' con-
+# ferido por maquina quando rodar (adendo, secao 3.F).
+
+docs/plano-conserto-fachadas-uaf.md|sem-tabela-de-fatia|tabela unica de achados de uso apos free, sem conceito de fatia nem de prova de fechamento
+docs/plano-conserto-vermelhos-w6b.md|sem-tabela-de-fatia|tabela de fatos medidos com colunas Fato e Como foi medido, nenhuma delas descreve entrega nem teste de estreia
+docs/plano-fecho-w7b.md|tabela-fora-do-esquema|cinco tabelas com coluna Sub-fatia usam Fechamento e Estreia vermelha em vez de Nasce por muda e Par no portao
+docs/plano-layers-l4-adendo.md|sem-tabela-de-fatia|tabela de sondas de compilador cruzando compiladores contra formas de include, sem coluna de fatia alguma
+docs/plano-layers-l4.md|sem-tabela-de-fatia|tabela de fixtures de modulos C mais vinte contra compiladores, sem qualquer coluna de fatia
+docs/plano-layers-l5-adendo-calibracao.md|sem-tabela-de-fatia|tabela de alternativas descartadas com motivo de descarte, nenhuma coluna nomeia fatia
+docs/plano-layers-l5.md|sem-tabela-de-fatia|tabela de fontes lidas com licenca e o que foi lido, sem estrutura de fatia nenhuma
+docs/plano-loop-callbacks.md|tabela-fora-do-esquema|tabela com coluna Sub-fatia usa Ordem como primeira coluna e guarda a entrega em outra tabela separada
+docs/plano-w6b-fatias-5.md|sem-tabela-de-fatia|tabela de fatos medidos sobre o adaptador EGL, colunas Fato Como-foi-medido O-que-muda, sem coluna de fatia
+docs/plano-w6b-fatias-5b-revisao.md|sem-tabela-de-fatia|tabela de inventario de placas de video lidas do sistema, nenhuma linha descreve fatia de trabalho
+docs/plano-w6b-fatias-6-8.md|sem-tabela-de-fatia|tabela de fatos medidos sobre o laco de eventos dos dois backends, sem coluna de fatia declarada

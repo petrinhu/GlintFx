@@ -60,8 +60,9 @@
 # enumerating every "sha256"/"md5"/"checksum"/"file(SHA" occurrence in
 # the repository - third_party/khronos/gl.xml's gate in
 # src/render/CMakeLists.txt is the only one). The two files this
-# .gitattributes protects are therefore the entire set that needed
-# protecting; no other pattern was left out.
+# .gitattributes protects were therefore the entire set that needed
+# protecting WHEN THIS FILE WAS WRITTEN (sha256 comparisons only). The set
+# grew later: see CI-SPLIT-PER-OS A5 F1d below.
 #
 # This file adds NO behavior for text/diff-comparing gates elsewhere
 # in the tree (tests/tools/check_dup_laws.sh's byte-for-byte DUP-BLOCK
@@ -74,3 +75,13 @@
 
 third_party/khronos/gl.xml binary
 third_party/khronos/LICENSE-APACHE-2.0.txt binary
+
+# CI-SPLIT-PER-OS A5 F1d (CTO, 29/09/2026): a SECOND kind of byte-exact comparison, not a hash: the
+# FASE helper selftests (tests/tools/fase.py, tools/ci/fase.ps1) compare their output byte by byte with
+# tests/tools/fixtures/fase/*.txt, whose contract is LF and no BOM. The Windows checkout converts them to
+# CRLF; simulated with `git -c core.autocrlf=true clone --no-local`, both selftests then FAIL cases 1 and
+# 2. The fix belongs in the repository, not in the reader. The .ps1 is pinned to LF too: a backtick
+# followed by a real line break inside a string breaks under CRLF (the 5d textual gate of the selftest
+# guards that shape).
+tests/tools/fixtures/fase/*.txt text eol=lf
+tools/ci/fase.ps1 text eol=lf

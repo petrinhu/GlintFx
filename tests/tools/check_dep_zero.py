@@ -197,6 +197,19 @@ SO_HEADER_ALLOWLIST = frozenset(
         "sys/mman.h",
         "sys/prctl.h",
         "sys/socket.h",
+        # WL-ACK-SMOKE-BLUNT A1 (docs/plano-w7c.md SS3.A, GODS_LAWS.md
+        # L-07): wire_transport.cpp's own struct iovec (the readv/
+        # writev-shaped scatter-gather array recvmsg()/sendmsg() take)
+        # - glibc exposes this POSIX type through <sys/uio.h>, not
+        # through <sys/socket.h> (which only forward-declares it),
+        # same "API do sistema" category sys/socket.h already is.
+        "sys/uio.h",
+        # WL-ACK-SMOKE-BLUNT A3 (docs/plano-w7c.md SS3.A, GODS_LAWS.md
+        # L-07): wire_relay_main.cpp's own struct sockaddr_un (bind()/
+        # connect() need it to name a Unix domain socket by path) -
+        # glibc exposes this POSIX type through <sys/un.h>, same "API
+        # do sistema" category sys/socket.h/sys/uio.h already are.
+        "sys/un.h",
         "sys/stat.h",
         "sys/sysmacros.h",
         "sys/types.h",

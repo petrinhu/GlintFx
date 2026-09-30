@@ -157,6 +157,38 @@ BEGIN {
     n_keys = split("alloc_new_calls alloc_delete_calls alloc_live_ours alloc_live_third_party alloc_ours_overflow alloc_foreign_delete", keys, " ")
     exit_code = 0
     current_owner = ""
+    # WL-ACK-SMOKE-BLUNT A3b (achado do servidor, run 36013138929 sobre
+    # 203f511): wire_relay entrou no inventario de paridade (P-0/A3b)
+    # porque e uma fixture de verdade do Containerfile (COPY --from=...,
+    # mesma regra das outras dezoito), mas ele NUNCA vai ter as seis
+    # linhas MEASURED que este criterio exige HOJE - e um DAEMON DE
+    # LONGA DURACAO (wire_relay_main.cpp, while(true) aceitando cliente
+    # apos cliente) que o job derruba ainda vivo, entao o atexit() do
+    # gancho (alloc_counter_hook.cpp) nunca dispara. O simbolo _Znwm
+    # continua LIGADO no binario (Containerfile), entao a prova
+    # ESTATICA (nm -D, passo "Substitutos de alocacao presentes")
+    # continua cobrindo wire_relay normalmente - so a exigencia de
+    # EXECUCAO ATE O FIM fica isenta aqui.
+    #
+    # ISTO NAO E O CAMINHO COMPLETO, E NAO FINGE SER (achado da revisao
+    # do team-lead, 24/09/2026, "nunca o caminho mais facil" - ligar o
+    # contador sem nunca ler o que ele conta e o instrumento que afirma
+    # medir e nao mede, GODS_LAWS.md L-40/memoria feedback_afirma_que_
+    # mede_e_nao_mede.md): o caminho completo e o rele encerrar de
+    # forma ORDEIRA ao receber SIGTERM - sai do laco de accept(), fecha
+    # as conexoes abertas, chama exit(0), e o atexit() do gancho imprime
+    # as seis linhas MEASURED de verdade, com vazamento por conexao
+    # medido, nao presumido ausente. Isso pertence ao ciclo de vida do
+    # rele que A5 (TODO.md, WL-ACK-SMOKE-BLUNT) ja vai mexer (passar
+    # todas as fixturas pelo rele), nao a esta fatia (A3b).
+    #
+    # MORTE DESTA EXCECAO: quando A5 fechar (TODO.md, WL-ACK-SMOKE-
+    # BLUNT) - dono nomeado, nao "algum dia". Nao apagar sem o rele
+    # emitir as seis linhas MEASURED de verdade primeiro (controle
+    # positivo que substitui selftest_daemon_no_atexit_exempt_control
+    # abaixo por um caso que EXIGE as seis linhas, nunca so as tolera
+    # ausentes).
+    no_atexit_daemon["wire_relay"] = 1
 }
 FILENAME == inv_file_name {
     line = $0
@@ -224,8 +256,14 @@ END {
         exit_code = 1
     }
     with_contador = 0
+    isentos_daemon = 0
     total_live_ours = 0
     for (name in inv) {
+        if (name in no_atexit_daemon) {
+            isentos_daemon++
+            printf "AVISO: %s: isento da exigencia de execucao ate o fim (daemon de longa duracao, sem atexit dentro do job) - simbolo _Znwm continua conferido pelo passo estatico\n", name > "/dev/stderr"
+            continue
+        }
         missing = ""
         for (i = 1; i <= n_keys; i++) {
             if (!((name, keys[i]) in seen)) { missing = missing " " keys[i] }
@@ -269,7 +307,7 @@ END {
             exit_code = 1
         }
     }
-    printf "fixtures_com_contador: %d de %d\n", with_contador, inv_count
+    printf "fixtures_com_contador: %d de %d (isentos por daemon de longa duracao: %d)\n", with_contador, inv_count, isentos_daemon
     printf "vazamentos_ours: %d\n", total_live_ours
 
     # S4 (leak-counter.md sec. 5 S4, GODS_LAWS.md L-40/L-43, achado da
@@ -672,6 +710,97 @@ selftest_growth_absent_from_inventory_control() {
     return 1
 }
 
+# CI-SPLIT-PER-OS A2/gemeo esquecido (decisao do CTO, GODS_LAWS.md
+# L-17, run 36096110117): a correcao do defeito real e' no PRODUTOR
+# (ci.yml, "Resultado agregado do container" passa a escrever STATUS
+# em parity_status.txt, nunca em parity_inventory.txt - o arquivo local
+# que os leitores consomem volta ao contrato puro da P-0, um nome de
+# fixture por linha), NAO neste consumidor - o CTO decidiu contra
+# filtrar em cada leitor (o quarto leitor futuro esqueceria do mesmo
+# jeito que os tres primeiros esqueceram). Este script continua sem
+# saber que STATUS existe, por desenho. O controle abaixo prova o
+# INVERSO do que um filtro provaria: se a linha "STATUS: completo"
+# vazar de volta pro arquivo local (regressao no produtor), este script
+# tem que continuar reprovando - a MESMA reprovacao "fixture sem
+# contador" que motivou a investigacao, agora como REDE DE SEGURANCA,
+# nao como bug. Nunca aceitar essa linha calada.
+selftest_status_line_leaking_into_local_inventory_reproves() {
+    log_file="$(mktemp "${scratch}/log-status-leak-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-status-leak-XXXXXX")"
+    i=1
+    while [ "$i" -le 18 ]; do
+        if [ "$i" -eq 18 ]; then
+            name="alloc_cycle_growth_smoke"
+        else
+            name="fixture_${i}"
+        fi
+        write_measured_lines "$name" 3 3 0 0 0 0 >>"$log_file"
+        if [ "$name" = "alloc_cycle_growth_smoke" ]; then
+            {
+                printf 'MEASURED %s.third_party_after_cycle_2=1188\n' "$name"
+                printf 'MEASURED %s.third_party_after_cycle_3=1188\n' "$name"
+                printf 'MEASURED %s.third_party_growth_c2_c3=0\n' "$name"
+            } >>"$log_file"
+        fi
+        echo "$name" >>"$inv_file"
+        i=$((i + 1))
+    done
+    echo "STATUS: completo" >>"$inv_file"
+    if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        echo "selftest: LINHA-STATUS-VAZADA FALHOU (deveria ter reprovado - a linha STATUS nunca pode ser aceita como fixture calada)" >&2
+        printf '%s\n' "$out" >&2
+        return 1
+    fi
+    if printf '%s\n' "$out" | grep -q 'STATUS: completo' && printf '%s\n' "$out" | grep -q 'fixture sem contador'; then
+        echo "selftest: LINHA-STATUS-VAZADA OK (se STATUS vazar pro arquivo local, este script reprova - rede de seguranca, nao filtro)"
+        return 0
+    fi
+    echo "selftest: LINHA-STATUS-VAZADA FALHOU (reprovou mas nao pela razao esperada)" >&2
+    printf '%s\n' "$out" >&2
+    return 1
+}
+
+# WL-ACK-SMOKE-BLUNT A3b (achado do servidor, run 36013138929): o par
+# do controle de FIXTURE SEM LINHA acima, mas para o nome NOMEADAMENTE
+# isento - wire_relay no inventario, ZERO linhas MEASURED (o mesmo
+# cenario exato que reprova qualquer outro nome), tem que PASSAR, com
+# o motivo explicito no aviso, nunca em silencio. O controle negativo
+# (uma fixture comum na mesma situacao) ja existe acima
+# (selftest_missing_line_control) - este e so o lado positivo da MESMA
+# regra, para a isencao nunca virar "tudo passa por aqui" por acidente.
+selftest_daemon_no_atexit_exempt_control() {
+    log_file="$(mktemp "${scratch}/log-daemon-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-daemon-XXXXXX")"
+    # alloc_cycle_growth_smoke tem de estar presente e completa, ou a
+    # EXIGENCIA NOMEADA (S4, bloco END) reprova este controle por um
+    # motivo nao relacionado ao que ele testa - mesmo cuidado que
+    # selftest_positive_control acima ja documenta.
+    write_measured_lines alloc_cycle_growth_smoke 3 3 0 0 0 0 >"$log_file"
+    {
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_2=1188\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_3=1188\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=0\n'
+    } >>"$log_file"
+    {
+        echo "alloc_cycle_growth_smoke"
+        echo "wire_relay"
+    } >"$inv_file"
+    if ! out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        echo "selftest: controle de DAEMON SEM ATEXIT FALHOU (wire_relay sem nenhuma linha deveria ter sido isento, mas reprovou)" >&2
+        printf '%s\n' "$out" >&2
+        return 1
+    fi
+    if printf '%s\n' "$out" | grep -q 'wire_relay' \
+        && printf '%s\n' "$out" | grep -q 'isento da exigencia de execucao' \
+        && printf '%s\n' "$out" | grep -q 'isentos por daemon de longa duracao: 1'; then
+        echo "selftest: controle de DAEMON SEM ATEXIT OK (wire_relay isento, motivo citado, contagem correta)"
+        return 0
+    fi
+    echo "selftest: controle de DAEMON SEM ATEXIT FALHOU (passou mas nao citou o motivo/contagem esperados)" >&2
+    printf '%s\n' "$out" >&2
+    return 1
+}
+
 selftest_main() {
     scratch="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-alloc-report-selftest-XXXXXX")"
     trap 'rm -rf "$scratch"' EXIT
@@ -712,13 +841,19 @@ selftest_main() {
     exercitados=$((exercitados + 1))
     selftest_growth_absent_from_inventory_control || reprovados=$((reprovados + 1))
 
+    exercitados=$((exercitados + 1))
+    selftest_daemon_no_atexit_exempt_control || reprovados=$((reprovados + 1))
+
+    exercitados=$((exercitados + 1))
+    selftest_status_line_leaking_into_local_inventory_reproves || reprovados=$((reprovados + 1))
+
     echo "controles: ${exercitados} exercitados, ${reprovados} reprovados"
 
     if [ "$reprovados" -ne 0 ]; then
         echo "check_alloc_report.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_alloc_report.sh --selftest: os onze controles OK"
+    echo "check_alloc_report.sh --selftest: os ${exercitados} controles OK"
 }
 
 main() {

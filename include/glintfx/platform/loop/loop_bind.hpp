@@ -42,7 +42,8 @@ namespace detail {
 // convertible to `bool`, WITHOUT throwing; Object::*OnRender the same,
 // except its return value is discarded (void).
 // std::is_nothrow_invocable_r_v/std::is_nothrow_invocable_v are what
-// F17 (docs/plano-loop-callbacks.md) measured: they accept a
+// F17 (docs/plano-loop-callbacks.md) found, proved by
+// `loop_bind_test`'s own static_assert matrix: they accept a
 // const method, a non-const method, and reject one missing `noexcept`,
 // with NO special-casing needed for either.
 template <auto OnFrame, auto OnRender, class Object>
@@ -60,7 +61,7 @@ concept gltfx_loop_bindable =
 // never a lookup through a pointer-to-member kept in a struct. That is
 // what "tipado e sem custo em execucao" means.
 //
-// WHY `detail`, MEASURED, NOT GUESSED (L-32: never invent a namespace
+// WHY `detail`, FOUND, NOT GUESSED (L-32: never invent a namespace
 // "for later"): `grep -rn 'namespace .*detail' include/` found exactly
 // one precedent already in this tree - `glintfx::asset::detail`
 // (include/glintfx/platform/asset/file.hpp) - hiding a helper a
@@ -90,10 +91,11 @@ concept gltfx_loop_bindable =
 // does inherit from the mark, in a build where NDEBUG is undefined,
 // gets a deterministic, named abort() the instant it is called
 // through after its own destructor already ran - proved live by
-// tests/tools/check_loop_mark_precondition.py's own subprocess-based
-// portal (the SAME "the metade Debug is what mutation review kills"
-// discipline tests/tools/check_rslt_precondition.py already proves
-// for core/err.hpp's own precondition guard, F22).
+// `loop_mark_precondition_test`'s own subprocess-based portal
+// (tests/tools/check_loop_mark_precondition.py, the SAME "the metade
+// Debug is what mutation review kills" discipline
+// `rslt_precondition_test` already proves for core/err.hpp's own
+// precondition guard, F22).
 //
 // THE THUNK NAME LIVES INSIDE THE assert()'S OWN STRING LITERAL, NOT
 // IN A NAME THE PLATFORM PRINTS AROUND IT (CONSERTO, 13/09/2026, run
@@ -248,11 +250,12 @@ template <auto OnFrame, auto OnRender, class Object>
 // The overload the compiler actually PICKS for a temporary (F15,
 // docs/plano-loop-callbacks.md) - NOT what refuses it. The
 // non-const lvalue reference above already refuses an rvalue argument
-// on its own: measured (S1c red-before-green, this sub-slice's own
-// implementation step) by compiling gltfx_bind_loop_callbacks() with
-// ONLY the `Object &` overload above and no deleted overload at all -
-// tests/loop_bind_test.cpp's own `binds_temporary`/`binds_rvalue`
-// static_assert(s) were already green. This overload exists ONLY for
+// on its own: proved by `loop_bind_test` (S1c red-before-green, this
+// sub-slice's own implementation step) by compiling
+// gltfx_bind_loop_callbacks() with ONLY the `Object &` overload above
+// and no deleted overload at all - its own `binds_temporary`/
+// `binds_rvalue` static_assert(s) were already green. This overload
+// exists ONLY for
 // the MESSAGE a consumer reads: without it, a temporary produces a
 // generic "no matching function" from the `Object &` overload's own
 // failed reference binding; with it, the temporary becomes the BEST

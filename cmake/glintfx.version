@@ -84,7 +84,11 @@
         # quoted pattern is matched LITERALLY by GNU ld (no glob
         # expansion of the trailing `*`) - confirmed live, 28/08/2026:
         # the quoted form swept every glintfx:: symbol into `local: *;`
-        # right along with the two intruders, exporting nothing at
+        # right along with whatever `nm -D --defined-only <libglintfx.so>
+        # | awk '{ print $NF }'` finds outside the glintfx prefix and
+        # the runtime allowlist (tests/tools/check_exports.sh's own
+        # collect_intruder_symbols() - the command that measures this,
+        # not a number written here to apodrecer), exporting nothing at
         # all. The bare, unquoted form is what actually glob-matches.
         _ZN7glintfx*;
         # Const-qualified member functions (Itanium "K" cv-infix -

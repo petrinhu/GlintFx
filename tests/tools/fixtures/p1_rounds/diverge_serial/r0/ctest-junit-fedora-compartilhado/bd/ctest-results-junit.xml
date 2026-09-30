@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later (saida REAL de ctest com output-junit, cmake 4.3.0, 29/09/2026) -->
+<testsuite name="(empty)"
+	tests="4"
+	failures="1"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="3"
+	timestamp="2026-09-29T04:55:16"
+	>
+	<testcase name="rapido" classname="rapido" time="0.00178132" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="medio" classname="medio" time="1.00197" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="flaky" classname="flaky" time="0.00163874" status="fail">
+		<failure message="Failed"/>
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="lento_timeout_apertado" classname="lento_timeout_apertado" time="2.00254" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+</testsuite>

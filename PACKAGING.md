@@ -66,8 +66,9 @@ ship a CMake above the 4.1 floor on their own:
   official zip from [cmake.org/download](https://cmake.org/download/)
   (`cmake-<version>-windows-x86_64.zip`) and put its `bin/` directory on
   `PATH`. glintfx's own CI does exactly this - see
-  `.github/workflows/ci.yml`'s `windows` job, "Instalar CMake >= 4.1
-  (Windows)" step.
+  `tools/ci/windows/prep.ps1`, which every Windows job of
+  `.github/workflows/ci.yml` calls in its "Piso de ferramentas (Windows)"
+  step.
 
 **Fedora (this project's primary target, GODS_LAWS.md L-04), Ubuntu,
 Arch and CachyOS all ship a CMake above the 4.1 floor already**,
@@ -181,7 +182,7 @@ story:
   what the fix above corrects; see "Where this is tested" below for
   how it is proven closed.)
 
-**Two more gates protect Windows consumption on every push**,
+**More gates protect Windows consumption on every push**,
 independent of pkg-config, mirroring what
 `tests/tools/check_pkgconfig.sh`/`check_pkgconfig_validate.sh` prove
 for the pkg-config path on Unix (see "Where this is tested" below):
@@ -668,7 +669,7 @@ across every layout this document lists, this one proves the simpler,
 platform-specific claim Windows CI can make for itself today: that the
 `.pc` file this project's install rules should produce there is
 genuinely on disk, in the same real `cmake --install` run the other
-two Windows gates (`check-consume.ps1`, `check-embed.ps1`) already
+Windows gates (`check-consume.ps1`, `check-embed.ps1`) already
 exercise. `tools/ci/diagnose-win-pkgconfig.ps1` (also covered in
 "Packaging on Windows" above) is the third piece: a permanent,
 judgment-free diagnostic that runs a closed matrix against a live

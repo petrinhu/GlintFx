@@ -222,7 +222,9 @@ namespace glintfx::style {
 // public and unknown (LEI ZERO, GODS_LAWS.md) - a ceiling 104 members
 // already sits 40% of the way toward. The four extra bytes per row
 // this costs property_table.hpp's own 104-row table is not on any
-// measured hot path.
+// performance-critical path (GODS_LAWS.md "profilear antes de
+// otimizar" - nobody has profiled this table and found reason to
+// chase it).
 enum class gltfx_gfss_property : std::uint16_t { // NOLINT(performance-enum-size) reason: see the
                                                  // paragraph above
 #define GLINTFX_GFSS_PROPERTY_ENUMERATOR(name) name,

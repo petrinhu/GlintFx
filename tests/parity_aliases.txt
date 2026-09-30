@@ -131,6 +131,7 @@ visibility_test|exports_win_test
 consume_test|consume_win_test
 embed_test|embed_win_test
 preci_selftest|preci_win_selftest
+fase_sh_selftest|fase_ps1_selftest
 
 # Os tres pares abaixo fecham o achado INVERSO da mesma fatia: registrar
 # as dez verificacoes do Windows revelou tres nomes que passaram a

@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# (linhas iniciadas por "#" sao cabecalho e NAO entram na comparacao byte a byte; ver fase.sh/fase.py/fase.ps1)
+paralelismo aninhado: ausente

@@ -5363,3 +5363,25 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Escolha:* a fachada do contexto lê de volta o GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING do buffer de trás, com a mesma régua nos dois sistemas. Se a opção foi pedida e a resposta não é SRGB, o resultado é unsupported.
 - *Recusados:* confiar no que o formato de pixel diz; e declarar o Windows como ausência, que seria aceitar o anúncio falso.
 - *Próximo CI:* se a leitura der LINEAR, a lib recusa com honestidade no Windows e o sRGB fica provado no Linux. Se der SRGB com o pixel ainda em 128, o defeito é do driver do runner, e a VM Windows mede com outro driver, com liberação do team-lead.
+
+## 30/09/2026 - 16:55 | PAUSA ordenada pelo líder ("Continue até 17:00 local")
+
+- *Remoto:* onda-w7d em c98c0db.
+- *Local:* onda-w7d em ca0cfb2, mais este registro. Todos os commits locais foram aceitos pelo CTO:
+  - a B6;
+  - o D-SRGB-1 (0587bb7), provado ao vivo: 187, 51/0, e o mutante morto;
+  - o gancho de alocação do F2;
+  - a refatoração L-17 da B7 e os consertos de lint;
+  - a trilha de infra por ff-only: ccache (-69,7%, 100% de acerto), tempo por etapa e comparação com a rodada verde.
+- *Por que nada foi ao remoto:* o `preci --fast` sobre ca0cfb2 deu rc 8, com 2 testes que vêm da trilha de infra e que as provas dela não cobriram:
+  - preci_runs_blob_test: o casador do blob_selftests.py não reconhece o stage_blob embrulhado no timed_stage;
+  - check_selftest_orphan_test: o --selftest do preci_compare_times.py está sem add_test.
+  O resto passou: build, clang-tidy, cppcheck e 291 de 293. Pela L-24, nada sobe com o espelho local vermelho.
+- *Retomada, pela ordem:*
+  1. o conserto dos 2 testes (impl-infra, com uma edição pontual do add_test liberada);
+  2. um `preci --fast` verde, o push e o CI;
+  3. o D-SRGB-2 (§31, o sRGB do Windows);
+  4. a B7 (api-review);
+  5. as linhas "Proved by";
+  6. P4, P5, a v0.6.0.0 e a W8.
+  Também C2 e C4 da infra, com duas perguntas pendentes ao team-lead: o TasksMax 300/200 e os labels `tempo`.

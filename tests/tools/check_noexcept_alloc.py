@@ -936,6 +936,78 @@ def resolve_string_view_substr(all_files_text):
     return sv_names, str_names
 
 
+# Palavras que aparecem antes de um identificador sem serem TIPO (`return x`, `delete p`, ...).
+NOT_A_TYPE = {"return", "delete", "new", "else", "case", "goto", "throw", "using", "typename",
+              "co_return", "co_yield", "sizeof", "namespace", "operator", "if", "while", "for",
+              "do", "switch", "auto", "decltype", "typedef", "friend", "explicit", "noexcept"}
+
+
+# Tipos escalares: um nome declarado com eles (um parametro `std::size_t pieces`) nao pode ser
+# receptor de metodo nenhum, entao nao conta como "tambem declarado com tipo da STL".
+SCALAR_TYPE = re.compile(
+    r"^(?:std::)?(?:u?int(?:8|16|32|64)?_t|size_t|ptrdiff_t|intptr_t|uintptr_t|int|unsigned|long|"
+    r"short|char|bool|float|double|void)$")
+
+
+def _last_component(type_text):
+    """`draw2d::triangle_batch<...>` -> `triangle_batch` (o nome curto da classe)."""
+    base = re.sub(r"<.*", "", type_text).strip()
+    return base.split("::")[-1]
+
+
+def declared_types_of(name, all_files_text):
+    """Tipos com que o NOME `name` e' declarado em qualquer lugar da arvore: variavel, membro
+    ou parametro (`Tipo nome`, `Tipo &nome`, `const Tipo *nome`). Texto, nao tipo - a mesma
+    regua de nomes de resolve_string_view_substr()."""
+    pat = re.compile(
+        r"(?<![\w:])((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*(?:<[^;(){}=]*?>)?)(?=[\s&*])\s*(?:const\b\s*)?[&*]*\s*"
+        + re.escape(name) + r"\b(?=\s*[;=,){(\[])")
+    found = set()
+    for t in all_files_text.values():
+        for m in pat.finditer(t):
+            first = m.group(1).split("::")[0]
+            if first in NOT_A_TYPE or _last_component(m.group(1)) in NOT_A_TYPE:
+                continue
+            found.add(m.group(1))
+    return found
+
+
+def class_method_is_noexcept(type_text, method, all_files_text):
+    """A classe do PROJETO `type_text` declara `method(...)` como noexcept? Le so' o corpo
+    `class|struct Nome {...}` (casamento de chaves), em qualquer arquivo da arvore. Uma classe
+    que nao acha, ou um metodo sem noexcept, devolve False (fail-closed: fica acusado)."""
+    short = _last_component(type_text)
+    head = re.compile(r"\b(?:class|struct)\s+" + re.escape(short) + r"\b[^;{]*\{")
+    decl = re.compile(r"\b" + re.escape(method) + r"\s*\([^;{}]*\)\s*(?:const\s*)?noexcept\b")
+    for t in all_files_text.values():
+        for m in head.finditer(t):
+            depth, i = 1, m.end()
+            while i < len(t) and depth:
+                depth += 1 if t[i] == "{" else -1 if t[i] == "}" else 0
+                i += 1
+            if decl.search(t[m.end():i]):
+                return True
+    return False
+
+
+def receiver_is_project_noexcept(recv, method, all_files_text):
+    """D-B4-3 (errata sec. 20): o receptor e' resolvido pelo TIPO DECLARADO. Absolvido so' quando
+    o nome e' declarado APENAS com tipos do projeto (nada de `std::`, nada de contentor da STL) e
+    o metodo de mesmo nome e' noexcept em CADA um deles. Nome declarado tambem com tipo da STL,
+    sem declaracao achada, ou com um metodo sem noexcept: continua acusado."""
+    if not recv:
+        return False
+    types = {ty for ty in declared_types_of(recv, all_files_text) if not SCALAR_TYPE.match(ty)}
+    if not types:
+        return False
+    for ty in types:
+        if ty.startswith("std::") or _last_component(ty) in CONTAINERS:
+            return False
+        if not class_method_is_noexcept(ty, method, all_files_text):
+            return False
+    return True
+
+
 def analyze_tree(files, err_copy_is_noexcept=False):
     """files: lista de (rel_path, texto_bruto). Devolve dict com
     all_funcs, all_hits, allocs_B (funcoes com alocacao B direta e
@@ -958,6 +1030,9 @@ def analyze_tree(files, err_copy_is_noexcept=False):
                     h["family"] = "B-ambiguo"
                 else:
                     h["family"] = "B"
+            elif (h["family"] == "B" and h["type"] == "metodo"
+                  and receiver_is_project_noexcept(h.get("recv"), h["kind"], all_files_text)):
+                h["family"] = "-"
         all_funcs.extend(funcs)
         all_hits.extend(hits)
 
@@ -1732,6 +1807,9 @@ DIRTY_FIXTURES = [
     "calib_dirty_complex_match.cpp",
     "bad_err_copy_chain.cpp",
     "bad_err_copy_accessor.cpp",
+    "bad_std_vector_reserve.cpp",
+    "bad_reserve_mixed_receiver_types.cpp",
+    "bad_project_reserve_not_noexcept.cpp",
 ]
 CLEAN_FIXTURES = [
     "good_fixed_buffer.cpp",
@@ -1743,6 +1821,7 @@ CLEAN_FIXTURES = [
     "good_err_copy_prvalue.cpp",
     "good_err_copy_moved.cpp",
     "good_err_copy_in_try.cpp",
+    "good_project_reserve_noexcept.cpp",
 ]
 
 

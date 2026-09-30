@@ -69,7 +69,7 @@ contido_events_max() {
 # contido_pgrp_of <pid>: the process group of a pid (field 5 of /proc/<pid>/stat), or nothing.
 contido_pgrp_of() {
     local line
-    read -r line <"/proc/$1/stat" 2>/dev/null || return 1
+    read -r line 2>/dev/null <"/proc/$1/stat" || return 1
     line="${line##*) }"
     read -r _ _ REPLY _ <<<"$line"
     echo "$REPLY"
@@ -326,7 +326,7 @@ contido_inside_main() {
 contido_alive() {
     local line
     case "$1" in ''|*[!0-9]*) return 1 ;; esac
-    read -r line <"/proc/$1/stat" 2>/dev/null || return 1
+    read -r line 2>/dev/null <"/proc/$1/stat" || return 1
     line="${line##*) }"
     case "${line%% *}" in Z|X) return 1 ;; esac
     return 0
@@ -523,6 +523,38 @@ contido_inside_selftest() {
     check "D10b: the leader leaves, a TERM-ignoring grandchild dies by the KILL after ~G (1.9 s to 3.5 s)" "$([ "$rc" -eq 0 ] && [ $((tw1 - tw0)) -ge 1900000 ] && [ $((tw1 - tw0)) -le 3500000 ] && echo 0 || echo 1)" "rc $rc took $((tw1 - tw0)) us"
     contido_alive "$(cat "$dir/d10b/pid" 2>/dev/null)"
     check "D10b: the grandchild is dead" "$([ $? -ne 0 ] && [ -s "$dir/d10b/pid" ] && echo 0 || echo 1)" "the grandchild survived"
+    # 12g. contido_alive has POSITIVE controls too: every other use only asks "is it dead?", so a helper that
+    #      always answered "dead" would pass them all. (1) this very shell is alive; (2) a live sleep is alive
+    #      BEFORE the kill; (3) a ZOMBIE made on purpose (the child exits, its parent became a `sleep` that never
+    #      reaps) still answers to `kill -0` but is NOT alive: this case fails on any host if the helper is a
+    #      bare `kill -0`, without needing a container that does not reap.
+    contido_alive "$$"
+    check "contido_alive: this shell is alive" "$?" "rc $?"
+    sleep 30 &
+    local live_pid=$!
+    contido_alive "$live_pid"
+    check "contido_alive: a live sleep is alive before the kill" "$?" "rc $?"
+    kill "$live_pid" 2>/dev/null
+    wait "$live_pid" 2>/dev/null
+    bash -c 'sleep 0 & echo $! >"$0"; exec sleep 3' "$dir/zumbi.pid" >/dev/null 2>&1 &
+    local parent_pid=$! zombie_pid="" zombie_state="" zombie_line zturn
+    for zturn in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        read -r zombie_pid 2>/dev/null <"$dir/zumbi.pid"
+        if [ -n "$zombie_pid" ] && read -r zombie_line <"/proc/$zombie_pid/stat" 2>/dev/null; then
+            zombie_line="${zombie_line##*) }"
+            zombie_state="${zombie_line%% *}"
+            [ "$zombie_state" = Z ] && break
+        fi
+        read -r -t 0.1 -u "$CONTIDO_FD" _ 2>/dev/null
+    done
+    check "zombie made on purpose reached state Z (bounded wait)" "$([ "$zombie_state" = Z ] && echo 0 || echo 1)" "state [$zombie_state]"
+    kill -0 "$zombie_pid" 2>/dev/null
+    check "a zombie still answers to kill -0" "$?" "kill -0 failed on the zombie"
+    contido_alive "$zombie_pid"; rc=$?
+    check "contido_alive says a zombie is NOT alive" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)" "rc $rc"
+    kill "$parent_pid" 2>/dev/null
+    wait "$parent_pid" 2>/dev/null
+
     # 13. mode ninho, only when the own cgroup is a child of a delegated contido scope
     local own_cg parent_cg skipped=0
     own_cg="$(contido_own_cgroup)"; parent_cg="${own_cg%/*}"

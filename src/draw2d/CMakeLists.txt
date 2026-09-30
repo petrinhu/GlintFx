@@ -16,6 +16,8 @@ target_sources(glintfx_library PRIVATE
     triangle_batch.cpp
     frame_report_tally.cpp
     embedded_program.cpp
+    gl_state_contract.cpp
+    vertex_stream.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

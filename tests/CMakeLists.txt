@@ -1384,6 +1384,33 @@ target_sources(embedded_program_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
 )
 
+# R2D-BATCH B3c: the contract of the GL state, and the vertex stream, each against a table of FAKE GL functions
+# (the generated loader header and gl_abi.hpp as embedded_program_test; vertex_stream_test also needs log_emit()
+# and the sink from the library).
+glintfx_add_test(gl_state_contract_test)
+add_dependencies(gl_state_contract_test glintfx_gl_functions_generated)
+target_include_directories(gl_state_contract_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(gl_state_contract_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+)
+
+glintfx_add_test(vertex_stream_test)
+add_dependencies(vertex_stream_test glintfx_gl_functions_generated)
+target_include_directories(vertex_stream_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(vertex_stream_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

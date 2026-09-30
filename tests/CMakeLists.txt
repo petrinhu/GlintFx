@@ -1314,6 +1314,9 @@ target_sources(preset_expansion_test PRIVATE
 
 # GFX-PRESET P2: the pure atoms of the power source, PLATFORM-AGNOSTIC like the sites they prove (power_supply_rule.cpp
 # and power_status_rule.cpp read plain data; only the two adapters that fill that data are one system each).
+# power_supply_rule.cpp lives in src/platform/wayland/ because the knowledge is the Linux sysfs, but it is
+# "Wayland-DOMAIN, not Wayland-ONLY" exactly like the five above: this target has no if(UNIX) guard and compiles it on
+# every system, and .github/workflows/ci.yml lists it by name in $waylandDominioNaoSo (the Windows Lint gate).
 glintfx_add_test(power_supply_rule_test)
 target_include_directories(power_supply_rule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(power_supply_rule_test PRIVATE

@@ -3273,12 +3273,24 @@ jobs:
           # plataformas, Windows incluido. Aparecerem no banco de
           # compilacao Windows e o comportamento CORRETO e ESPERADO
           # para estes cinco, nunca um sintoma de regua quebrada.
+          #
+          # GFX-PRESET P2 (D-P2-CI, errata sec. 13, 30/09/2026): a lista
+          # abaixo ganhou o SEXTO nome, power_supply_rule.cpp, pelo MESMO
+          # desenho. E a regra PURA que le a lista de fontes de energia ja
+          # lida (nenhum arquivo, nenhum tipo Wayland ou de SO); o
+          # conhecimento e do sysfs do Linux, por isso mora ao lado do
+          # leitor, mas a L-04 manda prova em cada sistema, entao o alvo
+          # power_supply_rule_test o recompila em todos, sem guarda if(UNIX)
+          # (tests/CMakeLists.txt). Nao se move o arquivo e nao se tira o
+          # teste do Windows. A lista abaixo e a fonte: nenhum numero de
+          # "quantos sao" e escrito a mao neste passo.
           $waylandDominioNaoSo = @(
             'src/platform/wayland/global_catalog.cpp',
             'src/platform/wayland/window_configure_sequence.cpp',
             'src/platform/wayland/frame_callback_sequence.cpp',
             'src/platform/wayland/drm_gpu_kind.cpp',
-            'src/platform/wayland/egl_device_dedup.cpp'
+            'src/platform/wayland/egl_device_dedup.cpp',
+            'src/platform/wayland/power_supply_rule.cpp'
           )
 
           $noBanco = @()
@@ -3292,11 +3304,11 @@ jobs:
               # Razao mais comum e conhecida: arquivo Linux-only (o
               # ramo `if(UNIX)` de src/platform/CMakeLists.txt) nunca
               # aparece no compile_commands.json de um configure
-              # Windows - declarado por nome, nunca chutado. Os cinco
-              # arquivos Wayland-dominio-nao-so sao a EXCECAO: se um
+              # Windows - declarado por nome, nunca chutado. Os arquivos
+              # Wayland-dominio-nao-so (a lista acima) sao a EXCECAO: se um
               # deles cair aqui, nao e a razao comum, e falta real
               # (o alvo de teste proprio dele sumiu ou parou de
-              # compila-lo) - nunca herda a razao dos outros 15.
+              # compila-lo) - nunca herda a razao dos demais.
               if ($waylandDominioNaoSo -contains $arquivo) {
                 $razao = "Wayland-dominio-nao-so (tests/CMakeLists.txt) - deveria estar no banco Windows; falta REAL, investigar o alvo de teste dedicado"
               } elseif ($arquivo -match '^src/platform/wayland/') {
@@ -3321,13 +3333,13 @@ jobs:
           # PISO NOVO, CORRIGIDO (GODS_LAWS.md L-36/L-40/L-44, 18/09/2026,
           # pedido nro 10): a versao anterior deste piso tratava QUALQUER
           # arquivo de src/platform/wayland/ no banco Windows como
-          # impossivel por desenho - falso para os cinco arquivos
+          # impossivel por desenho - falso para os arquivos
           # Wayland-dominio-nao-so declarados acima (todos com alvo de
           # teste proprio, sem guarda if(UNIX), rodando nas cinco
           # plataformas por desenho deliberado de 03/09/2026 e
-          # 06/09/2026). O piso agora exclui esses cinco por nome antes
+          # 06/09/2026). O piso agora exclui esses por nome antes
           # de reprovar - continua reprovando se qualquer um dos OUTROS
-          # quinze (os que de fato tocam Wayland/EGL/DRM e vivem so no
+          # (os que de fato tocam Wayland/EGL/DRM e vivem so no
           # ramo if(UNIX)) aparecer no banco, que e o sintoma real da
           # regua de casamento confundindo caminho.
           $waylandNoBanco = @($noBanco | Where-Object { $_ -match '^src/platform/wayland/' -and $waylandDominioNaoSo -notcontains $_ })

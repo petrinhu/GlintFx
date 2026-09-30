@@ -37,7 +37,7 @@ template <typename T> struct pod_buffer {
     std::size_t capacity = 0;
 };
 
-inline constexpr std::size_t k_first_capacity = 16;
+inline constexpr std::size_t k_pod_buffer_first_capacity = 16;
 
 // Makes room for `additional` more elements in a buffer of `Element`s. True when the buffer can
 // take them (already, or after growing); false when the allocator refused or the size would
@@ -57,7 +57,7 @@ template <typename Element>
     if (needed <= buffer.capacity) {
         return true;
     }
-    std::size_t grown = buffer.capacity == 0 ? k_first_capacity : buffer.capacity * 2;
+    std::size_t grown = buffer.capacity == 0 ? k_pod_buffer_first_capacity : buffer.capacity * 2;
     if (grown < needed) {
         grown = needed;
     }

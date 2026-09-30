@@ -379,3 +379,18 @@ GLINTFX_TEST(triangle_batch_reserve_cells) {
     }
     std::println("triangle_batch_test: reserve conferido (5 casos)");
 }
+
+// CTO (revisao do 088d5cc): the public promise of reserve_pieces is that the first frames "do not
+// grow storage while you draw" - with pieces that ALTERNATE state (a run each), too.
+GLINTFX_TEST(triangle_batch_reserve_covers_one_run_per_piece) {
+    g_armed = armed_state{};
+    triangle_batch batch(armed());
+    GLINTFX_CHECK(batch.reserve(100));
+    const int after_reserve = g_armed.calls;
+    for (int i = 0; i < 100; ++i) {
+        GLINTFX_CHECK(batch.add_quad(square_at(static_cast<float>(i), 0, 1), k_white,
+                                     i % 2 == 0 ? k_state_a : batch_state{2, 2, 2}));
+    }
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{100});
+    GLINTFX_CHECK_EQ(g_armed.calls, after_reserve);
+}

@@ -88,11 +88,11 @@ class triangle_batch {
     [[nodiscard]] bool add_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                                 batch_state state) noexcept;
 
-    // Makes room, in one go, for `pieces` MORE pieces (4 vertices and 6 indices each, plus one
-    // run), so the fill that follows allocates nothing: what the public `reserve_pieces` hint asks
-    // for at open(). True when the room is there; false when memory ran out or the size overflows -
-    // the batch's contents are then unchanged, and stores that did grow stay (harmlessly).
-    // reserve(0) is a no-op that succeeds.
+    // Makes room, in one go, for `pieces` MORE pieces (4 vertices and 6 indices each, plus a
+    // run each, the worst case), so the fill that follows allocates nothing: what the public
+    // `reserve_pieces` hint asks for at open(). True when the room is there; false when memory ran
+    // out or the size overflows - the batch's contents are then unchanged, and stores that did grow
+    // stay (harmlessly). reserve(0) is a no-op that succeeds.
     [[nodiscard]] bool reserve(std::size_t pieces) noexcept;
 
     [[nodiscard]] std::span<const batch_vertex> vertices() const noexcept;

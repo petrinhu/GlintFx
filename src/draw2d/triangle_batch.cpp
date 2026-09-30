@@ -27,7 +27,7 @@ bool triangle_batch::reserve(std::size_t pieces) noexcept {
     }
     return ensure_room<batch_vertex>(allocator, vertex_store, pieces * k_quad_vertices) &&
            ensure_room<std::uint32_t>(allocator, index_store, pieces * k_quad_indices) &&
-           ensure_room<draw_run>(allocator, run_store, 1);
+           ensure_room<draw_run>(allocator, run_store, pieces);
 }
 
 bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,

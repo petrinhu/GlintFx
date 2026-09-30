@@ -124,6 +124,24 @@ def split_subcommands(run_block_text):
     return [chunk.strip() for chunk in re.split(r"\s&&\s", run_block_text) if chunk.strip()]
 
 
+# R2D-BATCH B5 (errata sec. 25): a g++ invocation that gets the library from its INSTALLED glintfx.pc
+# (`$(pkg-config ... glintfx)`) has no `-I` of its own: the install puts the public headers of include/glintfx/
+# where the .pc says, and they are EXACTLY the staged include/ (install(DIRECTORY include/glintfx)). So the TUs
+# of such an invocation resolve their `<glintfx/...>` includes against the staged include/, and are COUNTED
+# (GODS_LAWS.md L-40: the set of fixtures linked against the real install is printed, never silent).
+_PKG_CONFIG_GLINTFX_RE = re.compile(r"pkg-config[^)]*\bglintfx\b")
+
+
+def lib_linked_tu_tokens(containerfile_text):
+    found = []
+    for run_block in extract_run_blocks(containerfile_text):
+        for subcmd in split_subcommands(run_block):
+            tokens = subcmd.split()
+            if tokens and tokens[0] in ("g++", "gcc") and _PKG_CONFIG_GLINTFX_RE.search(subcmd):
+                found.extend(tok for tok in tokens if _TU_RE.match(tok) and tok not in found)
+    return found
+
+
 # Returns (tu_order, tu_include_roots, generated_header_tokens):
 #   tu_order: `/build/**.cpp` tokens, in first-seen order, never repeated
 #   tu_include_roots: {tu_token: [raw "-I" tokens, in order]} for the
@@ -374,6 +392,10 @@ def walk_tu(tu_path, mapped_roots, generated_basenames, staged_dir, repo_root,
 # same output).
 def run_comparison(containerfile_text, context_dir, staged_dir, repo_root):
     tu_order, tu_include_roots, generated_tokens = parse_containerfile(containerfile_text)
+    lib_linked_tus = lib_linked_tu_tokens(containerfile_text)
+    for tu in lib_linked_tus:
+        if tu in tu_include_roots:
+            tu_include_roots[tu] = list(tu_include_roots[tu]) + ["/build/_arch_ports_src/include"]
     generated_basenames = {os.path.basename(tok) for tok in generated_tokens}
     flat_copies = flat_build_copies(containerfile_text)
 
@@ -403,6 +425,7 @@ def run_comparison(containerfile_text, context_dir, staged_dir, repo_root):
         "resolved": len(resolved_headers),
         "external": len(externals),
         "generated": len(generated_hits),
+        "lib_linked": len(lib_linked_tus),
         "missing": missing,
     }
 
@@ -438,6 +461,7 @@ def print_summary(summary):
         f"headers do projeto resolvidos: {summary['resolved']} | "
         f"externos: {summary['external']} | "
         f"gerados na imagem: {summary['generated']} | "
+        f"TU(s) ligada(s) na lib instalada (pkg-config glintfx): {summary['lib_linked']} | "
         f"faltando: {len(summary['missing'])}"
     )
 
@@ -708,6 +732,39 @@ def selftest_generated_header_passes(scratch):
     return True
 
 
+# Controle POSITIVO adicional (R2D-BATCH B5): uma TU ligada na lib INSTALADA (`$(pkg-config ... glintfx)`, sem
+# nenhum -I) resolve `<glintfx/...>` contra o include/ estagiado e e CONTADA; a mesma TU com um g++ SEM o
+# pkg-config glintfx (e sem -I) reprova (o header existe no repo e nao foi estagiado como raiz).
+def selftest_lib_linked_resolves_public_headers(scratch):
+    root = os.path.join(scratch, "liblinked")
+    context_dir = os.path.join(root, "tests", "container")
+    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+    _write(os.path.join(root, "include", "glintfx", "core", "thing.hpp"), "#pragma once\nint thing();\n")
+    _write(os.path.join(staged_dir, "include", "glintfx", "core", "thing.hpp"), "#pragma once\nint thing();\n")
+    _write(
+        os.path.join(staged_dir, "tests", "parity", "consumer_parity_test.cpp"),
+        "#include <glintfx/core/thing.hpp>\nint main() { return thing(); }\n",
+    )
+    base = (
+        "FROM fedora:44 AS arch-ports-builder\n"
+        "COPY _arch_ports_src /build/_arch_ports_src\n"
+        "RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
+        "        -o /build/consumer_parity_test \\\n"
+        "        /build/_arch_ports_src/tests/parity/consumer_parity_test.cpp %s\n"
+    )
+    with_pc = base % "\\\n        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --static --cflags --libs glintfx)"
+    summary, errors = run_comparison(with_pc, context_dir, staged_dir, root)
+    if errors or summary["lib_linked"] != 1 or summary["resolved"] != 1:
+        print(f"selftest: controle LIB-LIGADA FALHOU (a TU ligada na lib deveria resolver e contar): {summary} {errors}", file=sys.stderr)
+        return False
+    _summary, errors = run_comparison(base % "", context_dir, staged_dir, root)
+    if not errors:
+        print("selftest: controle LIB-LIGADA FALHOU (sem o pkg-config glintfx e sem -I deveria reprovar)", file=sys.stderr)
+        return False
+    print(f"selftest: controle LIB-LIGADA OK (ligada na lib resolve e conta; sem pkg-config reprova): {summary}")
+    return True
+
+
 # Controle POSITIVO adicional: header de SISTEMA (nunca gerado por este
 # projeto, nunca existente em lugar nenhum do repo sintetico) conta como
 # externo e passa.
@@ -747,6 +804,7 @@ def selftest_main():
         selftest_only_system_include_reproves(scratch),
         selftest_flat_header_without_copy_reproves(scratch),
         selftest_generated_header_passes(scratch),
+        selftest_lib_linked_resolves_public_headers(scratch),
         selftest_system_header_passes(scratch),
     ]
     if not all(controls):

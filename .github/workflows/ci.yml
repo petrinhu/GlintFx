@@ -1247,6 +1247,21 @@ jobs:
           Get-Content measured_windows.txt | Add-Content -Path $env:GITHUB_STEP_SUMMARY
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
 
+
+      # R2D-BATCH B5 (pedido do CTO): o draw2d_parity_test passa pelo ctest com --output-on-failure, que so mostra a
+      # saida de um teste que REPROVA; o verde dele nao diz quais pixels foram lidos nem quais MEASURED saíram.
+      # Este passo imprime a saida que o ctest JA preservou no mesmo snapshot (nenhum teste roda duas vezes),
+      # para a leitura ser LIDA no log e nao inferida do verde. Piso (GODS_LAWS.md L-40): zero linhas reprova.
+      - name: Saida lida do draw2d_parity_test (${{ matrix.modo }})
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $log = Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if (-not (Test-Path $log)) { Write-Error "snapshot de log preservado nao encontrado: $log"; exit 1 }
+          $linhas = Select-String -Path $log -Pattern 'draw2d_parity_test'
+          if (-not $linhas) { Write-Error "nenhuma linha de draw2d_parity_test no snapshot - o teste nao rodou, ou a saida sumiu (GODS_LAWS.md L-40)"; exit 1 }
+          $linhas | ForEach-Object { Write-Host $_.Line }
+
       - name: Publicar MEASURED (${{ matrix.modo }})
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -2219,6 +2234,20 @@ jobs:
           codigo=0
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gl_context_parity_test || codigo=$?
           printf 'gl_context_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # R2D-BATCH B5 (errata sec. 21): a PROVA VIVA do desenho 2D por leitura de pixel contra este MESMO
+      # compositor real, so pela API publica - o irmao Windows de mesmo nome e um alvo ctest comum
+      # (tests/CMakeLists.txt, if(WIN32)); a paridade dos dois lados sai do inventario P-0. ORDEM: depois de
+      # gl_context_parity_test (mesmo EGL e mesmo compositor).
+      - name: R2D-BATCH B5 - prova viva do desenho 2D (pixels lidos) dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "draw2d_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_parity_test || codigo=$?
+          printf 'draw2d_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
       # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.4/S4.6): a

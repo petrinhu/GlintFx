@@ -234,10 +234,11 @@ FROM fedora:44 AS arch-ports-builder
 # environment - measured against Docker's own documented scoping
 # rules before writing this line, GODS_LAWS.md L-44).
 ARG GLINTFX_FIXTURE_SANITIZE=""
-RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel mesa-libEGL-devel \
+RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel mesa-libEGL-devel cmake ninja-build \
         libasan libubsan \
     && dnf clean all
 COPY _arch_ports_src /build/_arch_ports_src
+COPY _arch_ports_lib /build/_arch_ports_lib
 COPY connect_smoke.cpp /build/connect_smoke.cpp
 COPY registry_smoke.cpp /build/registry_smoke.cpp
 COPY fatal_error_smoke.cpp /build/fatal_error_smoke.cpp
@@ -300,6 +301,22 @@ RUN wayland-scanner client-header \
         /build/xdg-shell-protocol.c \
     && gcc -O2 -Wall -Wextra -Werror $(pkg-config --cflags wayland-client) \
         -c /build/xdg-shell-protocol.c -o /build/xdg-shell-protocol.o
+# R2D-BATCH B5 (errata sec. 25, D-B5-1): the library built and INSTALLED the way a consumer gets it (static,
+# Release, warnings as errors, no tests), in a prefix INSIDE the image, with the same sanitizer the fixtures use.
+# The fixtures that use only the PUBLIC API are linked against THAT install through its glintfx.pc (see
+# draw2d_parity_test below), never against sources listed by hand. cmake and ninja-build are packages of this
+# TEST image only (authorized by the leader, GODS_LAWS.md L-51).
+RUN cmake -S /build/_arch_ports_lib -B /build/lib-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=/build/lib-prefix "-DCMAKE_CXX_FLAGS=$GLINTFX_FIXTURE_SANITIZE" \
+    && cmake --build /build/lib-build \
+    && cmake --install /build/lib-build
+# The public-API fixture: a consumer of the installed library. No -I, no source list, no library flag by hand:
+# everything comes from glintfx.pc (--static reads Libs.private).
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/draw2d_parity_test \
+        /build/_arch_ports_src/tests/parity/draw2d_parity_test.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
 RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
@@ -1198,6 +1215,7 @@ COPY --from=arch-ports-builder /build/seat_test /usr/local/bin/seat_test
 COPY --from=arch-ports-builder /build/two_seats_test /usr/local/bin/two_seats_test
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 COPY --from=arch-ports-builder /build/gl_context_parity_test /usr/local/bin/gl_context_parity_test
+COPY --from=arch-ports-builder /build/draw2d_parity_test /usr/local/bin/draw2d_parity_test
 COPY --from=arch-ports-builder /build/egl_protocol_error_smoke /usr/local/bin/egl_protocol_error_smoke
 COPY --from=arch-ports-builder /build/egl_error_read_inside_swap_smoke /usr/local/bin/egl_error_read_inside_swap_smoke
 COPY --from=arch-ports-builder /build/egl_device_reader_probe /usr/local/bin/egl_device_reader_probe
@@ -1216,7 +1234,7 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/wait_events_smoke \
         /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
         /usr/local/bin/seat_test /usr/local/bin/two_seats_test /usr/local/bin/window_parity_test \
-        /usr/local/bin/gl_context_parity_test /usr/local/bin/egl_protocol_error_smoke \
+        /usr/local/bin/gl_context_parity_test /usr/local/bin/draw2d_parity_test /usr/local/bin/egl_protocol_error_smoke \
         /usr/local/bin/egl_error_read_inside_swap_smoke \
         /usr/local/bin/egl_device_reader_probe \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke \

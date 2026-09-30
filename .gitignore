@@ -83,6 +83,7 @@ tmp/
 # include/glintfx/core/; este diretorio e so uma copia efemera para o
 # contexto de build do Docker (tests/container/Containerfile).
 tests/container/_arch_ports_src/
+tests/container/_arch_ports_lib/
 
 # Claude Code: versiona so o settings.json compartilhado (hook do bus).
 # O settings.local.json e o lock de tarefa sao estado de maquina.

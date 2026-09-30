@@ -15,8 +15,18 @@
 # that exists but shares NO test name with the current run reproves: that
 # is a broken comparison, not a clean one.
 #
+# CACHE STATE (cto-review, 30/09/2026): the same nested-build tests take
+# 44.7 s with a hot ccache and 147.4 s with it off or cold (3.3x), which a
+# 3x limit would call a regression. With --base-state/--now-state (the
+# "estado=<k> acerto=<N> chamadas=<n>" strings preci.sh records) only two
+# runs of COMPATIBLE state are compared: both "desligado", or both
+# "ligado-quente". Anything else is declared out loud, counted on the
+# scope line, and neither reproves nor passes silently:
+#   comparacao: SUSPENSA (cache agora: <estado>, base: <estado>), comparados 0, reprovados 0
+#
 # Usage:
 #   preci_compare_times.py --base <junit> --now <junit> [--factor 3] [--floor 5]
+#                          [--base-state <s> --now-state <s>]
 #   preci_compare_times.py --selftest
 
 import os
@@ -62,7 +72,25 @@ def compare(base, now, factor, floor_s):
     return compared, without_base, offenders
 
 
-def run(base_path, now_path, factor, floor_s):
+COMPARABLE_STATES = ("desligado", "ligado-quente")
+
+
+def _state_key(state):
+    for token in (state or "").split():
+        if token.startswith("estado="):
+            return token[len("estado="):]
+    return "desconhecido"
+
+
+def states_comparable(base_state, now_state):
+    """True when no state was given (old behaviour) or both runs share a comparable one."""
+    if base_state is None and now_state is None:
+        return True
+    base_key, now_key = _state_key(base_state), _state_key(now_state)
+    return base_key == now_key and base_key in COMPARABLE_STATES
+
+
+def run(base_path, now_path, factor, floor_s, base_state=None, now_state=None):
     now, error = read_durations(now_path)
     if error:
         print(f"{SCRIPT_NAME}: {error}", file=sys.stderr)
@@ -77,6 +105,12 @@ def run(base_path, now_path, factor, floor_s):
     if error:
         print(f"{SCRIPT_NAME}: base {error}", file=sys.stderr)
         return 1
+    if not states_comparable(base_state, now_state):
+        print(
+            f"comparacao: SUSPENSA (cache agora: {now_state}, base: {base_state}), "
+            f"comparados 0, reprovados 0"
+        )
+        return 0
     compared, without_base, offenders = compare(base, now, factor, floor_s)
     print(f"comparacao: comparados {compared}, sem base {without_base} (testes novos), reprovados {len(offenders)}")
     if base and compared == 0:
@@ -101,7 +135,7 @@ def _write_junit(path, cases):
     ElementTree.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
-def _case(scratch, label, base_cases, now_cases, expect_rc, expect_text, expect_absent=()):
+def _case(scratch, label, base_cases, now_cases, expect_rc, expect_text, expect_absent=(), states=(None, None)):
     import contextlib
     import io
 
@@ -112,7 +146,7 @@ def _case(scratch, label, base_cases, now_cases, expect_rc, expect_text, expect_
     _write_junit(now_path, now_cases)
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
-        rc = run(base_path, now_path, DEFAULT_FACTOR, DEFAULT_FLOOR_S)
+        rc = run(base_path, now_path, DEFAULT_FACTOR, DEFAULT_FLOOR_S, states[0], states[1])
     text = buffer.getvalue()
     ok = rc == expect_rc and all(needle in text for needle in expect_text) and not any(
         needle in text for needle in expect_absent
@@ -145,6 +179,19 @@ def selftest_main():
               0, ["comparados 1, sem base 1 (testes novos), reprovados 0"]),
         _case(scratch, "base sem nenhum nome em comum reprova", {"x": 1.0}, {"y": 1.0},
               1, ["comparados 0", "comparacao quebrada"]),
+        # Cache state (cto-review): a hot base against a cold run is SUSPENDED, never a false regression.
+        _case(scratch, "base quente contra rodada fria: suspensa", {"aninhado": 44.7}, {"aninhado": 147.4},
+              0, ["comparacao: SUSPENSA", "comparados 0, reprovados 0"], states=("estado=ligado-quente acerto=97 chamadas=4263", "estado=ligado-frio acerto=12 chamadas=1421")),
+        _case(scratch, "base quente contra quente 4x mais lenta: reprova", {"aninhado": 44.7}, {"aninhado": 178.8},
+              1, ["aninhado ficou 4.0x mais lento"], states=("estado=ligado-quente acerto=97 chamadas=4263", "estado=ligado-quente acerto=97 chamadas=4263")),
+        _case(scratch, "desligado contra desligado 4x mais lento: reprova", {"aninhado": 40.0}, {"aninhado": 160.0},
+              1, ["aninhado ficou 4.0x mais lento"], states=("estado=desligado acerto=na chamadas=0", "estado=desligado acerto=na chamadas=0")),
+        _case(scratch, "desligado contra quente: suspensa", {"aninhado": 147.4}, {"aninhado": 44.7},
+              0, ["comparacao: SUSPENSA"], states=("estado=desligado acerto=na chamadas=0", "estado=ligado-quente acerto=97 chamadas=4263")),
+        _case(scratch, "fria contra fria: suspensa", {"aninhado": 100.0}, {"aninhado": 400.0},
+              0, ["comparacao: SUSPENSA"], states=("estado=ligado-frio acerto=12 chamadas=1421", "estado=ligado-frio acerto=12 chamadas=1421")),
+        _case(scratch, "base sem estado registrado: suspensa", {"aninhado": 44.7}, {"aninhado": 178.8},
+              0, ["comparacao: SUSPENSA", "estado=desconhecido"], states=("estado=desconhecido", "estado=ligado-quente acerto=97 chamadas=4263")),
     ]
     if not all(results):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
@@ -153,7 +200,7 @@ def selftest_main():
 
 
 def _usage():
-    print(f"uso: {SCRIPT_NAME} --base <junit> --now <junit> [--factor N] [--floor S]  |  --selftest", file=sys.stderr)
+    print(f"uso: {SCRIPT_NAME} --base <junit> --now <junit> [--factor N] [--floor S] [--base-state S --now-state S]  |  --selftest", file=sys.stderr)
     sys.exit(2)
 
 
@@ -164,10 +211,11 @@ def main():
         return
     options = {"--factor": DEFAULT_FACTOR, "--floor": DEFAULT_FLOOR_S}
     paths = {}
+    states = {}
     index = 0
     while index < len(args):
         key = args[index]
-        if key not in ("--base", "--now", "--factor", "--floor") or index + 1 >= len(args):
+        if key not in ("--base", "--now", "--factor", "--floor", "--base-state", "--now-state") or index + 1 >= len(args):
             _usage()
         value = args[index + 1]
         if key in options:
@@ -175,12 +223,19 @@ def main():
                 options[key] = float(value)
             except ValueError:
                 _usage()
+        elif key in ("--base-state", "--now-state"):
+            states[key] = value
         else:
             paths[key] = value
         index += 2
     if "--base" not in paths or "--now" not in paths:
         _usage()
-    sys.exit(run(paths["--base"], paths["--now"], options["--factor"], options["--floor"]))
+    if ("--base-state" in states) != ("--now-state" in states):
+        _usage()
+    sys.exit(
+        run(paths["--base"], paths["--now"], options["--factor"], options["--floor"],
+            states.get("--base-state"), states.get("--now-state"))
+    )
 
 
 if __name__ == "__main__":

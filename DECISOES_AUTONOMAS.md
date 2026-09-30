@@ -5091,3 +5091,17 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - *Recusado:* recompilar fontes internas no alvo Windows, porque quebraria a pureza do teste de paridade.
   - O tamanho da superfície vai para a B3c; a severidade do evento é `err`.
 - *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 02:4x | D-A48: <dirent.h> na lista do dep_zero e duas decisões da B3c (CTO, L-34; errata §12)
+
+- **<dirent.h> entra na lista fechada de cabeçalhos do sistema** do portão de dependência zero, para a P2 ler /sys/class/power_supply.
+  - *Alternativas recusadas:* `std::filesystem` (aloca e lança, e reabriria a família que a D-P2-1 fechou) e `getdents64` cru (mais baixo nível e preso à glibc).
+  - *Por quê:* é API POSIX do sistema, a mesma categoria da L-07, pelo caminho que `sys/uio.h` e `sys/un.h` já seguiram.
+  - O CTO admitiu que a pré-revisão dele da P2 devia ter pegado isso. Daqui em diante, a pré-revisão roda os portões de include ou a suíte inteira na cópia.
+- **D-B3c-1: o contrato de estado GL passa a definir TUDO de que o desenho depende.**
+  - Entram a equação de mistura, o modo de polígono, o descarte de rasterização, a operação lógica de cor, o alfa-para-cobertura e o framebuffer de desenho. Sem eles, o estado deixado pelo consumidor quebraria o desenho sem aviso.
+  - A lista de saída do cabeçalho congelado ganha os mesmos itens (emenda E3 ao texto da B0, só em comentário), e o revisor de API a confere na B4.
+- **D-B3c-2: os erros do GL seguem o modelo do SDL.**
+  - Os erros já pendentes do consumidor são drenados ANTES, com limite, e cada um é registrado como evento `draw2d_prior_gl_error`: nunca são engolidos calados nem atribuídos à biblioteca.
+  - Depois, todos são conferidos. Falta de memória vira `out_of_memory`; o resto vira `platform_failure`, com o token do passo e o código GL.
+- *Porta de mão única:* só a E3, que é texto de contrato público revisado antes da publicação (B4). *Custo de reverter:* baixo até lá.

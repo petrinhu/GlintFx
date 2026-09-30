@@ -1367,6 +1367,20 @@ target_sources(frame_report_tally_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-BATCH B3b: the embedded drawing program against a table of FAKE GL functions. The test needs the
+# generated loader header (gl_functions.hpp, build tree) and the hand-written gl_abi.hpp (src/render), and
+# log_emit() from the library (exported, core/log/emit.hpp).
+glintfx_add_test(embedded_program_test)
+add_dependencies(embedded_program_test glintfx_gl_functions_generated)
+target_include_directories(embedded_program_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(embedded_program_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
+)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

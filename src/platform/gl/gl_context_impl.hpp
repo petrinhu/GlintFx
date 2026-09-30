@@ -53,4 +53,14 @@ struct gl_context_impl {
     std::vector<gltfx_gfx_option_entry> current_values;
 };
 
+// The resolver of THIS context, in the exact shape the loader of src/render/ takes (D-W7D-15,
+// gl_context_proc_address_fn): `user` is the gl_context_impl the drawing layer got from
+// gl_context_internal_access::get(), and the answer is what the adapter's own proc_address() gives
+// (eglGetProcAddress on Linux, wglGetProcAddress with the opengl32 fallback on Windows). The
+// context must be current on the calling thread, as for any GL function pointer. Inline, so the
+// drawing layer (src/draw2d/) needs nothing of the platform adapters but this header.
+[[nodiscard]] inline void *gl_context_resolve_proc(void *user, const char *name) noexcept {
+    return static_cast<gl_context_impl *>(user)->adapter.proc_address(name);
+}
+
 } // namespace glintfx

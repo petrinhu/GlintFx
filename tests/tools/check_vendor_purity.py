@@ -192,6 +192,11 @@ KNOWN_VENDOR_FILES = frozenset({
     "third_party/khronos/README.md",
 })
 
+# Declared stage roots (errata 27): directories where the container
+# build stages a regenerated copy of the library. A file under one is
+# accepted only when byte for byte equal to its closed-list original.
+STAGE_ROOTS = ("tests/container/_arch_ports_lib",)
+
 # E3's exceptions. Both empty/False today, MEASURED (this file's
 # header, "PORT LINEAGE" section; also `git ls-files | grep -Ei
 # '\.(a|so|lib|dll|dylib|o|obj|zip|tar|gz|7z)$'` and `find ... -iname
@@ -525,6 +530,31 @@ def scan_tree(root):
 # --- the single verdict -----------------------------------------------
 
 
+def staged_copy_original(root, path):
+    """Returns the closed-list path this file is an accepted staged
+    copy of, or None. Accepted only when the file sits directly under
+    a declared stage root, names a closed-list file there, and is byte
+    for byte equal to that closed-list file in the repository. The
+    exception is the content, never the path.
+    """
+    for stage_root in STAGE_ROOTS:
+        prefix = stage_root + "/"
+        if not path.startswith(prefix):
+            continue
+        original = path[len(prefix):]
+        if original not in KNOWN_VENDOR_FILES:
+            return None
+        try:
+            with open(os.path.join(root, path), "rb") as staged:
+                staged_bytes = staged.read()
+            with open(os.path.join(root, original), "rb") as source:
+                source_bytes = source.read()
+        except OSError:
+            return None
+        return original if staged_bytes == source_bytes else None
+    return None
+
+
 def check_vendor_purity(root):
     """Mirrors the pre-widening function's own return-code contract:
     True (pass, prints the ok summary to stdout) or False (reprove,
@@ -568,9 +598,14 @@ def check_vendor_purity(root):
         return False
 
     violations = []
+    staged_accepted = 0
     for path in vendor_files:
-        if path not in KNOWN_VENDOR_FILES:
-            violations.append((path, FORM_VENDOR_DIRECTORY))
+        if path in KNOWN_VENDOR_FILES:
+            continue
+        if staged_copy_original(root, path) is not None:
+            staged_accepted += 1
+            continue
+        violations.append((path, FORM_VENDOR_DIRECTORY))
     for path, form in artifacts:
         if form == FORM_SUBMODULE and ALLOW_GIT_SUBMODULES:
             continue
@@ -595,7 +630,8 @@ def check_vendor_purity(root):
         f"{len(vendor_files)} sob diretorio de forma vendorizada, "
         f"{len(KNOWN_VENDOR_FILES)} na lista fechada - nenhum intruso "
         f"({len(pruned_build_dirs)} diretorio(s) build*/ podado(s), "
-        f"{len(pruned_worktrees)} copia(s) de trabalho ligada(s) podada(s))"
+        f"{len(pruned_worktrees)} copia(s) de trabalho ligada(s) podada(s), "
+        f"{staged_accepted} copia(s) estagiada(s) aceita(s))"
     )
     return True
 
@@ -1253,6 +1289,97 @@ def selftest_forged_worktree_to_real_admin_control(scratch, capture):
     return True
 
 
+# Staged-copy exception (errata 27, 30/09/2026). The container build
+# stages a throwaway copy of the library under a DECLARED stage root
+# (tests/container/_arch_ports_lib, regenerated, git-ignored). The
+# exception is the CONTENT, never the path: a staged file is accepted
+# only when it sits under a declared stage root AND is byte for byte
+# equal to the closed-list original in the repository. Anything else
+# there (changed byte, extra file, copy outside the declared roots)
+# is cited as usual.
+def _make_staged_fixture(scratch, name, stage_rel, mutate=None, extra=None):
+    root = os.path.join(scratch, name)
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    stage_dir = os.path.join(root, stage_rel, "third_party", "khronos")
+    os.makedirs(stage_dir, exist_ok=True)
+    for known in sorted(KNOWN_VENDOR_FILES):
+        base = os.path.basename(known)
+        with open(os.path.join(root, known), "rb") as src:
+            data = src.read()
+        if mutate and base == mutate:
+            data = data + b"x"
+        with open(os.path.join(stage_dir, base), "wb") as dst:
+            dst.write(data)
+    if extra:
+        with open(os.path.join(stage_dir, extra), "w", encoding="utf-8") as handle:
+            handle.write("not on the closed list\n")
+    return root
+
+
+def selftest_staged_copy_identical_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-ok", STAGE_ROOTS[0])
+    outcome = capture(lambda: check_vendor_purity(root))
+    if not outcome.result or "3 copia(s) estagiada(s) aceita(s)" not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-IDENTICO FALHOU (copia byte a byte "
+            "igual numa raiz declarada deveria passar e ser contada)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-IDENTICO OK (aceita e contada)")
+    return True
+
+
+def selftest_staged_copy_changed_byte_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-byte", STAGE_ROOTS[0], mutate="gl.xml")
+    outcome = capture(lambda: check_vendor_purity(root))
+    needle = STAGE_ROOTS[0] + "/third_party/khronos/gl.xml"
+    if outcome.result or needle not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-BYTE FALHOU (1 byte trocado deveria "
+            "ser acusado)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-BYTE OK (1 byte trocado acusado)")
+    return True
+
+
+def selftest_staged_copy_extra_file_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-extra", STAGE_ROOTS[0], extra="stb.h")
+    outcome = capture(lambda: check_vendor_purity(root))
+    needle = STAGE_ROOTS[0] + "/third_party/khronos/stb.h"
+    if outcome.result or needle not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-EXTRA FALHOU (arquivo extra ao lado "
+            "deveria ser acusado)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-EXTRA OK (arquivo extra acusado)")
+    return True
+
+
+def selftest_staged_copy_undeclared_root_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-undeclared", "elsewhere/_lib")
+    outcome = capture(lambda: check_vendor_purity(root))
+    needle = "elsewhere/_lib/third_party/khronos/gl.xml"
+    if outcome.result or needle not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-FORA-DA-RAIZ FALHOU (copia identica "
+            "fora das raizes declaradas deveria ser acusada)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-FORA-DA-RAIZ OK (copia fora da raiz acusada)")
+    return True
+
+
 # Non-git control: a real directory with the clean fixture's files on
 # disk, but never `git init`ed. Expected: reproves by scan refusal,
 # never presumed empty - the same discipline check_spdx.py's own
@@ -1304,6 +1431,10 @@ def selftest_main():
             selftest_linked_worktree_pruned_control(scratch, capture),
             selftest_forged_worktree_marker_control(scratch, capture),
             selftest_forged_worktree_to_real_admin_control(scratch, capture),
+            selftest_staged_copy_identical_control(scratch, capture),
+            selftest_staged_copy_changed_byte_control(scratch, capture),
+            selftest_staged_copy_extra_file_control(scratch, capture),
+            selftest_staged_copy_undeclared_root_control(scratch, capture),
         ]
         if not all(controls):
             print("check_vendor_purity.py --selftest: FALHOU (ver acima)", file=sys.stderr)

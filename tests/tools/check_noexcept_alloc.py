@@ -958,10 +958,16 @@ def _last_component(type_text):
 def declared_types_of(name, all_files_text):
     """Tipos com que o NOME `name` e' declarado em qualquer lugar da arvore: variavel, membro
     ou parametro (`Tipo nome`, `Tipo &nome`, `const Tipo *nome`). Texto, nao tipo - a mesma
-    regua de nomes de resolve_string_view_substr()."""
+    regua de nomes de resolve_string_view_substr(). Declarado com `auto`, com `decltype(...)`, em
+    structured binding, em range-for ou em init-capture (`[nome = ...]`), o tipo e' DESCONHECIDO
+    e entra como UNKNOWN_TYPE: quem chama trata como acusado (fail-closed)."""
     pat = re.compile(
         r"(?<![\w:])((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*(?:<[^;(){}=]*?>)?)(?=[\s&*])\s*(?:const\b\s*)?[&*]*\s*"
         + re.escape(name) + r"\b(?=\s*[;=,){(\[])")
+    unknown = re.compile(
+        r"\bauto\b[^;(){}=]*?\b" + re.escape(name) + r"\b"
+        r"|\bdecltype\s*\([^)]*\)[^;(){}=]*?\b" + re.escape(name) + r"\b"
+        r"|(?<=[\[,])\s*&?\s*" + re.escape(name) + r"\s*=(?!=)")
     found = set()
     for t in all_files_text.values():
         for m in pat.finditer(t):
@@ -969,25 +975,62 @@ def declared_types_of(name, all_files_text):
             if first in NOT_A_TYPE or _last_component(m.group(1)) in NOT_A_TYPE:
                 continue
             found.add(m.group(1))
+        if unknown.search(t):
+            found.add(UNKNOWN_TYPE)
     return found
 
 
+UNKNOWN_TYPE = "<tipo-desconhecido>"
+
+
+def _match_paren(t, open_pos):
+    """Indice logo apos o `)` que casa com o `(` em `open_pos` (ou len(t))."""
+    depth, i = 0, open_pos
+    while i < len(t):
+        if t[i] == "(":
+            depth += 1
+        elif t[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return len(t)
+
+
 def class_method_is_noexcept(type_text, method, all_files_text):
-    """A classe do PROJETO `type_text` declara `method(...)` como noexcept? Le so' o corpo
-    `class|struct Nome {...}` (casamento de chaves), em qualquer arquivo da arvore. Uma classe
-    que nao acha, ou um metodo sem noexcept, devolve False (fail-closed: fica acusado)."""
+    """TODAS as declaracoes de `method(...)` no corpo de TODA `class|struct Nome {...}` de mesmo
+    nome curto, em qualquer arquivo da arvore, sao noexcept (e ha pelo menos uma). Uma sobrecarga
+    sem noexcept, uma classe que nao acha, ou nenhuma declaracao: False (fail-closed). Declaracao
+    = a chamada precedida de um tipo de retorno (identificador, `>`, `*` ou `&`, que nao seja
+    `return`/`else`/...), nunca de `.`, `->`, `(` ou `=`."""
     short = _last_component(type_text)
     head = re.compile(r"\b(?:class|struct)\s+" + re.escape(short) + r"\b[^;{]*\{")
-    decl = re.compile(r"\b" + re.escape(method) + r"\s*\([^;{}]*\)\s*(?:const\s*)?noexcept\b")
+    call = re.compile(r"(?<![\w.>])" + re.escape(method) + r"\s*\(")
+    not_ret = {"return", "else", "co_return", "throw", "new", "delete", "case", "goto", "do"}
+    classes = 0
+    declared = 0
     for t in all_files_text.values():
         for m in head.finditer(t):
+            classes += 1
             depth, i = 1, m.end()
             while i < len(t) and depth:
                 depth += 1 if t[i] == "{" else -1 if t[i] == "}" else 0
                 i += 1
-            if decl.search(t[m.end():i]):
-                return True
-    return False
+            body = t[m.end():i]
+            for c in call.finditer(body):
+                before = body[:c.start()].rstrip()
+                if not before or not (before[-1].isalnum() or before[-1] in "_>*&"):
+                    continue
+                prev_word = re.search(r"([A-Za-z_]\w*)$", before)
+                if prev_word and prev_word.group(1) in not_ret:
+                    continue
+                after = body[_match_paren(body, c.end() - 1):]
+                stop = min([k for k in (after.find("{"), after.find(";"), after.find("=")) if k >= 0]
+                           or [len(after)])
+                declared += 1
+                if not re.search(r"\bnoexcept\b", after[:stop]):
+                    return False
+    return classes > 0 and declared > 0
 
 
 def receiver_is_project_noexcept(recv, method, all_files_text):
@@ -1001,7 +1044,7 @@ def receiver_is_project_noexcept(recv, method, all_files_text):
     if not types:
         return False
     for ty in types:
-        if ty.startswith("std::") or _last_component(ty) in CONTAINERS:
+        if ty == UNKNOWN_TYPE or ty.startswith("std::") or _last_component(ty) in CONTAINERS:
             return False
         if not class_method_is_noexcept(ty, method, all_files_text):
             return False
@@ -1810,6 +1853,8 @@ DIRTY_FIXTURES = [
     "bad_std_vector_reserve.cpp",
     "bad_reserve_mixed_receiver_types.cpp",
     "bad_project_reserve_not_noexcept.cpp",
+    "bad_reserve_auto_homonym.cpp",
+    "bad_reserve_overload_not_noexcept.cpp",
 ]
 CLEAN_FIXTURES = [
     "good_fixed_buffer.cpp",

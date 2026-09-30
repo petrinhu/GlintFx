@@ -122,16 +122,16 @@ contido_populated() {
     return 0
 }
 
-# contido_wait_empty <G> <absolute cgroup dir...>: waits UP TO G seconds, ending as soon as none is populated.
-# A bounded loop of `read -t 0.1` on the clock descriptor (no process per turn; at most 10*G turns) with the
-# rotation guard of L-11 6(a): three turns in a row that did not sleep end the wait (broken clock) and the KILL follows.
-contido_wait_empty() {
-    local g="$1" turns=0 fast=0 t0 t1 dir any
+# contido_wait_bounded <G> <predicate> [args...]: waits UP TO G seconds, ending as soon as `predicate args...`
+# returns 0. 0 when it did, 1 when G ran out (or the clock broke). A bounded loop of `read -t 0.1` on the clock
+# descriptor (no process per turn, at most 10*G turns) with the rotation guard of L-11 6(a): three turns in a row
+# that did not sleep end the wait (broken clock) and the caller goes on to what follows. The one wait of the file:
+# the TERM grace, the wait after the KILL and the wait for a cgroup to empty are all this loop.
+contido_wait_bounded() {
+    local g="$1" turns=0 fast=0 t0 t1
     shift
     while [ "$turns" -lt $((g * 10)) ]; do
-        any=0
-        for dir in "$@"; do contido_populated "$dir" && { any=1; break; }; done
-        [ "$any" -eq 0 ] && return 0
+        "$@" && return 0
         t0="${EPOCHREALTIME//[.,]/}"
         read -r -t 0.1 -u "$CONTIDO_FD" _ 2>/dev/null
         t1="${EPOCHREALTIME//[.,]/}"
@@ -146,13 +146,83 @@ contido_wait_empty() {
     return 1
 }
 
+# contido_all_empty <absolute cgroup dir...>: 0 when none of them is populated.
+contido_all_empty() {
+    local dir
+    for dir in "$@"; do contido_populated "$dir" && return 1; done
+    return 0
+}
+
+# contido_wait_empty <G> <absolute cgroup dir...>: waits UP TO G seconds, ending as soon as none is populated.
+contido_wait_empty() {
+    local g="$1"
+    shift
+    contido_wait_bounded "$g" contido_all_empty "$@"
+}
+
+# contido_live_in_group <pgrp> [proc root, default /proc: the selftest feeds it a fake tree]: sets CONTIDO_LIVE to how many LIVE members the process group has. Live means the
+# state of /proc/<pid>/stat (the field after the last `)`) is not Z or X, and the group (field 5) is <pgrp>. A
+# zombie is not live: it already died, and a container whose PID 1 does not reap keeps it forever (`kill -0 --
+# -pgrp` sees it, this does not). ONE sweep over /proc/[0-9]*, entirely of shell builtins (a glob, `read`, a
+# here-string): NO process per item swept (GODS_LAWS.md L-11: a design that spends a process per pid brought the
+# machine down on 29/09/2026). A pid that vanishes between the glob and the read is skipped.
+contido_live_in_group() {
+    local dir line state ppid group root="${2:-/proc}"
+    CONTIDO_LIVE=0
+    for dir in "$root"/[0-9]*; do
+        read -r line 2>/dev/null <"$dir/stat" || continue
+        line="${line##*) }"
+        read -r state ppid group _ <<<"$line"
+        [ "$group" = "$1" ] || continue
+        case "$state" in Z | X) ;; *) CONTIDO_LIVE=$((CONTIDO_LIVE + 1)) ;; esac
+    done
+}
+
+# contido_group_has_no_live_member <pgrp>: the predicate of the wait after the KILL, in herdado-pgid mode; leaves
+# CONTIDO_LIVE set. FAST PATH: `kill -0 -- -pgrp` (a builtin) failing means nobody is in the group, not even a
+# zombie, so nothing is swept; the sweep runs only while kill -0 still answers (a live member OR a zombie: the sweep
+# is what tells them apart). In the normal case that is zero sweeps.
+contido_group_has_no_live_member() {
+    if ! kill -0 -- "-$1" 2>/dev/null; then
+        CONTIDO_LIVE=0
+        return 0
+    fi
+    contido_live_in_group "$1"
+    [ "$CONTIDO_LIVE" -eq 0 ]
+}
+
+# contido_group_is_gone <pgrp>: the predicate of the TERM grace, in herdado-pgid mode (`kill -0` still sees a
+# zombie, which is fine there: the KILL follows either way).
+contido_group_is_gone() {
+    ! kill -0 -- "-$1" 2>/dev/null
+}
+
+# contido_cgroup_survivors <absolute cgroup dir...>: sets CONTIDO_SURVIVORS to how many processes are still in the
+# cgroups that are still populated (the direct ones listed in cgroup.procs; a cgroup populated only through a
+# descendant, or one whose cgroup.procs already reads empty while the kernel still tears it down, counts as 1).
+contido_cgroup_survivors() {
+    local dir pid found
+    CONTIDO_SURVIVORS=0
+    for dir in "$@"; do
+        contido_populated "$dir" || continue
+        found=0
+        while read -r pid; do found=$((found + 1)); done 2>/dev/null <"$dir/cgroup.procs"
+        [ "$found" -eq 0 ] && found=1
+        CONTIDO_SURVIVORS=$((CONTIDO_SURVIVORS + found))
+    done
+}
+
 # contido_matar <mode> <G> <target...>: the ONLY place that kills. proprio|ninho: the targets are cgroups this
 # script created (carga/ or ninho-*/), TERM to every direct pid, a wait UP TO G for `populated 0` in ALL of them,
 # then cgroup.kill ALWAYS (idempotent and cheap on an empty cgroup; skipping it leaves a descendant that ignores
 # TERM alive). A target that is not carga or ninho-* (for instance the scope root) is refused with 71, and nothing
 # is written. herdado-pgid: the target is the process group; TERM, wait for the group to vanish, KILL always.
+# AFTER the KILL, both wait (bounded by max(1, G) s) until the tree is really over, because the KILL is
+# asynchronous, and leave CONTIDO_SURVIVORS = how many are still there (0 in the normal case): D-C1b-6.
 contido_matar() {
-    local mode="$1" g="$2" target abs pid first dirs=()
+    local mode="$1" g="$2" target abs pid first dirs=() after=$(($2 > 1 ? $2 : 1))
+    CONTIDO_SURVIVORS=0
+    CONTIDO_AFTER_KILL="$after"
     shift 2
     case "$mode" in
         proprio|ninho)
@@ -172,30 +242,26 @@ contido_matar() {
             contido_wait_empty "$g" "${dirs[@]}"
             for abs in "${dirs[@]}"; do
                 echo 1 >"$abs/cgroup.kill" 2>/dev/null
-                case "$mode" in ninho) rmdir "$abs" 2>/dev/null ;; esac
             done
+            # The KILL is asynchronous: cgroup.kill returns before the tasks are gone. Wait, bounded, for the
+            # kernel's own word (`populated 0`, never cgroup.procs, which reads empty first), and only then
+            # remove a ninho (rmdir of a populated cgroup fails and would leave it behind).
+            contido_wait_empty "$after" "${dirs[@]}"
+            contido_cgroup_survivors "${dirs[@]}"
+            case "$mode" in ninho) for abs in "${dirs[@]}"; do rmdir "$abs" 2>/dev/null; done ;; esac
             return 0
             ;;
         herdado-pgid)
             # the group must be numeric, above 1 and different from the caller's own group
             case "$1" in ''|*[!0-9]*) return 1 ;; esac
             [ "$1" -gt 1 ] || return 1
-            if kill -TERM -- "-$1" 2>/dev/null; then
-                local turns=0 fast=0 t0 t1
-                while [ "$turns" -lt $((g * 10)) ] && kill -0 -- "-$1" 2>/dev/null; do
-                    t0="${EPOCHREALTIME//[.,]/}"
-                    read -r -t 0.1 -u "$CONTIDO_FD" _ 2>/dev/null
-                    t1="${EPOCHREALTIME//[.,]/}"
-                    if [ $((t1 - t0)) -lt 50000 ]; then
-                        fast=$((fast + 1))
-                        [ "$fast" -ge 3 ] && break
-                    else
-                        fast=0
-                    fi
-                    turns=$((turns + 1))
-                done
-            fi
+            kill -TERM -- "-$1" 2>/dev/null && contido_wait_bounded "$g" contido_group_is_gone "$1"
             kill -KILL -- "-$1" 2>/dev/null
+            # The KILL is asynchronous too (kill(2) returns once the signal is queued): wait, bounded, until
+            # the group has no LIVE member, so that returning means the tree is over - or says how many are left.
+            contido_wait_bounded "$after" contido_group_has_no_live_member "$1"
+            contido_group_has_no_live_member "$1"
+            CONTIDO_SURVIVORS="$CONTIDO_LIVE"
             return 0
             ;;
     esac
@@ -299,7 +365,8 @@ contido_inside_main() {
     elapsed=$(((${EPOCHREALTIME//[.,]/} - start_us) / 1000000))
     [ -n "$TARGET" ] && peak_path="$TARGET"
     printf '%s\n' "$outcome" >"$dir/fim"
-    echo "contido: modo=$mode_label, pico=$(contido_read_first "/sys/fs/cgroup$peak_path/pids.peak") de $n, recusas_de_fork=$(contido_events_max "$peak_path"), fim=$outcome, tempo=${elapsed}s" >&2
+    local final_line
+    final_line="contido: modo=$mode_label, pico=$(contido_read_first "/sys/fs/cgroup$peak_path/pids.peak") de $n, recusas_de_fork=$(contido_events_max "$peak_path"), fim=$outcome, tempo=${elapsed}s"
     local kill_rc=0 scope_abs="/sys/fs/cgroup$own_cgroup" ninho
     case "$mode" in
         herdado-pgid) contido_matar "$mode" "$g" "$pgrp"; kill_rc=$? ;;
@@ -311,6 +378,12 @@ contido_inside_main() {
             contido_matar "$mode" "$g" "${targets[@]}"; kill_rc=$? ;;
         *) contido_matar "$mode" "$g" "$TARGET"; kill_rc=$? ;;
     esac
+    # printed AFTER the kill, so that it can say how many processes outlived it (0 in the normal case: the
+    # absence is declared AND counted); the marker above was written before, so it survives a stuck kill
+    echo "$final_line, sobreviventes_apos_kill=$CONTIDO_SURVIVORS" >&2
+    if [ "$CONTIDO_SURVIVORS" -gt 0 ]; then
+        echo "contido: AVISO - $CONTIDO_SURVIVORS processo(s) sobreviveram ao KILL por ${CONTIDO_AFTER_KILL}s; o codigo de saida do comando nao foi alterado" >&2
+    fi
     [ "$kill_rc" -eq 71 ] && return 71
     case "$outcome" in
         rc=*) return "$cmd_rc" ;;
@@ -550,11 +623,115 @@ contido_inside_selftest() {
     tw1="${EPOCHREALTIME//[.,]/}"
     check "a normal end is fast (< 1 s with G=3)" "$([ "$rc" -eq 0 ] && [ $((tw1 - tw0)) -lt 1000000 ] && echo 0 || echo 1)" "rc $rc took $((tw1 - tw0)) us"
     tw0="${EPOCHREALTIME//[.,]/}"
-    bash "$self" herdado-pgid - 64 5 2 "$dir/d10b" -- bash -c '(trap "" TERM; exec sleep 30) >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$dir/d10b/pid" >/dev/null 2>&1; rc=$?
+    bash "$self" herdado-pgid - 64 5 2 "$dir/d10b" -- bash -c '(trap "" TERM; exec sleep 30) >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$dir/d10b/pid" >/dev/null 2>"$dir/d10b/err"; rc=$?
     tw1="${EPOCHREALTIME//[.,]/}"
     check "D10b: the leader leaves, a TERM-ignoring grandchild dies by the KILL after ~G (1.9 s to 3.5 s)" "$([ "$rc" -eq 0 ] && [ $((tw1 - tw0)) -ge 1900000 ] && [ $((tw1 - tw0)) -le 3500000 ] && echo 0 || echo 1)" "rc $rc took $((tw1 - tw0)) us"
     contido_alive "$(cat "$dir/d10b/pid" 2>/dev/null)"
     check "D10b: the grandchild is dead" "$([ $? -ne 0 ] && [ -s "$dir/d10b/pid" ] && echo 0 || echo 1)" "the grandchild survived"
+    grep -q 'sobreviventes_apos_kill=0$' "$dir/d10b/err"
+    check "D10b: the final line says sobreviventes_apos_kill=0" "$?" "stderr: $(cat "$dir/d10b/err")"
+    # 12f2. D-C1b-6: the KILL is asynchronous, so the product WAITS for its effect. Deterministic: `kill -KILL`
+    #       is replaced (in this subshell only) by one that delivers the real KILL 0.6 s LATE, the way a loaded
+    #       machine does; the read right after the return must already find the grandchild dead.
+    # (the stubs read a variable of THEIR OWN name: `dir` would be shadowed by the one of contido_inside_main)
+    local selftest_scan_log="$dir/kill_tardio/scans"
+    mkdir -p "$dir/kill_tardio"
+    (
+        contido_live_in_group() { echo scan >>"$selftest_scan_log"; CONTIDO_LIVE=1; }
+        kill() {
+            if [ "$1" = -KILL ]; then
+                ( sleep 0.6; command kill -KILL -- "$3" ) >/dev/null 2>&1 &
+                return 0
+            fi
+            command kill "$@"
+        }
+        contido_inside_main herdado-pgid - 64 5 2 "$dir/kill_tardio" -- bash -c '(trap "" TERM; exec sleep 30) >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$dir/kill_tardio/pid"
+    ) >/dev/null 2>"$dir/kill_tardio/err"; rc=$?
+    contido_alive "$(cat "$dir/kill_tardio/pid" 2>/dev/null)"
+    check "D-C1b-6: a KILL that lands 0.6 s late is waited for (the grandchild is dead at the return)" "$([ $? -ne 0 ] && [ -s "$dir/kill_tardio/pid" ] && echo 0 || echo 1)" "the grandchild was still alive when the contido returned"
+    check "D-C1b-6: the late-KILL case keeps rc 0" "$([ "$rc" -eq 0 ] && echo 0 || echo 1)" "got $rc"
+    grep -q 'sobreviventes_apos_kill=0$' "$dir/kill_tardio/err"
+    check "D-C1b-6: the late-KILL case ends with sobreviventes_apos_kill=0" "$?" "stderr: $(cat "$dir/kill_tardio/err")"
+    # the fast path: while the group still answers kill -0 the sweep runs (the stub above says "1 live" for as
+    # long as the real group exists, so this case also proves the sweep is REACHED); in the normal case below
+    # (the group is already gone) it must not run at all
+    check "D-C1b-6: the sweep runs while the group still answers kill -0" "$([ -s "$dir/kill_tardio/scans" ] && echo 0 || echo 1)" "no sweep happened"
+    mkdir -p "$dir/rapido_varredura"
+    selftest_scan_log="$dir/rapido_varredura/scans"
+    (
+        contido_live_in_group() { echo scan >>"$selftest_scan_log"; CONTIDO_LIVE=1; }
+        contido_inside_main herdado-pgid - 64 5 1 "$dir/rapido_varredura" -- true
+    ) >/dev/null 2>"$dir/rapido_varredura/err"; rc=$?
+    check "D-C1b-6: fast path, a group that is already gone is NOT swept" "$([ ! -e "$dir/rapido_varredura/scans" ] && [ "$rc" -eq 0 ] && echo 0 || echo 1)" "rc $rc scans: $(cat "$dir/rapido_varredura/scans" 2>/dev/null)"
+    grep -q 'sobreviventes_apos_kill=0$' "$dir/rapido_varredura/err"
+    check "D-C1b-6: fast path ends with sobreviventes_apos_kill=0" "$?" "stderr: $(cat "$dir/rapido_varredura/err")"
+    # 12f3. D-C1b-6: when somebody does outlive the KILL, the line SAYS how many, a warning goes to stderr, the
+    #       wait is bounded (max(1, G) s) and the command's own exit status is not masked.
+    mkdir -p "$dir/sobrevive"
+    tw0="${EPOCHREALTIME//[.,]/}"
+    (
+        contido_group_has_no_live_member() { CONTIDO_LIVE=2; return 1; }
+        contido_inside_main herdado-pgid - 64 5 1 "$dir/sobrevive" -- bash -c 'exit 7'
+    ) >/dev/null 2>"$dir/sobrevive/err"; rc=$?
+    tw1="${EPOCHREALTIME//[.,]/}"
+    check "D-C1b-6: survivors do not mask the command's rc (7)" "$([ "$rc" -eq 7 ] && echo 0 || echo 1)" "got $rc"
+    grep -q 'sobreviventes_apos_kill=2$' "$dir/sobrevive/err"
+    check "D-C1b-6: the line counts the survivors (2)" "$?" "stderr: $(cat "$dir/sobrevive/err")"
+    grep -q 'AVISO - 2 processo(s) sobreviveram ao KILL' "$dir/sobrevive/err"
+    check "D-C1b-6: a warning names the survivors" "$?" "stderr: $(cat "$dir/sobrevive/err")"
+    check "D-C1b-6: the wait after the KILL is bounded (0.9 s to 2.5 s with G=1)" "$([ $((tw1 - tw0)) -ge 900000 ] && [ $((tw1 - tw0)) -le 2500000 ] && echo 0 || echo 1)" "took $((tw1 - tw0)) us"
+    # 12f4. the sweep itself, on a FAKE /proc: live members counted, a zombie and a dead one not, another group not,
+    #       a name with spaces and parentheses parsed after the LAST `)`, a non-numeric entry ignored.
+    local fakeproc="$dir/fakeproc"
+    mkdir -p "$fakeproc/100" "$fakeproc/101" "$fakeproc/102" "$fakeproc/103" "$fakeproc/104" "$fakeproc/105" "$fakeproc/self" "$fakeproc/107"
+    echo '100 (sleep) S 1 4242 4242 0 -1' >"$fakeproc/100/stat"
+    echo '101 (worker) R 1 4242 4242 0 -1' >"$fakeproc/101/stat"
+    echo '102 (gone) Z 1 4242 4242 0 -1' >"$fakeproc/102/stat"
+    echo '103 (dead) X 1 4242 4242 0 -1' >"$fakeproc/103/stat"
+    echo '104 (other) S 1 9999 9999 0 -1' >"$fakeproc/104/stat"
+    echo '105 (a b) (c) D 1 4242 4242 0 -1' >"$fakeproc/105/stat"
+    echo '107 (never) S 1 4242 4242 0 -1' >"$fakeproc/107/stat"; rm "$fakeproc/107/stat"
+    echo '1 (init) S 0 4242 4242 0 -1' >"$fakeproc/self/stat"
+    contido_live_in_group 4242 "$fakeproc"
+    check "the sweep counts the live members of the group (S, R and D = 3; not Z, not X, not the other group, not a non-numeric entry, not a pid that vanished)" "$([ "$CONTIDO_LIVE" -eq 3 ] && echo 0 || echo 1)" "counted $CONTIDO_LIVE"
+    contido_live_in_group 5555 "$fakeproc"
+    check "the sweep of a group nobody is in counts 0" "$([ "$CONTIDO_LIVE" -eq 0 ] && echo 0 || echo 1)" "counted $CONTIDO_LIVE"
+    contido_live_in_group 4242 "$dir/nao-existe"
+    check "the sweep of a root that does not exist counts 0 (nothing to read)" "$([ "$CONTIDO_LIVE" -eq 0 ] && echo 0 || echo 1)" "counted $CONTIDO_LIVE"
+    # ... and on the REAL /proc: a live group of one is 1, and 0 once it is killed and reaped or a zombie
+    local live_pid live_group turn
+    ( exec setsid sleep 30 ) >/dev/null 2>&1 &
+    live_pid=$!
+    for turn in {1..50}; do
+        read -r line 2>/dev/null <"/proc/$live_pid/stat" && { line="${line##*) }"; read -r _ _ live_group _ <<<"$line"; [ "$live_group" = "$live_pid" ] && break; }
+        read -r -t 0.1 -u "$CONTIDO_FD" _ 2>/dev/null
+    done
+    contido_live_in_group "$live_pid"
+    check "the sweep on the real /proc finds the live group of one" "$([ "$CONTIDO_LIVE" -eq 1 ] && echo 0 || echo 1)" "counted $CONTIDO_LIVE (group $live_group)"
+    kill -KILL -- "-$live_pid" 2>/dev/null
+    wait "$live_pid" 2>/dev/null
+    contido_wait_bounded 5 contido_group_has_no_live_member "$live_pid"
+    check "the sweep on the real /proc finds the group dead after the KILL (or only a zombie)" "$?" "still live: $CONTIDO_LIVE"
+    # 12f5. L-11: no process per item swept. (a) the body of the sweep has no command substitution, no
+    #       process substitution, no backtick and none of the external tools that used to be reached for;
+    #       (b) with strace, a real sweep of this machine's /proc makes no clone/fork/vfork at all.
+    local body
+    body="$(declare -f contido_live_in_group)"
+    local probe="${body//'$(('/}"   # arithmetic expansion forks nothing; only a command substitution does
+    case "$probe" in
+        *'$('* | *'`'* | *'<('* | *'>('*) got=1 ;;
+        *) got=0 ;;
+    esac
+    if [ "$got" -eq 0 ] && printf '%s' "$probe" | grep -Eqw 'cat|awk|sed|grep|ps|pgrep|cut|head|tail|tr|wc|xargs|find'; then got=1; fi
+    check "the sweep is written with builtins only (no substitution, no external tool)" "$got" "found a construct that costs a process per item"
+    if command -v strace >/dev/null 2>&1 && strace -f -o "$dir/strace.probe" -e trace=execve true >/dev/null 2>&1 && grep -q execve "$dir/strace.probe"; then
+        local forks
+        strace -f -o "$dir/strace.sweep" -e trace=clone,clone3,fork,vfork bash -c "$body; contido_live_in_group 1" >/dev/null 2>&1
+        forks="$(grep -c -E '^[0-9]+ +(clone|clone3|fork|vfork)\(' "$dir/strace.sweep" || true)"
+        check "strace: a sweep over the real /proc makes no clone, fork or vfork" "$([ "${forks:-x}" = 0 ] && echo 0 || echo 1)" "counted $forks process creation(s)"
+    else
+        echo "contido_dentro --selftest: strace ausente ou sem permissao de ptrace: o controle de zero fork por strace foi PULADO (1 caso pulado); o controle do corpo da funcao rodou" >&2
+    fi
     # 12g. contido_alive has POSITIVE controls too: every other use only asks "is it dead?", so a helper that
     #      always answered "dead" would pass them all. (1) this very shell is alive; (2) a live sleep is alive
     #      BEFORE the kill; (3) a ZOMBIE made on purpose (contido_fabricate_zombie: the child exits only AFTER its

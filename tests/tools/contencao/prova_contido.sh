@@ -105,7 +105,7 @@ report D4-limpo "$([ "$after" -le "$before" ] && echo 0 || echo 1)" "pids.curren
 err="$scratch/d5.err"
 out="$("$contido" --marcador d5fora -- "$contido" --marcador d5dentro -- bash -c 'read l </proc/self/cgroup; n=$(systemctl --user list-units --type=scope --no-legend 2>/dev/null | grep -c "^ *glintfx-d5dentro-"); echo "${l#0::} $n"' 2>"$err")"
 read -r inner_cgroup inner_count <<<"$out"
-report D5-ninho "$(grep -q 'contido: modo=ninho' "$err" && echo 0 || echo 1)" "a linha 'modo=ninho' nao apareceu: $(cat "$err")"
+report D5-ninho "$(grep -q 'contido: modo=ninho.*sobreviventes_apos_kill=0$' "$err" && echo 0 || echo 1)" "a linha 'modo=ninho' nao apareceu: $(cat "$err")"
 report D5-sem-escopo-novo "$([ "$inner_count" = 0 ] && echo 0 || echo 1)" "escopos glintfx-d5dentro=$inner_count"
 case "$inner_cgroup" in
     */glintfx-d5fora-*.scope/ninho-*) report D5-cgroup 0 "" ;;
@@ -183,12 +183,13 @@ wait_scope() {
 # skipping the KILL because the leader is gone). Deadline is not involved: the command ends by itself.
 pidfile="$scratch/d10b.pid"
 t0="${EPOCHREALTIME//[.,]/}"
-"$contido" --graca 2 -- bash -c '(trap "" TERM; exec sleep 30) >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$pidfile" >/dev/null 2>&1; got=$?
+"$contido" --graca 2 -- bash -c '(trap "" TERM; exec sleep 30) >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$pidfile" >/dev/null 2>"$scratch/d10b.err"; got=$?
 t1="${EPOCHREALTIME//[.,]/}"
 report D10b-rc "$([ "$got" -eq 0 ] && echo 0 || echo 1)" "esperado 0, obtido $got"
 report D10b-tempo "$([ $((t1 - t0)) -ge 1900000 ] && [ $((t1 - t0)) -le 4500000 ] && echo 0 || echo 1)" "o KILL veio depois de $((t1 - t0)) us (esperado ~G=2 s)"
 kill -0 "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null
 report D10b-morto "$([ $? -ne 0 ] && [ -s "$pidfile" ] && echo 0 || echo 1)" "o neto que ignora TERM sobreviveu"
+report D10b-sobreviventes "$(grep -q 'sobreviventes_apos_kill=0$' "$scratch/d10b.err" && echo 0 || echo 1)" "a linha nao diz sobreviventes_apos_kill=0: $(cat "$scratch/d10b.err")"
 
 # a normal end costs no grace: G = 30 and the whole run still takes well under 5 s
 t0="${EPOCHREALTIME//[.,]/}"

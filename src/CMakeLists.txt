@@ -76,11 +76,13 @@ add_subdirectory(platform)
 #   glintfx_gl_functions_generated      - gl_functions.hpp/.cpp (src/render/, every platform)
 #   glintfx_wayland_xdg_shell_binding   - the xdg-shell binding (only where Wayland is built)
 add_custom_target(glintfx_generated_sources)
-foreach(_glintfx_generator IN ITEMS glintfx_gl_functions_generated glintfx_wayland_xdg_shell_binding)
-    if(TARGET ${_glintfx_generator})
-        add_dependencies(glintfx_generated_sources ${_glintfx_generator})
-    endif()
-endforeach()
+# DIRECT add_dependencies, never guarded by if(TARGET ...): a guard swallows a wrong name (a renamed or mistyped
+# generator would configure and build GREEN with the header missing). A wrong name here is a configure ERROR.
+add_dependencies(glintfx_generated_sources glintfx_gl_functions_generated)
+# The xdg-shell binding exists exactly where src/platform/CMakeLists.txt adds the Wayland backend (if(UNIX)).
+if(UNIX)
+    add_dependencies(glintfx_generated_sources glintfx_wayland_xdg_shell_binding)
+endif()
 
 glintfx_apply_compile_options(glintfx_library)
 glintfx_set_target_properties(glintfx_library)

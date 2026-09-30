@@ -568,6 +568,13 @@ stage_configure() {
 # build dir, with the SAME flags as that job: they are READ from
 # .github/workflows/ci.yml by tests/tools/ci_clang_flags.py, never retyped.
 # Compile only (every target, -Werror); the ctest run stays the CI's.
+# LOCAL ONLY: it runs in run_full_pipeline (empty mode and --fast) and in
+# --clang-only, NEVER in --lint-only, which is what the CI `lint` job runs
+# (that job installs no clang package, and the CI already has its own
+# `clang` job). Do not "fix" the flag list: -DGLINTFX_LAYERS_ORACLE=ON is
+# read from the job on purpose ("same flags as the CI") and is inert here:
+# it only feeds the add_test of layers_oracle_test, this stage runs no
+# ctest, and check_layers_oracle.py skips itself without GITHUB_ACTIONS=true.
 stage_clang() {
     command -v clang++ > /dev/null 2>&1 || fail "estagio clang recusado: clang++ nao encontrado no PATH (o CI roda este compilador; instalar e' decisao do lider, L-51)"
     flags_out="$(python3 "$ROOT_DIR/tests/tools/ci_clang_flags.py" "$ROOT_DIR/.github/workflows/ci.yml")" \
@@ -2207,13 +2214,24 @@ run_selftest_ccache_controls() {
             *) fail "selftest ccache $nome: esperado '$esperado_estado' com lancadores [$esperado_lancador], obtido '$obtido'" ;;
         esac
     }
-    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=/selftest-root:" "ccache|ccache" 1 "$PATH"
+    # The CI `lint` job runs this --selftest in a container with no ccache:
+    # the "on" case uses a stub executable, never the real one.
+    stub_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-stub.XXXXXX")" \
+        || fail "selftest ccache: mktemp falhou"
+    printf '#!/bin/sh\nexit 0\n' > "$stub_dir/ccache"
+    chmod +x "$stub_dir/ccache"
+    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=/selftest-root:" "ccache|ccache" 1 "$stub_dir:$PATH"
+    rm -rf "$stub_dir"
     esperar "desligado pela chave" "ccache: desligado (GLINTFX_PRECI_CCACHE=0)" "|" 0 "$PATH"
     esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
 }
 
 run_selftest_ccache_preconfigured_controls() {
     log "selftest: arvore de build JA configurada segue a chave do ccache (o ambiente so vale no primeiro configure)"
+    if ! command -v ccache > /dev/null 2>&1; then
+        echo "selftest: ccache preconfigurado NAO APLICAVEL neste host (ccache ausente; 0 de 2 controles executados, declarado - nao reprova)"
+        return 0
+    fi
     dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-pre.XXXXXX")" \
         || fail "selftest ccache preconfigurado: mktemp falhou"
     printf 'cmake_minimum_required(VERSION 3.20)\nproject(x CXX)\nadd_library(x STATIC x.cpp)\n' > "$dir/CMakeLists.txt"
@@ -2349,7 +2367,6 @@ run_lint_only() {
     timed_stage "1: clang-format" stage_format
     timed_stage "2: configure (-Werror)" stage_configure
     timed_stage "3: build" stage_build
-    timed_stage "3b: clang (segundo compilador, flags do job clang do CI)" stage_clang
     timed_stage "4: clang-tidy" stage_tidy
     timed_stage "5: cppcheck" stage_cppcheck
     timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
@@ -2515,6 +2532,7 @@ run_full_pipeline() {
     timed_stage "2: configure (-Werror)" stage_configure
     timed_stage "2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real" stage_blob
     timed_stage "3: build" stage_build
+    timed_stage "3b: clang (segundo compilador, flags do job clang do CI)" stage_clang
     timed_stage "4: clang-tidy" stage_tidy
     timed_stage "5: cppcheck" stage_cppcheck
     timed_stage "5b: justificativa de NOLINT" stage_nolint_justification

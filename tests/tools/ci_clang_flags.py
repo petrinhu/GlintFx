@@ -148,6 +148,13 @@ def selftest_main():
         check("sem -Werror reprova", SAMPLE.replace("-DGLINTFX_WERROR=ON", ""), expect_error="-DGLINTFX_WERROR=ON"),
         check("sem o compilador clang++ reprova", SAMPLE.replace("-DCMAKE_CXX_COMPILER=clang++", ""),
               expect_error="-DCMAKE_CXX_COMPILER=clang++"),
+        # The job block must END at the next job: a following job with its own matching
+        # configure line must never be read as the clang job's.
+        check("o bloco do job clang termina no job seguinte",
+              SAMPLE.replace("cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}", "true")
+                    .replace("  gitleaks:\n    name: y\n",
+                             "  gitleaks:\n    name: y\n    steps:\n      - run: cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DGLINTFX_WERROR=ON\n"),
+              expect_error="nao encontrada"),
         check("variavel de matriz nao resolvida reprova", SAMPLE.replace("${{ matrix.oracle_flag }}", "${{ matrix.outra }}"),
               expect_error="nao resolvida"),
     ]

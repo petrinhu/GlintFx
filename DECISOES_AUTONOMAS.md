@@ -4896,3 +4896,13 @@ Texto completo no formato da lei, com URLs: /var/tmp/cto-a5-paralelo/L34-RETRO.m
   - *Escolha:* --pids-limit em todo docker run/create (CIS Docker Benchmark 5.28).
   - *Para decisão do líder:* o default-pids-limit no daemon.json (exige root, vale para a máquina inteira) e uma fatia C3b de teto de memória.
   - *Custo de reverter:* barato.
+
+## 29/09/2026 - 21:45 | D-A35: desenho final da C1b (execução contida) pelas sondas P5-P7 (CTO, L-34)
+
+- *Pergunta que teria ido ao líder:* "Como o contido encerra e confina o que roda dentro dele, inclusive o aninhado, sem escrever no cgroup do systemd e sem deixar um neto com setsid escapar?"
+- *Opções:* (A) o staged (cgroup.kill no escopo do systemd, pgid no aninhado); (B) remendo com systemctl kill; (C) delegação do cgroup com subpastas próprias.
+- *Escolha:* (C) v2.
+  - Fontes: a doc de delegação do systemd, o Bazel e o nsjail. Medições: P5 (RuntimeMaxSec funciona, e sem --collect o Result=timeout fica legível), P6 (Delegate=pids deixa subpastas graváveis, e o cgroup.kill da subpasta mata o neto com setsid), P7 (ninho irmão funciona; ninho sob a carga dá EOPNOTSUPP).
+  - Detalhe em /var/tmp/cto-a5-paralelo/L34-RETRO.md, §R2-final, md5 bceb624f.
+- *Porta de mão única:* não. *Custo de reverter:* moderado (refaz o contido_dentro.sh e o embrulho).
+- *Achado lateral:* o bash repete o fork em EAGAIN. Controle de "fork recusado" usa um processo que não repete.

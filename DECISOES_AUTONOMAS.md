@@ -5060,3 +5060,17 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §8, md5 6da49760.
 - **D-P2-2: a quebra declarada da L-20 não é aceita.** O teste do leitor foi escrito depois do código. No redesenho, o teste da forma nova vem primeiro e é visto vermelho.
 - *Custo declarado:* a P2 volta um passo; o lado Windows e as regras puras não mudam.
 - *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 00:5x | D-A46: a contenção espera o efeito do KILL antes de sair (CTO, L-34: D-C1b-6)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §9, md5 5ff5706f.
+
+- *Pergunta que teria ido ao líder:* o CI mostrou, de forma intermitente, um neto ainda vivo logo depois de a contenção sair (caso D10b). O teste pergunta cedo demais, ou a contenção sai cedo demais?
+- *Resposta do CTO:* é o mesmo fato visto de dois lados, porque o SIGKILL é assíncrono.
+- *Escolha:* a contenção passa a ESPERAR, com limite de max(1, G) segundos, o alvo esvaziar depois do KILL:
+  - no cgroup, pelo `populated 0`;
+  - no grupo de processos, varrendo o /proc só por membro VIVO. Isso ignora zumbis e resolve de vez o "kill -0 vê zumbi".
+  - Ela sempre imprime `sobreviventes_apos_kill=<n>`, sem mascarar o código de saída.
+- *Fontes:* o mesmo defeito e conserto em outros projetos de supervisão de processos, e o systemd, que espera depois do SIGKILL final e relata "Processes still around after final SIGKILL".
+- *Condição do main:* a varredura do /proc é só com comandos internos do bash, sem um processo por item (L-11 global).
+- *Porta de mão única:* não. *Custo de reverter:* baixo.

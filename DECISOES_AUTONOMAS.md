@@ -5175,3 +5175,9 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
     - encurtar os prazos, porque reabriria o D10b;
     - isentar o teste pelo nome no agregador, porque cegaria o portão.
 - *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 09:25 | APROVAÇÃO DO LÍDER: D-A34 a D-A50
+
+- *Pedido do líder, verbatim:* "mostre as decisoes tomadas autonomas para aprovar".
+- *Resposta (AskUserQuestion):* "Aprovar todas (Recomendado)".
+- As decisões autônomas D-A34 a D-A50, tomadas entre 29/09 às 21:21 e 30/09 às 08:1x, estão APROVADAS pelo líder, junto com os desvios registrados no mesmo período. As decisões do próprio líder (22:33 e 22:4x de 29/09) já eram dele.

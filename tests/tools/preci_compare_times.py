@@ -158,9 +158,8 @@ def _case(scratch, label, base_cases, now_cases, expect_rc, expect_text, expect_
     return True
 
 
-def selftest_main():
-    scratch = tempfile.mkdtemp(prefix="glintfx-preci-compare-selftest-")
-    results = [
+def _selftest_results(scratch):
+    return [
         _case(scratch, "sem mudanca", {"a": 1.0, "b": 2.0, "c": 6.0}, {"a": 1.1, "b": 2.0, "c": 6.5},
               0, ["comparados 3, sem base 0 (testes novos), reprovados 0"]),
         # The fake test sleeps 4x longer than in the base, above the floor.
@@ -196,6 +195,12 @@ def selftest_main():
         _case(scratch, "base sem estado registrado: suspensa", {"aninhado": 44.7}, {"aninhado": 178.8},
               0, ["comparacao: SUSPENSA", "estado=desconhecido"], states=("estado=desconhecido", "estado=ligado-quente acerto=97 chamadas=4263")),
     ]
+
+
+def selftest_main():
+    # The scratch directory is removed on every way out (green or red).
+    with tempfile.TemporaryDirectory(prefix="glintfx-preci-compare-selftest-") as scratch:
+        results = _selftest_results(scratch)
     if not all(results):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)

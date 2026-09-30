@@ -4946,3 +4946,13 @@ Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 
 - *Opções (2):* (a) todo 71 vira 73; (b) todo 71 vira recusa; (c) a recusa sai pelo marcador `fim=recusa:<motivo>`, e um 71 sem marcador só vale como recusa com a unidade já inativa. *Escolha:* (c). Um 71 com a unidade ainda ativa significa que algo rodou sem supervisor, e isso é 73 com `stop`.
 - *Fontes:* medição de `systemctl show` nesta máquina pelo CTO, e o contrato de marcador único da própria C1b (D-A35 a D-A37).
 - *Porta de mão única:* não. *Custo de reverter:* barato.
+
+## 29/09/2026 - 22:33 | DECISÃO DO LÍDER (não autônoma): código do framework já; a trilha de CI e teste da W7-C vai para depois da W8
+
+- *Cobrança do líder, verbatim:* "Já mais de um dia que você tá escrevendo teste!!! Onde fica o CÓDIGO do framework?!"
+- *Fato medido, o que motivou a pergunta:* os 109 commits desde 28/09 não tocaram `src/` nem `include/`. O último commit de código do framework é aa83f69, de 24/09 22:42.
+- *Pergunta (AskUserQuestion, 22:33):* "Como seguir?" Opções: código já, fechando só a contenção; código já, sem a contenção; terminar a W7-C antes.
+- *Escolha do líder:* "Código já (Recomendado)":
+  - fecha-se só a contenção que impede outro travamento da máquina (a C1b, na checagem final);
+  - segue-se direto ao framework: W7-D (desenho em lote, eventos de entrada, predefinição gráfica, escrita Wayland sem timeout fatal), depois W8 (demo, textura, API de mapa, herança de gfss);
+  - o resto da trilha de CI e teste da W7-C (C1c-C4, o ctest paralelo F2-F13, A6-A9, B0-B3, e o CI-CMP-5 que conserta o d8641c9) fica para depois da W8.

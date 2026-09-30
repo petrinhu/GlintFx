@@ -5312,3 +5312,16 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Pergunta 2, quando fazer as três melhorias que não exigem instalação* (Clang no preci, tempo por estágio com comparação, modo de carga do servidor): "Agora, em paralelo (Recomendado)".
   - Um segundo implementador trabalha numa cópia separada (L-55), e o implementador atual fica só no código do framework.
   - O CTO planeja a trilha.
+
+## 30/09/2026 - 15:32 | D-A59: o framebuffer sRGB nunca funcionou no Linux; é defeito nosso no pedido EGL e entra na W7-D (CTO, L-34 e L-44; errata §28, md5 4b2108b7)
+
+- *Origem:* na B5, o mutante que desliga o FRAMEBUFFER_SRGB não ficou vermelho no Linux, e o implementador atribuiu isso ao driver. O team-lead suspeitou do pedido EGL, e o CTO pediu que se provasse pelo mecanismo (L-44).
+- *Prova do CTO,* com uma sonda dentro da imagem de teste (llvmpipe, sem /dev/dri): o Mesa oferece EGL_KHR_gl_colorspace, e o eglChooseConfig COM EGL_GL_COLORSPACE_KHR devolve EGL_BAD_ATTRIBUTE (0x3004).
+- *Causa:* src/platform/wayland/egl_context_adapter.cpp:558-560 passa o atributo no choose. A especificação da Khronos o aceita só na criação da superfície.
+- *Consequência:* o srgb_framebuffer=1 nunca funcionou em driver Mesa. As duas ausências registradas em measured_exceptions mediam o nosso defeito.
+- *Decisão:* os commits da B5 continuam aceitos, porque o teste relatou o que a lib dizia. O conserto entra na W7-D antes do fechamento:
+  - o atributo na criação da superfície;
+  - a conferência por eglQuerySurface;
+  - falha vira unsupported, nunca superfície linear rotulada de sRGB.
+- *Prova exigida:* uma célula de seam vermelha no código de hoje, o sRGB ligado exercido no llvmpipe e o mutante vermelho no Linux.
+- *Lição:* ausência "declarada e medida" não prova limite da plataforma; o mecanismo precisa ser testado antes.

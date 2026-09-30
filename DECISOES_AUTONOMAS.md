@@ -5158,3 +5158,20 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Ordem do líder, verbatim:* "ligue modo automático. Continue até 17:00 local".
 - *Flag:* ~/.claude/autonomo/GlintFx.json (escopos push e clean). A pausa das 17:00 está agendada pelo cron 36996f72, e o monitor anti-parada é o 67799e56.
 - *Retomada:* a B3c, com as condições §12 do CTO. Depois B4, B5, B6, B7, P4, P5 e o fechamento da W7-D (v0.6.0.0). As decisões de desenho seguem a L-34 com a emenda de 29/09: pesquisa na web e nas bibliotecas semelhantes antes de decidir.
+
+## 30/09/2026 - 08:1x | D-A50: as duas falhas do CI da pausa (CTO, L-34 com pesquisa antes; errata §15 e §16, md5 f02b50b5)
+
+- **D-CI2-LINT (Windows Lint):**
+  - *Causa:* o job de lint só configura o projeto, e o `gl_functions.hpp` só nasce no build. O `embedded_program.hpp` (B3b) é o primeiro arquivo rastreado que inclui um cabeçalho gerado. Os dois avisos de ligação interna eram consequência: com o diretório gerado presente, 0 e 0, medido pelo CTO.
+  - *Fontes:* o Chromium constrói antes do clang-tidy; o CMAKE_CXX_CLANG_TIDY roda dentro do build; o Meson reprova o tidy em fonte que não compila.
+  - *Escolha:* um alvo agregador `glintfx_generated_sources` (todo gerador), construído no job antes do tidy, com o piso de existência do cabeçalho gerado.
+  - *Recusado:* uma lista de nomes, o build completo e excluir o arquivo do lint.
+- **D-CI2-SELFTEST (Ubuntu estático):**
+  - *Causa:* o contido_dentro_selftest leva 51,5 s, e são ESPERAS (prazos e graças da contenção), não CPU. A régua de 40 s do agregador mede o tempo de parede como indício de "disputa os núcleos", e para este teste o indício não distingue.
+  - *Fontes:* o ctest(1) e o scivision: RESOURCE_LOCK e PROCESSORS descrevem recurso, não duração.
+  - *Escolha:* partir o selftest em grupos, cada um uma entrada do ctest de até 20 s medidos, com a contagem por grupo impressa e a soma batendo com o total de hoje.
+  - *Recusado:*
+    - RESOURCE_LOCK, porque mentiria sobre o recurso;
+    - encurtar os prazos, porque reabriria o D10b;
+    - isentar o teste pelo nome no agregador, porque cegaria o portão.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <glintfx/draw2d/renderer_2d.hpp>
 
+#include <cassert>
 #include <utility>
 
 #include <glintfx/core/err_code.hpp>
@@ -83,14 +84,26 @@ gltfx_renderer_2d::~gltfx_renderer_2d() { renderer_2d_impl::destroy(impl); }
 
 bool gltfx_renderer_2d::is_open() const noexcept { return impl != nullptr; }
 
+// Precondition of every method below but is_open(), the destructor and the moves: this renderer was
+// not moved-from (docs/api-conventions.md's precondition-violation category, the same shape
+// display_facade.cpp documents). Debug catches it with a named message; Release has the guard
+// compile away.
 void gltfx_renderer_2d::begin_frame(const gltfx_frame_2d_desc &desc) noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::begin_frame() called on a moved-from renderer - "
+                              "the object no longer owns its drawing state");
     impl->begin_frame(desc);
 }
-void gltfx_renderer_2d::begin_batch() noexcept { impl->begin_batch(); }
+void gltfx_renderer_2d::begin_batch() noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::begin_batch() called on a moved-from renderer - "
+                              "the object no longer owns its drawing state");
+    impl->begin_batch();
+}
 // cppcheck-suppress passedByValue ; reason: gltfx_transform is a VALUE type and value types go by
 // value in the public API (docs/auditoria-api-draw2d.md B0-I10, B0-C1): the copy is a few doubles,
 // and a const reference would make the caller's lifetime part of the contract.
 void gltfx_renderer_2d::begin_batch(gltfx_transform world_to_pixel) noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::begin_batch() called on a moved-from renderer - "
+                              "the object no longer owns its drawing state");
     impl->begin_batch(world_to_pixel);
 }
 // cppcheck-suppress passedByValue ; reason: gltfx_rect_world is a VALUE type and value types go by
@@ -98,6 +111,8 @@ void gltfx_renderer_2d::begin_batch(gltfx_transform world_to_pixel) noexcept {
 // and a const reference would make the caller's lifetime part of the contract.
 void gltfx_renderer_2d::fill_rect(gltfx_rect_world rect, gltfx_rgba color,
                                   gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::fill_rect() called on a moved-from renderer - "
+                              "the object no longer owns its drawing state");
     impl->fill_rect(rect, color, layer);
 }
 // cppcheck-suppress passedByValue ; reason: gltfx_quad_world is a VALUE type and value types go by
@@ -105,13 +120,23 @@ void gltfx_renderer_2d::fill_rect(gltfx_rect_world rect, gltfx_rgba color,
 // and a const reference would make the caller's lifetime part of the contract.
 void gltfx_renderer_2d::fill_quad(gltfx_quad_world corners, gltfx_rgba color,
                                   gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::fill_quad() called on a moved-from renderer - "
+                              "the object no longer owns its drawing state");
     impl->fill_quad(corners, color, layer);
 }
-void gltfx_renderer_2d::flush() noexcept { impl->flush(); }
+void gltfx_renderer_2d::flush() noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::flush() called on a moved-from renderer - the "
+                              "object no longer owns its drawing state");
+    impl->flush();
+}
 gltfx_rslt<gltfx_frame_2d_report> gltfx_renderer_2d::finish_frame() noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::finish_frame() called on a moved-from renderer - "
+                              "the object no longer owns its drawing state");
     return impl->finish_frame();
 }
 gltfx_frame_2d_report gltfx_renderer_2d::last_frame_report() const noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::last_frame_report() called on a moved-from "
+                              "renderer - the object no longer owns its drawing state");
     return impl->last_frame_report();
 }
 

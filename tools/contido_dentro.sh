@@ -559,20 +559,26 @@ contido_inside_selftest() {
         check "deadline S=1 with locale $locale_case: rc 124" "$([ "$rc" -eq 124 ] && echo 0 || echo 1)" "got $rc"
         check "deadline S=1 with locale $locale_case: between 0.9 s and 2.5 s" "$([ $((t1 - t0)) -ge 900000 ] && [ $((t1 - t0)) -le 2500000 ] && echo 0 || echo 1)" "took $((t1 - t0)) us"
     done
-    # 10c. the time already spent before the wait is discounted: S=2 with a 1 s pause before the read
-    #      (the hook) ends in about 2 s in total, not 3 s. This is the case that bites `${t/./}`: under a
-    #      comma radix the elapsed time would count as zero and the total would be ~3 s.
+    # 10c. the time already spent before the wait is discounted: S=3 with a 2 s pause before the read (the
+    #      hook) ends in about 3 s in total, not 5 s. This is the case that bites `${t/./}`: under a comma
+    #      radix the elapsed time would count as zero and the total would be ~5 s.
+    #      THE MARGIN RULE (errata sec. 23, D-C1b-7): the case proves the SEPARATION between "discounts" (~S)
+    #      and the radix mutant (~S + hook). The separation is the hook, and the ceiling sits in the middle of
+    #      it: the slack on each side is hook/2. (1) slack >= 1.5 x the worst overhead measured on the server
+    #      (0.58 s, CI run 36742575409): 1.5 x 0.58 = 0.87 s; (2) hook >= 2 x slack; (3) ceiling = S + hook/2.
+    #      With hook 2 s and S 3 s: window [2.9 s, 4.0 s], the mutant lands at ~5 s. (With the old hook 1 s and
+    #      S 2 s the ceiling 2.5 s left 0.5 s of slack and the CI measured 2.579 s.)
     for locale_case in ambiente C; do
         mkdir -p "$dir/desc_$locale_case"
         t0="${EPOCHREALTIME//[.,]/}"
         (
             [ "$locale_case" = C ] && export LC_ALL=C
-            contido_hook_before_read() { sleep 1; }
-            contido_inside_main herdado-pgid - 64 2 0 "$dir/desc_$locale_case" -- sleep 20
+            contido_hook_before_read() { sleep 2; }
+            contido_inside_main herdado-pgid - 64 3 0 "$dir/desc_$locale_case" -- sleep 20
         ) >/dev/null 2>&1; rc=$?
         t1="${EPOCHREALTIME//[.,]/}"
         check "discount of elapsed time, locale $locale_case: rc 124" "$([ "$rc" -eq 124 ] && echo 0 || echo 1)" "got $rc"
-        check "discount of elapsed time, locale $locale_case: total 1.9 s to 2.5 s" "$([ $((t1 - t0)) -ge 1900000 ] && [ $((t1 - t0)) -le 2500000 ] && echo 0 || echo 1)" "took $((t1 - t0)) us"
+        check "discount of elapsed time, locale $locale_case: total 2.9 s to 4.0 s" "$([ $((t1 - t0)) -ge 2900000 ] && [ $((t1 - t0)) -le 4000000 ] && echo 0 || echo 1)" "took $((t1 - t0)) us"
     done
     echo "contido_dentro --selftest: radix do ambiente: $radix_note (so com virgula o caso do ambiente exercita o mutante \${t/./})" >&2
 

@@ -1376,6 +1376,27 @@ target_sources(frame_report_tally_test PRIVATE
 # win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
 target_compile_definitions(frame_report_tally_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
 
+# R2D-BATCH B4: the list of pieces held until a flush (paint order by layer, then submission) and the sRGB curve
+# of the clear color, each a pure atom.
+glintfx_add_test(piece_list_test)
+target_include_directories(piece_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(piece_list_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+)
+
+glintfx_add_test(gl_load_refusal_test)
+target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gl_load_refusal_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_load_refusal.cpp"
+)
+
+glintfx_add_test(srgb_encoding_test)
+target_include_directories(srgb_encoding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(srgb_encoding_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
 # R2D-BATCH B3b: the embedded drawing program against a table of FAKE GL functions. The test needs the
 # generated loader header (gl_functions.hpp, build tree) and the hand-written gl_abi.hpp (src/render), and
 # log_emit() from the library (exported, core/log/emit.hpp).

@@ -19,6 +19,9 @@ target_sources(glintfx_library PRIVATE
     gl_state_contract.cpp
     vertex_stream.cpp
     frame_2d_report.cpp
+    piece_list.cpp
+    gl_load_refusal.cpp
+    srgb_encoding.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

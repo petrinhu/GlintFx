@@ -1290,6 +1290,28 @@ target_sources(gpu_kind_exclusion_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
 )
 
+# GFX-PRESET (docs/plano-w6b-fatias-5.md sec. 5, docs/plano-w7d-adendo-revalidacao.md sec. 3.A, P1): the pure
+# atoms of the preset, PLATFORM-AGNOSTIC like the sites they prove - they run on all five systems with no
+# if(UNIX)/if(WIN32) guard. EACH test compiles the .cpp it says it covers (target_sources), never a stand-in.
+glintfx_add_test(gfx_preset_table_test)
+target_include_directories(gfx_preset_table_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfx_preset_table_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_preset_table.cpp"
+)
+
+glintfx_add_test(auto_preset_rule_test)
+target_include_directories(auto_preset_rule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(auto_preset_rule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/auto_preset_rule.cpp"
+)
+
+glintfx_add_test(preset_expansion_test)
+target_include_directories(preset_expansion_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(preset_expansion_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/preset_expansion.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_preset_table.cpp"
+)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

@@ -51,10 +51,6 @@ src/platform/wayland/display_backend.cpp|mesmo motivo do .hpp irmao acima, mesmo
 # aceita e nao tem efeito (GODS_LAWS.md L-21/L-41) - estas nove linhas
 # so' fecham o lado mecanico do portao de escopo, nunca substituem
 # aquele texto.
-src/platform/gl/gfx_preset_table.hpp|tabela preset->lista de opcoes (fatia 5c), nunca implementada|GFX-PRESET
-src/platform/gl/gfx_preset_table.cpp|mesmo motivo do .hpp irmao acima, mesmo item|GFX-PRESET
-src/platform/gl/auto_preset_rule.hpp|regra (gpu_kind, power_source) -> (preset, reason) (fatia 5c), nunca implementada|GFX-PRESET
-src/platform/gl/auto_preset_rule.cpp|mesmo motivo do .hpp irmao acima, mesmo item|GFX-PRESET
 src/platform/port/power_source_port.hpp|porta de leitura de fonte de energia (fatia 5c), nunca implementada|GFX-PRESET
 src/platform/wayland/power_source_adapter.hpp|leitor Wayland de /sys/class/power_supply (fatia 5c), nunca implementado|GFX-PRESET
 src/platform/wayland/power_source_adapter.cpp|mesmo motivo do .hpp irmao acima, mesmo item|GFX-PRESET

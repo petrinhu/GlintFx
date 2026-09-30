@@ -97,12 +97,11 @@
 
 namespace glintfx {
 
-// APPEND-ONLY, FOREVER (item 1 above). v1 ships exactly the eight ids
-// docs/plano-w6b-placa-e-laco.md sec. 11.2 ratifies, in the SAME order
-// as that table's own rows - tests/tools/check_gfx_option_ids.py
+// APPEND-ONLY, FOREVER (item 1 above). The ids below are in the SAME
+// order as their numeric values - tests/tools/check_gfx_option_ids.py
 // reproves a build where this enum's own declaration order stops
 // matching its own numeric values. std::uint16_t is deliberately wider
-// than today's eight members need (clang-tidy's own performance-enum-
+// than today's members need (clang-tidy's own performance-enum-
 // size would suggest std::uint8_t) - the SAME reasoning gfss/property.
 // hpp's own gltfx_gfss_property already documents: this is the ONE id
 // in this registry that is APPEND-ONLY FOREVER and PUBLISHED as a
@@ -118,7 +117,66 @@ enum class gltfx_gfx_option : std::uint16_t { // NOLINT(performance-enum-size) r
     preset = 5,
     auto_choice_reason = 6,
     power_source = 7,
+    // GFX-PRESET (docs/auditoria-api-gfx-preset.md, P0): `choice`,
+    // `read_only`. The preset this library would suggest RIGHT NOW,
+    // computed at the moment it is read - see the "SUGGESTED PRESET"
+    // block below this enum for the full contract.
+    suggested_preset = 8,
 };
+
+// ============================================================
+// THE VALUES OF THE PRESET ROWS - DATA CONTRACT, FOREVER
+// ============================================================
+//
+// Every `choice` row reads and writes a plain std::int64_t (item 2 of
+// this header's own top comment). For the rows below, the meaning
+// of each number is part of the DATA contract (a consumer's saved
+// settings file stores the number): once shipped, a number is never
+// reused for a different meaning and never renumbered. The named
+// constants exist so that no consumer has to write a bare number; the
+// constants and the numbers are the same thing, spelled two ways.
+//
+// `preset` (id 5, `live`) and `suggested_preset` (id 8, `read_only`)
+// share ONE vocabulary, on purpose: the value read from
+// `suggested_preset` can be written straight back into `preset`.
+// `suggested_preset` only ever reads power_saving, balanced or
+// performance - never manual, never automatic.
+inline constexpr std::int64_t k_gltfx_preset_manual = 0;
+inline constexpr std::int64_t k_gltfx_preset_power_saving = 1;
+inline constexpr std::int64_t k_gltfx_preset_balanced = 2;
+inline constexpr std::int64_t k_gltfx_preset_performance = 3;
+inline constexpr std::int64_t k_gltfx_preset_automatic = 4;
+
+// `auto_choice_reason` (id 6, `read_only`): WHY `suggested_preset`
+// reads what it reads. `none` is never produced by this version (every
+// suggestion has a reason); it stays in the vocabulary because the
+// vocabulary is append-only.
+inline constexpr std::int64_t k_gltfx_auto_choice_reason_none = 0;
+inline constexpr std::int64_t k_gltfx_auto_choice_reason_on_battery = 1;
+inline constexpr std::int64_t k_gltfx_auto_choice_reason_software_renderer = 2;
+inline constexpr std::int64_t k_gltfx_auto_choice_reason_shared_gpu = 3;
+inline constexpr std::int64_t k_gltfx_auto_choice_reason_dedicated_gpu = 4;
+inline constexpr std::int64_t k_gltfx_auto_choice_reason_unknown_gpu = 5;
+
+// `power_source` (id 7, `read_only`): what the operating system reports
+// about where the machine's power comes from. `unknown` is a
+// first-class answer on both systems (a machine with no battery and no
+// readable supply, such as most virtual machines, reads `unknown`).
+// Proved by: power_supply_rule_test (Linux rule, every cell of the
+// closed set) and power_status_rule_test (Windows rule, every cell).
+inline constexpr std::int64_t k_gltfx_power_source_unknown = 0;
+inline constexpr std::int64_t k_gltfx_power_source_mains = 1;
+inline constexpr std::int64_t k_gltfx_power_source_battery = 2;
+
+// `vsync` (id 0, `live`): the numbers of the option, wherever it is
+// spoken: the value a preset row carries for it (as
+// gltfx_gfx_preset_row_at() hands it back), the value set_option()
+// takes and option() reads, and the value in an opening list.
+// `adaptive` may be refused by name on a system that has no
+// equivalent.
+inline constexpr std::int64_t k_gltfx_vsync_off = 0;
+inline constexpr std::int64_t k_gltfx_vsync_on = 1;
+inline constexpr std::int64_t k_gltfx_vsync_adaptive = 2;
 
 // The three shapes a value can take (D-W6b-16 (2)): `toggle` reads
 // 0/1, `choice` reads the numeric id of the chosen value (documented
@@ -186,11 +244,12 @@ struct gltfx_gfx_option_info {
 // consumer hardcodes, since the table only ever grows (D-W6b-21).
 [[nodiscard]] GLINTFX_API std::size_t gltfx_gfx_option_count() noexcept;
 
-// The option at `index` (0 <= index < gltfx_gfx_option_count()), in the
-// registry's own id order. `index` outside that range degrades to a
-// default-constructed gltfx_gfx_option_info (docs/api-conventions.md
-// R4) - never undefined behavior, never a thrown exception.
-[[nodiscard]] GLINTFX_API gltfx_gfx_option_info gltfx_gfx_option_at(std::size_t index) noexcept;
+// The option at `index_in_table` (0 <= index_in_table <
+// gltfx_gfx_option_count()), in the registry's own id order.
+// `index_in_table` outside that range degrades to a default-constructed gltfx_gfx_option_info
+// (docs/api-conventions.md R4) - never undefined behavior, never a thrown exception.
+[[nodiscard]] GLINTFX_API gltfx_gfx_option_info
+gltfx_gfx_option_at(std::size_t index_in_table) noexcept;
 
 // The static facts about `id`, with no system in the picture. An `id`
 // outside this build's own table (produced, for example, by a newer
@@ -207,5 +266,65 @@ gltfx_gfx_option_describe(gltfx_gfx_option id) noexcept;
 // never a fabricated id.
 [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_gfx_option>
 gltfx_gfx_option_by_name(std::string_view name) noexcept;
+
+// ============================================================
+// SUGGESTED PRESET - A SUGGESTION HANDED OVER, NEVER LIBRARY STATE
+// ============================================================
+//
+// The leader's order of 06/09/2026 (ESCOPO.md): the automatic choice
+// only HANDS OVER the best values for the consumer to use on their
+// own side; it locks nothing. What that means, rule by rule:
+//
+//   1. READING NEVER WRITES. option(suggested_preset) and
+//      option(auto_choice_reason) compute the suggestion at the moment
+//      they are called, from two facts the system reports (the kind of
+//      GPU this context runs on, and option(power_source)). Reading
+//      them changes no option and no label.
+//   2. APPLYING IS ALWAYS YOUR REQUEST. set_option({preset, P}) with a
+//      concrete P applies every row of P, all or nothing, once.
+//      set_option({preset, k_gltfx_preset_automatic}) is a shortcut for
+//      "apply the suggestion of right now": it applies the suggested
+//      concrete preset, once, and stores THAT concrete value as the
+//      label - option(preset) never reads `automatic`.
+//   3. THE LABEL IS YOURS. option(preset) reads the last preset you
+//      asked for (default `manual`), not a verdict on whether the
+//      current values still match it. Changing one row by hand after
+//      applying a preset never rewrites the label.
+//   4. NOTHING IS EVER REAPPLIED OR PERSISTED BY THE LIBRARY ON ITS
+//      OWN. A power cable plugged in or pulled out changes what
+//      option(suggested_preset) reads next time, and nothing else.
+//
+// Two readings in a row may disagree: the power source can change
+// between them. That window is real and is not hidden.
+//
+// `balanced` and `performance` hold the SAME rows in this version, on
+// purpose: the only rows a preset touches today are vsync and
+// frame_rate_cap, and turning vsync off trades tearing for speed, which
+// is a separate choice from "performance". They start to differ when
+// the library grows options that can actually be spent on quality.
+// Proved by: gfx_preset_table_test (every row of every preset, value by
+// value).
+
+// How many rows the preset `preset` sets, in THIS build. Zero for
+// k_gltfx_preset_manual, for k_gltfx_preset_automatic (it resolves to
+// a concrete preset first) and for any number outside the vocabulary
+// above. Never a literal a consumer hardcodes: the rows of a preset are
+// the library's current best values and may change in a later release.
+[[nodiscard]] GLINTFX_API std::size_t gltfx_gfx_preset_row_count(std::int64_t preset) noexcept;
+
+// The row at `row_index` (0 <= row_index < gltfx_gfx_preset_row_count(
+// preset)) of the preset `preset`: which option it sets, and to what.
+// Read the suggestion, read its rows, and decide on your side what you
+// apply (the leader's "best values for the consumer to use").
+//
+// An out-of-range `preset` or `row_index` degrades (docs/api-
+// conventions.md R4) to the entry {suggested_preset,
+// k_gltfx_preset_manual}: an id that is read_only, so handing it to
+// set_option() by mistake is refused with invalid_argument and changes
+// nothing - neither a row nor your preset label. It is never a
+// default-constructed entry, because {vsync, 0} would silently turn
+// vsync off.
+[[nodiscard]] GLINTFX_API gltfx_gfx_option_entry
+gltfx_gfx_preset_row_at(std::int64_t preset, std::size_t row_index) noexcept;
 
 } // namespace glintfx

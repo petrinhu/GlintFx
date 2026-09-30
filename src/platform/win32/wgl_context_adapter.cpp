@@ -684,6 +684,7 @@ win32_gl_context_adapter::option_support(gltfx_gfx_option id) const noexcept {
                                 : gltfx_gfx_option_support::unsupported_here;
     case gltfx_gfx_option::auto_choice_reason:
     case gltfx_gfx_option::power_source:
+    case gltfx_gfx_option::suggested_preset:
         return gltfx_gfx_option_support::read_only_here;
     }
     return gltfx_gfx_option_support::unsupported_here;

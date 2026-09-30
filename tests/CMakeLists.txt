@@ -2522,6 +2522,14 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_option_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_context_desc_validation.cpp"
+        # GFX-PRESET (P1-P3): gl_context_facade.cpp expands a preset and reads the power source, and
+        # gfx_option_registry.cpp answers the preset rows - the win32 preci stage (LNK2019) is what found
+        # that this list has to carry them.
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_preset_table.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/auto_preset_rule.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/preset_expansion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/power_source_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/power_status_rule.cpp"
         # The loop itself - the subject of this fixture.
         "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_tick_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"

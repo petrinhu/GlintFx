@@ -7,8 +7,10 @@
 
 #if defined(_WIN32)
 #include "platform/win32/selected_gl_context_adapter.hpp"
+#include "platform/win32/selected_power_source_adapter.hpp"
 #else
 #include "platform/wayland/selected_gl_context_adapter.hpp"
+#include "platform/wayland/selected_power_source_adapter.hpp"
 #endif
 
 // gl_context_impl.hpp - GL-CONTEXT (docs/plano-w6b-placa-e-laco.md
@@ -44,6 +46,10 @@ namespace glintfx {
 
 struct gl_context_impl {
     platform::selected_gl_context_adapter adapter;
+    // Where the machine's power comes from, reread at EVERY read of `power_source`,
+    // `suggested_preset` or `auto_choice_reason` and at every `preset = automatic` (D-W6b-34):
+    // never cached, never in a loop, never on its own. Stateless.
+    platform::selected_power_source_adapter power;
     std::vector<gltfx_gfx_option_entry> current_values;
 };
 

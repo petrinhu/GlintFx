@@ -41,13 +41,13 @@ struct gfx_option_row {
     std::int64_t default_value = 0;
 };
 
-// Eight rows, sec. 11.2's own order (id 0 = vsync ... id 7 =
-// power_source). `std::array<gfx_option_row, 8>` is a HAND-WRITTEN
-// literal size, not gltfx_gfx_option's own enumerator count - the SAME
-// "a mismatched count is a compile failure, never a silently value-
-// initialized row" discipline property_table.hpp's own static_assert
-// already applies, repeated below.
-inline constexpr std::array<gfx_option_row, 8> k_gfx_option_table{{
+// One row per option, sec. 11.2's own order (id 0 = vsync ... the last
+// id = suggested_preset). `std::array<gfx_option_row, 9>` is a HAND-
+// WRITTEN literal size, not gltfx_gfx_option's own enumerator count -
+// the SAME "a mismatched count is a compile failure, never a silently
+// value-initialized row" discipline property_table.hpp's own
+// static_assert already applies, repeated below.
+inline constexpr std::array<gfx_option_row, 9> k_gfx_option_table{{
     // id 0 - choice: off=0, on=1, adaptive=2. Default `on` (D-W6b-7,
     // "a janela nao trava, mas o consumidor pediu sincronia por
     // padrao").
@@ -84,8 +84,10 @@ inline constexpr std::array<gfx_option_row, 8> k_gfx_option_table{{
 
     // id 6 - choice, read_only: none=0, on_battery=1,
     // software_renderer=2, shared_gpu=3, dedicated_gpu=4,
-    // unknown_gpu=5. Set by the library after resolving `preset=
-    // automatic` (fatia 5c); never accepted from a consumer.
+    // unknown_gpu=5. WHY suggested_preset reads what it reads,
+    // computed at the moment it is read (D-W6b-44); `none` is never
+    // produced by this version and stays in the vocabulary because the
+    // table is append-only. Never accepted from a consumer.
     {gltfx_gfx_option::auto_choice_reason, "auto_choice_reason", gltfx_gfx_option_kind::choice,
      gltfx_gfx_option_when::read_only, 0, 5, 0},
 
@@ -95,12 +97,24 @@ inline constexpr std::array<gfx_option_row, 8> k_gfx_option_table{{
     // rule too.
     {gltfx_gfx_option::power_source, "power_source", gltfx_gfx_option_kind::choice,
      gltfx_gfx_option_when::read_only, 0, 2, 0},
+
+    // id 8 - choice, read_only: power_saving=1, balanced=2,
+    // performance=3 - the SAME numbers as `preset`, so the value read
+    // here can be written straight back into `preset`. The preset this
+    // library would suggest RIGHT NOW, computed at the moment it is
+    // read from the kind of GPU and `power_source` (D-W6b-44); it never
+    // reads manual or automatic. Default 2 (balanced); a read always
+    // computes, so the default is never what a consumer sees.
+    {gltfx_gfx_option::suggested_preset, "suggested_preset", gltfx_gfx_option_kind::choice,
+     gltfx_gfx_option_when::read_only, 1, 3, 2},
 }};
 
-static_assert(k_gfx_option_table.size() == 8,
+static_assert(k_gfx_option_table.size() ==
+                  static_cast<std::size_t>(gltfx_gfx_option::suggested_preset) + 1,
               "GODS_LAWS.md L-40: k_gfx_option_table's row count must track gfx_option.hpp's own "
-              "gltfx_gfx_option ids - a ninth option added to the enum without a matching row here "
-              "must not compile silently");
+              "gltfx_gfx_option ids - an option added to the enum without a matching row here "
+              "must not compile silently (the LAST id + 1 is the row count: ids are dense and "
+              "append-only)");
 
 // Linear scan, shared by every accessor in gfx_option_registry.cpp -
 // one atom, one job (GODS_LAWS.md L-17), the same technique property_

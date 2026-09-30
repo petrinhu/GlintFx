@@ -3,9 +3,9 @@
 
 #include <cstdint>
 
+#include <glintfx/platform/gl/gfx_option.hpp>
 #include <glintfx/platform/gl/gpu.hpp>
 
-#include "platform/gl/gfx_option_values.hpp"
 #include "platform/port/power_source.hpp"
 
 // platform/gl/auto_preset_rule.hpp - GFX-PRESET, fatia P1
@@ -28,9 +28,8 @@
 // The reason is NEVER `none`: every suggestion has one. `none` stays in the
 // vocabulary only because the vocabulary is append-only.
 //
-// The preset and reason numbers are the ones of gfx_option_values.hpp (D-P1-5),
-// a DATA contract, append-only; P3 deletes that header and uses the public
-// k_gltfx_* constants.
+// The preset and reason numbers are the public constants k_gltfx_preset_* and
+// k_gltfx_auto_choice_reason_* of gfx_option.hpp: a DATA contract, append-only.
 
 namespace glintfx::platform {
 

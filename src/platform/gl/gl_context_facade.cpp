@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <array>
 #include <cassert>
+#include <cstdint>
 #include <new>
 #include <optional>
 #include <span>
@@ -12,11 +14,14 @@
 #include <glintfx/platform/gl/gpu.hpp>
 #include <glintfx/platform/window/window.hpp>
 
+#include "platform/gl/auto_preset_rule.hpp"
 #include "platform/gl/gfx_open_only_fixation.hpp"
 #include "platform/gl/gfx_option_registry.hpp"
 #include "platform/gl/gfx_option_validation.hpp"
+#include "platform/gl/gfx_preset_table.hpp"
 #include "platform/gl/gl_context_desc_validation.hpp"
 #include "platform/gl/gl_context_impl.hpp"
+#include "platform/gl/preset_expansion.hpp"
 #include "platform/port/gl_context_adapter_port.hpp"
 #include "platform/window/window_impl.hpp"
 
@@ -140,9 +145,130 @@ resolve_full_option_table(std::span<const gltfx_gfx_option_entry> fixed_open_onl
     }
 }
 
+// The power-source enum (an internal value type) and the public numbers of the `power_source` row
+// are the same three numbers (D-P1-1): one assert each, at the ONE place the conversion happens.
+static_assert(static_cast<std::int64_t>(platform::gltfx_power_source::unknown) ==
+              k_gltfx_power_source_unknown);
+static_assert(static_cast<std::int64_t>(platform::gltfx_power_source::mains) ==
+              k_gltfx_power_source_mains);
+static_assert(static_cast<std::int64_t>(platform::gltfx_power_source::battery) ==
+              k_gltfx_power_source_battery);
+
+// The suggestion of RIGHT NOW, computed from two facts the system reports (the kind of GPU this
+// context runs on and where the power comes from). Reading it writes NOTHING (D-W6b-35 rule 7).
+[[nodiscard]] platform::auto_preset_choice suggestion_now(const gl_context_impl &impl) noexcept {
+    return platform::choose_preset_automatically(impl.adapter.gpu().kind, impl.power.read());
+}
+
+[[nodiscard]] gltfx_gfx_option_entry *find_current(gl_context_impl &impl,
+                                                   gltfx_gfx_option id) noexcept {
+    for (gltfx_gfx_option_entry &current : impl.current_values) {
+        if (current.id == id) {
+            return &current;
+        }
+    }
+    return nullptr;
+}
+
+// A row of a preset that this system cannot honor is refused BY NAME, before anything is applied
+// (D-W6b-16's "nunca degrada em silencio", D-W6b-35 rule 1).
+[[nodiscard]] gltfx_rslt<void> check_preset_rows(const gl_context_impl &impl,
+                                                 const platform::preset_expansion &rows) noexcept;
+
+// Applies the rows of the CONCRETE preset `preset`, ALL OR NOTHING, and records the rows and the
+// label (which is `preset` itself, never `automatic`). Rows are checked BEFORE any is applied; if
+// the adapter still refuses one, the rows already applied go back to their previous values.
+[[nodiscard]] gltfx_rslt<void> apply_concrete_preset(gl_context_impl &impl,
+                                                     std::int64_t preset) noexcept;
+
+// The opening list asked for `preset = automatic`: apply the rows of the CONCRETE suggestion the
+// list did not name (the entries it DID name were already applied by the adapter's open();
+// expand_preset keeps them and they are applied again, harmlessly), then record the label - the
+// concrete preset, never `automatic`.
+[[nodiscard]] gltfx_rslt<void>
+apply_preset_at_open(gl_context_impl &impl, std::int64_t concrete,
+                     std::span<const gltfx_gfx_option_entry> requested) noexcept;
+
 [[nodiscard]] std::string_view option_name_or_placeholder(gltfx_gfx_option id) noexcept {
     const platform::gfx_option_row *row = platform::find_gfx_option_row(id);
     return row != nullptr ? row->name : std::string_view("gfx_option");
+}
+
+gltfx_rslt<void> check_preset_rows(const gl_context_impl &impl,
+                                   const platform::preset_expansion &rows) noexcept {
+    for (std::size_t i = 0; i < rows.count; ++i) {
+        const gltfx_gfx_option_entry &row = rows.entries[i];
+        if (const gltfx_rslt<void> shape =
+                platform::validate_gfx_option_entry(row, /*already_open=*/true);
+            shape.has_error()) {
+            return gltfx_rslt<void>::err(shape.err());
+        }
+        if (impl.adapter.option_support(row.id) != gltfx_gfx_option_support::supported) {
+            return gltfx_rslt<void>::err(
+                gltfx_err(gltfx_err_code::unsupported)
+                    .with_rejected_value(option_name_or_placeholder(row.id)));
+        }
+    }
+    return gltfx_rslt<void>::ok();
+}
+
+gltfx_rslt<void> apply_preset_at_open(gl_context_impl &impl, std::int64_t concrete,
+                                      std::span<const gltfx_gfx_option_entry> requested) noexcept {
+    const platform::preset_expansion rows = platform::expand_preset(concrete, requested);
+    for (std::size_t i = 0; i < rows.count; ++i) {
+        const gltfx_gfx_option_entry &row = rows.entries[i];
+        const platform::gfx_option_row *described = platform::find_gfx_option_row(row.id);
+        if (row.id == gltfx_gfx_option::preset || described == nullptr ||
+            described->when != gltfx_gfx_option_when::live) {
+            continue; // the label is set below; open_only rows were fixed at open
+        }
+        if (impl.adapter.option_support(row.id) != gltfx_gfx_option_support::supported) {
+            return gltfx_rslt<void>::err(
+                gltfx_err(gltfx_err_code::unsupported)
+                    .with_rejected_value(option_name_or_placeholder(row.id)));
+        }
+        if (const gltfx_rslt<void> result = impl.adapter.apply_option(row); result.has_error()) {
+            return result;
+        }
+        if (gltfx_gfx_option_entry *held = find_current(impl, row.id)) {
+            held->value = row.value;
+        }
+    }
+    if (gltfx_gfx_option_entry *label = find_current(impl, gltfx_gfx_option::preset)) {
+        label->value = concrete;
+    }
+    return gltfx_rslt<void>::ok();
+}
+
+gltfx_rslt<void> apply_concrete_preset(gl_context_impl &impl, std::int64_t preset) noexcept {
+    const platform::preset_expansion rows = platform::expand_preset(preset, {});
+    if (const gltfx_rslt<void> checked = check_preset_rows(impl, rows); checked.has_error()) {
+        return checked;
+    }
+    // ALL OR NOTHING: remember what each row held, apply, and undo on the first refusal.
+    std::size_t applied = 0;
+    std::array<std::int64_t, platform::k_preset_expansion_capacity> previous{};
+    for (; applied < rows.count; ++applied) {
+        const gltfx_gfx_option_entry *held = find_current(impl, rows.entries[applied].id);
+        previous[applied] = held != nullptr ? held->value : 0;
+        if (const gltfx_rslt<void> result = impl.adapter.apply_option(rows.entries[applied]);
+            result.has_error()) {
+            for (std::size_t undo = 0; undo < applied; ++undo) {
+                (void)impl.adapter.apply_option(
+                    gltfx_gfx_option_entry{rows.entries[undo].id, previous[undo]});
+            }
+            return result;
+        }
+    }
+    for (std::size_t i = 0; i < rows.count; ++i) {
+        if (gltfx_gfx_option_entry *held = find_current(impl, rows.entries[i].id)) {
+            held->value = rows.entries[i].value;
+        }
+    }
+    if (gltfx_gfx_option_entry *label = find_current(impl, gltfx_gfx_option::preset)) {
+        label->value = preset;
+    }
+    return gltfx_rslt<void>::ok();
 }
 
 } // namespace
@@ -231,8 +357,30 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
         : already_fixed.has_value() ? *already_fixed
                                     : std::span<const gltfx_gfx_option_entry>{};
 
+    // GFX-PRESET (D-W6b-35 rule 5): a CONCRETE `preset` in the opening list is expanded BEFORE the
+    // adapter opens - the rows of the preset the list did not name are added, the entries the list
+    // DID name win (expand_preset), and the label is the preset. The list was validated in step 1,
+    // so each option appears at most once: refusing a repeated option is
+    // validate_gl_context_desc()'s job, done BEFORE any expansion (D-P1-4). `automatic` waits until
+    // the adapter is open (it needs the kind of GPU): see apply_preset_at_open() below.
+    std::int64_t requested_preset = k_gltfx_preset_manual;
+    for (const gltfx_gfx_option_entry &entry : requested) {
+        if (entry.id == gltfx_gfx_option::preset) {
+            requested_preset = entry.value;
+        }
+    }
+    const bool concrete_preset = requested_preset >= k_gltfx_preset_power_saving &&
+                                 requested_preset <= k_gltfx_preset_performance;
+    const platform::preset_expansion expansion =
+        concrete_preset ? platform::expand_preset(requested_preset, requested)
+                        : platform::preset_expansion{};
+    const std::span<const gltfx_gfx_option_entry> effective_request =
+        concrete_preset
+            ? std::span<const gltfx_gfx_option_entry>(expansion.entries.data(), expansion.count)
+            : requested;
+
     gltfx_rslt<std::vector<gltfx_gfx_option_entry>> resolved_rslt =
-        resolve_full_option_table(fixed_open_only, requested);
+        resolve_full_option_table(fixed_open_only, effective_request);
     if (resolved_rslt.has_error()) {
         return gltfx_rslt<gltfx_gl_context>::err(resolved_rslt.err());
     }
@@ -325,11 +473,23 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
     // degrau da escada (nao alocar), nao so' um degrau de emergencia:
     // o move-construtor de `std::vector` e' `noexcept` e nunca aloca,
     // ele so' rouba o ponteiro.
+    impl->current_values = std::move(resolved);
+
+    // `preset = automatic` in the opening list: resolved NOW, right after the adapter opened (it
+    // needs the kind of GPU), before the fixation is committed - a failure here must not leave the
+    // window believing something was fixed that no context ever opened with.
+    if (requested_preset == k_gltfx_preset_automatic) {
+        if (const gltfx_rslt<void> applied_preset =
+                apply_preset_at_open(*impl, suggestion_now(*impl).preset, requested);
+            applied_preset.has_error()) {
+            delete impl;
+            return gltfx_rslt<gltfx_gl_context>::err(applied_preset.err());
+        }
+    }
+
     if (fixation.outcome == platform::gfx_open_only_fixation_outcome::fix_now) {
         window_impl_ptr->fixed_open_only_gfx_options = std::move(fixation.fixed);
     }
-
-    impl->current_values = std::move(resolved);
 
     return gltfx_rslt<gltfx_gl_context>::ok(gltfx_gl_context(impl));
 }
@@ -394,6 +554,22 @@ gltfx_rslt<void> gltfx_gl_context::set_option(gltfx_gfx_option_entry entry) noex
                 .with_rejected_value(option_name_or_placeholder(entry.id)));
     }
 
+    // GFX-PRESET (D-W6b-35): applying a preset is ALWAYS the consumer's own request, all or
+    // nothing, once. `manual` only records the label; `automatic` is a shortcut for "apply the
+    // suggestion of right now" and records THAT concrete preset - option(preset) never reads
+    // `automatic`. Changing any OTHER option never touches the label: it is the consumer's.
+    if (entry.id == gltfx_gfx_option::preset) {
+        if (entry.value == k_gltfx_preset_manual) {
+            if (gltfx_gfx_option_entry *label = find_current(*m_impl, gltfx_gfx_option::preset)) {
+                label->value = k_gltfx_preset_manual;
+            }
+            return gltfx_rslt<void>::ok();
+        }
+        const std::int64_t concrete =
+            entry.value == k_gltfx_preset_automatic ? suggestion_now(*m_impl).preset : entry.value;
+        return apply_concrete_preset(*m_impl, concrete);
+    }
+
     if (const gltfx_rslt<void> applied = m_impl->adapter.apply_option(entry); applied.has_error()) {
         return gltfx_rslt<void>::err(applied.err());
     }
@@ -412,6 +588,25 @@ gltfx_rslt<std::int64_t> gltfx_gl_context::option(gltfx_gfx_option id) const noe
     assert(m_impl != nullptr &&
            "gltfx_gl_context::option() called on a moved-from context - the object no longer "
            "owns an adapter");
+
+    // Three rows are COMPUTED at the moment they are read, from two facts the system reports, and
+    // reading them writes NOTHING (D-W6b-35 rule 7): `power_source` (where the power comes from),
+    // `suggested_preset` and `auto_choice_reason` (the suggestion of right now and why).
+    switch (id) {
+    case gltfx_gfx_option::power_source:
+        return gltfx_rslt<std::int64_t>::ok(static_cast<std::int64_t>(m_impl->power.read()));
+    case gltfx_gfx_option::suggested_preset:
+        return gltfx_rslt<std::int64_t>::ok(suggestion_now(*m_impl).preset);
+    case gltfx_gfx_option::auto_choice_reason:
+        return gltfx_rslt<std::int64_t>::ok(suggestion_now(*m_impl).reason);
+    case gltfx_gfx_option::vsync:
+    case gltfx_gfx_option::frame_rate_cap:
+    case gltfx_gfx_option::gpu_preference:
+    case gltfx_gfx_option::msaa_samples:
+    case gltfx_gfx_option::srgb_framebuffer:
+    case gltfx_gfx_option::preset:
+        break;
+    }
 
     for (const gltfx_gfx_option_entry &current : m_impl->current_values) {
         if (current.id == id) {

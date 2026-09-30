@@ -5112,3 +5112,12 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Causa:* ordem do main. Eu tinha proibido o implementador de tocar o TODO.md enquanto aplicava a arrumação da tabela (D-W7D-22), para os dois não se atropelarem no mesmo arquivo. A liberação chegou a ele depois do commit.
 - *Tratamento:* o 🔍 de GFX-PRESET entra no commit da P2, nunca ✅. Não há amend: o commit já foi revisado pelo CTO e segue igual.
 - *Apontado por:* CTO, na revisão do e0787bb.
+
+## 30/09/2026 - 03:1x | Dois desvios aceitos na P2 (f88b1f8)
+
+- **A guarda `dirfd < 0` em power_source_adapter.cpp não tem teste vermelho (desvio da L-20).**
+  - *Por que foi aceita pelo CTO:* ela falha para o lado seguro (sai do laço, e o resultado vira "desconhecido"); no glibc, `dirfd` de um diretório aberto não devolve -1; e provar o ramo exigiria uma costura só para o teste.
+  - O mutante sem a guarda sobrevive, e isso está declarado.
+  - Cosmético pendente para o próximo toque no arquivo: o comentário vai para a linha de cima do `if`.
+- **O Status 🔍 de GFX-PRESET saiu em commit separado (cfbd979), e não no da fatia (L-63).** A causa foi a mesma da P1.
+  - *Regra desta onda, daqui em diante:* o Status sai no MESMO commit da fatia. A proibição de tocar o TODO.md que causou os dois desvios já foi retirada. Um desvio a mais, se houver, é falha nova, não parte desta regra.

@@ -199,14 +199,14 @@ class gltfx_gpu_enumeration {
 
     [[nodiscard]] GLINTFX_API std::size_t count() const noexcept;
 
-    // `index >= count()` returns a default-constructed gltfx_gpu_info
+    // `enumeration_position >= count()` returns a default-constructed gltfx_gpu_info
     // (`unknown`, empty name, `k_gltfx_gpu_index_unknown`) - an ordinary
     // out-of-range lookup miss, the same "no gltfx_err for a query that
     // can only ever be a caller mistake against a size it can already
     // read" reasoning std::vector::operator[] vs at() already embodies
     // elsewhere in this library's own public surface (docs/api-
     // conventions.md R1).
-    [[nodiscard]] GLINTFX_API gltfx_gpu_info at(std::size_t index) const noexcept;
+    [[nodiscard]] GLINTFX_API gltfx_gpu_info at(std::size_t enumeration_position) const noexcept;
 
   private:
     explicit gltfx_gpu_enumeration(gpu_enumeration_impl *impl) noexcept : m_impl(impl) {}

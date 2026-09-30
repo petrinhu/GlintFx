@@ -29,3 +29,5 @@
      glintfx::gltfx_gfx_option_kind::choice, glintfx::gltfx_gfx_option_when::read_only, 0, 5, 0},
     {glintfx::gltfx_gfx_option::power_source, 7, "power_source", glintfx::gltfx_gfx_option_kind::choice,
      glintfx::gltfx_gfx_option_when::read_only, 0, 2, 0},
+    {glintfx::gltfx_gfx_option::suggested_preset, 8, "suggested_preset",
+     glintfx::gltfx_gfx_option_kind::choice, glintfx::gltfx_gfx_option_when::read_only, 1, 3, 2},

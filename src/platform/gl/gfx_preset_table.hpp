@@ -9,8 +9,6 @@
 
 #include <glintfx/platform/gl/gfx_option.hpp>
 
-#include "platform/gl/gfx_option_values.hpp"
-
 // platform/gl/gfx_preset_table.hpp - GFX-PRESET, fatia P1
 // (docs/plano-w6b-fatias-5.md sec. 5.1, D-W6b-34,
 // /var/tmp/cto-w7d/PLANO-errata.md D-P1-2): the ONE table of what each concrete
@@ -19,10 +17,9 @@
 // and header-light: no allocation anywhere (R3, degrau 1: a fixed std::array
 // read through a std::span), no system call.
 //
-// THE NUMBERS are the ones of gfx_option_values.hpp (D-P1-5): one internal
-// header, which P3 deletes when the public k_gltfx_* constants exist. They are
-// a DATA contract (a consumer's saved settings file stores them), append-only,
-// never renumbered.
+// THE NUMBERS are the public constants k_gltfx_preset_* and k_gltfx_vsync_* of
+// gfx_option.hpp: one source, a DATA contract (a consumer's saved settings file
+// stores them), append-only, never renumbered.
 //
 // THE ROWS (D-W6b-34): power_saving = {vsync on, frame_rate_cap 30}; balanced =
 // {vsync on, frame_rate_cap 0}; performance = {vsync on, frame_rate_cap 0}.
@@ -42,12 +39,12 @@ struct gfx_preset_row {
 
 // Rows of one preset are CONTIGUOUS, and in the order they are applied.
 inline constexpr std::array<gfx_preset_row, 6> k_gfx_preset_table{{
-    {k_preset_power_saving, gltfx_gfx_option::vsync, k_vsync_on},
-    {k_preset_power_saving, gltfx_gfx_option::frame_rate_cap, 30},
-    {k_preset_balanced, gltfx_gfx_option::vsync, k_vsync_on},
-    {k_preset_balanced, gltfx_gfx_option::frame_rate_cap, 0},
-    {k_preset_performance, gltfx_gfx_option::vsync, k_vsync_on},
-    {k_preset_performance, gltfx_gfx_option::frame_rate_cap, 0},
+    {k_gltfx_preset_power_saving, gltfx_gfx_option::vsync, k_gltfx_vsync_on},
+    {k_gltfx_preset_power_saving, gltfx_gfx_option::frame_rate_cap, 30},
+    {k_gltfx_preset_balanced, gltfx_gfx_option::vsync, k_gltfx_vsync_on},
+    {k_gltfx_preset_balanced, gltfx_gfx_option::frame_rate_cap, 0},
+    {k_gltfx_preset_performance, gltfx_gfx_option::vsync, k_gltfx_vsync_on},
+    {k_gltfx_preset_performance, gltfx_gfx_option::frame_rate_cap, 0},
 }};
 
 // "Contiguous" is what gfx_preset_rows() relies on (it takes ONE run of rows), so it is proved at

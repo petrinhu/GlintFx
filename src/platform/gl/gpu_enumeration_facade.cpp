@@ -182,11 +182,11 @@ std::size_t gltfx_gpu_enumeration::count() const noexcept {
     return m_impl == nullptr ? 0 : m_impl->entries.size();
 }
 
-gltfx_gpu_info gltfx_gpu_enumeration::at(std::size_t index) const noexcept {
-    if (m_impl == nullptr || index >= m_impl->entries.size()) {
+gltfx_gpu_info gltfx_gpu_enumeration::at(std::size_t enumeration_position) const noexcept {
+    if (m_impl == nullptr || enumeration_position >= m_impl->entries.size()) {
         return gltfx_gpu_info{};
     }
-    return m_impl->entries[index];
+    return m_impl->entries[enumeration_position];
 }
 
 } // namespace glintfx

@@ -28,7 +28,7 @@
 //
 // THIS FILE NEVER INCLUDES gfx_option_registry.hpp (the internal
 // table): k_expected_table below is its OWN, independently-typed set
-// of eight rows (tests/gfx_option_registry_test_table.inc), cross-
+// of nine rows (tests/gfx_option_registry_test_table.inc), cross-
 // checked field-by-field against sec. 11.2's own table during this
 // fatia's own delivery - reading the internal table back would only
 // ever agree with itself (the same reasoning gfss_property_registry_
@@ -43,9 +43,14 @@ using glintfx::gltfx_gfx_option_at;
 using glintfx::gltfx_gfx_option_by_name;
 using glintfx::gltfx_gfx_option_count;
 using glintfx::gltfx_gfx_option_describe;
+using glintfx::gltfx_gfx_option_entry;
 using glintfx::gltfx_gfx_option_info;
 using glintfx::gltfx_gfx_option_kind;
 using glintfx::gltfx_gfx_option_when;
+using glintfx::gltfx_gfx_preset_row_at;
+using glintfx::gltfx_gfx_preset_row_count;
+using glintfx::k_gltfx_preset_balanced;
+using glintfx::k_gltfx_preset_manual;
 
 struct expected_option_row {
     gltfx_gfx_option id = gltfx_gfx_option::vsync;
@@ -61,17 +66,18 @@ struct expected_option_row {
 // THE STABILITY/CORRECTNESS TABLE - see this file's own header comment
 // for why it is its own, independently-typed set of rows rather than a
 // read of the internal table.
-constexpr std::array<expected_option_row, 8> k_expected_table{{
+constexpr std::array<expected_option_row, 9> k_expected_table{{
 #include "gfx_option_registry_test_table.inc"
 }};
 
 } // namespace
 
-GLINTFX_TEST(gltfx_gfx_option_registry_has_the_ratified_count_of_8_options) {
-    GLINTFX_CHECK_EQ(gltfx_gfx_option_count(), static_cast<std::size_t>(8));
+GLINTFX_TEST(gltfx_gfx_option_registry_count_equals_the_rows_of_the_expected_table) {
+    GLINTFX_CHECK_EQ(gltfx_gfx_option_count(), static_cast<std::size_t>(9));
     GLINTFX_CHECK_EQ(k_expected_table.size(), gltfx_gfx_option_count());
-    std::println("gltfx_gfx_option_registry_has_the_ratified_count_of_8_options: {} option(s)",
-                 gltfx_gfx_option_count());
+    std::println(
+        "gltfx_gfx_option_registry_count_equals_the_rows_of_the_expected_table: {} option(s)",
+        gltfx_gfx_option_count());
 }
 
 // The enumeration this whole file enumerates CLOSED (GODS_LAWS.md
@@ -183,4 +189,26 @@ GLINTFX_TEST(gltfx_gfx_option_degrades_to_read_only_never_open_only_for_an_unkno
     const gltfx_gfx_option_info unknown_id = gltfx_gfx_option_describe(out_of_range_id);
     GLINTFX_CHECK(unknown_id.when == gltfx_gfx_option_when::read_only);
     GLINTFX_CHECK(unknown_id.name.empty());
+}
+
+// E1 (PLANO-errata, D-P1-2): asking for a row a preset does not have degrades to the one entry
+// that is harmless to apply - `{suggested_preset, manual}` - never to a default-constructed entry
+// whose id 0 (`vsync`) would silently turn a stale index into "set vsync to 0".
+GLINTFX_TEST(gltfx_gfx_preset_row_at_degrades_to_the_harmless_entry_out_of_range) {
+    const std::size_t count = gltfx_gfx_preset_row_count(k_gltfx_preset_balanced);
+    GLINTFX_CHECK(count > 0);
+
+    const gltfx_gfx_option_entry past_the_end =
+        gltfx_gfx_preset_row_at(k_gltfx_preset_balanced, count);
+    GLINTFX_CHECK(past_the_end.id == gltfx_gfx_option::suggested_preset);
+    GLINTFX_CHECK_EQ(past_the_end.value, k_gltfx_preset_manual);
+
+    const gltfx_gfx_option_entry unknown_preset = gltfx_gfx_preset_row_at(9999, 0);
+    GLINTFX_CHECK(unknown_preset.id == gltfx_gfx_option::suggested_preset);
+    GLINTFX_CHECK_EQ(unknown_preset.value, k_gltfx_preset_manual);
+
+    // Control: the last IN-range row is a real row, not the degradation.
+    const gltfx_gfx_option_entry last_row =
+        gltfx_gfx_preset_row_at(k_gltfx_preset_balanced, count - 1);
+    GLINTFX_CHECK(last_row.id != gltfx_gfx_option::suggested_preset);
 }

@@ -574,6 +574,11 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_preset_table.cpp \
+        /build/_arch_ports_src/src/platform/gl/auto_preset_rule.cpp \
+        /build/_arch_ports_src/src/platform/gl/preset_expansion.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_supply_rule.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_source_adapter.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
@@ -624,6 +629,11 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_preset_table.cpp \
+        /build/_arch_ports_src/src/platform/gl/auto_preset_rule.cpp \
+        /build/_arch_ports_src/src/platform/gl/preset_expansion.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_supply_rule.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_source_adapter.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
@@ -681,6 +691,11 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_preset_table.cpp \
+        /build/_arch_ports_src/src/platform/gl/auto_preset_rule.cpp \
+        /build/_arch_ports_src/src/platform/gl/preset_expansion.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_supply_rule.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_source_adapter.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
@@ -738,6 +753,11 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_preset_table.cpp \
+        /build/_arch_ports_src/src/platform/gl/auto_preset_rule.cpp \
+        /build/_arch_ports_src/src/platform/gl/preset_expansion.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_supply_rule.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_source_adapter.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
@@ -958,6 +978,11 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_preset_table.cpp \
+        /build/_arch_ports_src/src/platform/gl/auto_preset_rule.cpp \
+        /build/_arch_ports_src/src/platform/gl/preset_expansion.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_supply_rule.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_source_adapter.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
@@ -1008,6 +1033,11 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_preset_table.cpp \
+        /build/_arch_ports_src/src/platform/gl/auto_preset_rule.cpp \
+        /build/_arch_ports_src/src/platform/gl/preset_expansion.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_supply_rule.cpp \
+        /build/_arch_ports_src/src/platform/wayland/power_source_adapter.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \

@@ -67,6 +67,33 @@ GLINTFX_TEST(validate_gl_context_desc_refuses_a_repeated_id) {
     GLINTFX_CHECK(result.err().rejected_value() == "vsync");
 }
 
+// D-P1-4 (PLANO-errata sec. 6): the facade calls validate_gl_context_desc() BEFORE expanding a
+// preset, so a list that names `preset` twice - the case where "which one expands?" would be a
+// guess - is refused right here, naming the option, and expand_preset never sees it.
+GLINTFX_TEST(validate_gl_context_desc_refuses_a_repeated_preset) {
+    const std::array<gltfx_gfx_option_entry, 2> options{{
+        {.id = gltfx_gfx_option::preset, .value = glintfx::k_gltfx_preset_balanced},
+        {.id = gltfx_gfx_option::preset, .value = glintfx::k_gltfx_preset_performance},
+    }};
+    const gltfx_gl_context_desc desc{.options = options.data(), .option_count = options.size()};
+    const glintfx::gltfx_rslt<void> result = validate_gl_context_desc(desc);
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "preset");
+}
+
+GLINTFX_TEST(validate_gl_context_desc_accepts_one_preset_next_to_an_explicit_option) {
+    // Control for the refusal above: one `preset` plus an option of its own is the ordinary
+    // "preset, but my vsync wins" list, and must pass.
+    const std::array<gltfx_gfx_option_entry, 2> options{{
+        {.id = gltfx_gfx_option::preset, .value = glintfx::k_gltfx_preset_balanced},
+        {.id = gltfx_gfx_option::vsync, .value = 0},
+    }};
+    const gltfx_gl_context_desc desc{.options = options.data(), .option_count = options.size()};
+    const glintfx::gltfx_rslt<void> result = validate_gl_context_desc(desc);
+    GLINTFX_CHECK(result.has_value());
+}
+
 GLINTFX_TEST(validate_gl_context_desc_refuses_a_null_pointer_with_a_positive_count) {
     const gltfx_gl_context_desc desc{.options = nullptr, .option_count = 1};
     const glintfx::gltfx_rslt<void> result = validate_gl_context_desc(desc);

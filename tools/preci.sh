@@ -166,6 +166,7 @@ readonly ROOT_DIR
 readonly BUILD_DIR="${ROOT_DIR}/build-preci"
 readonly SANITIZE_BUILD_DIR="${ROOT_DIR}/build-preci-sanitize"
 readonly DEBUG_BUILD_DIR="${ROOT_DIR}/build-preci-debug"
+readonly CLANG_BUILD_DIR="${ROOT_DIR}/build-preci-clang"
 readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"
 
 # GODS_LAWS.md INBOX achado (rodada 2 da revisao do FUND-4, 24/08/2026):
@@ -558,6 +559,23 @@ GLINTFX_PS_SYNTAX_EOF
 stage_configure() {
     cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
+}
+
+# GATE-CLANG-LOCAL (infra trail C2, 30/09/2026): the CI runs a SECOND
+# compiler (job `clang`, fedora:latest) and it reproves what GCC lets pass
+# (-Wunused-const-variable, the red class of 30/09/2026). The local stage
+# configures and builds with the clang++ already installed, in its own
+# build dir, with the SAME flags as that job: they are READ from
+# .github/workflows/ci.yml by tests/tools/ci_clang_flags.py, never retyped.
+# Compile only (every target, -Werror); the ctest run stays the CI's.
+stage_clang() {
+    command -v clang++ > /dev/null 2>&1 || fail "estagio clang recusado: clang++ nao encontrado no PATH (o CI roda este compilador; instalar e' decisao do lider, L-51)"
+    flags_out="$(python3 "$ROOT_DIR/tests/tools/ci_clang_flags.py" "$ROOT_DIR/.github/workflows/ci.yml")" \
+        || fail "estagio clang recusado: nao foi possivel ler as flags do job clang do ci.yml"
+    mapfile -t clang_flags <<< "$flags_out"
+    echo "clang: $(clang++ --version | head -n 1); flags do job clang do ci.yml: ${clang_flags[*]}"
+    cmake -S "$ROOT_DIR" -B "$CLANG_BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" "${clang_flags[@]}"
+    cmake --build "$CLANG_BUILD_DIR"
 }
 
 stage_build() {
@@ -2301,6 +2319,8 @@ run_selftest_cache_state_controls() {
     [ -z "$nus" ] || fail "selftest cronometro: estagio chamado sem timed_stage: $nus"
     cobertos="$(grep -c '^ *timed_stage ' "$ROOT_DIR/tools/preci.sh" || true)"
     [ "$cobertos" -ge 20 ] || fail "selftest cronometro: so $cobertos chamadas de timed_stage no script (piso 20; varredura quebrada)"
+    python3 "$ROOT_DIR/tests/tools/ci_clang_flags.py" --selftest \
+        || fail "selftest clang: ci_clang_flags.py --selftest reprovou"
     echo "selftest: cronometro cobre todos os modos ($cobertos chamadas de timed_stage, nenhuma chamada de estagio sem ele)"
 }
 
@@ -2329,6 +2349,7 @@ run_lint_only() {
     timed_stage "1: clang-format" stage_format
     timed_stage "2: configure (-Werror)" stage_configure
     timed_stage "3: build" stage_build
+    timed_stage "3b: clang (segundo compilador, flags do job clang do CI)" stage_clang
     timed_stage "4: clang-tidy" stage_tidy
     timed_stage "5: cppcheck" stage_cppcheck
     timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
@@ -2343,6 +2364,11 @@ run_sanitizer_only() {
     echo "preci.sh --sanitizer-only: VERDE"
 }
 
+run_clang_only() {
+    timed_stage "3b: clang (segundo compilador, flags do job clang do CI)" stage_clang
+    report_stage_times
+    echo "preci.sh --clang-only: VERDE"
+}
 run_debug_only() {
     timed_stage "8: debug (NDEBUG indefinido, assert() de produto ligado)" stage_debug
     report_stage_times
@@ -2566,13 +2592,13 @@ setup_ccache() {
     echo "ccache: ligado (dir=$CCACHE_DIR, limite=$CCACHE_MAXSIZE, basedir=$CCACHE_BASEDIR)"
 }
 
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--clang-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--clang-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
@@ -2608,6 +2634,9 @@ main() {
             ;;
         --debug-only)
             run_debug_only
+            ;;
+        --clang-only)
+            run_clang_only
             ;;
         --ps-syntax-only)
             run_ps_syntax_only

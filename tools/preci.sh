@@ -2149,6 +2149,45 @@ run_selftest_ccache_preconfigured_controls() {
     rm -rf "$dir"
 }
 
+run_selftest_stage_times_controls() {
+    log "selftest: tempo por estagio (uma linha por estagio, o arquivo concorda, contagem que nao fecha reprova)"
+    dir="$(mktemp -d "${TMPDIR}/glintfx-preci-tempos.XXXXXX")" \
+        || fail "selftest tempos: mktemp falhou"
+    estagio_lento() { sleep 1; }
+    estagio_rapido() { :; }
+    saida="$(
+        GLINTFX_PRECI_TEMPOS_DIR="$dir"
+        STAGE_TIMES_MODO=selftest
+        stage_times_init selftest
+        timed_stage "a: lento" estagio_lento
+        timed_stage "b: rapido" estagio_rapido
+        timed_stage "c: rapido" estagio_rapido
+        report_stage_times
+    )" || fail "selftest tempos: pipeline de mentira reprovou: $saida"
+    linhas="$(printf '%s\n' "$saida" | grep -c '^estagio .* levou [0-9.]* s$' || true)"
+    [ "$linhas" = "3" ] || fail "selftest tempos: esperadas 3 linhas 'levou', obtidas '$linhas'"
+    printf '%s\n' "$saida" | grep -q '^estagio a: lento levou 1\.[0-9] s$' \
+        || fail "selftest tempos: o estagio de 1 s nao foi medido como 1.x s: $saida"
+    printf '%s\n' "$saida" | grep -q '3 estagio(s) cronometrado(s) de 3 executado(s), 3 no arquivo' \
+        || fail "selftest tempos: linha de contagem ausente ou errada: $saida"
+    echo "selftest: tempos por estagio - 3 estagios, 3 linhas, arquivo concorda OK"
+    # Negative: the file loses an entry behind the counters' back. The
+    # count has to stop closing, never pass.
+    if (
+        GLINTFX_PRECI_TEMPOS_DIR="$dir"
+        STAGE_TIMES_MODO=selftest
+        stage_times_init selftest
+        timed_stage "a: rapido" estagio_rapido
+        timed_stage "b: rapido" estagio_rapido
+        printf '{"modo":"selftest","estagios":[]}\n' > "$STAGE_TIMES_FILE"
+        report_stage_times
+    ) > /dev/null 2>&1; then
+        fail "selftest tempos: arquivo sem estagios passou (a contagem nao foi conferida contra o arquivo)"
+    fi
+    echo "selftest: tempos por estagio - contagem que nao fecha reprova OK"
+    rm -rf "$dir"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -2163,6 +2202,7 @@ run_selftest() {
     run_selftest_ctest_jobs_controls
     run_selftest_ccache_controls
     run_selftest_ccache_preconfigured_controls
+    run_selftest_stage_times_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -2273,45 +2313,91 @@ run_container_link_only() {
     echo "preci.sh --container-link-only: VERDE"
 }
 
+# Per-stage timing (infra trail C3, 30/09/2026). Every stage of the full
+# pipeline runs through timed_stage: it prints "estagio <nome> levou <N>
+# s" ALWAYS, and rewrites a JSON for the run after EACH stage (so a run
+# that dies in stage k still leaves the k-1 measured stages on disk).
+# report_stage_times closes the run with the count of timed stages and
+# re-counts them from the JSON file itself: the printed number is only
+# believed when the file agrees (GODS_LAWS.md L-40).
+STAGE_TIMES_NAMES=()
+STAGE_TIMES_SECS=()
+STAGE_TIMES_EXPECTED=0
+STAGE_TIMES_FILE=""
+
+stage_times_init() {
+    _ts_modo="$1"
+    _ts_dir="${GLINTFX_PRECI_TEMPOS_DIR:-/var/tmp/glintfx-preci-tempos}"
+    mkdir -p "$_ts_dir" || fail "nao foi possivel criar $_ts_dir (tempos por estagio)"
+    STAGE_TIMES_NAMES=()
+    STAGE_TIMES_SECS=()
+    STAGE_TIMES_EXPECTED=0
+    STAGE_TIMES_FILE="$_ts_dir/$(date +%Y-%m-%d_%H%M%S)-${_ts_modo}.json"
+}
+
+write_stage_times_json() {
+    {
+        printf '{"modo":"%s","estagios":[' "$1"
+        _ts_i=0
+        while [ "$_ts_i" -lt "${#STAGE_TIMES_NAMES[@]}" ]; do
+            [ "$_ts_i" -gt 0 ] && printf ','
+            printf '{"nome":"%s","segundos":%s}' "${STAGE_TIMES_NAMES[$_ts_i]}" "${STAGE_TIMES_SECS[$_ts_i]}"
+            _ts_i=$((_ts_i + 1))
+        done
+        printf ']}\n'
+    } > "$STAGE_TIMES_FILE" || fail "nao foi possivel gravar $STAGE_TIMES_FILE"
+}
+
+timed_stage() {
+    _ts_nome="$1"; shift
+    log "estagio $_ts_nome"
+    STAGE_TIMES_EXPECTED=$((STAGE_TIMES_EXPECTED + 1))
+    _ts_inicio="$EPOCHREALTIME"
+    "$@"
+    _ts_fim="$EPOCHREALTIME"
+    _ts_duracao="$(awk -v a="$_ts_inicio" -v b="$_ts_fim" 'BEGIN { printf "%.1f", b - a }')"
+    echo "estagio $_ts_nome levou $_ts_duracao s"
+    STAGE_TIMES_NAMES+=("$_ts_nome")
+    STAGE_TIMES_SECS+=("$_ts_duracao")
+    write_stage_times_json "${STAGE_TIMES_MODO:-desconhecido}"
+}
+
+report_stage_times() {
+    _ts_no_arquivo="$(grep -o '"segundos":' "$STAGE_TIMES_FILE" | wc -l || true)"
+    _ts_no_arquivo="${_ts_no_arquivo//[[:space:]]/}"
+    echo "tempos por estagio: ${#STAGE_TIMES_NAMES[@]} estagio(s) cronometrado(s) de $STAGE_TIMES_EXPECTED executado(s), $_ts_no_arquivo no arquivo $STAGE_TIMES_FILE"
+    if [ "${#STAGE_TIMES_NAMES[@]}" -ne "$STAGE_TIMES_EXPECTED" ] || [ "$_ts_no_arquivo" -ne "$STAGE_TIMES_EXPECTED" ]; then
+        fail "tempos por estagio: a contagem nao fecha (executados $STAGE_TIMES_EXPECTED, cronometrados ${#STAGE_TIMES_NAMES[@]}, no arquivo $_ts_no_arquivo)"
+    fi
+}
+
 run_full_pipeline() {
     fast="$1"
-    log "estagio 1: clang-format"
-    stage_format
-    log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
-    stage_ps_syntax
-    log "estagio 2: configure (-Werror)"
-    stage_configure
-    log "estagio 2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real"
-    stage_blob
-    log "estagio 3: build"
-    stage_build
-    log "estagio 4: clang-tidy"
-    stage_tidy
-    log "estagio 5: cppcheck"
-    stage_cppcheck
-    log "estagio 5b: justificativa de NOLINT"
-    stage_nolint_justification
-    log "estagio 5c: gitleaks"
-    stage_gitleaks
-    log "estagio 5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)"
-    stage_noexcept_alloc
-    log "estagio 6: ctest completo"
-    stage_ctest
+    if [ "$fast" = "yes" ]; then STAGE_TIMES_MODO="fast"; else STAGE_TIMES_MODO="completo"; fi
+    stage_times_init "$STAGE_TIMES_MODO"
+    timed_stage "1: clang-format" stage_format
+    timed_stage "1b: sintaxe PowerShell (GATE-PS-SYNTAX)" stage_ps_syntax
+    timed_stage "2: configure (-Werror)" stage_configure
+    timed_stage "2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real" stage_blob
+    timed_stage "3: build" stage_build
+    timed_stage "4: clang-tidy" stage_tidy
+    timed_stage "5: cppcheck" stage_cppcheck
+    timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
+    timed_stage "5c: gitleaks" stage_gitleaks
+    timed_stage "5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)" stage_noexcept_alloc
+    timed_stage "6: ctest completo" stage_ctest
     if [ "$fast" = "yes" ]; then
         echo "preci.sh --fast: estagio 7 (sanitizer) PULADO"
         echo "preci.sh --fast: estagio 8 (debug) PULADO"
         echo "preci.sh --fast: estagio 9 (win32-link) PULADO"
         echo "preci.sh --fast: estagio 10 (container-link) PULADO - custo medido ~3m30s, ver o cabecalho de stage_container_link()"
     else
-        log "estagio 7: sanitizer (ASan/UBSan)"
-        stage_sanitizer
-        log "estagio 8: debug (NDEBUG indefinido, assert() de produto ligado)"
-        stage_debug
-        log "estagio 9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)"
-        stage_win32_link strict
-        log "estagio 10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)"
-        stage_container_link
+        timed_stage "7: sanitizer (ASan/UBSan)" stage_sanitizer
+        timed_stage "8: debug (NDEBUG indefinido, assert() de produto ligado)" stage_debug
+        timed_stage "9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)" stage_win32_link strict
+        timed_stage "10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)" stage_container_link
     fi
+    report_stage_times
     echo "preci.sh: TUDO VERDE"
 }
 

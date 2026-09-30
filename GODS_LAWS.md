@@ -870,6 +870,19 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Quando ele pedir modo autônomo, o passo 1 muda de ocupante, e só ele:** o brainstorm passa a ser **main + C-level C-level `opus`**, e **é o C-level `opus` quem decide** o que teria ido ao líder por `AskUserQuestion` (L-10). Os passos 2, 3 e 4 continuam **idênticos** — inclusive a exigência de que quem planeja não implementa, e de que o main verifique antes de despachar e antes de aceitar.
 
+**Como o C-level decide cada dúvida no modo autônomo (emenda do líder, 29/09/2026).** Ordem, verbatim: *"tem que pesquisar na web, o que for mais completo e de desejo da comunidade. Depois nas bibliotecas semelhantes como elas fazem! NUNCA ir pelo mais rápido ou mais simples e sim a opcao masi completa e mais desejada"*. A resposta dele sobre o alcance, também verbatim: *"opcao um, apenas fazer isso em modo autonomo. CTO decide depois de tudo isso e registra para me mostrar quando eu pedir."* Toda dúvida que teria ido ao líder segue, no modo autônomo, esta ordem de três passos, e nenhum deles é pulado:
+
+1. **Busca na web** pela opção **mais completa e mais desejada pela comunidade**. Entram issues, discussões, documentação oficial e pedidos recorrentes dos usuários de bibliotecas do tipo, e o que a comunidade pede entra **com a fonte** (L-27).
+2. **Depois, as bibliotecas semelhantes:** como elas resolvem a mesma questão. Isso vale **para aprender a técnica, nunca para copiar** (L-29).
+3. **Só então o CTO decide**, e o critério é o da ordem: **nunca o mais rápido nem o mais simples, sempre o mais completo e o mais desejado**. A decisão entra em `DECISOES_AUTONOMAS.md` no instante em que é tomada, no formato do parágrafo seguinte, e o main **mostra o registro ao líder quando ele pedir**.
+
+**Salvaguardas escritas junto, e aceitas pelo líder na mesma pergunta (opção "confirmar, com salvaguardas"):**
+- as **leis do projeto vencem o desejo da comunidade**: por exemplo, dependência zero (L-07) e Wayland puro (L-05). "A comunidade quer X11" não autoriza backend X11;
+- a regra vale para **dúvida de desenho, comportamento ou decisão**, e não para ajuste mecânico óbvio;
+- ler outra biblioteca é **para aprender, nunca para copiar** (L-29).
+
+Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder por `AskUserQuestion` (L-10).
+
 **O main vira escrivão, e essa é a contrapartida do poder que o C-level `opus` recebe.** Toda decisão tomada no lugar do líder é registrada **no instante em que é tomada**, em `DECISOES_AUTONOMAS.md` na raiz, com:
 
 - **data e hora reais** (L-13), a **fatia ou onda** em que caiu, e **quem decidiu**;

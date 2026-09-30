@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/platform/gl/context.hpp>
@@ -137,6 +138,18 @@ class win32_gl_context_adapter {
     // answering "would this frame be skipped" through two different
     // mechanisms.
     [[nodiscard]] bool present_would_skip() const noexcept { return ::IsIconic(m_window) != 0; }
+
+    // R2D-BATCH B3c (gl_context_adapter_port.hpp): the client area of the context's window in
+    // physical pixels, the size glViewport takes. {0, 0} before a context is open, or if the window
+    // cannot say.
+    [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> surface_pixel_size() const noexcept {
+        RECT client{};
+        if (m_window == nullptr || ::GetClientRect(m_window, &client) == 0) {
+            return {0, 0};
+        }
+        return {static_cast<std::uint32_t>(client.right - client.left),
+                static_cast<std::uint32_t>(client.bottom - client.top)};
+    }
 
     [[nodiscard]] void *proc_address(std::string_view name) const noexcept;
 

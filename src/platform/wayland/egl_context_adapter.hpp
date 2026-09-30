@@ -245,6 +245,12 @@ class wayland_egl_context_adapter {
     // before a context is open (no surface to query yet).
     [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> egl_surface_pixel_size() const noexcept;
 
+    // R2D-BATCH B3c, the port's own name for the same reading (gl_context_adapter_port.hpp): the
+    // drawing layer sizes its viewport by it. {0, 0} before a context is open.
+    [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> surface_pixel_size() const noexcept {
+        return egl_surface_pixel_size();
+    }
+
     // The wl_callback listener's own `done` callback (wayland-client's
     // C ABI - PUBLIC only so egl_context_adapter.cpp's own anonymous-
     // namespace listener constant can take its address from outside

@@ -102,9 +102,20 @@ class fake_gl_context_adapter {
     [[nodiscard]] bool present_would_skip() const noexcept { return m_present_would_skip; }
     void set_present_would_skip(bool value) noexcept { m_present_would_skip = value; }
 
+    // R2D-BATCH B3c: the size of the drawing surface in physical pixels, a plain value a case arms.
+    [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> surface_pixel_size() const noexcept {
+        return {m_surface_width, m_surface_height};
+    }
+    void set_surface_pixel_size(std::uint32_t width, std::uint32_t height) noexcept {
+        m_surface_width = width;
+        m_surface_height = height;
+    }
+
   private:
     bool m_open = false;
     bool m_present_would_skip = false;
+    std::uint32_t m_surface_width = 0;
+    std::uint32_t m_surface_height = 0;
     glintfx::platform::gpu_kind_state m_gpu;
 };
 

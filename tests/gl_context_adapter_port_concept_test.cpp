@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cstdint>
 #include <string_view>
+#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/platform/gl/context.hpp>
@@ -41,8 +43,11 @@ namespace {
 class local_gl_adapter_missing_gpu {
   public:
     local_gl_adapter_missing_gpu() noexcept = default;
-    local_gl_adapter_missing_gpu(local_gl_adapter_missing_gpu &&) noexcept = default;
-    local_gl_adapter_missing_gpu &operator=(local_gl_adapter_missing_gpu &&) noexcept = default;
+    // PINNED (moves deleted), like every adapter the port accepts (adapter_pin.hpp): with the moves
+    // defaulted this control failed the port for THAT reason, and its "missing exactly gpu()" was
+    // never what the static_assert below tested.
+    local_gl_adapter_missing_gpu(local_gl_adapter_missing_gpu &&) noexcept = delete;
+    local_gl_adapter_missing_gpu &operator=(local_gl_adapter_missing_gpu &&) noexcept = delete;
 
     void close() noexcept {}
     [[nodiscard]] bool is_open() const noexcept { return false; }
@@ -73,6 +78,45 @@ class local_gl_adapter_missing_gpu {
     // (this file's own header comment) rather than accidentally also
     // missing the member this fatia just added to the concept.
     [[nodiscard]] bool present_would_skip() const noexcept { return false; }
+
+    // R2D-BATCH B3c: the size of the drawing surface, added here too so this negative control keeps
+    // missing EXACTLY gpu().
+    [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> surface_pixel_size() const noexcept {
+        return {0, 0};
+    }
+};
+
+// The second negative control: everything present but surface_pixel_size() (R2D-BATCH B3c). A
+// concept that does not ask for it would let an adapter that cannot say how big its surface is
+// reach the drawing layer.
+class local_gl_adapter_missing_surface_size {
+  public:
+    local_gl_adapter_missing_surface_size() noexcept = default;
+    local_gl_adapter_missing_surface_size(local_gl_adapter_missing_surface_size &&) noexcept =
+        delete;
+    local_gl_adapter_missing_surface_size &
+    operator=(local_gl_adapter_missing_surface_size &&) noexcept = delete;
+
+    void close() noexcept {}
+    [[nodiscard]] bool is_open() const noexcept { return false; }
+    [[nodiscard]] glintfx::gltfx_rslt<void> make_current() noexcept {
+        return glintfx::gltfx_rslt<void>::ok();
+    }
+    [[nodiscard]] glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swap_buffers() noexcept {
+        return glintfx::gltfx_rslt<glintfx::gltfx_present_outcome>::ok(
+            glintfx::gltfx_present_outcome::presented);
+    }
+    [[nodiscard]] void *proc_address(std::string_view /*name*/) const noexcept { return nullptr; }
+    [[nodiscard]] glintfx::gltfx_rslt<void>
+    apply_option(glintfx::gltfx_gfx_option_entry /*entry*/) noexcept {
+        return glintfx::gltfx_rslt<void>::ok();
+    }
+    [[nodiscard]] glintfx::gltfx_gfx_option_support
+    option_support(glintfx::gltfx_gfx_option /*id*/) const noexcept {
+        return glintfx::gltfx_gfx_option_support::supported;
+    }
+    [[nodiscard]] glintfx::gltfx_gpu_info gpu() const noexcept { return {}; }
+    [[nodiscard]] bool present_would_skip() const noexcept { return false; }
 };
 
 } // namespace
@@ -87,6 +131,15 @@ static_assert(glintfx::platform::gl_context_adapter_port<glintfx::test::fake_gl_
 static_assert(!glintfx::platform::gl_context_adapter_port<local_gl_adapter_missing_gpu>,
               "local_gl_adapter_missing_gpu has no gpu() and must NOT satisfy "
               "gl_context_adapter_port");
+
+static_assert(!glintfx::platform::gl_context_adapter_port<local_gl_adapter_missing_surface_size>,
+              "local_gl_adapter_missing_surface_size has no surface_pixel_size() and must NOT "
+              "satisfy gl_context_adapter_port");
+
+GLINTFX_TEST(local_gl_adapter_missing_surface_size_does_not_satisfy_the_port) {
+    GLINTFX_CHECK(
+        !(glintfx::platform::gl_context_adapter_port<local_gl_adapter_missing_surface_size>));
+}
 
 GLINTFX_TEST(fake_gl_context_adapter_satisfies_the_port) {
     GLINTFX_CHECK(

@@ -4881,6 +4881,13 @@ if(UNIX)
         COMMAND "${PROJECT_SOURCE_DIR}/tools/contido.sh" --selftest
     )
     set_tests_properties(contido_selftest PROPERTIES LABELS selftest)
+    # C1b: a metade que roda DENTRO do escopo; todos os casos do selftest usam o modo herdado (mata por
+    # grupo de processos, nunca escreve cgroup.kill), entao rodam em qualquer cgroup, inclusive o do preci.
+    add_test(
+        NAME contido_dentro_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest
+    )
+    set_tests_properties(contido_dentro_selftest PROPERTIES LABELS selftest)
 endif()
 
 # So' em Unix (D-A27, CI do 352442e): o --blob e' estagio do preci.sh, que e' bash e nunca roda no Windows,

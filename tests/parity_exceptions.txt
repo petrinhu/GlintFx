@@ -940,3 +940,4 @@ armadilha_selftest|windows|nenhum|SEM-PENDENCIA
 # (Job Object) esta fora do escopo, declarado. Fica dentro de if(UNIX) em tests/CMakeLists.txt.
 # MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
 contido_selftest|windows|nenhum|SEM-PENDENCIA
+contido_dentro_selftest|windows|nenhum|SEM-PENDENCIA

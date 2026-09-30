@@ -1,59 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/triangle_batch.hpp"
 
-#include <cstdlib>
-#include <limits>
-#include <type_traits>
-
 namespace glintfx::draw2d {
 
 namespace {
-void *system_reallocate(void *block, std::size_t bytes) noexcept {
-    return std::realloc(block, bytes);
-}
-void system_release(void *block) noexcept { std::free(block); }
-
 constexpr std::size_t k_quad_vertices = 4;
 constexpr std::size_t k_quad_indices = 6;
-constexpr std::size_t k_first_capacity = 16;
-
-// Makes room for `additional` more elements in a buffer of `Element`s. True when the buffer can
-// take them (already, or after growing); false when the allocator refused or the size would
-// overflow - the buffer is then untouched.
-template <typename Element>
-[[nodiscard]] bool ensure_room(const batch_allocator &allocator, pod_buffer<Element> &buffer,
-                               std::size_t additional) noexcept {
-    // The block is grown by realloc, which is defined only for trivially copyable elements: the
-    // compiler refuses anything else HERE, the one place the three buffers grow.
-    static_assert(std::is_trivially_copyable_v<Element>,
-                  "pod_buffer grows by realloc: the element must be trivially copyable");
-    if (additional > std::numeric_limits<std::size_t>::max() - buffer.size) {
-        return false;
-    }
-    const std::size_t needed = buffer.size + additional;
-    if (needed <= buffer.capacity) {
-        return true;
-    }
-    std::size_t grown = buffer.capacity == 0 ? k_first_capacity : buffer.capacity * 2;
-    if (grown < needed) {
-        grown = needed;
-    }
-    if (grown > std::numeric_limits<std::size_t>::max() / sizeof(Element)) {
-        return false;
-    }
-    void *block = allocator.reallocate(buffer.data, grown * sizeof(Element));
-    if (block == nullptr) {
-        return false; // the old block is untouched
-    }
-    buffer.data = static_cast<Element *>(block);
-    buffer.capacity = grown;
-    return true;
-}
 } // namespace
-
-batch_allocator default_batch_allocator() noexcept {
-    return batch_allocator{system_reallocate, system_release};
-}
 
 triangle_batch::triangle_batch(batch_allocator allocator_in) noexcept : allocator(allocator_in) {}
 

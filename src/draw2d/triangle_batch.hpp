@@ -7,6 +7,7 @@
 
 #include <glintfx/core/color.hpp>
 
+#include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
 
 // draw2d/triangle_batch.hpp - R2D-BATCH, fatia B2c (docs/plano-w7d.md sec. 4.3, D-W7D-18): the PURE
@@ -70,24 +71,6 @@ struct draw_run {
     batch_state state;
     std::size_t first_index = 0;
     std::size_t index_count = 0;
-};
-
-// realloc-shaped: reallocate(nullptr, n) allocates; a null return is a failure and leaves the old
-// block untouched; release(nullptr) is harmless. Both noexcept. A test arms its own to fail at a
-// chosen point.
-struct batch_allocator {
-    void *(*reallocate)(void *block, std::size_t bytes) noexcept;
-    void (*release)(void *block) noexcept;
-};
-
-[[nodiscard]] batch_allocator default_batch_allocator() noexcept;
-
-// A growable block of trivially copyable elements: {data, size, capacity}. The three buffers of the
-// batch (vertices, indices, runs) are this one shape (GODS_LAWS.md L-33, rule of three).
-template <typename T> struct pod_buffer {
-    T *data = nullptr;
-    std::size_t size = 0;
-    std::size_t capacity = 0;
 };
 
 class triangle_batch {

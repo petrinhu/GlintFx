@@ -82,6 +82,8 @@ void report_rejection(std::string_view reason, std::string_view text, bool trunc
     return gltfx_err(gltfx_err_code::platform_failure).with_rejected_value(token);
 }
 
+using driver_log_buffer = std::array<char, k_driver_log_capacity>;
+
 struct driver_log_reading {
     std::string_view text;
     bool truncated = false;
@@ -90,9 +92,9 @@ struct driver_log_reading {
 // The driver's message for a shader (`is_program` false) or a program, cut to the stack buffer. It
 // is truncated when the driver's own GL_INFO_LOG_LENGTH (terminator included) is larger than the
 // buffer.
-[[nodiscard]] driver_log_reading
-read_driver_log(const render::gl_function_table &gl, GLuint object, bool is_program,
-                std::array<char, k_driver_log_capacity> &buffer) noexcept {
+[[nodiscard]] driver_log_reading read_driver_log(const render::gl_function_table &gl, GLuint object,
+                                                 bool is_program,
+                                                 driver_log_buffer &buffer) noexcept {
     GLint full_length = 0;
     GLsizei length = 0;
     const auto capacity = static_cast<GLsizei>(buffer.size());
@@ -128,13 +130,71 @@ read_driver_log(const render::gl_function_table &gl, GLuint object, bool is_prog
     GLint status = 0;
     gl.glGetShaderiv(shader, k_gl_compile_status, &status);
     if (status != 1) {
-        std::array<char, k_driver_log_capacity> buffer{};
+        driver_log_buffer buffer{};
         const driver_log_reading reading = read_driver_log(gl, shader, false, buffer);
         report_rejection(k_reason_shader_compile_failed, reading.text, reading.truncated);
         gl.glDeleteShader(shader);
         return gltfx_rslt<GLuint>::err(rejection(token));
     }
     return gltfx_rslt<GLuint>::ok(shader);
+}
+
+struct shader_pair {
+    GLuint vertex = 0;
+    GLuint fragment = 0;
+};
+
+// Compiles the vertex and the fragment shader (D-B7-1, Extract Function): when the second fails the
+// first is deleted, so a refusal leaves no shader alive.
+[[nodiscard]] gltfx_rslt<shader_pair>
+compile_both_shaders(const render::gl_function_table &gl) noexcept {
+    const gltfx_rslt<GLuint> vertex =
+        compile_shader(gl, k_gl_vertex_shader, k_vertex_source, k_reject_vertex_shader);
+    if (vertex.has_error()) {
+        return gltfx_rslt<shader_pair>::err(vertex.err());
+    }
+    const gltfx_rslt<GLuint> fragment =
+        compile_shader(gl, k_gl_fragment_shader, k_fragment_source, k_reject_fragment_shader);
+    if (fragment.has_error()) {
+        gl.glDeleteShader(vertex.value());
+        return gltfx_rslt<shader_pair>::err(fragment.err());
+    }
+    return gltfx_rslt<shader_pair>::ok(shader_pair{vertex.value(), fragment.value()});
+}
+
+// Links the two compiled shaders into a program. A refusal deletes the shaders (and the program)
+// and carries the token program_link; a linked program has its shaders detached and deleted (a
+// deleted shader stays alive while attached, so detach first).
+[[nodiscard]] gltfx_rslt<GLuint> link_program(const render::gl_function_table &gl,
+                                              const shader_pair &shaders) noexcept {
+    const GLuint program = gl.glCreateProgram();
+    if (program == 0) {
+        // Nothing to attach to: do not call attach/link/get on program 0 (each would leave
+        // GL_INVALID_VALUE in the consumer's error queue, R-B3). Free the shaders and refuse.
+        report_rejection(k_reason_create_program_returned_zero, "", false);
+        gl.glDeleteShader(shaders.vertex);
+        gl.glDeleteShader(shaders.fragment);
+        return gltfx_rslt<GLuint>::err(rejection(k_reject_program_link));
+    }
+    gl.glAttachShader(program, shaders.vertex);
+    gl.glAttachShader(program, shaders.fragment);
+    gl.glLinkProgram(program);
+    GLint status = 0;
+    gl.glGetProgramiv(program, k_gl_link_status, &status);
+    if (status != 1) {
+        driver_log_buffer buffer{};
+        const driver_log_reading reading = read_driver_log(gl, program, true, buffer);
+        report_rejection(k_reason_program_link_failed, reading.text, reading.truncated);
+        gl.glDeleteProgram(program);
+        gl.glDeleteShader(shaders.vertex);
+        gl.glDeleteShader(shaders.fragment);
+        return gltfx_rslt<GLuint>::err(rejection(k_reject_program_link));
+    }
+    gl.glDetachShader(program, shaders.vertex);
+    gl.glDetachShader(program, shaders.fragment);
+    gl.glDeleteShader(shaders.vertex);
+    gl.glDeleteShader(shaders.fragment);
+    return gltfx_rslt<GLuint>::ok(program);
 }
 
 } // namespace
@@ -148,53 +208,18 @@ std::string_view embedded_fragment_shader_source() noexcept {
 }
 
 gltfx_rslt<embedded_program> create_embedded_program(const render::gl_function_table &gl) noexcept {
-    const gltfx_rslt<GLuint> vertex =
-        compile_shader(gl, k_gl_vertex_shader, k_vertex_source, k_reject_vertex_shader);
-    if (vertex.has_error()) {
-        return gltfx_rslt<embedded_program>::err(vertex.err());
+    const gltfx_rslt<shader_pair> shaders = compile_both_shaders(gl);
+    if (shaders.has_error()) {
+        return gltfx_rslt<embedded_program>::err(shaders.err());
     }
-    const gltfx_rslt<GLuint> fragment =
-        compile_shader(gl, k_gl_fragment_shader, k_fragment_source, k_reject_fragment_shader);
-    if (fragment.has_error()) {
-        gl.glDeleteShader(vertex.value());
-        return gltfx_rslt<embedded_program>::err(fragment.err());
+    const gltfx_rslt<GLuint> program = link_program(gl, shaders.value());
+    if (program.has_error()) {
+        return gltfx_rslt<embedded_program>::err(program.err());
     }
-
-    const GLuint program = gl.glCreateProgram();
-    if (program == 0) {
-        // Nothing to attach to: do not call attach/link/get on program 0 (each would leave
-        // GL_INVALID_VALUE in the consumer's error queue, R-B3). Free the shaders and refuse.
-        report_rejection(k_reason_create_program_returned_zero, "", false);
-        gl.glDeleteShader(vertex.value());
-        gl.glDeleteShader(fragment.value());
-        return gltfx_rslt<embedded_program>::err(rejection(k_reject_program_link));
-    }
-    gl.glAttachShader(program, vertex.value());
-    gl.glAttachShader(program, fragment.value());
-    gl.glLinkProgram(program);
-    GLint status = 0;
-    gl.glGetProgramiv(program, k_gl_link_status, &status);
-    if (status != 1) {
-        std::array<char, k_driver_log_capacity> buffer{};
-        const driver_log_reading reading = read_driver_log(gl, program, true, buffer);
-        report_rejection(k_reason_program_link_failed, reading.text, reading.truncated);
-        gl.glDeleteProgram(program);
-        gl.glDeleteShader(vertex.value());
-        gl.glDeleteShader(fragment.value());
-        return gltfx_rslt<embedded_program>::err(rejection(k_reject_program_link));
-    }
-
-    // Linked: the shaders are no longer needed (a deleted shader stays alive while attached, so
-    // detach first).
-    gl.glDetachShader(program, vertex.value());
-    gl.glDetachShader(program, fragment.value());
-    gl.glDeleteShader(vertex.value());
-    gl.glDeleteShader(fragment.value());
-
     embedded_program result;
-    result.program = program;
-    result.viewport_location = gl.glGetUniformLocation(program, "u_viewport_pixels");
-    result.encode_srgb_location = gl.glGetUniformLocation(program, "u_encode_srgb");
+    result.program = program.value();
+    result.viewport_location = gl.glGetUniformLocation(result.program, "u_viewport_pixels");
+    result.encode_srgb_location = gl.glGetUniformLocation(result.program, "u_encode_srgb");
     return gltfx_rslt<embedded_program>::ok(result);
 }
 

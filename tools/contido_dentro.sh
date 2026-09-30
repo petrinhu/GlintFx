@@ -319,6 +319,19 @@ contido_inside_main() {
     esac
 }
 
+# contido_alive <pid>: 0 when the process exists and is NOT a zombie (state Z) or dead (X), read from
+# /proc/<pid>/stat (the field after the last `)`). `kill -0` alone is not enough: a container whose PID 1 does not
+# reap children (the job container of the GitHub Actions runs `tail -f /dev/null`) keeps every orphaned grandchild
+# as a zombie after it died, and `kill -0` succeeds on a zombie. Used by the selftest only.
+contido_alive() {
+    local line
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    read -r line <"/proc/$1/stat" 2>/dev/null || return 1
+    line="${line##*) }"
+    case "${line%% *}" in Z|X) return 1 ;; esac
+    return 0
+}
+
 # --- selftest -----------------------------------------------------------------------------
 # The cases run in mode `herdado-pgid`, which kills by process group and never touches cgroup.kill, so it is
 # safe in whatever cgroup the caller is in (the ctest, the preci). Mode `ninho` runs only when the own cgroup
@@ -381,13 +394,13 @@ contido_inside_selftest() {
     got="$(cat "$dir/prazo/fim" 2>/dev/null)"
     check "deadline fim=prazo" "$([ "$got" = prazo ] && echo 0 || echo 1)" "got [$got]"
     check "deadline left a pid to check" "$([ -s "$dir/prazo/pid" ] && echo 0 || echo 1)" "no pid file"
-    kill -0 "$(cat "$dir/prazo/pid" 2>/dev/null)" 2>/dev/null
+    contido_alive "$(cat "$dir/prazo/pid" 2>/dev/null)"
     check "deadline killed the sleep" "$([ $? -ne 0 ] && [ -s "$dir/prazo/pid" ] && echo 0 || echo 1)" "the sleep is still alive"
     # 9. a grandchild left behind is killed at the end, even on a normal exit
     run_inside neto 5 bash -c 'sleep 3 >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$dir/neto/pid"; rc=$?
     check "grandchild case rc 0" "$([ "$rc" -eq 0 ] && echo 0 || echo 1)" "got $rc"
     check "grandchild left a pid to check" "$([ -s "$dir/neto/pid" ] && echo 0 || echo 1)" "no pid file"
-    kill -0 "$(cat "$dir/neto/pid" 2>/dev/null)" 2>/dev/null
+    contido_alive "$(cat "$dir/neto/pid" 2>/dev/null)"
     check "grandchild killed at the end" "$([ $? -ne 0 ] && [ -s "$dir/neto/pid" ] && echo 0 || echo 1)" "the grandchild is still alive"
     # 10. broken clock: the descriptor closed before the read gives fim=relogio, rc 72, in at most 1 s
     mkdir -p "$dir/relogio"
@@ -508,7 +521,7 @@ contido_inside_selftest() {
     bash "$self" herdado-pgid - 64 5 2 "$dir/d10b" -- bash -c '(trap "" TERM; exec sleep 30) >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$dir/d10b/pid" >/dev/null 2>&1; rc=$?
     tw1="${EPOCHREALTIME//[.,]/}"
     check "D10b: the leader leaves, a TERM-ignoring grandchild dies by the KILL after ~G (1.9 s to 3.5 s)" "$([ "$rc" -eq 0 ] && [ $((tw1 - tw0)) -ge 1900000 ] && [ $((tw1 - tw0)) -le 3500000 ] && echo 0 || echo 1)" "rc $rc took $((tw1 - tw0)) us"
-    kill -0 "$(cat "$dir/d10b/pid" 2>/dev/null)" 2>/dev/null
+    contido_alive "$(cat "$dir/d10b/pid" 2>/dev/null)"
     check "D10b: the grandchild is dead" "$([ $? -ne 0 ] && [ -s "$dir/d10b/pid" ] && echo 0 || echo 1)" "the grandchild survived"
     # 13. mode ninho, only when the own cgroup is a child of a delegated contido scope
     local own_cg parent_cg skipped=0
@@ -520,7 +533,7 @@ contido_inside_selftest() {
         bash "$self" ninho "$parent_cg" 16 5 1 "$dir/n2" -- bash -c 'read l </proc/self/cgroup; echo "${l##*/}"' >"$dir/n2/out" 2>/dev/null
         case "$(cat "$dir/n2/out")" in ninho-*) check "ninho: the command runs in a ninho-* cgroup" 0 "" ;; *) check "ninho: the command runs in a ninho-* cgroup" 1 "got [$(cat "$dir/n2/out")]" ;; esac
         bash "$self" ninho "$parent_cg" 16 5 1 "$dir/n3" -- bash -c 'setsid sleep 30 >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$dir/n3/pid" >/dev/null 2>&1
-        kill -0 "$(cat "$dir/n3/pid" 2>/dev/null)" 2>/dev/null
+        contido_alive "$(cat "$dir/n3/pid" 2>/dev/null)"
         check "ninho: a setsid grandchild is killed at the end" "$([ $? -ne 0 ] && [ -s "$dir/n3/pid" ] && echo 0 || echo 1)" "the setsid grandchild is still alive"
     else
         skipped=3

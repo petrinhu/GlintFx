@@ -4871,3 +4871,10 @@ Nenhuma decisão desta lista segue pendente de confirmação.
 - **Empurrado:** onda-w7c = af10a31 (C1a-fix f1b82e3, aceita pelo CTO, mais o D-A33).
 - **O CI do onda-w7c segue VERMELHO** (cmp ausente nas imagens). É a primeira fatia ao retomar.
 - **Crons:** o monitor anti-parada foi apagado e o tick do watchcode parado.
+
+## 29/09/2026 - 21:22 | Retomada, com modo autônomo e pausa marcada para 06:30 de 30/09
+
+- **Ordem do líder, verbatim:** "ligue modo autonomo. Autorizo push/tag/merge. Pode continuar. Pause 06:30am em 30/09/2026".
+- **Modo autônomo:** flag em ~/.claude/autonomo/GlintFx.json, válida até 30/09 21:21.
+- **Crons:** pausa em e93ea906 (06:30 de 30/09); monitor anti-parada em d58e756a.
+- **Agentes redespachados** (a sessão é nova): impl-da14 começa pelo CI-CMP (/var/tmp/cto-a5-paralelo/CI-CMP.md), depois a C1a-fix2 e a C1b; cto-review revisa com execução.

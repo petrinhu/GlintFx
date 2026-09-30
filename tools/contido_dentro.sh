@@ -442,8 +442,23 @@ contido_fabricate_zombie() {
 # safe in whatever cgroup the caller is in (the ctest, the preci). Mode `ninho` runs only when the own cgroup
 # is a child of a DELEGATED contido scope (otherwise the skipped count is printed, ALWAYS); mode `proprio`
 # is exercised by the dynamic proof (tests/tools/contencao/prova_contido.sh), outside the ctest.
+# contido_inside_selftest [group]: with no group, every group runs (manual use and the preci); with one, only
+# that one (a ctest entry each, D-CI2-SELFTEST: a long test of WAITS is split, never shortened - the deadlines
+# and graces were sized against the D10b intermittency). The groups were fixed by measurement BEFORE the split
+# (each at most 20 s of wall time on an idle machine): basico (exit codes, streams, the marker, refusals),
+# prazos (deadlines, locales, the discount of elapsed time), graca (grace, the bounded wait, the KILL that
+# lands late), varredura (the /proc sweep, the positive controls of contido_alive, the ninho). The count of
+# cases per group and the total are ALWAYS printed, zero included.
 contido_inside_selftest() {
-    local self dir cases=0 failures=0 got want
+    local want_group="${1:-}" k_groups="basico prazos graca varredura"
+    if [ -n "$want_group" ]; then
+        case " $k_groups " in
+            *" $want_group "*) ;;
+            *) echo "contido_dentro --selftest: grupo desconhecido '$want_group' (validos: $k_groups)" >&2; return 2 ;;
+        esac
+    fi
+    local self dir cases=0 failures=0 got want rc line own_pgrp cmd_pgrp t0 t1 tw0 tw1 g_start=0 skipped=0
+    local -A group_cases=([basico]=0 [prazos]=0 [graca]=0 [varredura]=0)
     self="$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)/${BASH_SOURCE[0]##*/}"
     dir="$(mktemp -d "${TMPDIR:-/var/tmp}/glintfx-contido-selftest.XXXXXX")" || return 1
 
@@ -454,6 +469,9 @@ contido_inside_selftest() {
             echo "contido_dentro --selftest: FALHOU - $1: $3" >&2
         fi
     }
+    selftest_wants() { [ -z "$want_group" ] || [ "$want_group" = "$1" ]; }
+    # the clock descriptor every group's waits use (a pipe nobody writes to: `read -t` on it is a sleep)
+    exec {CONTIDO_FD}<> <(:)
     # run_inside <marker dir name> <deadline> <cmd...>: runs the script itself in herdado-pgid mode
     run_inside() {
         local sub="$1" s="$2"
@@ -462,8 +480,9 @@ contido_inside_selftest() {
         bash "$self" herdado-pgid - 64 "$s" 1 "$dir/$sub" -- "$@" >"$dir/$sub/out" 2>"$dir/$sub/err"
     }
 
+    if selftest_wants basico; then
+    g_start=$cases
     # 1. the exit status crosses: 0, 1, 2, 77 and 127 (command not found)
-    local rc
     for want in 0 1 2 77; do
         run_inside "rc$want" 5 bash -c "exit $want"; rc=$?
         check "rc $want crosses" "$([ "$rc" -eq "$want" ] && echo 0 || echo 1)" "got $rc"
@@ -488,11 +507,14 @@ contido_inside_selftest() {
     grep -q '^contido: modo=herdado-pgid (sem delegacao.*fim=rc=0, tempo=' "$dir/rc0/err"
     check "final line for a normal end" "$?" "stderr: $(cat "$dir/rc0/err")"
     # 7. the command runs in a NEW process group, different from the caller's
-    local own_pgrp cmd_pgrp line
     read -r line <"/proc/$$/stat"; line="${line##*) }"; read -r _ _ own_pgrp _ <<<"$line"
     run_inside pgrp 5 bash -c 'read -r l </proc/$$/stat; l="${l##*) }"; read -r _ _ g _ <<<"$l"; echo "$g"'
     cmd_pgrp="$(cat "$dir/pgrp/out")"
     check "command pgrp differs from the caller's" "$([ -n "$cmd_pgrp" ] && [ "$cmd_pgrp" != "$own_pgrp" ] && echo 0 || echo 1)" "own=$own_pgrp command=$cmd_pgrp"
+    group_cases[basico]=$((group_cases[basico] + cases - g_start))
+    fi
+    if selftest_wants prazos; then
+    g_start=$cases
     # 8. deadline: sleep 3 with S=1 gives fim=prazo, rc 124, and the sleep is dead afterwards
     run_inside prazo 1 bash -c 'sleep 3 >/dev/null 2>&1 & echo $! >"$0"; wait' "$dir/prazo/pid"; rc=$?
     check "deadline rc 124" "$([ "$rc" -eq 124 ] && echo 0 || echo 1)" "got $rc"
@@ -509,7 +531,6 @@ contido_inside_selftest() {
     check "grandchild killed at the end" "$([ $? -ne 0 ] && [ -s "$dir/neto/pid" ] && echo 0 || echo 1)" "the grandchild is still alive"
     # 10. broken clock: the descriptor closed before the read gives fim=relogio, rc 72, in at most 1 s
     mkdir -p "$dir/relogio"
-    local t0 t1
     t0="${EPOCHREALTIME//[.,]/}"
     (
         contido_hook_before_read() { exec {CONTIDO_FD}>&-; }
@@ -554,6 +575,10 @@ contido_inside_selftest() {
     done
     echo "contido_dentro --selftest: radix do ambiente: $radix_note (so com virgula o caso do ambiente exercita o mutante \${t/./})" >&2
 
+    group_cases[prazos]=$((group_cases[prazos] + cases - g_start))
+    fi
+    if selftest_wants basico; then
+    g_start=$cases
     # 11. mode proprio with the wrong unit refuses with 71 BEFORE running (and before any kill)
     mkdir -p "$dir/errado"
     bash "$self" proprio unidade-falsa 64 5 1 "$dir/errado" -- touch "$dir/errado/marca" >/dev/null 2>"$dir/errado/err"; rc=$?
@@ -572,6 +597,10 @@ contido_inside_selftest() {
     # 12b. an invalid grace refuses with 2
     bash "$self" herdado-pgid - 64 5 abc "$dir" -- true >/dev/null 2>&1; rc=$?
     check "grace not a number refuses 2" "$([ "$rc" -eq 2 ] && echo 0 || echo 1)" "got $rc"
+    group_cases[basico]=$((group_cases[basico] + cases - g_start))
+    fi
+    if selftest_wants graca; then
+    g_start=$cases
     # 12c. the grace: TERM comes BEFORE the kill, so the command can clean up (deadline S=1, grace G=2)
     mkdir -p "$dir/graca"
     bash "$self" herdado-pgid - 64 1 2 "$dir/graca" -- bash -c 'trap "echo limpo >\"\$0\"; exit" TERM; sleep 60 & wait' "$dir/graca/marca" >/dev/null 2>&1; rc=$?
@@ -588,9 +617,8 @@ contido_inside_selftest() {
     bash "$self" herdado-pgid - 64 5 1 "$dir/nao-existe" -- touch "$dir/marca-dir-invalido" >/dev/null 2>&1; rc=$?
     check "invalid marker directory refuses 2, running nothing" "$([ "$rc" -eq 2 ] && [ ! -e "$dir/marca-dir-invalido" ] && echo 0 || echo 1)" "rc $rc"
     # 12e. the populated reader and the bounded wait, on a fake cgroup dir (no cgroup is touched)
-    local fake="$dir/fake" tw0 tw1
+    local fake="$dir/fake"
     mkdir -p "$fake"
-    exec {CONTIDO_FD}<> <(:)
     printf 'populated 1\nfrozen 0\n' >"$fake/cgroup.events"
     contido_populated "$fake"; check "populated 1 counts as populated" "$?" "rc $?"
     printf 'frozen 0\npopulated 0\n' >"$fake/cgroup.events"
@@ -698,6 +726,10 @@ contido_inside_selftest() {
     grep -q 'AVISO - 2 processo(s) sobreviveram ao KILL' "$dir/sobrevive/err"
     check "D-C1b-6: a warning names the survivors" "$?" "stderr: $(cat "$dir/sobrevive/err")"
     check "D-C1b-6: the wait after the KILL is bounded (0.9 s to 2.5 s with G=1)" "$([ $((tw1 - tw0)) -ge 900000 ] && [ $((tw1 - tw0)) -le 2500000 ] && echo 0 || echo 1)" "took $((tw1 - tw0)) us"
+    group_cases[graca]=$((group_cases[graca] + cases - g_start))
+    fi
+    if selftest_wants varredura; then
+    g_start=$cases
     # 12f4. the sweep itself, on a FAKE /proc: live members counted, a zombie and a dead one not, another group not,
     #       a name with spaces and parentheses parsed after the LAST `)`, a non-numeric entry ignored.
     local fakeproc="$dir/fakeproc"
@@ -773,7 +805,7 @@ contido_inside_selftest() {
     wait "$ZOMBIE_PARENT" 2>/dev/null
 
     # 13. mode ninho, only when the own cgroup is a child of a delegated contido scope
-    local own_cg parent_cg skipped=0
+    local own_cg parent_cg
     own_cg="$(contido_own_cgroup)"; parent_cg="${own_cg%/*}"
     if [ "${parent_cg##*/}" != "" ] && case "${parent_cg##*/}" in glintfx-*.scope) true ;; *) false ;; esac && contido_scope_delegated "/sys/fs/cgroup$parent_cg"; then
         mkdir -p "$dir/n1" "$dir/n2" "$dir/n3"
@@ -788,7 +820,14 @@ contido_inside_selftest() {
         skipped=3
     fi
 
+    group_cases[varredura]=$((group_cases[varredura] + cases - g_start))
+    fi
+
     case "$dir" in "${TMPDIR:-/var/tmp}"/glintfx-contido-selftest.??????) rm -rf -- "$dir" ;; esac
+    local group
+    for group in $k_groups; do
+        selftest_wants "$group" && echo "contido_dentro --selftest: grupo $group: ${group_cases[$group]} caso(s)" >&2
+    done
     if [ "$cases" -eq 0 ]; then
         echo "contido_dentro --selftest: FALHOU - zero casos rodados (varredura vazia)" >&2
         return 1
@@ -801,8 +840,8 @@ contido_inside_selftest() {
     echo "contido_dentro --selftest: pulados: $skipped (sem delegacao: o cgroup proprio nao e' filho de um escopo glintfx-* delegado; o ninho se exercita na prova dinamica)"
 }
 
-if [ "${1:-}" = "--selftest" ] && [ "$#" -eq 1 ]; then
-    contido_inside_selftest
+if [ "${1:-}" = "--selftest" ] && [ "$#" -le 2 ]; then
+    contido_inside_selftest "${2:-}"
     exit $?
 fi
 contido_inside_main "$@"

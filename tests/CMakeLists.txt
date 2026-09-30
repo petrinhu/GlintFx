@@ -4986,11 +4986,33 @@ if(UNIX)
     set_tests_properties(contido_selftest PROPERTIES LABELS selftest)
     # C1b: a metade que roda DENTRO do escopo; todos os casos do selftest usam o modo herdado (mata por
     # grupo de processos, nunca escreve cgroup.kill), entao rodam em qualquer cgroup, inclusive o do preci.
+    # D-CI2-SELFTEST (errata sec. 16): o selftest e' feito de ESPERAS (prazos e gracas), nao de CPU, e passou de
+    # 40 s (a regua de pesados do ctest_aggregate.py) sob carga no CI. Nao se encurtam os prazos (foram
+    # dimensionados contra a intermitencia do D10b) e nao se finge recurso (RESOURCE_LOCK): PARTE-SE em grupos,
+    # cada um uma entrada do ctest, com no maximo 20 s de parede numa maquina ociosa (medido antes de partir).
+    # `--selftest` sem grupo roda todos, para o uso manual e para o preci; a contagem por grupo e o total saem
+    # sempre (a soma dos grupos tem de igualar o total, e um grupo desconhecido da rc 2).
+    # (quatro add_test literais, um por grupo: o --blob do preci le os literais, nunca um foreach)
     add_test(
-        NAME contido_dentro_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest
+        NAME contido_dentro_selftest_basico
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest basico
     )
-    set_tests_properties(contido_dentro_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(contido_dentro_selftest_basico PROPERTIES LABELS selftest)
+    add_test(
+        NAME contido_dentro_selftest_prazos
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest prazos
+    )
+    set_tests_properties(contido_dentro_selftest_prazos PROPERTIES LABELS selftest)
+    add_test(
+        NAME contido_dentro_selftest_graca
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest graca
+    )
+    set_tests_properties(contido_dentro_selftest_graca PROPERTIES LABELS selftest)
+    add_test(
+        NAME contido_dentro_selftest_varredura
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest varredura
+    )
+    set_tests_properties(contido_dentro_selftest_varredura PROPERTIES LABELS selftest)
 endif()
 
 # So' em Unix (D-A27, CI do 352442e): o --blob e' estagio do preci.sh, que e' bash e nunca roda no Windows,

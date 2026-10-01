@@ -5325,3 +5325,51 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - falha vira unsupported, nunca superfície linear rotulada de sRGB.
 - *Prova exigida:* uma célula de seam vermelha no código de hoje, o sRGB ligado exercido no llvmpipe e o mutante vermelho no Linux.
 - *Lição:* ausência "declarada e medida" não prova limite da plataforma; o mecanismo precisa ser testado antes.
+
+## 01/10/2026 - 15:45 | DECISÃO DO LÍDER (não autônoma): ferramental de build no container de nuvem desta sessão (L-14)
+
+- *Contexto:* a sessão roda num container de nuvem descartável (Ubuntu 24.04), que não compilava o projeto: CMake 3.28 abaixo do piso 4.1, sem os pacotes de desenvolvimento Wayland/EGL/GL e sem daemon Docker.
+- *Pergunta (AskUserQuestion):* autorizar a instalação do ferramental só nesse container, sem tocar a máquina do líder.
+- *Escolha do líder:* "Autorizo (Recomendado)".
+- *Instalado dentro dessa autorização:* CMake 4.4 (pip), libwayland-dev, wayland-protocols, libegl-dev, libgl-dev, libgles-dev, g++-14 (o g++-13 do 24.04 não tem `<print>`) e libwayland 1.24 compilada da fonte (a 1.22 do 24.04 não tem `wl_proxy_get_display`).
+- *Medido:* `contido_dentro_selftest_varredura` reprova nesse container porque o bash 5.2.21 não aceita `tools/contido_dentro.sh:777`. O CI usa `ubuntu:latest` (26.04), então a matriz não é afetada. Não foi consertado.
+
+## 01/10/2026 - 16:32 | D-A60: sRGB no Windows; a recusa honesta e a lacuna de prova declarada (DECISÕES DO LÍDER, não autônomas; parecer do CTO, L-34, L-44, L-27)
+
+- *Fato (CI 36908843898 e 36759613878, commit c98c0db, jobs Windows compartilhado, estático e Debug):* o `draw2d_parity_test` abre com `srgb_framebuffer=on` (`srgb_on_cells_absent=0`), e o adaptador diz supported. Mas `half_white_srgb_on=128` e `half_red_srgb_on=128`, contra 188 esperados, e 3 células `[srgb=on]` reprovam. É a superfície linear rotulada de sRGB, o que a D-W6b-16/17 e a D-A59 proíbem.
+- *Fato (fonte do Mesa, MIT; `main` e `mesa-26.2.0`, a versão do `tools/ci/install-mesa-opengl32.ps1`):*
+  - `stw_ext_extensionsstring.c` não anuncia `WGL_ARB_framebuffer_sRGB` nem `WGL_EXT_framebuffer_sRGB`;
+  - `stw_ext_pixelformat.c`, `score_pixelformats()`, ignora em silêncio um atributo fora da tabela (`if (ami == NULL) return true;`);
+  - `stw_query_attrib()` não tem caso para 0x20A9;
+  - `stw_pixelformat.c` só oferece formatos de cor UNORM.
+- *Inferência (L-27):* o driver do CI ignorou o pedido, o formato é linear e o `GL_FRAMEBUFFER_SRGB` não age (a especificação ARB_framebuffer_sRGB só converte quando o encoding do anexo é SRGB).
+- *Causa do nosso lado:* `src/platform/win32/wgl_context_adapter.cpp` marca sRGB suportado porque o `wglChoosePixelFormatARB` aceitou o atributo; nada confere o formato criado. Também: o ramo que refaz o choose sem sRGB abre assim mesmo, com `srgb_ok=false`.
+- *Pesquisa do CTO (fontes no parecer):*
+  - GLFW e SDL3 só pedem sRGB com a extensão anunciada;
+  - o SDL3 relê o atributo no formato escolhido;
+  - nenhuma das duas usa `GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING` como portão, porque a NVIDIA devolve LINEAR mesmo convertendo (g-truc post-0720; fórum NVIDIA 205092; Khronos 106024);
+  - um portão por COLOR_ENCODING recusaria sRGB na RTX 3050 do líder.
+- *Pergunta 1 (AskUserQuestion), o comportamento no Windows:* "Recusa honesta (Recomendado)".
+  - A extensão ausente leva à recusa antes do choose.
+  - O choose com o atributo falhando leva à recusa.
+  - Depois do choose, `wglGetPixelFormatAttribivARB(0x20A9)`: só chamada ok com valor TRUE confirma. Qualquer outra coisa é `unsupported`/`srgb_framebuffer`.
+  - COLOR_ENCODING fica só como MEASURED, nunca como critério.
+  - Recusadas: emulação por FBO sRGB (porta de mão única de comportamento público; vai ao INBOX como `SRGB-EMULATED-FBO`) e só declarar a ausência (o rótulo mentiroso ficaria).
+- *Pergunta 2, o que vale como prova pela L-04, já que o ramo supported do Windows nunca roda no CI (o Mesa WGL não tem sRGB):* "Lacuna declarada (Recomendado)". A ausência fica declarada, com nome e item aberto (`SRGB-WIN-CI-PROOF-GAP`), como `msaa_support` e `vsync_adaptive_support`. O CI prova a recusa honesta no Windows e o sRGB ligado no Linux.
+- *Porta de mão única:* não. A API e a ABI não mudam, e um Mesa futuro que anuncie a extensão passa a dizer supported sem código novo. Reverter custa pouco: algumas linhas em um adaptador.
+
+## 01/10/2026 - 16:32 | D-A61: o que `option_support(srgb_framebuffer)` responde quando a opção NÃO foi pedida (main, aplicando a D-A60; achado C1 da revisão independente da D-A59)
+
+- *Fato (revisão independente da D-A59, 01/10 19:16 UTC):* o conserto `9d27ffe` mudou a resposta pública de `option_support(srgb_framebuffer)` para contexto aberto sem sRGB. Antes, Linux e Windows diziam supported sempre que o choose dava certo. Depois, o Linux passou a dizer `unsupported_here`, e o Windows continuou supported. O `measured_exceptions.txt:132` (`todos`) engole a diferença, então o portão de paridade fica verde com a L-04 quebrada.
+- *Escolha:* a mesma regra nos dois adaptadores. Quando a opção não foi pedida, supported significa "o driver anuncia o mecanismo que honraria o pedido": `EGL_KHR_gl_colorspace` no Linux, `WGL_ARB_framebuffer_sRGB` ou `WGL_EXT_framebuffer_sRGB` no Windows, ambos por token inteiro. Quando foi pedida, supported só depois da conferência da superfície ou do formato (D-A59, D-A60).
+- *Por quê:* é a única das três saídas da revisão coerente com a recusa honesta que o líder escolheu na D-A60. Restaurar o "choose deu certo, logo suportado" no Linux devolveria ao Windows o rótulo mentiroso que a D-A60 acabou de tirar.
+- *Efeito esperado no CI:* `srgb_support=1` no Linux (llvmpipe anuncia a extensão) e `=0` no Windows (o Mesa WGL não anuncia). Os valores diferem por driver, com a mesma regra. A linha 132 do `measured_exceptions.txt` passa a dizer isso como fato.
+- *Porta de mão única:* não. A documentação de `gfx_option.hpp` ganha a frase da regra.
+
+## 01/10/2026 - 16:32 | Registro: o choose com MSAA passa a exigir stencil8 (achado do implementador da D-A59, confirmado pela revisão)
+
+- *Fato:* `git show c98c0db:src/platform/wayland/egl_context_adapter.cpp`, linhas ~536-545. O `try_choose` começava a acrescentar em `next = 12`, mas a lista base já ocupava 14 posições.
+  - Com MSAA pedido, `EGL_SAMPLES` sobrescrevia `EGL_STENCIL_SIZE, 8`.
+  - Com MSAA e sRGB juntos, escrevia `attribs[16]` num array de 16, comportamento indefinido.
+- *O conserto (`9d27ffe`) cumpre a D-W6b-4(b):* RGBA8 mais stencil 8 sempre. Um driver sem configuração MSAA com stencil8 agora recusa com `unsupported`/`msaa_samples`, o que é recusa honesta pela D-W6b-17. Não precisa de decisão nova.
+- *Lacuna registrada:* a leitura de volta do stencil que a emenda [LENTE-1] de `docs/plano-w6b-fatias-5.md` prescreve nunca foi implementada. Stencil8 com MSAA só está provado no nível da lista de atributos.

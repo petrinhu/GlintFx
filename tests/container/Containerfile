@@ -585,6 +585,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -640,6 +641,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -702,6 +704,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -764,6 +767,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -817,6 +821,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -859,6 +864,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -901,6 +907,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -945,6 +952,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -989,6 +997,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -1044,6 +1053,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
@@ -1097,6 +1107,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
         /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_surface_colorspace.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \

@@ -1276,6 +1276,17 @@ target_sources(egl_device_dedup_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
 )
 
+# D-A59: the pure sRGB-surface decisions (choose list never carries the
+# colorspace, surface list carries it only when requested and the
+# extension exists, whole-token extension search, read-back verdict).
+# Same "domain, not only" shape as egl_device_dedup_test right above:
+# no EGL call, no EGL header, registers unguarded.
+glintfx_add_test(egl_surface_colorspace_test)
+target_include_directories(egl_surface_colorspace_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(egl_surface_colorspace_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_surface_colorspace.cpp"
+)
+
 # GL-GPU-KIND, vias 1/2 (docs/plano-w6b-fatias-5b-revisao.md sec.
 # 1.5/3/4.2, D-W6b-38): OS-AGNOSTIC on purpose - they reason about an
 # already-classified gltfx_gpu_kind enumeration (via 1) or a GL_NVX_
@@ -1904,6 +1915,7 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_surface_colorspace.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
@@ -1955,6 +1967,7 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_surface_colorspace.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
@@ -1999,6 +2012,7 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_surface_colorspace.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"

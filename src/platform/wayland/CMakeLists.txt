@@ -83,6 +83,7 @@ target_sources(glintfx_library PRIVATE
     selected_gl_context_adapter_check.cpp
     drm_gpu_kind.cpp
     egl_device_dedup.cpp
+    egl_surface_colorspace.cpp
     egl_device_query.cpp
     drm_device_facts.cpp
     egl_device_enumeration.cpp

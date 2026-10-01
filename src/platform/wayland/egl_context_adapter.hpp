@@ -58,17 +58,29 @@ class wayland_window_adapter;
 //      ever hands this adapter the window, docs/plano-w6b-placa-e-
 //      laco.md fatia 3's own F2 fact), then eglInitialize()/
 //      eglBindAPI(EGL_OPENGL_API).
-//   2. choose_config() - reads `msaa_samples`/`srgb_framebuffer`
-//      (open_only, gfx_option.hpp) from the already-resolved options
-//      span open() receives; RGBA8+stencil8 always (D-W6b-4). A config
-//      this driver cannot produce REFUSES naming the option that could
-//      not be honored (gltfx_err_code::unsupported, D-W6b-16's "nunca
-//      degrada em silencio") - never silently drops the request.
+//   2. choose_config() - reads `msaa_samples` (open_only,
+//      gfx_option.hpp) from the already-resolved options span open()
+//      receives; RGBA8+stencil8 always (D-W6b-4). A config this driver
+//      cannot produce REFUSES naming the option that could not be
+//      honored (gltfx_err_code::unsupported, D-W6b-16's "nunca degrada
+//      em silencio") - never silently drops the request. `srgb_
+//      framebuffer` is NOT read here: EGL_GL_COLORSPACE_KHR is a
+//      SURFACE attribute, and eglChooseConfig() answers EGL_BAD_
+//      ATTRIBUTE to it on Mesa (D-A59) - see create_egl_surface().
 //   3. create_context() - EGL_CONTEXT_MAJOR/MINOR_VERSION 3/3,
 //      EGL_CONTEXT_OPENGL_PROFILE_MASK core-only (D-W6b-4: "sem
 //      forward-compatible"), then validate_gl_context_version() (gl_
 //      version_policy.hpp, fatia 2b) against what the driver actually
 //      granted - never trusting the REQUEST as proof of the RESULT.
+//
+// create_egl_surface() runs right after create_egl_window() and is
+// where `srgb_framebuffer` is honored (D-A59): eglCreateWindowSurface()
+// receives EGL_GL_COLORSPACE_KHR = SRGB only when the option is on AND
+// EGL_KHR_gl_colorspace is advertised, then eglQuerySurface() CONFIRMS
+// the colorspace the driver actually granted - anything other than sRGB
+// REFUSES open() with `unsupported`/`srgb_framebuffer`, never a linear
+// surface labelled sRGB (the pure decisions live in egl_surface_
+// colorspace.hpp).
 //
 // create_egl_window() is its OWN step, not folded into create_
 // context(): wl_egl_window_create() needs the window's own pixel_
@@ -263,10 +275,13 @@ class wayland_egl_context_adapter {
     [[nodiscard]] gltfx_rslt<void> create_egl_display(wl_surface &surface) noexcept;
     [[nodiscard]] gltfx_rslt<void> choose_config(std::span<const gltfx_gfx_option_entry> options,
                                                  void *&out_config) noexcept;
-    [[nodiscard]] gltfx_rslt<void> create_egl_window(wl_surface &surface, void *config,
-                                                     std::uint32_t pixel_width,
+    [[nodiscard]] gltfx_rslt<void> create_egl_window(wl_surface &surface, std::uint32_t pixel_width,
                                                      std::uint32_t pixel_height) noexcept;
-    // Runs AFTER create_egl_window() above has already produced
+    // D-A59: the EGLSurface over `config` and m_egl_window, with the
+    // sRGB colorspace requested and then read back (see the header's
+    // own step list above). Decides m_srgb_supported.
+    [[nodiscard]] gltfx_rslt<void> create_egl_surface(void *config, bool srgb_requested) noexcept;
+    // Runs AFTER create_egl_surface() above has already produced
     // m_egl_surface: eglCreateContext(3.3 core) over `config`, make it
     // current, then validate_gl_context_version() (gl_version_policy.
     // hpp, fatia 2b) against what the driver actually granted - never

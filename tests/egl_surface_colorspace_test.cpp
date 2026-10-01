@@ -57,7 +57,7 @@ GLINTFX_TEST(egl_choose_attribs_never_carry_the_colorspace) {
         GLINTFX_CHECK(!contains_value(list, k_egl_gl_colorspace_srgb));
         GLINTFX_CHECK(is_none_terminated(list));
         // RGBA8 + stencil8 always, even when MSAA is requested (D-W6b-4).
-        GLINTFX_CHECK_EQ(value_of(list, 0x3025 /* EGL_STENCIL_SIZE */), 8);
+        GLINTFX_CHECK_EQ(value_of(list, 0x3026 /* EGL_STENCIL_SIZE */), 8);
         GLINTFX_CHECK_EQ(value_of(list, 0x3021 /* EGL_ALPHA_SIZE */), 8);
         GLINTFX_CHECK_EQ(value_of(list, k_egl_samples), samples > 0 ? samples : -1);
         ++swept;

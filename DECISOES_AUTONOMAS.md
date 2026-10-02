@@ -5440,3 +5440,20 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - O push do `onda-w7d` só sai com o espelho local verde.
   - O merge em `main` e a marca só acontecem quando a onda W7-D fechar com o CI verde (`CI-VERDE-W7D`).
   - "Higienização" cobre apagar o ramo remoto `claude/continue-p3kc6n` (o PR #13 já foi fechado sem merge) e os ramos locais e pastas de build obsoletas da sessão de nuvem.
+
+## 02/10/2026 - 10:33 | D-A64: a chave do ccache no preci tem de valer com o ccache do Fedora no PATH (main, modo autônomo; conserto mecânico de um defeito medido)
+
+- *Fato:* o `preci --fast` de 02/10 (log `/var/tmp/preci-0210.log`) saiu com rc=8 e um só vermelho, o `preci_selftest`, com a mensagem "selftest ccache preconfigurado: desligado, mas o ccache contou 1 chamada(s)" (`tools/preci.sh:2238`).
+- *Causa provada:*
+  - O pacote `ccache-4.12.3-1.fc44`, instalado em 30/09 (L-51), traz `/etc/profile.d/ccache.sh`, que põe `/usr/lib64/ccache` à frente do `PATH` em todo shell de login. Ali, `c++` e `g++` são o próprio ccache.
+  - Com esse diretório no PATH, o compilador que o CMake guarda já é o ccache, e `GLINTFX_PRECI_CCACHE=0` não desliga nada.
+  - Prova: o mesmo teste, rodado com `/usr/lib64/ccache` fora do PATH, deu rc=0.
+  - O preci de 30/09 passou porque aquele shell ainda não tinha o diretório no PATH.
+- *Escolha:*
+  - O `setup_ccache` passa a tirar do PATH todo diretório de "máscara" (onde `c++`/`cc` resolvem para o binário do ccache). Assim o ccache entra só pelo lançador explícito, que a chave controla.
+  - Com a chave desligada, também se exporta `CCACHE_DISABLE=1` como segunda trava.
+  - O `--selftest` ganha um controle com um diretório de máscara falso no PATH, visto reprovando na forma antiga.
+- *Recusados:*
+  - pedir ao líder que tire o profile.d: ele mexe no sistema dele, e o defeito é nosso, porque a chave tem de ser honesta em qualquer host;
+  - relaxar o controle.
+- *Porta de mão única:* não.

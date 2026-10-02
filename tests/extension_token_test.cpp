@@ -33,6 +33,8 @@ GLINTFX_TEST(extension_token_a_longer_token_never_matches_a_shorter_name) {
                                           "EGL_MESA_device_software"));
     GLINTFX_CHECK(!extension_token_listed("EGL_KHR_gl_colorspace_x", "EGL_KHR_gl_colorspace"));
     GLINTFX_CHECK(!extension_token_listed("XEGL_KHR_gl_colorspace", "EGL_KHR_gl_colorspace"));
+    // Tokens are case-sensitive: a token that differs only by case is a different name.
+    GLINTFX_CHECK(!extension_token_listed("EGL_khr_gl_colorspace", "EGL_KHR_gl_colorspace"));
 }
 
 GLINTFX_TEST(extension_token_a_prefix_of_a_listed_token_never_matches) {
@@ -75,10 +77,14 @@ GLINTFX_TEST(extension_token_the_whole_table_is_swept_and_counted) {
         bool expected;
     };
     const cell table[] = {
-        {"A B C", "A", true},  {"A B C", "B", true}, {"A B C", "C", true},  {"A B C", "D", false},
-        {"AB", "A", false},    {"A", "AB", false},   {"A_x B", "A", false}, {"B A_x", "A", false},
-        {"A  B", "B", true},   {" A", "A", true},    {"A ", "A", true},     {"", "A", false},
-        {nullptr, "A", false}, {"A", "", false},     {"A_B", "B", false},
+        {"A B C", "A", true},  {"A B C", "B", true},
+        {"A B C", "C", true},  {"A B C", "D", false},
+        {"AB", "A", false},    {"A", "AB", false},
+        {"A_x B", "A", false}, {"B A_x", "A", false},
+        {"A  B", "B", true},   {" A", "A", true},
+        {"A ", "A", true},     {"", "A", false},
+        {nullptr, "A", false}, {"A", "", false},
+        {"A_B", "B", false},   {"EGL_khr_gl_colorspace", "EGL_KHR_gl_colorspace", false},
     };
     std::size_t swept = 0;
     for (const cell &c : table) {
@@ -87,5 +93,5 @@ GLINTFX_TEST(extension_token_the_whole_table_is_swept_and_counted) {
     }
     std::println("extension_token_test: {} cell(s) swept of {}", swept,
                  sizeof(table) / sizeof(table[0]));
-    GLINTFX_CHECK_EQ(swept, std::size_t{15}); // zero swept would be a broken sweep, never "clean"
+    GLINTFX_CHECK_EQ(swept, std::size_t{16}); // zero swept would be a broken sweep, never "clean"
 }

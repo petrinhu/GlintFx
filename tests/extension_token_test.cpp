@@ -72,9 +72,9 @@ GLINTFX_TEST(extension_token_the_wgl_names_of_srgb_are_told_apart_by_whole_token
 // the test refuses to pass on fewer than the table has.
 GLINTFX_TEST(extension_token_the_whole_table_is_swept_and_counted) {
     struct cell {
-        const char *list;
-        std::string_view name;
-        bool expected;
+        const char *list = nullptr;
+        std::string_view name{};
+        bool expected = false;
     };
     const cell table[] = {
         {"A B C", "A", true},  {"A B C", "B", true},

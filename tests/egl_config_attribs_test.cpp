@@ -16,7 +16,6 @@
 
 using glintfx::platform::egl_attrib_list;
 using glintfx::platform::egl_choose_config_attribs;
-using glintfx::platform::egl_extension_listed;
 using glintfx::platform::egl_window_surface_attribs;
 
 namespace {
@@ -78,20 +77,4 @@ GLINTFX_TEST(
     GLINTFX_CHECK_EQ(value_of(off, EGL_GL_COLORSPACE_KHR),
                      -1);                        // the default, linear colorspace: nothing asked
     GLINTFX_CHECK_EQ(off.count, std::size_t{1}); // just the terminator
-}
-
-GLINTFX_TEST(egl_config_attribs_an_extension_is_listed_by_the_whole_token) {
-    const char *list = "EGL_KHR_image_base EGL_KHR_gl_colorspace EGL_EXT_buffer_age";
-    GLINTFX_CHECK(egl_extension_listed(list, "EGL_KHR_gl_colorspace"));
-    GLINTFX_CHECK(egl_extension_listed(list, "EGL_KHR_image_base"));       // the first token
-    GLINTFX_CHECK(egl_extension_listed(list, "EGL_EXT_buffer_age"));       // the last token
-    GLINTFX_CHECK(!egl_extension_listed(list, "EGL_KHR_gl_colorspace_x")); // never a longer name
-    GLINTFX_CHECK(!egl_extension_listed("EGL_KHR_gl_colorspace_x", "EGL_KHR_gl_colorspace"));
-    GLINTFX_CHECK(!egl_extension_listed("EGL_KHR_gl", "EGL_KHR_gl_colorspace")); // never a prefix
-    GLINTFX_CHECK(!egl_extension_listed(list, "EGL_KHR_gl")); // nor a prefix of a listed one
-    GLINTFX_CHECK(!egl_extension_listed("", "EGL_KHR_gl_colorspace"));
-    GLINTFX_CHECK(!egl_extension_listed(nullptr, "EGL_KHR_gl_colorspace"));
-    GLINTFX_CHECK(!egl_extension_listed(list, ""));
-    GLINTFX_CHECK(
-        egl_extension_listed("  EGL_KHR_gl_colorspace  ", "EGL_KHR_gl_colorspace")); // extra spaces
 }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "platform/wayland/egl_device_query.hpp"
 
-#include <cstring>
-
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
+
+#include "platform/extension_token.hpp"
 
 // egl_device_query.cpp - GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec.
 // 4.1; docs/plano-w6b-fatias-5b-revisao.md sec. 1.1/1.3, F3): the real
@@ -14,11 +14,10 @@
 // static link: the extension is not guaranteed present).
 //
 // EGL_MESA_device_software HAS NO NUMERIC TOKEN (it names an EXTENSION
-// STRING, not an attribute or enum) - std::strstr() over the space-
-// separated list eglQueryDeviceStringEXT(device, EGL_EXTENSIONS)
-// returns is the documented way to test for it (the same shape any
-// glGetString(GL_EXTENSIONS) scan already uses elsewhere in this
-// project).
+// STRING, not an attribute or enum) - the space-separated list
+// eglQueryDeviceStringEXT(device, EGL_EXTENSIONS) returns is searched by
+// the WHOLE token (platform/extension_token.hpp), never by substring:
+// EGL_MESA_device_software_x is another extension (D-SRGB-2, S1).
 
 namespace {
 
@@ -41,7 +40,8 @@ egl_device_facts query_egl_device_facts(void *egl_device) noexcept {
 
     if (const char *extensions = query_device_string(device, EGL_EXTENSIONS);
         extensions != nullptr) {
-        facts.software = std::strstr(extensions, "EGL_MESA_device_software") != nullptr;
+        facts.software =
+            glintfx::platform::extension_token_listed(extensions, "EGL_MESA_device_software");
     }
     if (const char *render_node = query_device_string(device, EGL_DRM_RENDER_NODE_FILE_EXT);
         render_node != nullptr) {

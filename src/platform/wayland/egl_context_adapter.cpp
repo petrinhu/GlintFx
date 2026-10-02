@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "platform/extension_token.hpp"
 #include "platform/nul_terminated_name.hpp"
 
 // WL_EGL_PLATFORM before <EGL/egl.h> (tests/container/egl_probe_
@@ -548,7 +549,7 @@ wayland_egl_context_adapter::choose_config(std::span<const gltfx_gfx_option_entr
 
     // What the DISPLAY advertises; with the option on, the surface is the real test
     // (create_egl_window()).
-    const bool colorspace_extension = egl_extension_listed(
+    const bool colorspace_extension = extension_token_listed(
         eglQueryString(m_egl_display, EGL_EXTENSIONS), "EGL_KHR_gl_colorspace");
     m_srgb_supported = colorspace_extension;
 

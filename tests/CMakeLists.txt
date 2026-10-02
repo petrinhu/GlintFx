@@ -1271,12 +1271,17 @@ target_sources(drm_gpu_kind_test PRIVATE
 )
 
 # D-SRGB-1 (errata sec. 28): what the EGL adapter ASKS of EGL (the choose list without a colorspace, the window
-# surface list with it, the extension test), as pure functions over plain data. Linux only: the Win32 side gets
+# surface list with it), as pure functions over plain data. Linux only: the Win32 side gets
 # its sRGB from the pixel format, a different mechanism (a permanent, declared asymmetry).
 if(UNIX)
     glintfx_add_test(egl_config_attribs_test)
     target_include_directories(egl_config_attribs_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 endif()
+
+# D-SRGB-2 (D-SRGB2-6, S1): the whole-token extension-list atom (src/platform/extension_token.hpp), header-only and
+# free of any OS header, shared by the EGL and the WGL adapters. NO platform guard: it runs on every system.
+glintfx_add_test(extension_token_test)
+target_include_directories(extension_token_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
 glintfx_add_test(egl_device_dedup_test)
 target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

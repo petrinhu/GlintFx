@@ -1288,6 +1288,13 @@ target_include_directories(extension_token_test PRIVATE "${PROJECT_SOURCE_DIR}/s
 glintfx_add_test(gfx_format_decision_test)
 target_include_directories(gfx_format_decision_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# D-SRGB-2 (D-SRGB2-7, S3): what a failed eglCreateWindowSurface WITH the sRGB colorspace means
+# (src/platform/wayland/egl_srgb_surface.hpp, header-only). Linux only: it uses the EGL_BAD_* codes of <EGL/egl.h>.
+if(UNIX)
+    glintfx_add_test(egl_srgb_surface_test)
+    target_include_directories(egl_srgb_surface_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+endif()
+
 glintfx_add_test(egl_device_dedup_test)
 target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(egl_device_dedup_test PRIVATE

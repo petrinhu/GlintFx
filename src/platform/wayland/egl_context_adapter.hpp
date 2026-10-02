@@ -267,6 +267,11 @@ class wayland_egl_context_adapter {
                                                      std::uint32_t pixel_width,
                                                      std::uint32_t pixel_height,
                                                      bool srgb) noexcept;
+    // D-SRGB2-7: eglCreateWindowSurface over `config`, a failure with the sRGB colorspace asked
+    // classified by its EGL error code (egl_srgb_surface.hpp).
+    [[nodiscard]] gltfx_rslt<void> create_window_surface(void *config, bool srgb) noexcept;
+    // Reads the colorspace of m_egl_surface back and refuses unless it is sRGB.
+    [[nodiscard]] gltfx_rslt<void> confirm_srgb_surface() noexcept;
     // Runs AFTER create_egl_window() above has already produced
     // m_egl_surface: eglCreateContext(3.3 core) over `config`, make it
     // current, then validate_gl_context_version() (gl_version_policy.
@@ -323,7 +328,11 @@ class wayland_egl_context_adapter {
 
     bool m_vsync_on = true; // D-W6b-7's own default
     bool m_msaa_supported = false;
-    bool m_srgb_supported = false;
+    // D-SRGB2-1: the three facts srgb_option_support() (gfx_format_decision.hpp) reads, written by
+    // choose_config() and create_egl_window(), cleared by close().
+    bool m_srgb_requested = false;
+    bool m_srgb_advertised = false;
+    bool m_srgb_confirmed = false;
     // INBOX (drenagem 06/09/2026): written once, by create_context()'s
     // own eglSwapInterval(m_egl_display, 0) call - see swap_interval_
     // honored()'s own header comment above for what false means.

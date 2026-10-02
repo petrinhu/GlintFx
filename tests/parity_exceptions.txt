@@ -963,8 +963,7 @@ power_source_adapter_test|windows|nenhum|SEM-PENDENCIA
 egl_config_attribs_test|windows|nenhum|SEM-PENDENCIA
 
 # D-SRGB-2 (D-SRGB2-7, S3): egl_srgb_surface_test proves what a failed eglCreateWindowSurface with the sRGB
-# colorspace asked MEANS, over the EGL_BAD_* codes of <EGL/egl.h>, which the Windows side does not have. The
-# observable behaviour it proves (a refusal that names srgb_framebuffer, never a degradation in silence) is proved
-# on the Windows side by wgl_srgb_pixel_format_test (D-SRGB2-9, slice S5, not yet written).
-# MORTE DESTA LINHA: nunca - assimetria permanente por desenho (sem EGL no Windows).
-egl_srgb_surface_test|windows|nenhum|SEM-PENDENCIA
+# colorspace asked MEANS, over the EGL_BAD_* codes of <EGL/egl.h>, which exist only in EGL and not on the Windows
+# side. The WGL counterpart is slice S5 of D-SRGB-2 (wgl_srgb_pixel_format_test), not yet implemented.
+# MORTE DESTA LINHA: quando a contraparte WGL (S5) existir e o item D-SRGB2-WGL-SLICES fechar.
+egl_srgb_surface_test|windows|nenhum|D-SRGB2-WGL-SLICES

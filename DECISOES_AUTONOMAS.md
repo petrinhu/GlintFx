@@ -5501,3 +5501,12 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - https://github.com/glfw/glfw/blob/master/src/wgl_context.c
   - https://www.g-truc.net/post-0720.html
   - https://github.com/glfw/glfw/issues/553
+
+## 02/10/2026 - 11:01 | Fato para o CTO (não é decisão): o Mesa pode deixar a janela Wayland apontando para uma superfície liberada (achado do implementador da S3, commit 6aa247c)
+
+- *Fato lido na fonte* (Mesa `main` de 02/10, `src/egl/drivers/dri2/platform_wayland.c`, cópia só para leitura em `/var/tmp/s3mut/pw.c`, L-29):
+  - Em `dri2_wl_create_window_surface` (`:692`), o `window->driver_private = dri2_surf` é gravado só em `:838`. As falhas com `EGL_BAD_MATCH`/`EGL_BAD_ATTRIBUTE` vêm antes disso (`:719-721`, `:726-729`, `:759-760`) e vão para `cleanup_surf`, que não toca na janela. A sonda do D-SRGB2-7 é SEGURA para esses códigos: confirmado.
+  - **Ressalva:** se `dri2_create_drawable` falhar (`:843-844`), o `goto cleanup_dmabuf_feedback` NÃO zera `driver_private`, que fica apontando para a superfície liberada. Uma nova tentativa sobre a mesma `wl_egl_window` daria `EGL_BAD_ALLOC` (`:708-709`).
+- *Impacto (inferência):* esse caminho não produz BAD_MATCH nem BAD_ATTRIBUTE, então não entra na sonda. Mas qualquer código futuro que tente de novo sobre a mesma janela depois de um BAD_ALLOC esbarra nele.
+- *Não conferido:* versão por versão do Mesa dos containers do CI.
+- *Destino:* insumo para quem revisitar o D-SRGB2-7.

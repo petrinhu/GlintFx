@@ -5146,6 +5146,13 @@ if(UNIX)
 endif()
 
 add_test(
+    NAME preci_compare_times_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/preci_compare_times.py" --selftest
+)
+set_tests_properties(preci_compare_times_selftest PROPERTIES LABELS selftest)
+
+add_test(
     NAME preci_runs_blob_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/blob_selftests.py" --check-preci "${PROJECT_SOURCE_DIR}/tools/preci.sh"

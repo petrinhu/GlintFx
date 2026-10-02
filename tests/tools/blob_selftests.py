@@ -196,6 +196,12 @@ def ausentes_condicionais(entradas, nomes_ctest):
             for e in entradas if e["fora"] is not None and e["nome"] not in nomes_ctest and e.get("cond", "")]
 
 
+# A real call is a whole line: either bare `stage_blob` or wrapped as `timed_stage "<label>" stage_blob`
+# (the form tools/preci.sh uses since the timing wrapper). A comment, a string, a definition
+# `stage_blob() {` or `timed_stage "..." other_stage` never matches.
+_STAGE_BLOB_CALL_RE = re.compile(r'^[ \t]+(?:timed_stage[ \t]+"[^"\n]*"[ \t]+)?stage_blob[ \t]*$', re.MULTILINE)
+
+
 def preci_blob_errors(preci_text):
     """`run_full_pipeline` (o que --fast e o modo vazio despacham) chama stage_blob: a
     decisao do CTO e' que o --blob entre no --fast por padrao. Achado real: a primeira
@@ -203,7 +209,7 @@ def preci_blob_errors(preci_text):
     m = re.search(r"^run_full_pipeline\(\) \{\n(.*?)^\}\n", preci_text, re.MULTILINE | re.DOTALL)
     if not m:
         return ["run_full_pipeline nao encontrado em tools/preci.sh - varredura vazia (L-40)"]
-    if not re.search(r"^\s+stage_blob\s*$", m.group(1), re.MULTILINE):
+    if not _STAGE_BLOB_CALL_RE.search(m.group(1)):
         return ["run_full_pipeline (o --fast e o modo vazio) nao chama stage_blob - o estagio --blob nao roda no espelho local"]
     return []
 
@@ -493,6 +499,12 @@ def selftest_main():
     so_lint = "run_full_pipeline() {\n    stage_format\n    stage_configure\n}\n\nrun_lint_only() {\n    stage_format\n    stage_blob\n}\n"
     controles.append(_check("preci: stage_blob so' no run_lint_only (o erro real) reprova",
                             any("run_full_pipeline" in e for e in preci_blob_errors(so_lint)), str(preci_blob_errors(so_lint))))
+    embrulhado = 'run_full_pipeline() {\n    timed_stage "1: clang-format" stage_format\n    timed_stage "2b: selftests (--blob), cruzados" stage_blob\n}\n'
+    controles.append(_check("preci: stage_blob embrulhado em timed_stage passa", not preci_blob_errors(embrulhado), str(preci_blob_errors(embrulhado))))
+    outro = 'run_full_pipeline() {\n    timed_stage "2b: stage_blob" stage_format\n    # timed_stage "x" stage_blob\n    echo "timed_stage y stage_blob"\n}\nstage_blob() {\n    :\n}\n'
+    controles.append(_check("preci: timed_stage com OUTRO estagio, comentario, string e definicao reprovam", bool(preci_blob_errors(outro)), str(preci_blob_errors(outro))))
+    fora = 'run_full_pipeline() {\n    stage_format\n}\nrun_lint_only() {\n    timed_stage "x" stage_blob\n}\n'
+    controles.append(_check("preci: stage_blob embrulhado fora de run_full_pipeline reprova", bool(preci_blob_errors(fora)), str(preci_blob_errors(fora))))
     controles.append(_check("preci: sem run_full_pipeline reprova (varredura vazia)", bool(preci_blob_errors("nada\n"))))
     if not all(controles):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

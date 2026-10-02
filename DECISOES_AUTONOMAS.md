@@ -5486,3 +5486,18 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - **D-SRGB2-15:** a previsão de cada chave MEASURED é fixada antes do dado (L-43). Se o CI der outro valor, o trabalho para e volta ao CTO.
 - *Achado que vai ao INBOX:* o `check_measured_parity.py` nunca reprova por linha de exceção faltando (F12 do plano).
 - *Porta de mão única:* nenhuma. O D-SRGB2-4 muda um comportamento público do Windows (abria, passa a recusar). Isso aplica a D-W6b-17, que é contrato vigente, e não cria regra nova.
+
+## 02/10/2026 - 10:58 | Pesquisa da L-42 (ordem do líder: "pesquise!"), na 3ª rodada vermelha do sRGB no Windows (CI 37014377382, job Windows - estatico)
+
+- *Fato do CI:* as mesmas 3 células `[srgb=on]` do `draw2d_parity_test`, como em 36759613878 (30/09) e 36908843898 (01/10). É o terceiro vermelho pelo mesmo motivo; a L-42 manda buscar na web antes da terceira tentativa.
+- *Conferido pelo main na fonte primária* (Mesa `mesa-26.2.0`, gitlab.freedesktop.org, `src/gallium/frontends/wgl/`, baixada às 10:56). Até aqui isso era leitura de um agente da sessão de nuvem.
+  - `stw_ext_extensionsstring.c`: a lista anunciada tem 14 extensões, e nenhuma é `WGL_ARB_framebuffer_sRGB` ou `WGL_EXT_framebuffer_sRGB`.
+  - `stw_ext_pixelformat.c:352`: `if (ami == NULL) return true;`, ou seja, um atributo fora da tabela de correspondência é ignorado em silêncio pelo `wglChoosePixelFormatARB`.
+  - `stw_pixelformat.c:75-90`: os formatos de cor são só UNORM e FLOAT, nenhum SRGB.
+- *Biblioteca semelhante:* o GLFW (`src/wgl_context.c`, master) só acrescenta `WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB` se `ARB_framebuffer_sRGB || EXT_framebuffer_sRGB` foi anunciada, e relê o valor por formato de pixel. É o mesmo desenho da D-A62 e do D-SRGB2-2.
+- *Conclusão:* a causa é confirmada, e o plano (D-A65, fatias S4 e S5) ataca o mecanismo certo. Este vermelho é ESPERADO até as fatias S4 e S5 entrarem, e nenhuma tentativa nova foi feita às cegas.
+- *Fontes:*
+  - https://gitlab.freedesktop.org/mesa/mesa/-/tree/mesa-26.2.0/src/gallium/frontends/wgl
+  - https://github.com/glfw/glfw/blob/master/src/wgl_context.c
+  - https://www.g-truc.net/post-0720.html
+  - https://github.com/glfw/glfw/issues/553

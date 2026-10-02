@@ -1283,6 +1283,11 @@ endif()
 glintfx_add_test(extension_token_test)
 target_include_directories(extension_token_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# D-SRGB-2 (D-SRGB2-1/3, S2): the neutral decision of the open_only format options (src/platform/gl/gfx_format_decision.hpp),
+# header-only, called by both adapters; the test enumerates its whole input space and runs on every system.
+glintfx_add_test(gfx_format_decision_test)
+target_include_directories(gfx_format_decision_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 glintfx_add_test(egl_device_dedup_test)
 target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(egl_device_dedup_test PRIVATE

@@ -175,6 +175,8 @@ GLINTFX_TEST(gfx_format_decision_the_named_cases_of_the_plan_hold) {
     GLINTFX_CHECK(decide_gfx_format(facts) == msaa);
 }
 
+namespace {
+
 struct support_row {
     bool requested;
     bool advertised;
@@ -193,6 +195,8 @@ constexpr support_row k_support_table[] = {
     {false, true, true, yes},  {true, false, false, no}, {true, false, true, yes},
     {true, true, false, no},   {true, true, true, yes},
 };
+
+} // namespace
 
 GLINTFX_TEST(gfx_format_decision_all_8_srgb_support_combinations_follow_the_one_rule) {
     constexpr std::size_t rows = sizeof(k_support_table) / sizeof(k_support_table[0]);

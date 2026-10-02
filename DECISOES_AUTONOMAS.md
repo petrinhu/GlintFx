@@ -5510,3 +5510,8 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Impacto (inferência):* esse caminho não produz BAD_MATCH nem BAD_ATTRIBUTE, então não entra na sonda. Mas qualquer código futuro que tente de novo sobre a mesma janela depois de um BAD_ALLOC esbarra nele.
 - *Não conferido:* versão por versão do Mesa dos containers do CI.
 - *Destino:* insumo para quem revisitar o D-SRGB2-7.
+
+## 02/10/2026 - 11:02 | ORDEM DO LÍDER: "fable é so advisor!"
+
+- *Contexto:* às 11:00 o main despachou o revisor adversarial de S0 a S3 com o modelo `fable`. O agente foi parado às 11:02, antes de compilar ou commitar qualquer coisa (árvore limpa), e foi despachado de novo com `sonnet`, que é o modelo de agente não C-level pela regra de sessão (`/modelos_sessao`). O revisor continua sendo um agente distinto do implementador (L-12).
+- *Pendente com o líder (LEI DAS LEIS):* a L-18 do `GODS_LAWS.md` ainda diz "fable audita e cria". Esta ordem muda esse texto. Pela LEI DAS LEIS, a mudança do texto da lei se leva ao líder com o contra-argumento e a confirmação dele. Fica registrada para a saída do modo autônomo; enquanto isso, a ordem vale na prática.

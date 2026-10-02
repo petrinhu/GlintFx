@@ -5457,3 +5457,32 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - pedir ao líder que tire o profile.d: ele mexe no sistema dele, e o defeito é nosso, porque a chave tem de ser honesta em qualquer host;
   - relaxar o controle.
 - *Porta de mão única:* não.
+
+## 02/10/2026 - 10:36 | D-A65: o plano do D-SRGB-2 e as 15 decisões do CTO que o compõem (CTO, modo autônomo, L-34; plano `/var/tmp/cto-w7d/plano-d-srgb-2.md`, md5 ac7778a6)
+
+- *Executa:* D-A62 e D-A63 (decisões do líder), sem reabrir nenhuma.
+- *Verificação do main (L-34, passo 3), feita contra a árvore às 10:36:*
+  - a cascata do WGL em `wgl_context_adapter.cpp:302-324` (os ramos `:308-314` e `:315-317` abrem sem a opção pedida);
+  - a extensão EGL lida em `egl_context_adapter.cpp:551-553`;
+  - a superfície sRGB sem `eglGetError` em `:603-610`;
+  - a busca por substring em `egl_device_query.cpp:44`;
+  - `0x8DB9` escrito em 4 arquivos (1 em src, 3 em tests).
+  Tudo confere.
+- *Decisões (detalhe e fontes no plano):*
+  - **D-SRGB2-1, resolve o C1:** sem a opção pedida, `option_support(srgb_framebuffer)` é supported se e só se a extensão é anunciada, nos dois sistemas, por uma função pura única. Hoje o Linux responde pela extensão e o Windows por "o choose deu certo". O CI mostra 1 nos dois lados, e esse valor igual esconde a diferença de regra.
+  - **D-SRGB2-2:** a cascata do WGL vira extensão, escolha, consulta 0x20A9 no formato e só então `SetPixelFormat`. Na reabertura, a consulta é feita no formato já ligado.
+  - **D-SRGB2-3:** a precedência das recusas é uma função pura neutra, compartilhada pelos dois adaptadores.
+  - **D-SRGB2-4:** MSAA pedido e impossível no Windows passa a ser `unsupported`/`msaa_samples`, como no Linux. Hoje abre sem MSAA, calado, e nenhum teste exercia esse ramo.
+  - **D-SRGB2-5:** o carregador WGL lê a lista de extensões com o contexto descartável corrente e devolve fatos.
+  - **D-SRGB2-6:** átomo neutro de busca por token inteiro (`src/platform/extension_token.hpp`), que substitui as 4 buscas por substring.
+  - **D-SRGB2-7, resolve o I2:** a falha da superfície sRGB se classifica pelo `eglGetError()`, com sonda de confirmação.
+  - **D-SRGB2-8:** os átomos novos são só de cabeçalho, para não editar as 15 listas de fontes à mão.
+  - **D-SRGB2-9:** o átomo do WGL é puro e testado em todo sistema.
+  - **D-SRGB2-10, I3:** os `static_assert` que faltam.
+  - **D-SRGB2-11:** COLOR_ENCODING fica só como MEASURED (D-A62).
+  - **D-SRGB2-12:** uma célula viva do contrato `open_only` para MSAA e sRGB numa janela nova.
+  - **D-SRGB2-13:** a ausência declarada do `draw2d_parity_test` passa a exigir `rejected_value == "srgb_framebuffer"`.
+  - **D-SRGB2-14:** a VM Windows não prova o sRGB ligado (mesmo Mesa 26.2.0), mas é a única fronteira local onde as células só-Windows aparecem vermelhas antes do servidor.
+  - **D-SRGB2-15:** a previsão de cada chave MEASURED é fixada antes do dado (L-43). Se o CI der outro valor, o trabalho para e volta ao CTO.
+- *Achado que vai ao INBOX:* o `check_measured_parity.py` nunca reprova por linha de exceção faltando (F12 do plano).
+- *Porta de mão única:* nenhuma. O D-SRGB2-4 muda um comportamento público do Windows (abria, passa a recusar). Isso aplica a D-W6b-17, que é contrato vigente, e não cria regra nova.

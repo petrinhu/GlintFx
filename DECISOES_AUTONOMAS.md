@@ -5515,3 +5515,15 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 
 - *Contexto:* às 11:00 o main despachou o revisor adversarial de S0 a S3 com o modelo `fable`. O agente foi parado às 11:02, antes de compilar ou commitar qualquer coisa (árvore limpa), e foi despachado de novo com `sonnet`, que é o modelo de agente não C-level pela regra de sessão (`/modelos_sessao`). O revisor continua sendo um agente distinto do implementador (L-12).
 - *Pendente com o líder (LEI DAS LEIS):* a L-18 do `GODS_LAWS.md` ainda diz "fable audita e cria". Esta ordem muda esse texto. Pela LEI DAS LEIS, a mudança do texto da lei se leva ao líder com o contra-argumento e a confirmação dele. Fica registrada para a saída do modo autônomo; enquanto isso, a ordem vale na prática.
+
+## 02/10/2026 - 11:14 | Revisão adversarial de S0 a S3 do D-SRGB-2 e a prova viva da S3 (L-12, L-27)
+
+- *Prova viva da S3 no container Wayland* (imagem `glintfx-wltest:s3`, construída a partir de 6aa247c; logs em `/var/tmp/s3-janela/`):
+  - A primeira rodada reprovou no isolamento ("wire_relay nao encontrado"), porque a receita do main pulou o `wait_for_ready_marker.sh` que o CI usa. O portão estava certo.
+  - A segunda rodada, com a espera: isolamento provado (kwin e relé dentro do container), `draw2d_parity_test` rc=0 com 51 células e 0 reprovadas, `half_white_srgb_on=187`, `half_red_srgb_on=187`, `srgb_on_cells_absent=0`; `gl_context_parity_test` rc=0, `srgb_support=1`, `msaa_support=1`.
+  - Bate com a tabela §5 do plano, fixada antes do dado.
+- *Revisão (sonnet, agente distinto do implementador; a primeira tentativa em fable foi parada por ordem do líder):* APROVA COM RESSALVAS, 0 CRÍTICO.
+  - O I-1, "caminho feliz não provado", foi escrito a partir dos logs da primeira rodada; a segunda rodada o fecha.
+  - I-2 (a exceção de paridade cita um par que ainda não existe) e C-1 (falta caso de maiúsculas no teste de token) estão em conserto.
+- **Mutante sobrevivente DECLARADO (I-3):** "a sonda do D-SRGB2-7 sem `eglDestroySurface`". Nenhum teste o mata: o ramo da sonda só roda com um driver que devolva BAD_MATCH ou BAD_ATTRIBUTE, e o llvmpipe do container passa pelo caminho de sucesso. O dano é limitado, porque o `eglTerminate` do `close()` libera tudo. Fechá-lo exige injetar as chamadas EGL num dublê ou forçar o driver; fica como lacuna conhecida para quem revisitar o D-SRGB2-7.
+- *Cosméticos C-2 e C-3* (quebras de comentário e a forma do laço de 240 combinações): não bloqueiam e ficam como estão.

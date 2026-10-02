@@ -41,7 +41,7 @@
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
 | [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
 | [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
-| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level fable audita e cria; sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
+| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level audita e cria no modelo configurado em `/modelos_sessao` (emenda de 02/10/2026; `fable` só como advisor); sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 | [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
 | [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit em pt-br |
@@ -57,7 +57,7 @@
 | [L-31](#l-31) | tocar contexto gráfico, shader ou carregador de GL | OpenGL 3.3 core, nativo nas duas plataformas |
 | [L-32](#l-32) | escolher a próxima fatia a implementar, antes de a demo rodar | Caminho principal sempre, mais no máximo UMA trilha paralela |
 | [L-33](#l-33) | tocar QUALQUER coisa de mapa: decisão, fatia, formato, código | Avisar o `mapeditor`; sessão fora do ar, mandar pelo bus |
-| [L-34](#l-34) | iniciar uma fatia ou onda de trabalho de produto | Ciclo de 4 passos: main+líder faz brainstorm, `fable` planeja e audita, main verifica e orquestra, `sonnet` implementa; quem define fatia ou onda é o líder |
+| [L-34](#l-34) | iniciar uma fatia ou onda de trabalho de produto | Ciclo de 4 passos: main+líder faz brainstorm, o C-level (modelo de `/modelos_sessao`, emenda de 02/10/2026 na L-18) planeja e audita, main verifica e orquestra, `sonnet` implementa; quem define fatia ou onda é o líder |
 | [L-35](#l-35) | desenhar ou implementar a entrega de evento de entrada | Promessa pública do contrato: determinística, sem duplicação, sem reordenação; nasce com teste que a prova |
 | [L-36](#l-36) | decidir cursor do ponteiro, áudio no Linux, mapeamento de gamepad ou compose/tecla morta | Quatro decisões de escopo do líder que saem de `🎨 Pendente design` |
 | [L-37](#l-37) | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | Avisar o Gus Dragon sem ele precisar perguntar |
@@ -469,6 +469,13 @@ Regra qualitativa sem lugar no processo é regra que ninguém aplica.
 **A thread principal (`main`) não executa trabalho de produto.** Ela faz exatamente três coisas: **orquestra**, **delega a agentes** e **avalia o retorno dos agentes**. Escrever código, escrever documento de produto, auditar, testar: nada disso é do `main`.
 
 **Aplicação, quem chamar:**
+
+**EMENDA de 02/10/2026, ordem do líder, levada pela LEI DAS LEIS.** Primeiro a ordem *"fable é so advisor!"* (11:02, depois que o main despachou um revisor em `fable`). Depois, à pergunta sobre o texto desta lei, feita com o contra-argumento escrito (o `fable` era o revisor mais forte da casa, e a variedade de família diante do planejador `opus` era o contrapeso da emenda de 22/09 da L-34), o líder respondeu, verbatim: *"clevel: respeitar o que for configurado na skill de modelos da sessao"*. **O texto que manda daqui em diante:**
+- o modelo do C-level que planeja, audita e cria é o configurado em `/modelos_sessao`, para o grupo Orquestrador + C-levels;
+- o modelo do implementador e do revisor operacional é o do grupo Demais agents;
+- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado;
+- a tabela abaixo e as citações de 21/08 que dizem `fable` ficam como registro datado do que foi dito.
+A L-12 continua intacta: implementador, revisor e orquestrador são agentes DISTINTOS, qualquer que seja o modelo.
 
 | Tipo de trabalho | Agente | Modelo |
 |---|---|---|

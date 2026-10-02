@@ -2203,6 +2203,48 @@ run_selftest_ccache_controls() {
     esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
 }
 
+run_selftest_ccache_mask_controls() {
+    log "selftest: diretorio de mascara do ccache no PATH (ex.: /usr/lib64/ccache do Fedora) sai do PATH, com a chave ligada ou desligada"
+    # Fake host: a stub ccache plus a mask dir whose c++/cc/g++/gcc are links
+    # to it. Never depends on a real ccache or a real mask dir (the CI has none).
+    mask_root="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-mask.XXXXXX")" \
+        || fail "selftest ccache mascara: mktemp falhou"
+    falhar() { rm -rf "$mask_root"; fail "$@"; }
+    mkdir "$mask_root/bin" "$mask_root/mask" || falhar "selftest ccache mascara: mkdir falhou"
+    printf '#!/bin/sh\nexit 0\n' > "$mask_root/bin/ccache"
+    chmod +x "$mask_root/bin/ccache"
+    for nome in c++ cc g++ gcc; do
+        ln -s "$mask_root/bin/ccache" "$mask_root/mask/$nome" || falhar "selftest ccache mascara: ln falhou"
+    done
+    observar() {
+        (
+            unset CCACHE_DISABLE
+            GLINTFX_PRECI_CCACHE="$1"
+            PATH="$mask_root/mask:$mask_root/bin:$PATH"
+            estado="$(setup_ccache /selftest-root)" || true
+            # setup_ccache exports: re-run it in this shell for the environment.
+            setup_ccache /selftest-root > /dev/null
+            case ":$PATH:" in
+                *":$mask_root/mask:"*) echo "mascara=no-PATH" ;;
+                *) echo "mascara=fora-do-PATH" ;;
+            esac
+            echo "disable=${CCACHE_DISABLE:-}"
+            echo "$estado" | grep '^ccache: mascaras retiradas' || echo "mascaras retiradas: linha ausente"
+        )
+    }
+    obtido="$(observar 0)"
+    case "$obtido" in
+        *"mascara=fora-do-PATH"*"disable=1"*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave desligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 0): esperado mascara fora do PATH, CCACHE_DISABLE=1 e '1' retirada; obtido '$obtido'" ;;
+    esac
+    obtido="$(observar 1)"
+    case "$obtido" in
+        *"mascara=fora-do-PATH"*"disable="*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave ligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 1): esperado mascara fora do PATH e '1' retirada; obtido '$obtido'" ;;
+    esac
+    rm -rf "$mask_root"
+}
+
 run_selftest_ccache_preconfigured_controls() {
     log "selftest: arvore de build JA configurada segue a chave do ccache (o ambiente so vale no primeiro configure)"
     if ! command -v ccache > /dev/null 2>&1; then
@@ -2346,6 +2388,7 @@ run_selftest() {
     run_selftest_floor_controls
     run_selftest_ctest_jobs_controls
     run_selftest_ccache_controls
+    run_selftest_ccache_mask_controls
     run_selftest_ccache_preconfigured_controls
     run_selftest_stage_times_controls
     run_selftest_cache_state_controls
@@ -2578,8 +2621,40 @@ setup_ccache() {
     _cc_root="$1"
     CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=)
     CCACHE_STATE="desligado"
+    # Hosts that mask the compiler (Fedora: /usr/lib64/ccache on PATH via
+    # /etc/profile.d) would make c++/cc BE ccache, so the switch could not
+    # turn it off. Drop every PATH component whose c++/cc/g++/gcc resolves to
+    # the ccache binary; ccache then enters only through the explicit launcher.
+    _cc_masks=0
+    _cc_bin="$(command -v ccache 2> /dev/null)" || _cc_bin=""
+    if [ -n "$_cc_bin" ]; then
+        _cc_bin="$(readlink -f "$_cc_bin")"
+        _cc_newpath=""
+        _cc_oldifs="$IFS"
+        IFS=:
+        for _cc_dir in $PATH; do
+            _cc_is_mask=0
+            for _cc_name in c++ cc g++ gcc; do
+                if [ -n "$_cc_dir" ] && [ -e "$_cc_dir/$_cc_name" ] \
+                    && [ "$(readlink -f "$_cc_dir/$_cc_name")" = "$_cc_bin" ]; then
+                    _cc_is_mask=1
+                    break
+                fi
+            done
+            if [ "$_cc_is_mask" = 1 ]; then
+                _cc_masks=$((_cc_masks + 1))
+            else
+                _cc_newpath="${_cc_newpath:+$_cc_newpath:}$_cc_dir"
+            fi
+        done
+        IFS="$_cc_oldifs"
+        PATH="$_cc_newpath"
+        export PATH
+    fi
+    echo "ccache: mascaras retiradas do PATH: $_cc_masks"
     if [ "${GLINTFX_PRECI_CCACHE:-1}" = "0" ]; then
         unset CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER
+        export CCACHE_DISABLE=1
         echo "ccache: desligado (GLINTFX_PRECI_CCACHE=0)"
         return 0
     fi

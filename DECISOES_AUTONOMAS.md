@@ -5385,3 +5385,50 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   5. as linhas "Proved by";
   6. P4, P5, a v0.6.0.0 e a W8.
   Também C2 e C4 da infra, com duas perguntas pendentes ao team-lead: o TasksMax 300/200 e os labels `tempo`.
+
+## 02/10/2026 - 10:14 | DECISÃO DO LÍDER (não autônoma): modo autônomo até 12:00 e a reconciliação com o ramo da sessão de nuvem
+
+- *Contexto:* em 01/10, uma sessão de nuvem partiu do remoto `c98c0db` sem ver os 32 commits locais deste ramo (de `c98c0db` a `cba2383`). No ramo `claude/continue-p3kc6n` (PR #13, em rascunho), ela:
+  - refez o D-SRGB-1 e o gancho de alocação;
+  - criou um D-A60 e um D-A61 que colidem com os deste arquivo.
+  A revisão independente (fable) REPROVOU aquele conjunto.
+- *Ordem do líder, verbatim:* "Ligue modo autonomo." e "e pode seguir até 12:00h", aprovando a recomendação que o main levou: "manter o onda-w7d local como base; trazer só o 0bbcab8; registrar as suas duas decisões com números novos; fechar o PR #13 sem merge."
+- *Feito:*
+  - `0bbcab8` trazido por cherry-pick como `0711d55`. São as exceções `draw2d_parity_test` para arch, cachyos e ubuntu, provadas contra os inventários reais do CI 36908843898: vermelho com o arquivo antigo, verde com o novo.
+  - As duas decisões do líder entram abaixo como D-A62 e D-A63.
+- *Não trazido:* o conserto EGL da nuvem (`219e66c`, `9d27ffe`, `ba3fb75`), o contador de alocação (`65aa9b4`) e o D-A60/D-A61 da nuvem. Os dois primeiros duplicam `0587bb7` e `6a95403`, já provados aqui.
+
+## 02/10/2026 - 10:14 | D-A62: sRGB no Windows; recusa honesta conferida no FORMATO DE PIXEL (DECISÃO DO LÍDER de 01/10, não autônoma; EMENDA o D-A61)
+
+- *Pergunta (AskUserQuestion, 01/10/2026 ~16:30):* como a biblioteca deve se comportar no Windows quando o sRGB é pedido e o driver não o aplica.
+- *Escolha do líder:* "Recusa honesta (Recomendado)".
+  - A extensão `WGL_ARB_framebuffer_sRGB` ou `WGL_EXT_framebuffer_sRGB` ausente (busca por token inteiro) leva à recusa antes do choose.
+  - O choose falhando com o atributo leva à recusa. O ramo que hoje refaz sem sRGB e abre assim mesmo (`srgb_ok=false`) deixa de existir.
+  - Depois do choose, `wglGetPixelFormatAttribivARB(formato, 0x20A9)`: só chamada ok com valor TRUE confirma. Qualquer outra coisa é `unsupported`/`srgb_framebuffer`.
+- **Emenda ao D-A61 (CTO, 30/09):** o `GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING` do framebuffer padrão deixa de ser critério de recusa e fica só como linha MEASURED.
+  - *Motivo, com fonte:* a NVIDIA devolve LINEAR mesmo quando converte (g-truc post-0720; fórum NVIDIA 205092, Quadro P1000; Khronos community 106024, onde Mali/EGL também mostra LINEAR).
+  - *Efeito:* a régua do D-A61 recusaria sRGB na RTX 3050 do líder.
+  - *Na mesma emenda:* "Recusados: confiar no que o formato de pixel diz" deixa de valer. A conferência é a consulta ao formato escolhido, como faz o SDL3.
+- *Fato medido na fonte do Mesa* (MIT; `main` e `mesa-26.2.0`, a versão do `tools/ci/install-mesa-opengl32.ps1`). Explica o 128 em vez de 188 do CI:
+  - `stw_ext_extensionsstring.c` não anuncia framebuffer_sRGB;
+  - `score_pixelformats()` ignora atributo desconhecido (`if (ami == NULL) return true;`);
+  - `stw_query_attrib()` não tem caso para 0x20A9;
+  - `stw_pixelformat.c` só oferece formatos UNORM.
+- *Recusados pelo líder:*
+  - emulação por FBO sRGB (porta de mão única de comportamento público; vai ao INBOX como `SRGB-EMULATED-FBO`);
+  - só declarar a ausência (o rótulo mentiroso ficaria).
+- *Porta de mão única:* não.
+
+## 02/10/2026 - 10:14 | D-A63: a prova da L-04 para o sRGB do Windows aceita lacuna declarada (DECISÃO DO LÍDER de 01/10, não autônoma)
+
+- *Pergunta (AskUserQuestion, 01/10/2026):* o ramo "sRGB ligado funcionando" do Windows nunca roda no CI, porque o Mesa WGL do servidor não tem sRGB (D-A62). O que vale como prova pela L-04?
+- *Escolha do líder:* "Lacuna declarada (Recomendado)".
+  - O CI prova a recusa honesta no Windows e o sRGB funcionando no Linux.
+  - O caminho ligado do Windows fica declarado e contado, com o item aberto `SRGB-WIN-CI-PROOF-GAP`, como `msaa_support` e `vsync_adaptive_support`.
+- *Recusados:* um runner com GPU real como condição para fechar a onda; e adiar a decisão.
+
+## 02/10/2026 - 10:14 | Achado a conferir (não é decisão): a revisão fable da nuvem também pode valer para o `0587bb7` local
+
+- *Fato, sobre o código da NUVEM:* `option_support(srgb_framebuffer)` sem sRGB pedido passou a dizer unsupported no Linux e supported no Windows (L-04).
+- *Outros dois achados:* uma falha qualquer de `eglCreateWindowSurface` com sRGB vira "sem sRGB", porque não se lê `eglGetError`; e há constantes EGL escritas à mão sem `static_assert`.
+- *Inferência:* o `0587bb7` local resolve o mesmo problema por outro caminho e pode ter os mesmos três. Fica para a D-SRGB-2 conferir contra a árvore antes de fechar.

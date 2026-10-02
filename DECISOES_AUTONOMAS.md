@@ -5432,3 +5432,11 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Fato, sobre o código da NUVEM:* `option_support(srgb_framebuffer)` sem sRGB pedido passou a dizer unsupported no Linux e supported no Windows (L-04).
 - *Outros dois achados:* uma falha qualquer de `eglCreateWindowSurface` com sRGB vira "sem sRGB", porque não se lê `eglGetError`; e há constantes EGL escritas à mão sem `static_assert`.
 - *Inferência:* o `0587bb7` local resolve o mesmo problema por outro caminho e pode ter os mesmos três. Fica para a D-SRGB-2 conferir contra a árvore antes de fechar.
+
+## 02/10/2026 - 10:20 | DECISÃO DO LÍDER (não autônoma): push, merge e higienização autorizados
+
+- *Ordem, verbatim:* "autorizo push/merge e higienizacao se necessario".
+- *Leitura do main, com a L-11 e a L-24 intactas:*
+  - O push do `onda-w7d` só sai com o espelho local verde.
+  - O merge em `main` e a marca só acontecem quando a onda W7-D fechar com o CI verde (`CI-VERDE-W7D`).
+  - "Higienização" cobre apagar o ramo remoto `claude/continue-p3kc6n` (o PR #13 já foi fechado sem merge) e os ramos locais e pastas de build obsoletas da sessão de nuvem.

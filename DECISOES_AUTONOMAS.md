@@ -5667,3 +5667,11 @@ Fonte: os artefatos `measured-windows-compartilhado` e `measured-fedora-containe
 | `Windows - Lint` | limpo | verde |
 
 No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_cells_absent=0`, `half_white_srgb_on=187`. A única divergência da §5.2 é a já explicada pela D-A67: `back_buffer_color_encoding_srgb_off=35904`. Ela está coberta pela linha de `tests/measured_exceptions.txt`. Placar: 25 de 26 jobs com sucesso e 1 pulado (`VERSION-TAG-SYNC`, que só roda com marca). O passo 0 fecha sem volta ao CTO.
+
+### B7-a/b aceitos pelo main (03/10/2026, 20:27), pendente só o B7-c (sanitizer)
+- O revisor (sonnet) reporta 27 de 27 mutantes mortos em `62b7865`, 0 violações de camada (3 de 3 controles achados) e 0 funções fora da L-17.
+- Recontagem independente do main sobre `/var/tmp/cto-w7d/b7/f/mutants.json` (L-12): 27 entradas, todas com `build_rc=0`, `rc=1` em cada teste listado em `mortos_por` e md5 base diferente do md5 do mutante. O controle saiu com `rc=0` em todos os 12.
+- Relatório `/var/tmp/cto-w7d/b7/auditoria-revisao-r2d-batch-final.md` (md5 `9a3500ba`). Resta um campo em branco (`@@SANITIZER@@`), que entra no passo 6.
+- Achados abertos, todos COSMÉTICO ou INFORMATIVO: B7-K1 a K5.
+- **K2:** o `mutants.py` antigo restaura o fonte preservando o mtime, e o mutante vaza para o seguinte. Não reutilizar; o executor novo é `f/run_mut.py`.
+- **K5:** falta um portão `readability-function-size`. Vai para INBOX junto do versionamento no passo 7.

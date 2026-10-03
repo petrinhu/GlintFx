@@ -3,6 +3,7 @@
 
 #if defined(_WIN32)
 
+#include <array>
 #include <new>
 #include <optional>
 #include <string>
@@ -11,6 +12,7 @@
 
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/gl/gfx_format_decision.hpp"
 #include "platform/gl/gl_memory_facts.hpp"
 #include "platform/gl/gl_version_policy.hpp"
 #include "platform/gl/gpu_kind_report.hpp"
@@ -22,6 +24,7 @@
 #include "platform/win32/gl_device_luid.hpp"
 #include "platform/win32/wgl_extension_loader.hpp"
 #include "platform/win32/wgl_proc_address.hpp"
+#include "platform/win32/wgl_srgb_pixel_format.hpp"
 #include "platform/win32/window_adapter.hpp"
 
 // wgl_context_adapter.cpp - X-WGL (docs/plano-w6b-placa-e-laco.md
@@ -100,8 +103,8 @@ constexpr int k_wgl_type_rgba_arb = 0x202B;
 // WGL_ARB_multisample.
 constexpr int k_wgl_sample_buffers_arb = 0x2041;
 constexpr int k_wgl_samples_arb = 0x2042;
-// WGL_ARB_framebuffer_sRGB.
-constexpr int k_wgl_framebuffer_srgb_capable_arb = 0x20A9;
+// WGL_ARB_framebuffer_sRGB: WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB lives in wgl_srgb_pixel_format.hpp
+// (D-SRGB2-9), the one copy, pinned by its own unit test against the specification.
 // WGL_ARB_create_context / WGL_ARB_create_context_profile - same
 // values tests/win32_runner_probe_test.cpp already cites.
 constexpr int k_wgl_context_major_version_arb = 0x2091;
@@ -112,6 +115,8 @@ using wgl_choose_pixel_format_arb_fn = BOOL(WINAPI *)(HDC, const int *, const FL
                                                       UINT *);
 using wgl_create_context_attribs_arb_fn = HGLRC(WINAPI *)(HDC, HGLRC, const int *);
 using wgl_swap_interval_ext_fn = BOOL(WINAPI *)(int);
+using wgl_get_pixel_format_attribiv_arb_fn = BOOL(WINAPI *)(HDC, int, int, UINT, const int *,
+                                                            int *);
 
 } // namespace
 
@@ -228,168 +233,225 @@ classify_current_gpu(std::string_view renderer_name, gl_get_integerv_fn get_inte
 
 } // namespace
 
-win32_gl_context_adapter::~win32_gl_context_adapter() { close(); }
+namespace {
 
-gltfx_rslt<void> win32_gl_context_adapter::set_pixel_format_once(
-    void *choose_pixel_format_arb, std::span<const gltfx_gfx_option_entry> options) noexcept {
-    const auto choose = reinterpret_cast<wgl_choose_pixel_format_arb_fn>(choose_pixel_format_arb);
-
+// What the options ask of the pixel format (D-W6b-4: RGBA8 + stencil8, no depth, plus these two).
+struct format_request {
     std::int64_t msaa_samples = 0;
-    std::int64_t srgb_framebuffer = 0;
+    bool srgb = false;
+};
+
+// What the choose answered (D-SRGB2-2): the format to bind, whether one with EVERYTHING asked
+// exists, whether one WITHOUT the sRGB exists (only to NAME the refused option, never to open with
+// less), and the OS error of the failed choose.
+struct format_choice {
+    int format = 0;
+    bool found = false;
+    bool found_without_srgb = false;
+    DWORD os_error = 0;
+};
+
+[[nodiscard]] format_request
+read_format_request(std::span<const gltfx_gfx_option_entry> options) noexcept {
+    format_request request;
     for (const gltfx_gfx_option_entry &entry : options) {
         if (entry.id == gltfx_gfx_option::msaa_samples) {
-            msaa_samples = entry.value;
+            request.msaa_samples = entry.value;
         } else if (entry.id == gltfx_gfx_option::srgb_framebuffer) {
-            srgb_framebuffer = entry.value;
+            request.srgb = entry.value != 0;
         }
     }
+    return request;
+}
 
-    // RGBA8+stencil8, no depth (D-W6b-4), same shape egl_context_
-    // adapter.cpp's own choose_config() already builds one directory
-    // over: a fixed-size array, never a heap allocation, appended to
-    // only when msaa/srgb were actually requested.
-    auto try_choose = [this](std::int64_t samples, bool srgb, wgl_choose_pixel_format_arb_fn fn,
-                             int &format_out) noexcept -> bool {
-        int attribs[24] = {
-            k_wgl_draw_to_window_arb, TRUE, k_wgl_support_opengl_arb, TRUE,
-            k_wgl_double_buffer_arb,  TRUE, k_wgl_pixel_type_arb,     k_wgl_type_rgba_arb,
-            k_wgl_color_bits_arb,     32,   k_wgl_stencil_bits_arb,   8,
-            k_wgl_depth_bits_arb,     0,
-        };
-        std::size_t next = 14;
-        if (samples > 0) {
-            attribs[next++] = k_wgl_sample_buffers_arb;
-            attribs[next++] = 1;
-            attribs[next++] = k_wgl_samples_arb;
-            attribs[next++] = static_cast<int>(samples);
-        }
-        if (srgb) {
-            attribs[next++] = k_wgl_framebuffer_srgb_capable_arb;
-            attribs[next++] = TRUE;
-        }
-        attribs[next] = 0;
-
-        int format = 0;
-        UINT num_formats = 0;
-        // GEMEO (GODS_LAWS.md L-17/L-22, achado no integrador run
-        // 34171429194 - ver o header comment deste arquivo sobre
-        // swap_buffers() para o incidente completo): ::SetLastError(0)
-        // IMEDIATAMENTE antes de toda chamada Win32/WGL cujo fracasso
-        // este arquivo atribui via ::GetLastError() logo abaixo - sem
-        // isso, uma chamada que falha SEM chamar SetLastError() devolve
-        // o valor RESIDUAL de uma chamada anterior, ja bem-sucedida e
-        // sem relacao nenhuma (learn.microsoft.com/windows/win32/api/
-        // errhandlingapi/nf-errhandlingapi-getlasterror#remarks: "some
-        // functions set the last-error code to 0 on success and others
-        // do not"). Os outros tres arquivos de src/platform/win32/
-        // (display_adapter.cpp, seat_adapter.cpp, window_adapter.cpp)
-        // ja fazem isto em TODOS os seus proprios sitios, desde a
-        // fundacao deste backend - este arquivo era o unico que nao
-        // fazia, nos nove sitios verificados por tests/tools/check_
-        // win32_last_error_cleared.py (GODS_LAWS.md L-40's own non-
-        // empty-sweep floor, closed enumeration).
-        ::SetLastError(0);
-        const bool ok =
-            fn(m_dc, attribs, nullptr, 1, &format, &num_formats) != 0 && num_formats > 0;
-        if (ok) {
-            format_out = format;
-        }
-        return ok;
+// RGBA8+stencil8, no depth (D-W6b-4), same shape egl_context_adapter.cpp's own choose_config()
+// builds one directory over: a fixed-size array, never a heap allocation, appended to only when
+// msaa/srgb were actually requested.
+[[nodiscard]] std::array<int, 24> build_choose_attribs(const format_request &request) noexcept {
+    std::array<int, 24> attribs = {
+        k_wgl_draw_to_window_arb, TRUE, k_wgl_support_opengl_arb, TRUE,
+        k_wgl_double_buffer_arb,  TRUE, k_wgl_pixel_type_arb,     k_wgl_type_rgba_arb,
+        k_wgl_color_bits_arb,     32,   k_wgl_stencil_bits_arb,   8,
+        k_wgl_depth_bits_arb,     0,
     };
-
-    int chosen_format = 0;
-    bool msaa_ok = false;
-    bool srgb_ok = false;
-
-    if (try_choose(msaa_samples, srgb_framebuffer != 0, choose, chosen_format)) {
-        msaa_ok = true;
-        srgb_ok = true;
-    } else if (msaa_samples > 0 && try_choose(0, srgb_framebuffer != 0, choose, chosen_format)) {
-        // D-W6b-17: never degrade in silence - isolate WHICH option
-        // this driver could not honor before refusing, one attempt at
-        // a time, same discipline egl_context_adapter.cpp's own
-        // choose_config() already applies.
-        msaa_ok = false;
-        srgb_ok = true;
-    } else if (srgb_framebuffer != 0 && try_choose(msaa_samples, false, choose, chosen_format)) {
-        msaa_ok = true;
-        srgb_ok = false;
-    } else if (msaa_samples > 0 || srgb_framebuffer != 0) {
-        m_msaa_supported = false;
-        m_srgb_supported = false;
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::unsupported)
-                .with_rejected_value(msaa_samples > 0 ? "msaa_samples" : "srgb_framebuffer"));
-    } else if (!try_choose(0, false, choose, chosen_format)) {
-        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
-                                         .with_rejected_value("wgl_pixel_format")
-                                         .with_os_error_code(::GetLastError()));
+    std::size_t next = 14;
+    if (request.msaa_samples > 0) {
+        attribs[next++] = k_wgl_sample_buffers_arb;
+        attribs[next++] = 1;
+        attribs[next++] = k_wgl_samples_arb;
+        attribs[next++] = static_cast<int>(request.msaa_samples);
     }
-
-    m_msaa_supported = msaa_ok;
-    m_srgb_supported = srgb_ok;
-
-    // REOPEN (CONSERTO 07/09/2026, GODS_LAWS.md L-04/L-17/L-22, achado
-    // no integrador run 34173289506, "Windows - estatico"):
-    // SetPixelFormat's own documentation says it plainly - "An
-    // application can only set the pixel format of a window one time.
-    // Once a window's pixel format is set, it cannot be changed."
-    // close() (below in this file) releases this adapter's own device
-    // context but never touches the WINDOW's already-bound pixel
-    // format, so a second open() over the SAME window must never call
-    // SetPixelFormat again: it does not merely warn on a repeat call,
-    // it FAILS outright - which is exactly the "platform_failure
-    // (rejected_value=wgl_pixel_format)" this fatia's own consumer
-    // step reported, mislabeling a reopen as a driver rejection of the
-    // pixel format itself.
-    //
-    // Reusing the format already bound to this window is safe, not a
-    // guess, because gl_context_facade.cpp is the ONLY caller of
-    // win32_gl_context_adapter::open() (this file's own header
-    // comment) and never reaches this function at all when a reopen's
-    // msaa_samples/srgb_framebuffer resolve to anything other than
-    // what the window's FIRST successful open() already fixed
-    // (gfx_open_only_fixation.hpp's own D-W6b-25 contract, enforced by
-    // gl_context_facade.cpp's own `refuse` branch, which returns
-    // invalid_argument/<option-name> before this adapter is ever
-    // touched). By the time control reaches here on a reopen, the
-    // try_choose cascade above has, by that same guarantee, just
-    // re-derived the identical decision the first open() already made
-    // and already bound - there is nothing left to set.
-    //
-    // ::GetPixelFormat() (learn.microsoft.com/windows/win32/api/
-    // wingdi/nf-wingdi-getpixelformat) is the read-only counterpart of
-    // ::SetPixelFormat() below: it returns 0 for a device context
-    // whose window has never had a format set (the ordinary first-open
-    // path, unchanged below) and the already-bound one-based index
-    // otherwise.
-    if (::GetPixelFormat(m_dc) != 0) {
-        return gltfx_rslt<void>::ok();
+    if (request.srgb) {
+        attribs[next++] = k_wgl_framebuffer_srgb_capable_arb;
+        attribs[next++] = TRUE;
     }
+    attribs[next] = 0;
+    return attribs;
+}
 
-    // SetPixelFormat may be called only ONCE per window (D-W6b-4,
-    // learn.microsoft.com/windows/win32/api/wingdi/nf-wingdi-
-    // setpixelformat) - DescribePixelFormat's own documentation is the
-    // standard way to obtain a valid PIXELFORMATDESCRIPTOR for an
-    // ARB-chosen format, rather than fabricating one by hand.
-    PIXELFORMATDESCRIPTOR pfd{};
-    // GEMEO (GODS_LAWS.md L-17/L-22) - ver o header comment de
-    // set_pixel_format_once() (fn(m_dc, ...) acima) para o incidente
-    // completo por tras deste ::SetLastError(0).
+// One wglChoosePixelFormatARB call for `request`.
+[[nodiscard]] bool try_choose_format(HDC dc, wgl_choose_pixel_format_arb_fn fn,
+                                     const format_request &request, int &format_out) noexcept {
+    const std::array<int, 24> attribs = build_choose_attribs(request);
+    int format = 0;
+    UINT num_formats = 0;
+    // GEMEO (GODS_LAWS.md L-17/L-22, achado no integrador run 34171429194 - ver o header comment
+    // de swap_buffers() para o incidente completo): ::SetLastError(0) IMEDIATAMENTE antes de toda
+    // chamada Win32/WGL cujo fracasso este arquivo atribui via ::GetLastError(); sem isso, uma
+    // chamada que falha SEM chamar SetLastError() devolve o valor RESIDUAL de uma chamada anterior
+    // (learn.microsoft.com/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror#remarks).
+    // tests/tools/check_win32_last_error_cleared.py vigia este sitio.
     ::SetLastError(0);
-    if (::DescribePixelFormat(m_dc, chosen_format, sizeof(PIXELFORMATDESCRIPTOR), &pfd) == 0) {
+    const bool ok =
+        fn(dc, attribs.data(), nullptr, 1, &format, &num_formats) != 0 && num_formats > 0;
+    if (ok) {
+        format_out = format;
+    }
+    return ok;
+}
+
+// D-SRGB2-2 steps 1 and 2: with the sRGB asked and NOT announced there is no choose at all (the
+// decision refuses by the announcement, D-A62); otherwise the choose with everything asked, and,
+// only if it failed with the sRGB asked, a second one without the sRGB just to name the culprit.
+[[nodiscard]] format_choice choose_formats(HDC dc, wgl_choose_pixel_format_arb_fn fn,
+                                           const format_request &request,
+                                           bool srgb_advertised) noexcept {
+    format_choice choice;
+    if (request.srgb && !srgb_advertised) {
+        return choice;
+    }
+    choice.found = try_choose_format(dc, fn, request, choice.format);
+    choice.found_without_srgb = choice.found;
+    if (choice.found) {
+        return choice;
+    }
+    choice.os_error = ::GetLastError();
+    if (request.srgb) {
+        format_request without_srgb = request;
+        without_srgb.srgb = false;
+        int unused_format = 0;
+        choice.found_without_srgb = try_choose_format(dc, fn, without_srgb, unused_format);
+    }
+    return choice;
+}
+
+// D-SRGB2-2 step 3 (D-A62): asks the driver whether `format` is sRGB capable. Only a call that
+// succeeded and answered TRUE confirms; a missing query, a failed call or any other answer is "not
+// confirmed". The attribute is read on `format` AS A PIXEL FORMAT INDEX of `dc`, so it can be asked
+// before the one SetPixelFormat the window will ever get.
+[[nodiscard]] bool confirm_srgb_capable(HDC dc, void *get_pixel_format_attribiv_arb,
+                                        int format) noexcept {
+    if (get_pixel_format_attribiv_arb == nullptr || format <= 0) {
+        return false;
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the dlsym-style cast of
+    // an extension entry point, as everywhere in this file.
+    const auto query =
+        reinterpret_cast<wgl_get_pixel_format_attribiv_arb_fn>(get_pixel_format_attribiv_arb);
+    const int attribute = k_wgl_framebuffer_srgb_capable_arb;
+    int value = 0;
+    const BOOL query_ok = query(dc, format, /*iLayerPlane=*/0, 1, &attribute, &value);
+    return wgl_srgb_confirmed(query_ok != 0, value);
+}
+
+// The refusal the neutral decision (gfx_format_decision.hpp) chose, as the error open() returns,
+// the mirror of egl_context_adapter.cpp's own refusal_result(): `no_format` is a platform failure.
+[[nodiscard]] gltfx_rslt<void> refusal_result(gfx_format_refusal refusal, DWORD os_error) noexcept {
+    switch (refusal) {
+    case gfx_format_refusal::none:
+        return gltfx_rslt<void>::ok();
+    case gfx_format_refusal::srgb_framebuffer:
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::unsupported).with_rejected_value("srgb_framebuffer"));
+    case gfx_format_refusal::msaa_samples:
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::unsupported).with_rejected_value("msaa_samples"));
+    case gfx_format_refusal::no_format:
+        break;
+    }
+    return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                     .with_rejected_value("wgl_pixel_format")
+                                     .with_os_error_code(os_error));
+}
+
+// The facts the neutral decision reads (gfx_format_decision.hpp), from what the options asked, what
+// the choose answered, what the driver announces and what the query confirmed.
+[[nodiscard]] gfx_format_facts make_format_facts(const format_request &request,
+                                                 const format_choice &choice, bool srgb_advertised,
+                                                 bool srgb_confirmed) noexcept {
+    return gfx_format_facts{
+        .msaa_requested = request.msaa_samples > 0,
+        .srgb_requested = request.srgb,
+        .srgb_advertised = srgb_advertised,
+        .format_found = choice.found,
+        .format_found_without_srgb = choice.found_without_srgb,
+        .srgb_confirmed = srgb_confirmed,
+    };
+}
+
+// D-SRGB2-2 step 4: SetPixelFormat may be called only ONCE per window (D-W6b-4,
+// learn.microsoft.com/windows/win32/api/wingdi/nf-wingdi-setpixelformat), which is why it comes
+// LAST: nothing that could still refuse the format runs after it. DescribePixelFormat is the
+// standard way to obtain a valid PIXELFORMATDESCRIPTOR for an ARB-chosen format.
+[[nodiscard]] gltfx_rslt<void> bind_pixel_format(HDC dc, int format) noexcept {
+    PIXELFORMATDESCRIPTOR pfd{};
+    // GEMEO (GODS_LAWS.md L-17/L-22) - ver o comentario de try_choose_format() acima.
+    ::SetLastError(0);
+    if (::DescribePixelFormat(dc, format, sizeof(PIXELFORMATDESCRIPTOR), &pfd) == 0) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
                                          .with_rejected_value("wgl_pixel_format")
                                          .with_os_error_code(::GetLastError()));
     }
     // GEMEO (GODS_LAWS.md L-17/L-22) - mesmo motivo do comentario acima.
     ::SetLastError(0);
-    if (::SetPixelFormat(m_dc, chosen_format, &pfd) == 0) {
+    if (::SetPixelFormat(dc, format, &pfd) == 0) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
                                          .with_rejected_value("wgl_pixel_format")
                                          .with_os_error_code(::GetLastError()));
     }
     return gltfx_rslt<void>::ok();
+}
+
+} // namespace
+
+win32_gl_context_adapter::~win32_gl_context_adapter() { close(); }
+
+gltfx_rslt<void> win32_gl_context_adapter::set_pixel_format_once(
+    const wgl_extension_pointers &loaded,
+    std::span<const gltfx_gfx_option_entry> options) noexcept {
+    // D-SRGB2-2/3: the extension, the choose, the query, the neutral decision, and only then the
+    // one SetPixelFormat. The order of the refusals is gfx_format_decision.hpp's, the SAME the EGL
+    // adapter calls (L-04): no option is ever opened without being honored (D-W6b-17).
+    const format_request request = read_format_request(options);
+    const bool srgb_advertised = loaded.advertised.framebuffer_srgb;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the dlsym-style cast.
+    const auto choose =
+        reinterpret_cast<wgl_choose_pixel_format_arb_fn>(loaded.choose_pixel_format_arb);
+    const format_choice choice = choose_formats(m_dc, choose, request, srgb_advertised);
+
+    // REOPEN (CONSERTO 07/09/2026, achado no integrador run 34173289506): the window's pixel format
+    // can be set only ONCE and close() never unbinds it, so a second open() over the same window
+    // reuses the bound one (::GetPixelFormat, 0 when none). D-SRGB2-2: the sRGB is confirmed on the
+    // format that will STAY bound - the bound one on a reopen, the chosen one on a first open.
+    const int bound_format = ::GetPixelFormat(m_dc);
+    const int format_to_bind = bound_format != 0 ? bound_format : choice.format;
+    m_srgb_requested = request.srgb;
+    m_srgb_advertised = srgb_advertised;
+    m_srgb_confirmed =
+        request.srgb && choice.found &&
+        confirm_srgb_capable(m_dc, loaded.get_pixel_format_attribiv_arb, format_to_bind);
+
+    const gfx_format_facts facts =
+        make_format_facts(request, choice, srgb_advertised, m_srgb_confirmed);
+    if (const gltfx_rslt<void> refusal = refusal_result(decide_gfx_format(facts), choice.os_error);
+        refusal.has_error()) {
+        return refusal;
+    }
+    m_msaa_supported = choice.found;
+    if (bound_format != 0) {
+        return gltfx_rslt<void>::ok();
+    }
+    return bind_pixel_format(m_dc, choice.format);
 }
 
 gltfx_rslt<void>
@@ -485,8 +547,7 @@ win32_gl_context_adapter::open(win32_window_adapter &window,
     }
     m_window = hwnd;
 
-    if (const gltfx_rslt<void> pixel_format_ok =
-            set_pixel_format_once(loaded.value().choose_pixel_format_arb, options);
+    if (const gltfx_rslt<void> pixel_format_ok = set_pixel_format_once(loaded.value(), options);
         pixel_format_ok.has_error()) {
         close();
         return pixel_format_ok;
@@ -537,7 +598,9 @@ void win32_gl_context_adapter::close() noexcept {
     m_gpu = gpu_kind_state{};
     m_swap_calls_issued = 0;
     m_msaa_supported = false;
-    m_srgb_supported = false;
+    m_srgb_requested = false;
+    m_srgb_advertised = false;
+    m_srgb_confirmed = false;
     m_adaptive_supported = false;
 }
 
@@ -661,8 +724,8 @@ win32_gl_context_adapter::option_support(gltfx_gfx_option id) const noexcept {
         return m_msaa_supported ? gltfx_gfx_option_support::supported
                                 : gltfx_gfx_option_support::unsupported_here;
     case gltfx_gfx_option::srgb_framebuffer:
-        return m_srgb_supported ? gltfx_gfx_option_support::supported
-                                : gltfx_gfx_option_support::unsupported_here;
+        // D-SRGB2-1: the SAME rule as the EGL adapter, one function in gfx_format_decision.hpp.
+        return srgb_option_support(m_srgb_requested, m_srgb_advertised, m_srgb_confirmed);
     case gltfx_gfx_option::auto_choice_reason:
     case gltfx_gfx_option::power_source:
     case gltfx_gfx_option::suggested_preset:

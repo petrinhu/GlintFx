@@ -68,6 +68,7 @@
 namespace glintfx::platform {
 
 class win32_window_adapter;
+struct wgl_extension_pointers;
 
 // D-W6b-18's own Windows-side mechanism: `adaptive` v-sync is honored
 // through wglSwapIntervalEXT(-1) ONLY when this system's own WGL_EXT_
@@ -183,7 +184,7 @@ class win32_gl_context_adapter {
 
   private:
     [[nodiscard]] gltfx_rslt<void>
-    set_pixel_format_once(void *choose_pixel_format_arb,
+    set_pixel_format_once(const wgl_extension_pointers &loaded,
                           std::span<const gltfx_gfx_option_entry> options) noexcept;
     [[nodiscard]] gltfx_rslt<void> create_context(void *create_context_attribs_arb) noexcept;
     [[nodiscard]] gltfx_rslt<void> call_swap_interval(int interval) noexcept;
@@ -202,7 +203,11 @@ class win32_gl_context_adapter {
     std::uint32_t m_swap_calls_issued = 0;
 
     bool m_msaa_supported = false;
-    bool m_srgb_supported = false;
+    // D-SRGB2-1: the three facts srgb_option_support() (gfx_format_decision.hpp) reads, the same
+    // three the EGL adapter keeps: asked, announced by the driver, confirmed on the bound format.
+    bool m_srgb_requested = false;
+    bool m_srgb_advertised = false;
+    bool m_srgb_confirmed = false;
     // D-W6b-18: whether THIS system's own WGL_EXT_swap_control_tear is
     // present - detected once, at open() time, never guessed.
     bool m_adaptive_supported = false;

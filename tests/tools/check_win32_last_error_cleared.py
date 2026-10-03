@@ -103,7 +103,8 @@ FALLIBLE_CALLS = tuple(
         ("SetWindowLongPtrW", r"::SetWindowLongPtrW\(window, GWLP_WNDPROC,"),
         ("RegisterRawInputDevices", r"= ::RegisterRawInputDevices\("),
         ("SetWindowTextW", r"::SetWindowTextW\("),
-        ("wglChoosePixelFormatARB (fn)", r"\bfn\(m_dc,"),
+        # `dc` as well as `m_dc`: since D-SRGB-2 (S5) the choose is a free function taking the HDC.
+        ("wglChoosePixelFormatARB (fn)", r"\bfn\((m_)?dc,"),
         ("DescribePixelFormat", r"::DescribePixelFormat\("),
         ("SetPixelFormat", r"::SetPixelFormat\("),
         ("wglCreateContextAttribsARB (create)", r"\bcreate\(m_dc,"),

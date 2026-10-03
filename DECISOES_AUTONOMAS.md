@@ -5585,3 +5585,14 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - **D-SRGB2-19:** o mutante M1 (adaptador EGL que recusa `srgb_framebuffer` nomeando `msaa_samples`) roda AGORA no container, em cópia fora da árvore e contra SHA declarado. O CI nunca executa mutante. Aceite: o mesmo mutante derruba o `draw2d_parity_test` E a célula `open_only_srgb_framebuffer` do `gl_context_parity_test`.
 - *Fontes:* st_manager.c, gdi_sw_winsys.c e targets/wgl/wgl.c (Mesa main), EGL_KHR_gl_colorspace, docs.gl, g-truc post-0720.
 - *Porta de mão única:* não.
+
+## 03/10/2026 - 19:35 | O mutante M1 da D-SRGB2-19 morreu nos dois testes, como exigido (prova viva, L-20 e L-27)
+
+- *Mutante:* cópia por `git archive` do SHA `673857d`, fora da árvore (`/var/tmp/m1-tree`, diff em `/var/tmp/m1-janela/mutacao.diff`). Duas linhas mudadas em `egl_context_adapter.cpp`:
+  - `:606`: `m_srgb_advertised = false && ...`, que força a recusa;
+  - `:137`: `with_rejected_value("msaa_samples")`, que dá o nome errado.
+- *Resultado* (imagem `glintfx-wltest:m1`, isolamento provado antes, rc=0):
+  - `draw2d_parity_test` rc=1, com `FAIL a recusa de srgb_framebuffer=on nomeou "msaa_samples", esperado "srgb_framebuffer"`;
+  - `gl_context_parity_test` rc=1, com `open_only(srgb_framebuffer) recusou como unsupported/msaa_samples, esperado unsupported/srgb_framebuffer`.
+- *Aceite do CTO cumprido:* o mesmo mutante derruba os dois testes, e o log mostra `msaa_samples`, o que prova que a mutação chegou ao binário.
+- *Antes da S6,* o `draw2d_parity_test` aceitava qualquer `rejected_value` e teria passado.

@@ -413,6 +413,36 @@ def selftest_negative_control_no_clear(scratch, capture):
     return True
 
 
+# Negative control: the free-function form of the choose, `fn(dc,` with NO clear before it (since
+# D-SRGB-2 the cascade calls it with the `dc` parameter, never `m_dc`). Expected: reprova, naming
+# the wglChoosePixelFormatARB (fn) pattern on the right line. This is the shape that the pattern
+# `\bfn\((m_)?dc,` exists to see; a pattern that only knew `m_dc` would pass this fixture.
+def selftest_negative_control_free_function_choose(scratch, capture):
+    root = os.path.join(scratch, "negative_free_function_choose")
+    write_target(
+        root,
+        "wgl_pixel_format_cascade.cpp",
+        "bool try_choose_format(HDC dc) {\n"
+        "    int format = 0;\n"
+        "    return fn(dc, attribs, nullptr, 1, &format, &num_formats) != 0;\n"
+        "}\n",
+    )
+    outcome = capture(lambda: check_win32_last_error_cleared(root))
+    if outcome.result:
+        print("selftest: controle NEGATIVO (fn(dc, sem limpeza) FALHOU (deveria ter reprovado)", file=sys.stderr)
+        return False
+    if "wglChoosePixelFormatARB (fn)" not in outcome.text or ":3:" not in outcome.text:
+        print(
+            "selftest: controle NEGATIVO (fn(dc, sem limpeza) FALHOU (reprovou, mas nao citou "
+            "wglChoosePixelFormatARB (fn) na linha certa)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle NEGATIVO (fn(dc, sem limpeza) OK (a forma livre do choose e' vista)")
+    return True
+
+
 # Negative control: the clear EXISTS, but a DIFFERENT fallible call sits
 # between it and the call under test - the clear does not belong to
 # THIS site. Expected: reprova, naming the call that was crossed.
@@ -475,6 +505,7 @@ def selftest_main():
             selftest_positive_control(scratch, capture),
             selftest_negative_control_no_clear(scratch, capture),
             selftest_negative_control_wrong_owner(scratch, capture),
+            selftest_negative_control_free_function_choose(scratch, capture),
             selftest_empty_scan_control(scratch, capture),
         ]
         if not all(controls):

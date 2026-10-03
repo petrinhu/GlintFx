@@ -58,6 +58,8 @@
 // pixel along it exactly once: no gap, no overlap. To draw in logical units
 // on a scaled display, begin a batch whose transform scales by the
 // window's scale factor.
+// Proved by: draw2d_parity_test (two rectangles sharing an edge, read
+// back pixel by pixel, on both systems).
 //
 // PRECISION, frozen: the transform is applied by the library in DOUBLE
 // precision, to world positions that were never narrowed, and only the
@@ -76,6 +78,8 @@
 // blending, which is what most 2D libraries do.
 // Proved by: triangle_batch_test (the color stored for the graphics
 // card is premultiplied).
+// Proved by: draw2d_parity_test (a half-transparent edge, and the same
+// piece with srgb_framebuffer on and off, read back as pixels).
 //
 // ============================================================
 // WHAT THIS HEADER DOES NOT PROMISE (so nobody infers it from silence)
@@ -221,6 +225,10 @@ class gltfx_renderer_2d {
     //   - the viewport covering the whole surface;
     //   - GL_FRAMEBUFFER_SRGB on exactly when the context option
     //     `srgb_framebuffer` is on.
+    // Proved by: draw2d_parity_test (hostile state planted before the
+    // frame - depth test on, blending swapped, a one-pixel scissor,
+    // front faces culled, color mask off - and the pixels still right;
+    // then every state above read back after flush()).
     GLINTFX_API void flush() noexcept;
 
     // Ends the frame: sends what is left to the graphics card and

@@ -16,6 +16,8 @@
 // Proved by: draw_order_test (the closed set of eight cells {no layer,
 // equal, lower, higher} x {submitted A then B, B then A}, and a
 // thousand pieces on one layer kept in submission order).
+// Proved by: draw2d_parity_test (the same eight cells read back as
+// pixels from a real surface, on both systems).
 //
 // WHY A TYPE AND NOT A BARE INTEGER: `gltfx_draw_layer{3}` at a call
 // site says what the 3 is. A bare 3 does not, and a bare integer

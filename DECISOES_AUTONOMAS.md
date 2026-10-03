@@ -5650,3 +5650,20 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - o ramo apagado;
   - os avisos (Gus Dragon pela L-37, `gusworld` e `mapeditor`).
 - *Porta de mão única:* só a D-FECH-6 (texto público congelado), que já foi decidida na revisão B0.
+
+### Passo 0 do fechamento (03/10/2026, 20:20): o run 37159658455 lido contra a §5.1 do D-SRGB-2
+
+Fonte: os artefatos `measured-windows-compartilhado` e `measured-fedora-container` do run, e o log dos jobs Windows (estático e compartilhado). Nada foi ajustado.
+
+| Chave (Windows) | Previsto | Medido |
+|---|---|---|
+| `draw2d_parity_test.srgb_on_cells_absent` | `1`, recusa `srgb_framebuffer` | `1`, "AUSENCIA DECLARADA ... (srgb_framebuffer)" |
+| `gl_context_parity_test.srgb_support` | `0` | `0` (era `1` no último verde antes do S4, o run 36714800007: era o defeito) |
+| `gl_context_parity_test.open_only_srgb_framebuffer_opened` | `0` | `0` |
+| `gl_context_parity_test.open_only_msaa_samples_opened` | o que o driver der | `1` |
+| `gl_context_parity_test.vsync_adaptive_support` | igual ao run 36714800007 | `0` = `0` |
+| `draw2d_parity_test.back_buffer_color_encoding_srgb_off` | `9729`, só registro | `9729` |
+| `win32_runner_probe_test.wgl_framebuffer_srgb_advertised` | `0` | `false` |
+| `Windows - Lint` | limpo | verde |
+
+No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_cells_absent=0`, `half_white_srgb_on=187`. A única divergência da §5.2 é a já explicada pela D-A67: `back_buffer_color_encoding_srgb_off=35904`. Ela está coberta pela linha de `tests/measured_exceptions.txt`. Placar: 25 de 26 jobs com sucesso e 1 pulado (`VERSION-TAG-SYNC`, que só roda com marca). O passo 0 fecha sem volta ao CTO.

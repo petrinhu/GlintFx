@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cstddef>
+#include <iterator>
 #include <print>
 
 #include "platform/gl/gfx_format_decision.hpp"
@@ -59,13 +61,14 @@ GLINTFX_TEST(wgl_srgb_sweep_floor_counts_what_it_checked) {
         "",
     };
     const bool expected[] = {true, true, false, false};
+    constexpr int k_lists_written = 4; // declared apart: the loop must reach every one of them
     int checked = 0;
-    for (int i = 0; i < 4; ++i) {
+    for (std::size_t i = 0; i < std::size(lists); ++i) {
         GLINTFX_CHECK(wgl_framebuffer_srgb_advertised(lists[i]) == expected[i]);
         ++checked;
     }
     std::println("wgl_srgb_pixel_format_test: {} list(s) checked", checked);
-    GLINTFX_CHECK(checked == 4);
+    GLINTFX_CHECK(checked == k_lists_written);
 }
 
 GLINTFX_TEST(wgl_srgb_the_attribute_is_the_value_of_the_specification) {
@@ -97,6 +100,21 @@ GLINTFX_TEST(wgl_srgb_the_mesa_runner_is_refused_by_name) {
         .format_found = true,
         .format_found_without_srgb = true,
         .srgb_confirmed = false,
+    };
+    GLINTFX_CHECK(decide_gfx_format(facts) == gfx_format_refusal::srgb_framebuffer);
+}
+
+GLINTFX_TEST(wgl_srgb_the_announcement_alone_refuses_even_if_the_format_is_confirmed) {
+    // The literal order of the header: the absent announcement refuses BEFORE the choose and the
+    // confirmation are consulted. A format confirmed sRGB-capable does not override a driver that
+    // does not announce the extension (rule 1 of decide_gfx_format, not rule 3).
+    const gfx_format_facts facts{
+        .msaa_requested = false,
+        .srgb_requested = true,
+        .srgb_advertised = wgl_framebuffer_srgb_advertised("WGL_ARB_pixel_format"),
+        .format_found = true,
+        .format_found_without_srgb = true,
+        .srgb_confirmed = true,
     };
     GLINTFX_CHECK(decide_gfx_format(facts) == gfx_format_refusal::srgb_framebuffer);
 }

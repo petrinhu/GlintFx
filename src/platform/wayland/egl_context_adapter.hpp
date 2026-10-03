@@ -174,12 +174,13 @@ class wayland_egl_context_adapter {
     // has no Wayland/EGL equivalent (this fatia's own busca, docs/
     // plano-w6b-placa-e-laco.md sec. 0) and is refused BY NAME, never
     // silently downgraded to `on`. Every other live id (frame_rate_cap,
-    // preset, and so on) is accepted here with no adapter-side effect
-    // yet - gl_context_facade.cpp's own current_values already stores
-    // whatever value a consumer set, generically, for option() to read
-    // back; the fatia that gives an id real behavior (LOOP-RUN for
-    // frame_rate_cap, G-PRESET for preset) teaches ITS OWN layer to act
-    // on it, never retrofits this adapter out of turn.
+    // preset, and so on) is accepted here with no effect of its own:
+    // gl_context_facade.cpp's own current_values stores whatever value a
+    // consumer set, generically, for option() to read back, and the
+    // layer that gives an id real behavior acts on it there - the loop
+    // for frame_rate_cap, the facade for preset (it expands a preset
+    // into its rows, and an `automatic` into the concrete suggestion,
+    // before this adapter is ever asked).
     [[nodiscard]] gltfx_rslt<void> apply_option(gltfx_gfx_option_entry entry) noexcept;
 
     [[nodiscard]] gltfx_gfx_option_support option_support(gltfx_gfx_option id) const noexcept;

@@ -60,8 +60,9 @@ own shape.
 | `gpu_preference` | Which GPU to prefer on a multi-GPU system. **Only `no_preference` is supported today** - this library does not yet let you actually choose a GPU. |
 | `msaa_samples` | Multisample anti-aliasing sample count. |
 | `srgb_framebuffer` | Whether the framebuffer is sRGB-encoded. |
-| `preset` | A named bundle of the above, when the library picks one automatically. |
-| `auto_choice_reason` | Why the library picked what it picked, when `preset` did the choosing. |
+| `preset` | A named bundle of the rows above (`power_saving`, `balanced`, `performance`), applied all at once when you ask for it. `automatic` applies the suggestion of that moment and stores the concrete preset it applied, never `automatic`. Its value is your label: changing one row by hand afterwards never rewrites it. |
+| `suggested_preset` | Read-only. The preset the library would suggest right now, worked out at the moment you read it. Reading it changes nothing: it never applies a preset and never touches the label. |
+| `auto_choice_reason` | Read-only. Why `suggested_preset` reads what it reads (on battery, software renderer, shared or dedicated GPU, unknown GPU). |
 | `power_source` | Whether the machine is on battery or mains power, where the system reports it. |
 
 Each option has a **kind** (`gltfx_gfx_option_kind`: `toggle` reads
@@ -79,6 +80,8 @@ context's life; `live` - changeable any time via `set_option()`;
 | `gltfx_gfx_option_at(index)` | The option at `index` (`0` to `gltfx_gfx_option_count() - 1`). Out of range degrades to an empty `gltfx_gfx_option_info`, never undefined behavior. |
 | `gltfx_gfx_option_describe(id)` | The static facts about `id`, with no system in the picture - what the *library* knows, not what a real driver actually supports (that is `context.option_support(id)`, above). |
 | `gltfx_gfx_option_by_name(name)` | Looks up an option's id by its saved-settings-file name (e.g. `"vsync"`). Fails with `not_found` for an unrecognized name - useful for reading a consumer's own settings file back. |
+| `gltfx_gfx_preset_row_count(preset)` | How many rows a preset sets in this build. Zero for `manual`, for `automatic` and for a number outside the vocabulary. Never hardcode it: the rows of a preset may change in a later release. |
+| `gltfx_gfx_preset_row_at(preset, row_index)` | Which option the row sets and to what, so you can read the suggestion, read its rows and decide on your side what to apply. A row that does not exist degrades to the harmless pair `{suggested_preset, manual}`, which `set_option()` refuses and which changes nothing. |
 
 ## GPU information
 

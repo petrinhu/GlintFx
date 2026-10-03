@@ -159,10 +159,10 @@ class win32_gl_context_adapter {
     // own set_option() already refused an open_only/read_only entry
     // before reaching here) - `vsync` is the one id this adapter acts
     // on directly (D-W6b-18); every other live id (frame_rate_cap,
-    // preset) is accepted here with no adapter-side effect yet, the
-    // SAME "the fatia that gives an id real behavior teaches ITS OWN
-    // layer to act on it" reasoning egl_context_adapter.hpp's own class
-    // comment already documents.
+    // preset) is accepted here with no effect of its own, for the SAME
+    // reason egl_context_adapter.hpp's own class comment documents: the
+    // loop acts on frame_rate_cap, and the facade expands a preset into
+    // its rows before this adapter is ever asked.
     [[nodiscard]] gltfx_rslt<void> apply_option(gltfx_gfx_option_entry entry) noexcept;
 
     [[nodiscard]] gltfx_gfx_option_support option_support(gltfx_gfx_option id) const noexcept;

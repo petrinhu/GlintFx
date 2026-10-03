@@ -1167,8 +1167,10 @@ gltfx_rslt<void> wayland_egl_context_adapter::apply_option(gltfx_gfx_option_entr
     }
 
     // Every other `live` id (frame_rate_cap, preset) is accepted here
-    // with no adapter-side effect yet - see this class's own header
-    // comment on apply_option() for why that is honest, not a gap.
+    // with no effect of its own: a preset never reaches this adapter
+    // (gl_context_facade.cpp expands it into its rows first), and
+    // frame_rate_cap is acted on by the loop, never by this layer - see
+    // this class's own header comment on apply_option().
     return gltfx_rslt<void>::ok();
 }
 

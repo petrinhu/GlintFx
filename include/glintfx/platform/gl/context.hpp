@@ -81,9 +81,8 @@
 // docs/plano-w6b-placa-e-laco.md sec. 8/10.4/11.3): choosing which GPU
 // renders (gpu_preference stays `no_preference`-only until GL-GPU-
 // PREFERENCE), several-GPU enumeration on demand (gltfx_gpu_
-// enumeration, fatia 5b), a graphics-preset table and automatic choice
-// (fatia 5c), the main loop and fixed-step accumulator (fatia 6),
-// contexts shared across threads, MSAA/sRGB actually honored by a
+// enumeration, fatia 5b), the main loop and fixed-step accumulator
+// (fatia 6), contexts shared across threads, MSAA/sRGB actually honored by a
 // driver (fatias 3/4 answer via option_support(), never this header).
 //
 // OPAQUE, PIMPL (CONTRACT.md's own opacity clause, GODS_LAWS.md L-19,

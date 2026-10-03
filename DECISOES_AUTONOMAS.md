@@ -5527,3 +5527,16 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - I-2 (a exceção de paridade cita um par que ainda não existe) e C-1 (falta caso de maiúsculas no teste de token) estão em conserto.
 - **Mutante sobrevivente DECLARADO (I-3):** "a sonda do D-SRGB2-7 sem `eglDestroySurface`". Nenhum teste o mata: o ramo da sonda só roda com um driver que devolva BAD_MATCH ou BAD_ATTRIBUTE, e o llvmpipe do container passa pelo caminho de sucesso. O dano é limitado, porque o `eglTerminate` do `close()` libera tudo. Fechá-lo exige injetar as chamadas EGL num dublê ou forçar o driver; fica como lacuna conhecida para quem revisitar o D-SRGB2-7.
 - *Cosméticos C-2 e C-3* (quebras de comentário e a forma do laço de 240 combinações): não bloqueiam e ficam como estão.
+
+## 03/10/2026 - 18:15 | DECISÃO DO LÍDER (não autônoma): modo autônomo ligado e merge/push/tag autorizados
+
+- *Ordem, verbatim:* "ligue modo autonomo e continue a trabalhar. Autorizo merge/push/tag".
+- *Flag do hook:* `~/.claude/autonomo/GlintFx.json`, válida até 04/10/2026 18:15 (24 h), com os escopos `push` e `clean`.
+- *Leitura do main, com a L-11 e a L-24 intactas:*
+  - push a cada etapa com o espelho local verde;
+  - merge em `main` e marca só quando a W7-D fechar com o CI verde (`CI-VERDE-W7D`), com o número pela L-26.
+- *Retomada, pela ordem do snapshot:*
+  - fatias S4 e S5 do D-SRGB-2 (o lado WGL), depois a S6 (MEASURED e paridade);
+  - revisão, espelho, push e CI;
+  - então o resto da W7-D: a B7 (api-review) e as linhas "Proved by".
+- *Modelo dos agentes:* pela emenda de 02/10 da L-18, os C-levels seguem `/modelos_sessao` (`opus`), e o resto é `sonnet`.

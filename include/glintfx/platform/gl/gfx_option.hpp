@@ -280,6 +280,8 @@ gltfx_gfx_option_by_name(std::string_view name) noexcept;
 //      they are called, from two facts the system reports (the kind of
 //      GPU this context runs on, and option(power_source)). Reading
 //      them changes no option and no label.
+//      Proved by: gl_context_parity_test (every row read before and
+//      after asking twice: identical, on a real context).
 //   2. APPLYING IS ALWAYS YOUR REQUEST. set_option({preset, P}) with a
 //      concrete P applies every row of P, all or nothing, once.
 //      set_option({preset, k_gltfx_preset_automatic}) is a shortcut for

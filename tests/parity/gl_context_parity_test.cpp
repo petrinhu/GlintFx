@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
@@ -286,6 +288,274 @@ namespace {
                      name.c_str(), supported ? 1 : 0, equal ? 1 : 0, static_cast<long long>(value));
         return false;
     }
+    return true;
+}
+
+} // namespace
+
+namespace {
+
+// GFX-PRESET, P4 (docs/auditoria-api-gfx-preset.md, D-A68, /var/tmp/cto-w7d/plano-fechamento-w7d.md
+// sec. 2.3): the live cells of the suggested-preset contract, through the PUBLIC API only, on a
+// real context. Each helper is one cell and returns false the moment it disagrees (EXIT_FAILURE in
+// main).
+
+void print_option_read_failure(std::string_view what, glintfx::gltfx_gfx_option id,
+                               const glintfx::gltfx_err &err) {
+    std::fprintf(stderr, "gl_context_parity_test: %s: option(%s) failed: %s\n",
+                 std::string(what).c_str(),
+                 std::string(glintfx::gltfx_gfx_option_describe(id).name).c_str(),
+                 std::string(glintfx::gltfx_err_code_name(err.code())).c_str());
+}
+
+[[nodiscard]] bool read_option(const glintfx::gltfx_gl_context &context,
+                               glintfx::gltfx_gfx_option id, std::string_view what,
+                               std::int64_t &value) {
+    const glintfx::gltfx_rslt<std::int64_t> read = context.option(id);
+    if (read.has_error()) {
+        print_option_read_failure(what, id, read.err());
+        return false;
+    }
+    value = read.value();
+    return true;
+}
+
+// Every row of the registry, read through option(), in registry order. The photo the
+// "asking does not write" cell compares before and after.
+[[nodiscard]] bool photograph_every_row(const glintfx::gltfx_gl_context &context,
+                                        std::vector<std::int64_t> &photo) {
+    photo.clear();
+    const std::size_t row_count = glintfx::gltfx_gfx_option_count();
+    for (std::size_t i = 0; i < row_count; ++i) {
+        std::int64_t value = 0;
+        if (!read_option(context, glintfx::gltfx_gfx_option_at(i).id, "foto das linhas", value)) {
+            return false;
+        }
+        photo.push_back(value);
+    }
+    return row_count != 0;
+}
+
+// The rows of the preset `preset`, read as the public pair, must all read back as applied.
+[[nodiscard]] bool preset_rows_read_back(const glintfx::gltfx_gl_context &context,
+                                         std::int64_t preset, std::string_view what) {
+    const std::size_t row_count = glintfx::gltfx_gfx_preset_row_count(preset);
+    if (row_count == 0) {
+        std::fprintf(stderr, "gl_context_parity_test: %s: o preset %lld nao tem linha nenhuma\n",
+                     std::string(what).c_str(), static_cast<long long>(preset));
+        return false;
+    }
+    for (std::size_t i = 0; i < row_count; ++i) {
+        const glintfx::gltfx_gfx_option_entry row = glintfx::gltfx_gfx_preset_row_at(preset, i);
+        std::int64_t read = 0;
+        if (!read_option(context, row.id, what, read)) {
+            return false;
+        }
+        if (read != row.value) {
+            std::fprintf(stderr,
+                         "gl_context_parity_test: %s: linha %s do preset %lld: esperado %lld, "
+                         "lido %lld\n",
+                         std::string(what).c_str(),
+                         std::string(glintfx::gltfx_gfx_option_describe(row.id).name).c_str(),
+                         static_cast<long long>(preset), static_cast<long long>(row.value),
+                         static_cast<long long>(read));
+            return false;
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] bool set_option_ok(glintfx::gltfx_gl_context &context,
+                                 glintfx::gltfx_gfx_option_entry entry, std::string_view what) {
+    const glintfx::gltfx_rslt<void> set = context.set_option(entry);
+    if (set.has_error()) {
+        std::fprintf(stderr, "gl_context_parity_test: %s: set_option(%s=%lld) failed: %s\n",
+                     std::string(what).c_str(),
+                     std::string(glintfx::gltfx_gfx_option_describe(entry.id).name).c_str(),
+                     static_cast<long long>(entry.value),
+                     std::string(glintfx::gltfx_err_code_name(set.err().code())).c_str());
+        return false;
+    }
+    return true;
+}
+
+// The three computed rows, MEASURED raw (one integer per key, never asserted equal between the two
+// systems: the numbers are the system's own report) and held to the closed vocabulary the header
+// promises - the suggestion is never manual/automatic, the reason is never `none`.
+[[nodiscard]] bool measure_suggestion_keys(const glintfx::gltfx_gl_context &context) {
+    std::int64_t power = 0;
+    std::int64_t reason = 0;
+    std::int64_t suggested = 0;
+    if (!read_option(context, glintfx::gltfx_gfx_option::power_source, "power_source", power) ||
+        !read_option(context, glintfx::gltfx_gfx_option::auto_choice_reason, "auto_choice_reason",
+                     reason) ||
+        !read_option(context, glintfx::gltfx_gfx_option::suggested_preset, "suggested_preset",
+                     suggested)) {
+        return false;
+    }
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.power_source=%lld\n",
+                 static_cast<long long>(power));
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.auto_choice_reason=%lld\n",
+                 static_cast<long long>(reason));
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.suggested_preset=%lld\n",
+                 static_cast<long long>(suggested));
+    const bool power_in_vocabulary = power >= glintfx::k_gltfx_power_source_unknown &&
+                                     power <= glintfx::k_gltfx_power_source_battery;
+    const bool reason_in_vocabulary = reason >= glintfx::k_gltfx_auto_choice_reason_on_battery &&
+                                      reason <= glintfx::k_gltfx_auto_choice_reason_unknown_gpu;
+    const bool suggestion_concrete = suggested >= glintfx::k_gltfx_preset_power_saving &&
+                                     suggested <= glintfx::k_gltfx_preset_performance;
+    if (!power_in_vocabulary || !reason_in_vocabulary || !suggestion_concrete) {
+        std::fprintf(stderr,
+                     "gl_context_parity_test: sugestao fora do vocabulario fechado: "
+                     "power_source=%lld auto_choice_reason=%lld suggested_preset=%lld\n",
+                     static_cast<long long>(power), static_cast<long long>(reason),
+                     static_cast<long long>(suggested));
+        return false;
+    }
+    return true;
+}
+
+// CELL "perguntar nao grava" (rule 1 of the SUGGESTED PRESET block): the label is `manual` and the
+// suggestion is always 1..3, so a library that wrote the suggestion anywhere would change a row.
+[[nodiscard]] bool asking_writes_nothing_cell(glintfx::gltfx_gl_context &context) {
+    if (!set_option_ok(
+            context,
+            {.id = glintfx::gltfx_gfx_option::preset, .value = glintfx::k_gltfx_preset_manual},
+            "perguntar nao grava")) {
+        return false;
+    }
+    std::vector<std::int64_t> before;
+    std::vector<std::int64_t> after;
+    if (!photograph_every_row(context, before)) {
+        return false;
+    }
+    std::int64_t ignored = 0;
+    for (int ask = 0; ask < 2; ++ask) {
+        if (!read_option(context, glintfx::gltfx_gfx_option::suggested_preset, "perguntar",
+                         ignored) ||
+            !read_option(context, glintfx::gltfx_gfx_option::auto_choice_reason, "perguntar",
+                         ignored)) {
+            return false;
+        }
+    }
+    if (!photograph_every_row(context, after) || before.size() != after.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < before.size(); ++i) {
+        if (before[i] != after[i]) {
+            std::fprintf(stderr,
+                         "gl_context_parity_test: perguntar mudou preset: antes %lld, depois %lld "
+                         "(linha %s)\n",
+                         static_cast<long long>(before[i]), static_cast<long long>(after[i]),
+                         std::string(glintfx::gltfx_gfx_option_at(i).name).c_str());
+            return false;
+        }
+    }
+    std::fprintf(stdout, "gl_context_parity_test: celula perguntar nao grava (%zu linhas) ok\n",
+                 before.size());
+    return true;
+}
+
+// CELL "the label is yours, and nothing is reapplied" (rules 3 and 4): after a concrete preset, a
+// hand change of one row keeps the label, and asking for the suggestion neither rewrites the label
+// nor undoes the hand change.
+[[nodiscard]] bool label_is_the_consumers_cell(glintfx::gltfx_gl_context &context) {
+    if (!set_option_ok(
+            context,
+            {.id = glintfx::gltfx_gfx_option::preset, .value = glintfx::k_gltfx_preset_performance},
+            "rotulo do consumidor") ||
+        !preset_rows_read_back(context, glintfx::k_gltfx_preset_performance,
+                               "rotulo do consumidor") ||
+        !set_option_ok(
+            context, {.id = glintfx::gltfx_gfx_option::vsync, .value = glintfx::k_gltfx_vsync_off},
+            "rotulo do consumidor")) {
+        return false;
+    }
+    std::int64_t ignored = 0;
+    std::int64_t label = -1;
+    std::int64_t vsync = -1;
+    if (!read_option(context, glintfx::gltfx_gfx_option::suggested_preset, "rotulo do consumidor",
+                     ignored) ||
+        !read_option(context, glintfx::gltfx_gfx_option::preset, "rotulo do consumidor", label) ||
+        !read_option(context, glintfx::gltfx_gfx_option::vsync, "rotulo do consumidor", vsync)) {
+        return false;
+    }
+    if (label != glintfx::k_gltfx_preset_performance || vsync != glintfx::k_gltfx_vsync_off) {
+        std::fprintf(stderr,
+                     "gl_context_parity_test: o rotulo ou a linha do consumidor foi reescrito: "
+                     "preset=%lld (esperado %lld), vsync=%lld (esperado %lld)\n",
+                     static_cast<long long>(label),
+                     static_cast<long long>(glintfx::k_gltfx_preset_performance),
+                     static_cast<long long>(vsync),
+                     static_cast<long long>(glintfx::k_gltfx_vsync_off));
+        return false;
+    }
+    std::fprintf(stdout, "gl_context_parity_test: celula rotulo do consumidor ok\n");
+    return true;
+}
+
+// CELL "automatic applies the suggestion of right now, once, and stores the concrete value" (rule
+// 2).
+[[nodiscard]] bool automatic_applies_the_suggestion_cell(glintfx::gltfx_gl_context &context) {
+    std::int64_t suggested = 0;
+    if (!read_option(context, glintfx::gltfx_gfx_option::suggested_preset, "automatic",
+                     suggested) ||
+        !set_option_ok(
+            context,
+            {.id = glintfx::gltfx_gfx_option::preset, .value = glintfx::k_gltfx_preset_automatic},
+            "automatic")) {
+        return false;
+    }
+    std::int64_t label = -1;
+    if (!read_option(context, glintfx::gltfx_gfx_option::preset, "automatic", label)) {
+        return false;
+    }
+    if (label == glintfx::k_gltfx_preset_automatic || label != suggested) {
+        std::fprintf(stderr,
+                     "gl_context_parity_test: preset=automatic gravou o rotulo %lld, esperado a "
+                     "sugestao concreta %lld (nunca automatic)\n",
+                     static_cast<long long>(label), static_cast<long long>(suggested));
+        return false;
+    }
+    if (!preset_rows_read_back(context, label, "automatic")) {
+        return false;
+    }
+    std::fprintf(stdout, "gl_context_parity_test: celula automatic aplica a sugestao ok\n");
+    return true;
+}
+
+// CELL E1 (the degraded pair): the entry the library hands back for a row that does not exist is
+// {suggested_preset, manual}, and applying it is refused by name and changes nothing, label
+// included.
+[[nodiscard]] bool degraded_pair_is_refused_cell(glintfx::gltfx_gl_context &context) {
+    const glintfx::gltfx_gfx_option_entry degraded = glintfx::gltfx_gfx_preset_row_at(99, 0);
+    if (degraded.id != glintfx::gltfx_gfx_option::suggested_preset ||
+        degraded.value != glintfx::k_gltfx_preset_manual) {
+        std::fprintf(stderr,
+                     "gl_context_parity_test: gltfx_gfx_preset_row_at(99, 0) devolveu id=%u "
+                     "value=%lld, esperado {suggested_preset, manual}\n",
+                     static_cast<unsigned>(degraded.id), static_cast<long long>(degraded.value));
+        return false;
+    }
+    std::vector<std::int64_t> before;
+    std::vector<std::int64_t> after;
+    if (!photograph_every_row(context, before)) {
+        return false;
+    }
+    const glintfx::gltfx_rslt<void> refused = context.set_option(degraded);
+    if (!refused.has_error() || refused.err().code() != glintfx::gltfx_err_code::invalid_argument ||
+        refused.err().rejected_value() != std::string_view{"suggested_preset"}) {
+        std::fprintf(stderr, "gl_context_parity_test: aplicar o par degradado nao foi recusado "
+                             "como invalid_argument/suggested_preset\n");
+        return false;
+    }
+    if (!photograph_every_row(context, after) || before != after) {
+        std::fprintf(stderr, "gl_context_parity_test: aplicar o par degradado mudou uma linha "
+                             "ou o rotulo\n");
+        return false;
+    }
+    std::fprintf(stdout, "gl_context_parity_test: celula par degradado recusado ok\n");
     return true;
 }
 
@@ -690,7 +960,8 @@ int main() {
             const glintfx::gltfx_gfx_option_info info = glintfx::gltfx_gfx_option_at(i);
             const glintfx::gltfx_gfx_option_support support = context.option_support(info.id);
             if (info.id == glintfx::gltfx_gfx_option::auto_choice_reason ||
-                info.id == glintfx::gltfx_gfx_option::power_source) {
+                info.id == glintfx::gltfx_gfx_option::power_source ||
+                info.id == glintfx::gltfx_gfx_option::suggested_preset) {
                 if (support != glintfx::gltfx_gfx_option_support::read_only_here) {
                     std::fprintf(
                         stderr,
@@ -721,6 +992,16 @@ int main() {
                          "gl_context_parity_test: registry sweep never saw msaa_samples/"
                          "srgb_framebuffer (saw_msaa=%d saw_srgb=%d)\n",
                          saw_msaa, saw_srgb);
+            return EXIT_FAILURE;
+        }
+
+        // GFX-PRESET, P4: the suggested-preset cells, last in this scope on purpose - `automatic`
+        // writes vsync/frame_rate_cap, and nothing below may depend on the earlier state. The
+        // cadence cell (the 30 fps cap OBEYED by the loop) lives in loop_parity_test.cpp.
+        if (!measure_suggestion_keys(context) || !asking_writes_nothing_cell(context) ||
+            !label_is_the_consumers_cell(context) ||
+            !automatic_applies_the_suggestion_cell(context) ||
+            !degraded_pair_is_refused_cell(context)) {
             return EXIT_FAILURE;
         }
 

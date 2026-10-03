@@ -71,8 +71,9 @@ class win32_window_adapter;
 
 // D-W6b-18's own Windows-side mechanism: `adaptive` v-sync is honored
 // through wglSwapIntervalEXT(-1) ONLY when this system's own WGL_EXT_
-// swap_control_tear is present (detect_adaptive_vsync_support() below,
-// checked once at open() time via wglGetExtensionsStringARB) - refused
+// swap_control_tear is present (a fact wgl_extension_loader.hpp reads
+// off the WGL extension list while its disposable context is current,
+// by the whole token, D-SRGB2-5) - refused
 // BY NAME (gltfx_err_code::unsupported, rejected_value() == "vsync")
 // otherwise, never silently downgraded to plain `on` (the exact
 // mistake this project's own D-W6b-18 comment names, and the mirror of
@@ -185,7 +186,6 @@ class win32_gl_context_adapter {
     set_pixel_format_once(void *choose_pixel_format_arb,
                           std::span<const gltfx_gfx_option_entry> options) noexcept;
     [[nodiscard]] gltfx_rslt<void> create_context(void *create_context_attribs_arb) noexcept;
-    void detect_adaptive_vsync_support() noexcept;
     [[nodiscard]] gltfx_rslt<void> call_swap_interval(int interval) noexcept;
 
     HDC m_dc = nullptr;

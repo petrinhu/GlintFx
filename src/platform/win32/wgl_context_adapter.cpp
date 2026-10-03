@@ -112,7 +112,6 @@ using wgl_choose_pixel_format_arb_fn = BOOL(WINAPI *)(HDC, const int *, const FL
                                                       UINT *);
 using wgl_create_context_attribs_arb_fn = HGLRC(WINAPI *)(HDC, HGLRC, const int *);
 using wgl_swap_interval_ext_fn = BOOL(WINAPI *)(int);
-using wgl_get_extensions_string_arb_fn = const char *(WINAPI *)(HDC);
 
 } // namespace
 
@@ -455,25 +454,6 @@ win32_gl_context_adapter::create_context(void *create_context_attribs_arb) noexc
     return gltfx_rslt<void>::ok();
 }
 
-void win32_gl_context_adapter::detect_adaptive_vsync_support() noexcept {
-    // D-W6b-18: resolved through the SAME resolve_wgl_proc_address()
-    // atom proc_address() below hands a consumer - not a fourth pointer
-    // added to wgl_extension_loader.hpp's own three (that atom's own
-    // header comment: only the two functions the REAL window's pixel
-    // format/context creation genuinely needs, plus swap-interval).
-    const auto get_extensions = reinterpret_cast<wgl_get_extensions_string_arb_fn>(
-        resolve_wgl_proc_address("wglGetExtensionsStringARB"));
-    if (get_extensions == nullptr) {
-        return;
-    }
-    const char *extensions = get_extensions(m_dc);
-    if (extensions == nullptr) {
-        return;
-    }
-    m_adaptive_supported =
-        std::string_view(extensions).find("WGL_EXT_swap_control_tear") != std::string_view::npos;
-}
-
 gltfx_rslt<void>
 win32_gl_context_adapter::open(win32_window_adapter &window,
                                std::span<const gltfx_gfx_option_entry> options) noexcept {
@@ -519,7 +499,8 @@ win32_gl_context_adapter::open(win32_window_adapter &window,
         return context_ok;
     }
 
-    detect_adaptive_vsync_support();
+    // D-W6b-18, D-SRGB2-5: a FACT the loader read, never a second search of the list here.
+    m_adaptive_supported = loaded.value().advertised.swap_control_tear;
 
     // vsync is `live` (gfx_option.hpp), but the opening list may still
     // carry it (D-W6b-18's own default, resolved by gl_context_facade.

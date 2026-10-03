@@ -11,8 +11,8 @@
 // (egl_context_adapter.cpp, fatia 3) - the ONE atom win32_gl_context_
 // adapter::proc_address() (context.hpp's own public contract) calls to
 // resolve ANY GL/WGL function by name, and the atom win32_gl_context_
-// adapter's own internal steps (resolving wglGetExtensionsStringARB to
-// detect WGL_EXT_swap_control_tear, D-W6b-18) reuse instead of a second,
+// adapter's own internal steps (resolving glGetUnsignedBytevEXT to read
+// the GL device LUID, D-W6b-32) reuse instead of a second,
 // hand-rolled wglGetProcAddress call.
 //
 // THE ARMADILHA THIS ATOM EXISTS TO CLOSE (this fatia's own busca,

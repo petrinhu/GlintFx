@@ -1295,6 +1295,12 @@ if(UNIX)
     target_include_directories(egl_srgb_surface_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 endif()
 
+# D-SRGB-2 (D-SRGB2-9, S4/S5): the pure sRGB rule of the Windows side (src/platform/win32/wgl_srgb_pixel_format.hpp),
+# header-only and free of any Windows header, read by the WGL loader and by the WGL adapter. NO platform guard: it
+# runs on every system, like power_status_rule_test.
+glintfx_add_test(wgl_srgb_pixel_format_test)
+target_include_directories(wgl_srgb_pixel_format_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 glintfx_add_test(egl_device_dedup_test)
 target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(egl_device_dedup_test PRIVATE

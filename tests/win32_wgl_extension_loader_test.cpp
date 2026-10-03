@@ -10,10 +10,13 @@
 #include <windows.h>
 
 #include <print>
+#include <string>
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
+#include "platform/extension_token.hpp"
 #include "platform/win32/wgl_extension_loader.hpp"
+#include "platform/win32/wgl_srgb_pixel_format.hpp"
 
 // win32_wgl_extension_loader_test.cpp - X-WGL (docs/plano-w6b-placa-e-
 // laco.md fatia 4, GODS_LAWS.md L-04/L-09/L-40): proves, against the
@@ -94,6 +97,87 @@ GLINTFX_TEST(wgl_extension_loader_can_run_more_than_once_in_the_same_process) {
                  !second.has_error());
     GLINTFX_CHECK(!first.has_error());
     GLINTFX_CHECK(!second.has_error());
+}
+
+namespace {
+
+using wgl_get_extensions_string_arb_fn = const char *(WINAPI *)(HDC);
+
+// Whether `list` was filled with the WGL extension list this test reads BY ITS OWN disposable
+// window and legacy context (the same sequence tests/win32_runner_probe_test.cpp uses), so the
+// loader's facts are compared with a list the loader did not touch. The predefined "STATIC"
+// window class needs no registration.
+[[nodiscard]] bool read_wgl_list_independently(std::string &list) {
+    HWND hwnd = ::CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPEDWINDOW, 0, 0, 1, 1, nullptr,
+                                  nullptr, ::GetModuleHandleW(nullptr), nullptr);
+    if (hwnd == nullptr) {
+        return false;
+    }
+    HDC dc = ::GetDC(hwnd);
+    PIXELFORMATDESCRIPTOR pfd{};
+    pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 32;
+    pfd.iLayerType = PFD_MAIN_PLANE;
+    const int format = dc != nullptr ? ::ChoosePixelFormat(dc, &pfd) : 0;
+    HGLRC context = nullptr;
+    bool read = false;
+    if (format != 0 && ::SetPixelFormat(dc, format, &pfd) != 0) {
+        context = ::wglCreateContext(dc);
+    }
+    if (context != nullptr && ::wglMakeCurrent(dc, context) != 0) {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the dlsym-style cast.
+        const auto get_arb = reinterpret_cast<wgl_get_extensions_string_arb_fn>(
+            ::wglGetProcAddress("wglGetExtensionsStringARB"));
+        const char *text = get_arb != nullptr ? get_arb(dc) : nullptr;
+        if (text != nullptr) {
+            list = text;
+            read = true;
+        }
+        ::wglMakeCurrent(nullptr, nullptr);
+    }
+    if (context != nullptr) {
+        ::wglDeleteContext(context);
+    }
+    if (dc != nullptr) {
+        ::ReleaseDC(hwnd, dc);
+    }
+    ::DestroyWindow(hwnd);
+    return read;
+}
+
+} // namespace
+
+GLINTFX_TEST(wgl_extension_loader_facts_equal_the_whole_token_search_of_the_driver_list) {
+    // D-SRGB-2 (D-SRGB2-5): the loader returns FACTS, read while its disposable context is
+    // current. The expected values come from a list read here, by a separate context, and the
+    // whole-token atom: a loader that read the list after releasing its context, or searched a
+    // substring, would disagree on a driver that announces the name (on the Mesa runner both are
+    // false and the check cannot tell, declared in SRGB-WIN-CI-PROOF-GAP).
+    std::string list;
+    const bool listed = read_wgl_list_independently(list);
+    std::println("win32_wgl_extension_loader_test: independent list read={} size={}", listed,
+                 list.size());
+    GLINTFX_CHECK(listed);
+    GLINTFX_CHECK(!list.empty()); // L-40: an empty list proves nothing about the facts
+
+    const glintfx::gltfx_rslt<glintfx::platform::wgl_extension_pointers> loaded =
+        glintfx::platform::load_wgl_extension_pointers();
+    GLINTFX_CHECK(!loaded.has_error());
+
+    const bool expected_srgb = glintfx::platform::wgl_framebuffer_srgb_advertised(list.c_str());
+    const bool expected_tear =
+        glintfx::platform::extension_token_listed(list.c_str(), "WGL_EXT_swap_control_tear");
+    std::println("MEASURED win32_wgl_extension_loader_test.advertised_framebuffer_srgb={}",
+                 loaded.value().advertised.framebuffer_srgb);
+    std::println("MEASURED win32_wgl_extension_loader_test.advertised_swap_control_tear={}",
+                 loaded.value().advertised.swap_control_tear);
+    std::println("MEASURED win32_wgl_extension_loader_test.get_pixel_format_attribiv_resolved={}",
+                 loaded.value().get_pixel_format_attribiv_arb != nullptr);
+    GLINTFX_CHECK(loaded.value().advertised.framebuffer_srgb == expected_srgb);
+    GLINTFX_CHECK(loaded.value().advertised.swap_control_tear == expected_tear);
 }
 
 #endif // defined(_WIN32)

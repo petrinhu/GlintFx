@@ -5596,3 +5596,57 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - `gl_context_parity_test` rc=1, com `open_only(srgb_framebuffer) recusou como unsupported/msaa_samples, esperado unsupported/srgb_framebuffer`.
 - *Aceite do CTO cumprido:* o mesmo mutante derruba os dois testes, e o log mostra `msaa_samples`, o que prova que a mutação chegou ao binário.
 - *Antes da S6,* o `draw2d_parity_test` aceitava qualquer `rejected_value` e teria passado.
+
+## 03/10/2026 - 20:08 | Registro da revisão adversarial de S4 e S5 do D-SRGB-2 (L-12; atende a D-FECH-10, parte i)
+
+- *Revisor:* `tech-lead` sonnet, distinto dos implementadores, sobre os blobs `e9d5491` (S4) e `c32591a` (S5), com rastro em `/var/tmp/rev-s5/`.
+- *Veredito:* APROVA COM RESSALVAS, 0 CRÍTICO.
+  - Ordem da cascata conferida no blob: extensão, choose, consulta 0x20A9 no formato que fica ligado, `decide_gfx_format`, `SetPixelFormat`.
+  - Os ramos que abriam sem a opção foram extintos.
+  - O carregador lê a lista antes de soltar o contexto descartável.
+  - O portão do SetLastError não enfraqueceu: o mutante foi visto reprovando.
+- *Mutantes* (cópia fora da árvore, com a prova por md5 de que a mutação chegou ao binário): 9 rodados. Morreram A, B, D, E, F, G, K e L. O J (regra 1 apagada) sobreviveu no teste WGL e morre no `gfx_format_decision_test`.
+- *Achados consertados* (commits `371a320`, `7256f9f`, `094a257`, `6d1be99`, `b1746c6`, `31feffb`):
+  - o caso que isola a regra 1 (o J agora morre também no teste WGL; vermelho visto);
+  - o `TODO.md` do item;
+  - o texto da exceção de paridade;
+  - a extração `wgl_pixel_format_cascade` (adaptador de 739 para 542 linhas);
+  - o controle negativo `fn(dc,`;
+  - o piso tautológico.
+  `WGL-LOADER-TEARDOWN-ATOM` foi para o INBOX, por ser anterior à onda.
+- *S6:* commit `eda70c6`, com a prova viva e o mutante M1 nas entradas D-A67 e "o mutante M1".
+
+## 03/10/2026 - 20:08 | D-A68: o plano de fechamento da W7-D (CTO, modo autônomo; `/var/tmp/cto-w7d/plano-fechamento-w7d.md`, md5 de6cbfd9)
+
+- *Verificação do main* (L-34, passo 3), feita contra a árvore às 20:05:
+  - `docs/gl-loop-portability-matrix.md:32` ainda diz que o preset "é no-op";
+  - `tests/package/CMakeLists.txt:35` ainda pede `glintfx 0.5`;
+  - o relatório da B7 (`/var/tmp/cto-w7d/b7/auditoria-revisao-r2d-batch.md`) tem campos `@@...@@` vazios.
+  As três confirmam o plano.
+- **D-FECH-1:** a definição de fechamento é a cadeia `docs/plano-w7d.md:314-324`, adendo `:142-151`, `PLANO.md:177,196-201,220`, errata `:118`, D-A55. O que a D-W7D-19 levou para a INFRA-CI fica dito, não calado.
+- **D-FECH-2:** `D-SRGB2-WGL-SLICES` é critério da W7-D e sobe para antes de `CI-VERDE-W7D`. O texto de `CI-VERDE-W7D` perde o `INPUT-EVENTS`, que foi para a W9.
+- **D-FECH-3:** os pareceres P0 e B0, o PLANO e a errata vão para `docs/auditoria-*`, com um apêndice "texto final congelado" gerado por script, para a comparação por máquina.
+- **D-FECH-4:** o run 37159658455 não fecha a onda; são no mínimo os runs A e B depois dele.
+- **D-FECH-5:** um único `--sanitizer-only` para P5 e B7, no SHA final de código.
+- **D-FECH-6:** as linhas "Proved by" [B5] e [P4] entram byte a byte.
+- **D-FECH-7:** "o que ele não vê" só para os portões ALTERADOS pela W7-D; se faltar no cabeçalho, vira INBOX.
+- **D-FECH-8:** C2, C4 e a trilha de infraestrutura ficam FORA do fechamento.
+- **D-FECH-9:** o commit de versão `0.5.2.0 -> 0.6.0.0` leva junto `tests/package/CMakeLists.txt:35` e a seção `[0.6.0.0]` do CHANGELOG.
+- **D-FECH-10:** registrar a revisão de S4/S5 (bloco acima) e a reaplicação dos 8 mutantes da B4 antes do ✅.
+- *Sequência* (§4.1 do plano), 16 passos:
+  - run 37159658455 lido inteiro;
+  - G4 (auditorias em docs/);
+  - P4 e B7 em paralelo;
+  - PB-1 ("Proved by");
+  - run A;
+  - P5 e o sanitizer;
+  - a comparação por máquina;
+  - versão e CHANGELOG;
+  - os ✅ do TODO;
+  - run B;
+  - `CI-VERDE-W7D` e o run C;
+  - PR e merge;
+  - a marca `v0.6.0.0` no commit de merge;
+  - o ramo apagado;
+  - os avisos (Gus Dragon pela L-37, `gusworld` e `mapeditor`).
+- *Porta de mão única:* só a D-FECH-6 (texto público congelado), que já foi decidida na revisão B0.

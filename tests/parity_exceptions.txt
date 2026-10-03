@@ -964,8 +964,9 @@ egl_config_attribs_test|windows|nenhum|SEM-PENDENCIA
 
 # D-SRGB-2 (D-SRGB2-7, S3): egl_srgb_surface_test proves what a failed eglCreateWindowSurface with the sRGB
 # colorspace asked MEANS, over the EGL_BAD_* codes of <EGL/egl.h>, which exist only in EGL and not on the Windows
-# side. The WGL counterpart (D-SRGB-2, slice S5) exists since then: wgl_srgb_pixel_format_test, pure, which runs on
-# EVERY system and proves what the Windows adapter decides about the sRGB. The asymmetry that stays is the EGL_BAD_*
-# codes, which exist only in EGL; the remaining slices (S6) are still open under the item.
+# side. The WGL counterpart, wgl_srgb_pixel_format_test, is pure and runs on EVERY system, but it proves only the
+# rule (the announcement of the extension, the confirmation query) and the neutral decision decide_gfx_format();
+# the adapter wiring that feeds those facts (wgl_context_adapter.cpp) runs only on the Windows CI and in the
+# live container proof, neither done yet. The asymmetry that stays is the EGL_BAD_* codes, which exist only in EGL.
 # MORTE DESTA LINHA: quando o item D-SRGB2-WGL-SLICES fechar (a revisao decide se a linha vira SEM-PENDENCIA).
 egl_srgb_surface_test|windows|nenhum|D-SRGB2-WGL-SLICES

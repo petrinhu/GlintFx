@@ -66,13 +66,14 @@ SCRIPT_NAME = "check_win32_last_error_cleared.py"
 
 WIN32_DIR = os.path.join("src", "platform", "win32")
 
-# The four files this project actually reads ::GetLastError() in - see
+# The five files (the pixel format cascade left wgl_context_adapter.cpp in D-SRGB-2) this project actually reads ::GetLastError() in - see
 # the header comment above for why wgl_extension_loader.cpp is not one
 # of them.
 TARGET_FILES = (
     "display_adapter.cpp",
     "seat_adapter.cpp",
     "wgl_context_adapter.cpp",
+    "wgl_pixel_format_cascade.cpp",
     "window_adapter.cpp",
 )
 

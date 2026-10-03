@@ -100,6 +100,7 @@ target_sources(glintfx_library PRIVATE
     app_user_model_id.cpp
     wgl_extension_loader.cpp
     wgl_proc_address.cpp
+    wgl_pixel_format_cascade.cpp
     wgl_context_adapter.cpp
     selected_gl_context_adapter_check.cpp
     dxcore_adapter_match.cpp

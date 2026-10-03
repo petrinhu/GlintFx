@@ -5675,3 +5675,16 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - Achados abertos, todos COSMÉTICO ou INFORMATIVO: B7-K1 a K5.
 - **K2:** o `mutants.py` antigo restaura o fonte preservando o mtime, e o mutante vaza para o seguinte. Não reutilizar; o executor novo é `f/run_mut.py`.
 - **K5:** falta um portão `readability-function-size`. Vai para INBOX junto do versionamento no passo 7.
+
+### D-FECH-11 (CTO, modo autônomo, 03/10/2026, 20:47): a célula de duas janelas (D-API-07) entra na W7-D
+- **Lacuna:** a errata do plano (`PLANO-errata.md:115-116`) e a condição da PB-1 (`plano-fechamento-w7d.md:96`) prometeram uma célula viva de duas janelas no `draw2d_parity_test`, e ela não existe. A promessa pública `renderer_2d.hpp:167-170` ("a program with two windows never draws into the wrong one") só tinha prova em teste de unidade com GL de mentira.
+- **Decisão:** opção (a), com ajustes. Parecer em `/var/tmp/cto-w7d/parecer-d-api-07.md` (md5 `d0be9611`).
+  - **DW-a (passo 3'):** a célula, antes do push do run A, com os mutantes DW-M1 a DW-M4 mortos no container.
+  - **DW-b (passo 5'):** a linha "Proved by" como emenda **E5**, com o texto exato na §4 do parecer, depois do run A.
+  - A DW é parte do `R2D-BATCH` e não ganha ID novo no TODO.
+- **PB-1 (`8c6c83c`) fica como está.** Nenhuma das quatro linhas alega duas janelas. A condição do grep não foi cumprida antes do commit; fica registrada aqui como fato, e a DW-a a cumpre.
+- **INBOX `GL-CTX-SHARED-EGLDISPLAY` (suspeita, não medida):** `egl_context_adapter.cpp:567` chama `eglGetPlatformDisplay` sobre o mesmo `wl_display` em cada contexto, e `:949` chama `eglTerminate` ao fechar.
+  - Inferência do CTO: fechar uma janela quebraria a outra no Linux.
+  - Previsão: vermelho no Linux, verde no Windows.
+  - Se a DW-a reprovar na desmontagem, inclusive na perna ASan, o conserto entra na onda.
+- O main conferiu as três linhas de `egl_context_adapter.cpp` e `renderer_2d_impl_test.cpp:603` contra a árvore.

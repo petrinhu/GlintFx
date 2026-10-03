@@ -5540,3 +5540,12 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - revisão, espelho, push e CI;
   - então o resto da W7-D: a B7 (api-review) e as linhas "Proved by".
 - *Modelo dos agentes:* pela emenda de 02/10 da L-18, os C-levels seguem `/modelos_sessao` (`opus`), e o resto é `sonnet`.
+
+## 03/10/2026 - 18:17 | D-A66: o vermelho das células só-Windows de S4 e S5 é declarado rebaixado, sem a VM (main, modo autônomo, aplicando a alternativa que o plano já previa no D-SRGB2-14)
+
+- *Pergunta que teria ido ao líder:* ligar a VM Windows 11 para ver vermelhas, antes do servidor, as células que só existem no Windows?
+- *Fato (D-SRGB2-14, plano md5 ac7778a6):* a VM roda o mesmo Mesa 26.2.0 do CI, então não muda o veredito sobre o sRGB ligado. Ela só antecipa o vermelho de células cujo comportamento ANTIGO já está provado em 4 runs do CI (36759613878, 36908843898, 37014377382, 37020407535: `draw2d_parity_test` vermelho em `[srgb=on]`).
+- *Escolha:* não ligar a VM. O vermelho do átomo puro (`wgl_srgb_pixel_format_test`) sai no Linux; o das células só-Windows fica declarado rebaixado no commit e no relatório; o verde sai no CI Windows.
+- *Recusada:* a VM agora, pelo custo de máquina (trabalho pesado, 17 GB) sem informação nova sobre o veredito.
+- *Verificação de compilação e ligação do Windows antes do push:* `tools/preci.sh --win32-link-only`, com o `cl.exe` e o `link.exe` reais no container MSVC.
+- *Porta de mão única:* não. Ligar a VM depois continua possível.

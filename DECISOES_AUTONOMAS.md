@@ -5568,3 +5568,20 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - 18:41, "ligue modo autonomo e continue a trabalhar. Autorizo merge/push/tag". Flag do hook válida até 04/10/2026 18:41.
 - *Leitura do main (L-11, L-24):* push com o espelho local verde; merge em `main` e marca só com a W7-D fechada e o CI verde.
 - *Monitor:* `/olhe_agentes` (skill criada às 18:40 por ordem do líder), tick de 5 min até 10/10 18:33. Com o modo autônomo ligado, o tick manda seguir agente PARADO (calado há 5 min e sem comando em execução) e retoma o trabalho se a sessão ficar ociosa.
+
+## 03/10/2026 - 19:25 | D-A67: a previsão do COLOR_ENCODING errou no Linux, e o mecanismo explica por quê (CTO, modo autônomo, L-34 e L-44; D-SRGB2-16 a D-SRGB2-19)
+
+- *Fato (prova viva da S6 no container, imagem de `eda70c6`, logs em `/var/tmp/s6-janela/`):*
+  - `draw2d_parity_test` rc=0: 52 células, 0 reprovadas; `half_white_srgb_on=187`, `srgb_on_cells_absent=0`.
+  - `gl_context_parity_test` rc=0: `srgb_support=1`, e `open_only_*_opened=1` para MSAA e para sRGB.
+  - **Divergência da previsão §5.2:** `back_buffer_color_encoding_srgb_off=35904` (GL_SRGB), contra 9729 previsto.
+- *Mecanismo (CTO, fonte do Mesa `main`):*
+  - Em GL desktop, o Mesa cria o back buffer no gêmeo sRGB do formato quando o driver o aceita como alvo de exibição, mesmo sem `EGL_GL_COLORSPACE_KHR` (`st_manager.c`, `st_framebuffer_create`, `prefer_srgb`).
+  - A conversão só acontece com `GL_FRAMEBUFFER_SRGB` ligado (EGL_KHR_gl_colorspace), por isso o pixel sai 127 no modo off.
+  - No Windows, o winsys GDI do Mesa WGL só aceita UNORM (`gdi_sw_winsys.c:88-101`), e o previsto é 9729.
+- **D-SRGB2-16:** nenhuma decisão cai, e a D-A62 sai MAIS FORTE. Como critério, COLOR_ENCODING teria aprovado o modo off. Quem prova o sRGB é o pixel, e quem prova o atributo é o `eglQuerySurface`.
+- **D-SRGB2-17:** errou só a previsão daquela chave, e o CTO assume o erro às claras. A previsão do Windows segue 9729. Se o CI disser outra coisa, o dado entra no `SRGB-WIN-CI-PROOF-GAP`, sem reabrir a D-A62.
+- **D-SRGB2-18:** linha nova `draw2d_parity_test.back_buffer_color_encoding_srgb_off|familias|...|SEM-PENDENCIA` no `measured_exceptions.txt`, com o texto do CTO, mais o ajuste cosmético da linha 216.
+- **D-SRGB2-19:** o mutante M1 (adaptador EGL que recusa `srgb_framebuffer` nomeando `msaa_samples`) roda AGORA no container, em cópia fora da árvore e contra SHA declarado. O CI nunca executa mutante. Aceite: o mesmo mutante derruba o `draw2d_parity_test` E a célula `open_only_srgb_framebuffer` do `gl_context_parity_test`.
+- *Fontes:* st_manager.c, gdi_sw_winsys.c e targets/wgl/wgl.c (Mesa main), EGL_KHR_gl_colorspace, docs.gl, g-truc post-0720.
+- *Porta de mão única:* não.

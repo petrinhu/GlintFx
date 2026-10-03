@@ -5549,3 +5549,13 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Recusada:* a VM agora, pelo custo de máquina (trabalho pesado, 17 GB) sem informação nova sobre o veredito.
 - *Verificação de compilação e ligação do Windows antes do push:* `tools/preci.sh --win32-link-only`, com o `cl.exe` e o `link.exe` reais no container MSVC.
 - *Porta de mão única:* não. Ligar a VM depois continua possível.
+
+## 03/10/2026 - 18:20 | Correção de um relato meu: o watchcode de 02/10 NÃO estava vazio (L-27)
+
+- *O que relatei em 02/10:* "zero achados novos" entre 10:13 e 12:11. **Estava errado.**
+- *Fato, lido no rearme de 03/10 com `coredumpctl`:*
+  - Houve 8 pares de coredump do `bash` em 02/10 (10:19, 10:24, 10:30, 10:36, 11:10, 11:16, 11:23, 11:29), nos horários das rodadas do `preci --fast`. São `sh -c 'kill -SEGV $$'` e `sh -c 'kill -ABRT $$'`, ou seja, sinais DELIBERADOS de um autoteste do espelho que confere a propagação de processo morto por sinal.
+  - Houve também 1 coredump às 10:40:40 em `/var/tmp/s1mut/m4/t`: o mutante "sem guarda de `nullptr`" da S1, morto por SIGSEGV de propósito.
+  - Às 12:12:02 abortaram o próprio daemon do watchcode e o `journalctl` dele, no `off` daquela hora (SIGABRT, unidade `watchcode-daemon.service`).
+- *Por que o relato saiu errado (inferência):* o daemon de 02/10 tinha sido ADOTADO órfão de uma sessão antiga, e os achados só chegaram à leitura desta sessão no rearme de hoje. A leitura de 02/10 confiou num fluxo que não entregava. Nenhum achado bloqueia build, e todos têm causa conhecida.
+- *A anotar para quem mantém o watchcode:* o `off` aborta o próprio daemon com SIGABRT, em vez de encerrá-lo limpo; e um daemon adotado órfão pode não entregar achados à sessão que o adotou.

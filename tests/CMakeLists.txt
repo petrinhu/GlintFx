@@ -5196,6 +5196,29 @@ add_test(
 )
 set_tests_properties(rerun_guard_selftest PROPERTIES LABELS selftest)
 
+# GFX-PRESET e R2D-BATCH, D-FECH-3 (D-A68): o apendice "texto final
+# congelado" de cada parecer em docs/auditoria-api-*.md e saida de
+# tools/auditoria_texto_congelado.py (aplica as emendas E1 e E2 do P0 e
+# E3, E4 e D-B4-1 do B0). O autoteste prova que emenda que nao se
+# aplica reprova; o teste `verificar` prova que ninguem editou o
+# apendice a mao nem mudou o corpo do parecer. Python puro, sem guarda
+# de sistema.
+add_test(
+    NAME auditoria_texto_congelado_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_texto_congelado.py" --selftest
+)
+set_tests_properties(auditoria_texto_congelado_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME auditoria_texto_congelado_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_texto_congelado.py" verificar
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-gfx-preset.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-draw2d.md"
+)
+set_tests_properties(auditoria_texto_congelado_test PROPERTIES LABELS consume)
+
 # CI-SPLIT-PER-OS (achado 4 da revisao do CTO, 29/09/2026): o agregado
 # declarados/executados/passaram/falharam dos jobs de ctest e' medido por
 # este script nos dois sistemas (era `executados=$declarados`, uma

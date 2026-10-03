@@ -196,13 +196,24 @@ loop_hidden_test.restored|familias|(a) o xdg-shell NAO tem requisicao unset_mini
 loop_hidden_test.cpu_ratio_permille|todos|(a) a razao exata depende do agendador do executor e do custo de cada despertar; (b) a borda <= 250 por mil, aplicada EM CADA lado dentro do proprio teste, e' o que prova P8 - um laco que gira em vez de dormir mede perto de 1000 em qualquer executor|SEM-PENDENCIA
 loop_hidden_test.swap_interval_honored|familias|(a) P1, excecao declarada (2): o driver EGL pode ignorar eglSwapInterval (EGL 1.5 sec. 3.10.3) e WGL_EXT_swap_control pode faltar - inferido da cadencia de cinco apresentacoes com vsync desligado, NUNCA lido do driver; (b) nenhuma assercao depende desta chave: quem prova o comportamento da biblioteca e' gl_context_parity_test.vsync_off_60_swaps_ms, com piso <= 700 ms em cada lado|SEM-PENDENCIA
 
-# R2D-BATCH B5 (errata sec. 21, condition 3; D-SRGB-1, errata sec. 28): draw2d_parity_test. A driver that cannot give an
-# sRGB surface is a DECLARED and COUNTED absence (srgb_on_cells_absent=1, printed), never a silent skip; the Linux
-# fixture NO LONGER has it (measured 0 after the adapter asked for the colorspace on the surface), so the old
-# exception lines for srgb_on_cells_absent, for the draw_calls of the on mode and for
-# gl_context_parity_test.srgb_support are gone: a value that differs between systems is a divergence to explain
-# with evidence, never a line kept by inertia.
+# R2D-BATCH B5 (errata sec. 21, condition 3; D-SRGB-1, errata sec. 28) e D-SRGB-2 (S6, D-A63): draw2d_parity_test.
+# Um driver que nao da superficie sRGB e' uma ausencia DECLARADA e CONTADA (srgb_on_cells_absent=1, impressa), nunca um
+# pulo calado, e a recusa tem de nomear a opcao (rejected_value == "srgb_framebuffer", exigido pelo teste). O fixture
+# Linux tem sRGB (srgb_on_cells_absent=0 depois que o adaptador pediu o colorspace na superficie). O lado Windows
+# NAO: o Mesa WGL do runner (frontend stw, 26.2.0) nao anuncia WGL_ARB/EXT_framebuffer_sRGB, ignora o atributo
+# WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB e so entrega UNORM; o adaptador WGL (S5) recusa com unsupported/srgb_framebuffer em
+# vez de aceitar sem cumprir. O caminho "sRGB ligado funcionando" no Windows nao roda no CI: item
+# SRGB-WIN-CI-PROOF-GAP (TODO.md), fio de alarme win32_runner_probe_test.wgl_framebuffer_srgb_advertised. Ate la a
+# regra e' provada pelos testes puros (gfx_format_decision_test, wgl_srgb_pixel_format_test) e a recusa nomeada, ao
+# vivo, pela celula open_only de gl_context_parity_test. COLOR_ENCODING e' so MEASURED, nunca criterio (D-A62).
+# Nota (F12): o modo --per-system le o VALOR das linhas mas nao a PRESENCA; nas chaves "windows" abaixo a linha vale
+# no --compare.
+gl_context_parity_test.srgb_support|familias|(a) o Mesa WGL do runner Windows nao anuncia framebuffer_sRGB e ignora o atributo (so UNORM), entao option_support(srgb_framebuffer) e' unsupported_here (0) la e supported (1) no EGL/llvmpipe; (b) gfx_format_decision_test e wgl_srgb_pixel_format_test provam a regra, e a celula open_only_srgb_framebuffer do proprio gl_context_parity_test prova ao vivo, nos dois lados, que a recusa nomeia a opcao e que abrir implica supported|SRGB-WIN-CI-PROOF-GAP
+draw2d_parity_test.srgb_on_cells_absent|familias|(a) mesmo fato do Mesa WGL (nao anuncia, ignora o atributo, so UNORM): o modo on recusa no Windows (1) e roda no Linux (0); (b) o teste exige rejected_value == "srgb_framebuffer" na recusa e option_support == supported quando o modo on roda|SRGB-WIN-CI-PROOF-GAP
+gl_context_parity_test.open_only_srgb_framebuffer_opened|familias|(a) mesmo fato do Mesa WGL: o pedido de srgb_framebuffer=1 e' recusado no Windows (0) e aberto no Linux (1); (b) a propria celula exige, em cada lado, ou abrir com option_support == supported e option() igual ao pedido, ou recusar com unsupported/srgb_framebuffer - qualquer terceira forma reprova|SRGB-WIN-CI-PROOF-GAP
+draw2d_parity_test.back_buffer_color_encoding_srgb_on|windows|(a) ausente no Windows porque o modo on recusa (mesmo fato do Mesa WGL); presente no Linux, so medido (35904 esperado no llvmpipe), nunca criterio (D-A62); (b) srgb_on_cells_absent e a recusa nomeada provam a ausencia declarada|SRGB-WIN-CI-PROOF-GAP
+draw2d_parity_test.draw_calls_100_pieces_srgb_on|windows|(a) ausente no Windows porque o modo on recusa (mesmo fato do Mesa WGL); (b) a celula do modo off assevera UMA chamada de desenho para 100 pecas de estado igual nos dois lados|SRGB-WIN-CI-PROOF-GAP
 draw2d_parity_test.half_white_srgb_off|todos|(a) o canal de um branco meio transparente sobre preto com a superficie que NAO codifica e' 127 ou 128 conforme o arredondamento do rasterizador (llvmpipe x WARP); (b) o proprio teste assevera 128 +-2 em CADA lado, o que prova a mistura pre-multiplicada da biblioteca|SEM-PENDENCIA
 draw2d_parity_test.half_red_srgb_off|todos|mesmo motivo de half_white_srgb_off acima; (b) alem do +-2, o teste assevera verde e azul EXATAMENTE zero (sem franja escura)|SEM-PENDENCIA
-draw2d_parity_test.half_white_srgb_on|todos|(a) o canal codificado de um branco meio transparente com a superficie que codifica e' 187 ou 188 conforme o arredondamento do rasterizador (medido no llvmpipe, Linux); WARP pode arredondar de outro jeito; (b) o proprio teste assevera o valor esperado +-2 em CADA lado onde a chave existe|SEM-PENDENCIA
-draw2d_parity_test.half_red_srgb_on|todos|mesmo motivo de half_white_srgb_on acima; (b) alem do +-2, o teste assevera verde e azul EXATAMENTE zero (sem franja escura)|SEM-PENDENCIA
+draw2d_parity_test.half_white_srgb_on|todos|(a) o canal codificado de um branco meio transparente com a superficie que codifica e' 187 ou 188 conforme o arredondamento do rasterizador (medido no llvmpipe, Linux); WARP pode arredondar de outro jeito; no Windows a chave NAO existe (o modo on recusa, SRGB-WIN-CI-PROOF-GAP: quando o item fechar a linha volta a SEM-PENDENCIA so com a razao de arredondamento); (b) o proprio teste assevera o valor esperado +-2 em CADA lado onde a chave existe|SRGB-WIN-CI-PROOF-GAP
+draw2d_parity_test.half_red_srgb_on|todos|mesmo motivo de half_white_srgb_on acima; no Windows a chave NAO existe (o modo on recusa, SRGB-WIN-CI-PROOF-GAP: quando o item fechar a linha volta a SEM-PENDENCIA so com a razao de arredondamento); (b) alem do +-2, o teste assevera verde e azul EXATAMENTE zero (sem franja escura)|SRGB-WIN-CI-PROOF-GAP

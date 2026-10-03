@@ -830,6 +830,8 @@ glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 # or library this project vendors or ships.
 if(WIN32)
     glintfx_add_test(win32_runner_probe_test)
+    # wgl_srgb_pixel_format.hpp (D-SRGB-2, S6): header-only, no <windows.h>, read from src/.
+    target_include_directories(win32_runner_probe_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_link_libraries(win32_runner_probe_test PRIVATE user32 opengl32 gdi32)
 else()
     message(STATUS "glintfx: win32_runner_probe_test skipped (Windows-only probe, see its own header comment)")

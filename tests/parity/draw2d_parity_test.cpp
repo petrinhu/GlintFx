@@ -100,6 +100,8 @@ constexpr gl_enum k_gl_draw_framebuffer_binding = 0x8CA6;
 constexpr gl_enum k_gl_texture_binding_2d = 0x8069;
 constexpr gl_enum k_gl_active_texture = 0x84E0;
 constexpr gl_enum k_gl_draw_framebuffer = 0x8CA9;
+constexpr gl_enum k_gl_back_left = 0x0402;
+constexpr gl_enum k_gl_framebuffer_attachment_color_encoding = 0x8210;
 constexpr gl_enum k_gl_texture_2d = 0x0DE1;
 constexpr gl_enum k_gl_texture0 = 0x84C0;
 constexpr gl_enum k_gl_texture3 = 0x84C3;
@@ -138,6 +140,8 @@ struct gl_api {
     void (*delete_shader)(gl_uint) = nullptr;
     void (*delete_program)(gl_uint) = nullptr;
     void (*finish)() = nullptr;
+    gl_enum (*get_error)() = nullptr;
+    void (*get_framebuffer_attachment_parameteriv)(gl_enum, gl_enum, gl_enum, gl_int *) = nullptr;
     void (*read_pixels)(gl_int, gl_int, gl_sizei, gl_sizei, gl_enum, gl_enum, void *) = nullptr;
 };
 
@@ -149,6 +153,12 @@ template <typename F> bool resolve(glintfx::gltfx_gl_context &context, const cha
     }
     out = reinterpret_cast<F>(address);
     return true;
+}
+
+// Bounded: a lost context may answer an error forever.
+void drain_gl_errors(const gl_api &gl) {
+    for (int i = 0; i < 16 && gl.get_error() != 0; ++i) {
+    }
 }
 
 bool load_gl(glintfx::gltfx_gl_context &context, gl_api &gl) {
@@ -179,6 +189,9 @@ bool load_gl(glintfx::gltfx_gl_context &context, gl_api &gl) {
            resolve(context, "glDeleteShader", gl.delete_shader) &&
            resolve(context, "glDeleteProgram", gl.delete_program) &&
            resolve(context, "glFinish", gl.finish) &&
+           resolve(context, "glGetError", gl.get_error) &&
+           resolve(context, "glGetFramebufferAttachmentParameteriv",
+                   gl.get_framebuffer_attachment_parameteriv) &&
            resolve(context, "glReadPixels", gl.read_pixels);
 }
 
@@ -585,6 +598,15 @@ mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
         glintfx::gltfx_gl_context::open(window, desc);
     if (opened.has_error()) {
         if (srgb && opened.err().code() == glintfx::gltfx_err_code::unsupported) {
+            // D-SRGB2-13: the declared absence names THE OPTION that was refused; a refusal that
+            // names another option (msaa_samples, say) is a defect of the adapter, not an absence.
+            if (opened.err().rejected_value() != "srgb_framebuffer") {
+                std::fprintf(stderr,
+                             "draw2d_parity_test: FAIL a recusa de srgb_framebuffer=on nomeou "
+                             "\"%s\", esperado \"srgb_framebuffer\"\n",
+                             std::string(opened.err().rejected_value()).c_str());
+                return mode_result::fatal;
+            }
             std::fprintf(stdout,
                          "draw2d_parity_test: AUSENCIA DECLARADA: srgb_framebuffer=on nao e "
                          "suportado aqui (%s)\n",
@@ -624,6 +646,35 @@ mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
             std::fprintf(stdout, "MEASURED draw2d_parity_test.state_after_make_current_%s=%d\n",
                          item.key, static_cast<int>(gl.is_enabled(item.cap)));
         }
+    }
+
+    if (srgb) {
+        // D-SRGB2-13: a context that opened with the option ON must ANSWER supported for it.
+        const glintfx::gltfx_gfx_option_support support =
+            context.option_support(glintfx::gltfx_gfx_option::srgb_framebuffer);
+        ++g_cells;
+        if (support != glintfx::gltfx_gfx_option_support::supported) {
+            ++g_failures;
+            std::fprintf(stderr, "draw2d_parity_test: FAIL srgb_framebuffer=on abriu mas "
+                                 "option_support != supported\n");
+        }
+    }
+    {
+        // MEASURED, NEVER ASSERTED (D-SRGB2-11, D-A62): the color encoding of the default
+        // framebuffer's back buffer, 35904 (GL_SRGB) or 9729 (GL_LINEAR); -1 when the GL errors.
+        // glGetError is drained BEFORE and AFTER, so the read neither inherits an error nor leaves
+        // one for the renderer of this mode (the GL state contract, errata sec. 12).
+        drain_gl_errors(gl);
+        gl_int encoding = -1;
+        gl.get_framebuffer_attachment_parameteriv(k_gl_draw_framebuffer, k_gl_back_left,
+                                                  k_gl_framebuffer_attachment_color_encoding,
+                                                  &encoding);
+        if (gl.get_error() != 0) {
+            encoding = -1;
+        }
+        drain_gl_errors(gl);
+        std::fprintf(stdout, "MEASURED draw2d_parity_test.back_buffer_color_encoding_srgb_%s=%d\n",
+                     mode, static_cast<int>(encoding));
     }
 
     // Cell: a context that is not open is refused by name (a moved-from handle is not open).

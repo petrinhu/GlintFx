@@ -14,6 +14,7 @@
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
+#include "platform/win32/wgl_srgb_pixel_format.hpp"
 
 // win32_runner_probe_test.cpp - X-0 (TODO.md, GODS_LAWS.md L-09/L-40):
 // a DIAGNOSTIC probe, not a witness for a backend that does not exist
@@ -420,6 +421,70 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
                  queue_wm_activate_count);
 }
 
+namespace {
+
+// D-SRGB-2 (D-SRGB2-11, item SRGB-WIN-CI-PROOF-GAP): the WGL facts about the sRGB framebuffer on
+// THIS runner, printed and never asserted - the alarm wire of the day a runner with a driver that
+// announces WGL_ARB_framebuffer_sRGB shows up. `dc` has the legacy context current
+// (wglGetProcAddress and the extension list both need it). Four keys:
+//   wgl_framebuffer_srgb_advertised - the extension list names the ARB or the EXT token;
+//   wgl_srgb_choose_ok              - wglChoosePixelFormatARB with WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB
+//                                     = TRUE returned a format;
+//   wgl_srgb_capable_query_ok       - wglGetPixelFormatAttribivARB on that format succeeded;
+//   wgl_srgb_capable_value          - what it answered (-1 when there was no query).
+using wgl_get_extensions_string_arb_fn = const char *(WINAPI *)(HDC);
+using wgl_choose_pixel_format_arb_fn = BOOL(WINAPI *)(HDC, const int *, const FLOAT *, UINT, int *,
+                                                      UINT *);
+using wgl_get_pixel_format_attribiv_arb_fn = BOOL(WINAPI *)(HDC, int, int, UINT, const int *,
+                                                            int *);
+
+void print_wgl_srgb_facts(HDC dc) {
+    constexpr int k_draw_to_window = 0x2001;
+    constexpr int k_support_opengl = 0x2010;
+    constexpr int k_double_buffer = 0x2011;
+    constexpr int k_pixel_type = 0x2013;
+    constexpr int k_type_rgba = 0x202B;
+    const auto get_extensions = reinterpret_cast<wgl_get_extensions_string_arb_fn>(
+        ::wglGetProcAddress("wglGetExtensionsStringARB"));
+    const char *const list = get_extensions != nullptr ? get_extensions(dc) : nullptr;
+    const bool advertised = glintfx::platform::wgl_framebuffer_srgb_advertised(list);
+    std::println("MEASURED win32_runner_probe_test.wgl_framebuffer_srgb_advertised={}", advertised);
+
+    const auto choose = reinterpret_cast<wgl_choose_pixel_format_arb_fn>(
+        ::wglGetProcAddress("wglChoosePixelFormatARB"));
+    int format = 0;
+    bool choose_ok = false;
+    if (choose != nullptr) {
+        const int attribs[] = {k_draw_to_window,
+                               1,
+                               k_support_opengl,
+                               1,
+                               k_double_buffer,
+                               1,
+                               k_pixel_type,
+                               k_type_rgba,
+                               glintfx::platform::k_wgl_framebuffer_srgb_capable_arb,
+                               1,
+                               0};
+        UINT count = 0;
+        choose_ok = choose(dc, attribs, nullptr, 1, &format, &count) != 0 && count > 0;
+    }
+    std::println("MEASURED win32_runner_probe_test.wgl_srgb_choose_ok={}", choose_ok);
+
+    const auto query = reinterpret_cast<wgl_get_pixel_format_attribiv_arb_fn>(
+        ::wglGetProcAddress("wglGetPixelFormatAttribivARB"));
+    bool query_ok = false;
+    int value = -1;
+    if (query != nullptr && choose_ok) {
+        const int attribute = glintfx::platform::k_wgl_framebuffer_srgb_capable_arb;
+        query_ok = query(dc, format, 0, 1, &attribute, &value) != 0;
+    }
+    std::println("MEASURED win32_runner_probe_test.wgl_srgb_capable_query_ok={}", query_ok);
+    std::println("MEASURED win32_runner_probe_test.wgl_srgb_capable_value={}", value);
+}
+
+} // namespace
+
 // X-GL-0 (docs/plano-w6a-janela.md sec. 2.2 row 2, sec. 3): does this
 // runner hand out a modern (3.3 core) OpenGL context, or only the
 // software "GDI Generic" 1.1 fallback? This file's own header comment
@@ -551,6 +616,8 @@ GLINTFX_TEST(windows_runner_reports_gl_context_creation_capability) {
             "MEASURED win32_runner_probe_test.wgl_create_context_attribs_arb_33_core_ok={}",
             core_context.is_valid());
     }
+
+    print_wgl_srgb_facts(dc_guard.get());
 }
 
 // X-GL-0 (docs/plano-w6a-janela.md sec. 2.2 row 2): what does this

@@ -231,6 +231,66 @@ struct swap_tolerated_downgrades_reporter {
 
 } // namespace
 
+namespace {
+
+// D-SRGB2-12: the live cell of the `open_only` contract. A request for an open_only option on a NEW
+// window (the fixation of D-W6b-25 forbids reusing one) ends in exactly one of two ways: it OPENS,
+// and then option_support(id) is `supported` and option(id) equals the request; or it is REFUSED
+// with code `unsupported` and rejected_value equal to the NAME of the option. Anything else
+// reproves. Prints MEASURED gl_context_parity_test.open_only_<name>_opened=<0|1>.
+[[nodiscard]] bool open_only_cell(glintfx::gltfx_display &display, glintfx::gltfx_gfx_option id,
+                                  std::int64_t value) {
+    const std::string name(glintfx::gltfx_gfx_option_describe(id).name);
+    const glintfx::gltfx_window_desc window_desc{
+        .title = "janela da celula open_only",
+        .application_id = "org.glintfx.gl_context_parity_test",
+        .logical_size = {.width = 320, .height = 240},
+    };
+    glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
+        glintfx::gltfx_window::open(display, window_desc);
+    if (window_opened.has_error()) {
+        std::fprintf(stderr, "gl_context_parity_test: open_only(%s): gltfx_window::open failed\n",
+                     name.c_str());
+        return false;
+    }
+    glintfx::gltfx_window window = std::move(window_opened.value());
+    const glintfx::gltfx_gfx_option_entry entries[] = {{.id = id, .value = value}};
+    const glintfx::gltfx_gl_context_desc context_desc{.options = entries, .option_count = 1};
+    glintfx::gltfx_rslt<glintfx::gltfx_gl_context> opened =
+        glintfx::gltfx_gl_context::open(window, context_desc);
+    if (opened.has_error()) {
+        const bool named = opened.err().code() == glintfx::gltfx_err_code::unsupported &&
+                           opened.err().rejected_value() == std::string_view{name};
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.open_only_%s_opened=0\n",
+                     name.c_str());
+        if (!named) {
+            std::fprintf(stderr,
+                         "gl_context_parity_test: open_only(%s) recusou como %s/%s, esperado "
+                         "unsupported/%s\n",
+                         name.c_str(),
+                         std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str(),
+                         std::string(opened.err().rejected_value()).c_str(), name.c_str());
+        }
+        return named;
+    }
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.open_only_%s_opened=1\n", name.c_str());
+    const glintfx::gltfx_gl_context &context = opened.value();
+    const glintfx::gltfx_rslt<std::int64_t> confirmed = context.option(id);
+    const bool supported =
+        context.option_support(id) == glintfx::gltfx_gfx_option_support::supported;
+    const bool equal = confirmed.has_value() && confirmed.value() == value;
+    if (!supported || !equal) {
+        std::fprintf(stderr,
+                     "gl_context_parity_test: open_only(%s) abriu mas supported=%d "
+                     "option_igual_ao_pedido=%d (pedido %lld)\n",
+                     name.c_str(), supported ? 1 : 0, equal ? 1 : 0, static_cast<long long>(value));
+        return false;
+    }
+    return true;
+}
+
+} // namespace
+
 int main() {
     // Unbuffer stdout explicitly - same fix, same reason, applied to
     // every fixture in this family (window_parity_test.cpp's own
@@ -723,6 +783,14 @@ int main() {
         std::fprintf(stdout, "gl_context_parity_test: reabertura com msaa_samples=4 recusada "
                              "(invalid_argument/msaa_samples), como esperado\n");
     }
+
+    // D-SRGB2-12: the open_only contract, alive, each request on its own NEW window.
+    if (!open_only_cell(display, glintfx::gltfx_gfx_option::msaa_samples, 4) ||
+        !open_only_cell(display, glintfx::gltfx_gfx_option::srgb_framebuffer, 1)) {
+        return EXIT_FAILURE;
+    }
+    std::fprintf(stdout, "gl_context_parity_test: celulas open_only (msaa_samples, "
+                         "srgb_framebuffer) ok\n");
 
     // No explicit close() call on `window`/`display` - GODS_LAWS.md
     // L-22's own RAII shape, the SAME reverse-of-creation teardown

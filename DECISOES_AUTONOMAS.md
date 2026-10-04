@@ -5688,3 +5688,15 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
   - Previsão: vermelho no Linux, verde no Windows.
   - Se a DW-a reprovar na desmontagem, inclusive na perna ASan, o conserto entra na onda.
 - O main conferiu as três linhas de `egl_context_adapter.cpp` e `renderer_2d_impl_test.cpp:603` contra a árvore.
+
+### P4 provada viva no container e aceita pelo main (03/10/2026, 21:06)
+- **Origem da prova:** QA (sonnet), roteiro `/var/tmp/p4-janela.sh` depois do conserto, resumo em `/var/tmp/p4-janela/resumo.txt`. As três cópias saíram por `git archive` de `89e6a03`. Cada variante tem isolamento provado com a configuração exata do CI (rc=0) e roda em um segundo container, com `--pids-limit 512`.
+- **base:** os dois testes rc=0.
+  - As 4 células novas passaram (perguntar não grava com 9 linhas, rótulo do consumidor, `automatic` aplica a sugestão, par degradado recusado).
+  - No `loop_parity_test`, 22 de 22 asserções e `preset_cap30_opcao_lida=30`.
+  - MEASURED: `power_source=1`, `auto_choice_reason=2`, `suggested_preset=2`.
+- **r1 (`option(suggested_preset)` grava o rótulo):** "MUTANTE-P4-R1 ativo" é a prova de chegada. O `gl_context_parity_test` saiu com rc=1: "perguntar mudou preset: antes 0, depois 2 (linha preset)".
+- **r2 (`power_saving` sem o teto de 30):** o diff de 1 linha (30 vira 0) é a prova de chegada. O `loop_parity_test` saiu com rc=1: "preset_cap30_opcao_lida=0 ... FALHOU". O `gl_context_parity_test` continuou verde, como previsto, porque a sugestão no container não é `power_saving`.
+- **Rebaixamento declarado pela P4:** no container os 30 tiques são ocultos, então a faixa de cadência fica desligada (SONDA-OCULTA). O vermelho por cadência só o CI Windows observa.
+- **Erro do main:** a primeira versão do roteiro rodou o isolamento com `--pids-limit`, divergiu do baseline do CI e não executou nada. Foi corrigida para dois containers, como no `b5-janela.sh`.
+- **L-11:** o agente da DW-a disparou um `docker build` em paralelo, e o main o interrompeu.

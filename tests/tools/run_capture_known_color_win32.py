@@ -280,7 +280,7 @@ def judge_failed_tool(config, mode, run, code):
 
 
 def judge_refused_capture(config, mode, run, code):
-    """The tool printed a capture verdict (exit 3): the mode is rejected for it, and nothing else
+    """The tool printed a capture verdict (exit 10 to 15): the mode is rejected for it, and nothing else
     is hidden. The internal reading is judged (the library drew right or not), and the PrintWindow
     pair, which the tool still wrote, is compared and RECORDED as it came (the measurement of a
     window the library never showed). The screen read was not taken."""
@@ -751,6 +751,21 @@ def selftest_motivo_and_codigo_are_printed():
               "motivo=CODIGO_DESCONHECIDO codigo=3" in _run_all_text(tool_reply=(3, "x\n")))
 
 
+def selftest_incoherent_and_unknown_reject_the_driver():
+    """R3-1: a status that is not a pass must make run_all itself answer False, not only be printed."""
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        incoherent = run_all(make_config(tmp), scripted_run(tool_reply=(11, "veredito: ICONICA\n")))
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        unknown = run_all(make_config(tmp), scripted_run(tool_reply=(3, "veredito: INVISIVEL\n")))
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        refused = run_all(make_config(tmp), scripted_run(tool_reply=(11, "veredito: INVISIVEL\n")))
+    check("run_all reprova codigo e linha discordando (INCOERENTE), codigo desconhecido e veredito de captura",
+          incoherent is False and unknown is False and refused is False)
+    for status in ("incoherent", "unknown", "refused", "failed"):
+        check(f"passed() e falso para o status {status}, mesmo com todas as verificacoes em zero",
+              not mode_result("off", status, {"tool": 0}).passed())
+
+
 def _run_all_text(tool_reply):
     with tempfile.TemporaryDirectory() as tmp:
         captured = io.StringIO()
@@ -891,6 +906,7 @@ def selftest_main():
     selftest_code_and_line_must_agree()
     selftest_unknown_and_reserved_codes()
     selftest_motivo_and_codigo_are_printed()
+    selftest_incoherent_and_unknown_reject_the_driver()
     selftest_run_process()
     selftest_absence_needs_the_declared_line_and_an_exact_exit()
     selftest_each_mode_uses_its_own_probe_file()

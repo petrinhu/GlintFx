@@ -5823,3 +5823,18 @@ Parecer: `/var/tmp/cto-w7d/parecer-p5a.md` (md5 `207b7be0`). O critério foi fix
 - **Canários de estreia:** `mem_bug` e `ub_bug` reprovaram (exit=1) e `clean_case` passou; os dois "runtime error" do log são deles.
 - **Horário:** das 02:45:22 às 02:47:39.
 - **Em seguida:** passo 7 (os relatórios B7-d e P5-c, mais o bullet `GL-FACADE-L17-ATOMS`) e passo 8 (a comparação por máquina, por revisor distinto), despachados em paralelo.
+
+### Passo 7 aceito (06/10/2026, 02:50) e passo 8 com divergência no gfx-preset
+- **Passo 7:**
+  - B7-d `a5e7bb2` criou `docs/auditoria-revisao-r2d-batch.md`.
+  - P5-c `6eb8bd0` criou `docs/auditoria-revisao-gfx-preset.md`, com o relatório P5-a, o parecer do CTO e o texto do medidor, mais o bullet `GL-FACADE-L17-ATOMS` na INBOX.
+  - As quatro fontes tinham o mesmo md5 nas duas pontas. Nenhum `@@` sobrou, e o ctest dos portões de doc passou 10/10.
+- **Passo 8,** feito por revisor distinto com um comparador próprio (`/var/tmp/passo8/cmp.py`), provado mordendo com "windowz" plantado:
+  - draw2d: IGUAL, 6/6 blocos, incluindo a E5.
+  - gfx-preset: DIVERGE em 2/2 hunks de `gfx_option.hpp`:
+    - "four rows" contra "rows";
+    - o bloco `vsync` (E2) com redação e posição diferentes, e o publicado promete a recusa de `adaptive` pelo nome;
+    - o reflow da E1.
+- **Medido pelo main:** a redação congelada nunca esteve no cabeçalho (`git log -S` vazio); a divergência nasce na P3 (`6de2339`).
+- **Buraco do portão:** `auditoria_texto_congelado.py verificar` não compara com o cabeçalho.
+- Levado ao CTO.

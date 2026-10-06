@@ -5816,3 +5816,10 @@ Parecer: `/var/tmp/cto-w7d/parecer-p5a.md` (md5 `207b7be0`). O critério foi fix
 - **preci --fast:** verde.
 - **Nota do implementador:** o `sha256sum /build/...` do roteiro da P5-a apontava para um caminho inexistente. Os md5 válidos são os de `/var/tmp/cto-w7d/p5b/*.sha3.txt`.
 - **Próximo:** passo 6, um único `tools/preci.sh --sanitizer-only` sobre `c831d05`, cobrindo B7-c e P5-b (D-FECH-5).
+
+### Passo 6 fechado (06/10/2026, 02:48): o sanitizer único de B7-c e P5-b está verde
+- **Comando:** `tools/preci.sh --sanitizer-only` sobre `3cd237f`; o código é igual ao de `c831d05`, e só docs mudaram entre os dois.
+- **Resultado:** rc=0, lido de `/var/tmp/cto-w7d/san/sanitizer.rc`; "100% tests passed, 0 tests failed out of 136".
+- **Canários de estreia:** `mem_bug` e `ub_bug` reprovaram (exit=1) e `clean_case` passou; os dois "runtime error" do log são deles.
+- **Horário:** das 02:45:22 às 02:47:39.
+- **Em seguida:** passo 7 (os relatórios B7-d e P5-c, mais o bullet `GL-FACADE-L17-ATOMS`) e passo 8 (a comparação por máquina, por revisor distinto), despachados em paralelo.

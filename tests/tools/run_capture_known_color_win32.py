@@ -11,7 +11,8 @@
 # launches the fixture (capture_known_color_smoke), reads the window by PrintWindow and by BitBlt of
 # the screen and leaves one capture pair per mechanism, then judges on the host:
 #   1. the tool's exit code (0 only when the fixture AND the capture were good; 1 = the fixture
-#      failed, 2 = the tool could not vouch for the capture);
+#      failed, 2 = the tool itself failed, 3 = a CAPTURE VERDICT rejected the screen read: the tool's
+#      `veredito:` line says INVISIVEL, ICONICA, FORA DA TELA or OCLUIDA, D-W8-43);
 #   2. exactly ONE captured pair in <out>/<mode>/capture/printwindow and in .../bitblt;
 #   3. raw_to_png.py --readback turns the fixture's OWN glReadPixels (the INTERNAL reading, alpha
 #      included) into a PNG, and image_probe.py probes it with the same probe file the Linux driver
@@ -59,6 +60,7 @@ FIXTURE_SOURCES = (REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.c
 ABSENCE_LINE = "AUSENCIA DECLARADA srgb_framebuffer=on"
 ABSENCE_FIXTURE_EXIT = "fixture exit=77"
 TOOL_FIXTURE_FAILED = 1
+TOOL_CAPTURE_VERDICT = 3
 PROCESS_TIMEOUT_SECONDS = 180
 MECHANISMS = ("printwindow", "bitblt")
 COMPARATOR_LINE = re.compile(r"pixels=(\d+) differing=(\d+) alpha_not_compared=(\d+)")
@@ -76,7 +78,7 @@ class run_config:
 @dataclass
 class mode_result:
     mode: str
-    status: str  # "ran", "absent" or "failed"
+    status: str  # "ran", "absent", "refused" (a capture verdict) or "failed"
     checks: dict = field(default_factory=dict)  # name -> exit code
     alpha_compared: int = 0
 
@@ -123,10 +125,13 @@ def tool_command(config, mode):
 
 
 def classify_tool_run(mode, code, output):
-    """"ran" (the tool exited 0), "absent" (mode on, the fixture declared the sRGB absence and exited
+    """"ran" (the tool exited 0), "refused" (exit 3: a capture verdict, INVISIVEL, ICONICA, FORA DA
+    TELA or OCLUIDA, which the tool printed on its `veredito:` line), "absent" (mode on, the fixture declared the sRGB absence and exited
     77: the tool then reports its own exit 1 for a fixture that never presented) or "failed"."""
     if code == 0:
         return "ran"
+    if code == TOOL_CAPTURE_VERDICT:
+        return "refused"
     declared = mode == "on" and code == TOOL_FIXTURE_FAILED and ABSENCE_LINE in output \
         and ABSENCE_FIXTURE_EXIT in output
     return "absent" if declared else "failed"
@@ -206,6 +211,20 @@ def judge_failed_tool(config, mode, run, code):
     return result
 
 
+def judge_refused_capture(config, mode, run, code):
+    """The tool printed a capture verdict (exit 3): the mode is rejected for it, and nothing else
+    is hidden. The internal reading is judged (the library drew right or not), and the PrintWindow
+    pair, which the tool still wrote, is compared and RECORDED as it came (the measurement of a
+    window the library never showed). The screen read was not taken."""
+    result = mode_result(mode, "refused", {"tool": code})
+    has_readback = (mode_dir(config, mode) / "readback" / f"readback_{mode}.raw").is_file()
+    if has_readback:
+        judge_internal_reading(config, mode, run, result)
+    if count_pairs(mode_dir(config, mode) / "capture" / "printwindow") == 1:
+        result.checks["compare_printwindow"], _ = compare_mechanism(config, mode, "printwindow", run)
+    return result
+
+
 def judge_ran_mode(config, mode, run):
     """The host-side checks over what the tool left. Returns the mode's result."""
     result = mode_result(mode, "ran")
@@ -227,6 +246,8 @@ def run_mode(config, mode, run):
     print(f"{SCRIPT_NAME}: mode={mode} tool={code} status={status}")
     if status == "absent":
         return mode_result(mode, status)
+    if status == "refused":
+        return judge_refused_capture(config, mode, run, code)
     return judge_failed_tool(config, mode, run, code) if status == "failed" else judge_ran_mode(config, mode, run)
 
 
@@ -596,6 +617,36 @@ def selftest_internal_reading_is_judged_even_when_the_tool_fails():
               and run.calls_of("image_probe.py") == [])
 
 
+def selftest_capture_verdict_exit():
+    """D-W8-43: INVISIVEL, ICONICA, FORA DA TELA and OCLUIDA are CAPTURE verdicts (tool exit 3): not
+    the tool's own failure (2), not the fixture's (1), not a timeout (124) or an impossible run (127)."""
+    check("saida 3 da ferramenta e veredito de captura (refused), no off e no on",
+          classify_tool_run("off", 3, "veredito: INVISIVEL") == "refused"
+          and classify_tool_run("on", 3, f"{ABSENCE_LINE}\n{ABSENCE_FIXTURE_EXIT}\n") == "refused")
+    check("saidas 2, 124 e 127 continuam falha (nunca veredito de captura)",
+          all(classify_tool_run("off", code, "x") == "failed" for code in (2, 124, 127)))
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        pairs = tool_writing({"printwindow": 1})
+
+        def effect(command):
+            tool_writing_readback()(command)
+            pairs(command)
+        run = scripted_run(tool_effect=effect, tool_reply=(3, "win32_window_capture: veredito: INVISIVEL\n"),
+                           outputs={"capture_vs_readback.py": GOOD_COMPARE})
+        result = run_mode(make_config(tmp), "off", run)
+        compares = run.calls_of("capture_vs_readback.py")
+        check("veredito de captura: o modo reprova, a leitura interna e julgada e o PrintWindow e comparado",
+              result.status == "refused" and not result.passed() and result.checks.get("tool") == 3
+              and result.checks.get("probes") == 0 and result.checks.get("compare_printwindow") == 0
+              and len(compares) == 1 and compares[0][3].endswith("printwindow"))
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        run = scripted_run(tool_effect=tool_writing_readback(), tool_reply=(3, "veredito: ICONICA\n"))
+        result = run_mode(make_config(tmp), "off", run)
+        check("veredito de captura sem par de PrintWindow (iconica): nada a comparar, so a leitura interna",
+              result.status == "refused" and "compare_printwindow" not in result.checks
+              and run.calls_of("capture_vs_readback.py") == [])
+
+
 def selftest_main():
     selftest_classification()
     selftest_clean_output()
@@ -609,6 +660,7 @@ def selftest_main():
     selftest_real_helpers_end_to_end()
     selftest_tool_evidence_reaches_the_log()
     selftest_internal_reading_is_judged_even_when_the_tool_fails()
+    selftest_capture_verdict_exit()
     selftest_process_level()
     print(f"selftest: {len(CHECKS)} controles OK")
 

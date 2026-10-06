@@ -140,3 +140,58 @@ GLINTFX_TEST(capture_meta_text_is_the_xrgb8888_text_with_tight_stride) {
     GLINTFX_CHECK_EQ(glintfx::capture_tool::capture_meta_text(320, 240),
                      std::string("width=320\nheight=240\nstride=1280\nformat=1\n"));
 }
+
+// -- the order of the verdicts (D-W8-43): every step has a case in which ALL the later causes are
+// also present, so a rule that swaps two adjacent steps changes the text of exactly one case.
+
+namespace {
+
+using glintfx::capture_tool::window_facts;
+
+constexpr window_facts k_shown{.visible = true, .iconic = false};
+constexpr pixel_rect k_off_screen{.left = 900, .top = 700, .right = 1300, .bottom = 900};
+
+std::vector<occlusion_probe> one_foreign() {
+    std::vector<occlusion_probe> probes = all_owned();
+    probes[2].owned_by_target = false;
+    probes[2].owner_class = "Cover";
+    return probes;
+}
+
+std::string readiness(const window_facts &facts, const pixel_rect &client,
+                      const std::vector<occlusion_probe> &probes) {
+    return glintfx::capture_tool::judge_capture_readiness(facts, client, k_screen, probes).text;
+}
+
+} // namespace
+
+GLINTFX_TEST(readiness_passes_when_visible_on_screen_and_uncovered) {
+    const auto verdict =
+        glintfx::capture_tool::judge_capture_readiness(k_shown, k_client, k_screen, all_owned());
+    GLINTFX_CHECK(verdict.pass);
+}
+
+GLINTFX_TEST(readiness_invisible_wins_over_every_later_cause) {
+    const window_facts hidden_and_iconic{.visible = false, .iconic = true};
+    GLINTFX_CHECK_EQ(readiness(hidden_and_iconic, k_off_screen, one_foreign()),
+                     std::string("INVISIVEL"));
+    GLINTFX_CHECK(!glintfx::capture_tool::judge_capture_readiness(
+                       {.visible = false, .iconic = false}, k_client, k_screen, all_owned())
+                       .pass);
+}
+
+GLINTFX_TEST(readiness_iconic_wins_over_off_screen_and_covered_and_is_not_off_screen) {
+    const window_facts minimized{.visible = true, .iconic = true};
+    const pixel_rect zero_area{.left = -32000, .top = -32000, .right = -32000, .bottom = -32000};
+    GLINTFX_CHECK_EQ(readiness(minimized, zero_area, one_foreign()), std::string("ICONICA"));
+    GLINTFX_CHECK_EQ(readiness(minimized, k_client, all_owned()), std::string("ICONICA"));
+}
+
+GLINTFX_TEST(readiness_off_screen_wins_over_covered) {
+    GLINTFX_CHECK_EQ(readiness(k_shown, k_off_screen, one_foreign()), std::string("FORA DA TELA"));
+}
+
+GLINTFX_TEST(readiness_covered_is_named_when_nothing_earlier_applies) {
+    GLINTFX_CHECK_EQ(readiness(k_shown, k_client, one_foreign()),
+                     std::string("OCLUIDA por classe=Cover"));
+}

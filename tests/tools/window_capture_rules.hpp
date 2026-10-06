@@ -65,6 +65,21 @@ struct occlusion_probe {
 // those classes escapes the guard too.
 [[nodiscard]] verdict judge_occlusion(const std::vector<occlusion_probe> &probes);
 
+// What the tool read about the window itself (IsWindowVisible, IsIconic), before any pixel.
+struct window_facts {
+    bool visible = false;
+    bool iconic = false;
+};
+
+// THE ORDER OF THE VERDICTS (D-W8-43; the first that matches decides, so a cause is never
+// reported as a later, vaguer one): (1) window count, judged by judge_window_count; (2) INVISIVEL
+// (the window is not visible: the library never showed it); (3) ICONICA (minimized); (4) FORA DA
+// TELA; (5) OCLUIDA; (6) the bytes, which are the driver's. This function is steps 2 to 5. A
+// verdict that rejects here is a CAPTURE verdict: the screen read would measure nothing.
+[[nodiscard]] verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &client,
+                                              const pixel_rect &virtual_screen,
+                                              const std::vector<occlusion_probe> &probes);
+
 // The .meta text of a capture the tool writes: XRGB8888 (wl_shm format 1; the GDI DIB carries
 // no useful alpha), rows tightly packed (stride = width * 4). Same four keys, same order and same
 // decimal-integer grammar tests/tools/raw_to_png.py's parse_meta reads.

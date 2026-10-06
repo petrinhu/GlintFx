@@ -47,6 +47,22 @@ verdict judge_occlusion(const std::vector<occlusion_probe> &probes) {
     return {.pass = true, .text = "5 pontos da propria janela"};
 }
 
+verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &client,
+                                const pixel_rect &virtual_screen,
+                                const std::vector<occlusion_probe> &probes) {
+    if (!facts.visible) {
+        return {.pass = false, .text = "INVISIVEL"};
+    }
+    if (facts.iconic) {
+        return {.pass = false, .text = "ICONICA"};
+    }
+    const verdict on_screen = judge_client_on_screen(client, virtual_screen);
+    if (!on_screen.pass) {
+        return on_screen;
+    }
+    return judge_occlusion(probes);
+}
+
 std::string capture_meta_text(int width, int height) {
     return "width=" + std::to_string(width) + "\nheight=" + std::to_string(height) +
            "\nstride=" + std::to_string(width * 4) + "\nformat=1\n";

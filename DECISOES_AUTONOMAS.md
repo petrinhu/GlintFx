@@ -6290,3 +6290,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Causa medida do lento local:** o controle 12f5 do `contido_dentro_selftest_varredura` roda `strace -f` sem `--seccomp-bpf`. Com ptrace sob carga, passa de 2 s para 11-12 s; com o filtro, leva 0,24 s.
   - Os 31-33 s observados não se reproduziram em 5 medições.
   - Volta ao devops: trocar pelo filtro, provando antes que o controle continua mordendo.
+
+### 06/10/2026 18:38:30 - 5ab50c4 e ad035f9 ACEITOS na rodada 2; push e CI para provar o Windows
+
+- **Revisão** (`/var/tmp/cto-w8/rev-ci-pesados.md`, rodada 2): ACEITAR.
+  - **Piso da MEASURED_HEAVY:** reprova quando um nome é removido ou escrito errado. Encolher a lista de propósito exige mudar o piso, e as duas linhas literais aparecem no diff.
+  - **Controle 12f5 com `--seccomp-bpf`:** continua pegando o fork escondido. O controle positivo pega o filtro cego.
+  - **`contido_dentro` com 64 spinners:** de 19-21 s para 1,7-2,1 s.
+- **Push** do `onda-w8` e dispatch do CI para provar no executor Windows o conserto do run 37515318202. A ponta inclui `ee0c57b` (C2b-1), ainda não revisado: o CI dele é evidência, não aceite.

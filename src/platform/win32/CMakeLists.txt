@@ -100,12 +100,16 @@ target_sources(glintfx_library PRIVATE
     app_user_model_id.cpp
     wgl_extension_loader.cpp
     wgl_proc_address.cpp
+    wgl_pixel_format_cascade.cpp
     wgl_context_adapter.cpp
     selected_gl_context_adapter_check.cpp
     dxcore_adapter_match.cpp
     dxcore_gpu_kind.cpp
     dxcore_adapter_enumeration.cpp
     gl_device_luid.cpp
+    power_status_rule.cpp
+    power_source_adapter.cpp
+    selected_power_source_adapter_check.cpp
 )
 
 # GEMEO (L-17): cmake/GlintfxInstall.cmake's own

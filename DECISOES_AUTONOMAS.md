@@ -5074,3 +5074,866 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §9, md5 5ff5706f.
 - *Fontes:* o mesmo defeito e conserto em outros projetos de supervisão de processos, e o systemd, que espera depois do SIGKILL final e relata "Processes still around after final SIGKILL".
 - *Condição do main:* a varredura do /proc é só com comandos internos do bash, sem um processo por item (L-11 global).
 - *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 02:0x | D-A47: decisões da B3a e da B3b pelo CTO (L-34; errata §10 e §11)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
+
+- **B3a (o carregador GL com contexto):**
+  - o teste do helper novo entra na linha da B3a, porque sem ele o helper ficaria sem teste;
+  - o gerador perde a forma sem contexto, porque o único usuário dela era o próprio teste do gerador;
+  - a forma antiga do helper e o tipo `gl_proc_address_fn` ficam SEM consumidor de produção. Remover é decisão do líder (L-67), e a pergunta está na INBOX (GL-PROC-ADDRESS-SEM-CONSUMIDOR).
+- **B3b (o programa gráfico embutido do desenho 2D):**
+  - *Pergunta:* como provar a peça antes de existir a API pública que a usa?
+  - *Escolha:* um teste puro, com uma tabela de funções GL de mentira, que roda nos 5 alvos. Ele prova o nome de cada falha, nenhum objeto GL vazado, e a mensagem do driver chegando ao registro, com o truncamento visível.
+  - A prova no driver real passa para a B4, pela API pública.
+  - *O defeito era do plano do CTO:* pedia uma célula de paridade para uma peça ainda sem superfície pública.
+  - *Recusado:* recompilar fontes internas no alvo Windows, porque quebraria a pureza do teste de paridade.
+  - O tamanho da superfície vai para a B3c; a severidade do evento é `err`.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 02:4x | D-A48: <dirent.h> na lista do dep_zero e duas decisões da B3c (CTO, L-34; errata §12)
+
+- **<dirent.h> entra na lista fechada de cabeçalhos do sistema** do portão de dependência zero, para a P2 ler /sys/class/power_supply.
+  - *Alternativas recusadas:* `std::filesystem` (aloca e lança, e reabriria a família que a D-P2-1 fechou) e `getdents64` cru (mais baixo nível e preso à glibc).
+  - *Por quê:* é API POSIX do sistema, a mesma categoria da L-07, pelo caminho que `sys/uio.h` e `sys/un.h` já seguiram.
+  - O CTO admitiu que a pré-revisão dele da P2 devia ter pegado isso. Daqui em diante, a pré-revisão roda os portões de include ou a suíte inteira na cópia.
+- **D-B3c-1: o contrato de estado GL passa a definir TUDO de que o desenho depende.**
+  - Entram a equação de mistura, o modo de polígono, o descarte de rasterização, a operação lógica de cor, o alfa-para-cobertura e o framebuffer de desenho. Sem eles, o estado deixado pelo consumidor quebraria o desenho sem aviso.
+  - A lista de saída do cabeçalho congelado ganha os mesmos itens (emenda E3 ao texto da B0, só em comentário), e o revisor de API a confere na B4.
+- **D-B3c-2: os erros do GL seguem o modelo do SDL.**
+  - Os erros já pendentes do consumidor são drenados ANTES, com limite, e cada um é registrado como evento `draw2d_prior_gl_error`: nunca são engolidos calados nem atribuídos à biblioteca.
+  - Depois, todos são conferidos. Falta de memória vira `out_of_memory`; o resto vira `platform_failure`, com o token do passo e o código GL.
+- *Porta de mão única:* só a E3, que é texto de contrato público revisado antes da publicação (B4). *Custo de reverter:* baixo até lá.
+
+## 30/09/2026 - 02:5x | Desvio registrado: o Status de GFX-PRESET não saiu no commit da P1 (L-63/L-24)
+
+- *O quê:* o commit da P1 (e0787bb) cita GFX-PRESET, mas não toca o Status no TODO.md. A L-63 pede o Status no MESMO commit.
+- *Causa:* ordem do main. Eu tinha proibido o implementador de tocar o TODO.md enquanto aplicava a arrumação da tabela (D-W7D-22), para os dois não se atropelarem no mesmo arquivo. A liberação chegou a ele depois do commit.
+- *Tratamento:* o 🔍 de GFX-PRESET entra no commit da P2, nunca ✅. Não há amend: o commit já foi revisado pelo CTO e segue igual.
+- *Apontado por:* CTO, na revisão do e0787bb.
+
+## 30/09/2026 - 03:1x | Dois desvios aceitos na P2 (f88b1f8)
+
+- **A guarda `dirfd < 0` em power_source_adapter.cpp não tem teste vermelho (desvio da L-20).**
+  - *Por que foi aceita pelo CTO:* ela falha para o lado seguro (sai do laço, e o resultado vira "desconhecido"); no glibc, `dirfd` de um diretório aberto não devolve -1; e provar o ramo exigiria uma costura só para o teste.
+  - O mutante sem a guarda sobrevive, e isso está declarado.
+  - Cosmético pendente para o próximo toque no arquivo: o comentário vai para a linha de cima do `if`.
+- **O Status 🔍 de GFX-PRESET saiu em commit separado (cfbd979), e não no da fatia (L-63).** A causa foi a mesma da P1.
+  - *Regra desta onda, daqui em diante:* o Status sai no MESMO commit da fatia. A proibição de tocar o TODO.md que causou os dois desvios já foi retirada. Um desvio a mais, se houver, é falha nova, não parte desta regra.
+
+## 30/09/2026 - 05:5x | D-A49: o CI da W7-D e dois desvios aceitos na P2 (CTO, L-34; errata §13 e §14)
+
+- **D-P2-CI, o Windows Lint:** a regra pura de energia do Linux (`src/platform/wayland/power_supply_rule.cpp`) entra como sexto nome na lista fechada de exceções do portão do Windows, `$waylandDominioNaoSo`.
+  - *Pesquisa (L-34, feita DEPOIS da primeira escolha, e o CTO registrou a falha de ordem):*
+    - o "functional core, imperative shell" do Google Testing Blog;
+    - o GLFW, com os `null_*` como exceção nomeada compilada em toda plataforma: o mesmo desenho;
+    - o SDL3 e o raylib, sem teste da lógica de plataforma: o caminho que deixaria a regra sem prova no Windows;
+    - o sokol e o Godot, com prova em cada alvo.
+  - *Escolha:* o núcleo puro provado em todo alvo, com uma exceção nomeada no portão. Fontes com URL na errata §13 (adendo).
+- **O Clang:** constantes de teste sem uso nos 3 testes da P1. O g++ não avisa, o Clang avisa. Conserto: apagar as constantes, nunca `[[maybe_unused]]`. A causa-raiz é que a checagem local (preci) não compila com Clang; isso vai para a INBOX da INFRA-CI.
+- **Desvios aceitos na P2 (f88b1f8):**
+  - a guarda `dirfd < 0` sem teste vermelho (L-20): falha para o lado seguro e não é alcançável no glibc;
+  - o Status 🔍 de GFX-PRESET em commit separado (L-63). A causa (a minha proibição de tocar o TODO.md durante a arrumação da tabela) já foi retirada.
+
+## 30/09/2026 - 06:30 | PAUSA ordenada pelo líder ("Pause 06:30am em 30/09/2026")
+
+**Estado no instante da pausa:**
+- **W7-C:** FECHADA e mesclada no main (c5e8a70, PR #12); marca v0.5.2.0 publicada; CI verde no ramo, no PR, no main e na marca.
+- **W7-D (onda-w7d = 7006bdf, empurrada):** 9 fatias de código do framework estão no ramo, cada uma pré-revisada e depois conferida no commit pelo CTO:
+  - GFX-PRESET: P1 (e0787bb), P2 (f88b1f8), P3 (6de2339);
+  - R2D-BATCH: B2a (6c57b70), B2b (a030df1), B2c (832898d), B2d (4948293), B3a (7bc94ec), B3b (8c59c03);
+  - consertos: Clang da P1 (30b26a4), Windows Lint (4d77974), T9 da B2d (9982a8d);
+  - Status: GFX-PRESET e R2D-BATCH em 🔍.
+- **CI em curso:** run 36696277806, que prova os consertos do Clang e do Windows Lint.
+- **Próximo na fila, depois da pausa:** a B3c (em /var/tmp/b3c-work, pré-revisada e com as condições §12 do CTO), depois B4, B5, B6, B7, P4, P5 e o fechamento da W7-D (v0.6.0.0).
+- **Perguntas guardadas para o líder** (INBOX do TODO.md):
+  - W8-DEPS-EM-ONDA-POSTERIOR: a W8 não fecha como está alocada;
+  - GL-PROC-ADDRESS-SEM-CONSUMIDOR: remover ou manter o helper antigo;
+  - o B0-K1 da D-A42: `m_impl` em 128 lugares contra a L-21.
+- **Desvio de conduta registrado:** o implementador rodou uma vez dois preci ao mesmo tempo (L-11: um trabalho pesado por vez). Ele mesmo declarou, e as duas rodadas ficaram verdes.
+
+## 30/09/2026 - 07:58 | Retomada em modo autônomo até 17:00
+
+- *Ordem do líder, verbatim:* "ligue modo automático. Continue até 17:00 local".
+- *Flag:* ~/.claude/autonomo/GlintFx.json (escopos push e clean). A pausa das 17:00 está agendada pelo cron 36996f72, e o monitor anti-parada é o 67799e56.
+- *Retomada:* a B3c, com as condições §12 do CTO. Depois B4, B5, B6, B7, P4, P5 e o fechamento da W7-D (v0.6.0.0). As decisões de desenho seguem a L-34 com a emenda de 29/09: pesquisa na web e nas bibliotecas semelhantes antes de decidir.
+
+## 30/09/2026 - 08:1x | D-A50: as duas falhas do CI da pausa (CTO, L-34 com pesquisa antes; errata §15 e §16, md5 f02b50b5)
+
+- **D-CI2-LINT (Windows Lint):**
+  - *Causa:* o job de lint só configura o projeto, e o `gl_functions.hpp` só nasce no build. O `embedded_program.hpp` (B3b) é o primeiro arquivo rastreado que inclui um cabeçalho gerado. Os dois avisos de ligação interna eram consequência: com o diretório gerado presente, 0 e 0, medido pelo CTO.
+  - *Fontes:* o Chromium constrói antes do clang-tidy; o CMAKE_CXX_CLANG_TIDY roda dentro do build; o Meson reprova o tidy em fonte que não compila.
+  - *Escolha:* um alvo agregador `glintfx_generated_sources` (todo gerador), construído no job antes do tidy, com o piso de existência do cabeçalho gerado.
+  - *Recusado:* uma lista de nomes, o build completo e excluir o arquivo do lint.
+- **D-CI2-SELFTEST (Ubuntu estático):**
+  - *Causa:* o contido_dentro_selftest leva 51,5 s, e são ESPERAS (prazos e graças da contenção), não CPU. A régua de 40 s do agregador mede o tempo de parede como indício de "disputa os núcleos", e para este teste o indício não distingue.
+  - *Fontes:* o ctest(1) e o scivision: RESOURCE_LOCK e PROCESSORS descrevem recurso, não duração.
+  - *Escolha:* partir o selftest em grupos, cada um uma entrada do ctest de até 20 s medidos, com a contagem por grupo impressa e a soma batendo com o total de hoje.
+  - *Recusado:*
+    - RESOURCE_LOCK, porque mentiria sobre o recurso;
+    - encurtar os prazos, porque reabriria o D10b;
+    - isentar o teste pelo nome no agregador, porque cegaria o portão.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 09:25 | APROVAÇÃO DO LÍDER: D-A34 a D-A50
+
+- *Pedido do líder, verbatim:* "mostre as decisoes tomadas autonomas para aprovar".
+- *Resposta (AskUserQuestion):* "Aprovar todas (Recomendado)".
+- As decisões autônomas D-A34 a D-A50, tomadas entre 29/09 às 21:21 e 30/09 às 08:1x, estão APROVADAS pelo líder, junto com os desvios registrados no mesmo período. As decisões do próprio líder (22:33 e 22:4x de 29/09) já eram dele.
+
+## 30/09/2026 - 10:04 | DECISÃO DO LÍDER (não autônoma): a W8 perde as 3 linhas que dependem de ondas posteriores
+
+- *O fato* (medido pelo CTO, /var/tmp/cto-w7d/opcoes-w8.md, md5 c4767c50): 11 dependências apontam para ondas posteriores, com 0 ciclos.
+  - A GFSS-INHERIT (W8) depende da GFSS-CASCADE (W10).
+  - O MAP-API (W8) depende de 7 fatias da W11a.
+  - O R2D-TEXT (W9-B) depende de 3 fatias da W11b.
+  - A DEMO-1 não é afetada.
+- *Pergunta (AskUserQuestion):* como realocar. Opções: mover as 3 dependentes; mover e adiantar a trilha de mapa; puxar as 18 dependências; partir a API de mapa.
+- *Escolha do líder:* "Mover as 3 dependentes (Recomendado)":
+  - a GFSS-INHERIT vai para a W10;
+  - o MAP-API vai para a W11a;
+  - o R2D-TEXT vai para a W11b, cada um logo depois das suas dependências.
+  - A W8 fica com a DEMO-1, as texturas e as formas.
+  - Nenhuma data real muda. O pedido do Gus mora nas fatias de baixo do mapa, que continuam onde estavam.
+
+## 30/09/2026 - 10:10 | D-A51: condições do conserto da capacidade e a emenda E4 da API do desenho 2D (CTO, L-34; errata §17, md5 eddf1dcf)
+
+- **Célula gêmea do índice:** o teste do conserto da capacidade (c7ba029) provava só o buffer de vértices, e o reset do buffer de índices ficou sem prova (L-17). O CTO assumiu que o erro de prova era dele. A célula gêmea entra num commit de teste antes da B4.
+- **Emenda E4 (porta de mão única, mas só texto de contrato):**
+  - O texto congelado da API de desenho 2D não listava os erros que a parte interna já emite: vertex_array_create, index_upload e a falta de memória da placa, com o código GL.
+  - Pela regra R7, erro emitido e não escrito é contrato escondido. Os nomes entram nos comentários de open() e finish_frame().
+  - Sai o "draw", se a B4 não o emitir. Nem a API nem a ABI mudam.
+  - *Fonte:* o Vulkan separa a falta de memória do sistema da falta de memória do dispositivo. Aqui a distinção vai pelo código do sistema anexado ao erro, sem valor novo no enum.
+- *Achado por:* o revisor de API, antes de o código público existir.
+
+## 30/09/2026 - 10:13 | D-A52: quatro dúvidas da B4 decididas pelo CTO (L-34; errata §18)
+
+- **(a) Erros GL depois do desenho:** a fachada lê os erros GL depois de desenhar, e o erro "draw" passa a ser emitido e fica no cabeçalho, estendendo a E4. O "não encontrado" do carregador vira "não suportado", com o nome da função.
+- **(b) Acesso ao contexto sem vazar o sistema:** um cabeçalho fino com 2 funções livres deixa o desenho 2D alcançar o contexto GL sem incluir <windows.h>. *Fonte:* o endereço de função livre do SDL3 e do GLFW. A B7 prova a direção das camadas por `-H` e grep, porque o portão de camada do desenho 2D foi para a INFRA-CI (D-W7D-19).
+- **(c) Reserva com guarda de estouro,** e o teste do crescimento de uma vez só, que o CTO tinha anotado na B2c.
+- **(d) Extração do buffer de crescimento para um arquivo próprio,** por ser a quarta ocorrência (L-33, regra de 3).
+- *Porta de mão única:* (a) é texto de contrato público, revisado antes da publicação. *Custo de reverter:* baixo até a B4 sair.
+
+## 30/09/2026 - 11:09 | D-A53: a leitura adversarial da B4 antes do commit (CTO, L-34; errata §19 e adendo, md5 381bda3f)
+
+- **D-B4-1, a peça que não chegou à placa:** a regra pública do relatório de quadro dizia "três destinos" para toda peça enviada, e a peça que falhou no contexto ou na placa não caía em nenhum deles.
+  - *Opções:* (i) um contador novo, com a regra passando a quatro destinos; (ii) somar no descarte por falta de memória, o que mente sobre a causa; (iii) não contar a peça, o que a esconde.
+  - *Escolha:* (i). O nome e a posição foram corrigidos pelo revisor de API: `pieces_dropped_graphics_failure`, logo depois de `pieces_dropped_out_of_memory`, e este último passa a dizer "memória da própria lib".
+  - *Porta de mão única:* sim, mas o cabeçalho nasce nesta B4, então este é o momento mais barato de acertá-lo. O blob publicado (97e0963) tem o md5 06a3e039, o mesmo do arquivo do revisor.
+- **D-B4-2, a ordem de pintura sem depender de memória:** o código descartava em silêncio o resultado da ordenação, e a ordem por camada se perdia se faltasse memória.
+  - *Fonte:* `std::sort` ordena no lugar, sem alocar, e `std::stable_sort` tenta alocar (cppreference). A chave (camada, envio) já é única por construção.
+  - *Escolha:* ordenar a própria lista de peças no lugar, sem falha possível.
+  - *Consequência:* `sort_draw_keys()` ficou sem consumidor de produção. Foi para o INBOX como pergunta ao líder (L-67), e o agente não a declara morta.
+- **Os 5 pontos do implementador,** todos aceitos:
+  - o acesso ao contexto sobre o interior dele;
+  - a opção sRGB lida uma vez;
+  - a recusa do carregador numa função pura;
+  - a célula do contexto movido, que vai para a B5;
+  - o teste de paridade escrito na B4 e provado na B5.
+- **Os 7 mutantes do CTO que sobreviviam,** que eram lacunas de teste, viraram células no renderer_2d_impl_test.
+
+## 30/09/2026 - 11:57 | D-A54: o portão de alocação em noexcept resolve o receptor pelo tipo declarado (CTO, L-34; errata §20)
+
+- *Fato:* o portão acusava os `reserve` NOSSOS, que são `noexcept`, só por causa do nome, sem olhar o tipo.
+- *Fonte:* o `bugprone-exception-escape` do clang-tidy decide pelo tipo e pelo `noexcept` declarado de quem é chamado. O próprio portão já fazia isso para `string_view::substr`.
+- *Opções:*
+  - (a) renomear os nossos `reserve`, que é o caminho menos difícil e dobra o código ao defeito do portão;
+  - (b) resolver pelo tipo declarado;
+  - (c) exceção na catraca, que é proibida pela Decisão 13.
+- *Escolha:* (b). Na dúvida, o código continua acusado.
+- *Primeira revisão do CTO sobre o commit (14fc460): REPROVADA.* Havia 2 falsos negativos:
+  - FN-1: um `auto` com o mesmo nome era absolvido;
+  - FN-2: uma sobrecarga sem `noexcept` era absolvida.
+  - Conserto (3413e66): tipo não descoberto (auto, decltype, range-for, structured binding, init-capture) conta como acusado, e todas as sobrecargas precisam ser `noexcept`.
+- *Aceite:* sem condição. A sonda do CTO acertou 11 de 11, e o --selftest passa os 20 controles.
+- Empurrado às 12:27; o `ls-remote` confere com o HEAD.
+- *Porta de mão única:* não.
+
+## 30/09/2026 - 12:55 | D-A55: as seis decisões da B5, o destino da B4-K5 e os commits intermediários da B4 (CTO, L-34 com fontes; errata §21, md5 31fe19b0)
+
+- **Montagem do teste do desenho no container Linux:** mantém o padrão atual (F1), com a lista de arquivos gerada por script e o portão de ligação rodando antes do build da imagem.
+  - *Fontes:* o guia oficial do Docker para C++ e o blog da equipe de C++ da Microsoft recomendam construir com o sistema de build do próprio projeto.
+  - O caminho mais completo (F2: lib do CMake dentro da imagem) vale para TODOS os 23 fixtures de uma vez. Foi para o INBOX da INFRA-CI como CONTAINER-FIXTURE-LIB-CMAKE, e não para um só.
+- **Tolerâncias de cor:** peça opaca com valor exato, ±2 em 128 e em 188, e o valor medido sempre impresso.
+- **sRGB ligado e desligado:** se o driver não suportar sRGB, a ausência só vale declarada por plataforma e contada; ausência calada reprova.
+- **Estado GL hostil:** planta também um framebuffer do consumidor e relê a lista inteira depois do desenho, incluindo os 6 itens da E3.
+- **Mutantes por `docker cp` num container vivo:** aceito, sem montagem do host, com a conferência de isolamento antes e uma execução pesada por vez. O team-lead liberou o Docker às 12:56 com essas condições; a VM Windows não foi liberada.
+- **As 4 linhas "Proved by"** entram num commit próprio no fim, depois do verde nos dois sistemas.
+- **B4-K5** (a proteção contra renderizador movido) entra na B5, gêmea do que as outras fachadas já fazem (L-17).
+- **Commits intermediários da B4:** não se exige o build completo de cada um. O CTO rodou os testes das partes tocadas em cada commit, e todos passaram. O risco residual está declarado: um portão de biblioteca inteira pode reprovar num intermediário.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 13:09 | D-A56: o portão de alocação em noexcept ficou 41 vezes mais lento; conserto por índice, sem lock (CTO, L-34; errata §22, md5 ba6b91d6)
+
+- *Fato:* o CI 36740173106 da B4 ficou vermelho em 8 jobs, com todos os testes verdes. A causa foi a régua de tempo de teste pesado: o noexcept_alloc_test passou de 0,64-1,47 s para 43-89 s, depois da D-B4-3.
+- *Medição do CTO (cProfile):* 19,4 dos 21 s estão na busca de declaração, que varre os 339 arquivos a cada sítio.
+- *Escolha:* um índice de declarações feito uma vez por rodada.
+- *Recusados:*
+  - pôr o teste sob o lock de pesado, que esconde a regressão;
+  - buscar só no arquivo do sítio, que reabre o falso negativo da D-A54.
+- *Critério fixado antes:* veredito idêntico ao do 3413e66, os 20 controles do selftest, a sonda de 11 casos, até 1,5 s e nenhum lock novo.
+- *Lição:* a revisão provou que o portão acusa certo, mas não mediu o tempo dele. Só o CI pegou.
+- *Porta de mão única:* não.
+
+## 30/09/2026 - 13:27 | D-A57: a separação de tempo do selftest de prazos da contenção fica mais larga (CTO, L-34; errata §23, md5 d580e4d6)
+
+- *Fato:* o CI 36742575409 ficou vermelho num job (Arch estático). O caso 10c do contido_dentro_selftest_prazos levou 2,579 s contra o teto de 2,5 s, com o runner carregado. O caso separa o desconto do tempo decorrido (cerca de 2 s) do mutante de radix (cerca de 3 s), e a folga era de só 0,5 s contra uma sobrecarga medida de 0,58 s.
+- *Escolha:* alargar a separação. Janela [2,9 s, 4,0 s], com 1,0 s de folga, 1,7 vezes a pior sobrecarga medida. O mutante continua caindo, em cerca de 5 s.
+- *Recusados:* subir só o teto, porque encosta no mutante e o caso deixa de distinguir; e o RESOURCE_LOCK.
+- *Na mesma rodada,* o noexcept_alloc_test ficou em 3,07 s no servidor, contra 1,47 s antes da D-B4-3. O CTO aceitou: a inflação de carga explica.
+- É código da C1b, que o líder mandou fechar. Entra agora porque CI vermelho bloqueia a onda.
+- *Porta de mão única:* não.
+
+## 30/09/2026 - 13:41 | DECISÃO DO LÍDER (não autônoma): cmake e ninja-build na imagem Docker de teste (L-51)
+
+- *Contexto:* a prova do desenho 2D no container Linux falhou 3 vezes seguidas por peças que faltavam na lista de arquivos montada fora do CMake. O CTO decidiu (errata §25, md5 bb1ea1d8) que os fixtures de API pública constroem e instalam a lib pelo CMake dentro da imagem e ligam por `pkg-config`, como um consumidor. Assim o Linux prova o mesmo artefato que o Windows (L-04).
+- *Pergunta (AskUserQuestion):* autorizar o download de cmake e ninja-build pelo dnf, só dentro da imagem de teste.
+- *Escolha do líder:* "Autorizo (Recomendado)". Nada muda no sistema do host. O custo do docker build maior será medido e registrado.
+
+## 30/09/2026 - 14:27 | D-A58: a lentidão do Windows foi variação do hospedeiro, e o container_fixture_link_selftest vira teste pesado (CTO, L-34; errata §24 e §26)
+
+- *§24, fixado antes do resultado:* no CI 36745583418, os dois jobs Windows rodaram no agente 20260901.588 e ficaram rápidos: dep_zero_trace 26 s, contra o timeout de 120 s no run lento. Pelo critério, foi variação da máquina do servidor, e o código não mudou.
+- *§26, o vermelho que sobrou:* o container_fixture_link_selftest levou 43,17 s no Windows estático. O mesmo selftest leva 0,52 s no Linux; no Windows, de 12,9 a 63,0 s, porque chama o compilador e o ligador MinGW reais a cada controle. É um build aninhado em miniatura.
+- *Escolha:* marcar como pesado com RESOURCE_LOCK glintfx_nested_build, como o gêmeo dep_zero_selftest, e imprimir o tempo por controle. O lock aqui descreve o recurso de verdade; na D-A56 e na D-A57, onde o teste só esperava, ele esconderia a regressão.
+- *Recusados:* cortar controles no Windows, SKIP, e mexer em timeout ou régua.
+- A causa exata no Windows foi para o INBOX como WINDOWS-CUSTO-POR-CONTROLE.
+- *Porta de mão única:* não.
+
+## 30/09/2026 - 15:14 | DECISÕES DO LÍDER (não autônomas): ccache instalado e uma trilha paralela de melhorias da verificação local
+
+- *Observação do líder, verbatim:* "vc passa mais tempo consertando os testes estáticos e dinâmicos do tocando em código do framework."
+- *Medido desde a ordem de 29/09 22:33, em 87 commits:* 4.684 linhas em src/ e include/, 6.206 em testes C++ do produto e 2.606 em CI, portões e container.
+- *Ordem do líder, verbatim:* "descubra se tem testes que pode instalar no computador que ganhemos tempo e eficiência."
+- *Levantamento do CTO* (/var/tmp/cto-w7d/ferramentas-tempo.md, md5 29af5ed7):
+  - 46% do tempo dos testes locais vai em 12 testes que recompilam a lib em série;
+  - 7 vermelhos de hoje só o servidor pegou, dos quais 4 seriam pegáveis aqui.
+- *Pergunta 1 (AskUserQuestion), instalar o ccache:* "Instalar ccache (Recomendado)". Instalado às 15:15: ccache 4.12.3-1.fc44, via `sudo -A dnf` (L-51). O stress-ng não foi autorizado.
+- *Pergunta 2, quando fazer as três melhorias que não exigem instalação* (Clang no preci, tempo por estágio com comparação, modo de carga do servidor): "Agora, em paralelo (Recomendado)".
+  - Um segundo implementador trabalha numa cópia separada (L-55), e o implementador atual fica só no código do framework.
+  - O CTO planeja a trilha.
+
+## 30/09/2026 - 15:32 | D-A59: o framebuffer sRGB nunca funcionou no Linux; é defeito nosso no pedido EGL e entra na W7-D (CTO, L-34 e L-44; errata §28, md5 4b2108b7)
+
+- *Origem:* na B5, o mutante que desliga o FRAMEBUFFER_SRGB não ficou vermelho no Linux, e o implementador atribuiu isso ao driver. O team-lead suspeitou do pedido EGL, e o CTO pediu que se provasse pelo mecanismo (L-44).
+- *Prova do CTO,* com uma sonda dentro da imagem de teste (llvmpipe, sem /dev/dri): o Mesa oferece EGL_KHR_gl_colorspace, e o eglChooseConfig COM EGL_GL_COLORSPACE_KHR devolve EGL_BAD_ATTRIBUTE (0x3004).
+- *Causa:* src/platform/wayland/egl_context_adapter.cpp:558-560 passa o atributo no choose. A especificação da Khronos o aceita só na criação da superfície.
+- *Consequência:* o srgb_framebuffer=1 nunca funcionou em driver Mesa. As duas ausências registradas em measured_exceptions mediam o nosso defeito.
+- *Decisão:* os commits da B5 continuam aceitos, porque o teste relatou o que a lib dizia. O conserto entra na W7-D antes do fechamento:
+  - o atributo na criação da superfície;
+  - a conferência por eglQuerySurface;
+  - falha vira unsupported, nunca superfície linear rotulada de sRGB.
+- *Prova exigida:* uma célula de seam vermelha no código de hoje, o sRGB ligado exercido no llvmpipe e o mutante vermelho no Linux.
+- *Lição:* ausência "declarada e medida" não prova limite da plataforma; o mecanismo precisa ser testado antes.
+
+## 30/09/2026 - 15:40 | D-A60: os 4 achados de tamanho da B7 são consertados dentro da W7-D, antes dos mutantes (CTO, L-34; errata §29, md5 44ae6b1d)
+
+- *Fato:* a revisão adversarial B7 (api-review) mediu 4 violações da L-17 no desenho 2D:
+  - send_pending com 60 linhas;
+  - create_embedded_program com 42 linhas;
+  - send_to_buffer com 7 parâmetros e renderer_2d_impl::create com 5;
+  - frame_report_tally juntando dois assuntos.
+- *Escolha:* consertar agora. Os limites de 40 linhas e 4 parâmetros são inegociáveis na L-17 do projeto, e não há opção de adiar.
+- *Ordem:* a refatoração vem antes dos mutantes da B7, porque mutante sobre código que vai mudar é trabalho perdido. Depois dela, o CTO reaplica os 8 mutantes da B4 para provar que a rede de testes ainda segura.
+- *Critério:*
+  - as asserções dos testes não mudam;
+  - tudo verde com g++ e clang++;
+  - 0 funções acima de 40 linhas;
+  - 0 funções acima de 4 parâmetros.
+- *Porta de mão única:* não, porque é código interno.
+
+## 30/09/2026 - 15:49 | DECISÃO DO LÍDER (não autônoma): nada de GoogleTest, Catch2 nem Doctest; o harness e os analisadores atuais ficam
+
+- *Pedido do líder:* ver se GoogleTest, Catch2 ou Doctest, e uma lista de analisadores estáticos (Oink, CCCC, Splint, Pork, Dehydra, -Weffc++), valem a pena e agilizam.
+- *Fatos apresentados:*
+  - o tempo medido não vai em escrever teste: 46% vai nas recompilações da lib, e o resto no ciclo do CI;
+  - o harness próprio já tem 925 casos em 149 arquivos;
+  - os três frameworks são código de terceiros, o que a L-07 proíbe;
+  - cppcheck, clang-tidy e o clang-analyzer já rodam em todo commit;
+  - os analisadores da lista estão abandonados e não leem C++23;
+  - o -Weffc++ segue regras de 2005.
+- *Escolha do líder (AskUserQuestion):* "Manter como está (Recomendado)". O ganho de tempo segue pela trilha paralela já decidida.
+
+## 30/09/2026 - 15:57 | D-A61: o sRGB no Windows é anunciado mas não aplicado; a biblioteca passa a conferir no próprio framebuffer (CTO, L-34 e L-44; errata §31, md5 840fead6)
+
+- *Fato, no CI 36759613878:* nos 3 jobs Windows, o draw2d_parity_test reprovou as mesmas 3 células com sRGB ligado.
+  - O contexto aceitou a opção (srgb_on_cells_absent=0), e o FRAMEBUFFER_SRGB estava ligado.
+  - O pixel meio branco deu 128, quando deveria dar cerca de 188.
+- *Mecanismo, pela especificação ARB_framebuffer_sRGB:* a conversão exige o enable e também um buffer de destino com codificação sRGB. O wglChoosePixelFormatARB aceitou WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, mas o buffer de trás veio linear. É o gêmeo do D-A59: lá o EGL recusava errado, aqui o WGL aceita errado.
+- *Escolha:* a fachada do contexto lê de volta o GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING do buffer de trás, com a mesma régua nos dois sistemas. Se a opção foi pedida e a resposta não é SRGB, o resultado é unsupported.
+- *Recusados:* confiar no que o formato de pixel diz; e declarar o Windows como ausência, que seria aceitar o anúncio falso.
+- *Próximo CI:* se a leitura der LINEAR, a lib recusa com honestidade no Windows e o sRGB fica provado no Linux. Se der SRGB com o pixel ainda em 128, o defeito é do driver do runner, e a VM Windows mede com outro driver, com liberação do team-lead.
+
+## 30/09/2026 - 16:55 | PAUSA ordenada pelo líder ("Continue até 17:00 local")
+
+- *Remoto:* onda-w7d em c98c0db.
+- *Local:* onda-w7d em ca0cfb2, mais este registro. Todos os commits locais foram aceitos pelo CTO:
+  - a B6;
+  - o D-SRGB-1 (0587bb7), provado ao vivo: 187, 51/0, e o mutante morto;
+  - o gancho de alocação do F2;
+  - a refatoração L-17 da B7 e os consertos de lint;
+  - a trilha de infra por ff-only: ccache (-69,7%, 100% de acerto), tempo por etapa e comparação com a rodada verde.
+- *Por que nada foi ao remoto:* o `preci --fast` sobre ca0cfb2 deu rc 8, com 2 testes que vêm da trilha de infra e que as provas dela não cobriram:
+  - preci_runs_blob_test: o casador do blob_selftests.py não reconhece o stage_blob embrulhado no timed_stage;
+  - check_selftest_orphan_test: o --selftest do preci_compare_times.py está sem add_test.
+  O resto passou: build, clang-tidy, cppcheck e 291 de 293. Pela L-24, nada sobe com o espelho local vermelho.
+- *Retomada, pela ordem:*
+  1. o conserto dos 2 testes (impl-infra, com uma edição pontual do add_test liberada);
+  2. um `preci --fast` verde, o push e o CI;
+  3. o D-SRGB-2 (§31, o sRGB do Windows);
+  4. a B7 (api-review);
+  5. as linhas "Proved by";
+  6. P4, P5, a v0.6.0.0 e a W8.
+  Também C2 e C4 da infra, com duas perguntas pendentes ao team-lead: o TasksMax 300/200 e os labels `tempo`.
+
+## 02/10/2026 - 10:14 | DECISÃO DO LÍDER (não autônoma): modo autônomo até 12:00 e a reconciliação com o ramo da sessão de nuvem
+
+- *Contexto:* em 01/10, uma sessão de nuvem partiu do remoto `c98c0db` sem ver os 32 commits locais deste ramo (de `c98c0db` a `cba2383`). No ramo `claude/continue-p3kc6n` (PR #13, em rascunho), ela:
+  - refez o D-SRGB-1 e o gancho de alocação;
+  - criou um D-A60 e um D-A61 que colidem com os deste arquivo.
+  A revisão independente (fable) REPROVOU aquele conjunto.
+- *Ordem do líder, verbatim:* "Ligue modo autonomo." e "e pode seguir até 12:00h", aprovando a recomendação que o main levou: "manter o onda-w7d local como base; trazer só o 0bbcab8; registrar as suas duas decisões com números novos; fechar o PR #13 sem merge."
+- *Feito:*
+  - `0bbcab8` trazido por cherry-pick como `0711d55`. São as exceções `draw2d_parity_test` para arch, cachyos e ubuntu, provadas contra os inventários reais do CI 36908843898: vermelho com o arquivo antigo, verde com o novo.
+  - As duas decisões do líder entram abaixo como D-A62 e D-A63.
+- *Não trazido:* o conserto EGL da nuvem (`219e66c`, `9d27ffe`, `ba3fb75`), o contador de alocação (`65aa9b4`) e o D-A60/D-A61 da nuvem. Os dois primeiros duplicam `0587bb7` e `6a95403`, já provados aqui.
+
+## 02/10/2026 - 10:14 | D-A62: sRGB no Windows; recusa honesta conferida no FORMATO DE PIXEL (DECISÃO DO LÍDER de 01/10, não autônoma; EMENDA o D-A61)
+
+- *Pergunta (AskUserQuestion, 01/10/2026 ~16:30):* como a biblioteca deve se comportar no Windows quando o sRGB é pedido e o driver não o aplica.
+- *Escolha do líder:* "Recusa honesta (Recomendado)".
+  - A extensão `WGL_ARB_framebuffer_sRGB` ou `WGL_EXT_framebuffer_sRGB` ausente (busca por token inteiro) leva à recusa antes do choose.
+  - O choose falhando com o atributo leva à recusa. O ramo que hoje refaz sem sRGB e abre assim mesmo (`srgb_ok=false`) deixa de existir.
+  - Depois do choose, `wglGetPixelFormatAttribivARB(formato, 0x20A9)`: só chamada ok com valor TRUE confirma. Qualquer outra coisa é `unsupported`/`srgb_framebuffer`.
+- **Emenda ao D-A61 (CTO, 30/09):** o `GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING` do framebuffer padrão deixa de ser critério de recusa e fica só como linha MEASURED.
+  - *Motivo, com fonte:* a NVIDIA devolve LINEAR mesmo quando converte (g-truc post-0720; fórum NVIDIA 205092, Quadro P1000; Khronos community 106024, onde Mali/EGL também mostra LINEAR).
+  - *Efeito:* a régua do D-A61 recusaria sRGB na RTX 3050 do líder.
+  - *Na mesma emenda:* "Recusados: confiar no que o formato de pixel diz" deixa de valer. A conferência é a consulta ao formato escolhido, como faz o SDL3.
+- *Fato medido na fonte do Mesa* (MIT; `main` e `mesa-26.2.0`, a versão do `tools/ci/install-mesa-opengl32.ps1`). Explica o 128 em vez de 188 do CI:
+  - `stw_ext_extensionsstring.c` não anuncia framebuffer_sRGB;
+  - `score_pixelformats()` ignora atributo desconhecido (`if (ami == NULL) return true;`);
+  - `stw_query_attrib()` não tem caso para 0x20A9;
+  - `stw_pixelformat.c` só oferece formatos UNORM.
+- *Recusados pelo líder:*
+  - emulação por FBO sRGB (porta de mão única de comportamento público; vai ao INBOX como `SRGB-EMULATED-FBO`);
+  - só declarar a ausência (o rótulo mentiroso ficaria).
+- *Porta de mão única:* não.
+
+## 02/10/2026 - 10:14 | D-A63: a prova da L-04 para o sRGB do Windows aceita lacuna declarada (DECISÃO DO LÍDER de 01/10, não autônoma)
+
+- *Pergunta (AskUserQuestion, 01/10/2026):* o ramo "sRGB ligado funcionando" do Windows nunca roda no CI, porque o Mesa WGL do servidor não tem sRGB (D-A62). O que vale como prova pela L-04?
+- *Escolha do líder:* "Lacuna declarada (Recomendado)".
+  - O CI prova a recusa honesta no Windows e o sRGB funcionando no Linux.
+  - O caminho ligado do Windows fica declarado e contado, com o item aberto `SRGB-WIN-CI-PROOF-GAP`, como `msaa_support` e `vsync_adaptive_support`.
+- *Recusados:* um runner com GPU real como condição para fechar a onda; e adiar a decisão.
+
+## 02/10/2026 - 10:14 | Achado a conferir (não é decisão): a revisão fable da nuvem também pode valer para o `0587bb7` local
+
+- *Fato, sobre o código da NUVEM:* `option_support(srgb_framebuffer)` sem sRGB pedido passou a dizer unsupported no Linux e supported no Windows (L-04).
+- *Outros dois achados:* uma falha qualquer de `eglCreateWindowSurface` com sRGB vira "sem sRGB", porque não se lê `eglGetError`; e há constantes EGL escritas à mão sem `static_assert`.
+- *Inferência:* o `0587bb7` local resolve o mesmo problema por outro caminho e pode ter os mesmos três. Fica para a D-SRGB-2 conferir contra a árvore antes de fechar.
+
+## 02/10/2026 - 10:20 | DECISÃO DO LÍDER (não autônoma): push, merge e higienização autorizados
+
+- *Ordem, verbatim:* "autorizo push/merge e higienizacao se necessario".
+- *Leitura do main, com a L-11 e a L-24 intactas:*
+  - O push do `onda-w7d` só sai com o espelho local verde.
+  - O merge em `main` e a marca só acontecem quando a onda W7-D fechar com o CI verde (`CI-VERDE-W7D`).
+  - "Higienização" cobre apagar o ramo remoto `claude/continue-p3kc6n` (o PR #13 já foi fechado sem merge) e os ramos locais e pastas de build obsoletas da sessão de nuvem.
+
+## 02/10/2026 - 10:33 | D-A64: a chave do ccache no preci tem de valer com o ccache do Fedora no PATH (main, modo autônomo; conserto mecânico de um defeito medido)
+
+- *Fato:* o `preci --fast` de 02/10 (log `/var/tmp/preci-0210.log`) saiu com rc=8 e um só vermelho, o `preci_selftest`, com a mensagem "selftest ccache preconfigurado: desligado, mas o ccache contou 1 chamada(s)" (`tools/preci.sh:2238`).
+- *Causa provada:*
+  - O pacote `ccache-4.12.3-1.fc44`, instalado em 30/09 (L-51), traz `/etc/profile.d/ccache.sh`, que põe `/usr/lib64/ccache` à frente do `PATH` em todo shell de login. Ali, `c++` e `g++` são o próprio ccache.
+  - Com esse diretório no PATH, o compilador que o CMake guarda já é o ccache, e `GLINTFX_PRECI_CCACHE=0` não desliga nada.
+  - Prova: o mesmo teste, rodado com `/usr/lib64/ccache` fora do PATH, deu rc=0.
+  - O preci de 30/09 passou porque aquele shell ainda não tinha o diretório no PATH.
+- *Escolha:*
+  - O `setup_ccache` passa a tirar do PATH todo diretório de "máscara" (onde `c++`/`cc` resolvem para o binário do ccache). Assim o ccache entra só pelo lançador explícito, que a chave controla.
+  - Com a chave desligada, também se exporta `CCACHE_DISABLE=1` como segunda trava.
+  - O `--selftest` ganha um controle com um diretório de máscara falso no PATH, visto reprovando na forma antiga.
+- *Recusados:*
+  - pedir ao líder que tire o profile.d: ele mexe no sistema dele, e o defeito é nosso, porque a chave tem de ser honesta em qualquer host;
+  - relaxar o controle.
+- *Porta de mão única:* não.
+
+## 02/10/2026 - 10:36 | D-A65: o plano do D-SRGB-2 e as 15 decisões do CTO que o compõem (CTO, modo autônomo, L-34; plano `/var/tmp/cto-w7d/plano-d-srgb-2.md`, md5 ac7778a6)
+
+- *Executa:* D-A62 e D-A63 (decisões do líder), sem reabrir nenhuma.
+- *Verificação do main (L-34, passo 3), feita contra a árvore às 10:36:*
+  - a cascata do WGL em `wgl_context_adapter.cpp:302-324` (os ramos `:308-314` e `:315-317` abrem sem a opção pedida);
+  - a extensão EGL lida em `egl_context_adapter.cpp:551-553`;
+  - a superfície sRGB sem `eglGetError` em `:603-610`;
+  - a busca por substring em `egl_device_query.cpp:44`;
+  - `0x8DB9` escrito em 4 arquivos (1 em src, 3 em tests).
+  Tudo confere.
+- *Decisões (detalhe e fontes no plano):*
+  - **D-SRGB2-1, resolve o C1:** sem a opção pedida, `option_support(srgb_framebuffer)` é supported se e só se a extensão é anunciada, nos dois sistemas, por uma função pura única. Hoje o Linux responde pela extensão e o Windows por "o choose deu certo". O CI mostra 1 nos dois lados, e esse valor igual esconde a diferença de regra.
+  - **D-SRGB2-2:** a cascata do WGL vira extensão, escolha, consulta 0x20A9 no formato e só então `SetPixelFormat`. Na reabertura, a consulta é feita no formato já ligado.
+  - **D-SRGB2-3:** a precedência das recusas é uma função pura neutra, compartilhada pelos dois adaptadores.
+  - **D-SRGB2-4:** MSAA pedido e impossível no Windows passa a ser `unsupported`/`msaa_samples`, como no Linux. Hoje abre sem MSAA, calado, e nenhum teste exercia esse ramo.
+  - **D-SRGB2-5:** o carregador WGL lê a lista de extensões com o contexto descartável corrente e devolve fatos.
+  - **D-SRGB2-6:** átomo neutro de busca por token inteiro (`src/platform/extension_token.hpp`), que substitui as 4 buscas por substring.
+  - **D-SRGB2-7, resolve o I2:** a falha da superfície sRGB se classifica pelo `eglGetError()`, com sonda de confirmação.
+  - **D-SRGB2-8:** os átomos novos são só de cabeçalho, para não editar as 15 listas de fontes à mão.
+  - **D-SRGB2-9:** o átomo do WGL é puro e testado em todo sistema.
+  - **D-SRGB2-10, I3:** os `static_assert` que faltam.
+  - **D-SRGB2-11:** COLOR_ENCODING fica só como MEASURED (D-A62).
+  - **D-SRGB2-12:** uma célula viva do contrato `open_only` para MSAA e sRGB numa janela nova.
+  - **D-SRGB2-13:** a ausência declarada do `draw2d_parity_test` passa a exigir `rejected_value == "srgb_framebuffer"`.
+  - **D-SRGB2-14:** a VM Windows não prova o sRGB ligado (mesmo Mesa 26.2.0), mas é a única fronteira local onde as células só-Windows aparecem vermelhas antes do servidor.
+  - **D-SRGB2-15:** a previsão de cada chave MEASURED é fixada antes do dado (L-43). Se o CI der outro valor, o trabalho para e volta ao CTO.
+- *Achado que vai ao INBOX:* o `check_measured_parity.py` nunca reprova por linha de exceção faltando (F12 do plano).
+- *Porta de mão única:* nenhuma. O D-SRGB2-4 muda um comportamento público do Windows (abria, passa a recusar). Isso aplica a D-W6b-17, que é contrato vigente, e não cria regra nova.
+
+## 02/10/2026 - 10:58 | Pesquisa da L-42 (ordem do líder: "pesquise!"), na 3ª rodada vermelha do sRGB no Windows (CI 37014377382, job Windows - estatico)
+
+- *Fato do CI:* as mesmas 3 células `[srgb=on]` do `draw2d_parity_test`, como em 36759613878 (30/09) e 36908843898 (01/10). É o terceiro vermelho pelo mesmo motivo; a L-42 manda buscar na web antes da terceira tentativa.
+- *Conferido pelo main na fonte primária* (Mesa `mesa-26.2.0`, gitlab.freedesktop.org, `src/gallium/frontends/wgl/`, baixada às 10:56). Até aqui isso era leitura de um agente da sessão de nuvem.
+  - `stw_ext_extensionsstring.c`: a lista anunciada tem 14 extensões, e nenhuma é `WGL_ARB_framebuffer_sRGB` ou `WGL_EXT_framebuffer_sRGB`.
+  - `stw_ext_pixelformat.c:352`: `if (ami == NULL) return true;`, ou seja, um atributo fora da tabela de correspondência é ignorado em silêncio pelo `wglChoosePixelFormatARB`.
+  - `stw_pixelformat.c:75-90`: os formatos de cor são só UNORM e FLOAT, nenhum SRGB.
+- *Biblioteca semelhante:* o GLFW (`src/wgl_context.c`, master) só acrescenta `WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB` se `ARB_framebuffer_sRGB || EXT_framebuffer_sRGB` foi anunciada, e relê o valor por formato de pixel. É o mesmo desenho da D-A62 e do D-SRGB2-2.
+- *Conclusão:* a causa é confirmada, e o plano (D-A65, fatias S4 e S5) ataca o mecanismo certo. Este vermelho é ESPERADO até as fatias S4 e S5 entrarem, e nenhuma tentativa nova foi feita às cegas.
+- *Fontes:*
+  - https://gitlab.freedesktop.org/mesa/mesa/-/tree/mesa-26.2.0/src/gallium/frontends/wgl
+  - https://github.com/glfw/glfw/blob/master/src/wgl_context.c
+  - https://www.g-truc.net/post-0720.html
+  - https://github.com/glfw/glfw/issues/553
+
+## 02/10/2026 - 11:01 | Fato para o CTO (não é decisão): o Mesa pode deixar a janela Wayland apontando para uma superfície liberada (achado do implementador da S3, commit 6aa247c)
+
+- *Fato lido na fonte* (Mesa `main` de 02/10, `src/egl/drivers/dri2/platform_wayland.c`, cópia só para leitura em `/var/tmp/s3mut/pw.c`, L-29):
+  - Em `dri2_wl_create_window_surface` (`:692`), o `window->driver_private = dri2_surf` é gravado só em `:838`. As falhas com `EGL_BAD_MATCH`/`EGL_BAD_ATTRIBUTE` vêm antes disso (`:719-721`, `:726-729`, `:759-760`) e vão para `cleanup_surf`, que não toca na janela. A sonda do D-SRGB2-7 é SEGURA para esses códigos: confirmado.
+  - **Ressalva:** se `dri2_create_drawable` falhar (`:843-844`), o `goto cleanup_dmabuf_feedback` NÃO zera `driver_private`, que fica apontando para a superfície liberada. Uma nova tentativa sobre a mesma `wl_egl_window` daria `EGL_BAD_ALLOC` (`:708-709`).
+- *Impacto (inferência):* esse caminho não produz BAD_MATCH nem BAD_ATTRIBUTE, então não entra na sonda. Mas qualquer código futuro que tente de novo sobre a mesma janela depois de um BAD_ALLOC esbarra nele.
+- *Não conferido:* versão por versão do Mesa dos containers do CI.
+- *Destino:* insumo para quem revisitar o D-SRGB2-7.
+
+## 02/10/2026 - 11:02 | ORDEM DO LÍDER: "fable é so advisor!"
+
+- *Contexto:* às 11:00 o main despachou o revisor adversarial de S0 a S3 com o modelo `fable`. O agente foi parado às 11:02, antes de compilar ou commitar qualquer coisa (árvore limpa), e foi despachado de novo com `sonnet`, que é o modelo de agente não C-level pela regra de sessão (`/modelos_sessao`). O revisor continua sendo um agente distinto do implementador (L-12).
+- *Pendente com o líder (LEI DAS LEIS):* a L-18 do `GODS_LAWS.md` ainda diz "fable audita e cria". Esta ordem muda esse texto. Pela LEI DAS LEIS, a mudança do texto da lei se leva ao líder com o contra-argumento e a confirmação dele. Fica registrada para a saída do modo autônomo; enquanto isso, a ordem vale na prática.
+
+## 02/10/2026 - 11:14 | Revisão adversarial de S0 a S3 do D-SRGB-2 e a prova viva da S3 (L-12, L-27)
+
+- *Prova viva da S3 no container Wayland* (imagem `glintfx-wltest:s3`, construída a partir de 6aa247c; logs em `/var/tmp/s3-janela/`):
+  - A primeira rodada reprovou no isolamento ("wire_relay nao encontrado"), porque a receita do main pulou o `wait_for_ready_marker.sh` que o CI usa. O portão estava certo.
+  - A segunda rodada, com a espera: isolamento provado (kwin e relé dentro do container), `draw2d_parity_test` rc=0 com 51 células e 0 reprovadas, `half_white_srgb_on=187`, `half_red_srgb_on=187`, `srgb_on_cells_absent=0`; `gl_context_parity_test` rc=0, `srgb_support=1`, `msaa_support=1`.
+  - Bate com a tabela §5 do plano, fixada antes do dado.
+- *Revisão (sonnet, agente distinto do implementador; a primeira tentativa em fable foi parada por ordem do líder):* APROVA COM RESSALVAS, 0 CRÍTICO.
+  - O I-1, "caminho feliz não provado", foi escrito a partir dos logs da primeira rodada; a segunda rodada o fecha.
+  - I-2 (a exceção de paridade cita um par que ainda não existe) e C-1 (falta caso de maiúsculas no teste de token) estão em conserto.
+- **Mutante sobrevivente DECLARADO (I-3):** "a sonda do D-SRGB2-7 sem `eglDestroySurface`". Nenhum teste o mata: o ramo da sonda só roda com um driver que devolva BAD_MATCH ou BAD_ATTRIBUTE, e o llvmpipe do container passa pelo caminho de sucesso. O dano é limitado, porque o `eglTerminate` do `close()` libera tudo. Fechá-lo exige injetar as chamadas EGL num dublê ou forçar o driver; fica como lacuna conhecida para quem revisitar o D-SRGB2-7.
+- *Cosméticos C-2 e C-3* (quebras de comentário e a forma do laço de 240 combinações): não bloqueiam e ficam como estão.
+
+## 03/10/2026 - 18:15 | DECISÃO DO LÍDER (não autônoma): modo autônomo ligado e merge/push/tag autorizados
+
+- *Ordem, verbatim:* "ligue modo autonomo e continue a trabalhar. Autorizo merge/push/tag".
+- *Flag do hook:* `~/.claude/autonomo/GlintFx.json`, válida até 04/10/2026 18:15 (24 h), com os escopos `push` e `clean`.
+- *Leitura do main, com a L-11 e a L-24 intactas:*
+  - push a cada etapa com o espelho local verde;
+  - merge em `main` e marca só quando a W7-D fechar com o CI verde (`CI-VERDE-W7D`), com o número pela L-26.
+- *Retomada, pela ordem do snapshot:*
+  - fatias S4 e S5 do D-SRGB-2 (o lado WGL), depois a S6 (MEASURED e paridade);
+  - revisão, espelho, push e CI;
+  - então o resto da W7-D: a B7 (api-review) e as linhas "Proved by".
+- *Modelo dos agentes:* pela emenda de 02/10 da L-18, os C-levels seguem `/modelos_sessao` (`opus`), e o resto é `sonnet`.
+
+## 03/10/2026 - 18:17 | D-A66: o vermelho das células só-Windows de S4 e S5 é declarado rebaixado, sem a VM (main, modo autônomo, aplicando a alternativa que o plano já previa no D-SRGB2-14)
+
+- *Pergunta que teria ido ao líder:* ligar a VM Windows 11 para ver vermelhas, antes do servidor, as células que só existem no Windows?
+- *Fato (D-SRGB2-14, plano md5 ac7778a6):* a VM roda o mesmo Mesa 26.2.0 do CI, então não muda o veredito sobre o sRGB ligado. Ela só antecipa o vermelho de células cujo comportamento ANTIGO já está provado em 4 runs do CI (36759613878, 36908843898, 37014377382, 37020407535: `draw2d_parity_test` vermelho em `[srgb=on]`).
+- *Escolha:* não ligar a VM. O vermelho do átomo puro (`wgl_srgb_pixel_format_test`) sai no Linux; o das células só-Windows fica declarado rebaixado no commit e no relatório; o verde sai no CI Windows.
+- *Recusada:* a VM agora, pelo custo de máquina (trabalho pesado, 17 GB) sem informação nova sobre o veredito.
+- *Verificação de compilação e ligação do Windows antes do push:* `tools/preci.sh --win32-link-only`, com o `cl.exe` e o `link.exe` reais no container MSVC.
+- *Porta de mão única:* não. Ligar a VM depois continua possível.
+
+## 03/10/2026 - 18:20 | Correção de um relato meu: o watchcode de 02/10 NÃO estava vazio (L-27)
+
+- *O que relatei em 02/10:* "zero achados novos" entre 10:13 e 12:11. **Estava errado.**
+- *Fato, lido no rearme de 03/10 com `coredumpctl`:*
+  - Houve 8 pares de coredump do `bash` em 02/10 (10:19, 10:24, 10:30, 10:36, 11:10, 11:16, 11:23, 11:29), nos horários das rodadas do `preci --fast`. São `sh -c 'kill -SEGV $$'` e `sh -c 'kill -ABRT $$'`, ou seja, sinais DELIBERADOS de um autoteste do espelho que confere a propagação de processo morto por sinal.
+  - Houve também 1 coredump às 10:40:40 em `/var/tmp/s1mut/m4/t`: o mutante "sem guarda de `nullptr`" da S1, morto por SIGSEGV de propósito.
+  - Às 12:12:02 abortaram o próprio daemon do watchcode e o `journalctl` dele, no `off` daquela hora (SIGABRT, unidade `watchcode-daemon.service`).
+- *Por que o relato saiu errado (inferência):* o daemon de 02/10 tinha sido ADOTADO órfão de uma sessão antiga, e os achados só chegaram à leitura desta sessão no rearme de hoje. A leitura de 02/10 confiou num fluxo que não entregava. Nenhum achado bloqueia build, e todos têm causa conhecida.
+- *A anotar para quem mantém o watchcode:* o `off` aborta o próprio daemon com SIGABRT, em vez de encerrá-lo limpo; e um daemon adotado órfão pode não entregar achados à sessão que o adotou.
+
+## 03/10/2026 - 18:41 | DECISÃO DO LÍDER (não autônoma): modo autônomo religado, merge/push/tag autorizados, e a S5 retomada
+
+- *Contexto:* às 18:27 o líder ordenou "pare tudo, agora! já". Todos os agentes, ciclos e daemons foram parados, e a S5 do D-SRGB-2 ficou pela metade na árvore.
+- *Ordens, verbatim:*
+  - 18:38, "continue o trabalho do projeto!". A parada do líder sobre a S5 foi retirada (`~/.config/olhe_agentes/GlintFx/parada_do_lider` apagado), e um implementador novo foi despachado para concluir a S5 a partir da árvore.
+  - 18:41, "ligue modo autonomo e continue a trabalhar. Autorizo merge/push/tag". Flag do hook válida até 04/10/2026 18:41.
+- *Leitura do main (L-11, L-24):* push com o espelho local verde; merge em `main` e marca só com a W7-D fechada e o CI verde.
+- *Monitor:* `/olhe_agentes` (skill criada às 18:40 por ordem do líder), tick de 5 min até 10/10 18:33. Com o modo autônomo ligado, o tick manda seguir agente PARADO (calado há 5 min e sem comando em execução) e retoma o trabalho se a sessão ficar ociosa.
+
+## 03/10/2026 - 19:25 | D-A67: a previsão do COLOR_ENCODING errou no Linux, e o mecanismo explica por quê (CTO, modo autônomo, L-34 e L-44; D-SRGB2-16 a D-SRGB2-19)
+
+- *Fato (prova viva da S6 no container, imagem de `eda70c6`, logs em `/var/tmp/s6-janela/`):*
+  - `draw2d_parity_test` rc=0: 52 células, 0 reprovadas; `half_white_srgb_on=187`, `srgb_on_cells_absent=0`.
+  - `gl_context_parity_test` rc=0: `srgb_support=1`, e `open_only_*_opened=1` para MSAA e para sRGB.
+  - **Divergência da previsão §5.2:** `back_buffer_color_encoding_srgb_off=35904` (GL_SRGB), contra 9729 previsto.
+- *Mecanismo (CTO, fonte do Mesa `main`):*
+  - Em GL desktop, o Mesa cria o back buffer no gêmeo sRGB do formato quando o driver o aceita como alvo de exibição, mesmo sem `EGL_GL_COLORSPACE_KHR` (`st_manager.c`, `st_framebuffer_create`, `prefer_srgb`).
+  - A conversão só acontece com `GL_FRAMEBUFFER_SRGB` ligado (EGL_KHR_gl_colorspace), por isso o pixel sai 127 no modo off.
+  - No Windows, o winsys GDI do Mesa WGL só aceita UNORM (`gdi_sw_winsys.c:88-101`), e o previsto é 9729.
+- **D-SRGB2-16:** nenhuma decisão cai, e a D-A62 sai MAIS FORTE. Como critério, COLOR_ENCODING teria aprovado o modo off. Quem prova o sRGB é o pixel, e quem prova o atributo é o `eglQuerySurface`.
+- **D-SRGB2-17:** errou só a previsão daquela chave, e o CTO assume o erro às claras. A previsão do Windows segue 9729. Se o CI disser outra coisa, o dado entra no `SRGB-WIN-CI-PROOF-GAP`, sem reabrir a D-A62.
+- **D-SRGB2-18:** linha nova `draw2d_parity_test.back_buffer_color_encoding_srgb_off|familias|...|SEM-PENDENCIA` no `measured_exceptions.txt`, com o texto do CTO, mais o ajuste cosmético da linha 216.
+- **D-SRGB2-19:** o mutante M1 (adaptador EGL que recusa `srgb_framebuffer` nomeando `msaa_samples`) roda AGORA no container, em cópia fora da árvore e contra SHA declarado. O CI nunca executa mutante. Aceite: o mesmo mutante derruba o `draw2d_parity_test` E a célula `open_only_srgb_framebuffer` do `gl_context_parity_test`.
+- *Fontes:* st_manager.c, gdi_sw_winsys.c e targets/wgl/wgl.c (Mesa main), EGL_KHR_gl_colorspace, docs.gl, g-truc post-0720.
+- *Porta de mão única:* não.
+
+## 03/10/2026 - 19:35 | O mutante M1 da D-SRGB2-19 morreu nos dois testes, como exigido (prova viva, L-20 e L-27)
+
+- *Mutante:* cópia por `git archive` do SHA `673857d`, fora da árvore (`/var/tmp/m1-tree`, diff em `/var/tmp/m1-janela/mutacao.diff`). Duas linhas mudadas em `egl_context_adapter.cpp`:
+  - `:606`: `m_srgb_advertised = false && ...`, que força a recusa;
+  - `:137`: `with_rejected_value("msaa_samples")`, que dá o nome errado.
+- *Resultado* (imagem `glintfx-wltest:m1`, isolamento provado antes, rc=0):
+  - `draw2d_parity_test` rc=1, com `FAIL a recusa de srgb_framebuffer=on nomeou "msaa_samples", esperado "srgb_framebuffer"`;
+  - `gl_context_parity_test` rc=1, com `open_only(srgb_framebuffer) recusou como unsupported/msaa_samples, esperado unsupported/srgb_framebuffer`.
+- *Aceite do CTO cumprido:* o mesmo mutante derruba os dois testes, e o log mostra `msaa_samples`, o que prova que a mutação chegou ao binário.
+- *Antes da S6,* o `draw2d_parity_test` aceitava qualquer `rejected_value` e teria passado.
+
+## 03/10/2026 - 20:08 | Registro da revisão adversarial de S4 e S5 do D-SRGB-2 (L-12; atende a D-FECH-10, parte i)
+
+- *Revisor:* `tech-lead` sonnet, distinto dos implementadores, sobre os blobs `e9d5491` (S4) e `c32591a` (S5), com rastro em `/var/tmp/rev-s5/`.
+- *Veredito:* APROVA COM RESSALVAS, 0 CRÍTICO.
+  - Ordem da cascata conferida no blob: extensão, choose, consulta 0x20A9 no formato que fica ligado, `decide_gfx_format`, `SetPixelFormat`.
+  - Os ramos que abriam sem a opção foram extintos.
+  - O carregador lê a lista antes de soltar o contexto descartável.
+  - O portão do SetLastError não enfraqueceu: o mutante foi visto reprovando.
+- *Mutantes* (cópia fora da árvore, com a prova por md5 de que a mutação chegou ao binário): 9 rodados. Morreram A, B, D, E, F, G, K e L. O J (regra 1 apagada) sobreviveu no teste WGL e morre no `gfx_format_decision_test`.
+- *Achados consertados* (commits `371a320`, `7256f9f`, `094a257`, `6d1be99`, `b1746c6`, `31feffb`):
+  - o caso que isola a regra 1 (o J agora morre também no teste WGL; vermelho visto);
+  - o `TODO.md` do item;
+  - o texto da exceção de paridade;
+  - a extração `wgl_pixel_format_cascade` (adaptador de 739 para 542 linhas);
+  - o controle negativo `fn(dc,`;
+  - o piso tautológico.
+  `WGL-LOADER-TEARDOWN-ATOM` foi para o INBOX, por ser anterior à onda.
+- *S6:* commit `eda70c6`, com a prova viva e o mutante M1 nas entradas D-A67 e "o mutante M1".
+
+## 03/10/2026 - 20:08 | D-A68: o plano de fechamento da W7-D (CTO, modo autônomo; `/var/tmp/cto-w7d/plano-fechamento-w7d.md`, md5 de6cbfd9)
+
+- *Verificação do main* (L-34, passo 3), feita contra a árvore às 20:05:
+  - `docs/gl-loop-portability-matrix.md:32` ainda diz que o preset "é no-op";
+  - `tests/package/CMakeLists.txt:35` ainda pede `glintfx 0.5`;
+  - o relatório da B7 (`/var/tmp/cto-w7d/b7/auditoria-revisao-r2d-batch.md`) tem campos `@@...@@` vazios.
+  As três confirmam o plano.
+- **D-FECH-1:** a definição de fechamento é a cadeia `docs/plano-w7d.md:314-324`, adendo `:142-151`, `PLANO.md:177,196-201,220`, errata `:118`, D-A55. O que a D-W7D-19 levou para a INFRA-CI fica dito, não calado.
+- **D-FECH-2:** `D-SRGB2-WGL-SLICES` é critério da W7-D e sobe para antes de `CI-VERDE-W7D`. O texto de `CI-VERDE-W7D` perde o `INPUT-EVENTS`, que foi para a W9.
+- **D-FECH-3:** os pareceres P0 e B0, o PLANO e a errata vão para `docs/auditoria-*`, com um apêndice "texto final congelado" gerado por script, para a comparação por máquina.
+- **D-FECH-4:** o run 37159658455 não fecha a onda; são no mínimo os runs A e B depois dele.
+- **D-FECH-5:** um único `--sanitizer-only` para P5 e B7, no SHA final de código.
+- **D-FECH-6:** as linhas "Proved by" [B5] e [P4] entram byte a byte.
+- **D-FECH-7:** "o que ele não vê" só para os portões ALTERADOS pela W7-D; se faltar no cabeçalho, vira INBOX.
+- **D-FECH-8:** C2, C4 e a trilha de infraestrutura ficam FORA do fechamento.
+- **D-FECH-9:** o commit de versão `0.5.2.0 -> 0.6.0.0` leva junto `tests/package/CMakeLists.txt:35` e a seção `[0.6.0.0]` do CHANGELOG.
+- **D-FECH-10:** registrar a revisão de S4/S5 (bloco acima) e a reaplicação dos 8 mutantes da B4 antes do ✅.
+- *Sequência* (§4.1 do plano), 16 passos:
+  - run 37159658455 lido inteiro;
+  - G4 (auditorias em docs/);
+  - P4 e B7 em paralelo;
+  - PB-1 ("Proved by");
+  - run A;
+  - P5 e o sanitizer;
+  - a comparação por máquina;
+  - versão e CHANGELOG;
+  - os ✅ do TODO;
+  - run B;
+  - `CI-VERDE-W7D` e o run C;
+  - PR e merge;
+  - a marca `v0.6.0.0` no commit de merge;
+  - o ramo apagado;
+  - os avisos (Gus Dragon pela L-37, `gusworld` e `mapeditor`).
+- *Porta de mão única:* só a D-FECH-6 (texto público congelado), que já foi decidida na revisão B0.
+
+### Passo 0 do fechamento (03/10/2026, 20:20): o run 37159658455 lido contra a §5.1 do D-SRGB-2
+
+Fonte: os artefatos `measured-windows-compartilhado` e `measured-fedora-container` do run, e o log dos jobs Windows (estático e compartilhado). Nada foi ajustado.
+
+| Chave (Windows) | Previsto | Medido |
+|---|---|---|
+| `draw2d_parity_test.srgb_on_cells_absent` | `1`, recusa `srgb_framebuffer` | `1`, "AUSENCIA DECLARADA ... (srgb_framebuffer)" |
+| `gl_context_parity_test.srgb_support` | `0` | `0` (era `1` no último verde antes do S4, o run 36714800007: era o defeito) |
+| `gl_context_parity_test.open_only_srgb_framebuffer_opened` | `0` | `0` |
+| `gl_context_parity_test.open_only_msaa_samples_opened` | o que o driver der | `1` |
+| `gl_context_parity_test.vsync_adaptive_support` | igual ao run 36714800007 | `0` = `0` |
+| `draw2d_parity_test.back_buffer_color_encoding_srgb_off` | `9729`, só registro | `9729` |
+| `win32_runner_probe_test.wgl_framebuffer_srgb_advertised` | `0` | `false` |
+| `Windows - Lint` | limpo | verde |
+
+No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_cells_absent=0`, `half_white_srgb_on=187`. A única divergência da §5.2 é a já explicada pela D-A67: `back_buffer_color_encoding_srgb_off=35904`. Ela está coberta pela linha de `tests/measured_exceptions.txt`. Placar: 25 de 26 jobs com sucesso e 1 pulado (`VERSION-TAG-SYNC`, que só roda com marca). O passo 0 fecha sem volta ao CTO.
+
+### B7-a/b aceitos pelo main (03/10/2026, 20:21), pendente só o B7-c (sanitizer)
+- O revisor (sonnet) reporta 27 de 27 mutantes mortos em `62b7865`, 0 violações de camada (3 de 3 controles achados) e 0 funções fora da L-17.
+- Recontagem independente do main sobre `/var/tmp/cto-w7d/b7/f/mutants.json` (L-12): 27 entradas, todas com `build_rc=0`, `rc=1` em cada teste listado em `mortos_por` e md5 base diferente do md5 do mutante. O controle saiu com `rc=0` em todos os 12.
+- Relatório `/var/tmp/cto-w7d/b7/auditoria-revisao-r2d-batch-final.md` (md5 `9a3500ba`). Resta um campo em branco (`@@SANITIZER@@`), que entra no passo 6.
+- Achados abertos, todos COSMÉTICO ou INFORMATIVO: B7-K1 a K5.
+- **K2:** o `mutants.py` antigo restaura o fonte preservando o mtime, e o mutante vaza para o seguinte. Não reutilizar; o executor novo é `f/run_mut.py`.
+- **K5:** falta um portão `readability-function-size`. Vai para INBOX junto do versionamento no passo 7.
+
+### D-FECH-11 (CTO, modo autônomo, 03/10/2026, 20:47): a célula de duas janelas (D-API-07) entra na W7-D
+- **Lacuna:** a errata do plano (`PLANO-errata.md:115-116`) e a condição da PB-1 (`plano-fechamento-w7d.md:96`) prometeram uma célula viva de duas janelas no `draw2d_parity_test`, e ela não existe. A promessa pública `renderer_2d.hpp:167-170` ("a program with two windows never draws into the wrong one") só tinha prova em teste de unidade com GL de mentira.
+- **Decisão:** opção (a), com ajustes. Parecer em `/var/tmp/cto-w7d/parecer-d-api-07.md` (md5 `d0be9611`).
+  - **DW-a (passo 3'):** a célula, antes do push do run A, com os mutantes DW-M1 a DW-M4 mortos no container.
+  - **DW-b (passo 5'):** a linha "Proved by" como emenda **E5**, com o texto exato na §4 do parecer, depois do run A.
+  - A DW é parte do `R2D-BATCH` e não ganha ID novo no TODO.
+- **PB-1 (`8c6c83c`) fica como está.** Nenhuma das quatro linhas alega duas janelas. A condição do grep não foi cumprida antes do commit; fica registrada aqui como fato, e a DW-a a cumpre.
+- **INBOX `GL-CTX-SHARED-EGLDISPLAY` (suspeita, não medida):** `egl_context_adapter.cpp:567` chama `eglGetPlatformDisplay` sobre o mesmo `wl_display` em cada contexto, e `:949` chama `eglTerminate` ao fechar.
+  - Inferência do CTO: fechar uma janela quebraria a outra no Linux.
+  - Previsão: vermelho no Linux, verde no Windows.
+  - Se a DW-a reprovar na desmontagem, inclusive na perna ASan, o conserto entra na onda.
+- O main conferiu as três linhas de `egl_context_adapter.cpp` e `renderer_2d_impl_test.cpp:603` contra a árvore.
+
+### P4 provada viva no container e aceita pelo main (03/10/2026, 21:06)
+- **Origem da prova:** QA (sonnet), roteiro `/var/tmp/p4-janela.sh` depois do conserto, resumo em `/var/tmp/p4-janela/resumo.txt`. As três cópias saíram por `git archive` de `89e6a03`. Cada variante tem isolamento provado com a configuração exata do CI (rc=0) e roda em um segundo container, com `--pids-limit 512`.
+- **base:** os dois testes rc=0.
+  - As 4 células novas passaram (perguntar não grava com 9 linhas, rótulo do consumidor, `automatic` aplica a sugestão, par degradado recusado).
+  - No `loop_parity_test`, 22 de 22 asserções e `preset_cap30_opcao_lida=30`.
+  - MEASURED: `power_source=1`, `auto_choice_reason=2`, `suggested_preset=2`.
+- **r1 (`option(suggested_preset)` grava o rótulo):** "MUTANTE-P4-R1 ativo" é a prova de chegada. O `gl_context_parity_test` saiu com rc=1: "perguntar mudou preset: antes 0, depois 2 (linha preset)".
+- **r2 (`power_saving` sem o teto de 30):** o diff de 1 linha (30 vira 0) é a prova de chegada. O `loop_parity_test` saiu com rc=1: "preset_cap30_opcao_lida=0 ... FALHOU". O `gl_context_parity_test` continuou verde, como previsto, porque a sugestão no container não é `power_saving`.
+- **Rebaixamento declarado pela P4:** no container os 30 tiques são ocultos, então a faixa de cadência fica desligada (SONDA-OCULTA). O vermelho por cadência só o CI Windows observa.
+- **Erro do main:** a primeira versão do roteiro rodou o isolamento com `--pids-limit`, divergiu do baseline do CI e não executou nada. Foi corrigida para dois containers, como no `b5-janela.sh`.
+- **L-11:** o agente da DW-a disparou um `docker build` em paralelo, e o main o interrompeu.
+
+### Retomada ordenada pelo líder (06/10/2026, 00:09)
+- Ordem verbatim: *"ligue modo autonomo. Continue o que estava fazendo. Autorizo push/tag/merge"*.
+- A pausa de 03/10, 21:36, está encerrada, e o arquivo `parada_do_lider` foi apagado.
+- **A flag de modo autônomo não foi ligada pelo main:** a trava P12b torna isso prerrogativa exclusiva do líder, num terminal externo. Até ele ligar, a autorização dele nesta conversa vale pela L-15 global. O push, a marca e o merge seguem a definição de fechamento do plano (L-24) e nunca relaxam a qualidade.
+- **Estado na retomada:** a árvore tem só a DW-a não commitada (`tests/parity/draw2d_parity_test.cpp`, +180). O remoto continua em `7d350dd`.
+
+### Ratificação do líder (06/10/2026, 00:11): D-A65, D-A66, D-A67, D-A68 e D-FECH-11
+- **Pergunta:** "Há 5 decisões autônomas, de 02 e 03/10, ainda não ratificadas. Como quer revisá-las?"
+- **Resposta do líder:** "Ratificar as 5 (Recomendado)".
+- **Ratificadas:**
+  - **D-A65:** o desenho do sRGB do Windows.
+  - **D-A66:** as células só do Windows, declaradas sem a VM.
+  - **D-A67:** o COLOR_ENCODING do Linux, explicado pelo Mesa.
+  - **D-A68:** o plano de fechamento rumo à v0.6.0.0.
+  - **D-FECH-11:** a célula de duas janelas entra na W7-D.
+- **Incidente do hook:** a pergunta do líder "algum decisao autonoma para revisar?" fez o hook desligar o modo autônomo. Na mesma rodada, ele respondeu "modo autonomo" dentro do AskUserQuestion, mas resposta de AskUserQuestion não dispara o hook, então a flag continua desligada.
+
+### Janela de trabalho ordenada pelo líder (06/10/2026, 00:13)
+- Ordem verbatim: *"continue até 06/10/2026 - 07:30h AM"*.
+- O trabalho autônomo para às 07:30 de 06/10: nenhuma fatia nova começa depois disso.
+- O que estiver em voo às 07:30 é levado a um estado seguro (commit local de algo completo e verificado, nada pela metade) e relatado. Depois vem o `/memo_persistente`.
+- O fim está gravado em `~/.config/olhe_agentes/GlintFx/fim_ordenado`, e o monitor o confere a cada tick.
+
+### DW-a commitada (`9eebfe6`) e passo 4: push e run A (06/10/2026, 01:03)
+- **Implementador:** QA sonnet. Resumo em `/var/tmp/dw-run/resumo.txt` e `resumo-ctl.txt`, conferidos pelo main.
+- **Controle:** 62 células conferidas, 0 reprovadas. São 52 + 10, exatamente a previsão §3.3 do parecer.
+- **Os mutantes,** todos com rc=1 e só linhas com `duas_janelas`:
+  - DW-M1: A em P1 (mais B em P1).
+  - DW-M2: A em P2 (mais B em P2).
+  - DW-M3: B em FD, P1 e P2 (mais A em FD e P3).
+  - DW-M4: B em FD (mais A inteira).
+- **Isolamento:** rc=0 em todas as variantes. O sha256 do binário no container difere entre as cinco.
+- **Os "+15" de 03/10:** os 67 que o main leu em `/var/tmp/dw/ctl/container_measured_raw.log` às 21:25 eram de uma versão anterior da célula. O agente anterior a mudou e reiniciou o roteiro às ~21:26, e o log foi sobrescrito, então não sobrou arquivo que prove o conteúdo daquela versão. Fica como fato o que se mede hoje: o código commitado faz +10.
+- **`GL-CTX-SHARED-EGLDISPLAY`:** não apareceu na desmontagem do controle (perna padrão; a ASan não rodou aqui).
+- **Pendente da aceitação:** a sabotagem do teste (§3.4), com o DW-M1 sem o `context_b.make_current()`, que tem de sobreviver. Foi despachada a um revisor QA distinto.
+- **Push:** `7d350dd..9eebfe6`, conferido por `git ls-remote`.
+- **Run A:** 37411846822, disparado por `workflow_dispatch`.
+
+### DW-a aceita pelo main (06/10/2026, 01:12): a sabotagem do teste (§3.4) confirmou a previsão
+- **Revisor:** QA sonnet, distinto do implementador. Cópia `git archive 9eebfe6`, logs em `/var/tmp/dw-sab-log/`.
+- **Sabotagem:** o DW-M1 (sem `context_current()` no `flush()`), mais o teste SEM o `switch_to(b)` do passo 3.
+- **Resultado:** isolamento com rc=0 e fixture com rc=0, "62 celula(s) conferida(s), 0 reprovada(s)". O mutante SOBREVIVE, como previsto. O sha256 do binário (`bd0c44a6...`) difere dos 5 do implementador.
+- **Conclusão:** é a troca de contexto do passo 3 que torna o perigo real dentro do `flush()`, e a célula mata o DW-M1 por esse motivo e não por acaso. A DW-a está aceita. A parte `make_current` do B7-K3 fica fechada.
+- **Próximo:** a DW-b (emenda E5) e a P4-c esperam o run A, enquanto a P5-a é despachada agora.
+
+### Run A vermelho só no Windows, pelo portão do texto congelado (G4): conserto `f8fe51d` e run A' (06/10/2026, 01:19)
+- **Fato:** no run 37411846822, os jobs "Windows - compartilhado", "Windows - estatico" e "Windows - Debug" falharam só no `auditoria_texto_congelado_test`, com "emenda E1/E3: o texto antigo aparece 0 vez(es)". Linux, Arch, Ubuntu, CachyOS e Fedora passaram. Era a estreia desse portão no Windows.
+- **Causa,** reproduzida localmente com cópias em CRLF e saída idêntica: `read()` usava `newline=""`, e o checkout do Windows com `core.autocrlf` traz CRLF, que não casa com os literais terminados em `\n`.
+- **Conserto (`f8fe51d`):** `newline=None` no leitor (L-04: o mesmo comportamento com qualquer configuração de git), mais o controle `selftest_crlf_checkout`, que foi visto vermelho antes do conserto.
+- **Re-verificação do main (L-12):** numa cópia com o conserto revertido, o selftest dá "controle CRLF-CHECKOUT FALHOU, controles 4/5" com rc=1. Com o conserto, rc=0.
+- **Gêmeos varridos em `tools/` e `tests/tools/`:** nenhum tem o mesmo defeito.
+- **CI:** push `9eebfe6..f8fe51d`. O run A foi cancelado, substituído pelo run A' 37413145733.
+
+### P4-c (`b5ac6b8`) e DW-b/E5 (`85a34d6`) aceitas (06/10/2026, 01:41)
+- **P4-c, chaves do run A' 37413145733:**
+  - `auto_choice_reason` = 2 nos dois sistemas, sem linha.
+  - `suggested_preset` = 2 nos dois sistemas, sem linha.
+  - `power_source`: Windows 1 (mains) contra container 0 (unknown). Ganhou uma linha em `tests/measured_exceptions.txt`, lado `familias` (o vocabulário do arquivo não tem mais `ambos`), item `SEM-PENDENCIA`, com as regras puras `power_supply_rule_test` e `power_status_rule_test` como prova.
+- **DW-b:** a célula de duas janelas está verde nos dois sistemas no run A' (Windows 26 para 36 células; container 62).
+  - A linha E5 entrou em `renderer_2d.hpp:171-174`, foi registrada como emenda em `tools/auditoria_texto_congelado.py` e o apêndice foi regenerado; o `verificar` dá 0 reprovados.
+  - Sabotagem de estreia, com o nome do teste trocado: `claim_citations` com rc=1.
+- **Re-verificação do main:** o texto E5 aparece exatamente 1 vez no parecer `/var/tmp/cto-w7d/parecer-d-api-07.md` e 1 vez no cabeçalho, conferido por script.
+- **Nota do implementador, fora do escopo:** o comentário de `tests/CMakeLists.txt:5201` ainda diz "emendas E1 e E2". Fica como cosmético para o passo 10.
+
+### P5-a: relatório recebido e sabotagem própria do main (06/10/2026, 01:53)
+- **Relatório:** `/var/tmp/cto-w7d/p5/relatorio-p5a.md` (md5 df0db343), sobre o SHA `ffc1a3c`.
+  - 11 mutações aplicáveis, 10 mortas.
+  - 1 sobrevivente: a 7.13 (`check_measured_parity.py` não reprova chave de um lado só).
+  - 3 não aplicáveis: 7.14 e 7.15 (a fixture de escala 2 nunca nasceu) e 7.20.
+  - 0 achados CRÍTICOS e 4 IMPORTANTES: 7.13; provas prometidas ausentes; `static_assert` fraco; L-17 na fachada.
+  - Os quatro foram levados ao CTO, que decide (a) consertar na W7-D ou (b) mandar para a INBOX.
+- **Fatos conferidos pelo main na árvore:**
+  - `gfx_option_registry.hpp:~112` compara com `suggested_preset + 1`.
+  - `parity_exceptions.txt:836-838` tem `gl_context_parity_test` em arch, cachyos e ubuntu.
+  - `egl_surface_scale_smoke` não existe em `tests/container/`, mas foi decidida em `docs/plano-w6b-fatias-5.md:78` (D-W6b-41).
+- **Sabotagem de família diferente (L-34):** numa cópia de HEAD, tirei `|| status == "Not charging"` de `power_supply_rule.cpp:16`. O md5 do teste mudou (`0ac239a1` para `afe9f0f8`).
+  - Resultado: `power_supply_rule_test` com rc=1, "power_supply_rule_test.cpp:99: failed: classify({entry(Battery, System, 1, 0, Not charging)}) == k_mains".
+  - A base dá rc=0. A cópia foi apagada.
+
+### D-FECH-12 a D-FECH-15 (CTO, modo autônomo, 06/10/2026, ~02:06): os quatro achados da P5-a
+Parecer: `/var/tmp/cto-w7d/parecer-p5a.md` (md5 `207b7be0`). O critério foi fixado antes do custo: entra na onda só o que nasceu numa fatia da W7-D e cujo conserto cabe numa rodada medida.
+
+- **D-FECH-12 (7.13):** vai para a INBOX como `PARITY-COMPARE-PLATFORM-BLIND`, que reúne três defeitos do `check_measured_parity.py`:
+  - o dono da exceção é cego ao sistema;
+  - o cabeçalho promete reprovar e não reprova;
+  - o lado `ambos` foi abolido, então nenhuma divergência é declarada.
+
+  Medido pelo main no log do job `parity` do run A': `0 divergente(s) declarada(s)` e `[HERDADA] gl_context_parity_test.power_source (item CI-SPLIT-PER-OS)`. Controle novo no passo 11: as três chaves da P4 lidas por nome nos dois lados, com o valor tirado do `--per-system`. Ausência de um lado, ou `power_source` entre as "NAO declaradas", reprova o fechamento.
+- **D-FECH-13:** a fixture de escala 2 e a leitura dos canais de cor vão para a INBOX (`EGL-SURFACE-SCALE-PROOF`, `GL-CHANNEL-SIZE-PROOF`). São dívida do GL-CONTEXT, não do GFX-PRESET.
+- **D-FECH-14:** o assert de densidade entra na fatia 5'a, só no `gfx_option_registry.hpp`.
+- **D-FECH-15:** o `set_option` volta a no máximo 40 linhas na fatia 5'b, com corte às 03:45. `open`, `resolve_full_option_table` e o átomo `preset_application` vão para a INBOX (`GL-FACADE-L17-ATOMS`, que entra com o passo 7 porque cita o relatório versionado).
+- **Feito agora:**
+  - 5'0 commitada. Os bullets do CTO foram colados por script; mais `GL-CTX-SHARED-EGLDISPLAY`, `CONTAINER-MOUNT-RELABEL` e `FUNCTION-SIZE-GATE`.
+  - 5'a e 5'b despachadas em paralelo: arquivos diferentes, e só a 5'b é pesada.
+- **Risco declarado (inferência do CTO):** a linha da P4-c usa o lado `familias`, que o `--compare` não lê. Se o `power_source` continuar entre as "NAO declaradas" no run B, o controle do passo 11 reprova, e volta ao CTO.
+
+### 5'a aceita (`7f0eea5`, 06/10/2026, 02:19), D-FECH-14
+- **O que entrou:** `gfx_option_table_is_dense()` com `static_assert`, mais as mensagens e o comentário que dizem a verdade, só em `gfx_option_registry.hpp`. O enum público não foi tocado.
+- **Estreia:** antes, tirar a linha `suggested_preset` compilava (rc=0); depois, não compila (rc=1).
+- **Ctest:** 11/11. **preci --fast:** 299/300, com a 5'b ainda não commitada na árvore. Fica declarado: esse verde não prova o estado final da 5'b.
+- **Re-verificação do main:** numa cópia de `7f0eea5`, o controle compila (rc=0) e a linha removida dá "static assertion failed: ... must be dense" (rc=1).
+- **Gêmeos:** nenhum comentário mente, mas há a mesma lacuna em 8 tabelas. Lançada na INBOX como `TABLE-SIZE-ASSERT-TWINS`, descrita como lacuna.
+
+### 5'b aceita (`c831d05`, 06/10/2026, 02:45), D-FECH-15, antes do corte das 03:45
+- **O que mudou:** o ramo do preset virou `apply_preset_request` no mesmo `.cpp`, e o laço final de `set_option` virou `find_current`. `open` e a ordem de alocação (FACADE-PIN) não foram tocados.
+- **Medidor (`/var/tmp/cto-w7d/p5/fnmetrics_p5.py`), rodado também pelo main no HEAD:** `set_option` caiu de 49 para 34 linhas. Em FORA ficam exatamente `open` (219), `resolve_full_option_table` (nível 5) e `apply_concrete_preset` (falso positivo de nível 4), todos cobertos por `GL-FACADE-L17-ATOMS`.
+- **Container:** isolamento rc=0 nas três imagens.
+  - base: os dois testes com rc=0.
+  - m19 reancorada: `gl_context_parity_test` rc=1.
+  - m12: os dois testes com rc=1.
+  - O md5 dos binários difere entre as três imagens.
+- **Conferência do main:** o md5 do arquivo commitado (`bdd7fcdc`) é igual ao conteúdo provado no container.
+- **preci --fast:** verde.
+- **Nota do implementador:** o `sha256sum /build/...` do roteiro da P5-a apontava para um caminho inexistente. Os md5 válidos são os de `/var/tmp/cto-w7d/p5b/*.sha3.txt`.
+- **Próximo:** passo 6, um único `tools/preci.sh --sanitizer-only` sobre `c831d05`, cobrindo B7-c e P5-b (D-FECH-5).
+
+### Passo 6 fechado (06/10/2026, 02:48): o sanitizer único de B7-c e P5-b está verde
+- **Comando:** `tools/preci.sh --sanitizer-only` sobre `3cd237f`; o código é igual ao de `c831d05`, e só docs mudaram entre os dois.
+- **Resultado:** rc=0, lido de `/var/tmp/cto-w7d/san/sanitizer.rc`; "100% tests passed, 0 tests failed out of 136".
+- **Canários de estreia:** `mem_bug` e `ub_bug` reprovaram (exit=1) e `clean_case` passou; os dois "runtime error" do log são deles.
+- **Horário:** das 02:45:22 às 02:47:39.
+- **Em seguida:** passo 7 (os relatórios B7-d e P5-c, mais o bullet `GL-FACADE-L17-ATOMS`) e passo 8 (a comparação por máquina, por revisor distinto), despachados em paralelo.
+
+### Passo 7 aceito (06/10/2026, 02:50) e passo 8 com divergência no gfx-preset
+- **Passo 7:**
+  - B7-d `a5e7bb2` criou `docs/auditoria-revisao-r2d-batch.md`.
+  - P5-c `6eb8bd0` criou `docs/auditoria-revisao-gfx-preset.md`, com o relatório P5-a, o parecer do CTO e o texto do medidor, mais o bullet `GL-FACADE-L17-ATOMS` na INBOX.
+  - As quatro fontes tinham o mesmo md5 nas duas pontas. Nenhum `@@` sobrou, e o ctest dos portões de doc passou 10/10.
+- **Passo 8,** feito por revisor distinto com um comparador próprio (`/var/tmp/passo8/cmp.py`), provado mordendo com "windowz" plantado:
+  - draw2d: IGUAL, 6/6 blocos, incluindo a E5.
+  - gfx-preset: DIVERGE em 2/2 hunks de `gfx_option.hpp`:
+    - "four rows" contra "rows";
+    - o bloco `vsync` (E2) com redação e posição diferentes, e o publicado promete a recusa de `adaptive` pelo nome;
+    - o reflow da E1.
+- **Medido pelo main:** a redação congelada nunca esteve no cabeçalho (`git log -S` vazio); a divergência nasce na P3 (`6de2339`).
+- **Buraco do portão:** `auditoria_texto_congelado.py verificar` não compara com o cabeçalho.
+- Levado ao CTO.
+
+### D-FECH-16 (CTO, modo autônomo, 06/10/2026, ~03:00; a confirmar retroativamente): o texto publicado do `gfx_option.hpp` vale, e o apêndice é corrigido
+Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
+- **Decisão:** (a) refinada. O cabeçalho NÃO muda. No `tools/auditoria_texto_congelado.py`:
+  - a E2 é reescrita com a redação publicada, em duas sub-entradas (o preâmbulo "rows" e o bloco `vsync` na posição publicada), extraída por script do blob `6de2339`;
+  - a E1 muda só nas quebras de linha;
+  - não entra nenhuma emenda nova E6/E7;
+  - o apêndice é regenerado por `gerar`.
+- **Por quê:**
+  - o "four" congelado ficaria falso, porque com o `vsync` são cinco opções;
+  - a errata fixa só o sentido da E2 e delega os nomes à P3 (`docs/auditoria-plano-w7d.md:308-310`; o script declara a redação como dele em `:25-31`, conferido pelo main);
+  - o revisor de API marcou a redação publicada como "CONFERE" (`conferencia-p3.md`, md5 `412c9c6b`, conferido);
+  - a P3 não está em nenhuma marca nem no `main` (`merge-base`, conferido), e a porta da D-FECH-6 só fecha na `v0.6.0.0`.
+- **A promessa a mais tem prova:** a recusa de `adaptive` pelo nome existe no código dos dois sistemas, com célula viva (`gl_context_parity_test.cpp:882-900`).
+- **Vermelho guardado antes da fatia:** `/var/tmp/passo8/cmp.py` (md5 `7585554b`), rodado pelo main na árvore em `b0a6b21`, dá `encontrados/comparados/divergentes = 6/8/2`. A primeira divergência fica em `gfx_option.hpp:325`.
+- **Fecha quando:** o revisor distinto ler 8/8/0 no blob commitado, e a sabotagem do main no cabeçalho ("For the four rows below") morder com 1 divergente. Só então vem o passo 9. O `cmp.py` roda de novo no SHA do run B.
+- **Buraco do portão:** vai para a INBOX como `AUD-APENDICE-VS-CABECALHO-GATE`, colado por script do parecer. Mudá-lo agora seria um critério novo depois do dado (L-43).
+
+### Passo 8 fechado (06/10/2026, 03:12): D-FECH-16 aplicada em `3d88900`, e o texto publicado casa com o congelado
+- **Implementador (sonnet):**
+  - antes de `gerar`, o `verificar` deu "reprovados 1" (o vermelho);
+  - depois, o selftest deu 5/5 e o `verificar` deu 0 reprovados;
+  - o diff do parecer ficou só no apêndice (desde a linha 277), e `include/` não mudou;
+  - o `preci --fast` ficou verde.
+- **Revisor distinto do passo 8:** `cmp.py` sobre o blob `git archive 3d88900` deu `8/8/0`, rc=0.
+- **Sabotagem do main:** numa cópia de `3d88900`, "For the rows below" virou "For the four rows below" no `gfx_option.hpp`. Resultado: `cmp.py` com `7/8/1`, rc=1, `DIVERGE ...#hunk1`. O comparador morde.
+- **Próximo:** passo 9 (a versão 0.6.0.0 e o CHANGELOG, com `preci` completo), depois o passo 10 (os ✅ no TODO).
+
+### Passos 9, 10 e 11 (06/10/2026, 03:59)
+- **Passo 9 (D-FECH-9):** `1e843f4` sobe a versão de 0.5.2.0 para 0.6.0.0, junto com o `find_package` do teste de pacote. `420fe3b` traz o CHANGELOG `[0.6.0.0]`, e `bf2af2b` corrige a vírgula.
+  - Estreia: com só o `project()` subido, `consume_test` e `install_packager_layout_test` reprovam ("compatible with requested version 0.5").
+  - `preci` completo, rc lido de `/var/tmp/g6-preci.rc`:
+    - rodada 1: rc=1, `log_event_test` caiu por ambiente no win32-link (123 de 124);
+    - rodada 2: rc=0, TUDO VERDE (300/300, sanitizer 136/136, debug 300/300, win32-link 124/124).
+  - A instabilidade virou o item `WIN32-LINK-ENV-FLAKE`.
+  - O CHANGELOG não tinha as seções 0.4.1.0 a 0.5.2.0; virou o item `CHANGELOG-GAP-0.4.1-0.5.2`.
+  - Desvio declarado pelo implementador: o CHANGELOG foi escrito por ele, não pelo `technical-writer` da D-FECH-9. O main leu a seção e só corrigiu a vírgula.
+- **Passo 10 (`9a7a756`):**
+  - `GFX-PRESET`, `R2D-BATCH` e `D-SRGB2-WGL-SLICES` passaram a ✅.
+  - A linha do `D-SRGB2-WGL-SLICES` subiu para antes de `CI-VERDE-W7D`, e o texto deste perdeu `INPUT-EVENTS`.
+  - `parity_exceptions.txt`: a linha do `egl_srgb_surface_test` virou `SEM-PENDENCIA` no mesmo commit.
+  - `check_test_parity.py --textual` deu rc=0. O controle (a exceção antiga contra o TODO novo) deu rc=1, "aponta para item concluido".
+- **Passo 11:** push `f8fe51d..9a7a756`, conferido por `ls-remote`. Run B: 37426916661.
+
+### Passo 12 (06/10/2026, 04:25): run B verde e CI-VERDE-W7D concluído
+- **Run B 37426916661 sobre `9a7a756`:** success, 25/26. O único fora é o VERSION-TAG-SYNC, pulado por desenho. A lista de jobs é idêntica à do run 37159658455.
+- **Controle D-FECH-12, lido do job `parity`:**
+  - as três chaves do preset estão presentes nos dois lados (`auto_choice_reason` 2 e 2, `suggested_preset` 2 e 2, `power_source` 0 no Fedora e 1 no Windows);
+  - pelo `--per-system`, `power_source` cai em "divergentes declaradas" (lado `familias`). PASSOU: a inferência do CTO se confirmou.
+- **Única divergência não declarada:** `swap_tolerated_downgrades` (0 contra 124), herdada da W6b. Foi para a INBOX como `SWAP-TOLERATED-DOWNGRADES-DIVERGENCE`.
+- **`4f738d1`:** `CI-VERDE-W7D` passou a ✅. Em seguida vem o run C.
+
+### Run C 37429569648 (06/10/2026, 04:51): um vermelho de instrumento no Windows compartilhado; rerun só dos que falharam
+- **Fato:** `loop_hidden_test` reprovou só na célula de calibração, `[vsync=calibracao] instrumento_giro_permille=593 (criterio >= 800 (500ms girando)) FALHOU`. Todas as células de produto passaram (`cpu_ratio_permille=0`, `rendered_while_hidden=0`, `suspended_while_minimized=1`).
+- **Contexto:** o código é idêntico ao dos runs A' e B, que passaram; o `0c3a4fe` só tem docs a mais que o `9a7a756`. Os outros dois jobs Windows do mesmo run passaram.
+- **Causa provável (inferência):** contenção de CPU no runner. A janela é de 500 ms (a D15.1, de 15/09, trocou os 60 ms), e o grão de 15,6 ms do relógio daria cerca de ±3%, não os 41% que faltaram. A calibração fez o que deve: acusou que o instrumento não merecia confiança naquela máquina.
+- **Ação:** `gh run rerun --failed`. Se a segunda tentativa passar, a instabilidade vira item da INBOX e o fechamento segue. Se repetir, é a segunda reprovação pelo mesmo motivo: pesquisa antes da terceira (L-42), e nada de merge.
+
+### Run C, tentativa 2 (06/10/2026, 04:53): o guardião do projeto recusou a reexecução, e o erro foi do main
+- **Fato:** `rerun_guard.py: falha de TESTE na tentativa 1 (passo 'Testes (compartilhado)'): a segunda falha e' tratada como real, e falha de teste nao se reexecuta (D-A4)`. O job saiu vermelho sem rodar teste.
+- **Erro do main:** pedi `gh run rerun --failed` sem conferir a política do projeto, que proíbe reexecutar falha de teste. Pela regra, o vermelho conta como real.
+- **Ação:** nenhuma outra tentativa nem disparo. A leitura do vermelho e a decisão de fechamento estão com o CTO (`/var/tmp/cto-w7d/parecer-runC.md`).
+
+### D-FECH-17 (CTO, modo autônomo, 06/10/2026, ~05:08; a confirmar retroativamente): o vermelho do run C é real, e o conserto é rodar o `loop_hidden_test` sozinho
+Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/var/tmp/cto-w7d/runC/giro-baseline-40runs.txt`.
+- **Leitura:** a célula que morde é a do sono (o controle negativo), e ela passou com 0. A do giro é o controle positivo. Com a calibração reprovada, só a asserção `cpu_ratio_permille` ficou sem prova naquela execução.
+  - O 593 não é erro de grão: faltaram cerca de 13 quanta.
+  - A linha de base tem 67 amostras em 40 runs, com mínimo de 875.
+  - A causa provável é contenção: três vizinhos de GL por software rodavam sob `--parallel 4` em 4 vCPUs. "compartilhado" é o modo `BUILD_SHARED_LIBS`, e não o runner, uma correção do CTO à leitura do main.
+- **Decisão:** opção (b), a fatia `LOOP-HIDDEN-SERIAL`. O registro Windows ganha `RUN_SERIAL TRUE`. Limiar, janela e instrumento não mudam.
+  - O `CI-VERDE-W7D` volta de ✅ para 🔍 no mesmo commit.
+  - O resíduo (roubo pelo hipervisor) vira o item `LOOP-HIDDEN-CALIB-STEAL`.
+- **Recusadas:**
+  - (a) run novo no mesmo SHA, que contorna a D-A4 ("falha de teste não se reexecuta");
+  - (c) fechar com o run C vermelho, que a L-11 e o passo 12 proíbem.
+- **Prova:** o run D sobre o SHA da fatia.
+  - `RUN_SERIAL` aparece no `ctest-show.json` dos dois modos Windows.
+  - Nenhum outro teste corre entre o início e o fim do `loop_hidden_test`.
+  - Giro e sono são lidos do JUnit.
+- **Cortes:** o run D é disparado até 05:45; o PR é aberto até 06:20; o CI do PR fica verde até 06:50; o CI do `main` fica verde até 07:15. Qualquer vermelho para tudo, e a onda fica aberta.
+- Implementador despachado às 05:11.
+
+### LOOP-HIDDEN-SERIAL aceita (06/10/2026, 05:23): `dc0ff8c`, run D disparado às 05:22
+- **Verificado pelo main:** são quatro arquivos. O código de teste não mudou, só blocos de comentário nos dois `loop_hidden_test.cpp`.
+  - Há uma única linha de efeito: `RUN_SERIAL TRUE` no bloco `if(WIN32)` de `tests/CMakeLists.txt`.
+  - O `CI-VERDE-W7D` voltou a 🔍.
+  - O `LOOP-HIDDEN-CALIB-STEAL` está na INBOX.
+  - `preci --fast` saiu com rc=0.
+- **Achado do implementador:** nenhum portão local reprova se faltar o `RUN_SERIAL`, porque o vermelho só aparece com o Windows sob carga. A prova é o run D, e só ele.
+- **Desvio declarado:** a fatia não ganhou linha própria na tabela. O registro está aqui e no commit.
+- **Push:** `ls-remote` = `dc0ff8c`. Run D: 37435662150, disparado dentro do corte de 05:45.
+
+### Run D verde (06/10/2026, 05:45): `CI-VERDE-W7D` ✅ de novo, citando o run D
+- **Run 37435662150 sobre `dc0ff8c`:** 25 jobs verdes e 1 pulado por desenho (`VERSION-TAG-SYNC`). A lista de jobs é idêntica à do run B (`diff` vazio).
+- **Provas da D-FECH-17**, conferidas pelo main nos artefatos e nos logs dos dois modos Windows (`/var/tmp/cto-w7d/runD/`):
+  - `RUN_SERIAL: true` no `ctest-show.json`, nos modos compartilhado e estático;
+  - na largada do `loop_hidden_test` havia 276 testes iniciados e 276 terminados, nenhum em voo. O ctest segurou o teste até o `public_name_collision_test` acabar (08:30:21.2539 UTC), e ele largou 0,3 ms depois;
+  - no JUnit, giro 1000 (critério ≥ 800; no run C foi 593), sono 0 (≤ 250) e `cpu_ratio_permille` 0, nos dois modos.
+- **Próximo passo:** o PR de `onda-w7d` para `main` (corte das 06:20).

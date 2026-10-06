@@ -4,9 +4,10 @@
 #include <glintfx/core/err_code.hpp>
 
 #include "platform/gl/gfx_option_registry.hpp"
+#include "platform/gl/gfx_preset_table.hpp"
 
-// platform/gl/gfx_option_registry.cpp - defines the four GLINTFX_API
-// discovery functions gfx_option.hpp declares, over gfx_option_
+// platform/gl/gfx_option_registry.cpp - defines the GLINTFX_API discovery
+// functions gfx_option.hpp declares, over gfx_option_
 // registry.hpp's own k_gfx_option_table - the same split property.cpp/
 // property_table.hpp already uses for this project's other append-only
 // registry (see that pair's own header comments for the shared
@@ -16,13 +17,13 @@ namespace glintfx {
 
 std::size_t gltfx_gfx_option_count() noexcept { return platform::k_gfx_option_table.size(); }
 
-gltfx_gfx_option_info gltfx_gfx_option_at(std::size_t index) noexcept {
+gltfx_gfx_option_info gltfx_gfx_option_at(std::size_t index_in_table) noexcept {
     // docs/api-conventions.md R4: an out-of-range index degrades to a
     // default-constructed info, never undefined behavior.
-    if (index >= platform::k_gfx_option_table.size()) {
+    if (index_in_table >= platform::k_gfx_option_table.size()) {
         return gltfx_gfx_option_info{};
     }
-    const platform::gfx_option_row &row = platform::k_gfx_option_table[index];
+    const platform::gfx_option_row &row = platform::k_gfx_option_table[index_in_table];
     return gltfx_gfx_option_info{
         .id = row.id,
         .name = row.name,
@@ -60,6 +61,25 @@ gltfx_rslt<gltfx_gfx_option> gltfx_gfx_option_by_name(std::string_view name) noe
     }
     return gltfx_rslt<gltfx_gfx_option>::err(
         gltfx_err(gltfx_err_code::not_found).with_rejected_value(name));
+}
+
+std::size_t gltfx_gfx_preset_row_count(std::int64_t preset) noexcept {
+    return platform::gfx_preset_row_count(preset);
+}
+
+gltfx_gfx_option_entry gltfx_gfx_preset_row_at(std::int64_t preset,
+                                               std::size_t row_index) noexcept {
+    // docs/api-conventions.md R4 and PLANO-errata.md E1: out of range degrades to the ONE entry
+    // that hands nothing over by mistake - an id that is read_only, so applying it is refused with
+    // invalid_argument and changes no row and no label. The table atom answers the ABSENCE; the
+    // policy of what the consumer gets instead lives here, where the public names exist.
+    const std::optional<gltfx_gfx_option_entry> row =
+        platform::gfx_preset_row_at(preset, row_index);
+    if (!row.has_value()) {
+        return gltfx_gfx_option_entry{.id = gltfx_gfx_option::suggested_preset,
+                                      .value = k_gltfx_preset_manual};
+    }
+    return *row;
 }
 
 } // namespace glintfx

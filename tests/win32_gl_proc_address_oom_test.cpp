@@ -81,10 +81,11 @@
 // address_oom_test.cpp's own "THE NAME MATTERS" paragraph): a short
 // name like "glClear" fits small-string-optimization and would not
 // have allocated even against the pre-babbd77 site - the names used
-// here (glGetUnsignedBytevEXT, wglGetExtensionsStringARB) are the SAME
-// ones wgl_context_adapter.cpp already cites at that length (lines
-// 451/465), so they stay meaningful even though this file never links
-// that .cpp.
+// here (glGetUnsignedBytevEXT, wglGetExtensionsStringARB) are names of
+// that length: the first is the one wgl_context_adapter.cpp resolves
+// through this atom, the second one wgl_extension_loader.cpp now
+// resolves through wglGetProcAddress itself (D-SRGB2-5), so they stay
+// meaningful even though this file never links either .cpp.
 //
 // WHAT STAYS UNPROVEN, DECLARED NOT ASSUMED (GODS_LAWS.md L-20/L-44):
 // the RED (reverting the site to `const std::string owned(name)` and

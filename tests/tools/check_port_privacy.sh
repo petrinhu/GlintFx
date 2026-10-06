@@ -142,7 +142,7 @@ set -eu
 # point into this pair, opt-in by construction (that script's own
 # header: "nunca por semelhanca").
 # GLINTFX-SIBLING-LIST:port_privacy_known_names:START
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter fake_gl_context_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter win32_window_adapter wayland_egl_context_adapter win32_gl_context_adapter"
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter fake_gl_context_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter win32_window_adapter wayland_egl_context_adapter win32_gl_context_adapter wayland_power_source_adapter win32_power_source_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 # GLINTFX-SIBLING-LIST:port_privacy_known_names:END
 

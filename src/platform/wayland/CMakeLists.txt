@@ -86,6 +86,9 @@ target_sources(glintfx_library PRIVATE
     egl_device_query.cpp
     drm_device_facts.cpp
     egl_device_enumeration.cpp
+    power_supply_rule.cpp
+    power_source_adapter.cpp
+    selected_power_source_adapter_check.cpp
 )
 
 # GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.1; docs/plano-w6b-

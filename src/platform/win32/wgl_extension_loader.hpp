@@ -15,10 +15,12 @@
 
 // platform/win32/wgl_extension_loader.hpp - X-WGL (docs/plano-w6b-
 // placa-e-laco.md fatia 4, GODS_LAWS.md L-04/L-17/L-19/L-29): the ONE
-// atom that resolves the three WGL extension functions win32_gl_
+// atom that resolves the four WGL extension functions win32_gl_
 // context_adapter::open() (this fatia) needs BEFORE it can touch the
 // real window's own pixel format - wglChoosePixelFormatARB,
-// wglCreateContextAttribsARB, wglSwapIntervalEXT.
+// wglCreateContextAttribsARB, wglSwapIntervalEXT and (D-SRGB-2, D-A62)
+// wglGetPixelFormatAttribivARB - and that reads, while its disposable
+// context is current, what the driver ANNOUNCES (wgl_advertised).
 //
 // WHY A DISPOSABLE WINDOW (this fatia's own busca, docs/plano-w6b-
 // placa-e-laco.md sec. 0, "WGL moderno"): wglGetProcAddress only ever
@@ -51,14 +53,27 @@
 //
 // TEARS DOWN EVERYTHING BEFORE RETURNING, SUCCESS OR FAILURE: the
 // legacy context, the disposable window, and its registered class are
-// ALL gone by the time this function returns - the three resolved
-// function pointers are the only thing that survives, exactly what
-// win32_gl_context_adapter::open() needs to then touch the REAL
-// window's own device context for the first and only time.
+// ALL gone by the time this function returns - the four resolved
+// function pointers and the announced facts are the only thing that
+// survives, exactly what win32_gl_context_adapter::open() needs to then
+// touch the REAL window's own device context for the first and only
+// time.
 
 namespace glintfx::platform {
 
-// The three pointers this atom resolves, untyped (void*) the same way
+// What the driver ANNOUNCES in its WGL extension list (D-SRGB-2, D-SRGB2-5), as FACTS and
+// never as the string: the string belongs to the driver and dies with the disposable context,
+// and copying it would allocate inside a noexcept function under the allocation gate. The list
+// is read while that context is current and each name is matched by the WHOLE token
+// (extension_token.hpp).
+struct wgl_advertised {
+    // WGL_ARB_framebuffer_sRGB or WGL_EXT_framebuffer_sRGB (wgl_srgb_pixel_format.hpp).
+    bool framebuffer_srgb = false;
+    // WGL_EXT_swap_control_tear: the adaptive v-sync of D-W6b-18.
+    bool swap_control_tear = false;
+};
+
+// The four pointers this atom resolves, untyped (void*) the same way
 // egl_context_adapter.hpp keeps EGLDisplay/EGLContext/EGLSurface as
 // void* rather than pulling <EGL/egl.h> into a header nothing else in
 // this file needs - win32_gl_context_adapter.cpp (this fatia) is the
@@ -76,6 +91,12 @@ struct wgl_extension_pointers {
     // (D-W6b-16's own "nunca degrada em silencio", applied one layer
     // up, not here).
     void *swap_interval_ext = nullptr; // BOOL(WINAPI*)(int)
+    // The query that CONFIRMS the sRGB framebuffer on a pixel format (D-A62, D-SRGB2-5). May stay
+    // nullptr: a driver without WGL_ARB_pixel_format has no way to confirm, and an sRGB request
+    // against a null pointer is "not confirmed", so it is refused, never opened.
+    void *get_pixel_format_attribiv_arb =
+        nullptr; // BOOL(WINAPI*)(HDC, int, int, UINT, const int*, int*)
+    wgl_advertised advertised;
 };
 
 // `out_discarded_window`, when non-null, receives the disposable

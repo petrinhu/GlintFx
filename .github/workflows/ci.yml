@@ -1247,6 +1247,21 @@ jobs:
           Get-Content measured_windows.txt | Add-Content -Path $env:GITHUB_STEP_SUMMARY
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
 
+
+      # R2D-BATCH B5 (pedido do CTO): o draw2d_parity_test passa pelo ctest com --output-on-failure, que so mostra a
+      # saida de um teste que REPROVA; o verde dele nao diz quais pixels foram lidos nem quais MEASURED saíram.
+      # Este passo imprime a saida que o ctest JA preservou no mesmo snapshot (nenhum teste roda duas vezes),
+      # para a leitura ser LIDA no log e nao inferida do verde. Piso (GODS_LAWS.md L-40): zero linhas reprova.
+      - name: Saida lida do draw2d_parity_test (${{ matrix.modo }})
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $log = Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if (-not (Test-Path $log)) { Write-Error "snapshot de log preservado nao encontrado: $log"; exit 1 }
+          $linhas = Select-String -Path $log -Pattern 'draw2d_parity_test'
+          if (-not $linhas) { Write-Error "nenhuma linha de draw2d_parity_test no snapshot - o teste nao rodou, ou a saida sumiu (GODS_LAWS.md L-40)"; exit 1 }
+          $linhas | ForEach-Object { Write-Host $_.Line }
+
       - name: Publicar MEASURED (${{ matrix.modo }})
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -2221,6 +2236,20 @@ jobs:
           printf 'gl_context_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # R2D-BATCH B5 (errata sec. 21): a PROVA VIVA do desenho 2D por leitura de pixel contra este MESMO
+      # compositor real, so pela API publica - o irmao Windows de mesmo nome e um alvo ctest comum
+      # (tests/CMakeLists.txt, if(WIN32)); a paridade dos dois lados sai do inventario P-0. ORDEM: depois de
+      # gl_context_parity_test (mesmo EGL e mesmo compositor).
+      - name: R2D-BATCH B5 - prova viva do desenho 2D (pixels lidos) dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "draw2d_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_parity_test || codigo=$?
+          printf 'draw2d_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
       # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.4/S4.6): a
       # PROVA AO VIVO do laco principal contra este MESMO compositor
       # real, so pela API publica e atraves da fronteira binaria da
@@ -3145,13 +3174,35 @@ jobs:
 
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real
-      # dentro - nunca precisa rodar "cmake --build", clang-tidy analisa
-      # a partir da base de compilacao, nao do binario.
+      # dentro - o clang-tidy analisa a partir da base de compilacao, nao
+      # do binario, e por isso este job nunca constroi a biblioteca. A
+      # UNICA coisa que constroi esta no passo seguinte: as fontes GERADAS
+      # que a base de compilacao referencia (D-CI2-LINT).
       - name: Configurar (gera compile_commands.json)
         shell: pwsh
         run: |
           cmake -S . -B build-lint -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # D-CI2-LINT (errata sec. 15, 30/09/2026): o clang-tidy inclui o
+      # gl_functions.hpp (embedded_program.hpp, e todo o src/draw2d/ depois),
+      # e ele so nasce no BUILD. O run 36696277806 reprovou com "'gl_functions.hpp'
+      # file not found" e, por consequencia, dois misc-use-internal-linkage.
+      # Constroi SO o alvo agregador de geracao (nunca uma lista de nomes),
+      # como o Chromium e o CMAKE_CXX_CLANG_TIDY: o que o tidy analisa tem de
+      # estar gerado antes. Passo PROPRIO (G5: a trava do $LASTEXITCODE).
+      - name: Gerar as fontes geradas (glintfx_generated_sources)
+        shell: pwsh
+        run: |
+          cmake --build build-lint --target glintfx_generated_sources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Piso de existencia (GODS_LAWS.md L-40): o alvo pode "passar" sem gerar nada.
+          $gerado = "build-lint/generated/render/gl_functions.hpp"
+          if (-not (Test-Path $gerado)) {
+            Write-Error "$gerado nao existe depois de construir glintfx_generated_sources - o clang-tidy nao acharia o cabecalho gerado (D-CI2-LINT)."
+            exit 1
+          }
+          Write-Host "gerado: $gerado"
 
       # PROVA que o clang-tidy ENXERGA o codigo de Windows (piso de
       # varredura nao-vazia, GODS_LAWS.md L-40) - nao basta o passo
@@ -3273,12 +3324,24 @@ jobs:
           # plataformas, Windows incluido. Aparecerem no banco de
           # compilacao Windows e o comportamento CORRETO e ESPERADO
           # para estes cinco, nunca um sintoma de regua quebrada.
+          #
+          # GFX-PRESET P2 (D-P2-CI, errata sec. 13, 30/09/2026): a lista
+          # abaixo ganhou o SEXTO nome, power_supply_rule.cpp, pelo MESMO
+          # desenho. E a regra PURA que le a lista de fontes de energia ja
+          # lida (nenhum arquivo, nenhum tipo Wayland ou de SO); o
+          # conhecimento e do sysfs do Linux, por isso mora ao lado do
+          # leitor, mas a L-04 manda prova em cada sistema, entao o alvo
+          # power_supply_rule_test o recompila em todos, sem guarda if(UNIX)
+          # (tests/CMakeLists.txt). Nao se move o arquivo e nao se tira o
+          # teste do Windows. A lista abaixo e a fonte: nenhum numero de
+          # "quantos sao" e escrito a mao neste passo.
           $waylandDominioNaoSo = @(
             'src/platform/wayland/global_catalog.cpp',
             'src/platform/wayland/window_configure_sequence.cpp',
             'src/platform/wayland/frame_callback_sequence.cpp',
             'src/platform/wayland/drm_gpu_kind.cpp',
-            'src/platform/wayland/egl_device_dedup.cpp'
+            'src/platform/wayland/egl_device_dedup.cpp',
+            'src/platform/wayland/power_supply_rule.cpp'
           )
 
           $noBanco = @()
@@ -3292,11 +3355,11 @@ jobs:
               # Razao mais comum e conhecida: arquivo Linux-only (o
               # ramo `if(UNIX)` de src/platform/CMakeLists.txt) nunca
               # aparece no compile_commands.json de um configure
-              # Windows - declarado por nome, nunca chutado. Os cinco
-              # arquivos Wayland-dominio-nao-so sao a EXCECAO: se um
+              # Windows - declarado por nome, nunca chutado. Os arquivos
+              # Wayland-dominio-nao-so (a lista acima) sao a EXCECAO: se um
               # deles cair aqui, nao e a razao comum, e falta real
               # (o alvo de teste proprio dele sumiu ou parou de
-              # compila-lo) - nunca herda a razao dos outros 15.
+              # compila-lo) - nunca herda a razao dos demais.
               if ($waylandDominioNaoSo -contains $arquivo) {
                 $razao = "Wayland-dominio-nao-so (tests/CMakeLists.txt) - deveria estar no banco Windows; falta REAL, investigar o alvo de teste dedicado"
               } elseif ($arquivo -match '^src/platform/wayland/') {
@@ -3321,13 +3384,13 @@ jobs:
           # PISO NOVO, CORRIGIDO (GODS_LAWS.md L-36/L-40/L-44, 18/09/2026,
           # pedido nro 10): a versao anterior deste piso tratava QUALQUER
           # arquivo de src/platform/wayland/ no banco Windows como
-          # impossivel por desenho - falso para os cinco arquivos
+          # impossivel por desenho - falso para os arquivos
           # Wayland-dominio-nao-so declarados acima (todos com alvo de
           # teste proprio, sem guarda if(UNIX), rodando nas cinco
           # plataformas por desenho deliberado de 03/09/2026 e
-          # 06/09/2026). O piso agora exclui esses cinco por nome antes
+          # 06/09/2026). O piso agora exclui esses por nome antes
           # de reprovar - continua reprovando se qualquer um dos OUTROS
-          # quinze (os que de fato tocam Wayland/EGL/DRM e vivem so no
+          # (os que de fato tocam Wayland/EGL/DRM e vivem so no
           # ramo if(UNIX)) aparecer no banco, que e o sintoma real da
           # regua de casamento confundindo caminho.
           $waylandNoBanco = @($noBanco | Where-Object { $_ -match '^src/platform/wayland/' -and $waylandDominioNaoSo -notcontains $_ })

@@ -52,6 +52,9 @@ target_sources(glintfx_library PRIVATE
     gpu_kind_seam.cpp
     gpu_enumeration_facade.cpp
     gpu_kind_report.cpp
+    gfx_preset_table.cpp
+    auto_preset_rule.cpp
+    preset_expansion.cpp
 )
 
 # GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 1.5/3/4.2,

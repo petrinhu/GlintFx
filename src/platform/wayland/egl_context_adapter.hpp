@@ -174,12 +174,13 @@ class wayland_egl_context_adapter {
     // has no Wayland/EGL equivalent (this fatia's own busca, docs/
     // plano-w6b-placa-e-laco.md sec. 0) and is refused BY NAME, never
     // silently downgraded to `on`. Every other live id (frame_rate_cap,
-    // preset, and so on) is accepted here with no adapter-side effect
-    // yet - gl_context_facade.cpp's own current_values already stores
-    // whatever value a consumer set, generically, for option() to read
-    // back; the fatia that gives an id real behavior (LOOP-RUN for
-    // frame_rate_cap, G-PRESET for preset) teaches ITS OWN layer to act
-    // on it, never retrofits this adapter out of turn.
+    // preset, and so on) is accepted here with no effect of its own:
+    // gl_context_facade.cpp's own current_values stores whatever value a
+    // consumer set, generically, for option() to read back, and the
+    // layer that gives an id real behavior acts on it there - the loop
+    // for frame_rate_cap, the facade for preset (it expands a preset
+    // into its rows, and an `automatic` into the concrete suggestion,
+    // before this adapter is ever asked).
     [[nodiscard]] gltfx_rslt<void> apply_option(gltfx_gfx_option_entry entry) noexcept;
 
     [[nodiscard]] gltfx_gfx_option_support option_support(gltfx_gfx_option id) const noexcept;
@@ -245,6 +246,12 @@ class wayland_egl_context_adapter {
     // before a context is open (no surface to query yet).
     [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> egl_surface_pixel_size() const noexcept;
 
+    // R2D-BATCH B3c, the port's own name for the same reading (gl_context_adapter_port.hpp): the
+    // drawing layer sizes its viewport by it. {0, 0} before a context is open.
+    [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> surface_pixel_size() const noexcept {
+        return egl_surface_pixel_size();
+    }
+
     // The wl_callback listener's own `done` callback (wayland-client's
     // C ABI - PUBLIC only so egl_context_adapter.cpp's own anonymous-
     // namespace listener constant can take its address from outside
@@ -259,7 +266,13 @@ class wayland_egl_context_adapter {
                                                  void *&out_config) noexcept;
     [[nodiscard]] gltfx_rslt<void> create_egl_window(wl_surface &surface, void *config,
                                                      std::uint32_t pixel_width,
-                                                     std::uint32_t pixel_height) noexcept;
+                                                     std::uint32_t pixel_height,
+                                                     bool srgb) noexcept;
+    // D-SRGB2-7: eglCreateWindowSurface over `config`, a failure with the sRGB colorspace asked
+    // classified by its EGL error code (egl_srgb_surface.hpp).
+    [[nodiscard]] gltfx_rslt<void> create_window_surface(void *config, bool srgb) noexcept;
+    // Reads the colorspace of m_egl_surface back and refuses unless it is sRGB.
+    [[nodiscard]] gltfx_rslt<void> confirm_srgb_surface() noexcept;
     // Runs AFTER create_egl_window() above has already produced
     // m_egl_surface: eglCreateContext(3.3 core) over `config`, make it
     // current, then validate_gl_context_version() (gl_version_policy.
@@ -316,7 +329,11 @@ class wayland_egl_context_adapter {
 
     bool m_vsync_on = true; // D-W6b-7's own default
     bool m_msaa_supported = false;
-    bool m_srgb_supported = false;
+    // D-SRGB2-1: the three facts srgb_option_support() (gfx_format_decision.hpp) reads, written by
+    // choose_config() and create_egl_window(), cleared by close().
+    bool m_srgb_requested = false;
+    bool m_srgb_advertised = false;
+    bool m_srgb_confirmed = false;
     // INBOX (drenagem 06/09/2026): written once, by create_context()'s
     // own eglSwapInterval(m_egl_display, 0) call - see swap_interval_
     // honored()'s own header comment above for what false means.

@@ -131,6 +131,20 @@
 // ===================================================================
 //
 // ===================================================================
+// CALIBRACAO ISOLADA DA SUITE, 06/10/2026 (LOOP-HIDDEN-SERIAL): o run C
+// 37429569648 reprovou a celula de giro com 593 por mil contra o criterio
+// de 800, com tres vizinhos de GL por software sob `ctest --parallel 4`
+// em 4 vCPUs (linha de base de 67 amostras: pior 875). Causa medida: a
+// calibracao presume CPU exclusiva durante a janela de 500 ms e a suite
+// paralela a tirava. Conserto: o registro em tests/CMakeLists.txt ganha
+// RUN_SERIAL TRUE, e este caso roda sozinho. A regua NAO se move (800/250,
+// janela de 500 ms, GetProcessTimes; GODS_LAWS.md L-11, L-43). Fica de
+// fora o roubo de CPU pelo hipervisor, invisivel de dentro: so derruba o
+// giro (vermelho falso, nunca verde falso na calibracao); item da INBOX
+// LOOP-HIDDEN-CALIB-STEAL.
+// ===================================================================
+//
+// ===================================================================
 // TROCA DE INSTRUMENTO DE CPU, 15/09/2026 (plano /var/tmp/glintfx-plan/
 // espera-win32.md sec. 1/4/5.1, execucao 34959739763): std::clock() no
 // CRT da Microsoft mede tempo de PAREDE, nao tempo de processador -

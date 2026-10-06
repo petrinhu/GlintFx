@@ -821,6 +821,9 @@ alloc_cycle_growth_smoke|ubuntu|CI-SPLIT-PER-OS A1, categoria (b) da classificac
 arch_ports_connect_smoke|arch|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 arch_ports_connect_smoke|cachyos|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 arch_ports_connect_smoke|ubuntu|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
+draw2d_parity_test|arch|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
+draw2d_parity_test|cachyos|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
+draw2d_parity_test|ubuntu|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 egl_error_read_inside_swap_smoke|arch|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 egl_error_read_inside_swap_smoke|cachyos|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 egl_error_read_inside_swap_smoke|ubuntu|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
@@ -940,4 +943,31 @@ armadilha_selftest|windows|nenhum|SEM-PENDENCIA
 # (Job Object) esta fora do escopo, declarado. Fica dentro de if(UNIX) em tests/CMakeLists.txt.
 # MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
 contido_selftest|windows|nenhum|SEM-PENDENCIA
-contido_dentro_selftest|windows|nenhum|SEM-PENDENCIA
+contido_dentro_selftest_basico|windows|nenhum|SEM-PENDENCIA
+contido_dentro_selftest_prazos|windows|nenhum|SEM-PENDENCIA
+contido_dentro_selftest_graca|windows|nenhum|SEM-PENDENCIA
+contido_dentro_selftest_varredura|windows|nenhum|SEM-PENDENCIA
+# power_source_adapter_test (tests/power_source_adapter_test.cpp, GFX-PRESET P2): builds a FAKE
+# /sys/class/power_supply tree and reads it with the Linux reader (src/platform/wayland/
+# power_source_adapter.cpp), which does not exist on Windows. The Windows reader is one call to
+# GetSystemPowerStatus (kernel32) followed by the pure rule, and THAT rule is proved by
+# power_status_rule_test on all five systems; the call itself is exercised by the CI's own Windows
+# runner. MORTE DESTA LINHA: nunca - assimetria permanente por desenho (o sistema de arquivos sysfs so'
+# existe no Linux).
+power_source_adapter_test|windows|nenhum|SEM-PENDENCIA
+
+# D-SRGB-1 (errata sec. 28): egl_config_attribs_test proves what the Wayland/EGL adapter ASKS of EGL (the choose
+# list without a colorspace, the window surface list with it). The Win32 side gets its sRGB surface from the
+# pixel format (WGL_ARB_framebuffer_sRGB), a different mechanism with no EGL attribute list to test.
+# MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
+egl_config_attribs_test|windows|nenhum|SEM-PENDENCIA
+
+# D-SRGB-2 (D-SRGB2-7, S3): egl_srgb_surface_test proves what a failed eglCreateWindowSurface with the sRGB
+# colorspace asked MEANS, over the EGL_BAD_* codes of <EGL/egl.h>, which exist only in EGL and not on the Windows
+# side. The WGL counterpart, wgl_srgb_pixel_format_test, is pure and runs on EVERY system, but it proves only the
+# rule (the announcement of the extension, the confirmation query) and the neutral decision decide_gfx_format();
+# the adapter wiring that feeds those facts (wgl_context_adapter.cpp) runs only on the Windows CI and in the
+# live container proof, neither done yet. The asymmetry that stays is the EGL_BAD_* codes, which exist only in EGL.
+# PERMANENTE desde o fechamento da W7-D (06/10/2026, item D-SRGB2-WGL-SLICES concluido): a assimetria que fica
+# e' so' a dos codigos EGL_BAD_*, que nao existem no Windows (D-FECH-2).
+egl_srgb_surface_test|windows|nenhum|SEM-PENDENCIA

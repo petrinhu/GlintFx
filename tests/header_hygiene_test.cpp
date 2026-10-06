@@ -135,11 +135,17 @@
 #include <glintfx/core/log/sink.hpp>
 #include <glintfx/core/log/value.hpp>
 #include <glintfx/core/mat3.hpp>
+#include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/core/time.hpp>
 #include <glintfx/core/transform.hpp>
 #include <glintfx/core/vec2.hpp>
 #include <glintfx/core/version.hpp>
+#include <glintfx/draw2d/draw_layer.hpp>
+#include <glintfx/draw2d/frame_2d_desc.hpp>
+#include <glintfx/draw2d/frame_2d_report.hpp>
+#include <glintfx/draw2d/renderer_2d.hpp>
+#include <glintfx/draw2d/renderer_2d_desc.hpp>
 #include <glintfx/gfss/keyword.hpp>
 #include <glintfx/gfss/property.hpp>
 #include <glintfx/gfss/token.hpp>

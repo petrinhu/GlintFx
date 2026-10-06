@@ -3,6 +3,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <string_view>
 
 #include <glintfx/platform/gl/gfx_option.hpp>
 
@@ -41,13 +43,18 @@ struct gfx_option_row {
     std::int64_t default_value = 0;
 };
 
-// Eight rows, sec. 11.2's own order (id 0 = vsync ... id 7 =
-// power_source). `std::array<gfx_option_row, 8>` is a HAND-WRITTEN
-// literal size, not gltfx_gfx_option's own enumerator count - the SAME
-// "a mismatched count is a compile failure, never a silently value-
-// initialized row" discipline property_table.hpp's own static_assert
-// already applies, repeated below.
-inline constexpr std::array<gfx_option_row, 8> k_gfx_option_table{{
+// One row per option, sec. 11.2's own order (id 0 = vsync ... the last
+// id = suggested_preset). `std::array<gfx_option_row, 9>` is a HAND-
+// WRITTEN literal size, not gltfx_gfx_option's own enumerator count.
+// WHAT THE COMPILER CATCHES (the two static_asserts below): a row
+// removed, out of order, duplicated or without a name does NOT compile
+// (a missing row would otherwise be a silently value-initialized,
+// zeroed last row). WHAT IT DOES NOT CATCH: an enumerator appended to
+// gltfx_gfx_option AFTER suggested_preset without a row here still
+// compiles, because the public enum has no count enumerator (adding
+// one is a public API change, out of scope here); that case is caught
+// by tests/tools/check_gfx_option_ids.py (gfx_option_ids_test).
+inline constexpr std::array<gfx_option_row, 9> k_gfx_option_table{{
     // id 0 - choice: off=0, on=1, adaptive=2. Default `on` (D-W6b-7,
     // "a janela nao trava, mas o consumidor pediu sincronia por
     // padrao").
@@ -84,8 +91,10 @@ inline constexpr std::array<gfx_option_row, 8> k_gfx_option_table{{
 
     // id 6 - choice, read_only: none=0, on_battery=1,
     // software_renderer=2, shared_gpu=3, dedicated_gpu=4,
-    // unknown_gpu=5. Set by the library after resolving `preset=
-    // automatic` (fatia 5c); never accepted from a consumer.
+    // unknown_gpu=5. WHY suggested_preset reads what it reads,
+    // computed at the moment it is read (D-W6b-44); `none` is never
+    // produced by this version and stays in the vocabulary because the
+    // table is append-only. Never accepted from a consumer.
     {gltfx_gfx_option::auto_choice_reason, "auto_choice_reason", gltfx_gfx_option_kind::choice,
      gltfx_gfx_option_when::read_only, 0, 5, 0},
 
@@ -95,12 +104,42 @@ inline constexpr std::array<gfx_option_row, 8> k_gfx_option_table{{
     // rule too.
     {gltfx_gfx_option::power_source, "power_source", gltfx_gfx_option_kind::choice,
      gltfx_gfx_option_when::read_only, 0, 2, 0},
+
+    // id 8 - choice, read_only: power_saving=1, balanced=2,
+    // performance=3 - the SAME numbers as `preset`, so the value read
+    // here can be written straight back into `preset`. The preset this
+    // library would suggest RIGHT NOW, computed at the moment it is
+    // read from the kind of GPU and `power_source` (D-W6b-44); it never
+    // reads manual or automatic. Default 2 (balanced); a read always
+    // computes, so the default is never what a consumer sees.
+    {gltfx_gfx_option::suggested_preset, "suggested_preset", gltfx_gfx_option_kind::choice,
+     gltfx_gfx_option_when::read_only, 1, 3, 2},
 }};
 
-static_assert(k_gfx_option_table.size() == 8,
-              "GODS_LAWS.md L-40: k_gfx_option_table's row count must track gfx_option.hpp's own "
-              "gltfx_gfx_option ids - a ninth option added to the enum without a matching row here "
-              "must not compile silently");
+static_assert(k_gfx_option_table.size() ==
+                  static_cast<std::size_t>(gltfx_gfx_option::suggested_preset) + 1,
+              "GODS_LAWS.md L-40: k_gfx_option_table's row count must equal the id of "
+              "suggested_preset plus one - this catches a changed value of suggested_preset or "
+              "a changed array size; it does NOT see an enumerator added after "
+              "suggested_preset (check_gfx_option_ids.py does)");
+
+// True when row i carries id == i and a non-empty name, for every i:
+// the table is dense, in id order, with no duplicate and no zeroed row.
+constexpr bool gfx_option_table_is_dense() noexcept {
+    for (std::size_t i = 0; i < k_gfx_option_table.size(); ++i) {
+        const gfx_option_row &row = k_gfx_option_table[i];
+        if (static_cast<std::size_t>(row.id) != i || row.name.empty()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static_assert(gfx_option_table_is_dense(),
+              "GODS_LAWS.md L-40: k_gfx_option_table must be dense - row i has id i and a "
+              "non-empty name; a removed, duplicated or out-of-order row must not compile "
+              "(an enumerator added after suggested_preset without a row is NOT seen here; "
+              "check_gfx_option_ids.py catches it)");
 
 // Linear scan, shared by every accessor in gfx_option_registry.cpp -
 // one atom, one job (GODS_LAWS.md L-17), the same technique property_

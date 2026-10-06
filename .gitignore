@@ -1,6 +1,9 @@
 # Build
 build/
 build-*/
+# Links simbolicos de build de uma copia de trabalho (L-55): `build-*/`
+# so casa diretorio, nunca o link para /var/tmp.
+/build-*
 out/
 cmake-build-*/
 CMakeUserPresets.json
@@ -83,6 +86,7 @@ tmp/
 # include/glintfx/core/; este diretorio e so uma copia efemera para o
 # contexto de build do Docker (tests/container/Containerfile).
 tests/container/_arch_ports_src/
+tests/container/_arch_ports_lib/
 
 # Claude Code: versiona so o settings.json compartilhado (hook do bus).
 # O settings.local.json e o lock de tarefa sao estado de maquina.
@@ -96,3 +100,7 @@ tests/container/_arch_ports_src/
 # docs/decisoes-rng-especificacao-do-lider.md. Ancorado na raiz de
 # proposito: so este arquivo, nunca um rng.txt em outro diretorio.
 /rng.txt
+
+# Copias de trabalho (git worktree) do projeto: moram em subpasta (GODS_LAWS.md
+# L-55, condicao 2), so o codigo; o build fica em /var/tmp.
+/worktrees/

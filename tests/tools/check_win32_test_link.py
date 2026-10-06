@@ -927,9 +927,14 @@ def link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_ob
     # container (mesma tecnica ja usada para source_args acima).
     define_flags = " ".join(shlex.quote(f"/D{d}") for d in target.get("defines", []))
 
+    # /I /src/src/render and /I /build/generated_render: a test of src/draw2d/ includes the generated loader
+    # header (gl_functions.hpp) and gl_abi.hpp, exactly as the library does (build_library_dll(); the
+    # CMake target of such a test carries the same two directories). cl.exe ignores a directory that does not
+    # exist, so a test that needs neither is untouched.
     command = (
         "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /WX "
         "/I /src/include /I /build/generated_include /I /src/src "
+        "/I /src/src/render /I /build/generated_render "
         "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 "
         f"{define_flags + ' ' if define_flags else ''}"
         f'/Fo"/build/objs_{name}/" /Fe"/build/{name}.exe" '

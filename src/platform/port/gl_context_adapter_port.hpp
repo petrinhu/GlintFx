@@ -2,6 +2,7 @@
 #pragma once
 
 #include <concepts>
+#include <cstdint>
 #include <string_view>
 #include <utility>
 
@@ -113,6 +114,11 @@ concept gl_context_adapter_port =
         { const_adapter.option_support(id) } noexcept -> std::same_as<gltfx_gfx_option_support>;
         { const_adapter.gpu() } noexcept -> std::same_as<gltfx_gpu_info>;
         { const_adapter.present_would_skip() } noexcept -> std::same_as<bool>;
+        // R2D-BATCH B3c: the drawing surface in PHYSICAL pixels {width, height}, what glViewport
+        // takes. {0, 0} before a context is open.
+        {
+            const_adapter.surface_pixel_size()
+        } noexcept -> std::same_as<std::pair<std::uint32_t, std::uint32_t>>;
     };
 
 } // namespace glintfx::platform

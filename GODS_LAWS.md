@@ -41,7 +41,7 @@
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
 | [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
 | [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
-| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level fable audita e cria; sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
+| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level audita e cria no modelo configurado em `/modelos_sessao` (emenda de 02/10/2026; `fable` só como advisor); sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 | [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
 | [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit em pt-br |
@@ -57,7 +57,7 @@
 | [L-31](#l-31) | tocar contexto gráfico, shader ou carregador de GL | OpenGL 3.3 core, nativo nas duas plataformas |
 | [L-32](#l-32) | escolher a próxima fatia a implementar, antes de a demo rodar | Caminho principal sempre, mais no máximo UMA trilha paralela |
 | [L-33](#l-33) | tocar QUALQUER coisa de mapa: decisão, fatia, formato, código | Avisar o `mapeditor`; sessão fora do ar, mandar pelo bus |
-| [L-34](#l-34) | iniciar uma fatia ou onda de trabalho de produto | Ciclo de 4 passos: main+líder faz brainstorm, `fable` planeja e audita, main verifica e orquestra, `sonnet` implementa; quem define fatia ou onda é o líder |
+| [L-34](#l-34) | iniciar uma fatia ou onda de trabalho de produto | Ciclo de 4 passos: main+líder faz brainstorm, o C-level (modelo de `/modelos_sessao`, emenda de 02/10/2026 na L-18) planeja e audita, main verifica e orquestra, `sonnet` implementa; quem define fatia ou onda é o líder |
 | [L-35](#l-35) | desenhar ou implementar a entrega de evento de entrada | Promessa pública do contrato: determinística, sem duplicação, sem reordenação; nasce com teste que a prova |
 | [L-36](#l-36) | decidir cursor do ponteiro, áudio no Linux, mapeamento de gamepad ou compose/tecla morta | Quatro decisões de escopo do líder que saem de `🎨 Pendente design` |
 | [L-37](#l-37) | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | Avisar o Gus Dragon sem ele precisar perguntar |
@@ -469,6 +469,13 @@ Regra qualitativa sem lugar no processo é regra que ninguém aplica.
 **A thread principal (`main`) não executa trabalho de produto.** Ela faz exatamente três coisas: **orquestra**, **delega a agentes** e **avalia o retorno dos agentes**. Escrever código, escrever documento de produto, auditar, testar: nada disso é do `main`.
 
 **Aplicação, quem chamar:**
+
+**EMENDA de 02/10/2026, ordem do líder, levada pela LEI DAS LEIS.** Primeiro a ordem *"fable é so advisor!"* (11:02, depois que o main despachou um revisor em `fable`). Depois, à pergunta sobre o texto desta lei, feita com o contra-argumento escrito (o `fable` era o revisor mais forte da casa, e a variedade de família diante do planejador `opus` era o contrapeso da emenda de 22/09 da L-34), o líder respondeu, verbatim: *"clevel: respeitar o que for configurado na skill de modelos da sessao"*. **O texto que manda daqui em diante:**
+- o modelo do C-level que planeja, audita e cria é o configurado em `/modelos_sessao`, para o grupo Orquestrador + C-levels;
+- o modelo do implementador e do revisor operacional é o do grupo Demais agents;
+- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado;
+- a tabela abaixo e as citações de 21/08 que dizem `fable` ficam como registro datado do que foi dito.
+A L-12 continua intacta: implementador, revisor e orquestrador são agentes DISTINTOS, qualquer que seja o modelo.
 
 | Tipo de trabalho | Agente | Modelo |
 |---|---|---|
@@ -894,6 +901,8 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 **Registro é ao vivo, nunca reconstruído no fim.** Sessão morre, contexto estoura, agente cai — e o que não estiver em disco não existiu. Log escrito de memória ao sair do modo é log inventado.
 
 **Ao sair do modo autônomo, o main apresenta o registro inteiro ao líder**, decisão por decisão, para ele ratificar ou reverter. **Enquanto esse registro não for apresentado, a saída do modo não está completa** — não é relatório opcional, é entregável.
+
+**Emenda de 03/10/2026, ordem do líder: agente parado, em modo autônomo, recebe ordem de seguir.** Verbatim: *"se estiverem agentes parados com modo autonomo ligado, é para mandar seguir o trabalho."* **Como se cumpre:** enquanto o modo autônomo estiver ligado, o main mantém um tick de no máximo 5 minutos. A cada tick, para cada agente despachado que ainda não devolveu o relatório, ele confere o mtime do arquivo de saída do agente. Se o agente estiver PARADO, o main manda NA HORA. **PARADO** quer dizer calado há 5 minutos ou mais (o líder corrigiu o main, que tinha escrito 12: "eu nao falei 12 minutos, falei cinco") **E** sem nenhum comando em execução. Um agente rodando build, teste ou container longo está TRABALHANDO, não parado, e não recebe ordem. O líder corrigiu o main, que tinha mandado seguir um agente no meio de um `ctest` longo: *"eu disse PARADO!"*. Achado parado, o main manda, por `SendMessage`, a ordem de seguir: continuar a tarefa e relatar o que já tem. Isso aplica o teste da palavra única (L-14 global). O vigia de fora da sessão (`glintfx-vigia`, timer de 5 minutos) não escreve dentro dela; ele só avisa o líder na tela quando a própria sessão principal para. **Limite declarado:** se a sessão principal parar, nenhum tick roda, e o aviso do vigia é o que resta.
 
 **O que o C-level `opus` NÃO herda, e a lista é fechada:**
 

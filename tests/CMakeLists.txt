@@ -830,6 +830,8 @@ glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 # or library this project vendors or ships.
 if(WIN32)
     glintfx_add_test(win32_runner_probe_test)
+    # wgl_srgb_pixel_format.hpp (D-SRGB-2, S6): header-only, no <windows.h>, read from src/.
+    target_include_directories(win32_runner_probe_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_link_libraries(win32_runner_probe_test PRIVATE user32 opengl32 gdi32)
 else()
     message(STATUS "glintfx: win32_runner_probe_test skipped (Windows-only probe, see its own header comment)")
@@ -1270,6 +1272,37 @@ target_sources(drm_gpu_kind_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
 )
 
+# D-SRGB-1 (errata sec. 28): what the EGL adapter ASKS of EGL (the choose list without a colorspace, the window
+# surface list with it), as pure functions over plain data. Linux only: the Win32 side gets
+# its sRGB from the pixel format, a different mechanism (a permanent, declared asymmetry).
+if(UNIX)
+    glintfx_add_test(egl_config_attribs_test)
+    target_include_directories(egl_config_attribs_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+endif()
+
+# D-SRGB-2 (D-SRGB2-6, S1): the whole-token extension-list atom (src/platform/extension_token.hpp), header-only and
+# free of any OS header, shared by the EGL and the WGL adapters. NO platform guard: it runs on every system.
+glintfx_add_test(extension_token_test)
+target_include_directories(extension_token_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# D-SRGB-2 (D-SRGB2-1/3, S2): the neutral decision of the open_only format options (src/platform/gl/gfx_format_decision.hpp),
+# header-only, called by both adapters; the test enumerates its whole input space and runs on every system.
+glintfx_add_test(gfx_format_decision_test)
+target_include_directories(gfx_format_decision_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# D-SRGB-2 (D-SRGB2-7, S3): what a failed eglCreateWindowSurface WITH the sRGB colorspace means
+# (src/platform/wayland/egl_srgb_surface.hpp, header-only). Linux only: it uses the EGL_BAD_* codes of <EGL/egl.h>.
+if(UNIX)
+    glintfx_add_test(egl_srgb_surface_test)
+    target_include_directories(egl_srgb_surface_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+endif()
+
+# D-SRGB-2 (D-SRGB2-9, S4/S5): the pure sRGB rule of the Windows side (src/platform/win32/wgl_srgb_pixel_format.hpp),
+# header-only and free of any Windows header, read by the WGL loader and by the WGL adapter. NO platform guard: it
+# runs on every system, like power_status_rule_test.
+glintfx_add_test(wgl_srgb_pixel_format_test)
+target_include_directories(wgl_srgb_pixel_format_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 glintfx_add_test(egl_device_dedup_test)
 target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(egl_device_dedup_test PRIVATE
@@ -1289,6 +1322,194 @@ target_include_directories(gpu_kind_exclusion_test PRIVATE "${PROJECT_SOURCE_DIR
 target_sources(gpu_kind_exclusion_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
 )
+
+# GFX-PRESET (docs/plano-w6b-fatias-5.md sec. 5, docs/plano-w7d-adendo-revalidacao.md sec. 3.A, P1): the pure
+# atoms of the preset, PLATFORM-AGNOSTIC like the sites they prove - they run on all five systems with no
+# if(UNIX)/if(WIN32) guard. EACH test compiles the .cpp it says it covers (target_sources), never a stand-in.
+glintfx_add_test(gfx_preset_table_test)
+target_include_directories(gfx_preset_table_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfx_preset_table_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_preset_table.cpp"
+)
+
+glintfx_add_test(auto_preset_rule_test)
+target_include_directories(auto_preset_rule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(auto_preset_rule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/auto_preset_rule.cpp"
+)
+
+glintfx_add_test(preset_expansion_test)
+target_include_directories(preset_expansion_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(preset_expansion_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/preset_expansion.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_preset_table.cpp"
+)
+
+# GFX-PRESET P2: the pure atoms of the power source, PLATFORM-AGNOSTIC like the sites they prove (power_supply_rule.cpp
+# and power_status_rule.cpp read plain data; only the two adapters that fill that data are one system each).
+# power_supply_rule.cpp lives in src/platform/wayland/ because the knowledge is the Linux sysfs, but it is
+# "Wayland-DOMAIN, not Wayland-ONLY" exactly like the five above: this target has no if(UNIX) guard and compiles it on
+# every system, and .github/workflows/ci.yml lists it by name in $waylandDominioNaoSo (the Windows Lint gate).
+glintfx_add_test(power_supply_rule_test)
+target_include_directories(power_supply_rule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(power_supply_rule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/power_supply_rule.cpp"
+)
+
+glintfx_add_test(power_status_rule_test)
+target_include_directories(power_status_rule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(power_status_rule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/win32/power_status_rule.cpp"
+)
+
+# The reader of /sys/class/power_supply is Linux-only, and its test builds a FAKE tree under the temporary
+# directory (the real root is a literal only the adapter passes). The Windows reader (GetSystemPowerStatus)
+# has no runtime test of its own here: the pure rule above is its twin (parity_exceptions.txt), and the
+# real call runs on the CI's Windows runner.
+if(UNIX)
+    glintfx_add_test(power_source_adapter_test)
+    target_include_directories(power_source_adapter_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(power_source_adapter_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/power_source_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/power_supply_rule.cpp"
+    )
+endif()
+
+# R2D-BATCH (docs/plano-w7d.md sec. 4.3): the PURE atoms of src/draw2d/ - each test compiles the translation
+# units it proves (they are not exported), the same shape the atoms of src/platform/gl/ use.
+glintfx_add_test(quad_vertices_test)
+target_include_directories(quad_vertices_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(quad_vertices_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(draw_order_test)
+target_include_directories(draw_order_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(draw_order_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+)
+
+glintfx_add_test(triangle_batch_test)
+target_include_directories(triangle_batch_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(triangle_batch_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(frame_report_tally_test)
+target_include_directories(frame_report_tally_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_report_tally_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_report_tally.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
+)
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol (gltfx_draw_2d_refusal_name) and this target recompiles it
+# standalone: without GLINTFX_LIBRARY_STATIC_DEFINE, MSVC raises C4273 "inconsistent dll linkage" (a TU that
+# both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
+# win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
+target_compile_definitions(frame_report_tally_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+
+# D-B7-1 (I4): which piece is refused, and why - a subject of its own, the cells moved from frame_report_tally_test.
+glintfx_add_test(piece_refusal_test)
+target_include_directories(piece_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(piece_refusal_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_refusal.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
+)
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol (gltfx_draw_2d_refusal_name) and this target recompiles it
+# standalone: without GLINTFX_LIBRARY_STATIC_DEFINE, MSVC raises C4273 "inconsistent dll linkage" (a TU that
+# both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
+# win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
+target_compile_definitions(piece_refusal_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+
+# R2D-BATCH B4: the list of pieces held until a flush (paint order by layer, then submission) and the sRGB curve
+# of the clear color, each a pure atom.
+glintfx_add_test(piece_list_test)
+target_include_directories(piece_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(piece_list_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+)
+
+glintfx_add_test(gl_load_refusal_test)
+target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gl_load_refusal_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_load_refusal.cpp"
+)
+
+glintfx_add_test(srgb_encoding_test)
+target_include_directories(srgb_encoding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(srgb_encoding_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+# R2D-BATCH B3b: the embedded drawing program against a table of FAKE GL functions. The test needs the
+# generated loader header (gl_functions.hpp, build tree) and the hand-written gl_abi.hpp (src/render), and
+# log_emit() from the library (exported, core/log/emit.hpp).
+glintfx_add_test(embedded_program_test)
+add_dependencies(embedded_program_test glintfx_gl_functions_generated)
+target_include_directories(embedded_program_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(embedded_program_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
+)
+
+# R2D-BATCH B3c: the contract of the GL state, and the vertex stream, each against a table of FAKE GL functions
+# (the generated loader header and gl_abi.hpp as embedded_program_test; vertex_stream_test also needs log_emit()
+# and the sink from the library).
+glintfx_add_test(gl_state_contract_test)
+add_dependencies(gl_state_contract_test glintfx_gl_functions_generated)
+target_include_directories(gl_state_contract_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(gl_state_contract_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+)
+
+glintfx_add_test(vertex_stream_test)
+add_dependencies(vertex_stream_test glintfx_gl_functions_generated)
+target_include_directories(vertex_stream_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(vertex_stream_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+# R2D-BATCH B4: the frame machine behind the public handle, against a FAKE host and a table of FAKE GL functions.
+glintfx_add_test(renderer_2d_impl_test)
+add_dependencies(renderer_2d_impl_test glintfx_gl_functions_generated)
+target_include_directories(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_report_tally.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_refusal.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
+)
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol (gltfx_draw_2d_refusal_name) and this target recompiles it
+# standalone: without GLINTFX_LIBRARY_STATIC_DEFINE, MSVC raises C4273 "inconsistent dll linkage" (a TU that
+# both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
+# win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
+target_compile_definitions(renderer_2d_impl_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
 
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -2267,6 +2488,7 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
@@ -2389,6 +2611,20 @@ if(WIN32)
     set_tests_properties(loop_parity_test PROPERTIES LABELS consume)
 endif()
 
+# R2D-BATCH B4: draw2d_parity_test.cpp (tests/parity/) is the fourth member of the window_parity_test/
+# gl_context_parity_test/loop_parity_test family - ONE file, only-public-API, no-#if, proving the 2D drawing
+# layer (gltfx_renderer_2d) draws the same pixels on both systems, through the packaged library boundary. Same
+# mechanism as the others: linked against the PUBLIC glintfx::glintfx target, if(WIN32) only here - the Linux
+# side of this SAME name is the container fixture the paridade inventory picks up (B5 wires and reads it).
+if(WIN32)
+    add_executable(draw2d_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_parity_test.cpp")
+    target_link_libraries(draw2d_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_parity_test)
+    add_test(NAME draw2d_parity_test COMMAND draw2d_parity_test)
+    set_tests_properties(draw2d_parity_test PROPERTIES LABELS consume)
+endif()
+
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_hidden_
 # test is a PAIR OF FILES SHARING ONE NAME - tests/loop_hidden_test.cpp
 # here (harness, ShowWindow(SW_MINIMIZE)/IsIconic) and tests/container/
@@ -2454,6 +2690,7 @@ if(WIN32)
         # (its own comment there records the THREE separate rounds of
         # LNK2019 that taught this list what it has to carry).
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
@@ -2473,6 +2710,14 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_option_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_context_desc_validation.cpp"
+        # GFX-PRESET (P1-P3): gl_context_facade.cpp expands a preset and reads the power source, and
+        # gfx_option_registry.cpp answers the preset rows - the win32 preci stage (LNK2019) is what found
+        # that this list has to carry them.
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_preset_table.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/auto_preset_rule.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/preset_expansion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/power_source_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/power_status_rule.cpp"
         # The loop itself - the subject of this fixture.
         "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_tick_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"
@@ -2492,6 +2737,16 @@ if(WIN32)
     )
     target_compile_definitions(loop_hidden_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
     target_link_libraries(loop_hidden_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+    # RUN_SERIAL TRUE (LOOP-HIDDEN-SERIAL, 06/10/2026): the busy-spin calibration cell measures how many
+    # permille of a 500 ms window this process spent on a CPU (GetProcessTimes) and demands >= 800. CI run C
+    # 37429569648 measured 593 there, with three software-GL neighbours running under `ctest --parallel 4`
+    # on 4 vCPUs and stealing the CPU the calibration assumes it owns (baseline of 67 samples: worst 875).
+    # The ruler (800/250), the window (500 ms) and the instrument (GetProcessTimes) are NOT moved (GODS_LAWS.md
+    # L-11, L-43): only the condition the ruler presumes is restored, by running this case alone. Hypervisor
+    # steal stays invisible from inside and can only fail red, never green (TODO.md INBOX LOOP-HIDDEN-CALIB-STEAL).
+    # The Linux twin (tests/container/loop_hidden_test.cpp) is NOT registered here: it runs as a container
+    # fixture through exec_fixture.sh, one process per call, never under ctest --parallel.
+    set_tests_properties(loop_hidden_test PROPERTIES LABELS unit RUN_SERIAL TRUE)
 endif()
 
 # FACADE-PIN, T4/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):
@@ -4884,11 +5139,34 @@ if(UNIX)
     set_tests_properties(contido_selftest PROPERTIES LABELS selftest)
     # C1b: a metade que roda DENTRO do escopo; todos os casos do selftest usam o modo herdado (mata por
     # grupo de processos, nunca escreve cgroup.kill), entao rodam em qualquer cgroup, inclusive o do preci.
+    # D-CI2-SELFTEST (errata sec. 16): o selftest e' feito de ESPERAS (prazos e gracas), nao de CPU, e passou de
+    # 40 s (a regua de pesados do ctest_aggregate.py) sob carga no CI. Nao se encurtam os prazos (foram
+    # dimensionados contra a intermitencia do D10b) e nao se finge recurso (RESOURCE_LOCK): PARTE-SE em grupos,
+    # cada um uma entrada do ctest, com no maximo 12 s de parede numa maquina ociosa (medido antes de partir; o CI
+    # infla o tempo ocioso em ~2,86x sob a carga paralela, 51,5 s contra 18 s, entao 20 s daria ~57 s, acima da regua de 40 s).
+    # `--selftest` sem grupo roda todos, para o uso manual e para o preci; a contagem por grupo e o total saem
+    # sempre (a soma dos grupos tem de igualar o total, e um grupo desconhecido da rc 2).
+    # (quatro add_test literais, um por grupo: o --blob do preci le os literais, nunca um foreach)
     add_test(
-        NAME contido_dentro_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest
+        NAME contido_dentro_selftest_basico
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest basico
     )
-    set_tests_properties(contido_dentro_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(contido_dentro_selftest_basico PROPERTIES LABELS selftest)
+    add_test(
+        NAME contido_dentro_selftest_prazos
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest prazos
+    )
+    set_tests_properties(contido_dentro_selftest_prazos PROPERTIES LABELS selftest)
+    add_test(
+        NAME contido_dentro_selftest_graca
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest graca
+    )
+    set_tests_properties(contido_dentro_selftest_graca PROPERTIES LABELS selftest)
+    add_test(
+        NAME contido_dentro_selftest_varredura
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido_dentro.sh" --selftest varredura
+    )
+    set_tests_properties(contido_dentro_selftest_varredura PROPERTIES LABELS selftest)
 endif()
 
 # So' em Unix (D-A27, CI do 352442e): o --blob e' estagio do preci.sh, que e' bash e nunca roda no Windows,
@@ -4903,6 +5181,13 @@ if(UNIX)
     )
     set_tests_properties(blob_selftests_selftest PROPERTIES LABELS selftest)
 endif()
+
+add_test(
+    NAME preci_compare_times_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/preci_compare_times.py" --selftest
+)
+set_tests_properties(preci_compare_times_selftest PROPERTIES LABELS selftest)
 
 add_test(
     NAME preci_runs_blob_test
@@ -4920,6 +5205,29 @@ add_test(
         "${PROJECT_SOURCE_DIR}/tools/ci/rerun_guard.py" --selftest
 )
 set_tests_properties(rerun_guard_selftest PROPERTIES LABELS selftest)
+
+# GFX-PRESET e R2D-BATCH, D-FECH-3 (D-A68): o apendice "texto final
+# congelado" de cada parecer em docs/auditoria-api-*.md e saida de
+# tools/auditoria_texto_congelado.py (aplica as emendas listadas em
+# EMENDAS_POR_ARQUIVO, no proprio script). O autoteste prova que emenda que nao se
+# aplica reprova; o teste `verificar` prova que ninguem editou o
+# apendice a mao nem mudou o corpo do parecer. Python puro, sem guarda
+# de sistema.
+add_test(
+    NAME auditoria_texto_congelado_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_texto_congelado.py" --selftest
+)
+set_tests_properties(auditoria_texto_congelado_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME auditoria_texto_congelado_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_texto_congelado.py" verificar
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-gfx-preset.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-draw2d.md"
+)
+set_tests_properties(auditoria_texto_congelado_test PROPERTIES LABELS consume)
 
 # CI-SPLIT-PER-OS (achado 4 da revisao do CTO, 29/09/2026): o agregado
 # declarados/executados/passaram/falharam dos jobs de ctest e' medido por
@@ -5050,13 +5358,14 @@ set_tests_properties(container_fixture_includes_selftest PROPERTIES LABELS selft
 # function's own comment for why CMAKE_CXX_COMPILER is rejected
 # outright when its ID is MSVC (Windows CI's own CXX compiler for the
 # PRODUCT build, incompatible with this fixture's GNU-flavored flags).
+# glintfx-nested-build: heavy - o --selftest roda o compilador e o ligador REAIS por controle (MinGW g++ e ld no Windows, onde criar processo e ligar sao caros e sensiveis ao hospedeiro): 0,52 s no Linux e 12,9 a 63,0 s em 7 runs no Windows (CI 36745583418 e anteriores, errata sec. 26); trinco PROVISORIO, vira `PROCESSORS n` medido; o proprio --selftest imprime o tempo de CADA controle
 add_test(
     NAME container_fixture_link_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_fixture_link.py" --selftest
         "${CMAKE_CXX_COMPILER}" "${CMAKE_CXX_COMPILER_ID}"
 )
-set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest)
+set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
 # CONTAINER-LOG-SIGNAL-FIRST (TODO.md, GODS_LAWS.md L-40/L-45/L-49,

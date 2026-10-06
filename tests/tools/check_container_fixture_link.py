@@ -86,6 +86,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 SCRIPT_NAME = "check_container_fixture_link.py"
 STDERR_TAIL_LINES = 20
@@ -217,6 +218,14 @@ def apply_copy(src_token, dst_token, context_dir, staged_dir, build_dir):
     if src_token == "_arch_ports_src":
         os.symlink(staged_dir, dst_path)
         return
+    if src_token == "_arch_ports_lib":
+        # R2D-BATCH B5: the tree the image builds the library from (prepare_arch_ports_fixture.sh's
+        # stage_lib_tree()), a sibling of the staged source tree in the build context. Never written to here.
+        lib_path = os.path.join(context_dir, "_arch_ports_lib")
+        if not os.path.isdir(lib_path):
+            fail(f"COPY cita _arch_ports_lib, que nao existe em {context_dir} - rode prepare_arch_ports_fixture.sh antes")
+        os.symlink(lib_path, dst_path)
+        return
     src_path = os.path.join(context_dir, src_token)
     if os.path.isdir(src_path):
         shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
@@ -287,6 +296,21 @@ def is_compile_line(subcommand):
     if not tokens:
         return False
     return bool(_COMPILE_TOKEN_RE.match(os.path.basename(tokens[0])))
+
+
+def is_cmake_line(subcommand):
+    tokens = _tokenize(subcommand)
+    return bool(tokens) and os.path.basename(tokens[0]) in ("cmake", "cmake.exe")
+
+
+# A g++ invocation that gets the library from its INSTALLED glintfx.pc (`$(pkg-config ... glintfx)`), the way a
+# consumer does, instead of recompiling sources: counted and printed, so the set of fixtures linked against
+# the real install is visible and can never shrink to zero unnoticed (GODS_LAWS.md L-40).
+_PKG_CONFIG_GLINTFX_RE = re.compile(r"pkg-config[^)]*\bglintfx\b")
+
+
+def is_lib_linked_compile(subcommand):
+    return is_compile_line(subcommand) and bool(_PKG_CONFIG_GLINTFX_RE.search(subcommand))
 
 
 def is_wayland_scanner_line(subcommand):
@@ -520,6 +544,9 @@ def run_link_check(containerfile_text, context_dir, staged_dir, build_dir):
     copy_count = 0
     dnf_skipped = 0
     scanner_run = 0
+    cmake_run = 0
+    lib_linked = 0
+    lib_linked_ok = 0
     compile_total = 0
     compile_ok = 0
     failures = []
@@ -545,11 +572,24 @@ def run_link_check(containerfile_text, context_dir, staged_dir, build_dir):
                         "stderr": stderr_tail(stderr),
                     })
                 continue
+            if is_cmake_line(subcommand):
+                cmake_run += 1
+                returncode, _stdout, stderr = run_subcommand(subcommand, build_dir)
+                if returncode != 0:
+                    failures.append({
+                        "target": "cmake",
+                        "command": subcommand,
+                        "stderr": stderr_tail(stderr),
+                    })
+                continue
             if is_compile_line(subcommand):
                 compile_total += 1
+                lib_fixture = is_lib_linked_compile(subcommand)
+                lib_linked += 1 if lib_fixture else 0
                 returncode, _stdout, stderr = run_subcommand(subcommand, build_dir)
                 if returncode == 0:
                     compile_ok += 1
+                    lib_linked_ok += 1 if lib_fixture else 0
                 else:
                     failures.append({
                         "target": target_label(subcommand),
@@ -573,6 +613,9 @@ def run_link_check(containerfile_text, context_dir, staged_dir, build_dir):
         "copy": copy_count,
         "dnf_skipped": dnf_skipped,
         "scanner_run": scanner_run,
+        "cmake_run": cmake_run,
+        "lib_linked": lib_linked,
+        "lib_linked_ok": lib_linked_ok,
         "compile_total": compile_total,
         "compile_ok": compile_ok,
         "failures": failures,
@@ -597,6 +640,8 @@ def print_summary(summary):
         f"{SCRIPT_NAME}: COPY aplicado(s): {summary['copy']} | "
         f"RUN dnf pulado(s): {summary['dnf_skipped']} | "
         f"wayland-scanner executado(s): {summary['scanner_run']} | "
+        f"cmake executado(s): {summary['cmake_run']} | "
+        f"ligado(s) na lib instalada (pkg-config glintfx): {summary['lib_linked_ok']}/{summary['lib_linked']} | "
         f"g++/gcc encontrado(s): {summary['compile_total']} | "
         f"ligaram: {summary['compile_ok']} | "
         f"falharam: {len(summary['failures'])}"
@@ -661,6 +706,21 @@ def real_main(args):
             file=sys.stderr,
         )
         sys.exit(GATE_SKIP_RETURN_CODE)
+
+    # R2D-BATCH B5: a Containerfile that builds the library with cmake needs cmake and ninja on the HOST too to
+    # run that stage here. Missing: a DECLARED, counted skip (same shape and same reason as the packages above),
+    # never a silent pass - the `docker build` right after is still the real proof, inside the image.
+    if "cmake -S" in containerfile_text or "\ncmake " in containerfile_text:
+        missing_tools = [tool for tool in ("cmake", "ninja") if shutil.which(tool) is None]
+        if missing_tools:
+            print(
+                f"{SCRIPT_NAME}: PULADO - {missing_tools} nao encontrado(s) no PATH deste host. Este portao "
+                "executa o `cmake` do estagio da biblioteca do Containerfile FORA do container (GODS_LAWS.md "
+                "L-14: instalar exige autorizacao do lider e este portao nunca instala) - o `docker build` "
+                "que roda logo depois continua sendo a prova real do link, DENTRO do container.",
+                file=sys.stderr,
+            )
+            sys.exit(GATE_SKIP_RETURN_CODE)
 
     build_dir = tempfile.mkdtemp(prefix="glintfx-fixture-link-", dir=os.environ.get("TMPDIR"))
     try:
@@ -1273,6 +1333,47 @@ def selftest_gancho_sibling_header_missing_copy_reproves(scratch, compiler):
     return True
 
 
+# R2D-BATCH B5: which g++ invocations count as LINKED AGAINST THE INSTALLED LIBRARY (`$(pkg-config ... glintfx)`).
+# Pure text, no compiler: the positive shape, and two shapes that must NOT count (a pkg-config for another
+# package, and a plain source-list g++).
+def selftest_lib_linked_classification():
+    yes = (
+        "g++ -std=c++23 -o /build/x /build/x.cpp "
+        "$(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --static --cflags --libs glintfx)"
+    )
+    other_package = "g++ -std=c++23 -o /build/x /build/x.cpp $(pkg-config --cflags --libs wayland-client)"
+    source_list = "g++ -std=c++23 -o /build/x /build/x.cpp /build/_arch_ports_src/src/core/err.cpp"
+    ok = is_lib_linked_compile(yes) and not is_lib_linked_compile(other_package) and not is_lib_linked_compile(source_list)
+    print(f"selftest: LIB-LIGADA {'OK' if ok else 'FALHOU'} (pkg-config glintfx conta; outro pacote e lista de fontes nao contam)")
+    return ok
+
+
+# R2D-BATCH B5: a `cmake` subcommand of the stage is EXECUTED (never skipped) and a failure of it reproves,
+# naming cmake. Needs cmake on the host: without it the control is skipped, declared and counted.
+def selftest_cmake_failure_reproves(scratch):
+    if shutil.which("cmake") is None:
+        return None
+    root = os.path.join(scratch, "cmake-fail")
+    context_dir = os.path.join(root, "tests", "container")
+    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+    os.makedirs(staged_dir, exist_ok=True)
+    containerfile = (
+        "FROM fedora:44 AS arch-ports-builder\n"
+        "RUN cmake -S /build/nao_existe -B /build/lib-build\n"
+        "\n"
+        "FROM fedora:44\n"
+    )
+    build_dir = tempfile.mkdtemp(prefix="glintfx-fixture-link-selftest-build-cmake-", dir=scratch)
+    try:
+        summary, _errors = run_link_check(containerfile, context_dir, staged_dir, build_dir)
+    finally:
+        shutil.rmtree(build_dir, ignore_errors=True)
+    named = [f for f in summary["failures"] if f["target"] == "cmake"]
+    ok = summary["cmake_run"] == 1 and len(named) == 1
+    print(f"selftest: CMAKE-EXECUTADO {'OK' if ok else 'FALHOU'} (o cmake do estagio e executado e a falha reprova citando cmake): {summary['cmake_run']} executado(s), {len(named)} falha(s) nomeada(s)")
+    return ok
+
+
 def selftest_main(cli_compiler=None, cli_compiler_id=None):
     compiler, source = discover_selftest_compiler(cli_compiler, cli_compiler_id)
     if compiler:
@@ -1286,43 +1387,49 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
         )
 
     scratch = _make_scratch()
+    # D-CI3 (errata sec. 26): the wall time of EACH control and the total are printed ALWAYS (GODS_LAWS.md L-49,
+    # "instrumentar em vez de adivinhar"): on Windows the cost is the real compiler and linker per control
+    # (MinGW g++ and ld), and this is what says where the seconds go.
+    named_results = []
+    timings = []
+    t_start = time.monotonic()
+
+    def run(name, function, *args):
+        t0 = time.monotonic()
+        result = function(*args)
+        timings.append((name, time.monotonic() - t0))
+        named_results.append((name, result))
+
+    def skipped(name):
+        named_results.append((name, None))
+
     try:
-        named_results = [
-            ("empty", selftest_empty_containerfile_reproves(scratch)),
-            (
-                "rewrite-prefix",
-                selftest_rewrite_build_prefix_ignores_unrelated_build_substring(),
-            ),
-            (
-                "rewrite-prefix-glued-forms",
-                selftest_rewrite_build_prefix_recognizes_glued_forms(),
-            ),
-        ]
+        run("empty", selftest_empty_containerfile_reproves, scratch)
+        run("rewrite-prefix", selftest_rewrite_build_prefix_ignores_unrelated_build_substring)
+        run("rewrite-prefix-glued-forms", selftest_rewrite_build_prefix_recognizes_glued_forms)
+        run("lib-linked", selftest_lib_linked_classification)
+        run("cmake-executado", selftest_cmake_failure_reproves, scratch)
         if compiler:
-            named_results.append(("positive", selftest_positive_control(scratch, compiler)))
-            named_results.append(("sanitize-token", selftest_sanitize_token_expands_empty(scratch, compiler)))
-            named_results.append(("missing-atom", selftest_missing_atom_reproves(scratch, compiler)))
-            named_results.append(("multi", selftest_accumulates_multiple_failures(scratch, compiler)))
-            named_results.append(("multi-estreia", selftest_multi_reproves_when_compiler_missing(scratch)))
-            named_results.append(
-                ("gancho-header", selftest_gancho_sibling_header_resolves(scratch, compiler))
-            )
-            named_results.append(
-                (
-                    "gancho-header-vermelho",
-                    selftest_gancho_sibling_header_missing_copy_reproves(scratch, compiler),
-                )
-            )
+            run("positive", selftest_positive_control, scratch, compiler)
+            run("sanitize-token", selftest_sanitize_token_expands_empty, scratch, compiler)
+            run("missing-atom", selftest_missing_atom_reproves, scratch, compiler)
+            run("multi", selftest_accumulates_multiple_failures, scratch, compiler)
+            run("multi-estreia", selftest_multi_reproves_when_compiler_missing, scratch)
+            run("gancho-header", selftest_gancho_sibling_header_resolves, scratch, compiler)
+            run("gancho-header-vermelho", selftest_gancho_sibling_header_missing_copy_reproves, scratch, compiler)
         else:
-            named_results.append(("positive", None))
-            named_results.append(("sanitize-token", None))
-            named_results.append(("missing-atom", None))
-            named_results.append(("multi", None))
-            named_results.append(("multi-estreia", None))
-            named_results.append(("gancho-header", None))
-            named_results.append(("gancho-header-vermelho", None))
+            for name in ("positive", "sanitize-token", "missing-atom", "multi", "multi-estreia", "gancho-header",
+                         "gancho-header-vermelho"):
+                skipped(name)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+
+    for name, seconds in timings:
+        print(f"{SCRIPT_NAME} --selftest: tempo do controle {name}: {seconds:.2f} s")
+    print(
+        f"{SCRIPT_NAME} --selftest: tempo total dos controles: {time.monotonic() - t_start:.2f} s "
+        f"({len(timings)} medido(s))"
+    )
 
     ran = [ok for _name, ok in named_results if ok is not None]
     skipped = [name for name, ok in named_results if ok is None]

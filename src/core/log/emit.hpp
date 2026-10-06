@@ -59,4 +59,19 @@ GLINTFX_API void log_emit(gltfx_log_severity severity, std::string_view category
                           std::string_view name, log_field_builder_fn build_fields,
                           void *builder_context) noexcept;
 
+// Emits an event whose fields the caller has ALREADY built (a small array on its own stack): the
+// common shape of the library's own callers (gpu_kind_report.cpp, embedded_program.cpp,
+// vertex_stream.cpp - the third copy of the same three-line builder is what made this the place for
+// it, GODS_LAWS.md L-33). `fields` is read only during the call, like every field of an event.
+inline void log_emit_fields(gltfx_log_severity severity, std::string_view category,
+                            std::string_view name,
+                            std::span<const gltfx_log_field> fields) noexcept {
+    log_emit(
+        severity, category, name,
+        [](void *builder_context) noexcept -> std::span<const gltfx_log_field> {
+            return *static_cast<std::span<const gltfx_log_field> *>(builder_context);
+        },
+        &fields);
+}
+
 } // namespace glintfx

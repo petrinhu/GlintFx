@@ -192,6 +192,11 @@ KNOWN_VENDOR_FILES = frozenset({
     "third_party/khronos/README.md",
 })
 
+# Declared stage roots (errata 27): directories where the container
+# build stages a regenerated copy of the library. A file under one is
+# accepted only when byte for byte equal to its closed-list original.
+STAGE_ROOTS = ("tests/container/_arch_ports_lib",)
+
 # E3's exceptions. Both empty/False today, MEASURED (this file's
 # header, "PORT LINEAGE" section; also `git ls-files | grep -Ei
 # '\.(a|so|lib|dll|dylib|o|obj|zip|tar|gz|7z)$'` and `find ... -iname
@@ -330,6 +335,45 @@ def is_build_output_dir(dir_abs_path):
     return bool(entries & BUILD_MARKER_ENTRIES)
 
 
+def is_linked_worktree_of(root, dir_abs_path):
+    """Prune by MARKER, never by name (L-55, infra trail): true only
+    when the directory holds a `.git` FILE (not a directory) whose
+    first line is `gitdir: <path>` and whose path resolves, symlinks
+    followed, to an existing directory under <root>/.git/worktrees/.
+    The admin dir must also point back at this very `.git` file (its
+    `gitdir` file). A `.git` file pointing anywhere else, or at a real
+    admin dir it does not own (forged), prunes nothing. Unreadable or malformed means not pruned: fail toward
+    scanning.
+    """
+    marker = os.path.join(dir_abs_path, ".git")
+    if not os.path.isfile(marker):
+        return False
+    try:
+        with open(marker, "r", encoding="utf-8") as handle:
+            first_line = handle.readline().strip()
+    except (OSError, UnicodeDecodeError):
+        return False
+    prefix = "gitdir:"
+    if not first_line.startswith(prefix):
+        return False
+    target = os.path.realpath(
+        os.path.join(dir_abs_path, first_line[len(prefix):].strip())
+    )
+    worktrees_dir = os.path.realpath(os.path.join(root, ".git", "worktrees"))
+    if not (os.path.isdir(target) and os.path.dirname(target) == worktrees_dir):
+        return False
+    # Back-pointer: a real worktree's admin dir records, in its own
+    # `gitdir` file, the path of the `.git` file that owns it. Any
+    # directory can POINT at a real admin dir, only the owner is pointed
+    # back at; a mismatch or unreadable file prunes nothing.
+    try:
+        with open(os.path.join(target, "gitdir"), "r", encoding="utf-8") as handle:
+            owner = handle.readline().strip()
+    except (OSError, UnicodeDecodeError):
+        return False
+    return os.path.realpath(owner) == os.path.realpath(marker)
+
+
 def is_vendor_form_segment(name):
     return name.casefold() in VENDOR_FORM_VOCABULARY
 
@@ -400,11 +444,13 @@ def scan_tree(root):
     (forged or real) found inside an already-matched vendor-form
     subtree prunes nothing.
 
-    Returns (vendor_files, artifacts, pruned_build_dirs), all POSIX-
+    Returns (vendor_files, artifacts, pruned_build_dirs,
+    pruned_worktrees), all POSIX-
     relative to root, all de-duplicated and sorted.
     """
     vendor_dirs = []
     pruned_build_dirs = []
+    pruned_worktrees = []
     vendor_files = []
     artifacts = []
 
@@ -456,6 +502,9 @@ def scan_tree(root):
             if under_vendor_dir:
                 keep.append(name)
                 continue
+            if is_linked_worktree_of(root, os.path.join(dirpath, name)):
+                pruned_worktrees.append(_join_posix(rel_dirpath, name))
+                continue
             if is_build_output_dir(os.path.join(dirpath, name)):
                 pruned_build_dirs.append(_join_posix(rel_dirpath, name))
                 continue
@@ -474,10 +523,36 @@ def scan_tree(root):
         sorted(set(vendor_files)),
         sorted(set(artifacts)),
         sorted(set(pruned_build_dirs)),
+        sorted(set(pruned_worktrees)),
     )
 
 
 # --- the single verdict -----------------------------------------------
+
+
+def staged_copy_original(root, path):
+    """Returns the closed-list path this file is an accepted staged
+    copy of, or None. Accepted only when the file sits directly under
+    a declared stage root, names a closed-list file there, and is byte
+    for byte equal to that closed-list file in the repository. The
+    exception is the content, never the path.
+    """
+    for stage_root in STAGE_ROOTS:
+        prefix = stage_root + "/"
+        if not path.startswith(prefix):
+            continue
+        original = path[len(prefix):]
+        if original not in KNOWN_VENDOR_FILES:
+            return None
+        try:
+            with open(os.path.join(root, path), "rb") as staged:
+                staged_bytes = staged.read()
+            with open(os.path.join(root, original), "rb") as source:
+                source_bytes = source.read()
+        except OSError:
+            return None
+        return original if staged_bytes == source_bytes else None
+    return None
 
 
 def check_vendor_purity(root):
@@ -505,7 +580,7 @@ def check_vendor_purity(root):
         )
         return False
 
-    vendor_files, artifacts, pruned_build_dirs = scan_tree(root)
+    vendor_files, artifacts, pruned_build_dirs, pruned_worktrees = scan_tree(root)
 
     # GODS_LAWS.md DECISAO AUTONOMA 2 (plan SS3.4): zero files under
     # ANY vendor-form directory is its own, DISTINCT reprove from the
@@ -523,9 +598,14 @@ def check_vendor_purity(root):
         return False
 
     violations = []
+    staged_accepted = 0
     for path in vendor_files:
-        if path not in KNOWN_VENDOR_FILES:
-            violations.append((path, FORM_VENDOR_DIRECTORY))
+        if path in KNOWN_VENDOR_FILES:
+            continue
+        if staged_copy_original(root, path) is not None:
+            staged_accepted += 1
+            continue
+        violations.append((path, FORM_VENDOR_DIRECTORY))
     for path, form in artifacts:
         if form == FORM_SUBMODULE and ALLOW_GIT_SUBMODULES:
             continue
@@ -549,7 +629,9 @@ def check_vendor_purity(root):
         f"{SCRIPT_NAME}: {universe_count} caminho(s) varrido(s) na arvore, "
         f"{len(vendor_files)} sob diretorio de forma vendorizada, "
         f"{len(KNOWN_VENDOR_FILES)} na lista fechada - nenhum intruso "
-        f"({len(pruned_build_dirs)} diretorio(s) build*/ podado(s))"
+        f"({len(pruned_build_dirs)} diretorio(s) build*/ podado(s), "
+        f"{len(pruned_worktrees)} copia(s) de trabalho ligada(s) podada(s), "
+        f"{staged_accepted} copia(s) estagiada(s) aceita(s))"
     )
     return True
 
@@ -1082,6 +1164,222 @@ def selftest_escape_via_known_vendor_files_edit(scratch):
     return True
 
 
+# Linked-worktree prune (L-55, infra trail, 30/09/2026). A linked git
+# worktree under <root>/worktrees/ holds a FULL checkout of the repo,
+# including the Khronos exception, at a path the closed list does not
+# name - without the prune, creating one turns this gate red at once.
+# The prune is by MARKER, like the build prune: the directory must hold
+# a `.git` FILE whose `gitdir:` resolves under <root>/.git/worktrees/.
+# A forged `.git` file pointing anywhere else must prune nothing.
+def _commit_fixture(root):
+    subprocess.run(["git", "-C", root, "add", "-A"], check=True)
+    subprocess.run(["git", "-C", root, "commit", "-q", "-m", "fixture"], check=True)
+
+
+# Control: a real linked worktree carrying a full copy of the vendored
+# files. Expected: passes, the worktree is reported as pruned.
+def selftest_linked_worktree_pruned_control(scratch, capture):
+    root = os.path.join(scratch, "linked-worktree")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    _commit_fixture(root)
+    subprocess.run(
+        ["git", "-C", root, "worktree", "add", "-q", os.path.join("worktrees", "wt"), "-b", "wt"],
+        check=True,
+    )
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if not outcome.result:
+        print(
+            "selftest: controle WORKTREE-LIGADA FALHOU (a copia de trabalho "
+            "ligada a este repositorio deveria ter sido podada)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    if "1 copia(s) de trabalho ligada(s) podada(s)" not in outcome.text:
+        print(
+            "selftest: controle WORKTREE-LIGADA FALHOU (aprovou, mas nao "
+            "declarou a poda - poda silenciosa e' buraco)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle WORKTREE-LIGADA OK (copia de trabalho real "
+        "podada por marcador e declarada)"
+    )
+    return True
+
+
+# Control: a directory with a FORGED `.git` file pointing outside this
+# repository, holding an intruder under a vendor form. Expected: NOT
+# pruned, the intruder is cited.
+def selftest_forged_worktree_marker_control(scratch, capture):
+    root = os.path.join(scratch, "forged-worktree")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    forged = os.path.join(root, "worktrees", "forged")
+    intruder_dir = os.path.join(forged, "third_party", "stb")
+    os.makedirs(intruder_dir, exist_ok=True)
+    with open(os.path.join(intruder_dir, "stb_image.h"), "w", encoding="utf-8") as handle:
+        handle.write("int stb_decode(void);\n")
+    with open(os.path.join(forged, ".git"), "w", encoding="utf-8") as handle:
+        handle.write("gitdir: " + os.path.join(scratch, "elsewhere", ".git", "worktrees", "x") + "\n")
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result:
+        print(
+            "selftest: controle WORKTREE-FORJADA FALHOU (um .git forjado "
+            "apontando para fora do repositorio podou o terceiro)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    if "worktrees/forged/third_party/stb/stb_image.h" not in outcome.text:
+        print(
+            "selftest: controle WORKTREE-FORJADA FALHOU (reprovou, mas nao "
+            "citou o intruso)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle WORKTREE-FORJADA OK (.git forjado para fora "
+        "do repositorio nao poda nada, o intruso e' citado)"
+    )
+    return True
+
+
+# Control: a REAL worktree exists, and a non-vendor-form directory holds
+# a forged `.git` file pointing at that real admin dir (so the target
+# exists and sits under .git/worktrees/), with an intruder inside.
+# Expected: the intruder is cited, the real worktree still pruned.
+def selftest_forged_worktree_to_real_admin_control(scratch, capture):
+    root = os.path.join(scratch, "forged-to-real-admin")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    _commit_fixture(root)
+    subprocess.run(
+        ["git", "-C", root, "worktree", "add", "-q", os.path.join("worktrees", "real"), "-b", "real"],
+        check=True,
+    )
+    forged = os.path.join(root, "misc")
+    intruder_dir = os.path.join(forged, "third_party", "stb")
+    os.makedirs(intruder_dir, exist_ok=True)
+    with open(os.path.join(intruder_dir, "stb.h"), "w", encoding="utf-8") as handle:
+        handle.write("int stb_decode(void);\n")
+    with open(os.path.join(forged, ".git"), "w", encoding="utf-8") as handle:
+        handle.write("gitdir: " + os.path.join(root, ".git", "worktrees", "real") + "\n")
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result or "misc/third_party/stb/stb.h" not in outcome.text:
+        print(
+            "selftest: controle WORKTREE-FORJADA-PARA-ADMIN-REAL FALHOU (um "
+            ".git forjado apontando para a administracao de uma worktree "
+            "real escondeu o terceiro)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle WORKTREE-FORJADA-PARA-ADMIN-REAL OK (so o dono "
+        "da administracao e' podado, o forjado e' varrido e o intruso citado)"
+    )
+    return True
+
+
+# Staged-copy exception (errata 27, 30/09/2026). The container build
+# stages a throwaway copy of the library under a DECLARED stage root
+# (tests/container/_arch_ports_lib, regenerated, git-ignored). The
+# exception is the CONTENT, never the path: a staged file is accepted
+# only when it sits under a declared stage root AND is byte for byte
+# equal to the closed-list original in the repository. Anything else
+# there (changed byte, extra file, copy outside the declared roots)
+# is cited as usual.
+def _make_staged_fixture(scratch, name, stage_rel, mutate=None, extra=None):
+    root = os.path.join(scratch, name)
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    stage_dir = os.path.join(root, stage_rel, "third_party", "khronos")
+    os.makedirs(stage_dir, exist_ok=True)
+    for known in sorted(KNOWN_VENDOR_FILES):
+        base = os.path.basename(known)
+        with open(os.path.join(root, known), "rb") as src:
+            data = src.read()
+        if mutate and base == mutate:
+            data = data + b"x"
+        with open(os.path.join(stage_dir, base), "wb") as dst:
+            dst.write(data)
+    if extra:
+        with open(os.path.join(stage_dir, extra), "w", encoding="utf-8") as handle:
+            handle.write("not on the closed list\n")
+    return root
+
+
+def selftest_staged_copy_identical_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-ok", STAGE_ROOTS[0])
+    outcome = capture(lambda: check_vendor_purity(root))
+    if not outcome.result or "3 copia(s) estagiada(s) aceita(s)" not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-IDENTICO FALHOU (copia byte a byte "
+            "igual numa raiz declarada deveria passar e ser contada)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-IDENTICO OK (aceita e contada)")
+    return True
+
+
+def selftest_staged_copy_changed_byte_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-byte", STAGE_ROOTS[0], mutate="gl.xml")
+    outcome = capture(lambda: check_vendor_purity(root))
+    needle = STAGE_ROOTS[0] + "/third_party/khronos/gl.xml"
+    if outcome.result or needle not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-BYTE FALHOU (1 byte trocado deveria "
+            "ser acusado)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-BYTE OK (1 byte trocado acusado)")
+    return True
+
+
+def selftest_staged_copy_extra_file_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-extra", STAGE_ROOTS[0], extra="stb.h")
+    outcome = capture(lambda: check_vendor_purity(root))
+    needle = STAGE_ROOTS[0] + "/third_party/khronos/stb.h"
+    if outcome.result or needle not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-EXTRA FALHOU (arquivo extra ao lado "
+            "deveria ser acusado)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-EXTRA OK (arquivo extra acusado)")
+    return True
+
+
+def selftest_staged_copy_undeclared_root_control(scratch, capture):
+    root = _make_staged_fixture(scratch, "staged-undeclared", "elsewhere/_lib")
+    outcome = capture(lambda: check_vendor_purity(root))
+    needle = "elsewhere/_lib/third_party/khronos/gl.xml"
+    if outcome.result or needle not in outcome.text:
+        print(
+            "selftest: controle ESTAGIO-FORA-DA-RAIZ FALHOU (copia identica "
+            "fora das raizes declaradas deveria ser acusada)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle ESTAGIO-FORA-DA-RAIZ OK (copia fora da raiz acusada)")
+    return True
+
+
 # Non-git control: a real directory with the clean fixture's files on
 # disk, but never `git init`ed. Expected: reproves by scan refusal,
 # never presumed empty - the same discipline check_spdx.py's own
@@ -1130,6 +1428,13 @@ def selftest_main():
             selftest_empty_vendor_scan_control(scratch, capture),
             selftest_escape_via_known_vendor_files_edit(scratch),
             selftest_non_git_control(scratch, capture),
+            selftest_linked_worktree_pruned_control(scratch, capture),
+            selftest_forged_worktree_marker_control(scratch, capture),
+            selftest_forged_worktree_to_real_admin_control(scratch, capture),
+            selftest_staged_copy_identical_control(scratch, capture),
+            selftest_staged_copy_changed_byte_control(scratch, capture),
+            selftest_staged_copy_extra_file_control(scratch, capture),
+            selftest_staged_copy_undeclared_root_control(scratch, capture),
         ]
         if not all(controls):
             print("check_vendor_purity.py --selftest: FALHOU (ver acima)", file=sys.stderr)

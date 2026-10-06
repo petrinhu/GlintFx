@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
+#include <utility>
 #include <vector>
 
 #include <glintfx/platform/gl/gfx_option.hpp>
 
 #if defined(_WIN32)
 #include "platform/win32/selected_gl_context_adapter.hpp"
+#include "platform/win32/selected_power_source_adapter.hpp"
 #else
 #include "platform/wayland/selected_gl_context_adapter.hpp"
+#include "platform/wayland/selected_power_source_adapter.hpp"
 #endif
 
 // gl_context_impl.hpp - GL-CONTEXT (docs/plano-w6b-placa-e-laco.md
@@ -44,7 +48,29 @@ namespace glintfx {
 
 struct gl_context_impl {
     platform::selected_gl_context_adapter adapter;
+    // Where the machine's power comes from, reread at EVERY read of `power_source`,
+    // `suggested_preset` or `auto_choice_reason` and at every `preset = automatic` (D-W6b-34):
+    // never cached, never in a loop, never on its own. Stateless.
+    platform::selected_power_source_adapter power;
     std::vector<gltfx_gfx_option_entry> current_values;
 };
+
+// The resolver of THIS context, in the exact shape the loader of src/render/ takes (D-W7D-15,
+// gl_context_proc_address_fn): `user` is the gl_context_impl the drawing layer got from
+// gl_context_internal_access::get(), and the answer is what the adapter's own proc_address() gives
+// (eglGetProcAddress on Linux, wglGetProcAddress with the opengl32 fallback on Windows). The
+// context must be current on the calling thread, as for any GL function pointer. Inline, so the
+// drawing layer (src/draw2d/) needs nothing of the platform adapters but this header.
+[[nodiscard]] inline void *gl_context_resolve_proc(void *user, const char *name) noexcept {
+    return static_cast<gl_context_impl *>(user)->adapter.proc_address(name);
+}
+
+// The size of the drawing surface of THIS context in physical pixels {width, height} (what the
+// drawing layer gives glViewport), through the adapter's own surface_pixel_size(). `user` is the
+// gl_context_impl, as for gl_context_resolve_proc().
+[[nodiscard]] inline std::pair<std::uint32_t, std::uint32_t>
+gl_context_surface_pixel_size(const void *user) noexcept {
+    return static_cast<const gl_context_impl *>(user)->adapter.surface_pixel_size();
+}
 
 } // namespace glintfx

@@ -204,6 +204,11 @@ SO_HEADER_ALLOWLIST = frozenset(
         # through <sys/socket.h> (which only forward-declares it),
         # same "API do sistema" category sys/socket.h already is.
         "sys/uio.h",
+        # GFX-PRESET P2 (D-P2-1, GODS_LAWS.md L-07): power_source_adapter.cpp lists
+        # /sys/class/power_supply with opendir()/readdir() (the POSIX directory API, allocation-free:
+        # no std::filesystem, no container) - glibc's <dirent.h>, the same "API do sistema" category
+        # unistd.h/sys/stat.h already are.
+        "dirent.h",
         # WL-ACK-SMOKE-BLUNT A3 (docs/plano-w7c.md SS3.A, GODS_LAWS.md
         # L-07): wire_relay_main.cpp's own struct sockaddr_un (bind()/
         # connect() need it to name a Unix domain socket by path) -

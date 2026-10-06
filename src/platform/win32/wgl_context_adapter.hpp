@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/platform/gl/context.hpp>
@@ -67,11 +68,13 @@
 namespace glintfx::platform {
 
 class win32_window_adapter;
+struct wgl_extension_pointers;
 
 // D-W6b-18's own Windows-side mechanism: `adaptive` v-sync is honored
 // through wglSwapIntervalEXT(-1) ONLY when this system's own WGL_EXT_
-// swap_control_tear is present (detect_adaptive_vsync_support() below,
-// checked once at open() time via wglGetExtensionsStringARB) - refused
+// swap_control_tear is present (a fact wgl_extension_loader.hpp reads
+// off the WGL extension list while its disposable context is current,
+// by the whole token, D-SRGB2-5) - refused
 // BY NAME (gltfx_err_code::unsupported, rejected_value() == "vsync")
 // otherwise, never silently downgraded to plain `on` (the exact
 // mistake this project's own D-W6b-18 comment names, and the mirror of
@@ -138,16 +141,28 @@ class win32_gl_context_adapter {
     // mechanisms.
     [[nodiscard]] bool present_would_skip() const noexcept { return ::IsIconic(m_window) != 0; }
 
+    // R2D-BATCH B3c (gl_context_adapter_port.hpp): the client area of the context's window in
+    // physical pixels, the size glViewport takes. {0, 0} before a context is open, or if the window
+    // cannot say.
+    [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> surface_pixel_size() const noexcept {
+        RECT client{};
+        if (m_window == nullptr || ::GetClientRect(m_window, &client) == 0) {
+            return {0, 0};
+        }
+        return {static_cast<std::uint32_t>(client.right - client.left),
+                static_cast<std::uint32_t>(client.bottom - client.top)};
+    }
+
     [[nodiscard]] void *proc_address(std::string_view name) const noexcept;
 
     // Only ever called with a `live` entry (gl_context_facade.cpp's
     // own set_option() already refused an open_only/read_only entry
     // before reaching here) - `vsync` is the one id this adapter acts
     // on directly (D-W6b-18); every other live id (frame_rate_cap,
-    // preset) is accepted here with no adapter-side effect yet, the
-    // SAME "the fatia that gives an id real behavior teaches ITS OWN
-    // layer to act on it" reasoning egl_context_adapter.hpp's own class
-    // comment already documents.
+    // preset) is accepted here with no effect of its own, for the SAME
+    // reason egl_context_adapter.hpp's own class comment documents: the
+    // loop acts on frame_rate_cap, and the facade expands a preset into
+    // its rows before this adapter is ever asked.
     [[nodiscard]] gltfx_rslt<void> apply_option(gltfx_gfx_option_entry entry) noexcept;
 
     [[nodiscard]] gltfx_gfx_option_support option_support(gltfx_gfx_option id) const noexcept;
@@ -169,10 +184,9 @@ class win32_gl_context_adapter {
 
   private:
     [[nodiscard]] gltfx_rslt<void>
-    set_pixel_format_once(void *choose_pixel_format_arb,
+    set_pixel_format_once(const wgl_extension_pointers &loaded,
                           std::span<const gltfx_gfx_option_entry> options) noexcept;
     [[nodiscard]] gltfx_rslt<void> create_context(void *create_context_attribs_arb) noexcept;
-    void detect_adaptive_vsync_support() noexcept;
     [[nodiscard]] gltfx_rslt<void> call_swap_interval(int interval) noexcept;
 
     HDC m_dc = nullptr;
@@ -189,7 +203,11 @@ class win32_gl_context_adapter {
     std::uint32_t m_swap_calls_issued = 0;
 
     bool m_msaa_supported = false;
-    bool m_srgb_supported = false;
+    // D-SRGB2-1: the three facts srgb_option_support() (gfx_format_decision.hpp) reads, the same
+    // three the EGL adapter keeps: asked, announced by the driver, confirmed on the bound format.
+    bool m_srgb_requested = false;
+    bool m_srgb_advertised = false;
+    bool m_srgb_confirmed = false;
     // D-W6b-18: whether THIS system's own WGL_EXT_swap_control_tear is
     // present - detected once, at open() time, never guessed.
     bool m_adaptive_supported = false;

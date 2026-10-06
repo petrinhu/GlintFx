@@ -936,6 +936,144 @@ def resolve_string_view_substr(all_files_text):
     return sv_names, str_names
 
 
+# Palavras que aparecem antes de um identificador sem serem TIPO (`return x`, `delete p`, ...).
+NOT_A_TYPE = {"return", "delete", "new", "else", "case", "goto", "throw", "using", "typename",
+              "co_return", "co_yield", "sizeof", "namespace", "operator", "if", "while", "for",
+              "do", "switch", "auto", "decltype", "typedef", "friend", "explicit", "noexcept"}
+
+
+# Tipos escalares: um nome declarado com eles (um parametro `std::size_t pieces`) nao pode ser
+# receptor de metodo nenhum, entao nao conta como "tambem declarado com tipo da STL".
+SCALAR_TYPE = re.compile(
+    r"^(?:std::)?(?:u?int(?:8|16|32|64)?_t|size_t|ptrdiff_t|intptr_t|uintptr_t|int|unsigned|long|"
+    r"short|char|bool|float|double|void)$")
+
+
+def _last_component(type_text):
+    """`draw2d::triangle_batch<...>` -> `triangle_batch` (o nome curto da classe)."""
+    base = re.sub(r"<.*", "", type_text).strip()
+    return base.split("::")[-1]
+
+
+def build_declaration_index(names, all_files_text):
+    """D-B4-4 (errata sec. 22): {nome: {tipos}} para TODOS os `names`, numa passada por arquivo
+    (uma regex por arquivo sobre a alternancia dos nomes) em vez de uma varredura da arvore por
+    nome. Um nome vira tipo de uma declaracao (`Tipo nome`, `Tipo &nome`, `const Tipo *nome`:
+    variavel, membro ou parametro); declarado com `auto`, com `decltype(...)`, em structured
+    binding, em range-for ou em init-capture (`[nome = ...]`) o tipo e' DESCONHECIDO e entra
+    como UNKNOWN_TYPE (quem chama trata como acusado, fail-closed). Texto, nao tipo - a mesma
+    regua de nomes de resolve_string_view_substr()."""
+    index = {name: set() for name in names}
+    if not index:
+        return index
+    alt = "|".join(re.escape(n) for n in sorted(index, key=len, reverse=True))
+    typed = re.compile(
+        r"(?<![\w:])((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*(?:<[^;(){}=]*?>)?)(?=[\s&*])\s*(?:const\b\s*)?[&*]*\s*"
+        r"(" + alt + r")\b(?=\s*[;=,){(\[])")
+    auto_tail = re.compile(r"\bauto\b([^;(){}=]*)")
+    decltype_tail = re.compile(r"\bdecltype\s*\([^)]*\)([^;(){}=]*)")
+    capture = re.compile(r"(?<=[\[,])\s*&?\s*(" + alt + r")\s*=(?!=)")
+    ident = re.compile(r"[A-Za-z_]\w*")
+    for t in all_files_text.values():
+        for m in typed.finditer(t):
+            first = m.group(1).split("::")[0]
+            if first in NOT_A_TYPE or _last_component(m.group(1)) in NOT_A_TYPE:
+                continue
+            index[m.group(2)].add(m.group(1))
+        for tail in (auto_tail, decltype_tail):
+            for m in tail.finditer(t):
+                for word in ident.findall(m.group(1)):
+                    if word in index:
+                        index[word].add(UNKNOWN_TYPE)
+        for m in capture.finditer(t):
+            index[m.group(1)].add(UNKNOWN_TYPE)
+    return index
+
+
+def declared_types_of(name, all_files_text):
+    """Um nome so': o mesmo indice, uma implementacao so' (nenhuma segunda copia que possa divergir)."""
+    return build_declaration_index({name}, all_files_text)[name]
+
+
+UNKNOWN_TYPE = "<tipo-desconhecido>"
+
+
+def _match_paren(t, open_pos):
+    """Indice logo apos o `)` que casa com o `(` em `open_pos` (ou len(t))."""
+    depth, i = 0, open_pos
+    while i < len(t):
+        if t[i] == "(":
+            depth += 1
+        elif t[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return len(t)
+
+
+def class_method_is_noexcept(type_text, method, all_files_text):
+    """TODAS as declaracoes de `method(...)` no corpo de TODA `class|struct Nome {...}` de mesmo
+    nome curto, em qualquer arquivo da arvore, sao noexcept (e ha pelo menos uma). Uma sobrecarga
+    sem noexcept, uma classe que nao acha, ou nenhuma declaracao: False (fail-closed). Declaracao
+    = a chamada precedida de um tipo de retorno (identificador, `>`, `*` ou `&`, que nao seja
+    `return`/`else`/...), nunca de `.`, `->`, `(` ou `=`."""
+    short = _last_component(type_text)
+    head = re.compile(r"\b(?:class|struct)\s+" + re.escape(short) + r"\b[^;{]*\{")
+    call = re.compile(r"(?<![\w.>])" + re.escape(method) + r"\s*\(")
+    not_ret = {"return", "else", "co_return", "throw", "new", "delete", "case", "goto", "do"}
+    classes = 0
+    declared = 0
+    for t in all_files_text.values():
+        for m in head.finditer(t):
+            classes += 1
+            depth, i = 1, m.end()
+            while i < len(t) and depth:
+                depth += 1 if t[i] == "{" else -1 if t[i] == "}" else 0
+                i += 1
+            body = t[m.end():i]
+            for c in call.finditer(body):
+                before = body[:c.start()].rstrip()
+                if not before or not (before[-1].isalnum() or before[-1] in "_>*&"):
+                    continue
+                prev_word = re.search(r"([A-Za-z_]\w*)$", before)
+                if prev_word and prev_word.group(1) in not_ret:
+                    continue
+                after = body[_match_paren(body, c.end() - 1):]
+                stop = min([k for k in (after.find("{"), after.find(";"), after.find("=")) if k >= 0]
+                           or [len(after)])
+                declared += 1
+                if not re.search(r"\bnoexcept\b", after[:stop]):
+                    return False
+    return classes > 0 and declared > 0
+
+
+def receiver_is_project_noexcept(recv, method, all_files_text, index=None, class_cache=None):
+    """D-B4-3 (errata sec. 20): o receptor e' resolvido pelo TIPO DECLARADO. Absolvido so' quando
+    o nome e' declarado APENAS com tipos do projeto (nada de `std::`, nada de contentor da STL) e
+    o metodo de mesmo nome e' noexcept em CADA um deles. Nome declarado tambem com tipo da STL,
+    sem declaracao achada, ou com um metodo sem noexcept: continua acusado."""
+    if not recv:
+        return False
+    declared = index[recv] if index is not None and recv in index else declared_types_of(recv, all_files_text)
+    types = {ty for ty in declared if not SCALAR_TYPE.match(ty)}
+    if not types:
+        return False
+    for ty in types:
+        if ty == UNKNOWN_TYPE or ty.startswith("std::") or _last_component(ty) in CONTAINERS:
+            return False
+        key = (_last_component(ty), method)
+        if class_cache is not None and key in class_cache:
+            noexcept_here = class_cache[key]
+        else:
+            noexcept_here = class_method_is_noexcept(ty, method, all_files_text)
+            if class_cache is not None:
+                class_cache[key] = noexcept_here
+        if not noexcept_here:
+            return False
+    return True
+
+
 def analyze_tree(files, err_copy_is_noexcept=False):
     """files: lista de (rel_path, texto_bruto). Devolve dict com
     all_funcs, all_hits, allocs_B (funcoes com alocacao B direta e
@@ -948,8 +1086,14 @@ def analyze_tree(files, err_copy_is_noexcept=False):
     sv_names, str_names = resolve_string_view_substr(all_files_text)
 
     all_funcs, all_hits = [], []
-    for rel, text in files:
-        funcs, hits = analyze_source(text, rel, err_copy_is_noexcept=err_copy_is_noexcept)
+    per_file = [(rel, analyze_source(text, rel, err_copy_is_noexcept=err_copy_is_noexcept)) for rel, text in files]
+    # D-B4-4: the receivers whose declared type has to be resolved (one index for the whole run, one pass
+    # per file), and a cache of "does class X declare method Y noexcept" by (short class name, method).
+    receivers = {h.get("recv") for _rel, (_funcs, hits) in per_file for h in hits
+                 if h["family"] == "B" and h["type"] == "metodo" and h.get("recv")}
+    receiver_index = build_declaration_index(receivers, all_files_text)
+    class_cache = {}
+    for rel, (funcs, hits) in per_file:
         for h in hits:
             if h["family"] == "B-ambiguo-substr":
                 if h.get("recv") in sv_names and h.get("recv") not in str_names:
@@ -958,6 +1102,10 @@ def analyze_tree(files, err_copy_is_noexcept=False):
                     h["family"] = "B-ambiguo"
                 else:
                     h["family"] = "B"
+            elif (h["family"] == "B" and h["type"] == "metodo"
+                  and receiver_is_project_noexcept(h.get("recv"), h["kind"], all_files_text,
+                                                   receiver_index, class_cache)):
+                h["family"] = "-"
         all_funcs.extend(funcs)
         all_hits.extend(hits)
 
@@ -1732,6 +1880,11 @@ DIRTY_FIXTURES = [
     "calib_dirty_complex_match.cpp",
     "bad_err_copy_chain.cpp",
     "bad_err_copy_accessor.cpp",
+    "bad_std_vector_reserve.cpp",
+    "bad_reserve_mixed_receiver_types.cpp",
+    "bad_project_reserve_not_noexcept.cpp",
+    "bad_reserve_auto_homonym.cpp",
+    "bad_reserve_overload_not_noexcept.cpp",
 ]
 CLEAN_FIXTURES = [
     "good_fixed_buffer.cpp",
@@ -1743,6 +1896,7 @@ CLEAN_FIXTURES = [
     "good_err_copy_prvalue.cpp",
     "good_err_copy_moved.cpp",
     "good_err_copy_in_try.cpp",
+    "good_project_reserve_noexcept.cpp",
 ]
 
 

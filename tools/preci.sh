@@ -556,7 +556,7 @@ GLINTFX_PS_SYNTAX_EOF
 # tests-off build uses plain `cmake` directly, not preci.sh, whose
 # entire purpose is running the test suite.
 stage_configure() {
-    cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
+    cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
 }
 
@@ -897,6 +897,85 @@ docker_state_now() {
     fi
 }
 
+# The same aggregate the CI prints (tests/tools/ctest_aggregate.py, same
+# ruler: declared/executed/passed/failed/skipped, heavy tests, slack P2),
+# read from the JUnit this run just wrote, then the comparison of every
+# test's duration with the last GREEN run of the same mode. Runs AFTER the
+# MEASURED-COLLECTOR block above on purpose: `ctest -N` rewrites
+# LastTest.log. The scope line of both is printed even at zero.
+# Cache state of the ctest stage, for the comparison with the last green
+# run (cto-review, 30/09/2026: the same 9 nested-build tests take 44.7 s
+# with a hot cache and 147.4 s with it off or cold, 3.3x, above the 3x
+# limit). The state is "desligado", "ligado-quente" (hit rate of THIS
+# stage's compiles >= 80%, or zero compiles) or "ligado-frio". Only
+# desligado/desligado and quente/quente runs are compared.
+ccache_counts() {
+    if [ "$CCACHE_STATE" != "ligado" ]; then
+        echo "0 0"
+        return 0
+    fi
+    ccache --print-stats | awk -F'\t' \
+        '$1=="direct_cache_hit"||$1=="preprocessed_cache_hit"{h+=$2} $1=="cache_miss"{m+=$2} END{print h+0, m+0}'
+}
+
+ccache_run_state() {
+    set -- $1 $(ccache_counts)
+    _cc_hits=$(( $3 - $1 )); _cc_misses=$(( $4 - $2 ))
+    _cc_calls=$(( _cc_hits + _cc_misses ))
+    if [ "$CCACHE_STATE" != "ligado" ]; then
+        echo "estado=desligado acerto=na chamadas=0"
+    elif [ "$_cc_calls" -eq 0 ]; then
+        echo "estado=ligado-quente acerto=na chamadas=0"
+    elif [ $(( _cc_hits * 100 / _cc_calls )) -ge 80 ]; then
+        echo "estado=ligado-quente acerto=$(( _cc_hits * 100 / _cc_calls )) chamadas=$_cc_calls"
+    else
+        echo "estado=ligado-frio acerto=$(( _cc_hits * 100 / _cc_calls )) chamadas=$_cc_calls"
+    fi
+}
+
+preci_tempos_dir() {
+    echo "${GLINTFX_PRECI_TEMPOS_DIR:-/var/tmp/glintfx-preci-tempos}"
+}
+
+stage_ctest_report() {
+    jobs_used="$1"; junit_path="$2"
+    ctest --test-dir "$BUILD_DIR" -N > "$BUILD_DIR/parity_inventory.txt" \
+        || fail "estagio ctest: 'ctest -N' falhou (inventario)"
+    ctest --test-dir "$BUILD_DIR" --show-only=json-v1 > "$BUILD_DIR/ctest-show.json" \
+        || fail "estagio ctest: 'ctest --show-only=json-v1' falhou"
+    if ! GLINTFX_PARALELISMO="$jobs_used" python3 "$ROOT_DIR/tests/tools/ctest_aggregate.py" \
+        --builddir "$BUILD_DIR" --inventory "$BUILD_DIR/parity_inventory.txt" \
+        --tests-json "$BUILD_DIR/ctest-show.json"; then
+        fail "estagio ctest: o agregado (mesma regua do CI) reprovou - ver acima"
+    fi
+    base_junit="$(preci_tempos_dir)/${STAGE_TIMES_MODO:-desconhecido}-ultima-verde.xml"
+    base_state="estado=desconhecido"
+    if [ -f "${base_junit%.xml}.cache" ]; then
+        base_state="$(cat "${base_junit%.xml}.cache")"
+    fi
+    if ! python3 "$ROOT_DIR/tests/tools/preci_compare_times.py" --base "$base_junit" --now "$junit_path" \
+        --base-state "$base_state" --now-state "$CTEST_CACHE_STATE"; then
+        fail "estagio ctest: teste muito mais lento que na ultima rodada verde - ver acima"
+    fi
+}
+
+# Only a run that closed GREEN becomes the base of the next comparison.
+record_green_baseline() {
+    [ -f "$BUILD_DIR/ctest-results-junit.xml" ] || fail "base de tempos: JUnit desta rodada ausente"
+    case "$CTEST_CACHE_STATE" in
+        "estado=desligado "*|"estado=ligado-quente "*) ;;
+        *)
+            echo "base de tempos: MANTIDA a anterior (esta rodada esta em estado nao comparavel: $CTEST_CACHE_STATE)"
+            return 0
+            ;;
+    esac
+    cp "$BUILD_DIR/ctest-results-junit.xml" "$(preci_tempos_dir)/${STAGE_TIMES_MODO}-ultima-verde.xml" \
+        || fail "base de tempos: nao foi possivel gravar a base da rodada verde"
+    printf '%s\n' "$CTEST_CACHE_STATE" > "$(preci_tempos_dir)/${STAGE_TIMES_MODO}-ultima-verde.cache" \
+        || fail "base de tempos: nao foi possivel gravar o estado do cache da base"
+    echo "base de tempos: rodada verde gravada em $(preci_tempos_dir)/${STAGE_TIMES_MODO}-ultima-verde.xml ($CTEST_CACHE_STATE)"
+}
+
 stage_ctest() {
     count="$(count_ctest_tests "$BUILD_DIR")"
     require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
@@ -914,10 +993,12 @@ stage_ctest() {
     jobs="$(pick_ctest_jobs "$requested" "$(nproc)" "$docker_state" "$mem_avail_kb" "$other_builds")" \
         || fail "estagio ctest recusado: $jobs"
     echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker=$docker_state, MemAvailable_kB=$mem_avail_kb, outros cmake/ctest/ninja da maquina no ar=$other_builds)"
+    junit="$BUILD_DIR/ctest-results-junit.xml"
+    ccache_before="$(ccache_counts)"
     if [ "$jobs" -gt 1 ]; then
-        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs"
+        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs" --output-junit "$junit"
     else
-        ctest --test-dir "$BUILD_DIR" --output-on-failure
+        ctest --test-dir "$BUILD_DIR" --output-on-failure --output-junit "$junit"
     fi
 
     # MEASURED-COLLECTOR, espelho local (achado do time-lead,
@@ -946,6 +1027,10 @@ stage_ctest() {
             log "collect_measured.py (espelho local): $(wc -l <"$measured_out") linha(s) MEASURED - ver $measured_out"
         fi
     fi
+
+    CTEST_CACHE_STATE="$(ccache_run_state "$ccache_before")"
+    echo "cache do estagio ctest: $CTEST_CACHE_STATE"
+    stage_ctest_report "$jobs" "$junit"
 }
 
 # --- GATE-ASAN-HALT bite controls (GODS_LAWS.md L-27/L-36/L-40) ---
@@ -1229,7 +1314,7 @@ run_sanitizer_bite_controls() {
 # proving the mechanism before the real suite ran would still leave
 # open whether the real build's own configure matches production.
 stage_sanitizer() {
-    cmake -S "$ROOT_DIR" -B "$SANITIZE_BUILD_DIR" -G Ninja \
+    cmake -S "$ROOT_DIR" -B "$SANITIZE_BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON \
         -DGLINTFX_SANITIZE=address,undefined
     cmake --build "$SANITIZE_BUILD_DIR"
@@ -1358,7 +1443,7 @@ stage_debug() {
     require_nonempty_asserts "debug" "$count" \
         || fail "estagio debug recusado (varredura vazia de assert() de produto - GODS_LAWS.md L-40, GATE-DEBUG)"
 
-    cmake -S "$ROOT_DIR" -B "$DEBUG_BUILD_DIR" -G Ninja \
+    cmake -S "$ROOT_DIR" -B "$DEBUG_BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
     cmake --build "$DEBUG_BUILD_DIR"
 
@@ -2085,6 +2170,211 @@ run_selftest_ctest_jobs_controls() {
     echo "selftest: pick_ctest_jobs OK"
 }
 
+run_selftest_ccache_controls() {
+    log "selftest: setup_ccache (ligado, desligado pela chave, ausente; o estado e' sempre impresso)"
+    # Each case runs in a subshell: setup_ccache exports, and the real
+    # environment of this run must stay untouched. The launcher is preset
+    # in the off cases, so "unset" is proven, not assumed.
+    # The CI `lint` job runs this --selftest in a container with no ccache:
+    # the "on" case uses a stub executable, never the real one.
+    stub_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-stub.XXXXXX")" \
+        || fail "selftest ccache: mktemp falhou"
+    printf '#!/bin/sh\nexit 0\n' > "$stub_dir/ccache"
+    chmod +x "$stub_dir/ccache"
+    # `fail` exits at once: the stub is removed BEFORE it, on every failure path.
+    esperar() {
+        nome="$1"; esperado_estado="$2"; esperado_lancador="$3"; chave="$4"; caminho="$5"
+        obtido="$(
+            unset CCACHE_DIR CCACHE_MAXSIZE
+            GLINTFX_PRECI_CCACHE="$chave" \
+                CMAKE_CXX_COMPILER_LAUNCHER=preset CMAKE_C_COMPILER_LAUNCHER=preset
+            PATH="$caminho"
+            setup_ccache /selftest-root
+            echo "lancadores=[${CMAKE_C_COMPILER_LAUNCHER:-}|${CMAKE_CXX_COMPILER_LAUNCHER:-}]"
+        )"
+        case "$obtido" in
+            *"$esperado_estado"*"lancadores=[$esperado_lancador]"*) echo "selftest: ccache $nome OK" ;;
+            *) rm -rf "$stub_dir"; fail "selftest ccache $nome: esperado '$esperado_estado' com lancadores [$esperado_lancador], obtido '$obtido'" ;;
+        esac
+    }
+    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=/selftest-root:" "ccache|ccache" 1 "$stub_dir:$PATH"
+    rm -rf "$stub_dir"
+    esperar "desligado pela chave" "ccache: desligado (GLINTFX_PRECI_CCACHE=0)" "|" 0 "$PATH"
+    esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
+}
+
+run_selftest_ccache_mask_controls() {
+    log "selftest: diretorio de mascara do ccache no PATH (ex.: /usr/lib64/ccache do Fedora) sai do PATH, com a chave ligada ou desligada"
+    # Fake host: a stub ccache plus a mask dir whose c++/cc/g++/gcc are links
+    # to it. Never depends on a real ccache or a real mask dir (the CI has none).
+    mask_root="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-mask.XXXXXX")" \
+        || fail "selftest ccache mascara: mktemp falhou"
+    falhar() { rm -rf "$mask_root"; fail "$@"; }
+    mkdir "$mask_root/bin" "$mask_root/mask" || falhar "selftest ccache mascara: mkdir falhou"
+    printf '#!/bin/sh\nexit 0\n' > "$mask_root/bin/ccache"
+    chmod +x "$mask_root/bin/ccache"
+    for nome in c++ cc g++ gcc; do
+        ln -s "$mask_root/bin/ccache" "$mask_root/mask/$nome" || falhar "selftest ccache mascara: ln falhou"
+    done
+    observar() {
+        (
+            unset CCACHE_DISABLE
+            GLINTFX_PRECI_CCACHE="$1"
+            PATH="$mask_root/mask:$mask_root/bin:$PATH"
+            estado="$(setup_ccache /selftest-root)" || true
+            # setup_ccache exports: re-run it in this shell for the environment.
+            setup_ccache /selftest-root > /dev/null
+            case ":$PATH:" in
+                *":$mask_root/mask:"*) echo "mascara=no-PATH" ;;
+                *) echo "mascara=fora-do-PATH" ;;
+            esac
+            echo "disable=${CCACHE_DISABLE:-}"
+            echo "$estado" | grep '^ccache: mascaras retiradas' || echo "mascaras retiradas: linha ausente"
+        )
+    }
+    obtido="$(observar 0)"
+    case "$obtido" in
+        *"mascara=fora-do-PATH"*"disable=1"*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave desligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 0): esperado mascara fora do PATH, CCACHE_DISABLE=1 e '1' retirada; obtido '$obtido'" ;;
+    esac
+    obtido="$(observar 1)"
+    case "$obtido" in
+        *"mascara=fora-do-PATH"*"disable="*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave ligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 1): esperado mascara fora do PATH e '1' retirada; obtido '$obtido'" ;;
+    esac
+    rm -rf "$mask_root"
+}
+
+run_selftest_ccache_preconfigured_controls() {
+    log "selftest: arvore de build JA configurada segue a chave do ccache (o ambiente so vale no primeiro configure)"
+    if ! command -v ccache > /dev/null 2>&1; then
+        echo "selftest: ccache preconfigurado NAO APLICAVEL neste host (ccache ausente; 0 de 2 controles executados, declarado - nao reprova)"
+        return 0
+    fi
+    dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-pre.XXXXXX")" \
+        || fail "selftest ccache preconfigurado: mktemp falhou"
+    falhar() { rm -rf "$dir"; fail "$@"; }
+    printf 'cmake_minimum_required(VERSION 3.20)\nproject(x CXX)\nadd_library(x STATIC x.cpp)\n' > "$dir/CMakeLists.txt"
+    printf 'int x_fn() { return 0; }\n' > "$dir/x.cpp"
+    lido() { sed -n 's/^CMAKE_CXX_COMPILER_LAUNCHER:[A-Z]*=//p' "$dir/build/CMakeCache.txt"; }
+    # The state is proven by ccache's OWN counters, not by the message:
+    # zero compiler calls through it when off, more than zero when on.
+    chamadas() {
+        CCACHE_DIR="$dir/cc" ccache --print-stats | awk -F'\t' \
+            '$1=="direct_cache_hit"||$1=="preprocessed_cache_hit"||$1=="cache_miss"{n+=$2} END{print n+0}'
+    }
+    compilar() {
+        CCACHE_DIR="$dir/cc" ccache -z > /dev/null
+        CCACHE_DIR="$dir/cc" cmake --build "$dir/build" --clean-first > /dev/null 2>&1 || falhar "selftest ccache preconfigurado: build da arvore falhou"
+    }
+    # State 1: tree first configured WITH the launcher, then the switch turns it off.
+    (GLINTFX_PRECI_CCACHE=1 setup_ccache /selftest-root > /dev/null
+     cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
+        || falhar "selftest ccache preconfigurado: primeiro configure falhou"
+    [ "$(lido)" = "ccache" ] || falhar "selftest ccache preconfigurado: arvore nao nasceu com o lancador (lido '$(lido)')"
+    (GLINTFX_PRECI_CCACHE=0 setup_ccache /selftest-root > /dev/null
+     cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
+        || falhar "selftest ccache preconfigurado: reconfigure desligado falhou"
+    [ -z "$(lido)" ] || falhar "selftest ccache preconfigurado: arvore com lancador NAO desligou (lido '$(lido)')"
+    compilar
+    [ "$(chamadas)" = "0" ] || falhar "selftest ccache preconfigurado: desligado, mas o ccache contou $(chamadas) chamada(s)"
+    echo "selftest: ccache preconfigurado com lancador e depois desligado OK"
+    # State 2: tree first configured WITHOUT it, then the switch turns it on.
+    (GLINTFX_PRECI_CCACHE=1 setup_ccache /selftest-root > /dev/null
+     cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
+        || falhar "selftest ccache preconfigurado: reconfigure ligado falhou"
+    [ "$(lido)" = "ccache" ] || falhar "selftest ccache preconfigurado: arvore sem lancador NAO ligou (lido '$(lido)')"
+    compilar
+    [ "$(chamadas)" -gt 0 ] || falhar "selftest ccache preconfigurado: ligado, mas o ccache contou ZERO chamadas"
+    echo "selftest: ccache preconfigurado sem lancador e depois ligado OK"
+    rm -rf "$dir"
+}
+
+run_selftest_stage_times_controls() {
+    log "selftest: tempo por estagio (uma linha por estagio, o arquivo concorda, contagem que nao fecha reprova)"
+    dir="$(mktemp -d "${TMPDIR}/glintfx-preci-tempos.XXXXXX")" \
+        || fail "selftest tempos: mktemp falhou"
+    falhar() { rm -rf "$dir"; fail "$@"; }
+    estagio_lento() { sleep 1; }
+    estagio_rapido() { :; }
+    estagio_curto() { sleep 0.3; }
+    saida="$(
+        GLINTFX_PRECI_TEMPOS_DIR="$dir"
+        STAGE_TIMES_MODO=selftest
+        stage_times_init selftest
+        timed_stage "a: lento" estagio_lento
+        timed_stage "b: rapido" estagio_rapido
+        timed_stage "c: rapido" estagio_rapido
+        report_stage_times
+    )" || falhar "selftest tempos: pipeline de mentira reprovou: $saida"
+    linhas="$(printf '%s\n' "$saida" | grep -c '^estagio .* levou [0-9.]* s$' || true)"
+    [ "$linhas" = "3" ] || falhar "selftest tempos: esperadas 3 linhas 'levou', obtidas '$linhas'"
+    printf '%s\n' "$saida" | grep -q '^estagio a: lento levou 1\.[0-9] s$' \
+        || falhar "selftest tempos: o estagio de 1 s nao foi medido como 1.x s: $saida"
+    printf '%s\n' "$saida" | grep -q '3 estagio(s) cronometrado(s) de 3 executado(s), 3 no arquivo' \
+        || falhar "selftest tempos: linha de contagem ausente ou errada: $saida"
+    echo "selftest: tempos por estagio - 3 estagios, 3 linhas, arquivo concorda OK"
+    # Sub-second precision: a 0.3 s stage must not come out as 0.0 under a
+    # comma-decimal locale (pt_BR; a host without that locale measures in its
+    # own, where the comma never appears).
+    curto="$(
+        LC_NUMERIC=pt_BR.UTF-8
+        GLINTFX_PRECI_TEMPOS_DIR="$dir"
+        STAGE_TIMES_MODO=selftest
+        stage_times_init selftest
+        timed_stage "d: curto" estagio_curto
+    )"
+    printf '%s\n' "$curto" | grep -q '^estagio d: curto levou 0\.[1-9] s$' \
+        || falhar "selftest tempos: um estagio de 0.3 s nao foi medido com casa decimal (locale de virgula?): $curto"
+    echo "selftest: tempos por estagio - precisao de sub-segundo sob locale de virgula OK"
+    # Negative: the file loses an entry behind the counters' back. The
+    # count has to stop closing, never pass.
+    if (
+        GLINTFX_PRECI_TEMPOS_DIR="$dir"
+        STAGE_TIMES_MODO=selftest
+        stage_times_init selftest
+        timed_stage "a: rapido" estagio_rapido
+        timed_stage "b: rapido" estagio_rapido
+        printf '{"modo":"selftest","estagios":[]}\n' > "$STAGE_TIMES_FILE"
+        report_stage_times
+    ) > /dev/null 2>&1; then
+        falhar "selftest tempos: arquivo sem estagios passou (a contagem nao foi conferida contra o arquivo)"
+    fi
+    echo "selftest: tempos por estagio - contagem que nao fecha reprova OK"
+    rm -rf "$dir"
+    python3 "$ROOT_DIR/tests/tools/preci_compare_times.py" --selftest \
+        || falhar "selftest tempos: preci_compare_times.py --selftest reprovou"
+}
+
+run_selftest_cache_state_controls() {
+    log "selftest: estado do cache do estagio ctest (base comparavel) e cobertura do cronometro nos modos parciais"
+    esperar() {
+        nome="$1"; esperado="$2"; estado="$3"; antes="$4"; depois="$5"
+        obtido="$(
+            CCACHE_STATE="$estado"
+            ccache_counts() { echo "$depois"; }
+            ccache_run_state "$antes"
+        )"
+        [ "$obtido" = "$esperado" ] || fail "selftest estado do cache $nome: esperado '$esperado', obtido '$obtido'"
+        echo "selftest: estado do cache $nome OK"
+    }
+    esperar "desligado" "estado=desligado acerto=na chamadas=0" desligado "0 0" "0 0"
+    esperar "ligado, 97 de 100 (quente)" "estado=ligado-quente acerto=97 chamadas=100" ligado "10 5" "107 8"
+    esperar "ligado, 12 de 100 (frio)" "estado=ligado-frio acerto=12 chamadas=100" ligado "0 0" "12 88"
+    esperar "ligado, sem compilar nada (quente, declarado)" "estado=ligado-quente acerto=na chamadas=0" ligado "50 9" "50 9"
+    # Every mode function (run_full_pipeline, run_*_only, main) calls its stages THROUGH timed_stage: a bare
+    # `stage_x` call there would run with no timing line, no JSON and no count.
+    nus="$(awk '
+        /^(run_full_pipeline|run_[a-z_0-9]*_only|main)\(\) \{/ { dentro = 1; next }
+        /^}/ { dentro = 0 }
+        dentro && /^ +stage_[a-z_0-9]+( |$)/ && $1 !~ /^stage_times_/ { print FILENAME ":" FNR ": " $0 }
+    ' "$ROOT_DIR/tools/preci.sh")"
+    [ -z "$nus" ] || fail "selftest cronometro: estagio chamado sem timed_stage: $nus"
+    cobertos="$(grep -c '^ *timed_stage ' "$ROOT_DIR/tools/preci.sh" || true)"
+    [ "$cobertos" -ge 20 ] || fail "selftest cronometro: so $cobertos chamadas de timed_stage no script (piso 20; varredura quebrada)"
+    echo "selftest: cronometro cobre todos os modos ($cobertos chamadas de timed_stage, nenhuma chamada de estagio sem ele)"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -2097,38 +2387,37 @@ run_selftest() {
     run_selftest_noexcept_alloc_controls
     run_selftest_floor_controls
     run_selftest_ctest_jobs_controls
+    run_selftest_ccache_controls
+    run_selftest_ccache_mask_controls
+    run_selftest_ccache_preconfigured_controls
+    run_selftest_stage_times_controls
+    run_selftest_cache_state_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
 # --- pipelines ---
 
 run_lint_only() {
-    log "estagio 1: clang-format"
-    stage_format
-    log "estagio 2: configure (-Werror)"
-    stage_configure
-    log "estagio 3: build"
-    stage_build
-    log "estagio 4: clang-tidy"
-    stage_tidy
-    log "estagio 5: cppcheck"
-    stage_cppcheck
-    log "estagio 5b: justificativa de NOLINT"
-    stage_nolint_justification
-    log "estagio 5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)"
-    stage_noexcept_alloc
+    timed_stage "1: clang-format" stage_format
+    timed_stage "2: configure (-Werror)" stage_configure
+    timed_stage "3: build" stage_build
+    timed_stage "4: clang-tidy" stage_tidy
+    timed_stage "5: cppcheck" stage_cppcheck
+    timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
+    timed_stage "5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)" stage_noexcept_alloc
+    report_stage_times
     echo "preci.sh --lint-only: VERDE"
 }
 
 run_sanitizer_only() {
-    log "estagio 7: sanitizer (ASan/UBSan)"
-    stage_sanitizer
+    timed_stage "7: sanitizer (ASan/UBSan)" stage_sanitizer
+    report_stage_times
     echo "preci.sh --sanitizer-only: VERDE"
 }
 
 run_debug_only() {
-    log "estagio 8: debug (NDEBUG indefinido, assert() de produto ligado)"
-    stage_debug
+    timed_stage "8: debug (NDEBUG indefinido, assert() de produto ligado)" stage_debug
+    report_stage_times
     echo "preci.sh --debug-only: VERDE"
 }
 
@@ -2182,70 +2471,118 @@ stage_blob() {
 }
 
 run_blob_only() {
-    log "estagio blob: configure (o ctest real e' a fonte independente do universo) e --selftest Python sobre o INDICE"
-    stage_configure
-    stage_blob
+    timed_stage "blob-1: configure (o ctest real e' a fonte independente do universo)" stage_configure
+    timed_stage "blob-2: --selftest Python sobre o INDICE" stage_blob
+    report_stage_times
     echo "preci.sh --blob-only: VERDE"
 }
 
 run_ps_syntax_only() {
-    log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
-    stage_ps_syntax
+    timed_stage "1b: sintaxe PowerShell (GATE-PS-SYNTAX)" stage_ps_syntax
+    report_stage_times
     echo "preci.sh --ps-syntax-only: VERDE"
 }
 
 run_win32_link_only() {
     strict_flag="${1:-}"
-    log "estagio win32-link: alvos win32_* de tests/CMakeLists.txt ligados contra o cl.exe/link.exe real (GATE-WIN32-LINK)"
-    stage_win32_link diagnostic "$strict_flag"
+    timed_stage "win32-link (alvos win32_* ligados contra o cl.exe/link.exe real, GATE-WIN32-LINK)" stage_win32_link diagnostic "$strict_flag"
+    report_stage_times
     echo "preci.sh --win32-link-only: VERDE"
 }
 
 run_container_link_only() {
-    log "estagio container-link: check_container_fixture_link.py --exec real contra a arvore estagiada (GATE-CONT-LINK)"
-    stage_container_link
+    timed_stage "container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)" stage_container_link
+    report_stage_times
     echo "preci.sh --container-link-only: VERDE"
+}
+
+# Per-stage timing (infra trail C3, 30/09/2026). Every stage of the full
+# pipeline runs through timed_stage: it prints "estagio <nome> levou <N>
+# s" ALWAYS, and rewrites a JSON for the run after EACH stage (so a run
+# that dies in stage k still leaves the k-1 measured stages on disk).
+# report_stage_times closes the run with the count of timed stages and
+# re-counts them from the JSON file itself: the printed number is only
+# believed when the file agrees (GODS_LAWS.md L-40).
+STAGE_TIMES_NAMES=()
+STAGE_TIMES_SECS=()
+STAGE_TIMES_EXPECTED=0
+STAGE_TIMES_FILE=""
+
+stage_times_init() {
+    _ts_modo="$1"
+    _ts_dir="${GLINTFX_PRECI_TEMPOS_DIR:-/var/tmp/glintfx-preci-tempos}"
+    mkdir -p "$_ts_dir" || fail "nao foi possivel criar $_ts_dir (tempos por estagio)"
+    STAGE_TIMES_NAMES=()
+    STAGE_TIMES_SECS=()
+    STAGE_TIMES_EXPECTED=0
+    STAGE_TIMES_FILE="$_ts_dir/$(date +%Y-%m-%d_%H%M%S)-${_ts_modo}.json"
+}
+
+write_stage_times_json() {
+    {
+        printf '{"modo":"%s","estagios":[' "$1"
+        _ts_i=0
+        while [ "$_ts_i" -lt "${#STAGE_TIMES_NAMES[@]}" ]; do
+            [ "$_ts_i" -gt 0 ] && printf ','
+            printf '{"nome":"%s","segundos":%s}' "${STAGE_TIMES_NAMES[$_ts_i]}" "${STAGE_TIMES_SECS[$_ts_i]}"
+            _ts_i=$((_ts_i + 1))
+        done
+        printf ']}\n'
+    } > "$STAGE_TIMES_FILE" || fail "nao foi possivel gravar $STAGE_TIMES_FILE"
+}
+
+timed_stage() {
+    _ts_nome="$1"; shift
+    log "estagio $_ts_nome"
+    STAGE_TIMES_EXPECTED=$((STAGE_TIMES_EXPECTED + 1))
+    # EPOCHREALTIME uses the locale decimal separator (a comma in pt_BR): awk
+    # would read "1759250000,123" as 1759250000 and every stage would be
+    # measured in whole seconds, so the comma is turned into a point first.
+    _ts_inicio="${EPOCHREALTIME/,/.}"
+    "$@"
+    _ts_fim="${EPOCHREALTIME/,/.}"
+    _ts_duracao="$(awk -v a="$_ts_inicio" -v b="$_ts_fim" 'BEGIN { printf "%.1f", b - a }')"
+    echo "estagio $_ts_nome levou $_ts_duracao s"
+    STAGE_TIMES_NAMES+=("$_ts_nome")
+    STAGE_TIMES_SECS+=("$_ts_duracao")
+    write_stage_times_json "${STAGE_TIMES_MODO:-desconhecido}"
+}
+
+report_stage_times() {
+    _ts_no_arquivo="$(grep -o '"segundos":' "$STAGE_TIMES_FILE" | wc -l || true)"
+    _ts_no_arquivo="${_ts_no_arquivo//[[:space:]]/}"
+    echo "tempos por estagio: ${#STAGE_TIMES_NAMES[@]} estagio(s) cronometrado(s) de $STAGE_TIMES_EXPECTED executado(s), $_ts_no_arquivo no arquivo $STAGE_TIMES_FILE"
+    if [ "${#STAGE_TIMES_NAMES[@]}" -ne "$STAGE_TIMES_EXPECTED" ] || [ "$_ts_no_arquivo" -ne "$STAGE_TIMES_EXPECTED" ]; then
+        fail "tempos por estagio: a contagem nao fecha (executados $STAGE_TIMES_EXPECTED, cronometrados ${#STAGE_TIMES_NAMES[@]}, no arquivo $_ts_no_arquivo)"
+    fi
 }
 
 run_full_pipeline() {
     fast="$1"
-    log "estagio 1: clang-format"
-    stage_format
-    log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
-    stage_ps_syntax
-    log "estagio 2: configure (-Werror)"
-    stage_configure
-    log "estagio 2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real"
-    stage_blob
-    log "estagio 3: build"
-    stage_build
-    log "estagio 4: clang-tidy"
-    stage_tidy
-    log "estagio 5: cppcheck"
-    stage_cppcheck
-    log "estagio 5b: justificativa de NOLINT"
-    stage_nolint_justification
-    log "estagio 5c: gitleaks"
-    stage_gitleaks
-    log "estagio 5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)"
-    stage_noexcept_alloc
-    log "estagio 6: ctest completo"
-    stage_ctest
+    timed_stage "1: clang-format" stage_format
+    timed_stage "1b: sintaxe PowerShell (GATE-PS-SYNTAX)" stage_ps_syntax
+    timed_stage "2: configure (-Werror)" stage_configure
+    timed_stage "2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real" stage_blob
+    timed_stage "3: build" stage_build
+    timed_stage "4: clang-tidy" stage_tidy
+    timed_stage "5: cppcheck" stage_cppcheck
+    timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
+    timed_stage "5c: gitleaks" stage_gitleaks
+    timed_stage "5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)" stage_noexcept_alloc
+    timed_stage "6: ctest completo" stage_ctest
     if [ "$fast" = "yes" ]; then
         echo "preci.sh --fast: estagio 7 (sanitizer) PULADO"
         echo "preci.sh --fast: estagio 8 (debug) PULADO"
         echo "preci.sh --fast: estagio 9 (win32-link) PULADO"
         echo "preci.sh --fast: estagio 10 (container-link) PULADO - custo medido ~3m30s, ver o cabecalho de stage_container_link()"
     else
-        log "estagio 7: sanitizer (ASan/UBSan)"
-        stage_sanitizer
-        log "estagio 8: debug (NDEBUG indefinido, assert() de produto ligado)"
-        stage_debug
-        log "estagio 9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)"
-        stage_win32_link strict
-        log "estagio 10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)"
-        stage_container_link
+        timed_stage "7: sanitizer (ASan/UBSan)" stage_sanitizer
+        timed_stage "8: debug (NDEBUG indefinido, assert() de produto ligado)" stage_debug
+        timed_stage "9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)" stage_win32_link strict
+        timed_stage "10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)" stage_container_link
     fi
+    report_stage_times
+    record_green_baseline
     echo "preci.sh: TUDO VERDE"
 }
 
@@ -2256,6 +2593,87 @@ run_full_pipeline() {
 # why: the real tree can legitimately have another agent's WIP
 # untracked *.cpp mid-onda, and --selftest has to stay usable by
 # anyone, any time, regardless of who else is mid-fatia).
+# ccache (infra trail, 30/09/2026): every compile the pipeline starts, the
+# nested-build tests' included, goes through ccache. It is wired ONLY
+# through this script's environment - nothing in CMakeLists.txt, and CI
+# does not change. CMake reads the *_COMPILER_LAUNCHER variables at the
+# first configure of each build tree, nested ones too. The cache lives in
+# /var/tmp (off the home and off the synced folder), capped at 3 GiB
+# (measured free disk at the time: 23.78 GiB). CCACHE_BASEDIR rewrites
+# absolute paths under the source tree AND under TMPDIR to relative
+# ones: the nested builds live in a random directory under TMPDIR and
+# put it in every -I and generated include (measured 30/09/2026: with
+# the source tree alone the hot hit rate was 20.3%, with TMPDIR added
+# 100%). CCACHE_NOHASHDIR drops the working directory from the hash. The switch
+# is GLINTFX_PRECI_CCACHE=0; the state is printed EVERY run, never silent.
+#
+# CMake reads the *_COMPILER_LAUNCHER environment variables only at the
+# FIRST configure of a build tree, so a tree that already exists would
+# keep whatever launcher it first saw (never turning on, never turning
+# off). The product configures therefore also pass the launcher as an
+# explicit -D, through CCACHE_CMAKE_ARGS: the state of every tree follows
+# the switch, with the value (ccache, or empty) stated every time.
+CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=)
+
+CCACHE_STATE="desligado"
+
+setup_ccache() {
+    _cc_root="$1"
+    CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=)
+    CCACHE_STATE="desligado"
+    # Hosts that mask the compiler (Fedora: /usr/lib64/ccache on PATH via
+    # /etc/profile.d) would make c++/cc BE ccache, so the switch could not
+    # turn it off. Drop every PATH component whose c++/cc/g++/gcc resolves to
+    # the ccache binary; ccache then enters only through the explicit launcher.
+    _cc_masks=0
+    _cc_bin="$(command -v ccache 2> /dev/null)" || _cc_bin=""
+    if [ -n "$_cc_bin" ]; then
+        _cc_bin="$(readlink -f "$_cc_bin")"
+        _cc_newpath=""
+        _cc_oldifs="$IFS"
+        IFS=:
+        for _cc_dir in $PATH; do
+            _cc_is_mask=0
+            for _cc_name in c++ cc g++ gcc; do
+                if [ -n "$_cc_dir" ] && [ -e "$_cc_dir/$_cc_name" ] \
+                    && [ "$(readlink -f "$_cc_dir/$_cc_name")" = "$_cc_bin" ]; then
+                    _cc_is_mask=1
+                    break
+                fi
+            done
+            if [ "$_cc_is_mask" = 1 ]; then
+                _cc_masks=$((_cc_masks + 1))
+            else
+                _cc_newpath="${_cc_newpath:+$_cc_newpath:}$_cc_dir"
+            fi
+        done
+        IFS="$_cc_oldifs"
+        PATH="$_cc_newpath"
+        export PATH
+    fi
+    echo "ccache: mascaras retiradas do PATH: $_cc_masks"
+    if [ "${GLINTFX_PRECI_CCACHE:-1}" = "0" ]; then
+        unset CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER
+        export CCACHE_DISABLE=1
+        echo "ccache: desligado (GLINTFX_PRECI_CCACHE=0)"
+        return 0
+    fi
+    if ! command -v ccache > /dev/null 2>&1; then
+        unset CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER
+        echo "ccache: desligado (ccache nao encontrado no PATH)"
+        return 0
+    fi
+    export CMAKE_C_COMPILER_LAUNCHER=ccache
+    export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+    CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+    export CCACHE_DIR="${CCACHE_DIR:-/var/tmp/ccache-glintfx}"
+    export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-3G}"
+    export CCACHE_BASEDIR="${_cc_root}:${TMPDIR:-/var/tmp}"
+    export CCACHE_NOHASHDIR=true
+    CCACHE_STATE="ligado"
+    echo "ccache: ligado (dir=$CCACHE_DIR, limite=$CCACHE_MAXSIZE, basedir=$CCACHE_BASEDIR)"
+}
+
 _USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
@@ -2272,9 +2690,15 @@ main() {
         fail "$_USAGE"
     fi
 
+    setup_ccache "$ROOT_DIR"
+
     if [ "$mode" != "--selftest" ]; then
-        log "estagio 0: guarda de arquivo novo nao rastreado"
-        stage_untracked_guard
+        case "$mode" in
+            "") STAGE_TIMES_MODO="completo" ;;
+            *) STAGE_TIMES_MODO="${mode#--}" ;;
+        esac
+        stage_times_init "$STAGE_TIMES_MODO"
+        timed_stage "0: guarda de arquivo novo nao rastreado" stage_untracked_guard
     fi
 
     case "$mode" in

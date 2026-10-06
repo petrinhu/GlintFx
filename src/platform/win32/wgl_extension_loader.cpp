@@ -18,6 +18,9 @@
 
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/extension_token.hpp"
+#include "platform/win32/wgl_srgb_pixel_format.hpp"
+
 // wgl_extension_loader.cpp - see this file's own header comment for
 // the full "why a disposable window" reasoning. RAII is deliberately
 // NOT used here (unlike tests/win32_runner_probe_test.cpp's own guard
@@ -70,6 +73,67 @@ LRESULT CALLBACK loader_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
                                    static_cast<unsigned long long>(sequence));
     (void)written;
     return buffer;
+}
+
+using wgl_get_extensions_string_arb_fn = const char *(WINAPI *)(HDC);
+using wgl_get_extensions_string_ext_fn = const char *(WINAPI *)();
+
+// The WGL extension list of the CURRENT context (D-SRGB-2, D-SRGB2-5):
+// wglGetExtensionsStringARB(dc), and when the driver does not resolve it, the older
+// wglGetExtensionsStringEXT(). nullptr when it has neither. The string is the driver's: it is valid
+// only while the context is current, so the caller reads FACTS off it and never keeps the pointer.
+[[nodiscard]] const char *read_wgl_extension_list(HDC dc) noexcept {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the dlsym-style cast of
+    // an extension entry point, as everywhere in this file.
+    const auto get_arb = reinterpret_cast<wgl_get_extensions_string_arb_fn>(
+        ::wglGetProcAddress("wglGetExtensionsStringARB"));
+    if (get_arb != nullptr) {
+        return get_arb(dc);
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: same as above.
+    const auto get_ext = reinterpret_cast<wgl_get_extensions_string_ext_fn>(
+        ::wglGetProcAddress("wglGetExtensionsStringEXT"));
+    return get_ext != nullptr ? get_ext() : nullptr;
+}
+
+// What the driver announces, as facts, read while the disposable context is current.
+[[nodiscard]] wgl_advertised read_wgl_advertised(HDC dc) noexcept {
+    const char *list = read_wgl_extension_list(dc);
+    wgl_advertised advertised;
+    advertised.framebuffer_srgb = wgl_framebuffer_srgb_advertised(list);
+    advertised.swap_control_tear = extension_token_listed(list, "WGL_EXT_swap_control_tear");
+    return advertised;
+}
+
+// Resolves the four entry points and reads the announced facts. Called ONLY while the disposable
+// legacy context is current: wglGetProcAddress and the extension list both need it.
+[[nodiscard]] gltfx_rslt<wgl_extension_pointers> resolve_current_context_pointers(HDC dc) noexcept {
+    wgl_extension_pointers pointers{};
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the universal
+    // dlsym-style function-to-object-pointer cast every GL loader already relies on.
+    pointers.choose_pixel_format_arb =
+        reinterpret_cast<void *>(::wglGetProcAddress("wglChoosePixelFormatARB"));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: same as above.
+    pointers.create_context_attribs_arb =
+        reinterpret_cast<void *>(::wglGetProcAddress("wglCreateContextAttribsARB"));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: same as above.
+    pointers.swap_interval_ext =
+        reinterpret_cast<void *>(::wglGetProcAddress("wglSwapIntervalEXT"));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: same as above.
+    pointers.get_pixel_format_attribiv_arb =
+        reinterpret_cast<void *>(::wglGetProcAddress("wglGetPixelFormatAttribivARB"));
+    pointers.advertised = read_wgl_advertised(dc);
+
+    if (pointers.choose_pixel_format_arb == nullptr ||
+        pointers.create_context_attribs_arb == nullptr) {
+        // These two are NOT optional (wgl_extension_loader.hpp's own struct comment): without
+        // them there is no way to open the real window's own modern, ARB-chosen 3.3 core context
+        // at all.
+        return gltfx_rslt<wgl_extension_pointers>::err(
+            gltfx_err(gltfx_err_code::platform_failure)
+                .with_rejected_value("wgl_loader_extensions"));
+    }
+    return gltfx_rslt<wgl_extension_pointers>::ok(pointers);
 }
 
 } // namespace
@@ -163,29 +227,8 @@ load_wgl_extension_pointers(HWND *out_discarded_window) noexcept {
         gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_loader_make_current"));
 
     if (::wglMakeCurrent(dc, legacy_context) != 0) {
-        wgl_extension_pointers pointers{};
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the universal
-        // dlsym-style function-to-object-pointer cast every GL loader already relies on.
-        pointers.choose_pixel_format_arb =
-            reinterpret_cast<void *>(::wglGetProcAddress("wglChoosePixelFormatARB"));
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: same as above.
-        pointers.create_context_attribs_arb =
-            reinterpret_cast<void *>(::wglGetProcAddress("wglCreateContextAttribsARB"));
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: same as above.
-        pointers.swap_interval_ext =
-            reinterpret_cast<void *>(::wglGetProcAddress("wglSwapIntervalEXT"));
-
-        if (pointers.choose_pixel_format_arb == nullptr ||
-            pointers.create_context_attribs_arb == nullptr) {
-            // These two are NOT optional (this header's own struct
-            // comment): without them there is no way to open the real
-            // window's own modern, ARB-chosen 3.3 core context at all.
-            result = gltfx_rslt<wgl_extension_pointers>::err(
-                gltfx_err(gltfx_err_code::platform_failure)
-                    .with_rejected_value("wgl_loader_extensions"));
-        } else {
-            result = gltfx_rslt<wgl_extension_pointers>::ok(pointers);
-        }
+        // Everything that needs the legacy context is read HERE, while it is current (D-SRGB2-5).
+        result = resolve_current_context_pointers(dc);
         ::wglMakeCurrent(nullptr, nullptr);
     }
 

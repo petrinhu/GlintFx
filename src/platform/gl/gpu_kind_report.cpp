@@ -43,10 +43,6 @@ std::string_view gpu_kind_path_name(gpu_kind_path path) noexcept {
     return "unknown";
 }
 
-std::span<const gltfx_log_field> return_prebuilt_fields(void *builder_context) noexcept {
-    return *static_cast<std::span<const gltfx_log_field> *>(builder_context);
-}
-
 } // namespace
 
 gpu_kind_report
@@ -85,9 +81,7 @@ void report_gpu_kind_resolved(gpu_kind_report report) noexcept {
         gltfx_log_field{"kind", gltfx_log_value::make_text(gpu_kind_name(report.kind))},
         gltfx_log_field{"path", gltfx_log_value::make_text(gpu_kind_path_name(report.path))},
     };
-    std::span<const gltfx_log_field> span_view{fields};
-    log_emit(gltfx_log_severity::info, "platform.gl", "gpu_kind_resolved", &return_prebuilt_fields,
-             &span_view);
+    log_emit_fields(gltfx_log_severity::info, "platform.gl", "gpu_kind_resolved", fields);
 }
 
 } // namespace glintfx::platform

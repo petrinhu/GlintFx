@@ -180,6 +180,37 @@ copy_real_sources() {
     echo "prepare_arch_ports_fixture.sh: total - $total_found encontrado(s) / $total_copied copiado(s)"
 }
 
+# R2D-BATCH B5 (errata sec. 25, D-B5-1): the tree the IMAGE builds the library from, for the fixtures that use
+# ONLY the public API (draw2d_parity_test): they link against the INSTALLED library through its glintfx.pc, as
+# a consumer would, instead of recompiling sources by hand (the list-by-hand family the Containerfile already
+# records four times). Stages EVERY file (not only .hpp/.cpp: CMakeLists.txt, *.cmake, *.in, gl.xml ...) of
+# exactly the roots the CMake configure reads - the root CMakeLists.txt, cmake/, src/, include/, the codegen
+# tools/gl_registry_codegen/ and third_party/. A file the configure needs that is NOT here makes the configure
+# in the image FAIL LOUD; it is never a silent option turned off (errata sec. 25, care 2). Counts both ends
+# (GODS_LAWS.md L-36/L-40), like copy_source_tree().
+stage_lib_tree() {
+    repo_root="$1"
+    lib_target="$repo_root/tests/container/_arch_ports_lib"
+    rm -rf "$lib_target"
+    mkdir -p "$lib_target"
+    cp "$repo_root/CMakeLists.txt" "$lib_target/CMakeLists.txt" ||
+        fail "CMakeLists.txt da raiz nao pode ser estagiado"
+    lib_found=1
+    for rel_root in cmake src include tools/gl_registry_codegen third_party; do
+        [ -d "$repo_root/$rel_root" ] || fail "raiz do CMake nao encontrada: $rel_root"
+        mkdir -p "$lib_target/$rel_root"
+        n=$(find "$repo_root/$rel_root" -type f | wc -l | tr -d ' ')
+        [ "$n" -gt 0 ] || fail "varredura vazia em $rel_root (GODS_LAWS.md L-40)"
+        find "$repo_root/$rel_root" -type f -printf '%P\0' |
+            tar --null -C "$repo_root/$rel_root" -T - -cf - |
+            tar -xf - -C "$lib_target/$rel_root"
+        c=$(find "$lib_target/$rel_root" -type f | wc -l | tr -d ' ')
+        [ "$c" -eq "$n" ] || fail "$rel_root: $n encontrado(s) mas $c copiado(s) (GODS_LAWS.md L-36/L-40)"
+        lib_found=$((lib_found + n))
+    done
+    echo "prepare_arch_ports_fixture.sh: _arch_ports_lib (arvore do CMake) - $lib_found arquivo(s) estagiado(s)"
+}
+
 write_export_header_stub() {
     target="$1"
     mkdir -p "$target/include/glintfx"
@@ -271,6 +302,7 @@ main() {
 
     reset_stage "$target"
     copy_real_sources "$repo_root" "$target"
+    stage_lib_tree "$repo_root"
     write_export_header_stub "$target"
 
     echo "prepare_arch_ports_fixture.sh: staged $(find "$target" -type f | wc -l | tr -d ' ') file(s) under $target"

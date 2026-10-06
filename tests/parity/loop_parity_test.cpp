@@ -132,7 +132,10 @@ gl_clear_fn g_clear = nullptr;
 // LOOP-RUN, INSTRUMENTAR O TETO (15/09/2026, plano espera-win32.md sec.
 // 5.2 item 1): 19 -> 20, the new cap30_opcao_lida check (leitura de
 // volta da opcao de teto, separa a hipotese H2-A por conta propria).
-constexpr int k_planned_assertions = 20;
+// GFX-PRESET, P4 (D-A68): 20 -> 22, the two cells of the 30 fps cap that comes from
+// `preset = power_saving` instead of a hand-set frame_rate_cap: preset_cap30_opcao_lida and
+// preset_cap30_wall_ms.
+constexpr int k_planned_assertions = 22;
 
 int g_assertions_evaluated = 0;
 int g_assertions_failed = 0;
@@ -781,6 +784,104 @@ int main() {
             uncapped.has_error()) {
             std::fprintf(stderr, "loop_parity_test: set_option(frame_rate_cap=0) falhou: %s\n",
                          err_text(uncapped.err()).c_str());
+            return EXIT_FAILURE;
+        }
+    }
+
+    // ===============================================================
+    // GFX-PRESET, P4 cell (4) (docs/auditoria-api-gfx-preset.md, D-A68): the 30 fps cap that
+    // `preset = power_saving` hands over is OBEYED by the loop - measured by the cadence of real
+    // ticks, the same technique and the same band as P7 above, never only by reading the option
+    // back. The cap comes from the preset (the row of the table), not from a hand-set
+    // frame_rate_cap; vsync is turned off by hand afterwards because the preset turns it on and the
+    // band only proves the cap when vsync does not pace the frame (the label stays the consumer's,
+    // gl_context_parity_test.cpp proves that cell). The SAME SONDA-OCULTA-PUNE-JANELA-VISIVEL
+    // exemption applies, for the same measured reason: in the Linux container every tick may be
+    // refused as hidden, and there the cadence proves nothing - the read-back check below is the
+    // one that bites in that executor.
+    // ===============================================================
+    {
+        if (glintfx::gltfx_rslt<void> applied =
+                context.set_option({.id = glintfx::gltfx_gfx_option::preset,
+                                    .value = glintfx::k_gltfx_preset_power_saving});
+            applied.has_error()) {
+            std::fprintf(stderr, "loop_parity_test: set_option(preset=power_saving) falhou: %s\n",
+                         err_text(applied.err()).c_str());
+            return EXIT_FAILURE;
+        }
+        if (glintfx::gltfx_rslt<void> off =
+                context.set_option({.id = glintfx::gltfx_gfx_option::vsync, .value = 0});
+            off.has_error()) {
+            std::fprintf(stderr,
+                         "loop_parity_test: set_option(vsync=off) apos o preset falhou: %s\n",
+                         err_text(off.err()).c_str());
+            return EXIT_FAILURE;
+        }
+        const glintfx::gltfx_rslt<std::int64_t> preset_cap_read =
+            context.option(glintfx::gltfx_gfx_option::frame_rate_cap);
+        const std::int64_t preset_cap30_opcao_lida =
+            preset_cap_read.has_value() ? preset_cap_read.value() : -1;
+        check("preset_cap30_opcao_lida",
+              !preset_cap_read.has_error() && preset_cap30_opcao_lida == 30,
+              "== 30, vindo de preset=power_saving",
+              preset_cap_read.has_error() ? err_text(preset_cap_read.err())
+                                          : to_text(preset_cap30_opcao_lida));
+
+        constexpr int k_preset_cap_ticks = 30;
+        int preset_ticks_without_render = 0;
+        const auto preset_cap_start = std::chrono::steady_clock::now();
+        for (int i = 0; i < k_preset_cap_ticks; ++i) {
+            glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
+            if (ticked.has_error()) {
+                std::fprintf(stderr, "loop_parity_test: step() com teto do preset #%d falhou: %s\n",
+                             i + 1, err_text(ticked.err()).c_str());
+                return EXIT_FAILURE;
+            }
+            if (!ticked.value().should_render) {
+                ++preset_ticks_without_render;
+                continue;
+            }
+            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
+            if (presented.has_error()) {
+                if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
+                    ++swap_failures_tolerated;
+                    continue;
+                }
+                untolerated_swap_failure = true;
+                std::fprintf(stderr,
+                             "loop_parity_test: present() com teto do preset #%d falhou fora da "
+                             "tolerancia: %s\n",
+                             i + 1, err_text(presented.err()).c_str());
+                continue;
+            }
+            if (presented.value() == glintfx::gltfx_present_outcome::presented) {
+                any_swap_succeeded = true;
+            }
+        }
+        const std::int64_t preset_cap30_wall_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() -
+                                                                  preset_cap_start)
+                .count();
+        std::fprintf(stdout,
+                     "loop_parity_test: diagnostico: preset_cap30_wall_ms=%lld, "
+                     "preset_cap30_tiques_sem_desenho=%d de %d\n",
+                     static_cast<long long>(preset_cap30_wall_ms), preset_ticks_without_render,
+                     k_preset_cap_ticks);
+        check("preset_cap30_wall_ms",
+              preset_ticks_without_render == k_preset_cap_ticks ||
+                  (preset_cap30_wall_ms >= 900 && preset_cap30_wall_ms <= 1500),
+              "900..1500 ms, desligado SO quando os 30 tiques recusaram desenhar "
+              "(SONDA-OCULTA-PUNE-JANELA-VISIVEL)",
+              to_text(preset_cap30_wall_ms) + " ms, com " + to_text(preset_ticks_without_render) +
+                  " de " + to_text(k_preset_cap_ticks) + " tiques sem desenho");
+
+        // Back to the state the cells below expect: cap off (the label stays power_saving).
+        if (glintfx::gltfx_rslt<void> uncapped =
+                context.set_option({.id = glintfx::gltfx_gfx_option::frame_rate_cap, .value = 0});
+            uncapped.has_error()) {
+            std::fprintf(
+                stderr, "loop_parity_test: set_option(frame_rate_cap=0) apos o preset falhou: %s\n",
+                err_text(uncapped.err()).c_str());
             return EXIT_FAILURE;
         }
     }

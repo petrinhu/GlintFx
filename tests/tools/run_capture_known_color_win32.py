@@ -684,8 +684,11 @@ def process_alive(pid):
         return False
     except PermissionError:
         return True
-    return Path(f"/proc/{pid}/stat").read_text().split(") ")[-1].split()[0] != "Z" \
-        if Path(f"/proc/{pid}/stat").is_file() else True
+    try:  # a zombie answers kill(0) but is dead; the process can also vanish between the two reads
+        state = Path(f"/proc/{pid}/stat").read_text().split(") ")[-1].split()[0]
+    except OSError:
+        return False
+    return state != "Z"
 
 
 SLEEPER = "import time; time.sleep(20)"

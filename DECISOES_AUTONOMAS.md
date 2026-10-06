@@ -6273,3 +6273,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D-W8-41:** `win32_first_present_maps_test` entra como apelido bilateral em `tests/parity_aliases.txt`, nunca como exceção.
 - **Contagem:** C2b em 5 passos, mais a fatia de produto WIN-MAP-1 entre o 4 e o 5. O piso de linhas do fechamento sobe de 9 para 10. **Nenhum afrouxamento.**
 - **Ordem:** a C2b só começa depois do conserto do CI Windows em voo, porque os dois tocam `tests/CMakeLists.txt`. O vermelho de C2b-4 e o conserto WIN-MAP-1 vão em commits consecutivos, com o vermelho provado em ramo descartável.
+
+### 06/10/2026 18:18:43 - Vermelho do run 37515318202: conserto c9b70ba em revisão
+
+- **Causa medida pelo devops (`/var/tmp/cto-w8/ci-pesados-win.md`):** o executor Windows estático estava lento. O ctest inteiro levou 680 s, contra 488 s no main e 284 s no PR #14. Os quatro testes sem trinco disputavam os 4 núcleos. A W8 não causou o problema: acrescentou 3 testes de menos de 1 s, e a fixação, o paralelismo e o `ctest_aggregate.py` não mudaram.
+- **Conserto `c9b70ba`:** trinco `glintfx_nested_build` nos quatro testes, mais a lista MEASURED_HEAVY (14 testes medidos acima de 40 s) no portão de paralelismo, com 3 controles novos. A régua de 40 s não mudou. A revisão adversarial está em voo.
+- **Segunda ocorrência local, padrão nascendo (L-22):** `contido_dentro_selftest_varredura` levou 31,7 s e depois 32,8 s no espelho local, contra base de 1,6 s; sozinho, leva 2,6 s. A revisão foi mandada medir a causa antes de qualquer conserto.
+- **Em paralelo:** C2b-1 a C2b-3 despachados ao implementador, com a ordem de não iniciar trabalho pesado enquanto houver outro rodando.

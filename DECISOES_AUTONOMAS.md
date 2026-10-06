@@ -5955,3 +5955,13 @@ Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/v
   - ao Gus Dragon, pela L-37, um comentário na issue #8 em linguagem para criança.
 - **Ramo `onda-w7d`:** apagado no remoto e no local depois deste registro.
 - Todos os cortes da D-FECH-17 foram cumpridos: run D às 05:22, PR às 05:46, CI do PR às 06:07, CI do `main` às 06:32 e marca às 06:33.
+
+### Ratificação do líder (06/10/2026, 07:52): D-FECH-12 a D-FECH-17
+- **Pergunta:** "Quais destas decisões do CTO o senhor ratifica? As que ficarem desmarcadas eu trato como revogadas e levo de volta ao CTO."
+- **Resposta do líder:** marcou as quatro opções: "D-FECH-12 e 13 (adiar), D-FECH-14 e 15 (consertos), D-FECH-16 (texto público), D-FECH-17 (teste sozinho)".
+- **Ratificadas:**
+  - D-FECH-12 e D-FECH-13: os itens da INBOX `PARITY-COMPARE-PLATFORM-BLIND`, `EGL-SURFACE-SCALE-PROOF` e `GL-CHANNEL-SIZE-PROOF`;
+  - D-FECH-14 (`7f0eea5`) e D-FECH-15 (`c831d05`);
+  - D-FECH-16 (`3d88900`);
+  - D-FECH-17 (`dc0ff8c`, provada no run D).
+- Nenhuma decisão autônoma da onda W7-D fica pendente de ratificação.

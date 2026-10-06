@@ -5889,3 +5889,9 @@ Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
   - pelo `--per-system`, `power_source` cai em "divergentes declaradas" (lado `familias`). PASSOU: a inferência do CTO se confirmou.
 - **Única divergência não declarada:** `swap_tolerated_downgrades` (0 contra 124), herdada da W6b. Foi para a INBOX como `SWAP-TOLERATED-DOWNGRADES-DIVERGENCE`.
 - **`4f738d1`:** `CI-VERDE-W7D` passou a ✅. Em seguida vem o run C.
+
+### Run C 37429569648 (06/10/2026, 04:51): um vermelho de instrumento no Windows compartilhado; rerun só dos que falharam
+- **Fato:** `loop_hidden_test` reprovou só na célula de calibração, `[vsync=calibracao] instrumento_giro_permille=593 (criterio >= 800 (500ms girando)) FALHOU`. Todas as células de produto passaram (`cpu_ratio_permille=0`, `rendered_while_hidden=0`, `suspended_while_minimized=1`).
+- **Contexto:** o código é idêntico ao dos runs A' e B, que passaram; o `0c3a4fe` só tem docs a mais que o `9a7a756`. Os outros dois jobs Windows do mesmo run passaram.
+- **Causa provável (inferência):** contenção de CPU no runner. A janela é de 500 ms (a D15.1, de 15/09, trocou os 60 ms), e o grão de 15,6 ms do relógio daria cerca de ±3%, não os 41% que faltaram. A calibração fez o que deve: acusou que o instrumento não merecia confiança naquela máquina.
+- **Ação:** `gh run rerun --failed`. Se a segunda tentativa passar, a instabilidade vira item da INBOX e o fechamento segue. Se repetir, é a segunda reprovação pelo mesmo motivo: pesquisa antes da terceira (L-42), e nada de merge.

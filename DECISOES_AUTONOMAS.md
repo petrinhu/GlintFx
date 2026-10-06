@@ -6357,3 +6357,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D-W8-45:** códigos de saída por veredito: 10 janelas, 11 INVISIVEL, 12 ICONICA, 13 FORA DA TELA, 14 OCLUIDA, 15 CAPTURA RECUSADA. O driver exige que código e linha concordem. A tabela tem fonte única no `.hpp` e a cópia Python é vigiada por `check_sibling_lists.py`.
 - **Vermelho aceito na C2b-4:** saída 11, `veredito: INVISIVEL`, `janelas=1`, `visivel=0`, sondas internas 5/5, nenhuma captura tentada. A estreia `occlude` exige 14 com OCLUIDA.
 - **Nenhum afrouxamento.** Implementação na fila do implementador, depois do N2 e do N3.
+
+### 06/10/2026 20:51:41 - C2b-1 a C2b-3: rodada 3 da revisão
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b-123.md`, rodada 3): ACEITAR.
+  - Morreram N3, D-W8-44 (23/23 permutações) e D-W8-45 (SIBLING-LIST nos dois sentidos).
+  - O selftest do driver tem 76 controles; `window_capture_rules_test`, 29 casos.
+- **Ainda volta antes do aceite:**
+  - **R3-1:** nenhum controle prova que INCOERENTE e CODIGO_DESCONHECIDO reprovam o driver. Sem ele, um `passed()` mutado dá falso verde.
+  - **R3-2:** `pontos=N` rejeita com código 0.
+- **Dívida antiga da L-17:** `run_link_check` tem 84 linhas, contra o teto de 40. Foi para a INBOX como `WIN32-LINK-GATE-RUN-LINK-CHECK-L17`.

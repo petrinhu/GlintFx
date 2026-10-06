@@ -2265,6 +2265,17 @@ jobs:
           printf 'capture_known_color_smoke\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # QA-SCREEN-CAPTURE P3 (S3 da revisao): as imagens da captura (PNG, raw, meta, log do rele) saem como artefato,
+      # para que uma falha deixe o quadro para olhar. Roda mesmo com o passo anterior vermelho.
+      - name: Publicar a captura no protocolo (${{ matrix.perna }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-${{ matrix.perna }}
+          path: capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
       # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.4/S4.6): a
       # PROVA AO VIVO do laco principal contra este MESMO compositor
       # real, so pela API publica e atraves da fronteira binaria da

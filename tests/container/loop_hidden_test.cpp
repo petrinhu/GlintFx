@@ -176,6 +176,13 @@
 // textual). As duas metades ficarem com janelas diferentes e' portanto
 // deliberado, nao descuido - e a divergencia que a L-17 do projeto
 // ("gemeo exato") exige nomear em vez de deixar implicita.
+//
+// ASSIMETRIA DE ISOLAMENTO, 06/10/2026 (LOOP-HIDDEN-SERIAL): o gemeo
+// Windows ganhou RUN_SERIAL TRUE no registro porque o run C 37429569648
+// mediu 593 por mil na calibracao sob `ctest --parallel 4`. Este lado NAO
+// ganha nada: roda como fixture de container (tests/container/
+// exec_fixture.sh, um processo por chamada, sem ctest --parallel), nunca
+// reprovou, e a L-43 proibe mexer em quem mede bem so por simetria.
 // ===================================================================
 
 namespace {

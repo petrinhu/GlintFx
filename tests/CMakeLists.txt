@@ -2737,6 +2737,16 @@ if(WIN32)
     )
     target_compile_definitions(loop_hidden_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
     target_link_libraries(loop_hidden_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+    # RUN_SERIAL TRUE (LOOP-HIDDEN-SERIAL, 06/10/2026): the busy-spin calibration cell measures how many
+    # permille of a 500 ms window this process spent on a CPU (GetProcessTimes) and demands >= 800. CI run C
+    # 37429569648 measured 593 there, with three software-GL neighbours running under `ctest --parallel 4`
+    # on 4 vCPUs and stealing the CPU the calibration assumes it owns (baseline of 67 samples: worst 875).
+    # The ruler (800/250), the window (500 ms) and the instrument (GetProcessTimes) are NOT moved (GODS_LAWS.md
+    # L-11, L-43): only the condition the ruler presumes is restored, by running this case alone. Hypervisor
+    # steal stays invisible from inside and can only fail red, never green (TODO.md INBOX LOOP-HIDDEN-CALIB-STEAL).
+    # The Linux twin (tests/container/loop_hidden_test.cpp) is NOT registered here: it runs as a container
+    # fixture through exec_fixture.sh, one process per call, never under ctest --parallel.
+    set_tests_properties(loop_hidden_test PROPERTIES LABELS unit RUN_SERIAL TRUE)
 endif()
 
 # FACADE-PIN, T4/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):

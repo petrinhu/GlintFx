@@ -70,6 +70,8 @@ in_container() {
 # afterwards, never by a name pattern (pkill -f matches itself, feedback_pgrep_encontra_a_si_mesmo).
 start_capture_relay() {
     mode="$1"
+    # A previous run's files would be read as this run's capture (two surfaces, or a stale frame): start clean.
+    in_container rm -rf "${CAPTURE_ROOT:?}/$mode"
     in_container mkdir -p "$CAPTURE_ROOT/$mode/frames" "$CAPTURE_ROOT/$mode/readback"
     docker exec -d -e XDG_RUNTIME_DIR=/run/glintfx-test "$CONTAINER" sh -c \
         "echo \$\$ > $CAPTURE_ROOT/$mode/relay.pid; exec wire_relay glintfx-test-upstream glintfx-cap-$mode $CAPTURE_ROOT/$mode/frames > $CAPTURE_ROOT/$mode/relay.log 2>&1"

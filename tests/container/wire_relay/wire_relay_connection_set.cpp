@@ -3,6 +3,7 @@
 
 #include "../checked_stdio.hpp"
 #include "wire_error_injector.hpp"
+#include "wire_frame_writer.hpp"
 #include "wire_message.hpp"
 #include "wire_object_table.hpp"
 #include "wire_transport.hpp"
@@ -37,15 +38,29 @@ std::vector<int> pending_fds::take(std::size_t count) {
 namespace {
 
 // Consumes exactly the fds `message` needs (wire_object_table's own
-// fixed table) from `fds`, and forwards the message byte-exact to
-// `target` (encode_raw is the proven-lossless inverse of decode).
-void forward_message(const wire_transport &target, const decoded_message &message,
-                     const wire_relay_pipeline &pipe, pending_fds &fds) {
+// fixed table) from `fds`.
+std::vector<int> take_message_fds(const wire_relay_pipeline &pipe, const decoded_message &message,
+                                  pending_fds &fds) {
     const known_interface interface = pipe.table.interface_of(message.header.object_id);
-    const std::vector<int> message_fds =
-        fds.take(fd_argument_count(interface, message.header.opcode));
+    return fds.take(fd_argument_count(interface, message.header.opcode));
+}
+
+void close_all(const std::vector<int> &fds) {
+    for (const int fd : fds) {
+        (void)::close(fd);
+    }
+}
+
+// Forwards the message byte-exact to `target` (encode_raw is the
+// proven-lossless inverse of decode) with the descriptors it carries,
+// then closes the relay's own copies: sendmsg() already gave `target`
+// its own, and the snapshot atom holds a duplicate of whatever it
+// needs - nothing here may outlive the message.
+void forward_message(const wire_transport &target, const decoded_message &message,
+                     const std::vector<int> &message_fds) {
     const std::vector<std::uint8_t> raw = encode_raw(message);
     target.write_once(raw.data(), raw.size(), message_fds);
+    close_all(message_fds);
 }
 
 // Client -> upstream: rule-checked (R1/R2). Returns false when the
@@ -53,12 +68,17 @@ void forward_message(const wire_transport &target, const decoded_message &messag
 // closed both sides).
 bool forward_client_message(const wire_transport &client, const wire_transport &upstream,
                             const decoded_message &message, relay_session &session) {
+    // Descriptors first, so the snapshot sees them in the same step
+    // that classifies the message - before anything is forwarded.
+    const std::vector<int> message_fds =
+        take_message_fds(session.pipe, message, session.client_state.fds);
     const std::optional<rule_violation> violation =
-        observe_and_evaluate(session.pipe, message, true);
+        observe_and_evaluate(session.pipe, message, true, message_fds);
     if (!violation) {
-        forward_message(upstream, message, session.pipe, session.client_state.fds);
+        forward_message(upstream, message, message_fds);
         return true;
     }
+    close_all(message_fds);
     ++session.stats.violations;
     const std::vector<std::uint8_t> error_bytes =
         encode_display_error(*violation, "protocol error injected by wire_relay");
@@ -149,16 +169,39 @@ void dispatch_ready_entries(const std::vector<struct pollfd> &fds,
     }
 }
 
-void remove_finished_connections(connection_list &connections) {
+// QA-SCREEN-CAPTURE P1: when capture is on, saves the connection's
+// last committed frames and prints the verdict line - a SEPARATE line
+// from "connection closed", whose format run_compositor.sh and
+// check_isolation.sh parse and which stays untouched.
+void save_and_report_capture(const relay_endpoints &endpoints, const active_connection &conn) {
+    if (endpoints.capture_dir.empty()) {
+        return;
+    }
+    const capture_report report = save_session_frames(
+        conn.session.pipe.snapshot, capture_target{endpoints.capture_dir, conn.serial});
+    glintfx::container_fixture::checked_fprintf(stdout, "%s\n",
+                                                describe_capture(report, conn.serial).c_str());
+    (void)std::fflush(stdout);
+}
+
+void remove_finished_connections(const relay_endpoints &endpoints, connection_list &connections) {
     connections.erase(std::remove_if(connections.begin(), connections.end(),
-                                     [](const std::unique_ptr<active_connection> &conn) {
+                                     [&endpoints](const std::unique_ptr<active_connection> &conn) {
                                          if (!connection_finished(*conn)) {
                                              return false;
                                          }
+                                         save_and_report_capture(endpoints, *conn);
                                          close_and_report(*conn);
                                          return true;
                                      }),
                       connections.end());
+}
+
+// Running number of accepted connections; the relay is one poll()
+// loop, one thread - a plain counter is enough.
+std::size_t next_connection_serial() {
+    static std::size_t last_serial = 0;
+    return ++last_serial;
 }
 
 } // namespace
@@ -222,7 +265,9 @@ void pump_upstream_direction(active_connection &conn) {
         ++conn.session.stats.messages_from_upstream;
         (void)observe_and_evaluate(conn.session.pipe, *message,
                                    false); // never violates this direction
-        forward_message(client, *message, conn.session.pipe, conn.session.upstream_state.fds);
+        forward_message(
+            client, *message,
+            take_message_fds(conn.session.pipe, *message, conn.session.upstream_state.fds));
     }
 }
 
@@ -262,6 +307,7 @@ void accept_new_connection(const relay_endpoints &endpoints, connection_list &co
     auto conn = std::make_unique<active_connection>();
     conn->client_fd = client_fd;
     conn->upstream_fd = upstream_fd;
+    conn->serial = next_connection_serial();
     connections.push_back(std::move(conn));
 }
 
@@ -274,7 +320,7 @@ void run_relay_cycle(const relay_endpoints &endpoints, connection_list &connecti
         return;
     }
     dispatch_ready_entries(fds, meta, endpoints, connections);
-    remove_finished_connections(connections);
+    remove_finished_connections(endpoints, connections);
 }
 
 } // namespace glintfx::test::wire_relay

@@ -88,7 +88,7 @@ GLINTFX_TEST(wire_relay_a3c_second_client_accepted_before_first_closes) {
     const int fake_kwin_fd = listen_unix(upstream_path); // nunca aceita de proposito
     GLINTFX_CHECK(fake_kwin_fd >= 0);
 
-    const relay_endpoints endpoints{listen_fd, upstream_path};
+    const relay_endpoints endpoints{listen_fd, upstream_path, ""};
     connection_list connections;
 
     const int client_a = connect_unix(downstream_path);

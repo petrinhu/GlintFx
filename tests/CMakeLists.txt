@@ -6500,6 +6500,14 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a1_selftest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a2_selftest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a3c_selftest.cpp"
+        # QA-SCREEN-CAPTURE P1 (D-W8-20/D-W8-32): the relay keeps the
+        # last COMMITTED wl_shm buffer of each surface (snapshot) and
+        # saves it when the client leaves (frame writer); the selftest
+        # below drives both over memfd pixels written by hand. Same
+        # executable on purpose - one selftest source per sub-fatia.
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_shm_snapshot.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_frame_writer.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_shm_selftest.cpp"
     )
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)

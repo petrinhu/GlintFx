@@ -67,10 +67,12 @@ class wire_object_table {
     // wl_display.get_registry, wl_registry.bind, wl_compositor.create_
     // surface, xdg_wm_base.get_xdg_surface and wl_shm.create_pool each
     // declare a new object; wl_display.delete_id retires one (xdg_
-    // surface.get_toplevel and wl_shm_pool.create_buffer are NOT
-    // tracked - nothing WL-ACK-SMOKE-BLUNT A1/A2 needs, R1/R2 only
-    // ever look at the xdg_surface/wl_surface pair, GODS_LAWS.md L-33:
-    // no creator this fatia's own tests never exercise). Returns the
+    // surface.get_toplevel is NOT tracked - nothing
+    // WL-ACK-SMOKE-BLUNT A1/A2 needs, R1/R2 only ever look at the xdg_
+    // surface/wl_surface pair, GODS_LAWS.md L-33: no creator this
+    // fatia's own tests never exercise; wl_shm_pool.create_buffer is,
+    // since QA-SCREEN-CAPTURE P1, because wire_shm_snapshot must
+    // recognise wl_buffer.destroy). Returns the
     // new object id when this message created one. Malformed payloads
     // (too short for the arguments this message's (interface, opcode)
     // demands) never crash - they are ignored, exactly like an

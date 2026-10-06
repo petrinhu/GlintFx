@@ -1173,6 +1173,8 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/wire_relay/wire_transport.cpp \
         /build/wire_relay/wire_relay_pipeline.cpp \
         /build/wire_relay/wire_message.cpp \
+        /build/wire_relay/wire_shm_snapshot.cpp \
+        /build/wire_relay/wire_frame_writer.cpp \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp
 

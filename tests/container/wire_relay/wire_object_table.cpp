@@ -171,6 +171,9 @@ std::optional<std::uint32_t> wire_object_table::observe(const decoded_message &m
     if (source == known_interface::wl_shm && message.header.opcode == 0) {
         return declare_child(message.payload, known_interface::wl_shm_pool);
     }
+    if (source == known_interface::wl_shm_pool && message.header.opcode == 0) {
+        return declare_child(message.payload, known_interface::wl_buffer);
+    }
     return std::nullopt;
 }
 

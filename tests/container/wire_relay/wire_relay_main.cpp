@@ -28,12 +28,17 @@
 // that container.
 //
 // Usage: wire_relay <upstream-socket-name> <downstream-socket-name>
-// Both resolved against $XDG_RUNTIME_DIR, the same convention every
-// Wayland client/server already uses.
+//                   [<capture-directory>]
+// The two socket names are resolved against $XDG_RUNTIME_DIR, the same
+// convention every Wayland client/server already uses. With a capture
+// directory (an existing directory, absolute path) the relay saves the
+// last committed wl_shm frame of every closed connection there
+// (wire_frame_writer.hpp); without one, nothing is captured.
 #include "../checked_stdio.hpp"
 #include "wire_relay_connection_set.hpp"
 
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -84,18 +89,35 @@ int listen_downstream(const std::string &path) {
     return fd;
 }
 
+// "" when no capture directory was given; a given one that is not an
+// existing directory ends the process (a capture that cannot be saved
+// must not look like a capture that found nothing, GODS_LAWS.md L-40).
+std::string capture_directory(int argc, char **argv) {
+    if (argc != 4) {
+        return "";
+    }
+    struct stat info;
+    if (::stat(argv[3], &info) != 0 || !S_ISDIR(info.st_mode)) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wire_relay: capture directory %s is not an existing directory\n", argv[3]);
+        std::exit(1);
+    }
+    return argv[3];
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
-    if (argc != 3) {
+    if (argc != 3 && argc != 4) {
         glintfx::container_fixture::checked_fprintf(
-            stderr, "usage: wire_relay <upstream-socket-name> <downstream-socket-name>\n");
+            stderr, "usage: wire_relay <upstream-socket-name> <downstream-socket-name> "
+                    "[<capture-directory>]\n");
         return 1;
     }
     const std::string upstream_path = runtime_socket_path(argv[1]);
     const std::string downstream_path = runtime_socket_path(argv[2]);
     const int listen_fd = listen_downstream(downstream_path);
-    const relay_endpoints endpoints{listen_fd, upstream_path};
+    const relay_endpoints endpoints{listen_fd, upstream_path, capture_directory(argc, argv)};
 
     glintfx::container_fixture::checked_fprintf(stdout,
                                                 "wire_relay: listening on %s, upstream %s\n",

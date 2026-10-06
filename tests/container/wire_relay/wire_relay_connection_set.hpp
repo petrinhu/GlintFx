@@ -77,6 +77,9 @@ struct active_connection {
     int upstream_fd = -1;
     bool client_open = true;
     bool upstream_open = true;
+    // Relay-wide running number of this connection (QA-SCREEN-CAPTURE
+    // P1): names the files wire_frame_writer saves for it.
+    std::size_t serial = 0;
     relay_session session;
 };
 
@@ -88,6 +91,10 @@ using connection_list = std::vector<std::unique_ptr<active_connection>>;
 struct relay_endpoints {
     int listen_fd = -1;
     std::string upstream_path;
+    // Directory where the last committed frame of every closed
+    // connection is saved (wire_frame_writer.hpp). Empty = capture off:
+    // nothing is written and the relay behaves exactly as before.
+    std::string capture_dir;
 };
 
 // Bombeia a direcao CLIENTE de uma conexao ja aceita (chamador ja

@@ -39,6 +39,7 @@
 
 import os
 import sys
+import tempfile
 
 SCRIPT_NAME = "auditoria_texto_congelado.py"
 
@@ -302,7 +303,9 @@ def emendas_for(path):
 
 
 def read(path):
-    with open(path, "r", encoding="utf-8", newline="") as handle:
+    # Universal newlines: CRLF (Windows checkout with core.autocrlf=true) and
+    # lone CR become "\n", so the literals above match on every system.
+    with open(path, "r", encoding="utf-8", newline=None) as handle:
         return handle.read()
 
 
@@ -312,6 +315,8 @@ def cmd_gerar(paths):
             new_text = build(read(path), emendas_for(path))
         except EmendaError as exc:
             fail(f"{path}: {exc}")
+        # newline="" writes "\n" as-is: the regenerated parecer is always LF
+        # (git re-applies the consumer's eol setting on checkout).
         with open(path, "w", encoding="utf-8", newline="") as handle:
             handle.write(new_text)
         print(f"{SCRIPT_NAME}: apendice gerado em {path}")
@@ -396,12 +401,30 @@ def selftest_verificar_catches_hand_edit():
     return ok
 
 
+def selftest_crlf_checkout():
+    # A Windows checkout (core.autocrlf=true) delivers the parecer with CRLF.
+    # The verdict must be the same as for the LF file: the gate may not
+    # depend on the consumer's git configuration.
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "parecer.md")
+        with open(path, "wb") as handle:
+            handle.write(SYNTH.replace("\n", "\r\n").encode("utf-8"))
+        try:
+            ok = build(read(path), SYNTH_EMENDAS) == build(SYNTH, SYNTH_EMENDAS)
+        except EmendaError:
+            ok = False
+    if not ok:
+        print("selftest: controle CRLF-CHECKOUT FALHOU", file=sys.stderr)
+    return ok
+
+
 def run_selftest():
     results = [
         selftest_positive(),
         selftest_absent_and_ambiguous(),
         selftest_body_untouched_and_idempotent(),
         selftest_verificar_catches_hand_edit(),
+        selftest_crlf_checkout(),
     ]
     print(f"selftest: controles {sum(results)}/{len(results)}")
     if not all(results):

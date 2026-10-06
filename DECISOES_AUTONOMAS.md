@@ -5764,3 +5764,18 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
   - Sabotagem de estreia, com o nome do teste trocado: `claim_citations` com rc=1.
 - **Re-verificação do main:** o texto E5 aparece exatamente 1 vez no parecer `/var/tmp/cto-w7d/parecer-d-api-07.md` e 1 vez no cabeçalho, conferido por script.
 - **Nota do implementador, fora do escopo:** o comentário de `tests/CMakeLists.txt:5201` ainda diz "emendas E1 e E2". Fica como cosmético para o passo 10.
+
+### P5-a: relatório recebido e sabotagem própria do main (06/10/2026, 01:53)
+- **Relatório:** `/var/tmp/cto-w7d/p5/relatorio-p5a.md` (md5 df0db343), sobre o SHA `ffc1a3c`.
+  - 11 mutações aplicáveis, 10 mortas.
+  - 1 sobrevivente: a 7.13 (`check_measured_parity.py` não reprova chave de um lado só).
+  - 3 não aplicáveis: 7.14 e 7.15 (a fixture de escala 2 nunca nasceu) e 7.20.
+  - 0 achados CRÍTICOS e 4 IMPORTANTES: 7.13; provas prometidas ausentes; `static_assert` fraco; L-17 na fachada.
+  - Os quatro foram levados ao CTO, que decide (a) consertar na W7-D ou (b) mandar para a INBOX.
+- **Fatos conferidos pelo main na árvore:**
+  - `gfx_option_registry.hpp:~112` compara com `suggested_preset + 1`.
+  - `parity_exceptions.txt:836-838` tem `gl_context_parity_test` em arch, cachyos e ubuntu.
+  - `egl_surface_scale_smoke` não existe em `tests/container/`, mas foi decidida em `docs/plano-w6b-fatias-5.md:78` (D-W6b-41).
+- **Sabotagem de família diferente (L-34):** numa cópia de HEAD, tirei `|| status == "Not charging"` de `power_supply_rule.cpp:16`. O md5 do teste mudou (`0ac239a1` para `afe9f0f8`).
+  - Resultado: `power_supply_rule_test` com rc=1, "power_supply_rule_test.cpp:99: failed: classify({entry(Battery, System, 1, 0, Not charging)}) == k_mains".
+  - A base dá rc=0. A cópia foi apagada.

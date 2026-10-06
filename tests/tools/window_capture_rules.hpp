@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -79,6 +80,12 @@ struct window_facts {
 [[nodiscard]] verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &client,
                                               const pixel_rect &virtual_screen,
                                               const std::vector<occlusion_probe> &probes);
+
+// The line the tool prints for the `index`-th DwmFlush. `result` is empty when dwmapi.dll or the
+// DwmFlush export is not there (it is resolved at run time, never linked): the capture goes on,
+// and the line says so, because a screen read taken before composition would be a false red and
+// must be readable as such. A failing HRESULT (negative) is named too; it is never judged here.
+[[nodiscard]] std::string describe_dwm_flush(int index, std::optional<long> result);
 
 // The .meta text of a capture the tool writes: XRGB8888 (wl_shm format 1; the GDI DIB carries
 // no useful alpha), rows tightly packed (stride = width * 4). Same four keys, same order and same

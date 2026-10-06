@@ -63,6 +63,14 @@ verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &cli
     return judge_occlusion(probes);
 }
 
+std::string describe_dwm_flush(int index, std::optional<long> result) {
+    const std::string label = "dwmflush" + std::to_string(index) + "=";
+    if (!result.has_value()) {
+        return label + "indisponivel";
+    }
+    return label + std::to_string(*result) + (*result < 0 ? " (HRESULT de falha)" : "");
+}
+
 std::string capture_meta_text(int width, int height) {
     return "width=" + std::to_string(width) + "\nheight=" + std::to_string(height) +
            "\nstride=" + std::to_string(width * 4) + "\nformat=1\n";

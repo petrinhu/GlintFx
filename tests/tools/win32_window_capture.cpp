@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstdio>
 #include <cstdlib>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -163,9 +164,8 @@ dwm_flush_function find_dwm_flush() {
 void flush_dwm() {
     const dwm_flush_function dwm_flush = find_dwm_flush();
     for (int flush = 1; flush <= k_dwm_flushes; ++flush) {
-        const std::string result =
-            dwm_flush == nullptr ? "indisponivel" : std::to_string(static_cast<long>(dwm_flush()));
-        say("dwmflush" + std::to_string(flush) + "=" + result);
+        say(glintfx::capture_tool::describe_dwm_flush(
+            flush, dwm_flush == nullptr ? std::nullopt : std::optional<long>(dwm_flush())));
     }
 }
 

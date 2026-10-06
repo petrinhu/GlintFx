@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -194,4 +195,18 @@ GLINTFX_TEST(readiness_off_screen_wins_over_covered) {
 GLINTFX_TEST(readiness_covered_is_named_when_nothing_earlier_applies) {
     GLINTFX_CHECK_EQ(readiness(k_shown, k_client, one_foreign()),
                      std::string("OCLUIDA por classe=Cover"));
+}
+
+GLINTFX_TEST(dwm_flush_unavailable_is_said_and_never_hidden) {
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::describe_dwm_flush(1, std::nullopt),
+                     std::string("dwmflush1=indisponivel"));
+}
+
+GLINTFX_TEST(dwm_flush_success_prints_the_zero_hresult) {
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::describe_dwm_flush(2, 0L), std::string("dwmflush2=0"));
+}
+
+GLINTFX_TEST(dwm_flush_failure_hresult_is_named_as_a_failure) {
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::describe_dwm_flush(1, -2147467259L),
+                     std::string("dwmflush1=-2147467259 (HRESULT de falha)"));
 }

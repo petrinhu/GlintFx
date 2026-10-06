@@ -6216,3 +6216,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `write_case` com 5 parâmetros, acima do teto de 4 da L-17.
 - **S1 rejeitada:** o modo off não codifica por definição, e o semitransparente do modo on já exerce a codificação.
 - **Item 8 do revisor já respondido:** o líder respondeu ao afrouxamento da D-W8-20 com a ordem das duas fotos compostas (D-W8-32). O revisor leu o plano v2, sem o v3.
+
+### 06/10/2026 15:54:21 - Ordem do líder: pausa geral às 16:15
+
+- **Texto do líder, verbatim:** "pause tudo 16:15h". Perguntado se era às 16:15 ou até as 16:15, respondeu: "Pausar às 16:15 (Recomendado)".
+- **Até lá:** fechar a P3 de QA-SCREEN-CAPTURE (rodada 4 curta de revisão sobre 9c04619), registrar o aceite e empurrar onda-w8. Nada novo começa.
+- **Às 16:15:** os agentes param, o monitor também, e o estado fica gravado. A retomada é só por ordem do líder.
+- **Observação, causa NÃO medida:** na primeira rodada, o `preci --fast` do 9c04619 deu rc=1 só pelo `preci_compare_times`. O `contido_dentro_selftest_varredura` levou 31,7 s contra a base de 1,77 s. Na segunda rodada deu verde, e os 303 testes passaram nas duas.

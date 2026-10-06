@@ -168,6 +168,10 @@ class gltfx_renderer_2d {
     // context current on the calling thread before they touch GL, so a
     // program with two windows never draws into the wrong one. A
     // failure to make it current is reported by finish_frame().
+    // Proved by: draw2d_parity_test (two windows, each with its own
+    // context, and the other window's context made current before every
+    // begin_frame(), flush() and finish_frame(): each window's clear and
+    // pieces read back as pixels in that window only, on both systems).
     GLINTFX_API void begin_frame(const gltfx_frame_2d_desc &desc) noexcept;
 
     // Starts a batch with no transform: from here on, a world position

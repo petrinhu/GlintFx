@@ -178,6 +178,18 @@ D_B4_1_FIELD_NEW = (
     "    std::uint64_t pieces_dropped_graphics_failure = 0;\n"
 )
 
+# E5 (parecer-d-api-07 sec. 4, DW-b): a quinta linha "Proved by", texto extraido por script do parecer.
+E5_OLD = (
+    "    // failure to make it current is reported by finish_frame().\n"
+)
+E5_NEW = (
+    "    // failure to make it current is reported by finish_frame().\n"
+    "    // Proved by: draw2d_parity_test (two windows, each with its own\n"
+    "    // context, and the other window's context made current before every\n"
+    "    // begin_frame(), flush() and finish_frame(): each window's clear and\n"
+    "    // pieces read back as pixels in that window only, on both systems).\n"
+)
+
 # (id, texto antigo, texto novo)
 EMENDAS_GFX_PRESET = [
     ("E1", E1_OLD, E1_NEW),
@@ -189,6 +201,7 @@ EMENDAS_DRAW2D = [
     ("E4 (finish_frame)", E4_FINISH_OLD, E4_FINISH_NEW),
     ("D-B4-1 (regra dos destinos)", D_B4_1_RULE_OLD, D_B4_1_RULE_NEW),
     ("D-B4-1 (campo)", D_B4_1_FIELD_OLD, D_B4_1_FIELD_NEW),
+    ("E5", E5_OLD, E5_NEW),
 ]
 EMENDAS_POR_ARQUIVO = {
     "auditoria-api-gfx-preset.md": EMENDAS_GFX_PRESET,

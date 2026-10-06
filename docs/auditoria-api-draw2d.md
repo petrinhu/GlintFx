@@ -769,7 +769,7 @@ Todos levam `gltfx_draw_layer layer = {}` como último parâmetro, pela D-API-04
 
 ## Apêndice: texto final congelado
 
-Gerado a partir das cercas da seção 2, com as emendas aplicadas (E3, E4 (open), E4 (finish_frame), D-B4-1 (regra dos destinos), D-B4-1 (campo)). Cada hunk de diff aparece como o texto final (contexto e linhas acrescentadas, sem as removidas).
+Gerado a partir das cercas da seção 2, com as emendas aplicadas (E3, E4 (open), E4 (finish_frame), D-B4-1 (regra dos destinos), D-B4-1 (campo), E5). Cada hunk de diff aparece como o texto final (contexto e linhas acrescentadas, sem as removidas).
 
 ### `include/glintfx/core/quad.hpp` (final)
 
@@ -1190,6 +1190,10 @@ class gltfx_renderer_2d {
     // context current on the calling thread before they touch GL, so a
     // program with two windows never draws into the wrong one. A
     // failure to make it current is reported by finish_frame().
+    // Proved by: draw2d_parity_test (two windows, each with its own
+    // context, and the other window's context made current before every
+    // begin_frame(), flush() and finish_frame(): each window's clear and
+    // pieces read back as pixels in that window only, on both systems).
     GLINTFX_API void begin_frame(const gltfx_frame_2d_desc &desc) noexcept;
 
     // Starts a batch with no transform: from here on, a world position

@@ -92,14 +92,23 @@ wait_for_socket() {
     return 1
 }
 
+# presenting_files_count: reads file names on stdin and prints how many of them are the files of the connection that
+# PRESENTS the frame (conn1, measured in every run: the fixture's first Wayland connection is the display it draws
+# on; the second one, opened by the EGL layer, never commits a buffer). The second connection closes FIRST, so its
+# "nenhum quadro" marker is on disk before the frame is: waiting for ANY marker returned early, and the relay was
+# stopped before it saved the frame.
+presenting_files_count() {
+    grep -c -E '^conn1_(surface[0-9]+[.]meta|no_frame[.]txt)$' || true
+}
+
 # The relay writes the capture when the client's connection closes, a moment AFTER the fixture exits; the
-# .meta is written after its .raw, so a .meta (or the no-frame marker) means the files are complete.
+# .meta is written after its .raw, so the .meta (or the no-frame marker) of the presenting connection means
+# its files are complete.
 wait_for_capture_files() {
     mode="$1"
     tries=0
     while [ "$tries" -lt "$CAPTURE_WAIT_TRIES" ]; do
-        # shellcheck disable=SC2016
-        found="$(in_container sh -c 'ls "$1" | grep -c -E "[.]meta$|_no_frame[.]txt$" || true' _ "$CAPTURE_ROOT/$mode/frames")"
+        found="$(in_container ls "$CAPTURE_ROOT/$mode/frames" | presenting_files_count)"
         if [ "${found:-0}" -ge 1 ]; then
             return 0
         fi
@@ -244,11 +253,29 @@ selftest_modes_exact_rejects_wrong_sets() {
         ! modes_are_exact "" && ! modes_are_exact " off on on"
 }
 
+selftest_wait_ignores_the_other_connection() {
+    [ "$(printf 'conn2_no_frame.txt\n' | presenting_files_count)" -eq 0 ] &&
+        [ "$(printf 'conn2_surface9.meta\nconn2_no_frame.txt\n' | presenting_files_count)" -eq 0 ] &&
+        [ "$(printf '' | presenting_files_count)" -eq 0 ]
+}
+
+selftest_wait_sees_the_presenting_connection() {
+    [ "$(printf 'conn2_no_frame.txt\nconn1_surface6.meta\nconn1_surface6.raw\n' | presenting_files_count)" -eq 1 ] &&
+        [ "$(printf 'conn1_no_frame.txt\n' | presenting_files_count)" -eq 1 ]
+}
+
+selftest_wait_needs_the_meta_not_the_raw() {
+    [ "$(printf 'conn1_surface6.raw\n' | presenting_files_count)" -eq 0 ]
+}
+
 selftest_main() {
     selftest_check selftest_stale_output_is_removed
     selftest_check selftest_empty_out_dir_refuses
     selftest_check selftest_modes_exact_accepts_both
     selftest_check selftest_modes_exact_rejects_wrong_sets
+    selftest_check selftest_wait_ignores_the_other_connection
+    selftest_check selftest_wait_sees_the_presenting_connection
+    selftest_check selftest_wait_needs_the_meta_not_the_raw
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }
 

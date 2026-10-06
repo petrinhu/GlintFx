@@ -241,7 +241,7 @@ selftest_stale_output_is_removed() {
     OUT_DIR="$root" clean_mode_output off
     [ ! -e "$root/off" ] && [ -e "$root/on.keep" ]
     rc=$?
-    rm -rf "$root"
+    rm -rf "${root:?}"
     return "$rc"
 }
 

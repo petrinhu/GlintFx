@@ -6203,3 +6203,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o arredondamento 127 contra 128, com tolerância declarada;
   - a sabotagem de estreia em cada modo.
 - **Alfa:** a conversão NÃO des-multiplica. O `wl_shm` ARGB8888 é pré-multiplicado, e isso está documentado no cabeçalho do `raw_to_png.py`.
+
+### 06/10/2026 14:53:42 - P3 de QA-SCREEN-CAPTURE: revisão adversarial, primeira rodada
+
+- **Revisor:** agente distinto do implementador (L-12). Relatório em `/var/tmp/cto-w8/rev-p3.md`. Veredito: ACEITAR com ressalvas.
+- **Reproduzido:** dez de dez rodadas verdes, com 76800 pixels e zero diferentes nos dois modos. Esperados refeitos à mão pela especificação. Dezesseis mutantes, catorze mortos.
+- **QA observador (L-13):** aprovou geometria, cores e orientação nos dois PNGs. Relatório em `/var/tmp/cto-w8/qa-p3-observacao.md`.
+- **Decisão do main: não aceitar ainda.** Volta ao implementador para corrigir:
+  - H1: o diretório do host não era limpo por modo, o que dava falso verde em rodada repetida;
+  - S2: o mutante `off off` sobreviveu;
+  - S4: a espera aceitava o marcador da conexão errada;
+  - `write_case` com 5 parâmetros, acima do teto de 4 da L-17.
+- **S1 rejeitada:** o modo off não codifica por definição, e o semitransparente do modo on já exerce a codificação.
+- **Item 8 do revisor já respondido:** o líder respondeu ao afrouxamento da D-W8-20 com a ordem das duas fotos compostas (D-W8-32). O revisor leu o plano v2, sem o v3.

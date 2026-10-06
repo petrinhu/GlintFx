@@ -6231,3 +6231,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Lacuna declarada, não bloqueante:** a fiação de `one_mode` não é exercida pelo autoteste (R4-A). Vai para a INBOX como `CAPTURE-DRIVER-WIRING-UNTESTED`.
 - **NÃO provado:** CI do servidor, incluindo o Windows. A prova vem com o push.
 - **Status:** `QA-SCREEN-CAPTURE` segue ⏳. Faltam C2a e C2b.
+
+### 06/10/2026 17:43:41 - Ordem do líder: retomada
+
+- **Texto do líder, verbatim:** "continue tudo". A pausa das 16:15 está encerrada e o marcador de parada foi apagado.
+- **Estado na retomada:** o run 37515318202, sobre `3d4ae4e` no ramo `onda-w8`, deu 24 verdes, 1 pulado por desenho e 1 vermelho, o `Windows - estatico`.
+  - Os 286 testes executados passaram.
+  - O vermelho veio do `ctest_aggregate.py`, a régua de pesados: quatro testes anteriores à W8 passaram de 40 s sem RESOURCE_LOCK nem PROCESSORS (layers_selftest 45,1 s, dep_zero_trace_selftest 51,0 s, version_matches_tag_selftest 64,2 s e win32_test_link_selftest 92,2 s).
+  - Conserto num SHA novo, sem reexecutar (D-A4). Mexer na régua seria afrouxamento e vai ao líder.

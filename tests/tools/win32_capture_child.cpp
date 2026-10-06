@@ -2,6 +2,7 @@
 #include "win32_capture_child.hpp"
 
 #include <cstdio>
+#include <vector>
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -53,16 +54,42 @@ HANDLE open_nul_for_input() {
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 }
 
+// Only the NUL input and the output pipe's write end are handed to the child (a handle list): it
+// inherits nothing else, in particular not the handles this tool got from its own launcher, which
+// are the driver's pipes. A child holding those would keep the driver waiting for the pipe's end
+// after this tool is gone (review A4).
+bool create_with_handle_list(std::wstring &command_line, HANDLE (&handles)[2],
+                             PROCESS_INFORMATION &info) {
+    SIZE_T size = 0;
+    ::InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+    std::vector<char> storage(size);
+    auto *attributes = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(storage.data());
+    if (::InitializeProcThreadAttributeList(attributes, 1, 0, &size) == 0) {
+        return false;
+    }
+    const bool listed =
+        ::UpdateProcThreadAttribute(attributes, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, handles,
+                                    sizeof(handles), nullptr, nullptr) != 0;
+    STARTUPINFOEXW startup{};
+    startup.StartupInfo.cb = sizeof(startup);
+    startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES; // deliberately NOT STARTF_USESHOWWINDOW
+    startup.StartupInfo.hStdInput = handles[0];
+    startup.StartupInfo.hStdOutput = handles[1];
+    startup.StartupInfo.hStdError = handles[1];
+    startup.lpAttributeList = attributes;
+    const bool created = listed && ::CreateProcessW(nullptr, command_line.data(), nullptr, nullptr,
+                                                    TRUE, EXTENDED_STARTUPINFO_PRESENT, nullptr,
+                                                    nullptr, &startup.StartupInfo, &info) != 0;
+    const DWORD error = ::GetLastError();
+    ::DeleteProcThreadAttributeList(attributes);
+    ::SetLastError(error);
+    return created;
+}
+
 bool create_with_pipe(std::wstring &command_line, HANDLE output_write, HANDLE input,
                       PROCESS_INFORMATION &info) {
-    STARTUPINFOW startup{};
-    startup.cb = sizeof(startup);
-    startup.dwFlags = STARTF_USESTDHANDLES; // deliberately NOT STARTF_USESHOWWINDOW
-    startup.hStdInput = input;
-    startup.hStdOutput = output_write;
-    startup.hStdError = output_write;
-    return ::CreateProcessW(nullptr, command_line.data(), nullptr, nullptr, TRUE, 0, nullptr,
-                            nullptr, &startup, &info) != 0;
+    HANDLE handles[2] = {input, output_write};
+    return create_with_handle_list(command_line, handles, info);
 }
 
 } // namespace

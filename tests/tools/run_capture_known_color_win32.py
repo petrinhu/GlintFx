@@ -40,11 +40,14 @@
 
 import contextlib
 import io
+import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -62,6 +65,7 @@ ABSENCE_FIXTURE_EXIT = "fixture exit=77"
 TOOL_FIXTURE_FAILED = 1
 TOOL_CAPTURE_VERDICT = 3
 PROCESS_TIMEOUT_SECONDS = 180
+KILL_GRACE_SECONDS = 5
 MECHANISMS = ("printwindow", "bitblt")
 COMPARATOR_LINE = re.compile(r"pixels=(\d+) differing=(\d+) alpha_not_compared=(\d+)")
 
@@ -86,16 +90,38 @@ class mode_result:
         return self.status == "absent" or (self.status == "ran" and all(rc == 0 for rc in self.checks.values()))
 
 
-def run_process(args):
+def kill_tree(process):
+    """Kills the child AND everything it started. The tool launches the fixture, and the fixture
+    inherits nothing it should not (the tool restricts the handles), but a tree left alive after a
+    timeout would hold the pipe: on Windows subprocess.run then waits for the pipe's EOF after the
+    kill, which is exactly the hang the timeout exists to prevent. POSIX: the whole process group;
+    Windows: taskkill /T. NOT MEASURED on the Windows runner (declared): the mitigation is the known
+    one, the proof of it there is the first red run."""
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
+    else:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(process.pid, signal.SIGKILL)
+    with contextlib.suppress(OSError):
+        process.kill()
+
+
+def run_process(args, timeout=PROCESS_TIMEOUT_SECONDS):
     """The real executor: (exit code, stdout+stderr). A hung child is a failure, never a hang."""
     try:
-        done = subprocess.run([str(part) for part in args], capture_output=True, text=True,
-                              errors="replace", timeout=PROCESS_TIMEOUT_SECONDS, check=False)
-    except subprocess.TimeoutExpired:
-        return 124, f"timeout after {PROCESS_TIMEOUT_SECONDS} s: {args[0]}"
+        process = subprocess.Popen([str(part) for part in args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True, errors="replace", close_fds=True,
+                                   start_new_session=sys.platform != "win32")
     except OSError as error:
         return 127, f"cannot run {args[0]}: {error}"
-    return done.returncode, done.stdout + done.stderr
+    try:
+        output, _ = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        kill_tree(process)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.communicate(timeout=KILL_GRACE_SECONDS)
+        return 124, f"timeout after {timeout} s: {args[0]}"
+    return process.returncode, output
 
 
 def helper(script, *args):
@@ -647,6 +673,56 @@ def selftest_capture_verdict_exit():
               and run.calls_of("capture_vs_readback.py") == [])
 
 
+def process_alive(pid):
+    """Without ever signalling it: os.kill(pid, 0) TERMINATES the process on Windows."""
+    if sys.platform == "win32":
+        listing = subprocess.run(["tasklist", "/FI", f"PID eq {pid}"], capture_output=True, text=True, check=False)
+        return str(pid) in listing.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return Path(f"/proc/{pid}/stat").read_text().split(") ")[-1].split()[0] != "Z" \
+        if Path(f"/proc/{pid}/stat").is_file() else True
+
+
+SLEEPER = "import time; time.sleep(20)"
+ORPHAN_HOLDING_THE_PIPE = ("import subprocess, sys, time; "
+                           f"subprocess.Popen([sys.executable, '-c', {SLEEPER!r}]); time.sleep(20)")
+
+
+def selftest_run_process():
+    code, output = run_process([sys.executable, "-c", "import sys; print('hello'); sys.exit(3)"])
+    check("run_process: devolve o codigo e a saida do filho", code == 3 and "hello" in output)
+    started = time.monotonic()
+    code, output = run_process([sys.executable, "-c", SLEEPER], timeout=1)
+    check("run_process: filho que nao termina vira 124 dentro do prazo", code == 124 and time.monotonic() - started < 10)
+    check("run_process: a mensagem do 124 nomeia o prazo", "timeout after 1 s" in output)
+    code, output = run_process(["/nonexistent/no-such-tool.exe"])
+    check("run_process: programa inexistente vira 127 (nunca 0, nunca excecao)", code == 127 and "cannot run" in output)
+    # The risk the review named (A4): the child's own child inherits the pipe, so killing only the child
+    # leaves the pipe open and a plain subprocess.run keeps waiting for EOF. The tree must die with it.
+    started = time.monotonic()
+    code, _ = run_process([sys.executable, "-c", ORPHAN_HOLDING_THE_PIPE], timeout=1)
+    elapsed = time.monotonic() - started
+    check(f"run_process: neto que segura o tubo nao pendura o executor (124 em {elapsed:.1f} s, teto 12 s)",
+          code == 124 and elapsed < 12)
+    with tempfile.TemporaryDirectory() as tmp:
+        pid_file = Path(tmp) / "grandchild.pid"
+        parent = ("import subprocess, sys, time; "
+                  f"g = subprocess.Popen([sys.executable, '-c', {SLEEPER!r}]); "
+                  f"open({str(pid_file)!r}, 'w').write(str(g.pid)); time.sleep(20)")
+        run_process([sys.executable, "-c", parent], timeout=2)
+        grandchild = int(pid_file.read_text()) if pid_file.is_file() else 0
+        deadline = time.monotonic() + 5
+        while grandchild and process_alive(grandchild) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        check("run_process: o prazo estourado mata a ARVORE (o neto nao fica vivo)",
+              grandchild != 0 and not process_alive(grandchild))
+
+
 def selftest_main():
     selftest_classification()
     selftest_clean_output()
@@ -661,6 +737,7 @@ def selftest_main():
     selftest_tool_evidence_reaches_the_log()
     selftest_internal_reading_is_judged_even_when_the_tool_fails()
     selftest_capture_verdict_exit()
+    selftest_run_process()
     selftest_process_level()
     print(f"selftest: {len(CHECKS)} controles OK")
 

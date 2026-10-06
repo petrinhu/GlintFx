@@ -6158,3 +6158,31 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Nada foi instalado.
   - O item `TOOLCHAIN-UPDATES-PENDENTES` fica, para ser conferido a cada onda.
 - **Pendência do líder:** o repositório da NVIDIA continua configurado nesta máquina, com a chave não importada. Uma atualização geral do sistema vai voltar a pedir a chave.
+
+### P1 de `QA-SCREEN-CAPTURE` aceita (06/10/2026, 12:57): o relé guarda o último quadro `wl_shm` comprometido
+- **Commits:** `16168b9` (P1), `caff9f4`, `282c8bc` e `96f6ef9` (consertos), mais `b2af85d` (INBOX `CAPTURE-ZERO-FRAME-VERDICT`).
+  - O implementador e o revisor foram agentes `sonnet` distintos (L-12). O main conferiu os rc por arquivo em cada rodada.
+- **Revisão adversarial que executa e muta**, em quatro rodadas, até sair limpa:
+  - 1ª: 3 IMPORTANTE;
+  - 2ª: 1 IMPORTANTE;
+  - 3ª: 1 IMPORTANTE latente. O implementador tinha REMOVIDO um `close_all` defensivo como "mutante equivalente", e o revisor mediu +10 fds com uma regra forçada. A defesa foi restaurada, com costura de teste declarada (`reject_client_message`);
+  - 4ª: ACEITAR, com 0 CRÍTICO, 0 IMPORTANTE e 3 COSMÉTICO.
+- **Medido na 4ª rodada:**
+  - `wire_relay_selftest` com 32 casos e 0 falhas, em build ASan/UBSan;
+  - as mutações A, B, C, C2 e D reprovam cada uma só o caso declarado;
+  - o caso da ordem da cópia ficou estável em 600 execuções;
+  - `preci --fast` e `--sanitizer-only` com rc=0.
+- **Defeitos reais achados pela revisão, e não pelo implementador:**
+  - vazamento de fds no encaminhamento;
+  - cópia que podia sair depois do encaminhamento;
+  - dois clientes gravando no mesmo arquivo;
+  - fds deixados na fila ao fim da conexão.
+- **Não provado, declarado:**
+  - o link do `wire_relay_bin` na imagem, que só o CI prova;
+  - o argv do `wire_relay_main`, sem teste até a C2;
+  - nada com KWin e `wl_shm` reais (P3);
+  - o veredito "zero reprova" é do leitor (`CAPTURE-ZERO-FRAME-VERDICT`);
+  - a fiação `forward_client_message` → `reject_client_message` com fd real é impossível hoje, porque nenhuma regra viola mensagem com fd (sobrevivente E, declarado);
+  - fds perdidos em `control_truncated` (`wire_relay_connection_set.cpp:233-238`, anterior a esta fatia), que vai para a INBOX `WIRE-RELAY-CONTROL-TRUNCATED-FDS`.
+- **Erro do main nesta fatia:** commitei o documento de ferramentas sem rodar o espelho, e o portão `docs_count_vocab` o barrou na rodada 3. Foi corrigido em `1ebadf0`.
+- **O `Status` de `QA-SCREEN-CAPTURE` continua ⏳:** a linha ainda tem P2, P3, C2a e C2b.

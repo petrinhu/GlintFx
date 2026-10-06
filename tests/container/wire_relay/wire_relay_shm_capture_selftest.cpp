@@ -11,19 +11,15 @@
 // GODS_LAWS.md L-09: processo puro - socketpair, soquetes AF_UNIX de
 // teste num diretorio temporario proprio e um memfd; nunca wayland-0.
 #include "wire_frame_writer.hpp"
+#include "wire_shm_blocked_forward_probe.hpp"
+#include "wire_shm_relay_rig.hpp"
 #include "wire_shm_test_support.hpp"
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <dirent.h>
 #include <unistd.h>
-
-#include <atomic>
-#include <cerrno>
-#include <chrono>
-#include <thread>
 
 using namespace glintfx::test::wire_relay;
 
@@ -64,6 +60,18 @@ std::string save_to_scratch(const pumped_connection &rig, const scratch_dir &dir
     return dir.path() + "/conn1_surface5.raw";
 }
 
+// One whole client session on the relay: bootstrap, a pool with
+// `pixels`, and a committed buffer on surface 5.
+void send_committed_frame(relay_rig &rig, const words &pixels) {
+    const fd_holder file(make_memfd(pixels));
+    rig.send(concat({encode_new_id_request(1, 1, 2), encode_registry_bind(2, 0, "wl_shm", 1, 3),
+                     encode_registry_bind(2, 1, "wl_compositor", 4, 4),
+                     encode_new_id_request(4, 0, 5)}));
+    rig.send(encode_shm_create_pool(3, 6, 16), {file.get()});
+    rig.send(concat({encode_shm_pool_create_buffer(6, 7, 0, 2, 2, 8, 0),
+                     encode_surface_attach(5, 7), encode_surface_commit(5)}));
+}
+
 int count_open_fds() {
     DIR *dir = ::opendir("/proc/self/fd");
     GLINTFX_CHECK(dir != nullptr);
@@ -74,141 +82,6 @@ int count_open_fds() {
     (void)::closedir(dir);
     return count;
 }
-
-// Fills the socket's send queue one byte at a time until a send would
-// block: the NEXT send on it sleeps in the kernel until the peer reads.
-void fill_until_send_would_block(int fd) {
-    const std::uint8_t junk = 0;
-    while (::send(fd, &junk, 1, MSG_DONTWAIT | MSG_NOSIGNAL) > 0) {
-    }
-    GLINTFX_CHECK(errno == EAGAIN || errno == EWOULDBLOCK);
-}
-
-// "/proc/<pid>/task/<tid>/stat" of the calling thread.
-std::string current_thread_stat_path() {
-    char target[64] = {};
-    const ssize_t length = ::readlink("/proc/thread-self", target, sizeof(target) - 1);
-    GLINTFX_CHECK(length > 0);
-    return "/proc/" + std::string(target, static_cast<std::size_t>(length)) + "/stat";
-}
-
-// True while the thread behind `stat_path` sleeps (state 'S', the
-// field right after the ")" that closes the command name).
-bool thread_is_sleeping(const std::string &stat_path) {
-    const std::string stat = read_text(stat_path);
-    const std::size_t close = stat.rfind(')');
-    return close != std::string::npos && close + 2 < stat.size() && stat[close + 2] == 'S';
-}
-
-// The compositor side of the "copy before forward" proof: waits until
-// the test thread is asleep inside the relay's blocked sendmsg(),
-// rewrites the client's buffer, and only then drains the socket so the
-// sendmsg() can finish. Bounded: never waits forever.
-class blocked_forward_probe {
-  public:
-    blocked_forward_probe(int upstream_end_fd, int memfd, const words &reused)
-        : m_stat_path(current_thread_stat_path()), m_thread([this, upstream_end_fd, memfd, reused] {
-              run(upstream_end_fd, memfd, reused);
-          }) {}
-    blocked_forward_probe(const blocked_forward_probe &) = delete;
-    blocked_forward_probe &operator=(const blocked_forward_probe &) = delete;
-    ~blocked_forward_probe() { finish(); }
-
-    void finish() {
-        m_done = true;
-        if (m_thread.joinable()) {
-            m_thread.join();
-        }
-    }
-    [[nodiscard]] bool saw_sender_blocked() const { return m_saw_blocked; }
-
-  private:
-    void run(int upstream_end_fd, int memfd, const words &reused) {
-        const auto give_up = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-        while (!thread_is_sleeping(m_stat_path) && std::chrono::steady_clock::now() < give_up) {
-            std::this_thread::yield();
-        }
-        m_saw_blocked = thread_is_sleeping(m_stat_path);
-        overwrite_memfd(memfd, reused, 0);
-        std::uint8_t sink[256];
-        while (!m_done) {
-            if (::recv(upstream_end_fd, sink, sizeof(sink), MSG_DONTWAIT) <= 0) {
-                std::this_thread::yield();
-            }
-        }
-    }
-
-    std::string m_stat_path;
-    std::atomic<bool> m_done{false};
-    std::atomic<bool> m_saw_blocked{false};
-    std::thread m_thread;
-};
-
-int listen_unix(const std::string &path) {
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        return fd;
-    }
-    struct sockaddr_un addr;
-    std::memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
-    GLINTFX_CHECK(::bind(fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) == 0);
-    GLINTFX_CHECK(::listen(fd, 4) == 0);
-    return fd;
-}
-
-int connect_unix(const std::string &path) {
-    const int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        return fd;
-    }
-    struct sockaddr_un addr;
-    std::memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
-    GLINTFX_CHECK(::connect(fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) == 0);
-    return fd;
-}
-
-// A client connected to a REAL relay_endpoints/run_relay_cycle with a
-// fake compositor behind it, capture on, in a private directory.
-struct relay_rig {
-    relay_rig()
-        : listen_fd(listen_unix(dir.path() + "/down")), fake_kwin(listen_unix(dir.path() + "/up")),
-          endpoints{listen_fd.get(), dir.path() + "/up", capture},
-          client(connect_unix(dir.path() + "/down")), compositor_side(-1) {
-        GLINTFX_CHECK(::mkdir(capture.c_str(), 0755) == 0);
-        run_relay_cycle(endpoints, connections); // accept
-        GLINTFX_CHECK_EQ(connections.size(), std::size_t{1});
-        compositor_side.reset(::accept(fake_kwin.get(), nullptr, nullptr));
-    }
-
-    void send(const std::vector<std::uint8_t> &bytes, const std::vector<int> &fds = {}) {
-        wire_transport(client.get()).write_once(bytes.data(), bytes.size(), fds);
-        run_relay_cycle(endpoints, connections);
-    }
-
-    // The client leaves, then the compositor side closes: only now is
-    // the connection finished, and only now are the files written.
-    void finish() {
-        client.reset();
-        run_relay_cycle(endpoints, connections);
-        compositor_side.reset();
-        run_relay_cycle(endpoints, connections);
-    }
-
-    [[nodiscard]] std::size_t serial() const { return connections.at(0)->serial; }
-
-    scratch_dir dir;
-    std::string capture = dir.path() + "/capture";
-    fd_holder listen_fd;
-    fd_holder fake_kwin;
-    relay_endpoints endpoints;
-    connection_list connections;
-    fd_holder client;
-    fd_holder compositor_side;
-};
 
 } // namespace
 
@@ -270,13 +143,7 @@ GLINTFX_TEST(wire_shm_capture_forwarded_descriptors_are_closed_by_the_relay) {
 
 GLINTFX_TEST(wire_shm_capture_relay_saves_the_last_commit_when_the_client_leaves) {
     relay_rig rig;
-    const fd_holder file(make_memfd(first_pixels));
-    rig.send(concat({encode_new_id_request(1, 1, 2), encode_registry_bind(2, 0, "wl_shm", 1, 3),
-                     encode_registry_bind(2, 1, "wl_compositor", 4, 4),
-                     encode_new_id_request(4, 0, 5)}));
-    rig.send(encode_shm_create_pool(3, 6, 16), {file.get()});
-    rig.send(concat({encode_shm_pool_create_buffer(6, 7, 0, 2, 2, 8, 0),
-                     encode_surface_attach(5, 7), encode_surface_commit(5)}));
+    send_committed_frame(rig, first_pixels);
     const std::string prefix = rig.capture + "/conn" + std::to_string(rig.serial());
     rig.finish();
 
@@ -299,4 +166,32 @@ GLINTFX_TEST(wire_shm_capture_relay_writes_no_frame_marker_for_a_client_that_nev
     GLINTFX_CHECK(rig.connections.empty());
     GLINTFX_CHECK_EQ(read_text(prefix + "_no_frame.txt"), std::string("nenhum quadro\n"));
     GLINTFX_CHECK_EQ(read_text(prefix + "_surface5.raw"), std::string());
+}
+
+GLINTFX_TEST(wire_shm_capture_consecutive_clients_save_to_distinct_files) {
+    relay_rig rig;
+    send_committed_frame(rig, first_pixels);
+    const std::string first_prefix = rig.capture + "/conn" + std::to_string(rig.serial());
+    rig.finish();
+    rig.connect_client();
+    send_committed_frame(rig, reused_pixels);
+    const std::string second_prefix = rig.capture + "/conn" + std::to_string(rig.serial());
+    rig.finish();
+
+    GLINTFX_CHECK(first_prefix != second_prefix);
+    GLINTFX_CHECK(read_words(first_prefix + "_surface5.raw") == first_pixels);
+    GLINTFX_CHECK(read_words(second_prefix + "_surface5.raw") == reused_pixels);
+}
+
+GLINTFX_TEST(wire_shm_capture_rule_violation_injects_the_error_and_stops_the_client_direction) {
+    pumped_connection rig;
+    rig.bootstrap();
+    rig.send(
+        concat({encode_registry_bind(2, 2, "xdg_wm_base", 2, 6), encode_get_xdg_surface(6, 7, 5),
+                encode_surface_attach(5, 99), encode_surface_commit(5)})); // R1 violation
+
+    GLINTFX_CHECK_EQ(rig.conn.session.stats.violations, std::size_t{1});
+    GLINTFX_CHECK(!rig.conn.client_open);
+    const wire_transport::read_result error = rig.client_end.read_once();
+    GLINTFX_CHECK(!error.bytes.empty());
 }

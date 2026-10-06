@@ -82,7 +82,9 @@ bool forward_client_message(const wire_transport &client, const wire_transport &
         forward_message(upstream, message, message_fds);
         return true;
     }
-    close_all(message_fds);
+    // No close_all(message_fds) here on purpose: a violating message is
+    // a commit or an ack_configure, and wire_object_table's fd table
+    // gives those zero descriptors, so there is nothing to close.
     ++session.stats.violations;
     const std::vector<std::uint8_t> error_bytes =
         encode_display_error(*violation, "protocol error injected by wire_relay");

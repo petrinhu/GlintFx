@@ -5753,3 +5753,14 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - **Re-verificação do main (L-12):** numa cópia com o conserto revertido, o selftest dá "controle CRLF-CHECKOUT FALHOU, controles 4/5" com rc=1. Com o conserto, rc=0.
 - **Gêmeos varridos em `tools/` e `tests/tools/`:** nenhum tem o mesmo defeito.
 - **CI:** push `9eebfe6..f8fe51d`. O run A foi cancelado, substituído pelo run A' 37413145733.
+
+### P4-c (`b5ac6b8`) e DW-b/E5 (`85a34d6`) aceitas (06/10/2026, 01:41)
+- **P4-c, chaves do run A' 37413145733:**
+  - `auto_choice_reason` = 2 nos dois sistemas, sem linha.
+  - `suggested_preset` = 2 nos dois sistemas, sem linha.
+  - `power_source`: Windows 1 (mains) contra container 0 (unknown). Ganhou uma linha em `tests/measured_exceptions.txt`, lado `familias` (o vocabulário do arquivo não tem mais `ambos`), item `SEM-PENDENCIA`, com as regras puras `power_supply_rule_test` e `power_status_rule_test` como prova.
+- **DW-b:** a célula de duas janelas está verde nos dois sistemas no run A' (Windows 26 para 36 células; container 62).
+  - A linha E5 entrou em `renderer_2d.hpp:171-174`, foi registrada como emenda em `tools/auditoria_texto_congelado.py` e o apêndice foi regenerado; o `verificar` dá 0 reprovados.
+  - Sabotagem de estreia, com o nome do teste trocado: `claim_citations` com rc=1.
+- **Re-verificação do main:** o texto E5 aparece exatamente 1 vez no parecer `/var/tmp/cto-w7d/parecer-d-api-07.md` e 1 vez no cabeçalho, conferido por script.
+- **Nota do implementador, fora do escopo:** o comentário de `tests/CMakeLists.txt:5201` ainda diz "emendas E1 e E2". Fica como cosmético para o passo 10.

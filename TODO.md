@@ -516,6 +516,8 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 
 - **`LOOP-HIDDEN-CALIB-STEAL`: o `loop_hidden_test` do Windows ganhou `RUN_SERIAL` (`LOOP-HIDDEN-SERIAL`, 🔍, 06/10/2026) porque o run C 37429569648 mediu giro 593 contra o criterio de 800 com tres vizinhos de GL por software sob `--parallel 4`; o roubo de CPU pelo hipervisor continua invisivel de dentro e so produz vermelho falso na calibracao. Tres passos: (i) medir a distribuicao do giro nos proximos runs com `RUN_SERIAL` contra a linha de base de 67 amostras em `/var/tmp/cto-w7d/runC/giro-baseline-40runs.txt` (pior 875); (ii) desenhar o denominador sem solucos nas duas metades (tempo em que a propria thread de giro comprovadamente rodou, em vez do relogio de parede), com vermelho de estreia proprio; (iii) o gemeo Linux roda como fixture de container via `exec_fixture.sh`, um processo por chamada, e nao sob `ctest --parallel`, entao a assimetria esta nomeada no cabecalho dele e nao pede conserto.**
 
+- **`CAPTURE-ZERO-FRAME-VERDICT`: a linha "nenhum quadro" que o relé imprime (`wire_relay: capture connN - nenhum quadro`) não traz palavra de reprovação; quem decide que zero imagens reprova é o leitor das capturas (P2/P3), e o argv de `wire_relay_main` (diretório de captura como 3º argumento) segue sem teste até a C2.** Achado da revisão de `QA-SCREEN-CAPTURE` P1 em 06/10/2026: o veredito "zero reprova" está no plano v3 linha 95 (D-W8-32) e linha 245 (fechamento 5(i)) e no v2 linha 220; o leitor precisa reconhecer a linha ou o arquivo `conn<N>_no_frame.txt`, e o relé não sai com código de erro por isso; sem pontuar.
+
 ## TABELA UNIFICADA
 
 | WSJF | ID | Onda | Grupo | Descrição Técnica | Prioridade | Pré-requisito | Dificuldade | Status | Estado Auditado |

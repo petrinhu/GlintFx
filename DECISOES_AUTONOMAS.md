@@ -6088,3 +6088,19 @@ O main conferiu na árvore:
 - Sem resposta do líder, a onda anda, mas NÃO fecha. Os demais itens do fechamento ficaram mais estritos.
 
 **Despachado às 09:56:** a medição M1 (`qa-engineer`). Ela confere se o cliente realmente entrega `wl_shm` em ARGB pela cadeia real; com `dmabuf` ou XRGB, a rota volta ao CTO.
+
+### Decisão do líder sobre a prova visual da W8 (06/10/2026, 10:13)
+- **Pergunta (AskUserQuestion):** "A prova de que a demo aparece certa na tela não pode mais vir de uma foto tirada pelo compositor do container: sem placa de vídeo, ele cancela a captura. O CTO propõe fotografar a imagem no caminho entre o programa e o compositor, que pega cor e transparência exatas, mas não a composição final. Isso afrouxa o critério de fechamento. O senhor aceita?"
+- **Resposta do líder, verbatim:** "exigir 2 fotos compostas locais. Uma da geforce e outra da integrada."
+- **Leitura do main, marcada como interpretação (L-07 global), a confirmar:**
+  - A captura no protocolo (D-W8-20) continua como prova do CI, porque somar provas só endurece o critério.
+  - A onda passa a exigir, além dela, duas capturas COMPOSTAS pelo KWin, nesta máquina: uma com a GeForce e outra com a placa integrada. O caminho é o , que exige GL.
+- **Leis que isso aciona:**
+  - L-09 global: antes de cada rodada que toque a GeForce, tocar o alerta 5 vezes, dizer o que vai rodar e AGUARDAR a autorização explícita do líder para começar.
+  - L-09 do projeto, regra 4: a placa dada ao container é decisão consciente por teste, e é esta.
+  - O  reprova com : a rodada local usa uma variante declarada, sem nunca montar o  nem o  do hospedeiro.
+- **Medição M1 (`/var/tmp/cto-w8/m1-medicao.md`):**
+  - Pela cadeia real, o cliente entrega `wl_shm` em ARGB8888 (formato 0), sem `dmabuf` e sem XRGB: a rota da D-W8-20 tem chão.
+  - **Achado que muda o desenho:** o `draw2d_parity_test` cria o buffer, mas nunca faz `attach`/`commit` (lê por `glReadPixels` sem trocar de quadro, `draw2d_parity_test.cpp:495`). Já o `gl_context_parity_test` apresenta 3 buffers rotativos.
+  - A captura no `commit` exige uma fixture que apresente o quadro.
+  - A imagem usada é a `p4-base` de 03/10 (binários anteriores ao HEAD).

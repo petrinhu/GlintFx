@@ -5919,3 +5919,13 @@ Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/v
   - Giro e sono são lidos do JUnit.
 - **Cortes:** o run D é disparado até 05:45; o PR é aberto até 06:20; o CI do PR fica verde até 06:50; o CI do `main` fica verde até 07:15. Qualquer vermelho para tudo, e a onda fica aberta.
 - Implementador despachado às 05:11.
+
+### LOOP-HIDDEN-SERIAL aceita (06/10/2026, 05:23): `dc0ff8c`, run D disparado às 05:22
+- **Verificado pelo main:** são quatro arquivos. O código de teste não mudou, só blocos de comentário nos dois `loop_hidden_test.cpp`.
+  - Há uma única linha de efeito: `RUN_SERIAL TRUE` no bloco `if(WIN32)` de `tests/CMakeLists.txt`.
+  - O `CI-VERDE-W7D` voltou a 🔍.
+  - O `LOOP-HIDDEN-CALIB-STEAL` está na INBOX.
+  - `preci --fast` saiu com rc=0.
+- **Achado do implementador:** nenhum portão local reprova se faltar o `RUN_SERIAL`, porque o vermelho só aparece com o Windows sob carga. A prova é o run D, e só ele.
+- **Desvio declarado:** a fatia não ganhou linha própria na tabela. O registro está aqui e no commit.
+- **Push:** `ls-remote` = `dc0ff8c`. Run D: 37435662150, disparado dentro do corte de 05:45.

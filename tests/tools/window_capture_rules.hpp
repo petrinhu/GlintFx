@@ -76,7 +76,9 @@ struct occlusion_probe {
 // area (right/bottom exclusive, so the last pixel is `right - 1`, `bottom - 1`).
 [[nodiscard]] std::vector<screen_point> occlusion_points(const pixel_rect &client);
 
-// Passes only when exactly five probes came back and all are the target window's own.
+// Passes only when exactly five probes came back and all are the target window's own. A different
+// count rejects as OCLUIDA (code 14, text "OCLUIDA pontos=<n>"): it cannot happen by construction,
+// but a rejection never leaves with code 0.
 // KNOWN GAP, declared (D-W8-36 chose five points): a window that covers the client area WITHOUT
 // touching any of the five points (a notification bar along the middle of an edge, a small popup
 // over the scene) passes this guard, and the screen read then shows up as a wrong color, never as

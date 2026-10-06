@@ -297,3 +297,44 @@ GLINTFX_TEST(the_codes_never_collide_with_the_ones_already_in_use) {
         }
     }
 }
+
+// R3-2: a rejection must never leave with code 0 (a 0 that means "refused" is the value that means
+// two things). A wrong number of probes cannot happen by construction (probe_occlusion asks for
+// exactly the five points), but the rule must still reject with a coherent, non-zero code if it
+// ever does.
+GLINTFX_TEST(a_wrong_probe_count_rejects_with_the_occlusion_code_and_never_with_zero) {
+    std::vector<occlusion_probe> probes = all_owned();
+    GLINTFX_CHECK_EQ(probes.size(), std::size_t{5});
+    probes.pop_back();
+    const auto verdict = glintfx::capture_tool::judge_occlusion(probes);
+    GLINTFX_CHECK(!verdict.pass);
+    GLINTFX_CHECK_EQ(verdict.code, 14);
+    GLINTFX_CHECK_EQ(verdict.text, std::string("OCLUIDA pontos=4"));
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_occlusion({}).code, 14);
+}
+
+GLINTFX_TEST(no_rejecting_verdict_of_the_rules_has_code_zero_and_no_passing_one_has_a_code) {
+    using glintfx::capture_tool::judge_capture_readiness;
+    std::vector<occlusion_probe> four = all_owned();
+    GLINTFX_CHECK_EQ(four.size(), std::size_t{5});
+    four.pop_back();
+    const std::vector<glintfx::capture_tool::verdict> rejecting{
+        glintfx::capture_tool::judge_window_count(0),
+        glintfx::capture_tool::judge_window_count(3),
+        judge_capture_readiness({.visible = false, .iconic = false}, k_client, k_screen,
+                                all_owned()),
+        judge_capture_readiness({.visible = true, .iconic = true}, k_client, k_screen, all_owned()),
+        judge_capture_readiness(k_shown, k_off_screen, k_screen, all_owned()),
+        judge_capture_readiness(k_shown, k_client, k_screen, one_foreign()),
+        judge_capture_readiness(k_shown, k_client, k_screen, four),
+        glintfx::capture_tool::judge_client_on_screen(k_off_screen, k_screen),
+        glintfx::capture_tool::judge_capture_refused("printwindow", 0),
+    };
+    for (const auto &verdict : rejecting) {
+        GLINTFX_CHECK(!verdict.pass);
+        GLINTFX_CHECK(verdict.code != 0);
+    }
+    const auto passing = judge_capture_readiness(k_shown, k_client, k_screen, all_owned());
+    GLINTFX_CHECK(passing.pass);
+    GLINTFX_CHECK_EQ(passing.code, 0);
+}

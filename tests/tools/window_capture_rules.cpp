@@ -51,7 +51,9 @@ std::vector<screen_point> occlusion_points(const pixel_rect &client) {
 
 verdict judge_occlusion(const std::vector<occlusion_probe> &probes) {
     if (probes.size() != k_occlusion_point_count) {
-        return {.pass = false, .text = "pontos=" + std::to_string(probes.size())};
+        return {.pass = false,
+                .text = "OCLUIDA pontos=" + std::to_string(probes.size()),
+                .code = verdict_code("OCLUIDA")};
     }
     for (const occlusion_probe &probe : probes) {
         if (!probe.owned_by_target) {

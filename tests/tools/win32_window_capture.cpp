@@ -244,7 +244,7 @@ glintfx::capture_tool::verdict judge_readiness(HWND window, const pixel_rect &cl
 // is decided WHOLE first, and a window that is not ready never reaches PrintWindow or BitBlt
 // (D-W8-44; the PrintWindow reading of a never-shown window is deliberately not measured). A
 // ready window whose capture the system refuses is the verdict CAPTURA RECUSADA. All of these are
-// CAPTURE verdicts (exit 3), never the tool's own failure (exit 2).
+// CAPTURE verdicts (exit 10 to 15, one per verdict), never the tool's own failure (exit 2).
 int capture_window(HWND window, const tool_options &options) {
     report_window_state(window);
     flush_dwm();

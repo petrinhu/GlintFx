@@ -271,6 +271,21 @@ def measured_heavy_errors(cmake_text, known):
     return errors, travados
 
 
+MEASURED_HEAVY_MIN = 14  # piso LITERAL: a lista so' cresce; encolher exige editar ESTA linha, visivel no diff
+
+
+def measured_heavy_floor_errors(cmake_text, known, minimo):
+    """Piso da lista (L-40): nem menos nomes que o minimo, nem nome que nao esta registrado em
+    tests/CMakeLists.txt (typo ou teste removido)."""
+    errors = []
+    if len(known) < minimo:
+        errors.append(f"MEASURED_HEAVY tem {len(known)} nome(s), o piso e' {minimo} - a lista so' cresce")
+    for nome in sorted(known):
+        if not re.search(r"add_test\s*\(\s*NAME\s+%s\b" % re.escape(nome), cmake_text):
+            errors.append(f"MEASURED_HEAVY: {nome} nao esta registrado em tests/CMakeLists.txt (grafia errada ou teste removido)")
+    return errors
+
+
 def private_subdir_path_errors(cmake_text):
     """Cada `private-subdir - <caminho>` e' de UM registro (PN1, CTO 29/09): dois
     registros no mesmo subdiretorio disputariam o que a declaracao diz que e' so' seu."""
@@ -356,6 +371,7 @@ def real_main(args):
     ci_text = read_text(args[1])
     errors, c, paralelas = run_check(read_text(args[0]), ci_text, read_text(args[2]), ps1)
     errors.extend(dispatch_input_errors(ci_text))
+    errors.extend(measured_heavy_floor_errors(read_text(args[0]), MEASURED_HEAVY, MEASURED_HEAVY_MIN))
     print(
         f"{SCRIPT_NAME}: add_test que recebem o diretorio de build: {c['total']} "
         f"(RESOURCE_LOCK: {c['lock']}, RUN_SERIAL: {c['serial']}, reads-only: {c['reads-only']}, "
@@ -463,6 +479,13 @@ def selftest_main():
     controls.append(_expect("MEDIDO-PESADO com trinco passa e e' contado", not erros and c.get("measured-heavy") == 1, str((erros, c))))
     erros, c, _p = run_check(_CMAKE_OK, _CI_OK, "", known_heavy=conhecidos)
     controls.append(_expect("MEDIDO-PESADO nao registrado (so' do outro sistema) nao reprova e conta zero", not erros and c.get("measured-heavy") == 0, str((erros, c))))
+    # Piso da lista (revisao de c9b70ba, furo 3): encolher a lista ou errar a grafia de um nome reprova.
+    erros = measured_heavy_floor_errors(_CMAKE_OK + com, conhecidos, 1)
+    controls.append(_expect("PISO-DA-LISTA com o nome registrado e a contagem minima passa", not erros, str(erros)))
+    erros = measured_heavy_floor_errors(_CMAKE_OK + com, {}, 1)
+    controls.append(_expect("PISO-DA-LISTA encolhida (um nome removido) reprova", any("MEASURED_HEAVY tem 0" in e for e in erros), str(erros)))
+    erros = measured_heavy_floor_errors(_CMAKE_OK + com, {"lento_testt": "typo"}, 1)
+    controls.append(_expect("PISO-DA-LISTA com nome de grafia errada (nao registrado) reprova, nomeando-o", any("lento_testt" in e for e in erros), str(erros)))
     # PN1 (CTO 29/09): caminhos private-subdir unicos; PN: variavel de grau do PowerShell validada
     dup = ("# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME p1_test COMMAND python3 x.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n"
            "# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME p2_test COMMAND python3 y.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n")

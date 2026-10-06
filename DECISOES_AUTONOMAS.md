@@ -6036,3 +6036,13 @@ Texto completo de cada uma (pergunta, opções, fontes) na §4 do plano. Abaixo:
   - PMU: não. Custo: baixo.
 - **D-W8-19:** a onda fecha com a marca `v0.7.0.0`, só depois do CI do `main` verde.
   - PMU: sim (marca pública). Custo: irreversível depois de publicada.
+
+### Sonda C0 de `QA-SCREEN-CAPTURE` (06/10/2026, 09:50): a premissa da D-W8-02 caiu pela metade
+Relatório: `/var/tmp/cto-w8/c0-sonda.md`, do `qa-engineer` sonnet. Isolamento provado antes de interagir, na configuração exata do CI. Nada foi construído, baixado, instalado ou commitado.
+- **FATO:** a imagem testada é a local `glintfx-wltest:p4-base`, de 03/10, e pode diferir da imagem do CI atual.
+  - O KWin é o 6.7.5, e a interface `org.kde.KWin.ScreenShot2` existe, na versão 5.
+  - O `busctl --user` já presente na imagem passa descritor (tipo `h`), sem pacote novo.
+- **(a) PROVADO:** sem as variáveis de permissão, a captura é recusada ("The process is not authorized to take a screenshot").
+- **(b) FALHOU:** com as duas variáveis, a autorização passa, mas toda forma de captura devolve "Screenshot got cancelled" com 0 bytes: `CaptureWorkspace`, `CaptureActiveScreen`, `CaptureScreen` e `CaptureArea`.
+- **Hipótese do agente, não confirmada:** sem `/dev/dri`, o KWin compõe com QPainter, e o plugin de captura só tem o caminho OpenGL. `KWIN_COMPOSE=O2` não mudou isso.
+- **Consequência:** a §9 do plano previa, para este caso, pacote novo (líder) ou o downgrade para leitura interna. A sonda abriu outras vias. A escolha volta ao CTO (L-34), junto com o resultado do ataque ao plano, que está em curso.

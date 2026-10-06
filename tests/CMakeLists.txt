@@ -6309,6 +6309,27 @@ add_test(
 )
 set_tests_properties(python_unbuffered_selftest PROPERTIES LABELS selftest)
 
+# QA-SCREEN-CAPTURE P2 (D-W8-20, D-W8-32, D-W8-33): the reader of the
+# wire relay's frame captures. raw_to_png.py turns conn<N>_surface<S>.raw
+# plus .meta into PNG with an md5 per image and REJECTS zero images
+# (CAPTURE-ZERO-FRAME-VERDICT); image_probe.py checks pixel probes on a
+# PNG and rejects zero probes. Each one's --selftest runs the three L-40
+# controls (good passes, bad rejects, empty rejects). Standard library
+# only (L-07). The consumer is P3 (capture_known_color_smoke).
+add_test(
+    NAME raw_to_png_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/raw_to_png.py" --selftest
+)
+set_tests_properties(raw_to_png_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME image_probe_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/image_probe.py" --selftest
+)
+set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
+
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
 # por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de

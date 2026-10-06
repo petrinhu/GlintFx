@@ -6239,3 +6239,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os 286 testes executados passaram.
   - O vermelho veio do `ctest_aggregate.py`, a régua de pesados: quatro testes anteriores à W8 passaram de 40 s sem RESOURCE_LOCK nem PROCESSORS (layers_selftest 45,1 s, dep_zero_trace_selftest 51,0 s, version_matches_tag_selftest 64,2 s e win32_test_link_selftest 92,2 s).
   - Conserto num SHA novo, sem reexecutar (D-A4). Mexer na régua seria afrouxamento e vai ao líder.
+
+### 06/10/2026 17:44:20 - Ordem do líder: modo autônomo religado
+
+- **Texto do líder, verbatim:** "ligue modo autonomo". A flag foi renovada e vale até 07/10/2026 17:44:04. Escopos: push e clean.
+- **Em voo:** o diagnóstico e o conserto do vermelho do run 37515318202, régua de pesados no Windows estático.
+- **Próximo, pelo v3 §4:** C2a, a sonda M2 no Windows. A preparação começa agora, sem trabalho pesado, porque o conserto do CI ocupa a vaga de pesado (L-11 global).

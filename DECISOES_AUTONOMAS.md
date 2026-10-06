@@ -5745,3 +5745,11 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - **Resultado:** isolamento com rc=0 e fixture com rc=0, "62 celula(s) conferida(s), 0 reprovada(s)". O mutante SOBREVIVE, como previsto. O sha256 do binário (`bd0c44a6...`) difere dos 5 do implementador.
 - **Conclusão:** é a troca de contexto do passo 3 que torna o perigo real dentro do `flush()`, e a célula mata o DW-M1 por esse motivo e não por acaso. A DW-a está aceita. A parte `make_current` do B7-K3 fica fechada.
 - **Próximo:** a DW-b (emenda E5) e a P4-c esperam o run A, enquanto a P5-a é despachada agora.
+
+### Run A vermelho só no Windows, pelo portão do texto congelado (G4): conserto `f8fe51d` e run A' (06/10/2026, 01:19)
+- **Fato:** no run 37411846822, os jobs "Windows - compartilhado", "Windows - estatico" e "Windows - Debug" falharam só no `auditoria_texto_congelado_test`, com "emenda E1/E3: o texto antigo aparece 0 vez(es)". Linux, Arch, Ubuntu, CachyOS e Fedora passaram. Era a estreia desse portão no Windows.
+- **Causa,** reproduzida localmente com cópias em CRLF e saída idêntica: `read()` usava `newline=""`, e o checkout do Windows com `core.autocrlf` traz CRLF, que não casa com os literais terminados em `\n`.
+- **Conserto (`f8fe51d`):** `newline=None` no leitor (L-04: o mesmo comportamento com qualquer configuração de git), mais o controle `selftest_crlf_checkout`, que foi visto vermelho antes do conserto.
+- **Re-verificação do main (L-12):** numa cópia com o conserto revertido, o selftest dá "controle CRLF-CHECKOUT FALHOU, controles 4/5" com rc=1. Com o conserto, rc=0.
+- **Gêmeos varridos em `tools/` e `tests/tools/`:** nenhum tem o mesmo defeito.
+- **CI:** push `9eebfe6..f8fe51d`. O run A foi cancelado, substituído pelo run A' 37413145733.

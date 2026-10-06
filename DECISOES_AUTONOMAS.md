@@ -5937,3 +5937,21 @@ Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/v
   - na largada do `loop_hidden_test` havia 276 testes iniciados e 276 terminados, nenhum em voo. O ctest segurou o teste até o `public_name_collision_test` acabar (08:30:21.2539 UTC), e ele largou 0,3 ms depois;
   - no JUnit, giro 1000 (critério ≥ 800; no run C foi 593), sono 0 (≤ 250) e `cpu_ratio_permille` 0, nos dois modos.
 - **Próximo passo:** o PR de `onda-w7d` para `main` (corte das 06:20).
+
+### PR #14 e merge em `main` (06/10/2026, 06:08)
+- **PR #14** aberto às 05:46. Seu CI, o run 37438340098 sobre `d91f140`, terminou verde: 25 jobs passaram e 1 foi pulado por desenho. A lista de jobs é idêntica à do run B.
+  - A árvore de `refs/pull/14/merge` é igual a `HEAD^{tree}` (`7a059e3`). Por isso o CI do PR vale como o run E da D-FECH-17.
+- **Merge commit `e01282a`**, com pais `c5e8a70` e `d91f140`. A árvore é `7a059e3`, a mesma provada no CI.
+  - O merge foi travado em `--match-head-commit`.
+  - A primeira tentativa foi recusada pela própria trava, porque o main digitou o SHA completo de memória e errou. A segunda usou o valor de `git rev-parse`.
+- **CI do `main`:** run 37440865588, corte às 07:15. A marca `v0.6.0.0` só sai sobre `e01282a` depois dele verde.
+
+### Onda W7-D fechada (06/10/2026, 06:35): marca `v0.6.0.0`, avisos e ramo apagado
+- **CI do `main`:** run 37440865588 sobre `e01282a`, verde (25/26, 1 pulado por desenho), com a lista de jobs idêntica à do run B.
+- **Marca anotada `v0.6.0.0`** (objeto `4005c475`) aponta para `e01282a`. Foi empurrada às 06:33 com a válvula do modo autônomo, pela ordem do líder ("Autorizo push/tag/merge"), e `ls-remote` confirma `refs/tags/v0.6.0.0^{}` = `e01282a`.
+  - O job `Versao == etiqueta (VERSION-TAG-SYNC)` do run 37443785690 (evento push, ref `v0.6.0.0`) passou.
+- **Avisos enviados antes de apagar o ramo:**
+  - no bus (`gusworld_ia_autocomm` `00954fc`), uma mensagem em `inbox/gusworld/` e outra em `inbox/mapeditor/`;
+  - ao Gus Dragon, pela L-37, um comentário na issue #8 em linguagem para criança.
+- **Ramo `onda-w7d`:** apagado no remoto e no local depois deste registro.
+- Todos os cortes da D-FECH-17 foram cumpridos: run D às 05:22, PR às 05:46, CI do PR às 06:07, CI do `main` às 06:32 e marca às 06:33.

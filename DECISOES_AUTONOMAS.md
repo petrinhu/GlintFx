@@ -5723,3 +5723,18 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - O trabalho autônomo para às 07:30 de 06/10: nenhuma fatia nova começa depois disso.
 - O que estiver em voo às 07:30 é levado a um estado seguro (commit local de algo completo e verificado, nada pela metade) e relatado. Depois vem o `/memo_persistente`.
 - O fim está gravado em `~/.config/olhe_agentes/GlintFx/fim_ordenado`, e o monitor o confere a cada tick.
+
+### DW-a commitada (`9eebfe6`) e passo 4: push e run A (06/10/2026, 01:03)
+- **Implementador:** QA sonnet. Resumo em `/var/tmp/dw-run/resumo.txt` e `resumo-ctl.txt`, conferidos pelo main.
+- **Controle:** 62 células conferidas, 0 reprovadas. São 52 + 10, exatamente a previsão §3.3 do parecer.
+- **Os mutantes,** todos com rc=1 e só linhas com `duas_janelas`:
+  - DW-M1: A em P1 (mais B em P1).
+  - DW-M2: A em P2 (mais B em P2).
+  - DW-M3: B em FD, P1 e P2 (mais A em FD e P3).
+  - DW-M4: B em FD (mais A inteira).
+- **Isolamento:** rc=0 em todas as variantes. O sha256 do binário no container difere entre as cinco.
+- **Os "+15" de 03/10:** os 67 que o main leu em `/var/tmp/dw/ctl/container_measured_raw.log` às 21:25 eram de uma versão anterior da célula. O agente anterior a mudou e reiniciou o roteiro às ~21:26, e o log foi sobrescrito, então não sobrou arquivo que prove o conteúdo daquela versão. Fica como fato o que se mede hoje: o código commitado faz +10.
+- **`GL-CTX-SHARED-EGLDISPLAY`:** não apareceu na desmontagem do controle (perna padrão; a ASan não rodou aqui).
+- **Pendente da aceitação:** a sabotagem do teste (§3.4), com o DW-M1 sem o `context_b.make_current()`, que tem de sobreviver. Foi despachada a um revisor QA distinto.
+- **Push:** `7d350dd..9eebfe6`, conferido por `git ls-remote`.
+- **Run A:** 37411846822, disparado por `workflow_dispatch`.

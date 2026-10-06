@@ -979,10 +979,21 @@ def tool_link_command(tool):
     )
 
 
-def link_one_tool(image, repo_root, scratch, tool, timeout_seconds):
-    os.makedirs(os.path.join(scratch, f"objs_{tool['name']}"), exist_ok=True)
+class DockerContext(NamedTuple):
+    """Tudo que uma chamada `docker run` do gate precisa e que nao muda de alvo para alvo (L-17:
+    quatro parametros no maximo, entao os quatro viram um)."""
+
+    image: str
+    repo_root: str
+    scratch: str
+    timeout_seconds: int
+    harness_objs: tuple = ()
+
+
+def link_one_tool(context, tool):
+    os.makedirs(os.path.join(context.scratch, f"objs_{tool['name']}"), exist_ok=True)
     returncode, stdout, stderr, elapsed, timed_out = _run_docker(
-        image, repo_root, scratch, tool_link_command(tool), timeout_seconds
+        context.image, context.repo_root, context.scratch, tool_link_command(tool), context.timeout_seconds
     )
     return {
         "name": tool["name"],
@@ -1570,6 +1581,64 @@ def new_summary():
     }
 
 
+def link_all_targets(context, targets, tools, summary):
+    """Liga cada alvo no ligador do SEU tipo (teste: harness e glintfx.lib; ferramenta: so as fontes
+    dela), classifica o resultado, conta em `summary` e devolve os detalhes das falhas."""
+    detalhes = []
+    for target in targets + tools:
+        if target.get("kind") == "tool":
+            result = link_one_tool(context, target)
+        else:
+            result = link_one_test(
+                context.image, context.repo_root, context.scratch, target, context.timeout_seconds,
+                context.harness_objs,
+            )
+        summary["tempo_total_s"] += result["elapsed"]
+        classification, note = classify_link_result(result)
+        if classification == "ligou":
+            summary["ligados"] += 1
+        elif classification == "falhou":
+            summary["falharam"] += 1
+            detalhes.append(f"{result['name']}: nao ligou -> {stderr_tail(result['stdout'] + result['stderr'])}")
+        else:
+            summary["ambiente"] += 1
+            detalhes.append(f"{result['name']}: ambiente -> {note}")
+    return detalhes
+
+
+def reconcile_summary(summary, detalhes_lnk):
+    """Erros do fechamento: a soma classificada tem de bater com o encontrado (L-36), e as falhas
+    ou o ambiente indisponivel levam seus detalhes."""
+    errors = []
+    total_classificado = summary["ligados"] + summary["falharam"] + summary["ambiente"]
+    if total_classificado != summary["alvos_encontrados"]:
+        errors.append(
+            "reconciliacao falhou (GODS_LAWS.md L-36): "
+            f"ligados({summary['ligados']}) + falharam({summary['falharam']}) + "
+            f"ambiente({summary['ambiente']}) = {total_classificado} != "
+            f"alvos_encontrados({summary['alvos_encontrados']})"
+        )
+    if summary["falharam"] > 0 or summary["ambiente"] > 0:
+        errors.extend(detalhes_lnk)
+    return errors
+
+
+def empty_scan_errors(targets, tools):
+    """Piso de varredura (L-40): zero ferramentas ou zero testes e' coleta quebrada, nunca 'nada a ligar'."""
+    if len(tools) == 0:
+        return [
+            "varredura vazia: nenhum add_executable() de ferramenta dentro de if(WIN32) em tests/CMakeLists.txt "
+            "(a ferramenta de captura existe) - GODS_LAWS.md L-40, sinal de coleta quebrada"
+        ]
+    if len(targets) == 0:
+        return [
+            "varredura vazia: nenhum glintfx_add_test() aplicavel ao Windows (incondicional ou "
+            "if(WIN32)) em tests/CMakeLists.txt - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca "
+            "de 'nenhum teste win32 existe'"
+        ]
+    return []
+
+
 def run_link_check(repo_root, image, timeout_seconds):
     cmake_text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
     targets, exclusion_counts = extract_win32_test_targets(cmake_text)
@@ -1580,22 +1649,10 @@ def run_link_check(repo_root, image, timeout_seconds):
     summary["ferramentas_fora_do_escopo"] = tools_out_of_scope
     summary["alvos_encontrados"] = len(targets) + len(tools)
     summary["exclusion_counts"] = exclusion_counts
-    errors = []
+    errors = empty_scan_errors(targets, tools)
+    if errors:
+        return summary, errors
     detalhes_lnk = []
-
-    if len(tools) == 0:
-        errors.append(
-            "varredura vazia: nenhum add_executable() de ferramenta dentro de if(WIN32) em tests/CMakeLists.txt "
-            "(a ferramenta de captura existe) - GODS_LAWS.md L-40, sinal de coleta quebrada"
-        )
-        return summary, errors
-    if len(targets) == 0:
-        errors.append(
-            "varredura vazia: nenhum glintfx_add_test() aplicavel ao Windows (incondicional ou "
-            "if(WIN32)) em tests/CMakeLists.txt - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca "
-            "de 'nenhum teste win32 existe'"
-        )
-        return summary, errors
 
     sources, libs, needs_gl_loader, visited_files = collect_win32_library_layout(repo_root)
     summary["fontes_biblioteca_encontradas"] = len(sources)
@@ -1658,36 +1715,12 @@ def run_link_check(repo_root, image, timeout_seconds):
             return summary, errors
         harness_objs = harness_result["obj_paths"]
 
-        for target in targets + tools:
-            if target.get("kind") == "tool":
-                result = link_one_tool(image, repo_root, scratch, target, timeout_seconds)
-            else:
-                result = link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs)
-            summary["tempo_total_s"] += result["elapsed"]
-            classification, note = classify_link_result(result)
-            if classification == "ligou":
-                summary["ligados"] += 1
-            elif classification == "falhou":
-                summary["falharam"] += 1
-                detalhes_lnk.append(
-                    f"{result['name']}: nao ligou -> {stderr_tail(result['stdout'] + result['stderr'])}"
-                )
-            else:
-                summary["ambiente"] += 1
-                detalhes_lnk.append(f"{result['name']}: ambiente -> {note}")
+        context = DockerContext(image, repo_root, scratch, timeout_seconds, harness_objs)
+        detalhes_lnk = link_all_targets(context, targets, tools, summary)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
-    total_classificado = summary["ligados"] + summary["falharam"] + summary["ambiente"]
-    if total_classificado != summary["alvos_encontrados"]:
-        errors.append(
-            "reconciliacao falhou (GODS_LAWS.md L-36): "
-            f"ligados({summary['ligados']}) + falharam({summary['falharam']}) + "
-            f"ambiente({summary['ambiente']}) = {total_classificado} != "
-            f"alvos_encontrados({summary['alvos_encontrados']})"
-        )
-    if summary["falharam"] > 0 or summary["ambiente"] > 0:
-        errors.extend(detalhes_lnk)
+    errors.extend(reconcile_summary(summary, detalhes_lnk))
 
     return summary, errors
 
@@ -2340,8 +2373,71 @@ def _selftest_tool_link_command():
     return True
 
 
+def _fake_summary():
+    summary = new_summary()
+    summary["alvos_encontrados"] = 3
+    return summary
+
+
+def _selftest_link_all_targets_dispatch():
+    """Cada alvo vai para o ligador do SEU tipo, e o resultado e classificado e contado."""
+    calls = []
+    original_test, original_tool = link_one_test, link_one_tool
+
+    def fake_test(image, repo_root, scratch, target, timeout_seconds, harness_objs=None):
+        calls.append(("test", target["name"], harness_objs))
+        return dict(_fake_link_result(0, stdout="ok"), name=target["name"])
+
+    def fake_tool(context, tool):
+        calls.append(("tool", tool["name"]))
+        return dict(_fake_link_result(2, stdout="main.obj : error LNK2019: unresolved external symbol\n"),
+                    name=tool["name"])
+
+    globals()["link_one_test"], globals()["link_one_tool"] = fake_test, fake_tool
+    try:
+        summary = _fake_summary()
+        context = DockerContext("img", "/repo", "/scratch", 5, ["h.obj"])
+        detalhes = link_all_targets(context, [{"name": "t1"}, {"name": "t2"}],
+                                    [{"name": "tool1", "kind": "tool"}], summary)
+    finally:
+        globals()["link_one_test"], globals()["link_one_tool"] = original_test, original_tool
+    ok = (
+        calls == [("test", "t1", ["h.obj"]), ("test", "t2", ["h.obj"]), ("tool", "tool1")]
+        and (summary["ligados"], summary["falharam"], summary["ambiente"]) == (2, 1, 0)
+        and len(detalhes) == 1 and detalhes[0].startswith("tool1: nao ligou")
+    )
+    if not ok:
+        print(f"selftest: LIGACAO-DESPACHO FALHOU: calls={calls} summary={summary} detalhes={detalhes}", file=sys.stderr)
+        return False
+    print("selftest: LIGACAO-DESPACHO OK (teste e ferramenta vao cada um ao seu ligador, contados e classificados)")
+    return True
+
+
+def _selftest_reconcile_summary():
+    good = _fake_summary()
+    good["ligados"], good["falharam"] = 2, 1
+    short = _fake_summary()
+    short["ligados"] = 2
+    errors_good = reconcile_summary(good, ["x: nao ligou -> y"])
+    errors_short = reconcile_summary(short, [])
+    clean = _fake_summary()
+    clean["ligados"] = 3
+    ok = (
+        len(errors_good) == 1 and errors_good[0].startswith("x: nao ligou")
+        and len(errors_short) == 1 and "reconciliacao falhou" in errors_short[0]
+        and reconcile_summary(clean, []) == []
+    )
+    if not ok:
+        print(f"selftest: RECONCILIACAO FALHOU: {errors_good} {errors_short}", file=sys.stderr)
+        return False
+    print("selftest: RECONCILIACAO OK (soma errada reprova, falha detalhada e repassada, tudo ligado passa)")
+    return True
+
+
 def _selftest_parsing_result_table():
     return [
+        ("ligacao-despacho", _selftest_link_all_targets_dispatch()),
+        ("reconciliacao", _selftest_reconcile_summary()),
         ("ferramentas-parsing", _selftest_tool_targets()),
         ("ferramentas-arvore-real", _selftest_tool_targets_real_tree()),
         ("ferramenta-comando", _selftest_tool_link_command()),

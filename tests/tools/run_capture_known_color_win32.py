@@ -692,32 +692,27 @@ def process_alive(pid):
 
 
 SLEEPER = "import time; time.sleep(20)"
-ORPHAN_HOLDING_THE_PIPE = ("import subprocess, sys, time; "
-                           f"subprocess.Popen([sys.executable, '-c', {SLEEPER!r}]); time.sleep(20)")
-
-
 def selftest_run_process():
     code, output = run_process([sys.executable, "-c", "import sys; print('hello'); sys.exit(3)"])
     check("run_process: devolve o codigo e a saida do filho", code == 3 and "hello" in output)
     started = time.monotonic()
-    code, output = run_process([sys.executable, "-c", SLEEPER], timeout=1)
+    code, output = run_process([sys.executable, "-c", SLEEPER], timeout=0.5)
     check("run_process: filho que nao termina vira 124 dentro do prazo", code == 124 and time.monotonic() - started < 10)
-    check("run_process: a mensagem do 124 nomeia o prazo", "timeout after 1 s" in output)
+    check("run_process: a mensagem do 124 nomeia o prazo", "timeout after 0.5 s" in output)
     code, output = run_process(["/nonexistent/no-such-tool.exe"])
     check("run_process: programa inexistente vira 127 (nunca 0, nunca excecao)", code == 127 and "cannot run" in output)
-    # The risk the review named (A4): the child's own child inherits the pipe, so killing only the child
-    # leaves the pipe open and a plain subprocess.run keeps waiting for EOF. The tree must die with it.
-    started = time.monotonic()
-    code, _ = run_process([sys.executable, "-c", ORPHAN_HOLDING_THE_PIPE], timeout=1)
-    elapsed = time.monotonic() - started
-    check(f"run_process: neto que segura o tubo nao pendura o executor (124 em {elapsed:.1f} s, teto 12 s)",
-          code == 124 and elapsed < 12)
     with tempfile.TemporaryDirectory() as tmp:
         pid_file = Path(tmp) / "grandchild.pid"
         parent = ("import subprocess, sys, time; "
                   f"g = subprocess.Popen([sys.executable, '-c', {SLEEPER!r}]); "
                   f"open({str(pid_file)!r}, 'w').write(str(g.pid)); time.sleep(20)")
-        run_process([sys.executable, "-c", parent], timeout=2)
+        # The risk the review named (A4): the child's own child inherits the pipe, so killing only the child
+        # leaves the pipe open and a plain Windows subprocess.run keeps waiting for its EOF. The tree must die.
+        started = time.monotonic()
+        code, _ = run_process([sys.executable, "-c", parent], timeout=1.5)
+        elapsed = time.monotonic() - started
+        check(f"run_process: neto que segura o tubo nao pendura o executor (124 em {elapsed:.1f} s, teto 12 s)",
+              code == 124 and elapsed < 12)
         grandchild = int(pid_file.read_text()) if pid_file.is_file() else 0
         deadline = time.monotonic() + 5
         while grandchild and process_alive(grandchild) and time.monotonic() < deadline:

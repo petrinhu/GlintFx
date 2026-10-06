@@ -5838,3 +5838,20 @@ Parecer: `/var/tmp/cto-w7d/parecer-p5a.md` (md5 `207b7be0`). O critério foi fix
 - **Medido pelo main:** a redação congelada nunca esteve no cabeçalho (`git log -S` vazio); a divergência nasce na P3 (`6de2339`).
 - **Buraco do portão:** `auditoria_texto_congelado.py verificar` não compara com o cabeçalho.
 - Levado ao CTO.
+
+### D-FECH-16 (CTO, modo autônomo, 06/10/2026, ~03:00; a confirmar retroativamente): o texto publicado do `gfx_option.hpp` vale, e o apêndice é corrigido
+Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
+- **Decisão:** (a) refinada. O cabeçalho NÃO muda. No `tools/auditoria_texto_congelado.py`:
+  - a E2 é reescrita com a redação publicada, em duas sub-entradas (o preâmbulo "rows" e o bloco `vsync` na posição publicada), extraída por script do blob `6de2339`;
+  - a E1 muda só nas quebras de linha;
+  - não entra nenhuma emenda nova E6/E7;
+  - o apêndice é regenerado por `gerar`.
+- **Por quê:**
+  - o "four" congelado ficaria falso, porque com o `vsync` são cinco opções;
+  - a errata fixa só o sentido da E2 e delega os nomes à P3 (`docs/auditoria-plano-w7d.md:308-310`; o script declara a redação como dele em `:25-31`, conferido pelo main);
+  - o revisor de API marcou a redação publicada como "CONFERE" (`conferencia-p3.md`, md5 `412c9c6b`, conferido);
+  - a P3 não está em nenhuma marca nem no `main` (`merge-base`, conferido), e a porta da D-FECH-6 só fecha na `v0.6.0.0`.
+- **A promessa a mais tem prova:** a recusa de `adaptive` pelo nome existe no código dos dois sistemas, com célula viva (`gl_context_parity_test.cpp:882-900`).
+- **Vermelho guardado antes da fatia:** `/var/tmp/passo8/cmp.py` (md5 `7585554b`), rodado pelo main na árvore em `b0a6b21`, dá `encontrados/comparados/divergentes = 6/8/2`. A primeira divergência fica em `gfx_option.hpp:325`.
+- **Fecha quando:** o revisor distinto ler 8/8/0 no blob commitado, e a sabotagem do main no cabeçalho ("For the four rows below") morder com 1 divergente. Só então vem o passo 9. O `cmp.py` roda de novo no SHA do run B.
+- **Buraco do portão:** vai para a INBOX como `AUD-APENDICE-VS-CABECALHO-GATE`, colado por script do parecer. Mudá-lo agora seria um critério novo depois do dado (L-43).

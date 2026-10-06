@@ -412,6 +412,72 @@ def extract_win32_test_targets(cmake_text):
     return targets, exclusion_counts
 
 
+# --- 1b. extract_win32_tool_targets: executaveis Win32 que nao sao teste -------
+
+# QA-SCREEN-CAPTURE C2b-2 (desvio 1 da revisao C2b-1..3): a ferramenta de captura
+# (tests/tools/win32_window_capture.cpp) e' um `add_executable` sob `if(WIN32)`, nao um
+# glintfx_add_test(), e por isso este portao nunca a ligava: o link real so' acontecia no
+# servidor. Um executavel dentro de `if(WIN32)` que NAO liga glintfx::glintfx nem o harness e'
+# uma FERRAMENTA (fontes proprias, sem harness, sem glintfx.lib); o que liga um dos dois
+# (os *_parity_test, win32_facade_pin_test) continua fora deste portao e e' CONTADO como fora do
+# escopo, nunca silenciado (GODS_LAWS.md L-40).
+
+
+_ADD_EXECUTABLE_RE = re.compile(r"add_executable\(\s*(\w+)\s+(.*?)\)", re.DOTALL)
+_NOT_A_TOOL_LIBS = ("glintfx::glintfx", "glintfx_test_harness")
+
+
+def _line_under_win32(lines):
+    """True em cada linha que esta dentro de um if(WIN32) literal e de nenhum bloco que exclua o
+    Windows (mesmo walker if/elseif/else/endif de _line_exclusion_reasons)."""
+    flags = []
+    stack = []
+    for i, line in enumerate(lines):
+        if_match = _IF_RE.match(line)
+        elseif_match = _ELSEIF_RE.match(line)
+        if if_match:
+            stack.append(if_match.group(1).strip())
+        elif elseif_match:
+            if not stack:
+                fail(f"elseif() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack[-1] = elseif_match.group(1).strip()
+        elif _ELSE_RE.match(line):
+            if not stack:
+                fail(f"else() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack[-1] = "__else__"
+        elif _ENDIF_RE.match(line):
+            if not stack:
+                fail(f"endif() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack.pop()
+        flags.append("WIN32" in stack and not any(_excludes_windows(cond) for cond in stack))
+    return flags
+
+
+def extract_win32_tool_targets(cmake_text):
+    """(tools, out_of_scope_count): cada `add_executable(<nome> <fontes>)` dentro de if(WIN32) que
+    NAO liga glintfx::glintfx nem glintfx_test_harness e' uma ferramenta {name, kind, sources, libs}; os que ligam sao
+    contados em out_of_scope_count (nunca silenciados)."""
+    stripped_text = cmake_lexer.strip_comments(cmake_text)
+    under_win32 = _line_under_win32(stripped_text.splitlines())
+    tools = []
+    out_of_scope = 0
+    for match in _ADD_EXECUTABLE_RE.finditer(stripped_text):
+        if not under_win32[stripped_text.count("\n", 0, match.start())]:
+            continue
+        name = match.group(1)
+        libs = _extract_call_args(stripped_text, "target_link_libraries", name)
+        if any(lib in libs for lib in _NOT_A_TOOL_LIBS):
+            out_of_scope += 1
+            continue
+        sources = [
+            _resolve_project_source_dir_token(token)
+            for token in _tokenize_cmake_args(match.group(2))
+            if token.endswith((".cpp", ".cc", ".cxx"))
+        ]
+        tools.append({"name": name, "kind": "tool", "sources": sources, "libs": libs})
+    return tools, out_of_scope
+
+
 # --- 2. collect_win32_library_layout: src/**/CMakeLists.txt --------------
 
 
@@ -896,6 +962,36 @@ def build_harness_objects(image, repo_root, scratch, timeout_seconds):
 
 
 # --- 5. link_one_test -------------------------------------------------------
+
+
+def tool_link_command(tool):
+    """O `cl` de UMA ferramenta: so as fontes e libs dela (nada de harness nem glintfx.lib, que
+    trariam um segundo main() e uma DLL que ela nao usa)."""
+    name = tool["name"]
+    source_args = " ".join(shlex.quote(f"/src/{src}") for src in tool["sources"])
+    lib_flags = " ".join(f"{lib}.lib" for lib in dict.fromkeys(tool["libs"]))
+    link_clause = f"/link {lib_flags}".rstrip()
+    return (
+        "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /WX "
+        "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 "
+        f'/Fo"/build/objs_{name}/" /Fe"/build/{name}.exe" '
+        f"{source_args} {link_clause}"
+    )
+
+
+def link_one_tool(image, repo_root, scratch, tool, timeout_seconds):
+    os.makedirs(os.path.join(scratch, f"objs_{tool['name']}"), exist_ok=True)
+    returncode, stdout, stderr, elapsed, timed_out = _run_docker(
+        image, repo_root, scratch, tool_link_command(tool), timeout_seconds
+    )
+    return {
+        "name": tool["name"],
+        "returncode": returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "elapsed": elapsed,
+        "timed_out": timed_out,
+    }
 
 
 def link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs=None):
@@ -1468,6 +1564,8 @@ def new_summary():
         "falharam": 0,
         "ambiente": 0,
         "exclusion_counts": {},
+        "ferramentas": 0,
+        "ferramentas_fora_do_escopo": 0,
         "tempo_total_s": 0.0,
     }
 
@@ -1475,13 +1573,22 @@ def new_summary():
 def run_link_check(repo_root, image, timeout_seconds):
     cmake_text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
     targets, exclusion_counts = extract_win32_test_targets(cmake_text)
+    tools, tools_out_of_scope = extract_win32_tool_targets(cmake_text)
 
     summary = new_summary()
-    summary["alvos_encontrados"] = len(targets)
+    summary["ferramentas"] = len(tools)
+    summary["ferramentas_fora_do_escopo"] = tools_out_of_scope
+    summary["alvos_encontrados"] = len(targets) + len(tools)
     summary["exclusion_counts"] = exclusion_counts
     errors = []
     detalhes_lnk = []
 
+    if len(tools) == 0:
+        errors.append(
+            "varredura vazia: nenhum add_executable() de ferramenta dentro de if(WIN32) em tests/CMakeLists.txt "
+            "(a ferramenta de captura existe) - GODS_LAWS.md L-40, sinal de coleta quebrada"
+        )
+        return summary, errors
     if len(targets) == 0:
         errors.append(
             "varredura vazia: nenhum glintfx_add_test() aplicavel ao Windows (incondicional ou "
@@ -1527,7 +1634,7 @@ def run_link_check(repo_root, image, timeout_seconds):
             # (nao "falhou": o link.exe de cada teste individual nunca
             # rodou) para que ligados+falharam+ambiente==encontrados
             # continue batendo (GODS_LAWS.md L-36/L-40).
-            summary["ambiente"] = len(targets)
+            summary["ambiente"] = len(targets) + len(tools)
             reason = "timeout" if dll_result["timed_out"] else f"rc={dll_result['returncode']}"
             errors.append(
                 f"glintfx.dll (pre-requisito de todo alvo win32_*) nao compilou/ligou ({reason}):\n"
@@ -1542,7 +1649,7 @@ def run_link_check(repo_root, image, timeout_seconds):
         harness_result = build_harness_objects(image, repo_root, scratch, timeout_seconds)
         summary["tempo_total_s"] += harness_result["elapsed"]
         if not harness_result["ok"]:
-            summary["ambiente"] = len(targets)
+            summary["ambiente"] = len(targets) + len(tools)
             reason = "timeout" if harness_result["timed_out"] else f"rc={harness_result['returncode']}"
             errors.append(
                 f"harness (pre-requisito de todo alvo) nao compilou ({reason}):\n"
@@ -1551,8 +1658,11 @@ def run_link_check(repo_root, image, timeout_seconds):
             return summary, errors
         harness_objs = harness_result["obj_paths"]
 
-        for target in targets:
-            result = link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs)
+        for target in targets + tools:
+            if target.get("kind") == "tool":
+                result = link_one_tool(image, repo_root, scratch, target, timeout_seconds)
+            else:
+                result = link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs)
             summary["tempo_total_s"] += result["elapsed"]
             classification, note = classify_link_result(result)
             if classification == "ligou":
@@ -1597,7 +1707,8 @@ def print_summary(summary):
         f"{SCRIPT_NAME}: alvos encontrados={summary['alvos_encontrados']} | "
         f"fontes biblioteca encontradas={summary['fontes_biblioteca_encontradas']} | "
         f"ligados={summary['ligados']} | falharam={summary['falharam']} | "
-        f"ambiente={summary['ambiente']} | pulados={total_pulados} por: "
+        f"ambiente={summary['ambiente']} | ferramentas={summary.get('ferramentas', 0)} "
+        f"(fora do escopo, ligam glintfx::glintfx: {summary.get('ferramentas_fora_do_escopo', 0)}) | pulados={total_pulados} por: "
         f"{_format_exclusion_counts(summary['exclusion_counts'])} | "
         f"tempo total (s)={summary['tempo_total_s']:.1f}"
     )
@@ -2163,8 +2274,77 @@ def _selftest_real_toolchain(scratch, image, timeout_seconds):
 # a tabela pura de resultados sem dependencia externa, a parte que
 # depende de docker/scratch, e o relatorio final - nenhuma delas
 # reusada em outro lugar, e' so' quebra de tamanho.
+_TOOLS_FIXTURE = """
+if(WIN32)
+    add_executable(fake_tool
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/fake_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/fake_part.cpp")
+    target_link_libraries(fake_tool PRIVATE user32 gdi32)
+    add_executable(fake_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/fake_parity_test.cpp")
+    target_link_libraries(fake_parity_test PRIVATE glintfx::glintfx)
+    add_executable(fake_pin_test "${CMAKE_CURRENT_SOURCE_DIR}/fake_pin_test.cpp")
+    target_link_libraries(fake_pin_test PRIVATE glintfx_test_harness user32)
+endif()
+add_executable(fake_everywhere "${CMAKE_CURRENT_SOURCE_DIR}/fake_everywhere.cpp")
+if(UNIX)
+    add_executable(fake_unix_only "${CMAKE_CURRENT_SOURCE_DIR}/fake_unix.cpp")
+endif()
+# add_executable(fake_in_comment fake_comment.cpp)
+"""
+
+
+def _selftest_tool_targets():
+    tools, out_of_scope = extract_win32_tool_targets(_TOOLS_FIXTURE)
+    names = [tool["name"] for tool in tools]
+    ok = (
+        names == ["fake_tool"]
+        and tools[0]["sources"] == ["tests/tools/fake_main.cpp", "tests/tools/fake_part.cpp"]
+        and tools[0]["libs"] == ["user32", "gdi32"]
+        and out_of_scope == 2
+    )
+    if not ok:
+        print(f"selftest: FERRAMENTAS-PARSING FALHOU: tools={tools} fora_do_escopo={out_of_scope}", file=sys.stderr)
+        return False
+    print(f"selftest: FERRAMENTAS-PARSING OK: tools={names} fora_do_escopo={out_of_scope}")
+    return True
+
+
+def _selftest_tool_targets_real_tree():
+    # L-40: piso sobre a arvore REAL. A ferramenta de captura existe e esta sob if(WIN32); zero
+    # ferramentas aqui seria a coleta quebrada (o defeito original: nenhuma era enumerada).
+    here = os.path.dirname(os.path.abspath(__file__))
+    tools, _ = extract_win32_tool_targets(read_file(os.path.join(here, "..", "CMakeLists.txt")))
+    names = [tool["name"] for tool in tools]
+    if "win32_window_capture" not in names:
+        print(f"selftest: FERRAMENTAS-ARVORE-REAL FALHOU: win32_window_capture fora de {names}", file=sys.stderr)
+        return False
+    print(f"selftest: FERRAMENTAS-ARVORE-REAL OK: {len(names)} ferramenta(s): {names}")
+    return True
+
+
+def _selftest_tool_link_command():
+    tool = {"name": "fake_tool", "kind": "tool", "sources": ["tests/tools/a.cpp"], "libs": ["user32", "gdi32"]}
+    command = tool_link_command(tool)
+    ok = (
+        "/src/tests/tools/a.cpp" in command
+        and "user32.lib" in command
+        and "gdi32.lib" in command
+        and "/Fe\"/build/fake_tool.exe\"" in command
+        and "glintfx.lib" not in command
+        and "harness" not in command
+    )
+    if not ok:
+        print(f"selftest: FERRAMENTA-COMANDO FALHOU: {command}", file=sys.stderr)
+        return False
+    print("selftest: FERRAMENTA-COMANDO OK (fontes e libs proprias, sem glintfx.lib nem harness)")
+    return True
+
+
 def _selftest_parsing_result_table():
     return [
+        ("ferramentas-parsing", _selftest_tool_targets()),
+        ("ferramentas-arvore-real", _selftest_tool_targets_real_tree()),
+        ("ferramenta-comando", _selftest_tool_link_command()),
         ("parsing-positivo", _selftest_parsing_positive()),
         ("comentario-de-bloco-fantasma", _selftest_bracket_comment_never_a_phantom_target()),
         ("hash-em-aspas-nao-trunca", _selftest_hash_inside_quotes_does_not_truncate_real_source()),

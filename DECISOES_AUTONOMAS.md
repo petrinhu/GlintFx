@@ -5929,3 +5929,11 @@ Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/v
 - **Achado do implementador:** nenhum portão local reprova se faltar o `RUN_SERIAL`, porque o vermelho só aparece com o Windows sob carga. A prova é o run D, e só ele.
 - **Desvio declarado:** a fatia não ganhou linha própria na tabela. O registro está aqui e no commit.
 - **Push:** `ls-remote` = `dc0ff8c`. Run D: 37435662150, disparado dentro do corte de 05:45.
+
+### Run D verde (06/10/2026, 05:45): `CI-VERDE-W7D` ✅ de novo, citando o run D
+- **Run 37435662150 sobre `dc0ff8c`:** 25 jobs verdes e 1 pulado por desenho (`VERSION-TAG-SYNC`). A lista de jobs é idêntica à do run B (`diff` vazio).
+- **Provas da D-FECH-17**, conferidas pelo main nos artefatos e nos logs dos dois modos Windows (`/var/tmp/cto-w7d/runD/`):
+  - `RUN_SERIAL: true` no `ctest-show.json`, nos modos compartilhado e estático;
+  - na largada do `loop_hidden_test` havia 276 testes iniciados e 276 terminados, nenhum em voo. O ctest segurou o teste até o `public_name_collision_test` acabar (08:30:21.2539 UTC), e ele largou 0,3 ms depois;
+  - no JUnit, giro 1000 (critério ≥ 800; no run C foi 593), sono 0 (≤ 250) e `cpu_ratio_permille` 0, nos dois modos.
+- **Próximo passo:** o PR de `onda-w7d` para `main` (corte das 06:20).

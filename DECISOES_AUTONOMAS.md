@@ -5881,3 +5881,11 @@ Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
   - `parity_exceptions.txt`: a linha do `egl_srgb_surface_test` virou `SEM-PENDENCIA` no mesmo commit.
   - `check_test_parity.py --textual` deu rc=0. O controle (a exceção antiga contra o TODO novo) deu rc=1, "aponta para item concluido".
 - **Passo 11:** push `f8fe51d..9a7a756`, conferido por `ls-remote`. Run B: 37426916661.
+
+### Passo 12 (06/10/2026, 04:25): run B verde e CI-VERDE-W7D concluído
+- **Run B 37426916661 sobre `9a7a756`:** success, 25/26. O único fora é o VERSION-TAG-SYNC, pulado por desenho. A lista de jobs é idêntica à do run 37159658455.
+- **Controle D-FECH-12, lido do job `parity`:**
+  - as três chaves do preset estão presentes nos dois lados (`auto_choice_reason` 2 e 2, `suggested_preset` 2 e 2, `power_source` 0 no Fedora e 1 no Windows);
+  - pelo `--per-system`, `power_source` cai em "divergentes declaradas" (lado `familias`). PASSOU: a inferência do CTO se confirmou.
+- **Única divergência não declarada:** `swap_tolerated_downgrades` (0 contra 124), herdada da W6b. Foi para a INBOX como `SWAP-TOLERATED-DOWNGRADES-DIVERGENCE`.
+- **`4f738d1`:** `CI-VERDE-W7D` passou a ✅. Em seguida vem o run C.

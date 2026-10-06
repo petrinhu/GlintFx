@@ -233,6 +233,44 @@ def nested_build_errors(cmake_text):
     return errors, heavy
 
 
+# Testes que o CI MEDIU acima da regua de 40 s do ctest_aggregate.py (varredura de 13265 linhas de teste
+# em 48 jobs de tres runs: 37438340098, 37440865588, 37515318202). Todo teste daqui, SE registrado em
+# tests/CMakeLists.txt, tem de ter RESOURCE_LOCK glintfx_nested_build: o aggregate so' ve a lentidao
+# DEPOIS que ela acontece no CI, este portao a ve antes. Lista crescente: o teste que passar de 40 s
+# num job entra aqui no mesmo commit do trinco (nunca se alarga a regua).
+MEASURED_HEAVY = {
+    "public_name_collision_test": "400,8 s Windows estatico, 37515318202",
+    "pkgconfig_validate_test": "113,4 s Windows compartilhado, 37438340098",
+    "pkgconfig_test": "97,3 s CachyOS estatico, 37438340098",
+    "embed_win_test": "93,0 s Windows compartilhado, 37438340098",
+    "win32_test_link_selftest": "92,2 s Windows estatico, 37515318202",
+    "embed_test": "77,9 s CachyOS estatico, 37438340098",
+    "version_matches_tag_selftest": "64,2 s Windows estatico, 37515318202",
+    "install_packager_layout_test": "55,4 s Clang Fedora, 37438340098",
+    "dep_zero_trace_selftest": "51,0 s Windows estatico, 37515318202",
+    "gl_codegen_host_leak_test": "49,1 s Windows compartilhado, 37438340098",
+    "no_target_collision_win_test": "48,0 s Windows compartilhado, 37438340098",
+    "layers_selftest": "45,1 s Windows estatico, 37515318202",
+    "install_includedir_win_test": "44,6 s Windows compartilhado, 37438340098",
+    "dep_zero_selftest": "41,0 s Windows estatico, 37515318202",
+}
+
+
+def measured_heavy_errors(cmake_text, known):
+    """(erros, quantos registrados e travados). Nome que nao esta registrado neste texto (par do
+    outro sistema) nao conta."""
+    errors = []
+    travados = 0
+    for nome, motivo in sorted(known.items()):
+        if not re.search(r"add_test\s*\(\s*NAME\s+%s\b" % re.escape(nome), cmake_text):
+            continue
+        if _has_lock(_properties_of(cmake_text, nome), NESTED_LOCK):
+            travados += 1
+        else:
+            errors.append(f"tests/CMakeLists.txt: {nome} esta em MEASURED_HEAVY ({motivo}) e nao tem RESOURCE_LOCK {NESTED_LOCK} - passa da regua de 40 s do ctest_aggregate.py")
+    return errors, travados
+
+
 def private_subdir_path_errors(cmake_text):
     """Cada `private-subdir - <caminho>` e' de UM registro (PN1, CTO 29/09): dois
     registros no mesmo subdiretorio disputariam o que a declaracao diz que e' so' seu."""
@@ -275,10 +313,12 @@ def build_dir_errors(cmake_text):
 # --- veredito ---------------------------------------------------------
 
 
-def run_check(cmake_text, ci_text, preci_text, ps1_texts=None):
+def run_check(cmake_text, ci_text, preci_text, ps1_texts=None, known_heavy=None):
     errors, contagens = build_dir_errors(cmake_text)
     nested_erros, contagens["nested-heavy"] = nested_build_errors(cmake_text)
     errors.extend(nested_erros)
+    heavy_erros, contagens["measured-heavy"] = measured_heavy_errors(cmake_text, MEASURED_HEAVY if known_heavy is None else known_heavy)
+    errors.extend(heavy_erros)
     errors.extend(private_subdir_path_errors(cmake_text))
     paralelas = 0
     universo = [("ci.yml", ci_text), ("tools/preci.sh", preci_text)] + sorted((ps1_texts or {}).items())
@@ -319,7 +359,7 @@ def real_main(args):
     print(
         f"{SCRIPT_NAME}: add_test que recebem o diretorio de build: {c['total']} "
         f"(RESOURCE_LOCK: {c['lock']}, RUN_SERIAL: {c['serial']}, reads-only: {c['reads-only']}, "
-        f"private-subdir: {c['private-subdir']}); portoes de build aninhado com {NESTED_LOCK}: {c['nested-heavy']}; universo das regras 1 e 2: ci.yml, preci.sh e "
+        f"private-subdir: {c['private-subdir']}); portoes de build aninhado com {NESTED_LOCK}: {c['nested-heavy']}; pesados medidos registrados e travados: {c['measured-heavy']}/{len(MEASURED_HEAVY)}; universo das regras 1 e 2: ci.yml, preci.sh e "
         f"{len(ps1)} .ps1 de tools/ci; chamadas ctest paralelas: {paralelas}"
     )
     if not ps1:
@@ -361,7 +401,7 @@ def _expect(nome, condicao, detalhe=""):
 def selftest_main():
     controls = []
     erros, c, p = run_check(_CMAKE_OK, _CI_OK, "ctest x\n")
-    controls.append(_expect("POSITIVO (lock, serial e reads-only declarados)", not erros and c == {"total": 3, "lock": 1, "serial": 1, "reads-only": 1, "private-subdir": 0, "nested-heavy": 0}, str((erros, c))))
+    controls.append(_expect("POSITIVO (lock, serial e reads-only declarados)", not erros and c == {"total": 3, "lock": 1, "serial": 1, "reads-only": 1, "private-subdir": 0, "nested-heavy": 0, "measured-heavy": 0}, str((erros, c))))
     sem_decl = _CMAKE_OK.replace("# glintfx-build-dir: reads-only - so' le compile_commands.json (medido por snapshot)\n", "")
     erros, _c, _p = run_check(sem_decl, _CI_OK, "")
     controls.append(_expect("REGISTRO-SEM-DECLARACAO reprova, nomeando o teste", any("leitor_test" in e for e in erros), str(erros)))
@@ -411,6 +451,18 @@ def selftest_main():
     controls.append(_expect("NESTED-BUILD declarado heavy SEM o trinco reprova", any("pesado_test" in e for e in erros), str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK + heavy.replace("# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro (35 a 115 s serial)\n", ""), _CI_OK, "")
     controls.append(_expect("TRINCO glintfx_nested_build SEM a declaracao heavy reprova", any("pesado_test" in e and "heavy" in e for e in erros), str(erros)))
+    # W8-CI-PESADOS (run 37515318202): a regua de 40 s do ctest_aggregate.py e' MEDIDA no CI, e um
+    # teste que ja' passou dela uma vez e' registrado em MEASURED_HEAVY: tem de ter o trinco.
+    conhecidos = {"lento_test": "ate 64 s medido"}
+    lento = "add_test(NAME lento_test COMMAND python3 x.py)\n"
+    erros, c, _p = run_check(_CMAKE_OK + lento, _CI_OK, "", known_heavy=conhecidos)
+    controls.append(_expect("MEDIDO-PESADO sem trinco reprova, nomeando o teste", any("lento_test" in e and "MEASURED_HEAVY" in e for e in erros), str(erros)))
+    com = ("# glintfx-nested-build: heavy - 64 s medido\n" + lento
+           + "set_tests_properties(lento_test PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)\n")
+    erros, c, _p = run_check(_CMAKE_OK + com, _CI_OK, "", known_heavy=conhecidos)
+    controls.append(_expect("MEDIDO-PESADO com trinco passa e e' contado", not erros and c.get("measured-heavy") == 1, str((erros, c))))
+    erros, c, _p = run_check(_CMAKE_OK, _CI_OK, "", known_heavy=conhecidos)
+    controls.append(_expect("MEDIDO-PESADO nao registrado (so' do outro sistema) nao reprova e conta zero", not erros and c.get("measured-heavy") == 0, str((erros, c))))
     # PN1 (CTO 29/09): caminhos private-subdir unicos; PN: variavel de grau do PowerShell validada
     dup = ("# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME p1_test COMMAND python3 x.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n"
            "# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME p2_test COMMAND python3 y.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n")

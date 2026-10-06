@@ -3261,12 +3261,13 @@ set_tests_properties(layers_test PROPERTIES LABELS consume)
 # inside check_layers.py was never exercised by the suite otherwise.
 # Wiring --selftest here closes that gap, same consume/selftest label
 # taxonomy as the other gates in this file.
+# glintfx-nested-build: heavy - o --selftest do check_layers.py cria processos por controle e mediu 45,1 s no Windows estatico (14,4 a 34,2 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME layers_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py" --selftest
 )
-set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
+set_tests_properties(layers_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 
 # ORACULO DIFERENCIAL DE CAMADAS (LAYERS-GATE-GFSS-GFUI sub-fatia L-5,
 # docs/plano-layers-l5.md, GODS_LAWS.md projeto L-45, decisao do lider
@@ -3686,6 +3687,7 @@ set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE RE
 # mode, but the belt costs nothing and keeps the taxonomy uniform
 # across every selftest in this file, sh or python3 alike.
 # glintfx-blob: fora - configura projetos CMake de fixtura (pesado); coberto pelo ctest do preci
+# glintfx-nested-build: heavy - o --selftest configura projetos CMake de fixtura e mediu 51,0 s no Windows estatico (16,7 a 34,7 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME dep_zero_trace_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3694,6 +3696,7 @@ add_test(
 )
 set_tests_properties(dep_zero_trace_selftest PROPERTIES
     LABELS selftest
+    RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FAILED")
 
 # Duplicated-law gate (GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO,
@@ -4782,12 +4785,13 @@ add_test(
 )
 set_tests_properties(version_matches_tag_test PROPERTIES LABELS consume)
 
+# glintfx-nested-build: heavy - o --selftest cria repositorios git temporarios, processo por controle, e mediu 64,2 s no Windows estatico (6,6 a 10,4 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME version_matches_tag_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_version_matches_tag.py" --selftest
 )
-set_tests_properties(version_matches_tag_selftest PROPERTIES LABELS selftest)
+set_tests_properties(version_matches_tag_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 
 # Rounding-order gate (TODO.md GATE-LLROUND-ORDER, GODS_LAWS.md L-20/
 # L-36/L-40): closed static check that every llround/lround/round/
@@ -5499,12 +5503,13 @@ endif()
 # rodada completa do espelho (tools/preci.sh, estagio win32-link) ou do
 # job `windows` do CI - nunca em `ctest -N`.
 # glintfx-blob: fora - liga alvos win32 contra o cl.exe/link.exe (so' no Windows/container MSVC)
+# glintfx-nested-build: heavy - o --selftest procura docker e a imagem MSVC (cria processos) e mediu 92,2 s, mesmo pulado com rc 77, no Windows estatico (4,2 a 5,2 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME win32_test_link_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_win32_test_link.py" --selftest
 )
-set_tests_properties(win32_test_link_selftest PROPERTIES LABELS selftest)
+set_tests_properties(win32_test_link_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 set_tests_properties(win32_test_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
 # Varredura do gemeo (GODS_LAWS.md L-17), feita ao consertar o orfao

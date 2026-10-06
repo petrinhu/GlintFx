@@ -6223,3 +6223,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Até lá:** fechar a P3 de QA-SCREEN-CAPTURE (rodada 4 curta de revisão sobre 9c04619), registrar o aceite e empurrar onda-w8. Nada novo começa.
 - **Às 16:15:** os agentes param, o monitor também, e o estado fica gravado. A retomada é só por ordem do líder.
 - **Observação, causa NÃO medida:** na primeira rodada, o `preci --fast` do 9c04619 deu rc=1 só pelo `preci_compare_times`. O `contido_dentro_selftest_varredura` levou 31,7 s contra a base de 1,77 s. Na segunda rodada deu verde, e os 303 testes passaram nas duas.
+
+### 06/10/2026 15:57:11 - P3 de QA-SCREEN-CAPTURE ACEITA na quarta rodada
+
+- **Ponta aceita:** `9c04619`. Rodadas de revisão: 1 (H1, S2, S4, L-17), 2 (N1, o autoteste sem `if(UNIX)` quebraria o Windows), 3 (R3-S1) e 4, que aceitou. Relatório completo em `/var/tmp/cto-w8/rev-p3.md`.
+- **Prova:** 76800 pixels iguais à leitura interna nos dois modos de cor. md5 dos PNG estável em todas as rodadas (off `6a50c0fc`, on `a7651f75`). QA observador aprovou (L-13). `preci --fast` e `--sanitizer-only` com rc=0 na ponta.
+- **Lacuna declarada, não bloqueante:** a fiação de `one_mode` não é exercida pelo autoteste (R4-A). Vai para a INBOX como `CAPTURE-DRIVER-WIRING-UNTESTED`.
+- **NÃO provado:** CI do servidor, incluindo o Windows. A prova vem com o push.
+- **Status:** `QA-SCREEN-CAPTURE` segue ⏳. Faltam C2a e C2b.

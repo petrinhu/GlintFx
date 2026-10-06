@@ -6328,3 +6328,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Recuperado do disco (L-54 global):** árvore limpa. Os 7 commits de correção da C2b, de `a74bca4` a `b05afee`, estão no ramo; 13 commits locais ainda não empurrados.
 - **Interrompido no reinício:** o `preci --fast` do implementador sobre `b05afee` (`/var/tmp/cto-w8/fin-fast.log` truncado). Fica sem prova até a rodada 2 da revisão rodá-lo de novo.
 - **Rodada 2 da revisão de C2b-1 a C2b-3:** despachada ao mesmo revisor, com o preci na ponta.
+
+### 06/10/2026 20:19:26 - Ordem do líder: autorização de merge, tag e push renovada
+
+- **Texto do líder, verbatim:** "autorizo merge/tag/push".
+- **Como se aplica:**
+  - O push do `onda-w8` segue na cadência de fatias aceitas.
+  - O merge em `main` e a marca `v0.7.0.0` só acontecem quando a W8 cumprir a definição de fechamento do plano (v2 §3 e v3 §5), sem nenhum item aberto.
+  - Pela L-24 global, o critério é o fechamento escrito no plano, não o CI verde.
+- **Estado agora:** a onda está aberta. QA-SCREEN-CAPTURE está na rodada 2 da revisão da C2b-1 a C2b-3. Faltam C2b-4, C2b-5, WIN-MAP-1, DEMO-1, QA-COMPOSED-PATH, as quatro R2D-*, QA-COMPOSED-PHOTOS e F1.

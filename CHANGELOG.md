@@ -24,7 +24,7 @@ This release is a `MINOR` bump while the project is pre-1.0 (`SOVERSION` stays 0
 ### Fixed
 
 - **The sRGB framebuffer now works on Linux (Wayland/EGL).** Asking for an sRGB surface had never taken effect there, because the request was made at a place the driver ignores it. It is now made on the surface itself, and read back live.
-- **On Windows, an sRGB request is decided by what the system actually reports (`D-SRGB-2`).** The window's pixel format selection now reads the system's own extension list and refuses by name when sRGB is not available, instead of announcing a support that was not applied. A request the system cannot honor now says so,.
+- **On Windows, an sRGB request is decided by what the system actually reports (`D-SRGB-2`).** The window's pixel format selection now reads the system's own extension list and refuses by name when sRGB is not available, instead of announcing a support that was not applied. A request the system cannot honor now says so.
 - **`extension_token` tells upper case from lower case**, as the extension lists of the graphics drivers do; before, a differently cased token could be taken for another one.
 
 ### Changed

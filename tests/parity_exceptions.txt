@@ -668,6 +668,9 @@ win_vm_lab_consolidar_selftest|windows|nenhum|SEM-PENDENCIA
 # desta secao do arquivo.
 container_exec_fixture_selftest|windows|nenhum|SEM-PENDENCIA
 
+# run_capture_known_color_selftest (tests/container/run_capture_known_color.sh --selftest): o driver da captura e POSIX sh e usa mktemp, que nao existem no Windows CI; o driver so executa de verdade no job wayland-container (Linux). O lado Windows da captura e a fatia C2b de QA-SCREEN-CAPTURE.
+run_capture_known_color_selftest|windows|nenhum|SEM-PENDENCIA
+
 # container_alloc_report_selftest (tests/container/check_alloc_report.sh
 # --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX),
 # CONTAINER-LEAK-COUNTER sub-fatia S3) - MESMA assimetria que container_

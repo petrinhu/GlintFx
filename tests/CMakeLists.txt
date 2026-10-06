@@ -6355,12 +6355,16 @@ set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest
 # the driver tests/container/run_capture_known_color.sh (stale output directory
 # is removed, the mode set is exactly {off, on}, the wait names the presenting
 # connection). No container, no docker: only the shell.
-add_test(
-    NAME run_capture_known_color_selftest
-    COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
-)
-set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
+# if(UNIX): the driver is POSIX sh and its selftest uses mktemp; neither exists natively on the Windows CI
+# (same reason as container_exec_fixture_selftest above). The Windows side is declared in parity_exceptions.txt.
+if(UNIX)
+    add_test(
+        NAME run_capture_known_color_selftest
+        COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
+    )
+    set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest
+        PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
+endif()
 
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido

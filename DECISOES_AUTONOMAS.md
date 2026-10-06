@@ -6145,3 +6145,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
 ### Autorização do líder para a W8 (06/10/2026, 10:24:01)
 - **Verbatim:** "autorizo push/tag/merge". Vale para a onda W8, dentro do contrato de onda: push por fatia aceita, e merge em `main` mais a marca `v0.7.0.0` só com a definição de fechamento inteira cumprida (L-11 do projeto, L-24 global).
+
+### Atualização das ferramentas de teste (06/10/2026, 11:22 a 11:27; decisões do líder)
+- **Origem:** a pesquisa que o líder ordenou às ~11:10 ("Instalei plugin docker. Procure documentacao. E também leia a documentacao de todos os apps de apoio de testes [...] e registre tudo") resultou em `docs/ferramentas-de-apoio-aos-testes.md` e em quatro itens de INBOX. O texto completo da ordem está no commit do documento.
+- **Primeira pergunta (AskUserQuestion):** atualizar o Docker (29.8.2 corrige 10 falhas de segurança), o CMake, o ccache e o gh?
+  - **Resposta verbatim:** "Agora, todas".
+- **Medição do main:** os quatro vêm do repositório do Fedora (`moby-engine`, `docker-cli`, `cmake`, `ccache` e `gh`, todos `fc44`).
+  - `dnf check-upgrade --repo=fedora --repo=updates` não devolveu nenhuma atualização (rc=0): o Fedora ainda não empacotou as versões novas.
+  - A primeira consulta, sem filtro de repositório, parou pedindo para importar a chave OpenPGP do repositório `libnvidia-container` da NVIDIA (`C95B321B61E88C1809C4F759DDCAE044F796ECB0`). **A chave NÃO foi aceita**, porque confiar numa chave é decisão do líder, e esse repositório nada tem com as ferramentas pedidas.
+- **Segunda pergunta:** esperar o Fedora, trocar o Docker pelo repositório oficial dele, ou baixar todos de fora?
+  - **Resposta verbatim:** "Esperar o Fedora (Recomendado)".
+  - Nada foi instalado.
+  - O item `TOOLCHAIN-UPDATES-PENDENTES` fica, para ser conferido a cada onda.
+- **Pendência do líder:** o repositório da NVIDIA continua configurado nesta máquina, com a chave não importada. Uma atualização geral do sistema vai voltar a pedir a chave.

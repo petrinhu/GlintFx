@@ -6104,3 +6104,24 @@ O main conferiu na árvore:
   - **Achado que muda o desenho:** o `draw2d_parity_test` cria o buffer, mas nunca faz `attach`/`commit` (lê por `glReadPixels` sem trocar de quadro, `draw2d_parity_test.cpp:495`). Já o `gl_context_parity_test` apresenta 3 buffers rotativos.
   - A captura no `commit` exige uma fixture que apresente o quadro.
   - A imagem usada é a `p4-base` de 03/10 (binários anteriores ao HEAD).
+
+### Plano v3 da W8 (CTO, modo autônomo, 06/10/2026, ~10:16; registrado às 10:21)
+Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O plano vigente é o v2 mais o delta do v3, em 41 linhas de fatia. O main conferiu a lista do `wire_relay_selftest` em `tests/CMakeLists.txt:6485-6505`.
+- **D-W8-32:** só programa que apresenta quadro pelo caminho público é alvo da captura no protocolo: os quatro exemplos, pelo laço, e o `capture_known_color_smoke`, pelo `swap_buffers()`.
+  - O relé copia a cada `commit` com buffer, antes de encaminhá-lo.
+  - O relé duplica o descritor no `create_pool`, porque a M1 mostrou o pool destruído logo depois.
+  - O `draw2d_parity_test` continua sem troca de quadro, para não perder a célula "quadro sem clear".
+- **D-W8-33:** a captura do relé bate pixel a pixel com a leitura interna, alfa incluído (ordem B, G, R, A).
+- **D-W8-34:** as fotos compostas (ordem do líder) seguem estes passos:
+  - as placas são identificadas só por `/sys`;
+  - cada sessão recebe um único nó de render, com linha de base de isolamento própria por placa (a do CI fica intacta);
+  - a prova de qual placa compôs é o `supportInformation`, com "Compositing Type: OpenGL" e o renderizador;
+  - se o driver da GeForce for o proprietário, o espaço de usuário NVIDIA do hospedeiro é montado só leitura. Se não bastar, a decisão vai ao líder (L-14).
+  - **Rodada na GeForce (G4), passos literais da L-09 global:** o agente prepara e para; o main toca o alerta 5 vezes, diz o que vai rodar e espera o "sim" do líder por `AskUserQuestion`, registrado verbatim. A autorização vale para essa rodada só.
+- **D-W8-35:** toda captura e toda foto rodam em imagem montada do HEAD, citando o id da imagem e o SHA.
+- **Mudada:** D-W8-20. A captura no protocolo é a prova do CI, e as fotos compostas são prova adicional obrigatória. O afrouxamento do v2 deixa de existir.
+- **Fechamento:** só endureceu.
+  - O piso sobe para 9 linhas da W8.
+  - O item 5 ganha imagem do HEAD, pelo menos uma imagem por alvo e a igualdade da D-W8-33.
+  - O item 11 é novo: as fotos das duas placas, com o renderizador, a tabela do G0 e a autorização verbatim da G4.
+- **Interpretação do CTO, marcada:** as "2 fotos" do líder viram duas sessões, uma por placa, cada uma cobrindo os quatro exemplos.

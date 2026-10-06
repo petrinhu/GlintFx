@@ -6304,3 +6304,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Resultado:** 25 verdes e 1 pulado por desenho (VERSION-TAG-SYNC). A lista de jobs é igual à do run 37515318202.
 - **Windows estático:** 289 testes declarados, 287 executados e 287 passaram; 2 pulados por desenho. Suíte em 328 s, contra 680 s no run vermelho. A régua de pesados não acusou nada.
 - **O que isto prova:** no servidor, o conserto `c9b70ba`, `5ab50c4` e `ad035f9`. Os passos C2b-1 e C2b-2 rodaram neste CI só como evidência; ainda não foram revisados.
+
+### 06/10/2026 19:19:34 - C2b-1 a C2b-3: primeira revisão, de volta para correção
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b-123.md`): ACEITAR com 3 achados IMPORTANTES; 40 mutantes. O main não aceita ainda, porque a verificação vai até sair limpa.
+  - **A1:** a guarda de oclusão só é testada com um ponto; os mutantes de centro e de ponto único sobrevivem.
+  - **A3:** a janela nunca mostrada sai como OCLUIDA, o que confunde o vermelho da C2b-4. Vai ganhar veredito próprio, INVISIVEL.
+  - **A4:** os códigos de timeout (124) e de erro (127) de `run_process` não têm controle.
+  - **Mais dois pontos:** o gate win32-link não enumera a ferramenta, e o caminho com `DwmFlush` ausente não tem teste.
+- **Ao CTO:** a contradição do plano. A sabotagem `occlude` da C2b-5 exige código na ferramenta, e o plano diz "sem mudança em ferramenta". O vermelho esperado da C2b-4 também muda com o INVISIVEL.
+- **Processo órfão do agente devops** (PID 3318092): um laço `until ! pgrep -f 'bash tools/preci.sh'` que encontra a própria linha de comando e nunca termina. O classificador de permissões recusou o encerramento pelo main; ficou com o líder.

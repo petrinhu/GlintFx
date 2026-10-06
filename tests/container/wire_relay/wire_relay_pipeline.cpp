@@ -5,14 +5,10 @@
 
 namespace glintfx::test::wire_relay {
 
-std::optional<rule_violation> observe_and_evaluate(wire_relay_pipeline &pipe,
-                                                   const decoded_message &message, bool from_client,
-                                                   const std::vector<int> &fds) {
+std::optional<rule_violation>
+observe_and_evaluate(wire_relay_pipeline &pipe, const decoded_message &message, bool from_client) {
     pipe.table.observe(message, from_client);
     const known_interface source = pipe.table.interface_of(message.header.object_id);
-    if (from_client) {
-        pipe.snapshot.observe(message, source, fds);
-    }
 
     if (from_client && source == known_interface::wl_surface && message.header.opcode == 1) {
         std::uint32_t buffer_id = 0;

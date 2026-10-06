@@ -39,13 +39,4 @@ struct capture_report {
 [[nodiscard]] capture_report save_session_frames(const shm_snapshot &snapshot,
                                                  const capture_target &target);
 
-// GODS_LAWS.md L-40: a count of zero frames FAILS, and so does any
-// file that could not be written - never a green "nothing to see".
-[[nodiscard]] bool capture_passes(const capture_report &report);
-
-// The one-line verdict the relay prints for a closed connection; the
-// count shows even when it is zero.
-[[nodiscard]] std::string describe_capture(const capture_report &report,
-                                           std::size_t connection_serial);
-
 } // namespace glintfx::test::wire_relay

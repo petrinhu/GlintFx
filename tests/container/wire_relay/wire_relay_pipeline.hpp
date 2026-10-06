@@ -7,7 +7,6 @@
 #include "wire_shm_snapshot.hpp"
 
 #include <optional>
-#include <vector>
 
 // wire_relay_pipeline.hpp - the ORCHESTRATION atom that composes the
 // object table and the rule engine, exactly as WL-ACK-SMOKE-BLUNT's
@@ -26,6 +25,9 @@
 // without something gluing them.
 namespace glintfx::test::wire_relay {
 
+// `snapshot` is NOT fed by observe_and_evaluate(): it needs the
+// descriptors that arrive with a message, which only the connection
+// set holds (wire_relay_connection_set.cpp, forward_client_message).
 struct wire_relay_pipeline {
     wire_object_table table;
     wire_rule_engine engine;
@@ -36,15 +38,7 @@ struct wire_relay_pipeline {
 // small set of wl_surface/xdg_surface requests and events R1/R2 care
 // about, feeds the rule engine. Returns a violation when THIS message
 // just broke R1 or R2.
-//
-// `fds` are the descriptors that arrived WITH this message (only a
-// client request carries any the relay cares about: wl_shm.create_
-// pool); the snapshot atom duplicates one here, so the copy of a
-// committed buffer is made in this very step - before the caller
-// forwards the message (QA-SCREEN-CAPTURE P1, D-W8-32).
-[[nodiscard]] std::optional<rule_violation> observe_and_evaluate(wire_relay_pipeline &pipe,
-                                                                 const decoded_message &message,
-                                                                 bool from_client,
-                                                                 const std::vector<int> &fds = {});
+[[nodiscard]] std::optional<rule_violation>
+observe_and_evaluate(wire_relay_pipeline &pipe, const decoded_message &message, bool from_client);
 
 } // namespace glintfx::test::wire_relay

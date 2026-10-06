@@ -2,6 +2,7 @@
 #include "wire_relay_connection_set.hpp"
 
 #include "../checked_stdio.hpp"
+#include "wire_capture_verdict.hpp"
 #include "wire_error_injector.hpp"
 #include "wire_frame_writer.hpp"
 #include "wire_message.hpp"
@@ -68,12 +69,15 @@ void forward_message(const wire_transport &target, const decoded_message &messag
 // closed both sides).
 bool forward_client_message(const wire_transport &client, const wire_transport &upstream,
                             const decoded_message &message, relay_session &session) {
-    // Descriptors first, so the snapshot sees them in the same step
-    // that classifies the message - before anything is forwarded.
+    // Descriptors first, then the snapshot copies what a commit
+    // presents - BEFORE anything is forwarded: once the compositor can
+    // read the commit, the client may reuse the buffer.
     const std::vector<int> message_fds =
         take_message_fds(session.pipe, message, session.client_state.fds);
+    session.pipe.snapshot.observe(
+        message, session.pipe.table.interface_of(message.header.object_id), message_fds);
     const std::optional<rule_violation> violation =
-        observe_and_evaluate(session.pipe, message, true, message_fds);
+        observe_and_evaluate(session.pipe, message, true);
     if (!violation) {
         forward_message(upstream, message, message_fds);
         return true;

@@ -28,6 +28,10 @@ struct captured_image {
 struct grab_result {
     bool ok = false;
     std::string detail; // empty when ok; otherwise the API that failed and its GetLastError
+    // true when PrintWindow or BitBlt ITSELF answered zero: a fact measured on the system about a
+    // window that was ready (verdict CAPTURA RECUSADA, D-W8-44), not a failure of this tool.
+    bool refused = false;
+    unsigned long error = 0; // GetLastError of the refusing call
 };
 
 [[nodiscard]] pixel_rect client_rect_on_screen(void *window);

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // window_capture_rules.hpp - QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40 of
@@ -80,6 +81,22 @@ struct window_facts {
 [[nodiscard]] verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &client,
                                               const pixel_rect &virtual_screen,
                                               const std::vector<occlusion_probe> &probes);
+
+// D-W8-44: the readiness is decided WHOLE before any capture, and a verdict that rejects is
+// terminal: nothing after it can change it. A window that is not ready never reaches PrintWindow
+// or BitBlt (the PrintWindow reading of a never-shown window, I-2, is deliberately NOT measured).
+struct capture_plan {
+    bool printwindow = false;
+    bool bitblt = false;
+};
+
+[[nodiscard]] capture_plan plan_captures(const verdict &readiness);
+
+// A READY window whose PrintWindow or BitBlt answered zero is a fact measured on the system (it may
+// be a presentation defect), not a dead tool: it is the verdict CAPTURA RECUSADA, naming the
+// mechanism and the GetLastError. The tool's own failure (bad arguments, launch, file writing) is
+// something else and keeps its own exit code.
+[[nodiscard]] verdict judge_capture_refused(std::string_view mechanism, unsigned long error);
 
 // The line the tool prints for the `index`-th DwmFlush. `result` is empty when dwmapi.dll or the
 // DwmFlush export is not there (it is resolved at run time, never linked): the capture goes on,

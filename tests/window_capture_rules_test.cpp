@@ -210,3 +210,41 @@ GLINTFX_TEST(dwm_flush_failure_hresult_is_named_as_a_failure) {
     GLINTFX_CHECK_EQ(glintfx::capture_tool::describe_dwm_flush(1, -2147467259L),
                      std::string("dwmflush1=-2147467259 (HRESULT de falha)"));
 }
+
+// -- D-W8-44: readiness first, captures only for a ready window.
+
+GLINTFX_TEST(a_ready_window_plans_both_captures) {
+    const auto ready =
+        glintfx::capture_tool::judge_capture_readiness(k_shown, k_client, k_screen, all_owned());
+    const auto plan = glintfx::capture_tool::plan_captures(ready);
+    GLINTFX_CHECK(plan.printwindow);
+    GLINTFX_CHECK(plan.bitblt);
+}
+
+GLINTFX_TEST(a_window_that_is_not_ready_plans_no_capture_at_all_whatever_the_cause) {
+    const window_facts hidden{.visible = false, .iconic = false};
+    const window_facts minimized{.visible = true, .iconic = true};
+    const std::vector<glintfx::capture_tool::verdict> not_ready{
+        glintfx::capture_tool::judge_capture_readiness(hidden, k_client, k_screen, all_owned()),
+        glintfx::capture_tool::judge_capture_readiness(minimized, k_client, k_screen, all_owned()),
+        glintfx::capture_tool::judge_capture_readiness(k_shown, k_off_screen, k_screen,
+                                                       all_owned()),
+        glintfx::capture_tool::judge_capture_readiness(k_shown, k_client, k_screen, one_foreign()),
+        glintfx::capture_tool::judge_window_count(0),
+    };
+    for (const auto &verdict : not_ready) {
+        GLINTFX_CHECK(!verdict.pass);
+        const auto plan = glintfx::capture_tool::plan_captures(verdict);
+        GLINTFX_CHECK(!plan.printwindow);
+        GLINTFX_CHECK(!plan.bitblt);
+    }
+}
+
+GLINTFX_TEST(a_refused_capture_names_the_mechanism_and_the_error) {
+    const auto printwindow = glintfx::capture_tool::judge_capture_refused("printwindow", 5);
+    GLINTFX_CHECK(!printwindow.pass);
+    GLINTFX_CHECK_EQ(printwindow.text,
+                     std::string("CAPTURA RECUSADA mecanismo=printwindow erro=5"));
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_capture_refused("bitblt", 1400).text,
+                     std::string("CAPTURA RECUSADA mecanismo=bitblt erro=1400"));
+}

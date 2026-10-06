@@ -63,6 +63,16 @@ verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &cli
     return judge_occlusion(probes);
 }
 
+capture_plan plan_captures(const verdict &readiness) {
+    return {.printwindow = readiness.pass, .bitblt = readiness.pass};
+}
+
+verdict judge_capture_refused(std::string_view mechanism, unsigned long error) {
+    return {.pass = false,
+            .text = "CAPTURA RECUSADA mecanismo=" + std::string(mechanism) +
+                    " erro=" + std::to_string(error)};
+}
+
 std::string describe_dwm_flush(int index, std::optional<long> result) {
     const std::string label = "dwmflush" + std::to_string(index) + "=";
     if (!result.has_value()) {

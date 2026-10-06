@@ -33,6 +33,15 @@ pixel_rect to_pixel_rect(const RECT &rect) {
     return {.left = rect.left, .top = rect.top, .right = rect.right, .bottom = rect.bottom};
 }
 
+// The system itself said no: PrintWindow or BitBlt answered zero.
+grab_result refused_by_system(const char *api) {
+    const DWORD error = ::GetLastError();
+    return {.ok = false,
+            .detail = std::string(api) + " failed, GetLastError=" + std::to_string(error),
+            .refused = true,
+            .error = error};
+}
+
 grab_result failed(const char *api) {
     return {.ok = false,
             .detail =
@@ -162,7 +171,7 @@ grab_result grab_with_printwindow(void *window, captured_image &image) {
         return failed("CreateDIBSection");
     }
     if (::PrintWindow(as_window(window), dib.dc(), PW_RENDERFULLCONTENT) == 0) {
-        return failed("PrintWindow");
+        return refused_by_system("PrintWindow");
     }
     ::GdiFlush();
     const pixel_rect block{.left = client.left - outer.left,

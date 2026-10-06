@@ -35,16 +35,16 @@
 //
 // WHAT IT DOES, in order: launch; wait for the fixture's "presented at attempt" line (default
 // 30 s); find the window; print `janelas=`, `visivel=`, `iconico=`; DwmFlush twice; the readiness
-// verdict `veredito:` (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, in that order); PrintWindow
-// capture into <out>/printwindow/ (unless the window is iconic); BitBlt capture into <out>/bitblt/,
-// ONLY when the verdict passed; WM_CLOSE; wait for the fixture's exit (default 10 s, then
-// TerminateProcess).
+// verdict `veredito:` (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, in that order) and, ONLY if the
+// window is ready, PrintWindow into <out>/printwindow/ then BitBlt into <out>/bitblt/ (a window
+// that is not ready is never captured, D-W8-44); WM_CLOSE; wait for the fixture's exit (default
+// 10 s, then TerminateProcess).
 //
 // EXIT CODE: 0 all good. 1 the FIXTURE failed (never presented, exited early or non-zero, did not
-// exit after WM_CLOSE). 2 the TOOL failed (bad arguments, no unique window, a capture API failed).
-// 3 a CAPTURE VERDICT rejected the screen read: the line `veredito:` says which (INVISIVEL,
-// ICONICA, FORA DA TELA or OCLUIDA por classe=<x>, decided in that order, D-W8-43); PrintWindow
-// was still read and written, the screen read was not. When several happen the first nonzero wins.
+// exit after WM_CLOSE). 2 the TOOL failed (bad arguments, launch, file writing). 3 a CAPTURE
+// VERDICT: the line `veredito:` says which (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA por
+// classe=<x>, or CAPTURA RECUSADA mecanismo=<m> erro=<n> when the system refused a capture of a
+// ready window). When several happen the first nonzero wins.
 //
 // ASSUMPTION, declared: 96 DPI (the CI runner). The tool is not DPI aware, so a scaled desktop
 // would shift the screen coordinates the BitBlt reads.
@@ -193,12 +193,22 @@ int save_capture(const std::string &directory, const glintfx::capture_tool::capt
     return k_exit_ok;
 }
 
+// The system refusing a capture of a READY window is a verdict of its own (D-W8-44), printed on the
+// `veredito:` line; anything else that went wrong is the tool's own failure.
+int report_failed_grab(const char *mechanism, const glintfx::capture_tool::grab_result &grabbed) {
+    if (!grabbed.refused) {
+        return refuse(std::string(mechanism) + ": " + grabbed.detail);
+    }
+    say("veredito: " + glintfx::capture_tool::judge_capture_refused(mechanism, grabbed.error).text);
+    return k_exit_verdict;
+}
+
 int capture_with_printwindow(HWND window, const tool_options &options) {
     glintfx::capture_tool::captured_image image;
     const glintfx::capture_tool::grab_result grabbed =
         glintfx::capture_tool::grab_with_printwindow(window, image);
     if (!grabbed.ok) {
-        return refuse("printwindow: " + grabbed.detail);
+        return report_failed_grab("printwindow", grabbed);
     }
     return save_capture(options.out_directory + "/printwindow", image);
 }
@@ -209,7 +219,7 @@ int capture_with_bitblt(const pixel_rect &client, const tool_options &options) {
     const glintfx::capture_tool::grab_result grabbed =
         glintfx::capture_tool::grab_with_bitblt(client, image);
     if (!grabbed.ok) {
-        return refuse("bitblt: " + grabbed.detail);
+        return report_failed_grab("bitblt", grabbed);
     }
     return save_capture(options.out_directory + "/bitblt", image);
 }
@@ -228,25 +238,27 @@ glintfx::capture_tool::verdict judge_readiness(HWND window, const pixel_rect &cl
     return readiness;
 }
 
-// From the unique window to the captures. PrintWindow is read whenever the window has a client
-// area (it does not depend on being shown: it measures the never-shown window, I-2); the screen is
-// read and kept ONLY when the verdict passed, because otherwise it would measure nothing. A
-// failing verdict is a CAPTURE verdict (exit 3), never the tool's own failure (exit 2).
+// From the unique window to the captures. The readiness (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA)
+// is decided WHOLE first, and a window that is not ready never reaches PrintWindow or BitBlt
+// (D-W8-44; the PrintWindow reading of a never-shown window is deliberately not measured). A
+// ready window whose capture the system refuses is the verdict CAPTURA RECUSADA. All of these are
+// CAPTURE verdicts (exit 3), never the tool's own failure (exit 2).
 int capture_window(HWND window, const tool_options &options) {
     report_window_state(window);
     flush_dwm();
     const pixel_rect client = glintfx::capture_tool::client_rect_on_screen(window);
     const glintfx::capture_tool::verdict readiness = judge_readiness(window, client);
-    if (::IsIconic(window) != 0) {
-        say("printwindow: nao medido, a janela esta iconica");
-    } else if (capture_with_printwindow(window, options) != k_exit_ok) {
-        return k_exit_tool;
-    }
-    if (!readiness.pass) {
-        say("bitblt: nao comparado, o veredito foi " + readiness.text);
+    const glintfx::capture_tool::capture_plan plan =
+        glintfx::capture_tool::plan_captures(readiness);
+    if (!plan.printwindow || !plan.bitblt) {
+        say("nenhuma captura tentada, o veredito foi " + readiness.text);
         return k_exit_verdict;
     }
-    return capture_with_bitblt(client, options) == k_exit_ok ? k_exit_ok : k_exit_tool;
+    const int printed = capture_with_printwindow(window, options);
+    if (printed != k_exit_ok) {
+        return printed;
+    }
+    return capture_with_bitblt(client, options);
 }
 
 // The capture phase: finds THE window of the fixture and captures it. `window` stays null when the

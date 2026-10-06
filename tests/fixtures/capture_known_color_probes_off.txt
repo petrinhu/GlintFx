@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# capture_known_color_probes_off.txt - QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33): the pixels
+# tests/container/capture_known_color_smoke.cpp must leave in the relay's CAPTURE of its frame, for the
+# context option srgb_framebuffer=off. Format: tests/tools/image_probe.py ("<x> <y> <RRGGBBAA> [<tol>]",
+# origin top-left, alpha included). Fixed BEFORE the data existed (GODS_LAWS.md L-43); the scene is
+# described in the fixture's own header comment.
+#
+# wl_shm ARGB8888 is PREMULTIPLIED and the reader does not un-premultiply: a half-transparent piece reads
+# as its color times 0.5 in the color channels, alpha 0.5 = 127 or 128 (the rasterizer's rounding, so
+# tolerance 2, the one draw2d_parity_test already declares in tests/measured_exceptions.txt). srgb_framebuffer
+# off: the color channel of the half-transparent pieces is 80 (0x80 = 128 = encode-first-then-premultiply
+# when off; 0xBC = 188 = the hardware encodes the premultiplied value when on).
+#
+# opaque red square
+50 50 FF0000FF 0
+# half-transparent white square, over the transparent clear
+150 50 80808080 2
+# half-transparent red square: green and blue stay at zero (no dark fringe)
+50 180 80000080 2
+# opaque blue square, the opposite corner from the red one
+270 190 0000FFFF 0
+# outside every piece: the clear is transparent black, so the destination alpha is real
+160 200 00000000 0

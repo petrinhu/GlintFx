@@ -2250,6 +2250,21 @@ jobs:
           printf 'draw2d_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33): a PROVA DA CAPTURA NO PROTOCOLO. Um segundo rele de fios, dentro do
+      # MESMO container e diante do MESMO KWin, guarda o ultimo buffer wl_shm que o cliente entrega; o cliente
+      # (capture_known_color_smoke) le o proprio quadro por glReadPixels antes do swap; o driver compara captura e
+      # leitura pixel a pixel, alfa incluido, e confere as cores conhecidas, uma vez com srgb_framebuffer desligado e
+      # uma com ligado. ORDEM: depois de draw2d_parity_test (mesmo EGL, mesmo compositor).
+      - name: QA-SCREEN-CAPTURE P3 - captura no protocolo igual a leitura interna dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "capture_known_color_smoke" >> parity_inventory.txt
+          codigo=0
+          tests/container/run_capture_known_color.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          printf 'capture_known_color_smoke\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
       # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.4/S4.6): a
       # PROVA AO VIVO do laco principal contra este MESMO compositor
       # real, so pela API publica e atraves da fronteira binaria da

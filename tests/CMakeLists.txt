@@ -6336,6 +6336,21 @@ add_test(
 set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest
     PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
 
+# QA-SCREEN-CAPTURE P3 (D-W8-33): capture_vs_readback.py compares the relay's
+# capture of a frame against the client's own glReadPixels of the same frame,
+# pixel by pixel, alpha included. Its --selftest runs on a 2x2 image
+# asymmetric in both axes and in every channel (a missing flip or a missing
+# R/B swap changes a byte), plus the L-40 controls (equal passes, one byte
+# rejects, empty/ambiguous capture rejects) and the real process exit codes.
+# The consumer is tests/container/run_capture_known_color.sh.
+add_test(
+    NAME capture_vs_readback_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_vs_readback.py" --selftest
+)
+set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest
+    PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
+
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
 # por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de

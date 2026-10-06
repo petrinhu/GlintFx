@@ -256,6 +256,7 @@ COPY two_displays_test.cpp /build/two_displays_test.cpp
 COPY facade_pin_smoke.cpp /build/facade_pin_smoke.cpp
 COPY window_active_after_map_smoke.cpp /build/window_active_after_map_smoke.cpp
 COPY gpu_kind_report_smoke.cpp /build/gpu_kind_report_smoke.cpp
+COPY capture_known_color_smoke.cpp /build/capture_known_color_smoke.cpp
 COPY alloc_cycle_growth_smoke.cpp /build/alloc_cycle_growth_smoke.cpp
 COPY loop_hidden_test.cpp /build/loop_hidden_test.cpp
 COPY surface_size_policy_adapter_test.cpp /build/surface_size_policy_adapter_test.cpp
@@ -318,6 +319,15 @@ RUN cmake -S /build/_arch_ports_lib -B /build/lib-build -G Ninja -DCMAKE_BUILD_T
 RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -o /build/draw2d_parity_test \
         /build/_arch_ports_src/tests/parity/draw2d_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
+# QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33): the second consumer of the installed library, same recipe as
+# draw2d_parity_test right above. The fixture whose frame the wire relay captures in the protocol; the driver
+# tests/container/run_capture_known_color.sh runs it twice (srgb_framebuffer off and on) through a second relay.
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/capture_known_color_smoke \
+        /build/capture_known_color_smoke.cpp \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp \
         $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
@@ -1223,6 +1233,7 @@ COPY --from=arch-ports-builder /build/two_seats_test /usr/local/bin/two_seats_te
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 COPY --from=arch-ports-builder /build/gl_context_parity_test /usr/local/bin/gl_context_parity_test
 COPY --from=arch-ports-builder /build/draw2d_parity_test /usr/local/bin/draw2d_parity_test
+COPY --from=arch-ports-builder /build/capture_known_color_smoke /usr/local/bin/capture_known_color_smoke
 COPY --from=arch-ports-builder /build/egl_protocol_error_smoke /usr/local/bin/egl_protocol_error_smoke
 COPY --from=arch-ports-builder /build/egl_error_read_inside_swap_smoke /usr/local/bin/egl_error_read_inside_swap_smoke
 COPY --from=arch-ports-builder /build/egl_device_reader_probe /usr/local/bin/egl_device_reader_probe
@@ -1247,7 +1258,8 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke \
         /usr/local/bin/gpu_kind_report_smoke /usr/local/bin/alloc_cycle_growth_smoke \
         /usr/local/bin/loop_parity_test /usr/local/bin/loop_hidden_test \
-        /usr/local/bin/surface_size_policy_adapter_test
+        /usr/local/bin/surface_size_policy_adapter_test \
+        /usr/local/bin/capture_known_color_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

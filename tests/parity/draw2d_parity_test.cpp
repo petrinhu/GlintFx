@@ -743,6 +743,183 @@ mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
     return mode_result::ran;
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// DW-a: two windows, each with its own context and renderer, in ONE process (D-API-07). The test
+// itself makes the OTHER window's context current right before every entry point of the window it
+// draws on; without that, the cell passes even when the product never makes anything current.
+// Colors are opaque primaries (channels 0 or 255, no encoding): the prediction, fixed before the
+// data exists (GODS_LAWS.md L-43), is  A: FD red, P1 green, P2 green, P3 red  and  B: FD blue, P1
+// blue, P2 blue, P3 yellow, tolerance +-2.
+// ---------------------------------------------------------------------------------------------------------
+const glintfx::gltfx_rgba k_green{0.0F, 1.0F, 0.0F, 1.0F};
+const glintfx::gltfx_rgba k_yellow{1.0F, 1.0F, 0.0F, 1.0F};
+
+// Built IN PLACE and never moved once the renderer is open (the renderer points at its context).
+struct drawing_window {
+    std::optional<glintfx::gltfx_window> window;
+    std::optional<glintfx::gltfx_gl_context> context;
+    std::optional<glintfx::gltfx_renderer_2d> renderer;
+    gl_api gl;
+    int height = 0;
+};
+
+bool open_window_and_context(glintfx::gltfx_display &display, drawing_window &w,
+                             const char *title) {
+    const glintfx::gltfx_window_desc window_desc{
+        .title = title,
+        .application_id = "org.glintfx.draw2d_parity_test",
+        .logical_size = {.width = 320, .height = 240},
+    };
+    auto window_opened = glintfx::gltfx_window::open(display, window_desc);
+    if (window_opened.has_error()) {
+        std::fprintf(stderr, "draw2d_parity_test: FAIL [duas_janelas] window::open(%s): %s\n",
+                     title, code_name(window_opened.err()).c_str());
+        return false;
+    }
+    w.window.emplace(std::move(window_opened.value()));
+    auto context_opened =
+        glintfx::gltfx_gl_context::open(*w.window, glintfx::gltfx_gl_context_desc{});
+    if (context_opened.has_error()) {
+        std::fprintf(stderr, "draw2d_parity_test: FAIL [duas_janelas] gl_context::open(%s): %s\n",
+                     title, code_name(context_opened.err()).c_str());
+        return false;
+    }
+    w.context.emplace(std::move(context_opened.value()));
+    if (const auto current = w.context->make_current(); current.has_error()) {
+        std::fprintf(stderr, "draw2d_parity_test: FAIL [duas_janelas] make_current(%s): %s\n",
+                     title, code_name(current.err()).c_str());
+        return false;
+    }
+    // proc_address is per context on WGL: each window loads ITS table, right after ITS
+    // make_current.
+    return load_gl(*w.context, w.gl);
+}
+
+bool open_renderer_and_measure(drawing_window &w, const char *title) {
+    auto renderer_opened =
+        glintfx::gltfx_renderer_2d::open(*w.context, glintfx::gltfx_renderer_2d_desc{});
+    if (renderer_opened.has_error()) {
+        std::fprintf(stderr, "draw2d_parity_test: FAIL [duas_janelas] renderer_2d::open(%s): %s\n",
+                     title, code_name(renderer_opened.err()).c_str());
+        return false;
+    }
+    w.renderer.emplace(std::move(renderer_opened.value()));
+    w.renderer->begin_frame(glintfx::gltfx_frame_2d_desc{});
+    (void)w.renderer->finish_frame();
+    gl_int viewport[4] = {0, 0, 0, 0};
+    w.gl.get_integerv(k_gl_viewport, viewport);
+    w.height = viewport[3];
+    if (viewport[2] < 320 || viewport[3] < 240) {
+        std::fprintf(stderr, "draw2d_parity_test: FAIL [duas_janelas] superficie menor (%d x %d)\n",
+                     viewport[2], viewport[3]);
+        return false;
+    }
+    return true;
+}
+
+cells_context cells_of(drawing_window &w) {
+    return cells_context{*w.renderer, w.gl, false, w.height, "duas_janelas"};
+}
+
+// Makes `w`'s context current through the PUBLIC API; a failure is a failed cell with its own
+// message.
+bool switch_to(drawing_window &w, const char *name) {
+    const auto current = w.context->make_current();
+    const std::string what = std::string("make_current do teste na janela ") + name;
+    if (current.has_error()) {
+        report(cells_of(w), what.c_str(), false); // only a FAILURE is a cell: the count stays at 10
+    }
+    return current.has_value();
+}
+
+struct two_window_outcome {
+    bool a_finished = false;
+    bool b_finished = false;
+};
+
+glintfx::gltfx_rect_world square(double x, double y) { return rect(x, y, 10, 10); }
+
+// The sequence of the parecer sec. 3.2, steps 1 to 5. Every entry point of A runs with B current.
+bool paint_with_the_other_current(drawing_window &a, drawing_window &b, two_window_outcome &out) {
+    if (!switch_to(b, "B")) {
+        return false;
+    }
+    b.renderer->begin_frame(glintfx::gltfx_frame_2d_desc{.clear_color = k_blue});
+    a.renderer->begin_frame(glintfx::gltfx_frame_2d_desc{.clear_color = k_red});
+    a.renderer->fill_rect(square(20, 20), k_green);
+    if (!switch_to(b, "B")) {
+        return false;
+    }
+    a.renderer->flush();
+    a.renderer->fill_rect(square(60, 20), k_green);
+    if (!switch_to(b, "B")) {
+        return false;
+    }
+    out.a_finished = a.renderer->finish_frame().has_value();
+    b.renderer->fill_rect(square(100, 20), k_yellow);
+    out.b_finished = b.renderer->finish_frame().has_value();
+    return true;
+}
+
+// FD, P1, P2, P3 of one window, each a cell named by window and point.
+void check_window_pixels(drawing_window &w, const char *name, const pixel (&want)[4]) {
+    const cells_context c = cells_of(w);
+    const char *points[4] = {"FD", "P1", "P2", "P3"};
+    const int xs[4] = {200, 25, 65, 105};
+    const int ys[4] = {150, 25, 25, 25};
+    for (int i = 0; i < 4; ++i) {
+        const pixel got = read_at(c, xs[i], ys[i]);
+        const bool ok = within(got.red, want[i].red, 2) && within(got.green, want[i].green, 2) &&
+                        within(got.blue, want[i].blue, 2);
+        const std::string what = std::string(name) + " em " + points[i];
+        const std::string detail = "lido (" + std::to_string(got.red) + "," +
+                                   std::to_string(got.green) + "," + std::to_string(got.blue) + ")";
+        report(c, what.c_str(), ok, detail.c_str());
+    }
+}
+
+// Both renderers die before either context, and both contexts before either window.
+void close_in_order(drawing_window &a, drawing_window &b) {
+    a.renderer.reset();
+    b.renderer.reset();
+    a.context.reset();
+    b.context.reset();
+    a.window.reset();
+    b.window.reset();
+}
+
+// Returns false when a window could not be opened: duas janelas have to work on both systems, so
+// there is no declared absence here.
+bool cell_two_windows(glintfx::gltfx_display &display) {
+    drawing_window a;
+    drawing_window b;
+    if (!open_window_and_context(display, a, "janela A") ||
+        !open_renderer_and_measure(a, "janela A") ||
+        !open_window_and_context(display, b, "janela B") ||
+        !open_renderer_and_measure(b, "janela B")) {
+        return false;
+    }
+    two_window_outcome out;
+    if (paint_with_the_other_current(a, b, out)) {
+        report(cells_of(a), "A finish_frame() tem valor", out.a_finished);
+        report(cells_of(b), "B finish_frame() tem valor", out.b_finished);
+        const pixel red{255, 0, 0};
+        const pixel green{0, 255, 0};
+        const pixel blue{0, 0, 255};
+        const pixel yellow{255, 255, 0};
+        const pixel want_a[4] = {red, green, green, red};
+        const pixel want_b[4] = {blue, blue, blue, yellow};
+        if (switch_to(a, "A")) {
+            check_window_pixels(a, "A", want_a);
+        }
+        if (switch_to(b, "B")) {
+            check_window_pixels(b, "B", want_b);
+        }
+    }
+    close_in_order(a, b);
+    return true;
+}
+
 } // namespace
 
 int main() {
@@ -765,6 +942,9 @@ int main() {
     if (on == mode_result::fatal) {
         return fail("o modo srgb_framebuffer=on falhou ao abrir por outro motivo que nao a falta "
                     "de suporte");
+    }
+    if (!cell_two_windows(display)) {
+        return fail("a celula de duas janelas nao conseguiu abrir as duas janelas");
     }
     std::fprintf(stdout, "MEASURED draw2d_parity_test.srgb_on_cells_absent=%d\n",
                  on == mode_result::absent ? 1 : 0);

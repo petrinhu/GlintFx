@@ -6349,3 +6349,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **N3:** os mutantes D9 e D14 continuam vivos.
   - Os dois voltaram ao implementador.
 - **Ao CTO, N1:** `PrintWindow` falho em janela invisível sai com 2 antes do veredito 3. INVISIVEL e ICONICA saem com o mesmo código, e o driver não extrai a linha do veredito.
+
+### 06/10/2026 20:31:36 - D-W8-44 e D-W8-45 (CTO, decisão autônoma a confirmar retroativamente)
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-c2b.md`, seção 8 (md5 `bc52f38418eb23987a0df53f9b0489e4`).
+- **D-W8-44:** a prontidão da janela é decidida inteira antes de qualquer captura; a janela não pronta nunca chega ao `PrintWindow`. Falha de `PrintWindow` ou de `BitBlt` em janela pronta vira o veredito CAPTURA RECUSADA. O código 2 fica só para falha da ferramenta. Perde-se a medição I-2, que não é item de fechamento e fica declarada como não medida.
+- **D-W8-45:** códigos de saída por veredito: 10 janelas, 11 INVISIVEL, 12 ICONICA, 13 FORA DA TELA, 14 OCLUIDA, 15 CAPTURA RECUSADA. O driver exige que código e linha concordem. A tabela tem fonte única no `.hpp` e a cópia Python é vigiada por `check_sibling_lists.py`.
+- **Vermelho aceito na C2b-4:** saída 11, `veredito: INVISIVEL`, `janelas=1`, `visivel=0`, sondas internas 5/5, nenhuma captura tentada. A estreia `occlude` exige 14 com OCLUIDA.
+- **Nenhum afrouxamento.** Implementação na fila do implementador, depois do N2 e do N3.

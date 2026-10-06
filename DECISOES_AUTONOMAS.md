@@ -5803,3 +5803,16 @@ Parecer: `/var/tmp/cto-w7d/parecer-p5a.md` (md5 `207b7be0`). O critério foi fix
 - **Ctest:** 11/11. **preci --fast:** 299/300, com a 5'b ainda não commitada na árvore. Fica declarado: esse verde não prova o estado final da 5'b.
 - **Re-verificação do main:** numa cópia de `7f0eea5`, o controle compila (rc=0) e a linha removida dá "static assertion failed: ... must be dense" (rc=1).
 - **Gêmeos:** nenhum comentário mente, mas há a mesma lacuna em 8 tabelas. Lançada na INBOX como `TABLE-SIZE-ASSERT-TWINS`, descrita como lacuna.
+
+### 5'b aceita (`c831d05`, 06/10/2026, 02:45), D-FECH-15, antes do corte das 03:45
+- **O que mudou:** o ramo do preset virou `apply_preset_request` no mesmo `.cpp`, e o laço final de `set_option` virou `find_current`. `open` e a ordem de alocação (FACADE-PIN) não foram tocados.
+- **Medidor (`/var/tmp/cto-w7d/p5/fnmetrics_p5.py`), rodado também pelo main no HEAD:** `set_option` caiu de 49 para 34 linhas. Em FORA ficam exatamente `open` (219), `resolve_full_option_table` (nível 5) e `apply_concrete_preset` (falso positivo de nível 4), todos cobertos por `GL-FACADE-L17-ATOMS`.
+- **Container:** isolamento rc=0 nas três imagens.
+  - base: os dois testes com rc=0.
+  - m19 reancorada: `gl_context_parity_test` rc=1.
+  - m12: os dois testes com rc=1.
+  - O md5 dos binários difere entre as três imagens.
+- **Conferência do main:** o md5 do arquivo commitado (`bdd7fcdc`) é igual ao conteúdo provado no container.
+- **preci --fast:** verde.
+- **Nota do implementador:** o `sha256sum /build/...` do roteiro da P5-a apontava para um caminho inexistente. Os md5 válidos são os de `/var/tmp/cto-w7d/p5b/*.sha3.txt`.
+- **Próximo:** passo 6, um único `tools/preci.sh --sanitizer-only` sobre `c831d05`, cobrindo B7-c e P5-b (D-FECH-5).

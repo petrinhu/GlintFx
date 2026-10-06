@@ -6046,3 +6046,45 @@ Relatório: `/var/tmp/cto-w8/c0-sonda.md`, do `qa-engineer` sonnet. Isolamento p
 - **(b) FALHOU:** com as duas variáveis, a autorização passa, mas toda forma de captura devolve "Screenshot got cancelled" com 0 bytes: `CaptureWorkspace`, `CaptureActiveScreen`, `CaptureScreen` e `CaptureArea`.
 - **Hipótese do agente, não confirmada:** sem `/dev/dri`, o KWin compõe com QPainter, e o plugin de captura só tem o caminho OpenGL. `KWIN_COMPOSE=O2` não mudou isso.
 - **Consequência:** a §9 do plano previa, para este caso, pacote novo (líder) ou o downgrade para leitura interna. A sonda abriu outras vias. A escolha volta ao CTO (L-34), junto com o resultado do ataque ao plano, que está em curso.
+
+### Plano v2 da W8 (CTO, modo autônomo, 06/10/2026, ~09:55; registrado às 09:57)
+Plano: `/var/tmp/cto-w8/plano-w8-v2.md` (md5 `98a211e1`, cópia congelada ao lado). O v1 (`621513d0`) continua intocado. Origem:
+- a sonda C0;
+- o ataque adversarial ao v1 (`/var/tmp/cto-w8/ataque-plano-w8.md`, md5 `2465a5c6`), com 22 achados: 20 aceitos, 2 prejudicados pela rota nova, 0 recusados, 0 adiados.
+
+O main conferiu na árvore:
+- `egl_error_read_inside_swap_smoke.cpp:35-36` registra o Mesa por software (swrast) sem `/dev/dri`;
+- `wire_object_table.hpp:31-42` conhece `wl_shm` e `wl_shm_pool`.
+
+**Revogada:** D-W8-02 (captura no compositor).
+
+**Mudadas:**
+- D-W8-03, 04, 10, 11, 12, 13, 14, 15 e 16;
+- D-W8-18 foi ampliada.
+
+**Novas:**
+- **D-W8-20:** a prova visual é a captura NO PROTOCOLO. No `commit`, o relé estrito escrito em casa copia o buffer `wl_shm` que o KWin recebe, com formato, passo de linha e alfa byte a byte. O `glReadPixels` interno é a segunda evidência.
+  - Motivo: o backend virtual do KWin só compõe em GL e exige um dispositivo de render.
+  - Recusadas:
+    - GPU no container, que não roda no CI (L-09 regra 7);
+    - `vgem`, que exige mudar o núcleo do hospedeiro;
+    - pacote ou compositor novo.
+  - PMU: não.
+- **D-W8-21:** no Windows, uma sonda escolhe entre `PrintWindow` e `BitBlt` antes de escrever a ferramenta. O alfa vira ausência contada no Windows.
+- **D-W8-22:** o exemplo fotografado é construído pelo próprio CMake dele.
+- **D-W8-23:** o vértice interno passa de 32 para 36 bytes, para levar a coordenada q da textura projetiva.
+- **D-W8-24:** a leitura do `<image>` vai para `gfss`. O resolvedor recebe só texto, e o contexto é emprestado. O evento sai só na borda, com cópia fixa de 256 bytes. Um teste de direção de inclusão prova a fronteira.
+- **D-W8-25:** a conversão tem tolerância de 1 nível, a promessa sobre o filtro sRGB é honesta e a margem do atlas, com mipmap, é ≥ 2^k.
+- **D-W8-26:** destruir uma textura torna o contexto corrente, com evento quando isso falha.
+- **D-W8-27:** o determinismo é byte a byte no mesmo binário e de 4 ULP entre sistemas. A trigonometria própria vai para a INBOX.
+- **D-W8-28:** o grupo de sombra é partido em parte pura e parte de pixel.
+- **D-W8-29:** o arquivo de paridade de desenho se divide em três, um por assunto.
+- **D-W8-30:** o layout do relatório do quadro da onda inteira é decidido uma vez, na S0.
+- **D-W8-31:** entram na INBOX `WL-OPAQUE-REGION` e `CORE-DETERMINISTIC-TRIG`.
+
+**AFROUXAMENTO do critério de fechamento, depois de ver o dado (L-43 global): vai ao líder.**
+- A prova visual deixa de ver a composição do próprio KWin.
+- No Windows, se a sonda M2 não achar mecanismo, a captura externa também deixa de existir.
+- Sem resposta do líder, a onda anda, mas NÃO fecha. Os demais itens do fechamento ficaram mais estritos.
+
+**Despachado às 09:56:** a medição M1 (`qa-engineer`). Ela confere se o cliente realmente entrega `wl_shm` em ARGB pela cadeia real; com `dmabuf` ou XRGB, a rota volta ao CTO.

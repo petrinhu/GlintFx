@@ -5965,3 +5965,74 @@ Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/v
   - D-FECH-16 (`3d88900`);
   - D-FECH-17 (`dc0ff8c`, provada no run D).
 - Nenhuma decisão autônoma da onda W7-D fica pendente de ratificação.
+
+## Onda W8 (modo autônomo ligado pelo líder em 06/10/2026, 09:13; ordem verbatim: "modo autonomo")
+
+### Abertura e plano do CTO (06/10/2026, 09:42; registrado pelo main)
+- **Plano:** `/var/tmp/cto-w8/plano-w8.md`, md5 `621513d0`, com cópia congelada ao lado (`plano-w8.congelado-621513d0.md`).
+  - Caetano (CTO, `opus`, esforço alto) pesquisou antes de planejar (L-43, L-22 global).
+  - Decidiu no lugar do líder (L-34, emenda de 29/09).
+  - O ramo `onda-w8` foi criado de `e31aa77`.
+- **Passo 3 da L-34, feito pelo main:** 14 citações arquivo:linha conferidas na árvore, nenhuma falhou.
+  - Exemplos: o stencil de 8 bits no EGL e no WGL, o "stencil test off" do `renderer_2d.hpp:224`, o `dbus-run-session` do `run_compositor.sh:111`, a ausência de `examples/` e as dependências intra-onda da W7 (`TODO.md:645,646,657`).
+  - Um ataque adversarial ao plano, só de leitura, está em curso antes da primeira linha de código. A memória da casa o dá como o melhor retorno.
+- **Correção à premissa do main:** a W8 tinha seis linhas, não quatro. O main as contou com uma busca estreita, que não pegou as duas linhas de célula larga (`TODO.md:698-699`).
+
+### D-W8-01 a D-W8-19 (CTO, modo autônomo, 06/10/2026, ~09:33; a confirmar retroativamente)
+Texto completo de cada uma (pergunta, opções, fontes) na §4 do plano. Abaixo: a pergunta que teria ido ao líder, a escolha, porta de mão única (PMU) e custo de reverter.
+- **D-W8-01:** "A W8 leva as seis linhas, com dependência dentro da onda?"
+  - Sim, na ordem das linhas, como a W7 LOOP-* já fazia.
+  - PMU: não. Custo de reverter: baixo.
+- **D-W8-02:** "Como o QA captura a tela dentro do container?"
+  - Por um cliente D-Bus mínimo escrito em casa, que chama o `org.kde.KWin.ScreenShot2`, mais a leitura de pixel interna. A janela é posta sobre um fundo conhecido não preto, para o alfa errado aparecer.
+  - Sem pacote novo. Se a sonda C0 reprovar, o pacote vai ao líder (L-14).
+  - Nasce a linha `QA-SCREEN-CAPTURE`.
+  - PMU: não. Custo: baixo.
+- **D-W8-03:** a demo mora em `examples/`, como consumidor da biblioteca instalada.
+  - A opção `GLINTFX_BUILD_EXAMPLES` vem ligada só quando o GlintFx é o projeto de topo.
+  - A demo aceita `--frames N`, e há um exemplo por fatia visual.
+  - PMU: fraca (o nome da opção). Custo: baixo antes da 1.0.
+- **D-W8-04:** no Windows, a prova roda no executor do CI, com captura Win32 em casa (`PrintWindow` com `PW_RENDERFULLCONTENT`). A VM só entra com ônus da prova.
+  - PMU: não. Custo: baixo.
+- **D-W8-05:** a espessura do traço é em unidade de mundo por padrão, com a unidade pixel por campo nomeado. Número negativo não vale como unidade.
+  - PMU: sim. Custo: alto.
+- **D-W8-06:** o contorno do retângulo alinha dentro, centrado ou fora, com centrado por padrão. Os cantos não se sobrepõem.
+  - PMU: sim. Custo: alto.
+- **D-W8-07:** há uma única elipse com rotação, preenchida e contornada (`stroke_ellipse` entra por completude). Os segmentos saem do erro na tela, 0,25 px por padrão, ajustável no descritor.
+  - PMU: sim. Custo: alto.
+- **D-W8-08:** o vértice público é `gltfx_vertex_2d_world`, separado do interno.
+  - Índices de 32 bits opcionais; inválidos são recusados por peça e contados.
+  - A ponta da linha pode ser reta, quadrada ou redonda.
+  - PMU: sim. Custo: alto.
+- **D-W8-09:** polilinha com junção e antialiasing ficam declarados como ausência na W8, com linhas novas `R2D-STROKE-PATH` e `R2D-EDGE-SMOOTHING` na W9-B.
+  - PMU: não. Custo: baixo.
+- **D-W8-10:** a textura guarda cor pré-multiplicada em luz linear, codificada em sRGB, com alfa linear. O formato de entrada é um enum que só cresce.
+  - PMU: sim. Custo: alto.
+- **D-W8-11:** amostragem e mipmap ficam no descritor da textura; a palavra de folha `image-rendering` continua na W9-B. Nasce a linha `R2D-TEXTURE-TILED`, na W9-B.
+  - PMU: sim. Custo: alto.
+- **D-W8-12:** a textura não sobrevive ao desenhador (pré-condição). Destruir uma textura com peça na fila envia o lote antes.
+  - PMU: sim. Custo: alto.
+- **D-W8-13:** desenho com textura:
+  - região com espelhamento nomeado;
+  - quadrilátero com interpolação projetiva;
+  - tinta multiplicada;
+  - triângulos texturizados;
+  - contagem de trocas de textura no relatório. Trocar de textura parte o lote, mas nunca reordena.
+  - PMU: sim. Custo: alto.
+- **D-W8-14:** o atlas usa alocador de prateleira com liberação, público e no núcleo, mais um atlas de conveniência com margem e extrusão.
+  - PMU: sim. Custo: alto.
+- **D-W8-15:** o resolvedor de imagem segue o contrato R8 e é consultado a cada pintura. Aceita `url("a")` e `url(a)`. Referência sem dono é contada, com o evento `image_reference_unresolved`. Não nasce natureza de valor nova.
+  - PMU: sim. Custo: alto.
+- **D-W8-16:** luz e sombra são um mecanismo genérico (direcional e pontual), com as quatro formas pedidas na W8.
+  - A ordem vem da chave de camada.
+  - O stencil impede escurecimento duplo.
+  - A luz é aplicada por vértice.
+  - A geometria é idêntica byte a byte nos dois sistemas.
+  - `R2D-LIGHTMAP` vai para a W10 e `R2D-PIXEL-SNAP` para a INBOX.
+  - PMU: sim. Custo: alto.
+- **D-W8-17:** `R2D-SPRITE-SHADE` passa a depender também de `R2D-TEXTURE`. Os WSJF provisórios (`R2D-IMAGE-RESOLVER` 4,67, `R2D-SPRITE-SHADE` 2,25, `QA-SCREEN-CAPTURE` 4,20) são inferência, a ratificar pelo CPO.
+  - PMU: não. Custo: nulo.
+- **D-W8-18:** a fachada do desenhador se divide em arquivos por assunto; a classe pública continua uma só.
+  - PMU: não. Custo: baixo.
+- **D-W8-19:** a onda fecha com a marca `v0.7.0.0`, só depois do CI do `main` verde.
+  - PMU: sim (marca pública). Custo: irreversível depois de publicada.

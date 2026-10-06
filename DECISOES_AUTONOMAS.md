@@ -6256,3 +6256,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A sonda saiu com código 0.
 - **Consequência para a D-W8-21:** os dois mecanismos externos devolvem a cor exata. O afrouxamento previsto, ficar só com a leitura interna, NÃO acontece. A escolha entre PrintWindow e BitBlt vai ao CTO.
 - **Como a sonda achou a janela (fato):** a API pública não expõe o HWND. A sonda usou `FindWindowW` pelo título, que leva o PID. A janela nasce oculta e a sonda a mostrou com `ShowWindow(SW_SHOWNOACTIVATE)`.
+
+### 06/10/2026 18:12:23 - C2b planejada pelo CTO: D-W8-36 a D-W8-41 (decisões autônomas, a confirmar retroativamente pelo líder)
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-c2b.md` (md5 `f3600c637edf5190c7a0ac0e469f113c`), com pesquisa citada.
+- **D-W8-36:** a C2b usa OS DOIS mecanismos.
+  - `PrintWindow(PW_RENDERFULLCONTENT)` prova o conteúdo da janela.
+  - `BitBlt` da tela, com `CAPTUREBLT`, prova que o quadro chegou à tela. Antes dele, uma guarda de oclusão por `WindowFromPoint` faz a falha sair como "OCLUIDA", não como "cor errada".
+- **D-W8-37:** a API pública NÃO ganha HWND. A ferramenta lança a fixture e acha a janela pelo PID do filho mais o título; o resultado tem de ser exatamente uma janela. Nem a ferramenta nem a fixture mostram a janela. O identificador nativo vai à INBOX como `PLATFORM-NATIVE-HANDLE`, porta de mão única que fica com o líder.
+- **D-W8-38 (defeito de produto):** no Windows, a janela de um consumidor nunca aparece.
+  - **Verificado pelo main:** `src/platform/win32/window_adapter.hpp:34` diz "open() never calls ShowWindow", e não há `ShowWindow` em `src/`.
+  - No Wayland, anexar o primeiro buffer mapeia a janela (D-W5-8). No Windows, apresentar não mostra. O efeito observável difere entre os sistemas, o que contraria a L-04, e `docs/plano-w6a-janela.md:50` afirma o contrário.
+  - **Conserto na W8:** linha nova `WIN-MAP-FIRST-PRESENT`, antes da `DEMO-1`. Critérios escritos antes do dado; se a janela não puder aparecer sob um lançador que pede `SW_HIDE`, a fatia volta ao CTO.
+- **D-W8-39:** a fixture tem fonte única nos dois sistemas. O alfa e o sRGB ligado do Windows são ausências contadas em `tests/measured_exceptions.txt` (corrige o v2, que apontava `parity_absences.txt`).
+- **D-W8-40:** o executor Windows do CI roda a C2b.
+- **D-W8-41:** `win32_first_present_maps_test` entra como apelido bilateral em `tests/parity_aliases.txt`, nunca como exceção.
+- **Contagem:** C2b em 5 passos, mais a fatia de produto WIN-MAP-1 entre o 4 e o 5. O piso de linhas do fechamento sobe de 9 para 10. **Nenhum afrouxamento.**
+- **Ordem:** a C2b só começa depois do conserto do CI Windows em voo, porque os dois tocam `tests/CMakeLists.txt`. O vermelho de C2b-4 e o conserto WIN-MAP-1 vão em commits consecutivos, com o vermelho provado em ramo descartável.

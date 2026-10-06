@@ -56,7 +56,7 @@ verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &cli
     if (facts.iconic) {
         return {.pass = false, .text = "ICONICA"};
     }
-    const verdict on_screen = judge_client_on_screen(client, virtual_screen);
+    verdict on_screen = judge_client_on_screen(client, virtual_screen);
     if (!on_screen.pass) {
         return on_screen;
     }

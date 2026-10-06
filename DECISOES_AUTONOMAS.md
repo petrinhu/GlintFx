@@ -6186,3 +6186,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - fds perdidos em `control_truncated` (`wire_relay_connection_set.cpp:233-238`, anterior a esta fatia), que vai para a INBOX `WIRE-RELAY-CONTROL-TRUNCATED-FDS`.
 - **Erro do main nesta fatia:** commitei o documento de ferramentas sem rodar o espelho, e o portão `docs_count_vocab` o barrou na rodada 3. Foi corrigido em `1ebadf0`.
 - **O `Status` de `QA-SCREEN-CAPTURE` continua ⏳:** a linha ainda tem P2, P3, C2a e C2b.
+
+### P2 de `QA-SCREEN-CAPTURE` aceita (06/10/2026, 13:39): conversão para PNG e sondas de pixel
+- **Commits:** `84f6652` (P2) e `74ec5a7` (conserto). Implementador e revisor foram agentes `sonnet` distintos (L-12).
+- **Rodada 1, NÃO ACEITAR:** 6 IMPORTANTE. O principal foi o veredito "zero imagens reprova", que não chegava ao código de saída do processo: os autotestes chamavam `real_main` dentro do mesmo processo. Faltava também `PASS_REGULAR_EXPRESSION`, havia funções de 129 linhas e 3 mutantes sobreviviam.
+- **Rodada 2, ACEITAR, conferida pelo revisor:**
+  - os autotestes rodam por subprocess;
+  - a regex foi provada dentro de um CTest real (sem o guarda `__main__`, rc=8 com "Required regular expression not found");
+  - nenhum mutante sobrevivente além de 2 equivalentes provados;
+  - L-17 limpa, medida por ast;
+  - o `env_sweep` passa sem o comentário de isenção e reprova um CRLF real.
+- **O que a P3 precisa medir, segundo o revisor (`/var/tmp/cto-w8/rev-p2b.md` §5):**
+  - o esperado por modo `srgb_framebuffer`: ligado, codifica o valor pré-multiplicado; desligado, codifica e depois multiplica, o que dá bytes diferentes;
+  - o alfa do destino;
+  - o formato 1 força alfa 255, então a sonda de alfa 0,5 só vale com formato 0;
+  - o arredondamento 127 contra 128, com tolerância declarada;
+  - a sabotagem de estreia em cada modo.
+- **Alfa:** a conversão NÃO des-multiplica. O `wl_shm` ARGB8888 é pré-multiplicado, e isso está documentado no cabeçalho do `raw_to_png.py`.

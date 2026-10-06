@@ -6381,6 +6381,22 @@ target_include_directories(window_capture_rules_test PRIVATE "${CMAKE_CURRENT_SO
 target_sources(window_capture_rules_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp")
 
+# QA-SCREEN-CAPTURE C2b-2 (D-W8-36, D-W8-37, D-W8-40): the Windows window-capture tool. It launches the
+# fixture itself, finds its window by PID and title (exactly one), reads the pixels by PrintWindow and by
+# BitBlt of the screen, and writes one capture pair per mechanism. NOT a test: an executable the driver
+# (C2b-3/C2b-4) runs, so no add_test here and no glintfx_add_test (the win32 link gate enumerates those).
+# It never shows, hides or activates the window (D-W8-37).
+if(WIN32)
+    add_executable(win32_window_capture
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_window_capture.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_child.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_grab.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_text.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp")
+    target_link_libraries(win32_window_capture PRIVATE user32 gdi32)
+    glintfx_apply_compile_options(win32_window_capture)
+endif()
+
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
 # por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de

@@ -152,6 +152,11 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`CONTAINERFILE-FEDORA-PIN`: `tests/container/Containerfile:230` e `:1182` usam `FROM fedora:44`, enquanto a matriz do CI e o `CLAUDE.md` dizem `fedora:latest`; decidir se é exceção intencional.** Achado em 06/10/2026 pela pesquisa de ferramentas (`/var/tmp/ferramentas/construcao-teste-analise.md`, `docker.md`); sem pontuar.
+- **`GITLEAKS-DETECT-LEGACY`: `gitleaks detect` (`tools/preci.sh:768`, `.github/workflows/ci.yml:4355`) é comando legado oculto na 8.30; o atual é `gitleaks git`.** Achado em 06/10/2026 pela pesquisa de ferramentas (`/var/tmp/ferramentas/construcao-teste-analise.md`); sem pontuar.
+- **`HOSTCONFIG-BASELINE-ENGINE-DRIFT`: `tests/container/hostconfig_baseline.txt` congela o HostConfig inteiro, e o Docker Engine 29.8 acrescenta `--umask`; atualizar o Engine deve reprovar o portão até recapturar a linha de base.** Achado em 06/10/2026 pela pesquisa de ferramentas (`/var/tmp/ferramentas/docker.md`); sem pontuar.
+- **`TOOLCHAIN-UPDATES-PENDENTES`: há versões novas disponíveis (Docker Engine 29.8.2 com 10 CVEs, buildx 0.37.2, compose 5.6.0, CMake 4.4.4, ccache 4.14.1, gh ~2.102); atualizar é decisão do líder (L-14), registro sem ação.** Achado em 06/10/2026 pela pesquisa de ferramentas (`/var/tmp/ferramentas/docker.md`, `construcao-teste-analise.md`); sem pontuar.
+
 - **`R2D-PIXEL-SNAP`: encaixe em pixel da sombra que gira.** A sombra girando cintila em pixel art (risco que o líder do consumidor aceitou). Veio da D-W8-16 do CTO em 06/10/2026 (modo autônomo, `DECISOES_AUTONOMAS.md`, seção "Onda W8"); sem pontuar.
 
 - **`WL-OPAQUE-REGION`: a janela declara região opaca quando o consumidor promete opacidade.** É decisão de produto e muda o que o compositor faz. Veio da D-W8-31 do CTO em 06/10/2026 (modo autônomo); sem pontuar.

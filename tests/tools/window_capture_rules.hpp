@@ -57,6 +57,12 @@ struct occlusion_probe {
 [[nodiscard]] std::vector<screen_point> occlusion_points(const pixel_rect &client);
 
 // Passes only when exactly five probes came back and all are the target window's own.
+// KNOWN GAP, declared (D-W8-36 chose five points): a window that covers the client area WITHOUT
+// touching any of the five points (a notification bar along the middle of an edge, a small popup
+// over the scene) passes this guard, and the screen read then shows up as a wrong color, never as
+// OCLUIDA. Also by the API's documentation (inference, not measured): WindowFromPoint skips
+// disabled and WS_EX_TRANSPARENT windows while BitBlt with CAPTUREBLT captures them, so a cover of
+// those classes escapes the guard too.
 [[nodiscard]] verdict judge_occlusion(const std::vector<occlusion_probe> &probes);
 
 // The .meta text of a capture the tool writes: XRGB8888 (wl_shm format 1; the GDI DIB carries

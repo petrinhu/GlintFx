@@ -72,6 +72,11 @@ GLINTFX_TEST(client_area_empty_rejects_even_when_it_sits_on_the_screen) {
     GLINTFX_CHECK(!glintfx::capture_tool::judge_client_on_screen(empty, k_screen).pass);
 }
 
+GLINTFX_TEST(client_area_with_zero_height_rejects_even_when_the_width_is_positive) {
+    const pixel_rect flat{.left = 50, .top = 50, .right = 120, .bottom = 50};
+    GLINTFX_CHECK(!glintfx::capture_tool::judge_client_on_screen(flat, k_screen).pass);
+}
+
 GLINTFX_TEST(client_area_on_a_virtual_screen_with_negative_origin_passes) {
     const pixel_rect wide{.left = -1920, .top = 0, .right = 1920, .bottom = 1080};
     const pixel_rect on_left_monitor{.left = -1900, .top = 100, .right = -1580, .bottom = 340};
@@ -97,14 +102,30 @@ GLINTFX_TEST(occlusion_all_five_points_owned_by_the_target_passes) {
     GLINTFX_CHECK(glintfx::capture_tool::judge_occlusion(all_owned()).pass);
 }
 
-GLINTFX_TEST(occlusion_one_foreign_point_rejects_naming_the_covering_class) {
+// Each of the five points is looked at: a foreign window over ANY ONE of them rejects, naming the
+// class found there (a rule that stopped looking at the center, or only looked at one point, would
+// pass a test that swaps a single fixed index).
+GLINTFX_TEST(occlusion_a_foreign_window_over_any_single_point_rejects_naming_its_class) {
+    for (std::size_t foreign = 0; foreign < 5; ++foreign) {
+        std::vector<occlusion_probe> probes = all_owned();
+        GLINTFX_CHECK_EQ(probes.size(), std::size_t{5});
+        probes[foreign].owned_by_target = false;
+        probes[foreign].owner_class = "Cover" + std::to_string(foreign);
+        const auto verdict = glintfx::capture_tool::judge_occlusion(probes);
+        GLINTFX_CHECK(!verdict.pass);
+        GLINTFX_CHECK_EQ(verdict.text, "OCLUIDA por classe=Cover" + std::to_string(foreign));
+    }
+}
+
+GLINTFX_TEST(occlusion_with_two_foreign_points_names_the_first_one) {
     std::vector<occlusion_probe> probes = all_owned();
     GLINTFX_CHECK_EQ(probes.size(), std::size_t{5});
-    probes[3].owned_by_target = false;
-    probes[3].owner_class = "Shell_TrayWnd";
-    const auto verdict = glintfx::capture_tool::judge_occlusion(probes);
-    GLINTFX_CHECK(!verdict.pass);
-    GLINTFX_CHECK_EQ(verdict.text, std::string("OCLUIDA por classe=Shell_TrayWnd"));
+    probes[1].owned_by_target = false;
+    probes[1].owner_class = "First";
+    probes[4].owned_by_target = false;
+    probes[4].owner_class = "Second";
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_occlusion(probes).text,
+                     std::string("OCLUIDA por classe=First"));
 }
 
 GLINTFX_TEST(occlusion_with_a_count_other_than_five_rejects) {

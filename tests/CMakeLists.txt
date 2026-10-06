@@ -6316,19 +6316,25 @@ set_tests_properties(python_unbuffered_selftest PROPERTIES LABELS selftest)
 # PNG and rejects zero probes. Each one's --selftest runs the three L-40
 # controls (good passes, bad rejects, empty rejects). Standard library
 # only (L-07). The consumer is P3 (capture_known_color_smoke).
+# PASS_REGULAR_EXPRESSION: a selftest whose main never runs exits 0 in
+# silence (GODS_LAWS.md L-36/L-40); the "N controles OK" line, N >= 1,
+# is what proves controls ran. ctest then ignores the exit code, so the
+# selftest prints that line only after every control passed.
 add_test(
     NAME raw_to_png_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/raw_to_png.py" --selftest
 )
-set_tests_properties(raw_to_png_selftest PROPERTIES LABELS selftest)
+set_tests_properties(raw_to_png_selftest PROPERTIES LABELS selftest
+    PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
 
 add_test(
     NAME image_probe_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/image_probe.py" --selftest
 )
-set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
+set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest
+    PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
 
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido

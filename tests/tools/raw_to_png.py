@@ -18,6 +18,16 @@
 # images converted is a rejection (L-40), and so is any file it could
 # not account for (orphan .raw/.meta, unknown name, bad geometry).
 #
+# ALPHA (read this before writing a probe): wl_shm ARGB8888 carries
+# PREMULTIPLIED alpha (the compositor blends it that way). This tool does
+# NOT un-premultiply: color channels are copied byte for byte and the
+# PNG's alpha channel is marked straight, so an ordinary viewer shows a
+# semi-transparent pixel DARKER than the client meant. For fully opaque
+# or fully transparent pixels nothing changes. D-W8-33 compares this
+# image against the client's own readback, byte for byte, so both sides
+# must be read in the same convention; P3 states the expected value of
+# every semi-transparent probe in that convention, never "straight".
+#
 # USAGE: raw_to_png.py <capture_dir> <out_dir>   |   raw_to_png.py --selftest
 # Prints one "png <name> md5=<hex> <w>x<h>" line per image and a final
 # "raw_to_png: images=<n> no_frame=<n> failed=<n>" line, always.
@@ -25,15 +35,15 @@
 import hashlib
 import re
 import struct
+import subprocess
 import sys
 import tempfile
 import zlib
+from collections import namedtuple
 from pathlib import Path
 
 SCRIPT_NAME = "raw_to_png.py"
-# The \r\n inside the PNG signature is a byte of the format, not an
-# environment fact (checkout line ending): GODS_LAWS.md L-40 declaration.
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PNG_SIGNATURE = bytes([137, 80, 78, 71, 13, 10, 26, 10])
 FORMAT_ARGB8888 = 0
 FORMAT_XRGB8888 = 1
 META_KEYS = ("width", "height", "stride", "format")
@@ -57,7 +67,7 @@ def parse_meta(text):
         key, separator, value = line.partition("=")
         if not separator or key not in META_KEYS or key in meta:
             raise CaptureError(f"meta line not understood or repeated: {line!r}")
-        if not value.isdigit():
+        if not (value.isascii() and value.isdigit()):
             raise CaptureError(f"meta value is not a decimal integer: {line!r}")
         meta[key] = int(value)
     missing = [key for key in META_KEYS if key not in meta]
@@ -126,13 +136,13 @@ def convert_directory(capture_dir, out_dir):
                 continue
             try:
                 images.append(convert_one(capture_dir, out_dir, stem))
-            except (CaptureError, OSError) as error:
+            except (CaptureError, OSError, ValueError) as error:
                 failures.append(f"{name}: {error}")
         elif META_RE.match(name):
             if f"{name[: -len('.meta')]}.raw" not in names:
                 failures.append(f"{name}: no .raw beside it")
         elif NO_FRAME_RE.match(name):
-            text = (capture_dir / name).read_text().strip()
+            text = read_marker_text(capture_dir / name)
             if text == NO_FRAME_TEXT:
                 no_frame += 1
             else:
@@ -140,6 +150,13 @@ def convert_directory(capture_dir, out_dir):
         else:
             failures.append(f"{name}: not a capture file")
     return images, no_frame, failures
+
+
+def read_marker_text(path):
+    try:
+        return path.read_text().strip()
+    except (OSError, ValueError) as error:
+        return f"<unreadable: {error}>"
 
 
 def convert_one(capture_dir, out_dir, stem):
@@ -155,39 +172,53 @@ def convert_one(capture_dir, out_dir, stem):
 # -- selftest --------------------------------------------------------
 # Expected values below come from the SPECIFICATIONS (PNG: RFC 2083 /
 # W3C PNG; wl_shm ARGB8888 little-endian), written by hand, never read
-# back from this program's output.
+# back from this program's output. The CLI controls run the real process
+# (subprocess) and read its real exit code.
+
+CHECKS = []
+CaptureSpec = namedtuple("CaptureSpec", "width height stride fmt")
+# 2x2 ARGB8888, stride 12 (4 bytes of padding per row), little-endian
+# memory B,G,R,A; expected RGBA rows: (1,2,3,4)(5,6,7,8) / (9..12)(13..16).
+PAD = bytes([0xEE] * 4)
+RAW_2X2 = bytes([3, 2, 1, 4, 7, 6, 5, 8]) + PAD + bytes([11, 10, 9, 12, 15, 14, 13, 16]) + PAD
+SPEC_2X2 = CaptureSpec(2, 2, 12, 0)
+ROWS_2X2 = [bytes([1, 2, 3, 4, 5, 6, 7, 8]), bytes([9, 10, 11, 12, 13, 14, 15, 16])]
+
+
+def check(name, condition):
+    CHECKS.append(name)
+    if not condition:
+        print(f"selftest: {name} FALHOU", file=sys.stderr)
+        sys.exit(1)
+
+
+def rejects(function, *args):
+    try:
+        function(*args)
+    except CaptureError:
+        return True
+    return False
 
 
 def chunk_walk(png):
-    """Independent minimal PNG chunk splitter used only by the
-    selftest: yields (type, data, crc_bytes)."""
+    """Independent minimal PNG chunk splitter: yields (type, data, crc)."""
     pos = len(PNG_SIGNATURE)
     while pos < len(png):
         (length,) = struct.unpack(">I", png[pos : pos + 4])
-        ctype = png[pos + 4 : pos + 8]
-        data = png[pos + 8 : pos + 8 + length]
-        crc = png[pos + 8 + length : pos + 12 + length]
-        yield ctype, data, crc
+        yield png[pos + 4 : pos + 8], png[pos + 8 : pos + 8 + length], png[
+            pos + 8 + length : pos + 12 + length
+        ]
         pos += 12 + length
 
 
-def write_capture(directory, name, pixels, width, height, stride, fmt):
+def write_capture(directory, name, pixels, spec):
     (directory / f"{name}.raw").write_bytes(pixels)
     (directory / f"{name}.meta").write_text(
-        f"width={width}\nheight={height}\nstride={stride}\nformat={fmt}\n"
+        f"width={spec.width}\nheight={spec.height}\nstride={spec.stride}\nformat={spec.fmt}\n"
     )
 
 
-def selftest_main():
-    checks = []
-
-    def check(name, condition):
-        checks.append(name)
-        if not condition:
-            print(f"selftest: {name} FALHOU", file=sys.stderr)
-            sys.exit(1)
-
-    # 1x1 PNG of the pixel R=0x11 G=0x22 B=0x33 A=0x80, from the spec.
+def selftest_png_encoding():
     png = encode_png(1, 1, [bytes([0x11, 0x22, 0x33, 0x80])])
     check("assinatura PNG", png[:8] == bytes([137, 80, 78, 71, 13, 10, 26, 10]))
     chunks = list(chunk_walk(png))
@@ -206,37 +237,20 @@ def selftest_main():
         zlib.decompress(chunks[1][1]) == bytes([0, 0x11, 0x22, 0x33, 0x80]),
     )
 
-    # ARGB8888 little-endian: memory B,G,R,A -> RGBA output. Stride has
-    # 4 bytes of padding per row that must NOT reach the image.
-    # row 0: (R,G,B,A) = (1,2,3,4) and (5,6,7,8); row 1: (9,10,11,12), (13,14,15,16)
-    pad = bytes([0xEE] * 4)
-    raw = (
-        bytes([3, 2, 1, 4, 7, 6, 5, 8])
-        + pad
-        + bytes([11, 10, 9, 12, 15, 14, 13, 16])
-        + pad
-    )
-    meta = parse_meta("width=2\nheight=2\nstride=12\nformat=0\n")
-    check("meta lida", meta == {"width": 2, "height": 2, "stride": 12, "format": 0})
-    rows = raw_to_rgba_rows(raw, meta)
-    check(
-        "ARGB8888 little-endian vira RGBA, sem o enchimento do stride",
-        rows == [bytes([1, 2, 3, 4, 5, 6, 7, 8]), bytes([9, 10, 11, 12, 13, 14, 15, 16])],
-    )
-    xmeta = dict(meta, format=1)
-    xrows = raw_to_rgba_rows(raw, xmeta)
+
+def selftest_channel_conversion():
+    rows = raw_to_rgba_rows(RAW_2X2, parse_meta("width=2\nheight=2\nstride=12\nformat=0\n"))
+    check("ARGB8888 little-endian vira RGBA, sem o enchimento do stride", rows == ROWS_2X2)
+    xrows = raw_to_rgba_rows(RAW_2X2, dict(SPEC_2X2._asdict(), format=1))
     check(
         "XRGB8888: o byte X nunca vira transparencia (alfa 255)",
         xrows == [bytes([1, 2, 3, 255, 5, 6, 7, 255]), bytes([9, 10, 11, 255, 13, 14, 15, 255])],
     )
 
-    def rejects(function, *args):
-        try:
-            function(*args)
-        except CaptureError:
-            return True
-        return False
 
+def selftest_meta_rejections():
+    good = parse_meta("width=2\nheight=2\nstride=12\nformat=0\n")
+    check("meta lida", good == {"width": 2, "height": 2, "stride": 12, "format": 0})
     check("meta sem chave reprova", rejects(parse_meta, "width=2\nheight=2\nstride=8\n"))
     check(
         "meta com chave repetida ou lixo reprova",
@@ -244,90 +258,116 @@ def selftest_main():
         and rejects(parse_meta, "width=dois\nheight=2\nstride=8\nformat=0\n"),
     )
     check(
+        "digito nao ASCII (expoente) reprova como CaptureError, nao como traceback",
+        rejects(parse_meta, "width=\u00b2\nheight=2\nstride=8\nformat=0\n"),
+    )
+
+
+def selftest_geometry_rejections():
+    meta = dict(SPEC_2X2._asdict(), format=0)
+    check(
         "stride menor que width*4 reprova",
-        rejects(raw_to_rgba_rows, raw, dict(meta, stride=4))
+        rejects(raw_to_rgba_rows, RAW_2X2, dict(meta, stride=4))
         and rejects(raw_to_rgba_rows, bytes(14), dict(meta, stride=7)),
     )
-    check("tamanho do raw diferente de stride*height reprova", rejects(raw_to_rgba_rows, raw[:-1], meta))
-    check("formato desconhecido reprova", rejects(raw_to_rgba_rows, raw, dict(meta, format=7)))
+    check("raw menor que stride*height reprova", rejects(raw_to_rgba_rows, RAW_2X2[:-1], meta))
+    check("raw MAIOR que stride*height reprova", rejects(raw_to_rgba_rows, RAW_2X2 + b"\x00", meta))
+    check("formato desconhecido reprova", rejects(raw_to_rgba_rows, RAW_2X2, dict(meta, format=7)))
     check("largura zero reprova", rejects(raw_to_rgba_rows, b"", dict(meta, width=0, stride=0)))
 
-    # Directory level: the three L-40 controls.
+
+def selftest_directory_controls():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-
         good = root / "good"
         good.mkdir()
-        write_capture(good, "conn1_surface3", raw, 2, 2, 12, 0)
-        out = root / "out_good"
-        images, no_frame, failures = convert_directory(good, out)
+        write_capture(good, "conn1_surface3", RAW_2X2, SPEC_2X2)
+        images, no_frame, failures = convert_directory(good, root / "out_good")
         check("BOM: uma imagem, zero falhas", len(images) == 1 and no_frame == 0 and failures == [])
-        written = (out / images[0][0]).read_bytes()
+        written = (root / "out_good" / images[0][0]).read_bytes()
         check("BOM: md5 informado e o do arquivo gravado", images[0][1] == hashlib.md5(written).hexdigest())
-        check("BOM: dimensoes informadas", (images[0][2], images[0][3]) == (2, 2))
-        check("BOM: PNG gravado e o do encode_png", written == encode_png(2, 2, rows))
-
-        only_no_frame = root / "only_no_frame"
-        only_no_frame.mkdir()
-        (only_no_frame / "conn1_no_frame.txt").write_text(NO_FRAME_TEXT)
-        images, no_frame, failures = convert_directory(only_no_frame, root / "out_nf")
-        check(
-            "RUIM: so 'nenhum quadro' conta o marcador e devolve zero imagens",
-            images == [] and no_frame == 1 and failures == [],
-        )
-
+        check("BOM: dimensoes e PNG gravado", (images[0][2], images[0][3]) == (2, 2)
+              and written == encode_png(2, 2, ROWS_2X2))
+        nf = root / "only_no_frame"
+        nf.mkdir()
+        (nf / "conn1_no_frame.txt").write_text(NO_FRAME_TEXT)
+        images, no_frame, failures = convert_directory(nf, root / "out_nf")
+        check("RUIM: so 'nenhum quadro' conta o marcador e devolve zero imagens",
+              images == [] and no_frame == 1 and failures == [])
         empty = root / "empty"
         empty.mkdir()
-        images, no_frame, failures = convert_directory(empty, root / "out_empty")
-        check("VAZIO: diretorio vazio devolve zero imagens e zero marcadores", images == [] and no_frame == 0)
-
-        orphan = root / "orphan"
-        orphan.mkdir()
-        write_capture(orphan, "conn1_surface3", raw, 2, 2, 12, 0)
-        (orphan / "conn2_surface9.raw").write_bytes(raw)
-        (orphan / "conn1_surface4.meta").write_text("width=1\nheight=1\nstride=4\nformat=0\n")
-        (orphan / "stranger.bin").write_bytes(b"x")
-        (orphan / "conn3_no_frame.txt").write_text("outro texto")
-        images, no_frame, failures = convert_directory(orphan, root / "out_orphan")
-        check(
-            "falha do raw sem meta diz isso",
-            any("conn2_surface9.raw: no .meta" in failure for failure in failures),
-        )
-        check(
-            "orfaos, nome desconhecido e marcador com texto errado viram 4 falhas",
-            len(images) == 1 and len(failures) == 4,
-        )
-
-        missing = root / "does_not_exist"
-        check("diretorio inexistente reprova", rejects(convert_directory, missing, root / "out_x"))
-
-    # Exit code of the real entry point, over the three controls.
-    check("main: bom sai 0", run_main_in_tmp("good") == 0)
-    check("main: so marcador sai 1", run_main_in_tmp("no_frame") == 1)
-    check("main: vazio sai 1", run_main_in_tmp("empty") == 1)
-    check("main: orfao sai 1", run_main_in_tmp("orphan") == 1)
-    print(f"selftest: {len(checks)} controles OK")
+        images, no_frame, _ = convert_directory(empty, root / "out_empty")
+        check("VAZIO: zero imagens e zero marcadores", images == [] and no_frame == 0)
+        check("diretorio inexistente reprova", rejects(convert_directory, root / "nope", root / "o"))
 
 
-def run_main_in_tmp(kind):
-    """Builds a capture directory of the given kind and returns the exit
-    code of real_main over it (its prints are discarded)."""
-    import contextlib
-    import io
+def build_orphan_dir(root):
+    orphan = root / "orphan"
+    orphan.mkdir()
+    write_capture(orphan, "conn1_surface3", RAW_2X2, SPEC_2X2)
+    (orphan / "conn2_surface9.raw").write_bytes(RAW_2X2)
+    (orphan / "conn1_surface4.meta").write_text("width=1\nheight=1\nstride=4\nformat=0\n")
+    (orphan / "stranger.bin").write_bytes(b"x")
+    (orphan / "conn3_no_frame.txt").write_text("outro texto")
+    return orphan
 
-    pixels = bytes([3, 2, 1, 4])
+
+def selftest_orphans():
     with tempfile.TemporaryDirectory() as tmp:
-        source = Path(tmp) / "src"
-        source.mkdir()
-        if kind == "good":
-            write_capture(source, "conn1_surface3", pixels, 1, 1, 4, 0)
-        elif kind == "no_frame":
-            (source / "conn1_no_frame.txt").write_text(NO_FRAME_TEXT)
-        elif kind == "orphan":
-            write_capture(source, "conn1_surface3", pixels, 1, 1, 4, 0)
-            (source / "conn2_surface9.raw").write_bytes(pixels)
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            return real_main([str(source), str(Path(tmp) / "out")])
+        images, _, failures = convert_directory(build_orphan_dir(Path(tmp)), Path(tmp) / "out")
+        check("falha do raw sem meta diz isso",
+              any("conn2_surface9.raw: no .meta" in f for f in failures))
+        check("orfaos, nome desconhecido e marcador com texto errado viram 4 falhas",
+              len(images) == 1 and len(failures) == 4)
+
+
+def selftest_undecodable_meta():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        write_capture(root, "conn1_surface3", RAW_2X2, SPEC_2X2)
+        (root / "conn1_surface3.meta").write_bytes(b"\xff\xfe width=2\n")
+        images, _, failures = convert_directory(root, root / "out")
+        check("meta que nao e UTF-8 vira falha contada, sem traceback",
+              images == [] and len(failures) == 1 and "conn1_surface3.raw" in failures[0])
+
+
+def run_cli(*args):
+    return subprocess.run([sys.executable, str(Path(__file__).resolve()), *args],
+                          capture_output=True, text=True, check=False)
+
+
+def selftest_real_process_exit_codes():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        good = root / "good"
+        good.mkdir()
+        write_capture(good, "conn1_surface3", RAW_2X2, SPEC_2X2)
+        nf = root / "nf"
+        nf.mkdir()
+        (nf / "conn1_no_frame.txt").write_text(NO_FRAME_TEXT)
+        empty = root / "empty"
+        empty.mkdir()
+        proc = run_cli(str(good), str(root / "o1"))
+        check("processo: bom sai 0 e imprime png com md5",
+              proc.returncode == 0 and "images=1" in proc.stdout and "md5=" in proc.stdout)
+        check("processo: so marcador sai 1", run_cli(str(nf), str(root / "o2")).returncode == 1)
+        check("processo: vazio sai 1", run_cli(str(empty), str(root / "o3")).returncode == 1)
+        check("processo: orfao sai 1",
+              run_cli(str(build_orphan_dir(root)), str(root / "o4")).returncode == 1)
+        check("processo: diretorio inexistente sai 1", run_cli(str(root / "x"), str(root / "o5")).returncode == 1)
+        check("processo: sem argumentos sai 2", run_cli().returncode == 2)
+
+
+def selftest_main():
+    selftest_png_encoding()
+    selftest_channel_conversion()
+    selftest_meta_rejections()
+    selftest_geometry_rejections()
+    selftest_directory_controls()
+    selftest_orphans()
+    selftest_undecodable_meta()
+    selftest_real_process_exit_codes()
+    print(f"selftest: {len(CHECKS)} controles OK")
 
 
 def real_main(args):
@@ -338,7 +378,7 @@ def real_main(args):
         return 2
     try:
         images, no_frame, failures = convert_directory(args[0], args[1])
-    except CaptureError as error:
+    except (CaptureError, OSError) as error:
         print(f"{SCRIPT_NAME}: {error}", file=sys.stderr)
         return 1
     for png_name, digest, width, height in images:

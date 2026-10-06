@@ -23,15 +23,14 @@
 # USAGE: image_probe.py <image.png> <probes.txt>   |   image_probe.py --selftest
 
 import struct
+import subprocess
 import sys
 import tempfile
 import zlib
 from pathlib import Path
 
 SCRIPT_NAME = "image_probe.py"
-# The \r\n inside the PNG signature is a byte of the format, not an
-# environment fact (checkout line ending): GODS_LAWS.md L-40 declaration.
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PNG_SIGNATURE = bytes([137, 80, 78, 71, 13, 10, 26, 10])
 CHANNELS_BY_COLOR_TYPE = {2: 3, 6: 4}
 
 
@@ -118,6 +117,10 @@ def decode_png(png):
     return width, height, rows
 
 
+def is_decimal(text):
+    return text.isascii() and text.isdigit()
+
+
 def parse_probes(text):
     """Returns a list of (line_number, x, y, (r, g, b, a), tolerance)."""
     probes = []
@@ -126,14 +129,14 @@ def parse_probes(text):
         if not body:
             continue
         fields = body.split()
-        if len(fields) not in (3, 4) or not (fields[0].isdigit() and fields[1].isdigit()):
+        if len(fields) not in (3, 4) or not (is_decimal(fields[0]) and is_decimal(fields[1])):
             raise ProbeError(f"line {number}: expected '<x> <y> <RRGGBBAA> [<tolerance>]'")
         color_text = fields[2]
         if len(color_text) != 8 or any(c not in "0123456789abcdefABCDEF" for c in color_text):
             raise ProbeError(f"line {number}: color must be 8 hex digits RRGGBBAA")
         tolerance = 0
         if len(fields) == 4:
-            if not fields[3].isdigit():
+            if not is_decimal(fields[3]):
                 raise ProbeError(f"line {number}: tolerance must be a decimal integer")
             tolerance = int(fields[3])
         color = tuple(int(color_text[i : i + 2], 16) for i in range(0, 8, 2))
@@ -158,69 +161,64 @@ def run_probes(width, height, rows, probes):
 
 # -- selftest --------------------------------------------------------
 # PNGs here are assembled by hand from the PNG specification (forward
-# filters from the spec formulas), independent of the decoder above.
+# filters from the spec formulas), independent of the decoder above. The
+# CLI controls run the real process and read its real exit code.
+
+CHECKS = []
+
+
+def check(name, condition):
+    CHECKS.append(name)
+    if not condition:
+        print(f"selftest: {name} FALHOU", file=sys.stderr)
+        sys.exit(1)
+
+
+def rejects(function, *args):
+    try:
+        function(*args)
+    except ProbeError:
+        return True
+    return False
+
+
+def png_chunk(kind, data):
+    crc = struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    return struct.pack(">I", len(data)) + kind + data + crc
 
 
 def build_png(width, height, color_type, scanlines):
-    def chunk(kind, data):
-        return (
-            struct.pack(">I", len(data))
-            + kind
-            + data
-            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-        )
-
     header = struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0)
-    return (
-        PNG_SIGNATURE
-        + chunk(b"IHDR", header)
-        + chunk(b"IDAT", zlib.compress(b"".join(scanlines)))
-        + chunk(b"IEND", b"")
-    )
+    body = PNG_SIGNATURE + png_chunk(b"IHDR", header)
+    body += png_chunk(b"IDAT", zlib.compress(b"".join(scanlines)))
+    return body + png_chunk(b"IEND", b"")
 
 
 def forward_filter(filter_type, line, previous, bpp):
-    """The encoder direction of each PNG filter, straight from the spec."""
+    """The encoder direction of each PNG filter, straight from the spec;
+    Paeth ties resolve in the order left, up, up-left."""
     out = bytearray()
     for i, value in enumerate(line):
         left = line[i - bpp] if i >= bpp else 0
         up = previous[i]
         up_left = previous[i - bpp] if i >= bpp else 0
-        if filter_type == 0:
-            predictor = 0
-        elif filter_type == 1:
-            predictor = left
-        elif filter_type == 2:
-            predictor = up
-        elif filter_type == 3:
-            predictor = (left + up) // 2
-        else:
+        if filter_type == 4:
             estimate = left + up - up_left
             candidates = [(abs(estimate - left), 0, left), (abs(estimate - up), 1, up),
                           (abs(estimate - up_left), 2, up_left)]
             predictor = min(candidates)[2]
+        else:
+            predictor = (0, left, up, (left + up) // 2)[filter_type]
         out.append((value - predictor) & 0xFF)
     return bytes([filter_type]) + bytes(out)
 
 
-def selftest_main():
-    checks = []
+def paeth_tie_png(top, bottom):
+    """2x2 image whose second row uses filter 4 over `top`."""
+    return build_png(2, 2, 6, [bytes([0]) + top, forward_filter(4, bottom, top, 4)])
 
-    def check(name, condition):
-        checks.append(name)
-        if not condition:
-            print(f"selftest: {name} FALHOU", file=sys.stderr)
-            sys.exit(1)
 
-    def rejects(function, *args):
-        try:
-            function(*args)
-        except ProbeError:
-            return True
-        return False
-
-    # A 3x5 RGBA image, one row per filter type (0..4) plus a second Paeth
-    # row, with values chosen so that left/up/up-left all differ.
+def selftest_filters():
     pixels = [
         bytes([10, 200, 30, 255, 40, 50, 250, 128, 7, 8, 9, 10]),
         bytes([11, 190, 35, 255, 90, 60, 240, 100, 1, 2, 3, 4]),
@@ -232,64 +230,93 @@ def selftest_main():
     for index, row in enumerate(pixels):
         lines.append(forward_filter(min(index, 4), row, previous, 4))
         previous = row
-    png = build_png(3, 5, 6, lines)
-    width, height, rows = decode_png(png)
-    check("decodifica RGBA com os filtros 0 a 4", (width, height, rows) == (3, 5, pixels))
-
-    # Paeth tie: left=0, up=30, up-left=10 gives distances 20, 10, 10, and
-    # the spec says a tie between up and up-left picks UP (order: left,
-    # up, up-left). Same value in all four channels of each pixel.
-    tie_top = bytes([10] * 4 + [30] * 4)
-    tie_bottom = bytes([0] * 4 + [77] * 4)
-    tie_png = build_png(2, 2, 6, [bytes([0]) + tie_top, forward_filter(4, tie_bottom, tie_top, 4)])
-    check("Paeth: empate entre acima e acima-esquerda escolhe acima",
-          decode_png(tie_png) == (2, 2, [tie_top, tie_bottom]))
-
+    check("decodifica RGBA com os filtros 0 a 4", decode_png(build_png(3, 5, 6, lines)) == (3, 5, pixels))
     rgb = build_png(1, 1, 2, [bytes([0, 1, 2, 3])])
     check("RGB (tipo 2) vira RGBA opaco", decode_png(rgb) == (1, 1, [bytes([1, 2, 3, 255])]))
+
+
+def selftest_paeth_ties():
+    # up vs up-left tie: left=0, up=30, up-left=10 -> distances 20, 10, 10, UP wins.
+    top, bottom = bytes([10] * 4 + [30] * 4), bytes([0] * 4 + [77] * 4)
+    check("Paeth: empate acima x acima-esquerda escolhe acima",
+          decode_png(paeth_tie_png(top, bottom)) == (2, 2, [top, bottom]))
+    # left vs up-left tie: left=30, up=0, up-left=10 -> distances 10, 20, 10, LEFT wins.
+    top, bottom = bytes([10] * 4 + [0] * 4), bytes([30] * 4 + [77] * 4)
+    check("Paeth: empate esquerda x acima-esquerda escolhe esquerda",
+          decode_png(paeth_tie_png(top, bottom)) == (2, 2, [top, bottom]))
+
+
+def selftest_png_rejections():
+    png = build_png(1, 1, 6, [bytes([0, 1, 2, 3, 4])])
     check("assinatura errada reprova", rejects(decode_png, b"x" + png[1:]))
     check("CRC corrompido reprova", rejects(decode_png, png[:-1] + bytes([png[-1] ^ 1])))
-    check("PNG truncado reprova", rejects(decode_png, png[:-20]))
+    check("PNG cortado no meio de um bloco reprova", rejects(decode_png, png[:-20]))
+    check("PNG sem IEND, com blocos intactos, reprova",
+          rejects(decode_png, png[:-12]))  # IEND is exactly 12 bytes: length, type, CRC
     check("filtro desconhecido reprova", rejects(decode_png, build_png(1, 1, 6, [bytes([9, 0, 0, 0, 0])])))
     check("tamanho descomprimido errado reprova", rejects(decode_png, build_png(1, 1, 6, [bytes([0, 0, 0])])))
 
+
+def probe_failures(text):
+    top = bytes([10, 200, 30, 255, 40, 50, 250, 128, 7, 8, 9, 10])
+    rows = [top, bytes([11, 190, 35, 255, 90, 60, 240, 100, 1, 2, 3, 4])]
+    return run_probes(3, 2, rows, parse_probes(text))
+
+
+def selftest_probes():
     probes = parse_probes("# comment\n0 0 0AC81EFF\n1 0 2832FA80 0\n2 0 0708090A 2\n")
     check("parse: tres sondas, comentario ignorado", len(probes) == 3 and probes[2][4] == 2)
-    check("sondas que batem passam", run_probes(width, height, rows, probes) == [])
-
-    def failures_for(text):
-        return run_probes(width, height, rows, parse_probes(text))
-
-    check("cor trocada reprova", len(failures_for("0 0 C8100AFF\n")) == 1)
-    check("alfa 0,5 no lugar de 1,0 reprova", len(failures_for("0 0 0AC81E80\n")) == 1)
-    check("um nivel de diferenca reprova com tolerancia 0", len(failures_for("0 0 0BC81EFF\n")) == 1)
-    check("um nivel de diferenca passa com tolerancia 1", failures_for("0 0 0BC81EFF 1\n") == [])
-    check("sonda fora da imagem reprova", len(failures_for("3 0 0AC81EFF\n")) == 1
-          and len(failures_for("0 5 0AC81EFF\n")) == 1)
+    check("sondas que batem passam", probe_failures("0 0 0AC81EFF\n1 0 2832FA80\n1 1 5A3CF064\n") == [])
+    check("cor trocada reprova", len(probe_failures("0 0 C8100AFF\n")) == 1)
+    check("alfa 0,5 no lugar de 1,0 reprova", len(probe_failures("0 0 0AC81E80\n")) == 1)
+    check("um nivel de diferenca reprova com tolerancia 0", len(probe_failures("0 0 0BC81EFF\n")) == 1)
+    check("um nivel de diferenca passa com tolerancia 1", probe_failures("0 0 0BC81EFF 1\n") == [])
+    check("sonda fora da imagem reprova",
+          len(probe_failures("3 0 0AC81EFF\n")) == 1 and len(probe_failures("0 2 0AC81EFF\n")) == 1)
     check("sonda mal formada reprova", rejects(parse_probes, "0 0 0AC81E\n")
           and rejects(parse_probes, "0 0 0AC81EGG\n") and rejects(parse_probes, "a b 0AC81EFF\n")
           and rejects(parse_probes, "0 0 0AC81EFF -1\n"))
+    check("digito nao ASCII (expoente) reprova como ProbeError",
+          rejects(parse_probes, "\u00b2 0 0AC81EFF\n"))
 
-    # Entry point: the three L-40 controls.
+
+def run_cli(*args):
+    return subprocess.run([sys.executable, str(Path(__file__).resolve()), *args],
+                          capture_output=True, text=True, check=False)
+
+
+def selftest_real_process_exit_codes():
+    png = build_png(2, 1, 6, [bytes([0, 10, 200, 30, 255, 40, 50, 250, 128])])
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "image.png").write_bytes(png)
-        (root / "good.txt").write_text("0 0 0AC81EFF\n1 1 5A3CF064\n")
+        (root / "good.txt").write_text("0 0 0AC81EFF\n1 0 2832FA80\n")
         (root / "bad.txt").write_text("0 0 C8100AFF\n")
+        (root / "alpha.txt").write_text("0 0 0AC81E80\n")
         (root / "empty.txt").write_text("# only a comment\n\n")
-        check("main: sondas boas saem 0", run_quiet(root / "image.png", root / "good.txt") == 0)
-        check("main: sonda ruim sai 1", run_quiet(root / "image.png", root / "bad.txt") == 1)
-        check("main: zero sondas sai 1", run_quiet(root / "image.png", root / "empty.txt") == 1)
-        check("main: PNG inexistente sai 1", run_quiet(root / "nope.png", root / "good.txt") == 1)
-    print(f"selftest: {len(checks)} controles OK")
+        image = str(root / "image.png")
+        proc = run_cli(image, str(root / "good.txt"))
+        check("processo: sondas boas saem 0 com resumo",
+              proc.returncode == 0 and "probes=2 failed=0" in proc.stdout)
+        check("processo: cor fora da tolerancia sai 1", run_cli(image, str(root / "bad.txt")).returncode == 1)
+        check("processo: alfa errado sai 1", run_cli(image, str(root / "alpha.txt")).returncode == 1)
+        (root / "binary.txt").write_bytes(b"\xff\xfe\x00")
+        proc = run_cli(image, str(root / "binary.txt"))
+        check("processo: arquivo de sondas nao UTF-8 sai 1 sem traceback",
+              proc.returncode == 1 and "Traceback" not in proc.stderr)
+        check("processo: zero sondas sai 1", run_cli(image, str(root / "empty.txt")).returncode == 1)
+        check("processo: PNG inexistente sai 1",
+              run_cli(str(root / "nope.png"), str(root / "good.txt")).returncode == 1)
+        check("processo: sem argumentos sai 2", run_cli().returncode == 2)
 
 
-def run_quiet(png_path, probes_path):
-    import contextlib
-    import io
-
-    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-        return real_main([str(png_path), str(probes_path)])
+def selftest_main():
+    selftest_filters()
+    selftest_paeth_ties()
+    selftest_png_rejections()
+    selftest_probes()
+    selftest_real_process_exit_codes()
+    print(f"selftest: {len(CHECKS)} controles OK")
 
 
 def real_main(args):
@@ -300,7 +327,7 @@ def real_main(args):
     try:
         width, height, rows = decode_png(Path(args[0]).read_bytes())
         probes = parse_probes(Path(args[1]).read_text())
-    except (ProbeError, OSError, zlib.error) as error:
+    except (ProbeError, OSError, ValueError, zlib.error) as error:
         print(f"{SCRIPT_NAME}: {error}", file=sys.stderr)
         return 1
     failures = run_probes(width, height, rows, probes)

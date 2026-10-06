@@ -5855,3 +5855,13 @@ Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
 - **Vermelho guardado antes da fatia:** `/var/tmp/passo8/cmp.py` (md5 `7585554b`), rodado pelo main na árvore em `b0a6b21`, dá `encontrados/comparados/divergentes = 6/8/2`. A primeira divergência fica em `gfx_option.hpp:325`.
 - **Fecha quando:** o revisor distinto ler 8/8/0 no blob commitado, e a sabotagem do main no cabeçalho ("For the four rows below") morder com 1 divergente. Só então vem o passo 9. O `cmp.py` roda de novo no SHA do run B.
 - **Buraco do portão:** vai para a INBOX como `AUD-APENDICE-VS-CABECALHO-GATE`, colado por script do parecer. Mudá-lo agora seria um critério novo depois do dado (L-43).
+
+### Passo 8 fechado (06/10/2026, 03:12): D-FECH-16 aplicada em `3d88900`, e o texto publicado casa com o congelado
+- **Implementador (sonnet):**
+  - antes de `gerar`, o `verificar` deu "reprovados 1" (o vermelho);
+  - depois, o selftest deu 5/5 e o `verificar` deu 0 reprovados;
+  - o diff do parecer ficou só no apêndice (desde a linha 277), e `include/` não mudou;
+  - o `preci --fast` ficou verde.
+- **Revisor distinto do passo 8:** `cmp.py` sobre o blob `git archive 3d88900` deu `8/8/0`, rc=0.
+- **Sabotagem do main:** numa cópia de `3d88900`, "For the rows below" virou "For the four rows below" no `gfx_option.hpp`. Resultado: `cmp.py` com `7/8/1`, rc=1, `DIVERGE ...#hunk1`. O comparador morde.
+- **Próximo:** passo 9 (a versão 0.6.0.0 e o CHANGELOG, com `preci` completo), depois o passo 10 (os ✅ no TODO).

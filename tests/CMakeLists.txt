@@ -6356,6 +6356,23 @@ add_test(
 set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest
     PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
 
+# QA-SCREEN-CAPTURE C2b-3 (D-W8-36, D-W8-39): the DRIVER of the Windows capture proof
+# (tests/tools/run_capture_known_color_win32.py), the Python counterpart of the container's
+# run_capture_known_color.sh. Its --selftest needs no Windows, no tool and no window: a tool double
+# writes the capture files, the REAL helpers (raw_to_png.py, capture_vs_readback.py, image_probe.py)
+# judge them, and the wiring (modes exactly {off, on}, one pair per mechanism, the alpha-absent flag,
+# the probes over the internal reading) is proven with run() doubles. Python, so it runs on every
+# system (the sh driver's selftest above is UNIX-only). The control count is EXACT in the regex: dropping
+# a control is a visible change, never a silent one. The real run is registered with the fixture
+# (C2b-4); this is only the selftest.
+add_test(
+    NAME run_capture_known_color_win32_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest
+)
+set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest
+    PASS_REGULAR_EXPRESSION "selftest: 39 controles OK")
+
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory
 # is removed, the mode set is exactly {off, on}, the wait names the presenting

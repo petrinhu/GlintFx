@@ -14,7 +14,8 @@
 # (XRGB8888) is REJECTED: it forces alpha 255 in the reader, so an alpha
 # comparison against it would be a comparison that cannot fail.
 #
-# READBACK side (writer: tests/container/capture_known_color_smoke.cpp):
+# READBACK side (writer: the capture_known_color_smoke fixture; meta grammar read by
+# tests/tools/raw_to_png.py's parse_readback_meta):
 # the bytes glReadPixels returned, untouched: R,G,B,A, BOTTOM row first,
 # tightly packed. Its .meta says so ("width=", "height=", "origin=
 # bottom_left", "order=rgba"); anything else is rejected, never guessed.
@@ -25,7 +26,7 @@
 # VERDICT (L-40): zero pixels compared is a rejection; any differing
 # pixel is a rejection; the summary line is always printed.
 #
-# USAGE: capture_vs_readback.py <capture_dir> <readback.raw> <readback.meta>
+# USAGE: capture_vs_readback.py [--alpha-absent-declared] <capture_dir> <readback.raw> <readback.meta>
 #        capture_vs_readback.py --selftest
 
 import re
@@ -34,36 +35,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-from raw_to_png import CaptureError, parse_meta
+from raw_to_png import CaptureError, parse_meta, parse_readback_meta
 
 SCRIPT_NAME = "capture_vs_readback.py"
 RAW_RE = re.compile(r"^conn(\d+)_surface(\d+)\.raw$")
 FORMAT_ARGB8888 = 0
-READBACK_KEYS = ("width", "height", "origin", "order")
-READBACK_FIXED = {"origin": "bottom_left", "order": "rgba"}
+FORMAT_XRGB8888 = 1
 MAX_REPORTED = 3
-
-
-def parse_readback_meta(text):
-    meta = {}
-    for line in text.splitlines():
-        if not line.strip():
-            continue
-        key, separator, value = line.partition("=")
-        if not separator or key not in READBACK_KEYS or key in meta:
-            raise CaptureError(f"readback meta line not understood or repeated: {line!r}")
-        meta[key] = value
-    missing = [key for key in READBACK_KEYS if key not in meta]
-    if missing:
-        raise CaptureError(f"readback meta lacks keys: {missing}")
-    for key, wanted in READBACK_FIXED.items():
-        if meta[key] != wanted:
-            raise CaptureError(f"readback {key}={meta[key]!r}, only {wanted!r} is understood")
-    for key in ("width", "height"):
-        if not (meta[key].isascii() and meta[key].isdigit()):
-            raise CaptureError(f"readback {key} is not a decimal integer: {meta[key]!r}")
-        meta[key] = int(meta[key])
-    return meta
 
 
 def find_single_capture(capture_dir):
@@ -79,11 +57,19 @@ def find_single_capture(capture_dir):
     return capture_dir / f"{stems[0]}.raw", capture_dir / f"{stems[0]}.meta"
 
 
-def load_capture(capture_dir):
+def check_format_against_declaration(fmt, alpha_absent_declared):
+    if alpha_absent_declared and fmt != FORMAT_XRGB8888:
+        raise CaptureError(f"alpha declared absent over a capture of format {fmt}, which carries alpha: "
+                           "declaring an absence that is not there would drop the alpha comparison")
+    if not alpha_absent_declared and fmt != FORMAT_ARGB8888:
+        raise CaptureError(f"capture format {fmt} is not ARGB8888 (0): alpha not comparable "
+                           "(pass --alpha-absent-declared for an XRGB8888 capture)")
+
+
+def load_capture(capture_dir, alpha_absent_declared=False):
     raw_path, meta_path = find_single_capture(capture_dir)
     meta = parse_meta(meta_path.read_text())
-    if meta["format"] != FORMAT_ARGB8888:
-        raise CaptureError(f"capture format {meta['format']} is not ARGB8888 (0): alpha not comparable")
+    check_format_against_declaration(meta["format"], alpha_absent_declared)
     raw = raw_path.read_bytes()
     if meta["stride"] < meta["width"] * 4 or len(raw) != meta["stride"] * meta["height"]:
         raise CaptureError("capture raw size does not match stride*height")
@@ -105,21 +91,24 @@ def readback_pixel(raw, meta, x, y):
 
 
 def compare_pixels(cap_raw, cap_meta, rb_raw, rb_meta):
-    """Returns (pixels, differing, samples)."""
+    """Returns (pixels, differing, samples, alpha_not_compared). An XRGB8888 capture has no usable
+    alpha: only R, G and B are compared, and every pixel counts as alpha_not_compared."""
+    channels = 3 if cap_meta["format"] == FORMAT_XRGB8888 else 4
     pixels, differing, samples = 0, 0, []
     for y in range(cap_meta["height"]):
         for x in range(cap_meta["width"]):
-            cap, rb = capture_pixel(cap_raw, cap_meta, x, y), readback_pixel(rb_raw, rb_meta, x, y)
+            cap = capture_pixel(cap_raw, cap_meta, x, y)[:channels]
+            rb = readback_pixel(rb_raw, rb_meta, x, y)[:channels]
             pixels += 1
             if cap != rb:
                 differing += 1
                 if len(samples) < MAX_REPORTED:
                     samples.append((x, y, cap, rb))
-    return pixels, differing, samples
+    return pixels, differing, samples, pixels if channels == 3 else 0
 
 
-def compare(capture_dir, readback_raw_path, readback_meta_path):
-    cap_raw, cap_meta = load_capture(capture_dir)
+def compare(capture_dir, readback_raw_path, readback_meta_path, alpha_absent_declared=False):
+    cap_raw, cap_meta = load_capture(capture_dir, alpha_absent_declared)
     rb_meta = parse_readback_meta(Path(readback_meta_path).read_text())
     rb_raw = Path(readback_raw_path).read_bytes()
     if (cap_meta["width"], cap_meta["height"]) != (rb_meta["width"], rb_meta["height"]):
@@ -181,7 +170,7 @@ def selftest_equality_and_difference():
     with tempfile.TemporaryDirectory() as tmp:
         altered = bytearray(READBACK_RGBA)
         altered[3] = 13  # alpha of the bottom-left readback pixel only
-        pixels, differing, samples = compare(*write_case(tmp, readback=(bytes(altered), READBACK_META)))
+        pixels, differing, samples, _ = compare(*write_case(tmp, readback=(bytes(altered), READBACK_META)))
         check("so o alfa diferente reprova (alfa incluido)",
               pixels == 4 and differing == 1 and samples[0][:2] == (0, 1))
     with tempfile.TemporaryDirectory() as tmp:
@@ -228,6 +217,53 @@ def selftest_capture_directory_controls():
     check("diretorio inexistente e recusado", rejects(compare, "/nonexistent-capture-dir", "a", "b"))
 
 
+XRGB_META = "width=2\nheight=2\nstride=12\nformat=1\n"
+
+
+def xrgb_capture_with_garbage_x():
+    """The capture's X bytes are NOT the readback's alpha (4, 8, 12, 16): an alpha compared anyway
+    would differ in every pixel."""
+    xrgb = bytearray(CAPTURE_BGRA)
+    for offset in (3, 7, 15, 19):
+        xrgb[offset] = 0
+    return bytes(xrgb)
+
+
+def selftest_declared_absent_alpha():
+    with tempfile.TemporaryDirectory() as tmp:
+        case = write_case(tmp, raw=xrgb_capture_with_garbage_x(), meta=XRGB_META)
+        pixels, differing, _, alpha_not_compared = compare(*case, alpha_absent_declared=True)
+        check("formato 1 declarado e RGB igual passa e conta alpha_not_compared",
+              pixels == 4 and differing == 0 and alpha_not_compared == 4)
+    with tempfile.TemporaryDirectory() as tmp:
+        case = write_case(tmp, raw=xrgb_capture_with_garbage_x(), meta=XRGB_META)
+        check("formato 1 SEM a declaracao continua reprovando (protege o Linux)", rejects(compare, *case))
+    with tempfile.TemporaryDirectory() as tmp:
+        check("declarar ausencia de alfa sobre captura que TEM alfa (formato 0) reprova",
+              rejects(compare, *write_case(tmp), True))
+    with tempfile.TemporaryDirectory() as tmp:
+        altered = bytearray(READBACK_RGBA)
+        altered[0] ^= 0xFF  # the red byte of the bottom-left readback pixel
+        case = write_case(tmp, raw=xrgb_capture_with_garbage_x(), meta=XRGB_META,
+                          readback=(bytes(altered), READBACK_META))
+        pixels, differing, samples, _ = compare(*case, alpha_absent_declared=True)
+        check("formato 1 declarado: um pixel com RGB diferente reprova",
+              pixels == 4 and differing == 1 and samples[0][:2] == (0, 1))
+    with tempfile.TemporaryDirectory() as tmp:
+        case = write_case(tmp)
+        check("formato 0 sem declaracao: alpha_not_compared e zero",
+              compare(*case)[3] == 0)
+
+
+def selftest_declared_absent_alpha_process():
+    with tempfile.TemporaryDirectory() as tmp:
+        case = [str(part) for part in write_case(tmp, raw=xrgb_capture_with_garbage_x(), meta=XRGB_META)]
+        proc = run_cli("--alpha-absent-declared", *case)
+        check("processo: formato 1 declarado sai 0 e imprime alpha_not_compared=4",
+              proc.returncode == 0 and "pixels=4 differing=0 alpha_not_compared=4" in proc.stdout)
+        check("processo: formato 1 sem a declaracao sai 1", run_cli(*case).returncode == 1)
+
+
 def run_cli(*args):
     return subprocess.run([sys.executable, str(Path(__file__).resolve()), *args],
                           capture_output=True, text=True, check=False)
@@ -238,14 +274,14 @@ def selftest_real_process_exit_codes():
         case = [str(part) for part in write_case(tmp)]
         proc = run_cli(*case)
         check("processo: igual sai 0 e imprime pixels=4 differing=0",
-              proc.returncode == 0 and "pixels=4 differing=0" in proc.stdout)
+              proc.returncode == 0 and "pixels=4 differing=0 alpha_not_compared=0" in proc.stdout)
     with tempfile.TemporaryDirectory() as tmp:
         altered = bytearray(READBACK_RGBA)
         altered[0] ^= 0xFF
         case = [str(part) for part in write_case(tmp, readback=(bytes(altered), READBACK_META))]
         proc = run_cli(*case)
         check("processo: um byte diferente sai 1 e imprime o resumo",
-              proc.returncode == 1 and "pixels=4 differing=1" in proc.stdout)
+              proc.returncode == 1 and "pixels=4 differing=1 alpha_not_compared=0" in proc.stdout)
     check("processo: sem argumentos sai 2", run_cli().returncode == 2)
     check("processo: captura inexistente sai 1", run_cli("/nonexistent", "a", "b").returncode == 1)
 
@@ -255,23 +291,27 @@ def selftest_main():
     selftest_rejections()
     selftest_capture_directory_controls()
     selftest_real_process_exit_codes()
+    selftest_declared_absent_alpha()
+    selftest_declared_absent_alpha_process()
     print(f"selftest: {len(CHECKS)} controles OK")
 
 
 def real_main(args):
     """0 only when at least one pixel was compared and none differs."""
+    declared = bool(args) and args[0] == "--alpha-absent-declared"
+    args = args[1:] if declared else args
     if len(args) != 3:
-        print(f"usage: {SCRIPT_NAME} <capture_dir> <readback.raw> <readback.meta>  |  --selftest",
-              file=sys.stderr)
+        print(f"usage: {SCRIPT_NAME} [--alpha-absent-declared] <capture_dir> <readback.raw> <readback.meta>"
+              "  |  --selftest", file=sys.stderr)
         return 2
     try:
-        pixels, differing, samples = compare(*args)
+        pixels, differing, samples, alpha_not_compared = compare(*args, declared)
     except (CaptureError, OSError, ValueError) as error:
         print(f"{SCRIPT_NAME}: {error}", file=sys.stderr)
         return 1
-    print(f"{SCRIPT_NAME}: pixels={pixels} differing={differing}")
+    print(f"{SCRIPT_NAME}: pixels={pixels} differing={differing} alpha_not_compared={alpha_not_compared}")
     for x, y, cap, rb in samples:
-        print(f"{SCRIPT_NAME}: FAIL pixel ({x},{y}) capture RGBA={cap} readback RGBA={rb}", file=sys.stderr)
+        print(f"{SCRIPT_NAME}: FAIL pixel ({x},{y}) capture={cap} readback={rb}", file=sys.stderr)
     if pixels == 0:
         print(f"{SCRIPT_NAME}: zero pixels compared: REJECTED (L-40)", file=sys.stderr)
         return 1

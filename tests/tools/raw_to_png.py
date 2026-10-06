@@ -28,7 +28,15 @@
 # must be read in the same convention; P3 states the expected value of
 # every semi-transparent probe in that convention, never "straight".
 #
-# USAGE: raw_to_png.py <capture_dir> <out_dir>   |   raw_to_png.py --selftest
+# READBACK MODE (QA-SCREEN-CAPTURE C2b-3, Windows): the client's own glReadPixels of the frame
+# (tests/container/capture_known_color_smoke.cpp writes it) is the INTERNAL reading the alpha of
+# the library is proven on, because the Windows screen capture carries no alpha. It is RGBA, BOTTOM
+# row first, tightly packed; this tool flips the rows and keeps every channel, the alpha included,
+# so image_probe.py can probe it like any other PNG.
+#
+# USAGE: raw_to_png.py <capture_dir> <out_dir>
+#        raw_to_png.py --readback <readback.raw> <readback.meta> <out.png>
+#        raw_to_png.py --selftest
 # Prints one "png <name> md5=<hex> <w>x<h>" line per image and a final
 # "raw_to_png: images=<n> no_frame=<n> failed=<n>" line, always.
 
@@ -47,6 +55,8 @@ PNG_SIGNATURE = bytes([137, 80, 78, 71, 13, 10, 26, 10])
 FORMAT_ARGB8888 = 0
 FORMAT_XRGB8888 = 1
 META_KEYS = ("width", "height", "stride", "format")
+READBACK_KEYS = ("width", "height", "origin", "order")
+READBACK_FIXED = {"origin": "bottom_left", "order": "rgba"}
 RAW_RE = re.compile(r"^conn(\d+)_surface(\d+)\.raw$")
 META_RE = re.compile(r"^conn(\d+)_surface(\d+)\.meta$")
 NO_FRAME_RE = re.compile(r"^conn(\d+)_no_frame\.txt$")
@@ -74,6 +84,53 @@ def parse_meta(text):
     if missing:
         raise CaptureError(f"meta lacks keys: {missing}")
     return meta
+
+
+def parse_readback_meta(text):
+    """The client's readback .meta: width, height, origin=bottom_left, order=rgba, each exactly
+    once. Anything else is rejected, never guessed."""
+    meta = {}
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        key, separator, value = line.partition("=")
+        if not separator or key not in READBACK_KEYS or key in meta:
+            raise CaptureError(f"readback meta line not understood or repeated: {line!r}")
+        meta[key] = value
+    missing = [key for key in READBACK_KEYS if key not in meta]
+    if missing:
+        raise CaptureError(f"readback meta lacks keys: {missing}")
+    for key, wanted in READBACK_FIXED.items():
+        if meta[key] != wanted:
+            raise CaptureError(f"readback {key}={meta[key]!r}, only {wanted!r} is understood")
+    for key in ("width", "height"):
+        if not (meta[key].isascii() and meta[key].isdigit()):
+            raise CaptureError(f"readback {key} is not a decimal integer: {meta[key]!r}")
+        meta[key] = int(meta[key])
+    return meta
+
+
+def readback_to_rgba_rows(raw, meta):
+    """One bytes object of width*4 RGBA bytes per row, TOP row first (the readback holds the bottom
+    row first). Every channel is kept as read, the alpha included."""
+    width, height = meta["width"], meta["height"]
+    if width < 1 or height < 1:
+        raise CaptureError(f"empty geometry {width}x{height}")
+    if len(raw) != width * height * 4:
+        raise CaptureError(f"readback raw has {len(raw)} bytes, width*height*4 = {width * height * 4}")
+    row_bytes = width * 4
+    return [raw[(height - 1 - y) * row_bytes : (height - y) * row_bytes] for y in range(height)]
+
+
+def convert_readback(raw_path, meta_path, png_path):
+    """Writes the PNG of one readback; returns (png_name, md5, width, height)."""
+    meta = parse_readback_meta(Path(meta_path).read_text())
+    rows = readback_to_rgba_rows(Path(raw_path).read_bytes(), meta)
+    png = encode_png(meta["width"], meta["height"], rows)
+    png_path = Path(png_path)
+    png_path.parent.mkdir(parents=True, exist_ok=True)
+    png_path.write_bytes(png)
+    return png_path.name, hashlib.md5(png).hexdigest(), meta["width"], meta["height"]
 
 
 def raw_to_rgba_rows(raw, meta):
@@ -331,6 +388,58 @@ def selftest_undecodable_meta():
               images == [] and len(failures) == 1 and "conn1_surface3.raw" in failures[0])
 
 
+# 2x2 readback, RGBA, BOTTOM row first: bottom (9..12)(13..16), top (1..4)(5..8). The alpha bytes
+# (4, 8, 12, 16) differ from 255 and from each other: an alpha forced to 255 changes the image.
+READBACK_2X2 = bytes(range(9, 17)) + bytes(range(1, 9))
+READBACK_META_2X2 = "width=2\nheight=2\norigin=bottom_left\norder=rgba\n"
+
+
+def selftest_readback_conversion():
+    rows = readback_to_rgba_rows(READBACK_2X2, parse_readback_meta(READBACK_META_2X2))
+    check("leitura interna: linha de baixo primeiro vira linha de cima primeiro, alfa preservado",
+          rows == ROWS_2X2)
+    meta = parse_readback_meta(READBACK_META_2X2)
+    check("leitura interna: tamanho errado reprova",
+          rejects(readback_to_rgba_rows, READBACK_2X2[:-1], meta)
+          and rejects(readback_to_rgba_rows, READBACK_2X2 + b"\x00", meta))
+    check("leitura interna: zero pixels reprova",
+          rejects(readback_to_rgba_rows, b"", {"width": 0, "height": 0}))
+
+
+def selftest_readback_meta_rejections():
+    check("meta da leitura interna lida", parse_readback_meta(READBACK_META_2X2)["width"] == 2)
+    check("origem diferente de bottom_left reprova, nunca adivinhada",
+          rejects(parse_readback_meta, READBACK_META_2X2.replace("bottom_left", "top_left")))
+    check("ordem diferente de rgba reprova",
+          rejects(parse_readback_meta, READBACK_META_2X2.replace("rgba", "bgra")))
+    check("chave repetida ou ausente reprova",
+          rejects(parse_readback_meta, READBACK_META_2X2 + "width=2\n")
+          and rejects(parse_readback_meta, "width=2\nheight=2\norigin=bottom_left\n"))
+
+
+def selftest_xrgb_meta_text_of_the_windows_tool():
+    # The literal tests/tools/window_capture_rules.cpp's capture_meta_text(320, 240) must produce
+    # (window_capture_rules_test asserts the same bytes on the C++ side).
+    text = "width=320\nheight=240\nstride=1280\nformat=1\n"
+    check("meta formato 1 da ferramenta Windows e lida por parse_meta",
+          parse_meta(text) == {"width": 320, "height": 240, "stride": 1280, "format": 1})
+
+
+def selftest_readback_cli():
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "rb.raw").write_bytes(READBACK_2X2)
+        (root / "rb.meta").write_text(READBACK_META_2X2)
+        proc = run_cli("--readback", str(root / "rb.raw"), str(root / "rb.meta"), str(root / "o.png"))
+        check("processo: leitura interna boa sai 0 e grava o PNG com o alfa",
+              proc.returncode == 0 and (root / "o.png").read_bytes() == encode_png(2, 2, ROWS_2X2))
+        (root / "bad.meta").write_text(READBACK_META_2X2.replace("bottom_left", "top_left"))
+        check("processo: meta ruim da leitura interna sai 1",
+              run_cli("--readback", str(root / "rb.raw"), str(root / "bad.meta"),
+                      str(root / "p.png")).returncode == 1)
+        check("processo: --readback com argumentos a menos sai 2", run_cli("--readback", "a").returncode == 2)
+
+
 def run_cli(*args):
     return subprocess.run([sys.executable, str(Path(__file__).resolve()), *args],
                           capture_output=True, text=True, check=False)
@@ -367,6 +476,10 @@ def selftest_main():
     selftest_orphans()
     selftest_undecodable_meta()
     selftest_real_process_exit_codes()
+    selftest_readback_conversion()
+    selftest_readback_meta_rejections()
+    selftest_xrgb_meta_text_of_the_windows_tool()
+    selftest_readback_cli()
     print(f"selftest: {len(CHECKS)} controles OK")
 
 
@@ -392,10 +505,27 @@ def real_main(args):
     return 1 if failures else 0
 
 
+def readback_main(args):
+    """--readback <raw> <meta> <out.png>: 0 when the PNG was written."""
+    if len(args) != 3:
+        print(f"usage: {SCRIPT_NAME} --readback <readback.raw> <readback.meta> <out.png>", file=sys.stderr)
+        return 2
+    try:
+        name, digest, width, height = convert_readback(*args)
+    except (CaptureError, OSError, ValueError) as error:
+        print(f"{SCRIPT_NAME}: {error}", file=sys.stderr)
+        return 1
+    print(f"png {name} md5={digest} {width}x{height}")
+    print(f"{SCRIPT_NAME}: readback images=1")
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if args and args[0] == "--selftest":
         selftest_main()
+    elif args and args[0] == "--readback":
+        sys.exit(readback_main(args[1:]))
     else:
         sys.exit(real_main(args))
 

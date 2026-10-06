@@ -189,12 +189,28 @@ def convert_capture_png(config, mode, mechanism, run):
     return code
 
 
+def judge_internal_reading(config, mode, run, result):
+    """The fixture's own glReadPixels, probed (alpha included). It is judged on its own so that a
+    failing tool still leaves the ruler able to tell 'the internal reading is wrong' from 'the frame
+    did not reach the system' (D-W8-36)."""
+    result.checks["readback_png"] = convert_readback_png(config, mode, run)
+    result.checks["probes"] = probe_readback_png(config, mode, run) if result.checks["readback_png"] == 0 else 1
+
+
+def judge_failed_tool(config, mode, run, code):
+    """The tool did not vouch for the capture. The fixture writes its readback BEFORE it presents,
+    so the internal reading is judged whenever it exists; the mode stays rejected by the tool."""
+    result = mode_result(mode, "failed", {"tool": code})
+    if (mode_dir(config, mode) / "readback" / f"readback_{mode}.raw").is_file():
+        judge_internal_reading(config, mode, run, result)
+    return result
+
+
 def judge_ran_mode(config, mode, run):
     """The host-side checks over what the tool left. Returns the mode's result."""
     result = mode_result(mode, "ran")
     result.checks["pairs"] = check_capture_pairs(mode_dir(config, mode) / "capture")
-    result.checks["readback_png"] = convert_readback_png(config, mode, run)
-    result.checks["probes"] = probe_readback_png(config, mode, run) if result.checks["readback_png"] == 0 else 1
+    judge_internal_reading(config, mode, run, result)
     for mechanism in MECHANISMS:
         result.checks[f"compare_{mechanism}"], compared = compare_mechanism(config, mode, mechanism, run)
         result.alpha_compared += compared
@@ -206,11 +222,12 @@ def run_mode(config, mode, run):
     clean_mode_output(config, mode)
     (mode_dir(config, mode) / "readback").mkdir(parents=True)
     code, output = run(tool_command(config, mode))
+    report(output)  # the evidence the red is READ from: janelas=, visivel=, oclusao:, the absence line
     status = classify_tool_run(mode, code, output)
     print(f"{SCRIPT_NAME}: mode={mode} tool={code} status={status}")
-    if status != "ran":
-        return mode_result(mode, status, {"tool": code} if status == "failed" else {})
-    return judge_ran_mode(config, mode, run)
+    if status == "absent":
+        return mode_result(mode, status)
+    return judge_failed_tool(config, mode, run, code) if status == "failed" else judge_ran_mode(config, mode, run)
 
 
 def modes_are_exact(modes_seen):
@@ -526,6 +543,59 @@ def selftest_process_level():
     check("processo: sem argumentos sai 2", proc.returncode == 2)
 
 
+def tool_writing_readback(mode="off"):
+    def effect(command):
+        _, _, readback = fixture_arguments(command)[:3]
+        Path(readback).mkdir(parents=True, exist_ok=True)
+        (Path(readback) / f"readback_{mode}.raw").write_bytes(READBACK_RAW)
+        (Path(readback) / f"readback_{mode}.meta").write_text(READBACK_META)
+    return effect
+
+
+def selftest_tool_evidence_reaches_the_log():
+    """The red of the plan is READ from the log: janelas=, visivel=, oclusao: and the absence line
+    must reach the driver's own stdout, never stay in a variable."""
+    evidence = "win32_window_capture: janelas=1 visivel=0 iconico=0\nwin32_window_capture: oclusao: OCLUIDA por classe=Progman\n"
+    with tempfile.TemporaryDirectory() as tmp:
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            run_mode(make_config(tmp), "off", scripted_run(tool_reply=(2, evidence)))
+        check("a saida da ferramenta (janelas=, visivel=, oclusao:) chega ao stdout do driver",
+              "janelas=1 visivel=0 iconico=0" in captured.getvalue() and "OCLUIDA por classe=Progman" in captured.getvalue())
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            run_mode(make_config(tmp), "on", scripted_run(tool_reply=ABSENT_REPLY))
+        check("a linha de ausencia declarada tambem chega ao stdout",
+              ABSENCE_LINE in captured.getvalue())
+
+
+def selftest_internal_reading_is_judged_even_when_the_tool_fails():
+    """D-W8-36: the ruler must separate 'the internal reading is wrong' from 'the frame did not
+    reach the system'. With the tool failing (exit 2: occluded window) the fixture has still written
+    its readback BEFORE presenting, so the probes still run."""
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        run = scripted_run(tool_effect=tool_writing_readback(), tool_reply=(2, "oclusao: OCLUIDA\n"))
+        result = run_mode(make_config(tmp), "off", run)
+        check("ferramenta saindo 2: o modo reprova, mas a leitura interna E julgada (sondas rodam)",
+              not result.passed() and result.checks.get("tool") == 2 and result.checks.get("probes") == 0
+              and len(run.calls_of("image_probe.py")) == 1 and run.calls_of("capture_vs_readback.py") == [])
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        run = scripted_run(codes={"image_probe.py": 1}, tool_effect=tool_writing_readback(), tool_reply=(2, "x"))
+        result = run_mode(make_config(tmp), "off", run)
+        check("ferramenta saindo 2 e leitura interna errada: as duas causas aparecem separadas",
+              result.checks.get("tool") == 2 and result.checks.get("probes") == 1)
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        run = scripted_run(tool_reply=(1, "FIXTURE saiu antes de apresentar\n"))
+        result = run_mode(make_config(tmp), "off", run)
+        check("sem leitura interna gravada (a fixture nem chegou la): nada a julgar, so a ferramenta",
+              result.checks == {"tool": 1} and run.calls_of("image_probe.py") == [])
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        run = scripted_run(tool_effect=tool_writing_readback("on"), tool_reply=ABSENT_REPLY)
+        result = run_mode(make_config(tmp), "on", run)
+        check("modo on com ausencia declarada nao julga leitura nenhuma", result.status == "absent"
+              and run.calls_of("image_probe.py") == [])
+
+
 def selftest_main():
     selftest_classification()
     selftest_clean_output()
@@ -537,6 +607,8 @@ def selftest_main():
     selftest_wiring_all_clean()
     selftest_wiring_each_part_counts()
     selftest_real_helpers_end_to_end()
+    selftest_tool_evidence_reaches_the_log()
+    selftest_internal_reading_is_judged_even_when_the_tool_fails()
     selftest_process_level()
     print(f"selftest: {len(CHECKS)} controles OK")
 

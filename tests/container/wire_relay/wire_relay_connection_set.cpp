@@ -26,6 +26,12 @@ void pending_fds::push(const std::vector<int> &fds) {
     }
 }
 
+pending_fds::~pending_fds() {
+    for (const int fd : m_queue) {
+        (void)::close(fd);
+    }
+}
+
 std::vector<int> pending_fds::take(std::size_t count) {
     std::vector<int> out;
     while (count > 0 && !m_queue.empty()) {
@@ -67,8 +73,8 @@ void forward_message(const wire_transport &target, const decoded_message &messag
 // Client -> upstream: rule-checked (R1/R2). Returns false when the
 // session must end (a protocol violation just injected the error and
 // closed both sides).
-bool forward_client_message(const wire_transport &client, const wire_transport &upstream,
-                            const decoded_message &message, relay_session &session) {
+bool forward_client_message(active_connection &conn, const decoded_message &message) {
+    relay_session &session = conn.session;
     // Descriptors first, then the snapshot copies what a commit
     // presents - BEFORE anything is forwarded: once the compositor can
     // read the commit, the client may reuse the buffer.
@@ -79,18 +85,10 @@ bool forward_client_message(const wire_transport &client, const wire_transport &
     const std::optional<rule_violation> violation =
         observe_and_evaluate(session.pipe, message, true);
     if (!violation) {
-        forward_message(upstream, message, message_fds);
+        forward_message(wire_transport(conn.upstream_fd), message, message_fds);
         return true;
     }
-    // No close_all(message_fds) here on purpose: a violating message is
-    // a commit or an ack_configure, and wire_object_table's fd table
-    // gives those zero descriptors, so there is nothing to close.
-    ++session.stats.violations;
-    const std::vector<std::uint8_t> error_bytes =
-        encode_display_error(*violation, "protocol error injected by wire_relay");
-    client.write_once(error_bytes.data(), error_bytes.size(), {});
-    client.shutdown_write();
-    upstream.shutdown_write();
+    reject_client_message(conn, *violation, message_fds);
     return false;
 }
 
@@ -212,6 +210,22 @@ std::size_t next_connection_serial() {
 
 } // namespace
 
+void reject_client_message(active_connection &conn, const rule_violation &violation,
+                           const std::vector<int> &message_fds) {
+    // Whatever descriptors the rejected message carried are the
+    // relay's to close: nothing is forwarded. Today's R1/R2 only fire
+    // on messages that carry none, but that lives in two other files.
+    close_all(message_fds);
+    ++conn.session.stats.violations;
+    const wire_transport client(conn.client_fd);
+    const wire_transport upstream(conn.upstream_fd);
+    const std::vector<std::uint8_t> error_bytes =
+        encode_display_error(violation, "protocol error injected by wire_relay");
+    client.write_once(error_bytes.data(), error_bytes.size(), {});
+    client.shutdown_write();
+    upstream.shutdown_write();
+}
+
 void pump_client_direction(active_connection &conn) {
     const wire_transport client(conn.client_fd);
     const wire_transport upstream(conn.upstream_fd);
@@ -237,7 +251,7 @@ void pump_client_direction(active_connection &conn) {
             break;
         }
         ++conn.session.stats.messages_from_client;
-        if (!forward_client_message(client, upstream, *message, conn.session)) {
+        if (!forward_client_message(conn, *message)) {
             conn.client_open = false;
             return;
         }

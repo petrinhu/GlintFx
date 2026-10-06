@@ -170,17 +170,25 @@ GLINTFX_TEST(wire_shm_capture_relay_writes_no_frame_marker_for_a_client_that_nev
 
 GLINTFX_TEST(wire_shm_capture_consecutive_clients_save_to_distinct_files) {
     relay_rig rig;
-    send_committed_frame(rig, first_pixels);
-    const std::string first_prefix = rig.capture + "/conn" + std::to_string(rig.serial());
-    rig.finish();
-    rig.connect_client();
-    send_committed_frame(rig, reused_pixels);
-    const std::string second_prefix = rig.capture + "/conn" + std::to_string(rig.serial());
-    rig.finish();
-
-    GLINTFX_CHECK(first_prefix != second_prefix);
-    GLINTFX_CHECK(read_words(first_prefix + "_surface5.raw") == first_pixels);
-    GLINTFX_CHECK(read_words(second_prefix + "_surface5.raw") == reused_pixels);
+    const std::vector<words> pixels{first_pixels, reused_pixels,
+                                    words{0x0F0E0D0Cu, 0x0B0A0908u, 0x07060504u, 0x03020100u}};
+    std::vector<std::string> prefixes;
+    prefixes.reserve(pixels.size());
+    for (const words &frame : pixels) {
+        if (!prefixes.empty()) {
+            rig.connect_client();
+        }
+        send_committed_frame(rig, frame);
+        prefixes.push_back(rig.capture + "/conn" + std::to_string(rig.serial()));
+        rig.finish();
+    }
+    // Three clients, three different files (a serial that merely
+    // alternates would still collide the first with the third).
+    GLINTFX_CHECK(prefixes[0] != prefixes[1] && prefixes[1] != prefixes[2] &&
+                  prefixes[0] != prefixes[2]);
+    for (std::size_t i = 0; i < pixels.size(); ++i) {
+        GLINTFX_CHECK(read_words(prefixes[i] + "_surface5.raw") == pixels[i]);
+    }
 }
 
 GLINTFX_TEST(wire_shm_capture_rule_violation_injects_the_error_and_stops_the_client_direction) {
@@ -194,4 +202,34 @@ GLINTFX_TEST(wire_shm_capture_rule_violation_injects_the_error_and_stops_the_cli
     GLINTFX_CHECK(!rig.conn.client_open);
     const wire_transport::read_result error = rig.client_end.read_once();
     GLINTFX_CHECK(!error.bytes.empty());
+}
+
+GLINTFX_TEST(wire_shm_capture_rejected_message_descriptors_are_closed_by_the_relay) {
+    pumped_connection rig;
+    const fd_holder file(make_memfd(first_pixels));
+    const int before = count_open_fds();
+    std::vector<int> carried;
+    carried.reserve(10);
+    for (int i = 0; i < 10; ++i) {
+        carried.push_back(::dup(file.get()));
+    }
+    // The smallest seam: R1/R2 never fire on a message that carries
+    // descriptors, so the rejection step is called directly, with
+    // descriptors, exactly as forward_client_message would.
+    reject_client_message(rig.conn, rule_violation{7, xdg_surface_error::unconfigured_buffer},
+                          carried);
+
+    GLINTFX_CHECK_EQ(count_open_fds(), before);
+    GLINTFX_CHECK_EQ(rig.conn.session.stats.violations, std::size_t{1});
+}
+
+GLINTFX_TEST(wire_shm_capture_descriptors_left_queued_when_the_connection_ends_are_closed) {
+    const fd_holder file(make_memfd(first_pixels));
+    const int before = count_open_fds();
+    {
+        pumped_connection rig;
+        // A commit takes no descriptor, so the one sent along stays queued.
+        rig.send(encode_surface_commit(5), {file.get()});
+    }
+    GLINTFX_CHECK_EQ(count_open_fds(), before);
 }

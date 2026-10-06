@@ -36,6 +36,12 @@ namespace glintfx::test::wire_relay {
 // sao sempre consumidos na mesma ordem em que chegaram.
 class pending_fds {
   public:
+    pending_fds() = default;
+    pending_fds(const pending_fds &) = delete;
+    pending_fds &operator=(const pending_fds &) = delete;
+    // Descriptors still queued when the connection ends belong to the
+    // relay: close them (QA-SCREEN-CAPTURE P1 review, round 4).
+    ~pending_fds();
     void push(const std::vector<int> &fds);
     [[nodiscard]] std::vector<int> take(std::size_t count);
 
@@ -96,6 +102,12 @@ struct relay_endpoints {
     // nothing is written and the relay behaves exactly as before.
     std::string capture_dir;
 };
+
+// Rejeita uma mensagem do cliente que violou R1/R2: fecha os
+// descritores que ela trouxe (nada e encaminhado), conta a violacao,
+// injeta o erro no cliente e meia-fecha os dois lados.
+void reject_client_message(active_connection &conn, const rule_violation &violation,
+                           const std::vector<int> &message_fds);
 
 // Bombeia a direcao CLIENTE de uma conexao ja aceita (chamador ja
 // filtrou os revents). Atualiza conn.client_open para false quando a

@@ -93,3 +93,21 @@ GLINTFX_TEST(wire_shm_snapshot_pool_resize_is_respected) {
                   (words{0x0A0B0C0Du, 0x1A1B1C1Du, 0x2A2B2C2Du, 0x3A3B3C3Du}));
     GLINTFX_CHECK_EQ(snapshot.copy_failures(), std::size_t{1});
 }
+
+GLINTFX_TEST(wire_shm_snapshot_frame_over_the_size_cap_is_refused_and_exactly_the_cap_is_taken) {
+    const fd_holder file(make_memfd({1u}));
+    GLINTFX_CHECK(::ftruncate(file.get(), 70000000) == 0); // sparse: zeros, no memory
+    shm_snapshot snapshot;
+    feed(snapshot, known_interface::wl_shm, encode_shm_create_pool(3, 6, 70000000), {file.get()});
+    // 16384 * 4096 = 64 MiB exactly: at the cap, taken.
+    feed(snapshot, known_interface::wl_shm_pool,
+         encode_shm_pool_create_buffer(6, 7, 0, 4096, 4096, 16384, 0));
+    present(snapshot, 5, 7);
+    GLINTFX_CHECK_EQ(snapshot.frames().at(5).bytes.size(), shm_frame_size_cap);
+    // One row more: over the cap, refused and counted.
+    feed(snapshot, known_interface::wl_shm_pool,
+         encode_shm_pool_create_buffer(6, 8, 0, 4096, 4097, 16384, 0));
+    present(snapshot, 9, 8);
+    GLINTFX_CHECK(snapshot.frames().find(9) == snapshot.frames().end());
+    GLINTFX_CHECK_EQ(snapshot.copy_failures(), std::size_t{1});
+}

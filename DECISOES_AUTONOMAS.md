@@ -6314,3 +6314,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Mais dois pontos:** o gate win32-link não enumera a ferramenta, e o caminho com `DwmFlush` ausente não tem teste.
 - **Ao CTO:** a contradição do plano. A sabotagem `occlude` da C2b-5 exige código na ferramenta, e o plano diz "sem mudança em ferramenta". O vermelho esperado da C2b-4 também muda com o INVISIVEL.
 - **Processo órfão do agente devops** (PID 3318092): um laço `until ! pgrep -f 'bash tools/preci.sh'` que encontra a própria linha de comando e nunca termina. O classificador de permissões recusou o encerramento pelo main; ficou com o líder.
+
+### 06/10/2026 19:20:51 - D-W8-42 e D-W8-43 (CTO, decisão autônoma a confirmar retroativamente)
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-c2b.md`, seção 7 (md5 `ff935c0c95e1d5490b5d8e7682ef66cd`).
+- **D-W8-42:** a sabotagem `occlude` vira o modo de teste `--sabotage-occlude` da ferramenta, num arquivo próprio (`tests/tools/win32_capture_occluder.cpp`). Ela põe sobre a janela uma janela opaca da própria ferramenta, sempre no topo e sem ativar. Entra na C2b-4, e a C2b-5 volta a não mexer na ferramenta. Na estreia, o veredito tem de ser OCLUIDA, e não "cor errada".
+- **D-W8-43, ordem dos vereditos:** janelas, INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, bytes. O único vermelho aceito na C2b-4 é `janelas=1`, `visivel=0`, veredito INVISIVEL, com as 5 sondas internas passando. Qualquer outro volta ao CTO. O A4 (tubo herdado) vem antes da rodada vermelha.
+- **Nenhum afrouxamento do fechamento.**

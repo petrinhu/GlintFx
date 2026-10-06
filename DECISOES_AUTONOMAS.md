@@ -6125,3 +6125,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O item 5 ganha imagem do HEAD, pelo menos uma imagem por alvo e a igualdade da D-W8-33.
   - O item 11 é novo: as fotos das duas placas, com o renderizador, a tabela do G0 e a autorização verbatim da G4.
 - **Interpretação do CTO, marcada:** as "2 fotos" do líder viram duas sessões, uma por placa, cada uma cobrindo os quatro exemplos.
+
+### Tabela da W8 aplicada e placas identificadas (06/10/2026, 10:20)
+- **`914a092`:** as mudanças de tabela do v1 §7, do v2 §6 e do v3 §6, feitas pelo `technical-writer` e conferidas pelo main.
+  - Só o `TODO.md` mudou: 12 linhas tocadas, 6 delas novas.
+  - A W8 tem 9 linhas, na ordem.
+  - Todas as 347 linhas da tabela têm 10 colunas, exceto a `VERSION-TAG-SYNC`, cujo defeito de fecho é anterior a este commit e não foi tocado.
+  - **WSJF das 4 linhas R2D novas** (`R2D-STROKE-PATH` 2,40, `R2D-EDGE-SMOOTHING` 2,00, `R2D-TEXTURE-TILED` 2,33, `R2D-LIGHTMAP` 1,13): palpite do redator, marcado INFERÊNCIA, a ratificar pelo CPO junto com os provisórios do CTO.
+  - Os pré-requisitos dessas linhas também são escolha do redator.
+- **G0, placas identificadas** (`/var/tmp/cto-w8/g0-placas.md`, md5 `a5516bee`). Só leitura de `/sys`, nada tocou a GeForce; o main reconferiu vendor e driver dos nós de render.
+
+  | Placa | Vendor:device | Driver | Nó para o container |
+  |---|---|---|---|
+  | Intel integrada | `8086:46a6` | `i915` (`boot_vga=1`) | `renderD128` |
+  | GeForce | `10de:25a2` | `nvidia` proprietário 615.71.09, sem nouveau | `renderD129` + `/dev/nvidia*` |
+
+  - **Consequência:** a G4 precisa montar só leitura o espaço de usuário NVIDIA do hospedeiro. Se não bastar, a decisão vai ao líder (L-14).
+- **P1 despachada às 10:20** ao `qa-engineer`: o relé guarda o último quadro `wl_shm` comprometido.

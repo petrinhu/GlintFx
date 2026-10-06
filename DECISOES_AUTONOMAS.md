@@ -6245,3 +6245,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Texto do líder, verbatim:** "ligue modo autonomo". A flag foi renovada e vale até 07/10/2026 17:44:04. Escopos: push e clean.
 - **Em voo:** o diagnóstico e o conserto do vermelho do run 37515318202, régua de pesados no Windows estático.
 - **Próximo, pelo v3 §4:** C2a, a sonda M2 no Windows. A preparação começa agora, sem trabalho pesado, porque o conserto do CI ocupa a vaga de pesado (L-11 global).
+
+### 06/10/2026 17:53:05 - C2a de QA-SCREEN-CAPTURE: sonda M2 medida no executor Windows
+
+- **Como:** ramo descartável `sonda-c2a` (`1a40e1a`, saído de `onda-w8` `7707968`) com workflow próprio disparado por push. O run 37529525377 saiu verde. Depois da leitura, o ramo remoto e a cópia de trabalho foram apagados; o ramo local continua como referência para a C2b.
+- **Resultado, saída bruta em `/var/tmp/cto-w8/c2a-m2_saida.txt`:** janela GL de cor conhecida 20/80/C0, área cliente 320x240.
+  - `glreadpixels`: 76800 de 76800 exatos.
+  - `printwindow` (`PW_RENDERFULLCONTENT`): 76800 de 76800 exatos.
+  - `bitblt_tela` (tela 1024x768, origem do cliente em 60,83): 76800 de 76800 exatos.
+  - A sonda saiu com código 0.
+- **Consequência para a D-W8-21:** os dois mecanismos externos devolvem a cor exata. O afrouxamento previsto, ficar só com a leitura interna, NÃO acontece. A escolha entre PrintWindow e BitBlt vai ao CTO.
+- **Como a sonda achou a janela (fato):** a API pública não expõe o HWND. A sonda usou `FindWindowW` pelo título, que leva o PID. A janela nasce oculta e a sonda a mostrou com `ShowWindow(SW_SHOWNOACTIVATE)`.

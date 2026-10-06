@@ -6354,7 +6354,8 @@ set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory
 # is removed, the mode set is exactly {off, on}, the wait names the presenting
-# connection). No container, no docker: only the shell.
+# connection, a timed-out wait says what it expected). No container, no docker: only the shell. The control count is
+# EXACT in the regex below: dropping a control is a visible change, never a silent one.
 # if(UNIX): the driver is POSIX sh and its selftest uses mktemp; neither exists natively on the Windows CI
 # (same reason as container_exec_fixture_selftest above). The Windows side is declared in parity_exceptions.txt.
 if(UNIX)
@@ -6363,7 +6364,7 @@ if(UNIX)
         COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
     )
     set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest
-        PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
+        PASS_REGULAR_EXPRESSION "selftest: 8 controles OK")
 endif()
 
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md

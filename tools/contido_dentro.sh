@@ -783,8 +783,17 @@ contido_inside_selftest() {
     check "the sweep is written with builtins only (no substitution, no external tool)" "$got" "found a construct that costs a process per item"
     if command -v strace >/dev/null 2>&1 && strace -f -o "$dir/strace.probe" -e trace=execve true >/dev/null 2>&1 && grep -q execve "$dir/strace.probe"; then
         local forks
-        strace -f -o "$dir/strace.sweep" -e trace=clone,clone3,fork,vfork bash -c "$body; contido_live_in_group 1" >/dev/null 2>&1
+        # --seccomp-bpf (man strace): the kernel stops the tracee ONLY at the traced syscalls (clone, clone3, fork, vfork)
+        # instead of at every one, so the record of those four is the same; without it, ptrace stops once per syscall
+        # of the ~560-process sweep, 2 s idle and 9-19 s under 64 spinners (measured, 0,5-1,3 s with it).
+        strace -f --seccomp-bpf -o "$dir/strace.sweep" -e trace=clone,clone3,fork,vfork bash -c "$body; contido_live_in_group 1" >/dev/null 2>&1
         forks="$(grep -c -E '^[0-9]+ +(clone|clone3|fork|vfork)\(' "$dir/strace.sweep" || true)"
+        # Positive control (L-36/L-40): the SAME strace line must SEE a fork when there is one, so a filter that
+        # recorded nothing could not pass the zero-fork check above in silence.
+        local forks_bite
+        strace -f --seccomp-bpf -o "$dir/strace.bite" -e trace=clone,clone3,fork,vfork bash -c 'x="$(true)"' >/dev/null 2>&1
+        forks_bite="$(grep -c -E '^[0-9]+ +(clone|clone3|fork|vfork)\(' "$dir/strace.bite" || true)"
+        check "strace: the same line counts the fork of a command substitution (the control can fail)" "$([ "${forks_bite:-0}" -ge 1 ] && echo 0 || echo 1)" "counted ${forks_bite:-0} process creation(s), expected at least 1"
         check "strace: a sweep over the real /proc makes no clone, fork or vfork" "$([ "${forks:-x}" = 0 ] && echo 0 || echo 1)" "counted $forks process creation(s)"
     else
         echo "contido_dentro --selftest: strace ausente ou sem permissao de ptrace: o controle de zero fork por strace foi PULADO (1 caso pulado); o controle do corpo da funcao rodou" >&2

@@ -24,11 +24,14 @@
 #
 # O QUE E MECANICO E O QUE NAO: o texto novo de cada emenda esta neste
 # arquivo, escrito a partir do que a errata decide. Onde a errata fixa a
-# frase (E1) ela vale verbatim; onde a errata fixa so o sentido (E2: os
-# nomes finais sao do implementador de P3; E3 e E4: a redacao e a
-# proposta do api-review; D-B4-1: o arquivo pronto da errata), a redacao
-# aqui e deste script, e a comparacao com o cabecalho publicado pode
-# deixar um hunk residual, que o orquestrador registra um por um.
+# frase (E1) ela vale verbatim (as quebras de linha sao as do cabecalho
+# publicado); a redacao da E2 e a do implementador de P3 (blob 6de2339),
+# conferida pelo revisor de API (P3-K2) e ratificada pelo CTO na
+# D-FECH-16, extraida do blob por script. Onde a errata fixa so o sentido
+# (E3 e E4: a redacao e a proposta do api-review; D-B4-1: o arquivo
+# pronto da errata), a redacao aqui e deste script, e a comparacao com o
+# cabecalho publicado pode deixar um hunk residual, que o orquestrador
+# registra um por um.
 #
 # USO
 #   auditoria_texto_congelado.py gerar <parecer.md>...
@@ -77,23 +80,29 @@ E1_NEW = plus(
     "// An out-of-range `preset` or `row_index` degrades (docs/api-\n"
     "// conventions.md R4) to the entry {suggested_preset,\n"
     "// k_gltfx_preset_manual}: an id that is read_only, so handing it to\n"
-    "// set_option() by mistake is refused with invalid_argument and\n"
-    "// changes nothing - neither a row nor your preset label. It is never\n"
-    "// a default-constructed entry, because {vsync, 0} would silently\n"
-    "// turn vsync off.\n"
+    "// set_option() by mistake is refused with invalid_argument and changes\n"
+    "// nothing - neither a row nor your preset label. It is never a\n"
+    "// default-constructed entry, because {vsync, 0} would silently turn\n"
+    "// vsync off.\n"
 )
 
-E2_OLD = plus("// `auto_choice_reason` (id 6, `read_only`): WHY `suggested_preset`\n")
-E2_NEW = plus(
+# E2: texto da P3 (blob 6de2339, gfx_option.hpp), conferido pelo revisor de API
+# (P3-K2) e ratificado pelo CTO na D-FECH-16; extraido do blob por script.
+E2_PREAMBLE_OLD = plus("// this header's own top comment). For the four rows below, the meaning\n")
+E2_PREAMBLE_NEW = plus("// this header's own top comment). For the rows below, the meaning\n")
+E2_VSYNC_ANCHOR = plus("inline constexpr std::int64_t k_gltfx_power_source_battery = 2;\n")
+E2_VSYNC_NEW = E2_VSYNC_ANCHOR + plus(
+    "\n"
     "// `vsync` (id 0, `live`): the numbers of the option, wherever it is\n"
-    "// read - including the entries gltfx_gfx_preset_row_at() hands back.\n"
-    "// Same data-contract rule as the rows above: never reused, never\n"
-    "// renumbered.\n"
+    "// spoken: the value a preset row carries for it (as\n"
+    "// gltfx_gfx_preset_row_at() hands it back), the value set_option()\n"
+    "// takes and option() reads, and the value in an opening list.\n"
+    "// `adaptive` may be refused by name on a system that has no\n"
+    "// equivalent.\n"
     "inline constexpr std::int64_t k_gltfx_vsync_off = 0;\n"
     "inline constexpr std::int64_t k_gltfx_vsync_on = 1;\n"
     "inline constexpr std::int64_t k_gltfx_vsync_adaptive = 2;\n"
-    "\n"
-) + E2_OLD
+)
 
 E3_OLD = (
     "    //   - blending on, as (ONE, ONE_MINUS_SRC_ALPHA) for color and\n"
@@ -193,7 +202,8 @@ E5_NEW = (
 # (id, texto antigo, texto novo)
 EMENDAS_GFX_PRESET = [
     ("E1", E1_OLD, E1_NEW),
-    ("E2", E2_OLD, E2_NEW),
+    ("E2 (preambulo)", E2_PREAMBLE_OLD, E2_PREAMBLE_NEW),
+    ("E2 (bloco vsync)", E2_VSYNC_ANCHOR, E2_VSYNC_NEW),
 ]
 EMENDAS_DRAW2D = [
     ("E3", E3_OLD, E3_NEW),

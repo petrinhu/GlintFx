@@ -5198,8 +5198,8 @@ set_tests_properties(rerun_guard_selftest PROPERTIES LABELS selftest)
 
 # GFX-PRESET e R2D-BATCH, D-FECH-3 (D-A68): o apendice "texto final
 # congelado" de cada parecer em docs/auditoria-api-*.md e saida de
-# tools/auditoria_texto_congelado.py (aplica as emendas E1 e E2 do P0 e
-# E3, E4 e D-B4-1 do B0). O autoteste prova que emenda que nao se
+# tools/auditoria_texto_congelado.py (aplica as emendas listadas em
+# EMENDAS_POR_ARQUIVO, no proprio script). O autoteste prova que emenda que nao se
 # aplica reprova; o teste `verificar` prova que ninguem editou o
 # apendice a mao nem mudou o corpo do parecer. Python puro, sem guarda
 # de sistema.

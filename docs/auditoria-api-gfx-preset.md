@@ -274,7 +274,7 @@ O fechamento compara o cabeçalho publicado com o diff da seção 2 deste parece
 
 ## Apêndice: texto final congelado
 
-Gerado a partir das cercas da seção 2, com as emendas aplicadas (E1, E2). Cada hunk de diff aparece como o texto final (contexto e linhas acrescentadas, sem as removidas).
+Gerado a partir das cercas da seção 2, com as emendas aplicadas (E1, E2 (preambulo), E2 (bloco vsync)). Cada hunk de diff aparece como o texto final (contexto e linhas acrescentadas, sem as removidas).
 
 ````cpp
 // ---- @@ -118,7 +118,56 @@ ----
@@ -293,7 +293,7 @@ Gerado a partir das cercas da seção 2, com as emendas aplicadas (E1, E2). Cada
 // ============================================================
 //
 // Every `choice` row reads and writes a plain std::int64_t (item 2 of
-// this header's own top comment). For the four rows below, the meaning
+// this header's own top comment). For the rows below, the meaning
 // of each number is part of the DATA contract (a consumer's saved
 // settings file stores the number): once shipped, a number is never
 // reused for a different meaning and never renumbered. The named
@@ -310,14 +310,6 @@ inline constexpr std::int64_t k_gltfx_preset_power_saving = 1;
 inline constexpr std::int64_t k_gltfx_preset_balanced = 2;
 inline constexpr std::int64_t k_gltfx_preset_performance = 3;
 inline constexpr std::int64_t k_gltfx_preset_automatic = 4;
-
-// `vsync` (id 0, `live`): the numbers of the option, wherever it is
-// read - including the entries gltfx_gfx_preset_row_at() hands back.
-// Same data-contract rule as the rows above: never reused, never
-// renumbered.
-inline constexpr std::int64_t k_gltfx_vsync_off = 0;
-inline constexpr std::int64_t k_gltfx_vsync_on = 1;
-inline constexpr std::int64_t k_gltfx_vsync_adaptive = 2;
 
 // `auto_choice_reason` (id 6, `read_only`): WHY `suggested_preset`
 // reads what it reads. `none` is never produced by this version (every
@@ -339,6 +331,16 @@ inline constexpr std::int64_t k_gltfx_auto_choice_reason_unknown_gpu = 5;
 inline constexpr std::int64_t k_gltfx_power_source_unknown = 0;
 inline constexpr std::int64_t k_gltfx_power_source_mains = 1;
 inline constexpr std::int64_t k_gltfx_power_source_battery = 2;
+
+// `vsync` (id 0, `live`): the numbers of the option, wherever it is
+// spoken: the value a preset row carries for it (as
+// gltfx_gfx_preset_row_at() hands it back), the value set_option()
+// takes and option() reads, and the value in an opening list.
+// `adaptive` may be refused by name on a system that has no
+// equivalent.
+inline constexpr std::int64_t k_gltfx_vsync_off = 0;
+inline constexpr std::int64_t k_gltfx_vsync_on = 1;
+inline constexpr std::int64_t k_gltfx_vsync_adaptive = 2;
 
 // The three shapes a value can take (D-W6b-16 (2)): `toggle` reads
 // 0/1, `choice` reads the numeric id of the chosen value (documented
@@ -401,10 +403,10 @@ gltfx_gfx_option_by_name(std::string_view name) noexcept;
 // An out-of-range `preset` or `row_index` degrades (docs/api-
 // conventions.md R4) to the entry {suggested_preset,
 // k_gltfx_preset_manual}: an id that is read_only, so handing it to
-// set_option() by mistake is refused with invalid_argument and
-// changes nothing - neither a row nor your preset label. It is never
-// a default-constructed entry, because {vsync, 0} would silently
-// turn vsync off.
+// set_option() by mistake is refused with invalid_argument and changes
+// nothing - neither a row nor your preset label. It is never a
+// default-constructed entry, because {vsync, 0} would silently turn
+// vsync off.
 [[nodiscard]] GLINTFX_API gltfx_gfx_option_entry
 gltfx_gfx_preset_row_at(std::int64_t preset, std::size_t row_index) noexcept;
 

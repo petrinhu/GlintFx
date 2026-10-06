@@ -6142,3 +6142,6 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
   - **Consequência:** a G4 precisa montar só leitura o espaço de usuário NVIDIA do hospedeiro. Se não bastar, a decisão vai ao líder (L-14).
 - **P1 despachada entre 10:18 e 10:21** ao `qa-engineer`: o relé guarda o último quadro `wl_shm` comprometido.
+
+### Autorização do líder para a W8 (06/10/2026, 10:24:01)
+- **Verbatim:** "autorizo push/tag/merge". Vale para a onda W8, dentro do contrato de onda: push por fatia aceita, e merge em `main` mais a marca `v0.7.0.0` só com a definição de fechamento inteira cumprida (L-11 do projeto, L-24 global).

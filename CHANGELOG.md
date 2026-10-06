@@ -8,6 +8,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+## [0.6.0.0] - 2026-10-06
+
+This release is a `MINOR` bump while the project is pre-1.0 (`SOVERSION` stays 0): the 2D drawing surface is new, and the installed CMake package now refuses `find_package(glintfx 0.5)` against it (`SameMinorVersion`), so a consumer asks for `0.6`.
+
+**The changelog has no sections for `0.4.1.0` through `0.5.2.0`.** Those releases were published without an entry here; this section covers only what changed after `v0.5.2.0`, and does not reconstruct the missing ones.
+
+### Added
+
+- **2D drawing: filled rectangles and quadrilaterals, drawn into a `gltfx_gl_context` (`R2D-BATCH`).** `include/glintfx/draw2d/renderer_2d.hpp` is the new public surface (six headers under `include/glintfx/draw2d/`). A frame is `begin_frame()`, any number of `fill_rect()` and `fill_quad()` calls, then `finish_frame()`. Pieces are gathered into as few draw calls as the order you asked for allows, and a draw layer lets you say which piece paints over which.
+- **Positions are world positions with one transform per batch.** With no transform a world position is a physical pixel position (origin at the top left, y grows down); with `begin_batch(transform)` the transform applies to every piece until the next batch. Two rectangles that share an edge cover each pixel along it exactly once. The transform is applied in double precision, so a camera far from the origin does not make pieces shimmer.
+- **A problem is reported once, when the frame ends.** The drawing calls return nothing; `finish_frame()` hands back one report of what was refused or failed, so a single bad piece never stops the rest of the frame.
+- **A suggested graphics preset, handed over and never applied behind your back (`GFX-PRESET`).** Reading the new `suggested_preset` option tells you which of power saving, balanced or performance fits this machine right now; the new `auto_choice_reason` option says why (on battery, software renderer, shared GPU, dedicated GPU, unknown GPU), and the new `power_source` option reports mains, battery or unknown. Reading never changes anything. Setting `preset` applies every row of that preset at once, or none of them, and `automatic` is a shortcut for "apply the suggestion of this moment". `gltfx_gfx_preset_row_count()` and `gltfx_gfx_preset_row_at()` let you read the rows of a preset and decide on your own side what to apply. Named constants (`k_gltfx_preset_*`, `k_gltfx_vsync_*`, `k_gltfx_power_source_*`, `k_gltfx_auto_choice_reason_*`) mean no consumer has to write a bare number, and those numbers are part of the data contract: a number is never reused for another meaning.
+
+### Fixed
+
+- **The sRGB framebuffer now works on Linux (Wayland/EGL).** Asking for an sRGB surface had never taken effect there, because the request was made at a place the driver ignores it. It is now made on the surface itself, and read back live.
+- **On Windows, an sRGB request is decided by what the system actually reports (`D-SRGB-2`).** The window's pixel format selection now reads the system's own extension list and refuses by name when sRGB is not available, instead of announcing a support that was not applied. A request the system cannot honor now says so,.
+- **`extension_token` tells upper case from lower case**, as the extension lists of the graphics drivers do; before, a differently cased token could be taken for another one.
+
+### Changed
+
+- **The `index` parameter of `gltfx_gfx_option_at()` and of `gltfx_gpu_list::at()` is renamed** (`index_in_table`, `enumeration_position`). Positional calls compile and behave as before; only the documentation reads differently.
+
+### Infrastructure
+
+- **A test with two windows in one process** proves that drawing goes to the context you meant even when another context was current just before each entry point.
+- **The check that compares the published headers against their frozen text no longer fails on Windows**, where the checkout has CRLF line endings: line endings are normalized before comparing.
+- **A registry-order check at compile time** rejects a removed or out-of-order option row, and the 2D drawing code was split so no function is above the project's size limit.
+- **The local mirror of the CI (`tools/preci.sh`)** times every stage, compares each test against the last green run, and turns on `ccache` by itself with its state always printed. The CI itself is split per operating system.
+- **The adversarial reviews of the sRGB work, of the 2D drawing and of the preset** (each executing mutants against the tests) are versioned under `docs/`.
+
 ## [0.4.0.0] - 2026-09-15
 
 ### Changed (Breaking)

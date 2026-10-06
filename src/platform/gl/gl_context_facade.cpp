@@ -272,6 +272,22 @@ gltfx_rslt<void> apply_concrete_preset(gl_context_impl &impl, std::int64_t prese
     return gltfx_rslt<void>::ok();
 }
 
+// GFX-PRESET (D-W6b-35): applying a preset is ALWAYS the consumer's own request, all or
+// nothing, once. `manual` only records the label; `automatic` is a shortcut for "apply the
+// suggestion of right now" and records THAT concrete preset - option(preset) never reads
+// `automatic`. Changing any OTHER option never touches the label: it is the consumer's.
+gltfx_rslt<void> apply_preset_request(gl_context_impl &impl, std::int64_t value) noexcept {
+    if (value == k_gltfx_preset_manual) {
+        if (gltfx_gfx_option_entry *label = find_current(impl, gltfx_gfx_option::preset)) {
+            label->value = k_gltfx_preset_manual;
+        }
+        return gltfx_rslt<void>::ok();
+    }
+    const std::int64_t concrete =
+        value == k_gltfx_preset_automatic ? suggestion_now(impl).preset : value;
+    return apply_concrete_preset(impl, concrete);
+}
+
 } // namespace
 
 gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
@@ -555,31 +571,16 @@ gltfx_rslt<void> gltfx_gl_context::set_option(gltfx_gfx_option_entry entry) noex
                 .with_rejected_value(option_name_or_placeholder(entry.id)));
     }
 
-    // GFX-PRESET (D-W6b-35): applying a preset is ALWAYS the consumer's own request, all or
-    // nothing, once. `manual` only records the label; `automatic` is a shortcut for "apply the
-    // suggestion of right now" and records THAT concrete preset - option(preset) never reads
-    // `automatic`. Changing any OTHER option never touches the label: it is the consumer's.
     if (entry.id == gltfx_gfx_option::preset) {
-        if (entry.value == k_gltfx_preset_manual) {
-            if (gltfx_gfx_option_entry *label = find_current(*m_impl, gltfx_gfx_option::preset)) {
-                label->value = k_gltfx_preset_manual;
-            }
-            return gltfx_rslt<void>::ok();
-        }
-        const std::int64_t concrete =
-            entry.value == k_gltfx_preset_automatic ? suggestion_now(*m_impl).preset : entry.value;
-        return apply_concrete_preset(*m_impl, concrete);
+        return apply_preset_request(*m_impl, entry.value);
     }
 
     if (const gltfx_rslt<void> applied = m_impl->adapter.apply_option(entry); applied.has_error()) {
         return gltfx_rslt<void>::err(applied.err());
     }
 
-    for (gltfx_gfx_option_entry &current : m_impl->current_values) {
-        if (current.id == entry.id) {
-            current.value = entry.value;
-            break;
-        }
+    if (gltfx_gfx_option_entry *held = find_current(*m_impl, entry.id)) {
+        held->value = entry.value;
     }
 
     return gltfx_rslt<void>::ok();

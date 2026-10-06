@@ -18,6 +18,7 @@
 # only through `docker cp` (nothing of the host is mounted, L-09).
 #
 # USAGE: run_capture_known_color.sh [--env NAME=VALUE ...] [--sabotage NAME] <container> <out-directory>
+#        run_capture_known_color.sh --selftest   (no container: the pure decisions of this driver)
 # --env is passed to exec_fixture.sh (the asan leg's runtime options). --sabotage is the debut proof (L-36): the
 # fixture draws a wrong frame on purpose and the verdict MUST be a rejection; this script does not invert it.
 # Exit 0 only when every mode passed all four checks. The verdict line of each mode and a final summary line
@@ -166,9 +167,17 @@ judge_mode() {
     [ "$png_rc" -eq 0 ] && [ "$cmp_rc" -eq 0 ] && [ "$probe_rc" -eq 0 ]
 }
 
+# clean_mode_output <mode>: a reused out directory would hand the judge the PREVIOUS run's frames and readback
+# (docker cp lays files over what is there): a fixture that does nothing then reads as a pass. Both expansions
+# abort the shell when empty, so this can never become `rm -rf /` (GODS_LAWS.md L-53).
+clean_mode_output() {
+    rm -rf "${OUT_DIR:?}/${1:?}"
+}
+
 # one_mode <mode>: returns 0 only when the fixture and the three checks passed.
 one_mode() {
     mode="$1"
+    clean_mode_output "$mode"
     start_capture_relay "$mode"
     wait_for_socket "$mode" || return 1
     fixture_rc="$(run_check "$OUT_DIR/$mode.fixture.rc" run_fixture "$mode")"
@@ -192,4 +201,41 @@ main() {
     [ "$modes_run" -eq 2 ] && [ "$modes_failed" -eq 0 ]
 }
 
-main "$@"
+# -- selftest: the pure decisions, no container, no docker ------------------------------------------------------
+SELFTEST_CHECKS=0
+
+selftest_check() {
+    SELFTEST_CHECKS=$((SELFTEST_CHECKS + 1))
+    if ! "$@"; then
+        echo "selftest: controle $SELFTEST_CHECKS FALHOU: $*" >&2
+        exit 1
+    fi
+}
+
+selftest_stale_output_is_removed() {
+    root="$(mktemp -d)"
+    mkdir -p "$root/off/frames"
+    echo stale >"$root/off/frames/conn1_surface6.meta"
+    echo keep >"$root/on.keep"
+    OUT_DIR="$root" clean_mode_output off
+    [ ! -e "$root/off" ] && [ -e "$root/on.keep" ]
+    rc=$?
+    rm -rf "$root"
+    return "$rc"
+}
+
+selftest_empty_out_dir_refuses() {
+    ! (OUT_DIR="" clean_mode_output off) 2>/dev/null
+}
+
+selftest_main() {
+    selftest_check selftest_stale_output_is_removed
+    selftest_check selftest_empty_out_dir_refuses
+    echo "selftest: $SELFTEST_CHECKS controles OK"
+}
+
+if [ "${1:-}" = "--selftest" ]; then
+    selftest_main
+else
+    main "$@"
+fi

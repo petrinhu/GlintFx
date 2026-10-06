@@ -6280,3 +6280,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Conserto `c9b70ba`:** trinco `glintfx_nested_build` nos quatro testes, mais a lista MEASURED_HEAVY (14 testes medidos acima de 40 s) no portão de paralelismo, com 3 controles novos. A régua de 40 s não mudou. A revisão adversarial está em voo.
 - **Segunda ocorrência local, padrão nascendo (L-22):** `contido_dentro_selftest_varredura` levou 31,7 s e depois 32,8 s no espelho local, contra base de 1,6 s; sozinho, leva 2,6 s. A revisão foi mandada medir a causa antes de qualquer conserto.
 - **Em paralelo:** C2b-1 a C2b-3 despachados ao implementador, com a ordem de não iniciar trabalho pesado enquanto houver outro rodando.
+
+### 06/10/2026 18:22:29 - Conserto c9b70ba ACEITO; duas correções em voo
+
+- **Revisão adversarial** (`/var/tmp/cto-w8/rev-ci-pesados.md`): ACEITAR.
+  - A régua de 40 s está intacta (`HEAVY_LIMIT_S=40.0`).
+  - Os mutantes de trinco, regra, contagem e comentário morreram.
+- **Furo apontado:** tirar um nome da MEASURED_HEAVY passa com rc 0, porque a lista não tem piso. Volta ao devops para pôr um piso, com vermelho primeiro.
+- **Causa medida do lento local:** o controle 12f5 do `contido_dentro_selftest_varredura` roda `strace -f` sem `--seccomp-bpf`. Com ptrace sob carga, passa de 2 s para 11-12 s; com o filtro, leva 0,24 s.
+  - Os 31-33 s observados não se reproduziram em 5 medições.
+  - Volta ao devops: trocar pelo filtro, provando antes que o controle continua mordendo.

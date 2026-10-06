@@ -5738,3 +5738,10 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - **Pendente da aceitação:** a sabotagem do teste (§3.4), com o DW-M1 sem o `context_b.make_current()`, que tem de sobreviver. Foi despachada a um revisor QA distinto.
 - **Push:** `7d350dd..9eebfe6`, conferido por `git ls-remote`.
 - **Run A:** 37411846822, disparado por `workflow_dispatch`.
+
+### DW-a aceita pelo main (06/10/2026, 01:12): a sabotagem do teste (§3.4) confirmou a previsão
+- **Revisor:** QA sonnet, distinto do implementador. Cópia `git archive 9eebfe6`, logs em `/var/tmp/dw-sab-log/`.
+- **Sabotagem:** o DW-M1 (sem `context_current()` no `flush()`), mais o teste SEM o `switch_to(b)` do passo 3.
+- **Resultado:** isolamento com rc=0 e fixture com rc=0, "62 celula(s) conferida(s), 0 reprovada(s)". O mutante SOBREVIVE, como previsto. O sha256 do binário (`bd0c44a6...`) difere dos 5 do implementador.
+- **Conclusão:** é a troca de contexto do passo 3 que torna o perigo real dentro do `flush()`, e a célula mata o DW-M1 por esse motivo e não por acaso. A DW-a está aceita. A parte `make_current` do B7-K3 fica fechada.
+- **Próximo:** a DW-b (emenda E5) e a P4-c esperam o run A, enquanto a P5-a é despachada agora.

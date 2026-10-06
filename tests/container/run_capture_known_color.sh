@@ -36,9 +36,23 @@ readonly SCRIPT_DIR REPO_ROOT
 readonly CAPTURE_ROOT="/tmp/glintfx-capture"
 readonly TOOLS_DIR="$REPO_ROOT/tests/tools"
 readonly SOCKET_WAIT_TRIES=30
-# Only --selftest overrides these (a one-try, zero-sleep wait).
+# Only --selftest overrides these (a one-try, zero-sleep wait). Validated right below, once the helpers exist.
 : "${CAPTURE_WAIT_TRIES:=30}"
 : "${CAPTURE_WAIT_SLEEP:=1}"
+# The one pattern of "the files of the connection that presents the frame": the wait counts with it and its failure
+# message quotes it, so the two cannot drift apart.
+readonly PRESENTING_PATTERN='^conn1_(surface[0-9]+[.]meta|no_frame[.]txt)$'
+
+# valid_wait_settings <tries> <sleep>: tries is a positive integer, sleep a non-negative one (digits only).
+valid_wait_settings() {
+    case "$1$2" in *[!0-9]*) return 1 ;; esac
+    [ -n "$1" ] && [ -n "$2" ] && [ "$1" -ge 1 ]
+}
+
+if ! valid_wait_settings "$CAPTURE_WAIT_TRIES" "$CAPTURE_WAIT_SLEEP"; then
+    echo "run_capture_known_color: CAPTURE_WAIT_TRIES ('$CAPTURE_WAIT_TRIES') e inteiro positivo e CAPTURE_WAIT_SLEEP ('$CAPTURE_WAIT_SLEEP') inteiro nao negativo" >&2
+    exit 2
+fi
 
 fail_usage() {
     echo "uso: run_capture_known_color.sh [--env NOME=VALOR ...] [--sabotage NOME] <container> <diretorio-de-saida>" >&2
@@ -100,7 +114,7 @@ wait_for_socket() {
 # "nenhum quadro" marker is on disk before the frame is: waiting for ANY marker returned early, and the relay was
 # stopped before it saved the frame.
 presenting_files_count() {
-    grep -c -E '^conn1_(surface[0-9]+[.]meta|no_frame[.]txt)$' || true
+    grep -c -E "$PRESENTING_PATTERN" || true
 }
 
 # The relay writes the capture when the client's connection closes, a moment AFTER the fixture exits; the
@@ -119,7 +133,7 @@ wait_for_capture_files() {
         tries=$((tries + 1))
         sleep "$CAPTURE_WAIT_SLEEP"
     done
-    echo "run_capture_known_color: FAIL ($mode) esperava conn1_surface<N>.meta ou conn1_no_frame.txt em $CAPTURE_ROOT/$mode/frames em ${CAPTURE_WAIT_TRIES} tentativa(s); achei: $(printf '%s' "$listing" | tr '\n' ' ')" >&2
+    echo "run_capture_known_color: FAIL ($mode) esperava um arquivo casando $PRESENTING_PATTERN em $CAPTURE_ROOT/$mode/frames em ${CAPTURE_WAIT_TRIES} tentativa(s); achei: $(printf '%s' "$listing" | tr '\n' ' ')" >&2
     return 1
 }
 
@@ -187,6 +201,12 @@ clean_mode_output() {
     rm -rf "${OUT_DIR:?}/${1:?}"
 }
 
+# mode_verdict <judged> <fixture-rc> <waited>: a mode passes only when the three host checks, the fixture AND the wait
+# for the capture all came out clean (0). Pure, so the selftest can prove every part counts.
+mode_verdict() {
+    [ "$1" -eq 0 ] && [ "$2" -eq 0 ] && [ "$3" -eq 0 ]
+}
+
 # one_mode <mode>: returns 0 only when the fixture and the three checks passed.
 one_mode() {
     mode="$1"
@@ -199,7 +219,9 @@ one_mode() {
     stop_capture_relay "$mode"
     copy_out "$mode"
     echo "run_capture_known_color: mode=$mode fixture=$fixture_rc espera=$waited"
-    judge_mode "$mode" && [ "$fixture_rc" -eq 0 ] && [ "$waited" -eq 0 ]
+    judged=0
+    judge_mode "$mode" || judged=1
+    mode_verdict "$judged" "$fixture_rc" "$waited"
 }
 
 # modes_are_exact <list>: the run covered EXACTLY the two srgb_framebuffer modes, each once. A count is not
@@ -280,9 +302,23 @@ selftest_wait_timeout_names_expected_and_found() {
     message="$(CAPTURE_WAIT_TRIES=1 CAPTURE_WAIT_SLEEP=0 wait_for_capture_files off 2>&1)" && return 1
     unset -f in_container
     case "$message" in
-        *conn1_surface*conn1_no_frame*conn7_surface6.meta*) return 0 ;;
+        *conn1_*conn7_surface6.meta*) return 0 ;;
         *) echo "$message" >&2; return 1 ;;
     esac
+}
+
+selftest_verdict_needs_every_part_clean() {
+    mode_verdict 0 0 0
+}
+
+selftest_verdict_rejects_each_failed_part() {
+    ! mode_verdict 1 0 0 && ! mode_verdict 0 1 0 && ! mode_verdict 0 0 1 && ! mode_verdict 0 3 1
+}
+
+selftest_wait_settings_are_validated() {
+    ( valid_wait_settings 30 1 ) && ( valid_wait_settings 1 0 ) &&
+        ! ( valid_wait_settings 0 1 ) && ! ( valid_wait_settings abc 1 ) && ! ( valid_wait_settings 1 -1 ) &&
+        ! ( valid_wait_settings "" 1 ) && ! ( valid_wait_settings 1 "" )
 }
 
 selftest_main() {
@@ -294,6 +330,9 @@ selftest_main() {
     selftest_check selftest_wait_sees_the_presenting_connection
     selftest_check selftest_wait_needs_the_meta_not_the_raw
     selftest_check selftest_wait_timeout_names_expected_and_found
+    selftest_check selftest_verdict_needs_every_part_clean
+    selftest_check selftest_verdict_rejects_each_failed_part
+    selftest_check selftest_wait_settings_are_validated
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }
 

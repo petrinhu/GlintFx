@@ -6364,7 +6364,7 @@ if(UNIX)
         COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
     )
     set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest
-        PASS_REGULAR_EXPRESSION "selftest: 8 controles OK")
+        PASS_REGULAR_EXPRESSION "selftest: 11 controles OK")
 endif()
 
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md

@@ -6337,3 +6337,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O merge em `main` e a marca `v0.7.0.0` só acontecem quando a W8 cumprir a definição de fechamento do plano (v2 §3 e v3 §5), sem nenhum item aberto.
   - Pela L-24 global, o critério é o fechamento escrito no plano, não o CI verde.
 - **Estado agora:** a onda está aberta. QA-SCREEN-CAPTURE está na rodada 2 da revisão da C2b-1 a C2b-3. Faltam C2b-4, C2b-5, WIN-MAP-1, DEMO-1, QA-COMPOSED-PATH, as quatro R2D-*, QA-COMPOSED-PHOTOS e F1.
+
+### 06/10/2026 20:30:37 - C2b-1 a C2b-3: rodada 2 da revisão
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b-123.md`, rodada 2): ACEITAR.
+  - `preci --fast` na ponta: rc 0.
+  - Os sobreviventes da rodada 1 morreram, assim como as 23 permutações da ordem dos vereditos.
+  - O gate win32-link agora enumera a ferramenta.
+- **Ainda não limpo, voltou:**
+  - **N2 (L-17):** `run_link_check` tem 120 linhas e `link_one_tool` tem 5 parâmetros.
+  - **N3:** os mutantes D9 e D14 continuam vivos.
+  - Os dois voltaram ao implementador.
+- **Ao CTO, N1:** `PrintWindow` falho em janela invisível sai com 2 antes do veredito 3. INVISIVEL e ICONICA saem com o mesmo código, e o driver não extrai a linha do veredito.

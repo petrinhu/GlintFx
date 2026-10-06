@@ -5700,3 +5700,9 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - **Rebaixamento declarado pela P4:** no container os 30 tiques são ocultos, então a faixa de cadência fica desligada (SONDA-OCULTA). O vermelho por cadência só o CI Windows observa.
 - **Erro do main:** a primeira versão do roteiro rodou o isolamento com `--pids-limit`, divergiu do baseline do CI e não executou nada. Foi corrigida para dois containers, como no `b5-janela.sh`.
 - **L-11:** o agente da DW-a disparou um `docker build` em paralelo, e o main o interrompeu.
+
+### Retomada ordenada pelo líder (06/10/2026, 00:09)
+- Ordem verbatim: *"ligue modo autonomo. Continue o que estava fazendo. Autorizo push/tag/merge"*.
+- A pausa de 03/10, 21:36, está encerrada, e o arquivo `parada_do_lider` foi apagado.
+- **A flag de modo autônomo não foi ligada pelo main:** a trava P12b torna isso prerrogativa exclusiva do líder, num terminal externo. Até ele ligar, a autorização dele nesta conversa vale pela L-15 global. O push, a marca e o merge seguem a definição de fechamento do plano (L-24) e nunca relaxam a qualidade.
+- **Estado na retomada:** a árvore tem só a DW-a não commitada (`tests/parity/draw2d_parity_test.cpp`, +180). O remoto continua em `7d350dd`.

@@ -5900,3 +5900,22 @@ Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
 - **Fato:** `rerun_guard.py: falha de TESTE na tentativa 1 (passo 'Testes (compartilhado)'): a segunda falha e' tratada como real, e falha de teste nao se reexecuta (D-A4)`. O job saiu vermelho sem rodar teste.
 - **Erro do main:** pedi `gh run rerun --failed` sem conferir a política do projeto, que proíbe reexecutar falha de teste. Pela regra, o vermelho conta como real.
 - **Ação:** nenhuma outra tentativa nem disparo. A leitura do vermelho e a decisão de fechamento estão com o CTO (`/var/tmp/cto-w7d/parecer-runC.md`).
+
+### D-FECH-17 (CTO, modo autônomo, 06/10/2026, ~05:08; a confirmar retroativamente): o vermelho do run C é real, e o conserto é rodar o `loop_hidden_test` sozinho
+Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/var/tmp/cto-w7d/runC/giro-baseline-40runs.txt`.
+- **Leitura:** a célula que morde é a do sono (o controle negativo), e ela passou com 0. A do giro é o controle positivo. Com a calibração reprovada, só a asserção `cpu_ratio_permille` ficou sem prova naquela execução.
+  - O 593 não é erro de grão: faltaram cerca de 13 quanta.
+  - A linha de base tem 67 amostras em 40 runs, com mínimo de 875.
+  - A causa provável é contenção: três vizinhos de GL por software rodavam sob `--parallel 4` em 4 vCPUs. "compartilhado" é o modo `BUILD_SHARED_LIBS`, e não o runner, uma correção do CTO à leitura do main.
+- **Decisão:** opção (b), a fatia `LOOP-HIDDEN-SERIAL`. O registro Windows ganha `RUN_SERIAL TRUE`. Limiar, janela e instrumento não mudam.
+  - O `CI-VERDE-W7D` volta de ✅ para 🔍 no mesmo commit.
+  - O resíduo (roubo pelo hipervisor) vira o item `LOOP-HIDDEN-CALIB-STEAL`.
+- **Recusadas:**
+  - (a) run novo no mesmo SHA, que contorna a D-A4 ("falha de teste não se reexecuta");
+  - (c) fechar com o run C vermelho, que a L-11 e o passo 12 proíbem.
+- **Prova:** o run D sobre o SHA da fatia.
+  - `RUN_SERIAL` aparece no `ctest-show.json` dos dois modos Windows.
+  - Nenhum outro teste corre entre o início e o fim do `loop_hidden_test`.
+  - Giro e sono são lidos do JUnit.
+- **Cortes:** o run D é disparado até 05:45; o PR é aberto até 06:20; o CI do PR fica verde até 06:50; o CI do `main` fica verde até 07:15. Qualquer vermelho para tudo, e a onda fica aberta.
+- Implementador despachado às 05:11.

@@ -5895,3 +5895,8 @@ Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
 - **Contexto:** o código é idêntico ao dos runs A' e B, que passaram; o `0c3a4fe` só tem docs a mais que o `9a7a756`. Os outros dois jobs Windows do mesmo run passaram.
 - **Causa provável (inferência):** contenção de CPU no runner. A janela é de 500 ms (a D15.1, de 15/09, trocou os 60 ms), e o grão de 15,6 ms do relógio daria cerca de ±3%, não os 41% que faltaram. A calibração fez o que deve: acusou que o instrumento não merecia confiança naquela máquina.
 - **Ação:** `gh run rerun --failed`. Se a segunda tentativa passar, a instabilidade vira item da INBOX e o fechamento segue. Se repetir, é a segunda reprovação pelo mesmo motivo: pesquisa antes da terceira (L-42), e nada de merge.
+
+### Run C, tentativa 2 (06/10/2026, 04:53): o guardião do projeto recusou a reexecução, e o erro foi do main
+- **Fato:** `rerun_guard.py: falha de TESTE na tentativa 1 (passo 'Testes (compartilhado)'): a segunda falha e' tratada como real, e falha de teste nao se reexecuta (D-A4)`. O job saiu vermelho sem rodar teste.
+- **Erro do main:** pedi `gh run rerun --failed` sem conferir a política do projeto, que proíbe reexecutar falha de teste. Pela regra, o vermelho conta como real.
+- **Ação:** nenhuma outra tentativa nem disparo. A leitura do vermelho e a decisão de fechamento estão com o CTO (`/var/tmp/cto-w7d/parecer-runC.md`).

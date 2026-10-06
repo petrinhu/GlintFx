@@ -5779,3 +5779,20 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - **Sabotagem de família diferente (L-34):** numa cópia de HEAD, tirei `|| status == "Not charging"` de `power_supply_rule.cpp:16`. O md5 do teste mudou (`0ac239a1` para `afe9f0f8`).
   - Resultado: `power_supply_rule_test` com rc=1, "power_supply_rule_test.cpp:99: failed: classify({entry(Battery, System, 1, 0, Not charging)}) == k_mains".
   - A base dá rc=0. A cópia foi apagada.
+
+### D-FECH-12 a D-FECH-15 (CTO, modo autônomo, 06/10/2026, ~02:06): os quatro achados da P5-a
+Parecer: `/var/tmp/cto-w7d/parecer-p5a.md` (md5 `207b7be0`). O critério foi fixado antes do custo: entra na onda só o que nasceu numa fatia da W7-D e cujo conserto cabe numa rodada medida.
+
+- **D-FECH-12 (7.13):** vai para a INBOX como `PARITY-COMPARE-PLATFORM-BLIND`, que reúne três defeitos do `check_measured_parity.py`:
+  - o dono da exceção é cego ao sistema;
+  - o cabeçalho promete reprovar e não reprova;
+  - o lado `ambos` foi abolido, então nenhuma divergência é declarada.
+
+  Medido pelo main no log do job `parity` do run A': `0 divergente(s) declarada(s)` e `[HERDADA] gl_context_parity_test.power_source (item CI-SPLIT-PER-OS)`. Controle novo no passo 11: as três chaves da P4 lidas por nome nos dois lados, com o valor tirado do `--per-system`. Ausência de um lado, ou `power_source` entre as "NAO declaradas", reprova o fechamento.
+- **D-FECH-13:** a fixture de escala 2 e a leitura dos canais de cor vão para a INBOX (`EGL-SURFACE-SCALE-PROOF`, `GL-CHANNEL-SIZE-PROOF`). São dívida do GL-CONTEXT, não do GFX-PRESET.
+- **D-FECH-14:** o assert de densidade entra na fatia 5'a, só no `gfx_option_registry.hpp`.
+- **D-FECH-15:** o `set_option` volta a no máximo 40 linhas na fatia 5'b, com corte às 03:45. `open`, `resolve_full_option_table` e o átomo `preset_application` vão para a INBOX (`GL-FACADE-L17-ATOMS`, que entra com o passo 7 porque cita o relatório versionado).
+- **Feito agora:**
+  - 5'0 commitada. Os bullets do CTO foram colados por script; mais `GL-CTX-SHARED-EGLDISPLAY`, `CONTAINER-MOUNT-RELABEL` e `FUNCTION-SIZE-GATE`.
+  - 5'a e 5'b despachadas em paralelo: arquivos diferentes, e só a 5'b é pesada.
+- **Risco declarado (inferência do CTO):** a linha da P4-c usa o lado `familias`, que o `--compare` não lê. Se o `power_source` continuar entre as "NAO declaradas" no run B, o controle do passo 11 reprova, e volta ao CTO.

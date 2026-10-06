@@ -5706,3 +5706,14 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
 - A pausa de 03/10, 21:36, está encerrada, e o arquivo `parada_do_lider` foi apagado.
 - **A flag de modo autônomo não foi ligada pelo main:** a trava P12b torna isso prerrogativa exclusiva do líder, num terminal externo. Até ele ligar, a autorização dele nesta conversa vale pela L-15 global. O push, a marca e o merge seguem a definição de fechamento do plano (L-24) e nunca relaxam a qualidade.
 - **Estado na retomada:** a árvore tem só a DW-a não commitada (`tests/parity/draw2d_parity_test.cpp`, +180). O remoto continua em `7d350dd`.
+
+### Ratificação do líder (06/10/2026, 00:11): D-A65, D-A66, D-A67, D-A68 e D-FECH-11
+- **Pergunta:** "Há 5 decisões autônomas, de 02 e 03/10, ainda não ratificadas. Como quer revisá-las?"
+- **Resposta do líder:** "Ratificar as 5 (Recomendado)".
+- **Ratificadas:**
+  - **D-A65:** o desenho do sRGB do Windows.
+  - **D-A66:** as células só do Windows, declaradas sem a VM.
+  - **D-A67:** o COLOR_ENCODING do Linux, explicado pelo Mesa.
+  - **D-A68:** o plano de fechamento rumo à v0.6.0.0.
+  - **D-FECH-11:** a célula de duas janelas entra na W7-D.
+- **Incidente do hook:** a pergunta do líder "algum decisao autonoma para revisar?" fez o hook desligar o modo autônomo. Na mesma rodada, ele respondeu "modo autonomo" dentro do AskUserQuestion, mas resposta de AskUserQuestion não dispara o hook, então a flag continua desligada.

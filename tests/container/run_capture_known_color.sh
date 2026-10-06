@@ -36,7 +36,9 @@ readonly SCRIPT_DIR REPO_ROOT
 readonly CAPTURE_ROOT="/tmp/glintfx-capture"
 readonly TOOLS_DIR="$REPO_ROOT/tests/tools"
 readonly SOCKET_WAIT_TRIES=30
-readonly CAPTURE_WAIT_TRIES=30
+# Only --selftest overrides these (a one-try, zero-sleep wait).
+: "${CAPTURE_WAIT_TRIES:=30}"
+: "${CAPTURE_WAIT_SLEEP:=1}"
 
 fail_usage() {
     echo "uso: run_capture_known_color.sh [--env NOME=VALOR ...] [--sabotage NOME] <container> <diretorio-de-saida>" >&2
@@ -107,15 +109,17 @@ presenting_files_count() {
 wait_for_capture_files() {
     mode="$1"
     tries=0
+    listing=""
     while [ "$tries" -lt "$CAPTURE_WAIT_TRIES" ]; do
-        found="$(in_container ls "$CAPTURE_ROOT/$mode/frames" | presenting_files_count)"
+        listing="$(in_container ls "$CAPTURE_ROOT/$mode/frames")"
+        found="$(printf '%s\n' "$listing" | presenting_files_count)"
         if [ "${found:-0}" -ge 1 ]; then
             return 0
         fi
         tries=$((tries + 1))
-        sleep 1
+        sleep "$CAPTURE_WAIT_SLEEP"
     done
-    echo "run_capture_known_color: FAIL nenhum arquivo de captura ($mode) em ${CAPTURE_WAIT_TRIES}s" >&2
+    echo "run_capture_known_color: FAIL ($mode) esperava conn1_surface<N>.meta ou conn1_no_frame.txt em $CAPTURE_ROOT/$mode/frames em ${CAPTURE_WAIT_TRIES} tentativa(s); achei: $(printf '%s' "$listing" | tr '\n' ' ')" >&2
     return 1
 }
 
@@ -190,11 +194,12 @@ one_mode() {
     start_capture_relay "$mode"
     wait_for_socket "$mode" || return 1
     fixture_rc="$(run_check "$OUT_DIR/$mode.fixture.rc" run_fixture "$mode")"
-    wait_for_capture_files "$mode" || true
+    waited=0
+    wait_for_capture_files "$mode" || waited=1
     stop_capture_relay "$mode"
     copy_out "$mode"
-    echo "run_capture_known_color: mode=$mode fixture=$fixture_rc"
-    judge_mode "$mode" && [ "$fixture_rc" -eq 0 ]
+    echo "run_capture_known_color: mode=$mode fixture=$fixture_rc espera=$waited"
+    judge_mode "$mode" && [ "$fixture_rc" -eq 0 ] && [ "$waited" -eq 0 ]
 }
 
 # modes_are_exact <list>: the run covered EXACTLY the two srgb_framebuffer modes, each once. A count is not
@@ -268,6 +273,18 @@ selftest_wait_needs_the_meta_not_the_raw() {
     [ "$(printf 'conn1_surface6.raw\n' | presenting_files_count)" -eq 0 ]
 }
 
+# The numbering of connections changed (the presenting one is no longer conn1): the wait must FAIL, saying what it
+# expected and what it found, never time out quietly.
+selftest_wait_timeout_names_expected_and_found() {
+    in_container() { printf 'conn7_surface6.meta\nconn7_surface6.raw\n'; }
+    message="$(CAPTURE_WAIT_TRIES=1 CAPTURE_WAIT_SLEEP=0 wait_for_capture_files off 2>&1)" && return 1
+    unset -f in_container
+    case "$message" in
+        *conn1_surface*conn1_no_frame*conn7_surface6.meta*) return 0 ;;
+        *) echo "$message" >&2; return 1 ;;
+    esac
+}
+
 selftest_main() {
     selftest_check selftest_stale_output_is_removed
     selftest_check selftest_empty_out_dir_refuses
@@ -276,6 +293,7 @@ selftest_main() {
     selftest_check selftest_wait_ignores_the_other_connection
     selftest_check selftest_wait_sees_the_presenting_connection
     selftest_check selftest_wait_needs_the_meta_not_the_raw
+    selftest_check selftest_wait_timeout_names_expected_and_found
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }
 

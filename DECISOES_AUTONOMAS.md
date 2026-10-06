@@ -6159,7 +6159,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O item `TOOLCHAIN-UPDATES-PENDENTES` fica, para ser conferido a cada onda.
 - **Pendência do líder:** o repositório da NVIDIA continua configurado nesta máquina, com a chave não importada. Uma atualização geral do sistema vai voltar a pedir a chave.
 
-### P1 de `QA-SCREEN-CAPTURE` aceita (06/10/2026, 12:57): o relé guarda o último quadro `wl_shm` comprometido
+### P1 de `QA-SCREEN-CAPTURE` aceita (06/10/2026, 12:53): o relé guarda o último quadro `wl_shm` comprometido
 - **Commits:** `16168b9` (P1), `caff9f4`, `282c8bc` e `96f6ef9` (consertos), mais `b2af85d` (INBOX `CAPTURE-ZERO-FRAME-VERDICT`).
   - O implementador e o revisor foram agentes `sonnet` distintos (L-12). O main conferiu os rc por arquivo em cada rodada.
 - **Revisão adversarial que executa e muta**, em quatro rodadas, até sair limpa:

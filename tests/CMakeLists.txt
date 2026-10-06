@@ -6372,6 +6372,15 @@ if(UNIX)
         PASS_REGULAR_EXPRESSION "selftest: 11 controles OK")
 endif()
 
+# QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of
+# the Windows window-capture tool (window count, client area against the virtual screen, the five
+# occlusion points and their verdict, the XRGB8888 .meta text). No <windows.h>, no system call: it runs
+# on every system, so there is no parity exception.
+glintfx_add_test(window_capture_rules_test)
+target_include_directories(window_capture_rules_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_sources(window_capture_rules_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp")
+
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
 # por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de

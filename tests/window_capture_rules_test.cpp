@@ -248,3 +248,52 @@ GLINTFX_TEST(a_refused_capture_names_the_mechanism_and_the_error) {
     GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_capture_refused("bitblt", 1400).text,
                      std::string("CAPTURA RECUSADA mecanismo=bitblt erro=1400"));
 }
+
+// -- D-W8-45: one exit code per verdict, written here by hand from the decision's table.
+
+GLINTFX_TEST(the_verdict_code_table_is_exactly_the_decided_one) {
+    const auto &table = glintfx::capture_tool::k_verdict_code_table;
+    GLINTFX_CHECK_EQ(table.size(), std::size_t{6});
+    GLINTFX_CHECK_EQ(std::string(table[0]), std::string("10=JANELAS"));
+    GLINTFX_CHECK_EQ(std::string(table[1]), std::string("11=INVISIVEL"));
+    GLINTFX_CHECK_EQ(std::string(table[2]), std::string("12=ICONICA"));
+    GLINTFX_CHECK_EQ(std::string(table[3]), std::string("13=FORA_DA_TELA"));
+    GLINTFX_CHECK_EQ(std::string(table[4]), std::string("14=OCLUIDA"));
+    GLINTFX_CHECK_EQ(std::string(table[5]), std::string("15=CAPTURA_RECUSADA"));
+}
+
+GLINTFX_TEST(verdict_code_reads_the_table_and_refuses_unknown_names) {
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::verdict_code("JANELAS"), 10);
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::verdict_code("CAPTURA_RECUSADA"), 15);
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::verdict_code("NADA"), -1);
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::verdict_code(""), -1);
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::verdict_code("OCLUID"), -1);
+}
+
+GLINTFX_TEST(every_rejecting_verdict_carries_its_own_code_and_a_passing_one_carries_zero) {
+    using glintfx::capture_tool::judge_capture_readiness;
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_window_count(0).code, 10);
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_window_count(2).code, 10);
+    GLINTFX_CHECK_EQ(judge_capture_readiness({.visible = false, .iconic = false}, k_client,
+                                             k_screen, all_owned())
+                         .code,
+                     11);
+    GLINTFX_CHECK_EQ(
+        judge_capture_readiness({.visible = true, .iconic = true}, k_client, k_screen, all_owned())
+            .code,
+        12);
+    GLINTFX_CHECK_EQ(judge_capture_readiness(k_shown, k_off_screen, k_screen, all_owned()).code,
+                     13);
+    GLINTFX_CHECK_EQ(judge_capture_readiness(k_shown, k_client, k_screen, one_foreign()).code, 14);
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_capture_refused("bitblt", 5).code, 15);
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::judge_window_count(1).code, 0);
+    GLINTFX_CHECK_EQ(judge_capture_readiness(k_shown, k_client, k_screen, all_owned()).code, 0);
+}
+
+GLINTFX_TEST(the_codes_never_collide_with_the_ones_already_in_use) {
+    for (const int used : {0, 1, 2, 77, 124, 127}) {
+        for (const auto &entry : glintfx::capture_tool::k_verdict_code_table) {
+            GLINTFX_CHECK(std::stoi(std::string(entry)) != used);
+        }
+    }
+}

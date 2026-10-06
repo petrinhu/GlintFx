@@ -11,8 +11,10 @@
 # launches the fixture (capture_known_color_smoke), reads the window by PrintWindow and by BitBlt of
 # the screen and leaves one capture pair per mechanism, then judges on the host:
 #   1. the tool's exit code (0 only when the fixture AND the capture were good; 1 = the fixture
-#      failed, 2 = the tool itself failed, 3 = a CAPTURE VERDICT rejected the screen read: the tool's
-#      `veredito:` line says INVISIVEL, ICONICA, FORA DA TELA or OCLUIDA, D-W8-43);
+#      failed, 2 = the tool itself failed, 10 to 15 = one CAPTURE VERDICT each (D-W8-45: 10 janelas,
+#      11 INVISIVEL, 12 ICONICA, 13 FORA DA TELA, 14 OCLUIDA, 15 CAPTURA RECUSADA); the code and the
+#      tool's `veredito:` line must AGREE, or the mode is rejected as INCOERENTE; a code outside the
+#      table is CODIGO_DESCONHECIDO; the driver prints `motivo=<name> codigo=<n>` for every mode);
 #   2. exactly ONE captured pair in <out>/<mode>/capture/printwindow and in .../bitblt;
 #   3. raw_to_png.py --readback turns the fixture's OWN glReadPixels (the INTERNAL reading, alpha
 #      included) into a PNG, and image_probe.py probes it with the same probe file the Linux driver
@@ -63,7 +65,15 @@ FIXTURE_SOURCES = (REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.c
 ABSENCE_LINE = "AUSENCIA DECLARADA srgb_framebuffer=on"
 ABSENCE_FIXTURE_EXIT = re.compile(r"fixture exit=77\s*$", re.MULTILINE)
 TOOL_FIXTURE_FAILED = 1
-TOOL_CAPTURE_VERDICT = 3
+# THE TABLE OF VERDICT CODES (D-W8-45): a COPY of tests/tools/window_capture_rules.hpp's
+# k_verdict_code_table, the source, which check_sibling_lists.py keeps equal token by token.
+# GLINTFX-SIBLING-LIST:window-capture-verdict-codes:START
+VERDICT_CODE_TABLE = ("10=JANELAS", "11=INVISIVEL", "12=ICONICA", "13=FORA_DA_TELA", "14=OCLUIDA",
+                      "15=CAPTURA_RECUSADA")
+# GLINTFX-SIBLING-LIST:window-capture-verdict-codes:END
+VERDICT_NAME_BY_CODE = {int(entry.split("=")[0]): entry.split("=")[1] for entry in VERDICT_CODE_TABLE}
+VERDICT_LINE = re.compile(r"veredito: (.*)$", re.MULTILINE)
+PLAIN_FAILURE_CODES = (1, 2, 124, 127)  # fixture, tool, timeout, impossible run
 PROCESS_TIMEOUT_SECONDS = 180
 KILL_GRACE_SECONDS = 5
 MECHANISMS = ("printwindow", "bitblt")
@@ -79,12 +89,32 @@ class run_config:
     probes_dir: Path = REPO_ROOT / "tests" / "fixtures"
 
 
+def verdict_name(code):
+    return VERDICT_NAME_BY_CODE.get(code)
+
+
+def verdict_line_prefix(name):
+    """How the tool writes a verdict on its `veredito:` line: JANELAS is `janelas=<n>`, the others
+    are the table name with spaces."""
+    return "janelas=" if name == "JANELAS" else name.replace("_", " ")
+
+
+def line_agrees_with_code(code, output):
+    """The LAST `veredito:` line of the tool starts with the words of the verdict the code names."""
+    lines = VERDICT_LINE.findall(output)
+    return bool(lines) and lines[-1].startswith(verdict_line_prefix(VERDICT_NAME_BY_CODE[code]))
+
+
 @dataclass
 class mode_result:
     mode: str
-    status: str  # "ran", "absent", "refused" (a capture verdict) or "failed"
+    # "ran", "absent", "refused" (a capture verdict whose code and line agree), "incoherent" (a known
+    # code whose line is missing or says another verdict), "unknown" (a code outside the table) or "failed"
+    status: str
     checks: dict = field(default_factory=dict)  # name -> exit code
     alpha_compared: int = 0
+    motivo: str = ""
+    codigo: int = 0
 
     def passed(self):
         return self.status == "absent" or (self.status == "ran" and all(rc == 0 for rc in self.checks.values()))
@@ -151,16 +181,28 @@ def tool_command(config, mode):
 
 
 def classify_tool_run(mode, code, output):
-    """"ran" (the tool exited 0), "refused" (exit 3: a capture verdict, INVISIVEL, ICONICA, FORA DA
-    TELA or OCLUIDA, which the tool printed on its `veredito:` line), "absent" (mode on, the fixture declared the sRGB absence and exited
-    77: the tool then reports its own exit 1 for a fixture that never presented) or "failed"."""
+    """"ran" (exit 0); "refused" (exit 10 to 15, a capture verdict, and the tool's `veredito:` line says
+    the same verdict); "incoherent" (a known code with a missing or divergent line); "absent" (mode on,
+    the fixture declared the sRGB absence and exited 77: the tool then reports its own exit 1 for a
+    fixture that never presented); "failed" (1, 2, 124 or 127); "unknown" (any other code). The tool's
+    exit 2 is NEVER a verdict."""
     if code == 0:
         return "ran"
-    if code == TOOL_CAPTURE_VERDICT:
-        return "refused"
+    if code in VERDICT_NAME_BY_CODE:
+        return "refused" if line_agrees_with_code(code, output) else "incoherent"
     declared = mode == "on" and code == TOOL_FIXTURE_FAILED and ABSENCE_LINE in output \
         and ABSENCE_FIXTURE_EXIT.search(output) is not None
-    return "absent" if declared else "failed"
+    if declared:
+        return "absent"
+    return "failed" if code in PLAIN_FAILURE_CODES else "unknown"
+
+
+MOTIVO_BY_STATUS = {"ran": "PRONTA", "absent": "AUSENCIA_DECLARADA", "failed": "FALHA_DE_FIXTURE_OU_FERRAMENTA",
+                    "incoherent": "INCOERENTE", "unknown": "CODIGO_DESCONHECIDO"}
+
+
+def motivo_of(status, code):
+    return verdict_name(code) if status == "refused" else MOTIVO_BY_STATUS[status]
 
 
 def count_pairs(directory):
@@ -270,11 +312,23 @@ def run_mode(config, mode, run):
     report(output)  # the evidence the red is READ from: janelas=, visivel=, oclusao:, the absence line
     status = classify_tool_run(mode, code, output)
     print(f"{SCRIPT_NAME}: mode={mode} tool={code} status={status}")
+    result = judge_by_status(config, mode, run, (status, code))
+    result.motivo, result.codigo = motivo_of(status, code), code
+    return result
+
+
+def judge_by_status(config, mode, run, outcome):
+    """What the host judges for each way the tool can have ended."""
+    status, code = outcome
     if status == "absent":
         return mode_result(mode, status)
     if status == "refused":
         return judge_refused_capture(config, mode, run, code)
-    return judge_failed_tool(config, mode, run, code) if status == "failed" else judge_ran_mode(config, mode, run)
+    if status == "ran":
+        return judge_ran_mode(config, mode, run)
+    result = judge_failed_tool(config, mode, run, code)
+    result.status = status
+    return result
 
 
 def modes_are_exact(modes_seen):
@@ -291,8 +345,8 @@ def measured_lines(results):
 def run_all(config, run=run_process):
     results = [run_mode(config, mode, run) for mode in MODES]
     for result in results:
-        print(f"{SCRIPT_NAME}: verdict mode={result.mode} status={result.status} "
-              f"checks={result.checks} {'OK' if result.passed() else 'REPROVADO'}")
+        print(f"{SCRIPT_NAME}: verdict mode={result.mode} motivo={result.motivo} codigo={result.codigo} "
+              f"status={result.status} checks={result.checks} {'OK' if result.passed() else 'REPROVADO'}")
     for line in measured_lines(results):
         print(line)
     failed = [result.mode for result in results if not result.passed()]
@@ -643,30 +697,88 @@ def selftest_internal_reading_is_judged_even_when_the_tool_fails():
               and run.calls_of("image_probe.py") == [])
 
 
+# The decided table (D-W8-45), written here by hand and NOT read from the driver's own copy, so that a
+# swapped pair in the copy is caught; the C++ table is the source and check_sibling_lists.py keeps the
+# copy equal to it.
+DECIDED_VERDICTS = ((10, "janelas=0", "JANELAS"), (11, "INVISIVEL", "INVISIVEL"), (12, "ICONICA", "ICONICA"),
+                    (13, "FORA DA TELA", "FORA_DA_TELA"), (14, "OCLUIDA por classe=Progman", "OCLUIDA"),
+                    (15, "CAPTURA RECUSADA mecanismo=bitblt erro=5", "CAPTURA_RECUSADA"))
+
+
+def selftest_verdict_codes():
+    check("a copia da tabela do driver e a decidida, codigo por codigo",
+          VERDICT_NAME_BY_CODE == {code: name for code, _, name in DECIDED_VERDICTS})
+    for code, line, name in DECIDED_VERDICTS:
+        check(f"codigo {code} com a linha 'veredito: {line}' e o veredito {name}",
+              classify_tool_run("off", code, f"win32_window_capture: veredito: {line}\n") == "refused"
+              and verdict_name(code) == name)
+    check("o mesmo codigo vale no modo on",
+          classify_tool_run("on", 11, "veredito: INVISIVEL\n") == "refused")
+
+
+def selftest_code_and_line_must_agree():
+    check("codigo conhecido com a linha de OUTRO veredito e incoerencia, nunca aceito",
+          classify_tool_run("off", 11, "veredito: OCLUIDA por classe=Progman\n") == "incoherent"
+          and classify_tool_run("off", 14, "veredito: INVISIVEL\n") == "incoherent")
+    check("codigo conhecido SEM linha veredito e incoerencia",
+          classify_tool_run("off", 11, "janelas=1 visivel=0\n") == "incoherent")
+    check("vale a ULTIMA linha veredito (a primeira concordando nao salva)",
+          classify_tool_run("off", 11, "veredito: INVISIVEL\nveredito: ICONICA\n") == "incoherent")
+    check("o codigo 13 com a linha FORA_DA_TELA (com sublinhado) tambem e incoerencia: a linha tem espacos",
+          classify_tool_run("off", 13, "veredito: FORA_DA_TELA\n") == "incoherent")
+
+
+def selftest_unknown_and_reserved_codes():
+    check("codigo fora da tabela e desconhecido (3, 9, 16, 255), nunca veredito",
+          all(classify_tool_run("off", code, "veredito: INVISIVEL\n") == "unknown" for code in (3, 9, 16, 255)))
+    check("2 nunca e aceito como veredito, mesmo com a linha",
+          classify_tool_run("off", 2, "veredito: INVISIVEL\n") == "failed")
+    check("1, 124 e 127 seguem sendo falha",
+          all(classify_tool_run("off", code, "veredito: INVISIVEL\n") == "failed" for code in (1, 124, 127)))
+
+
+def selftest_motivo_and_codigo_are_printed():
+    with tempfile.TemporaryDirectory() as tmp:
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            run_all(make_config(tmp), scripted_run(tool_reply=(11, "veredito: INVISIVEL\n")))
+        text = captured.getvalue()
+        check("o driver imprime motivo=INVISIVEL codigo=11 na linha de veredito do modo",
+              "verdict mode=off motivo=INVISIVEL codigo=11" in text)
+        check("incoerencia imprime motivo=INCOERENTE com o codigo",
+              "motivo=INCOERENTE codigo=11" in _run_all_text(tool_reply=(11, "veredito: ICONICA\n")))
+        check("codigo desconhecido imprime motivo=CODIGO_DESCONHECIDO",
+              "motivo=CODIGO_DESCONHECIDO codigo=3" in _run_all_text(tool_reply=(3, "x\n")))
+
+
+def _run_all_text(tool_reply):
+    with tempfile.TemporaryDirectory() as tmp:
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            run_all(make_config(tmp), scripted_run(tool_reply=tool_reply))
+        return captured.getvalue()
+
+
 def selftest_capture_verdict_exit():
-    """D-W8-43: INVISIVEL, ICONICA, FORA DA TELA and OCLUIDA are CAPTURE verdicts (tool exit 3): not
-    the tool's own failure (2), not the fixture's (1), not a timeout (124) or an impossible run (127)."""
-    check("saida 3 da ferramenta e veredito de captura (refused), no off e no on",
-          classify_tool_run("off", 3, "veredito: INVISIVEL") == "refused"
-          and classify_tool_run("on", 3, f"{ABSENCE_LINE}\nfixture exit=77\n") == "refused")
-    check("saidas 2, 124 e 127 continuam falha (nunca veredito de captura)",
-          all(classify_tool_run("off", code, "x") == "failed" for code in (2, 124, 127)))
+    """D-W8-45: a capture verdict leaves with ITS OWN code (10 to 15), never the tool's own failure
+    (2), the fixture's (1), a timeout (124) or an impossible run (127)."""
     with tempfile.TemporaryDirectory() as tmp, silent():
         pairs = tool_writing({"printwindow": 1})
 
         def effect(command):
             tool_writing_readback()(command)
             pairs(command)
-        run = scripted_run(tool_effect=effect, tool_reply=(3, "win32_window_capture: veredito: INVISIVEL\n"),
+        run = scripted_run(tool_effect=effect, tool_reply=(15, "veredito: CAPTURA RECUSADA mecanismo=bitblt erro=5\n"),
                            outputs={"capture_vs_readback.py": GOOD_COMPARE})
         result = run_mode(make_config(tmp), "off", run)
         compares = run.calls_of("capture_vs_readback.py")
         check("veredito de captura: o modo reprova, a leitura interna e julgada e o PrintWindow e comparado",
-              result.status == "refused" and not result.passed() and result.checks.get("tool") == 3
+              result.status == "refused" and not result.passed() and result.checks.get("tool") == 15
               and result.checks.get("probes") == 0 and result.checks.get("compare_printwindow") == 0
-              and len(compares) == 1 and compares[0][3].endswith("printwindow"))
+              and len(compares) == 1 and compares[0][3].endswith("printwindow")
+              and (result.motivo, result.codigo) == ("CAPTURA_RECUSADA", 15))
     with tempfile.TemporaryDirectory() as tmp, silent():
-        run = scripted_run(tool_effect=tool_writing_readback(), tool_reply=(3, "veredito: ICONICA\n"))
+        run = scripted_run(tool_effect=tool_writing_readback(), tool_reply=(12, "veredito: ICONICA\n"))
         result = run_mode(make_config(tmp), "off", run)
         check("veredito de captura sem par de PrintWindow (iconica): nada a comparar, so a leitura interna",
               result.status == "refused" and "compare_printwindow" not in result.checks
@@ -775,6 +887,10 @@ def selftest_main():
     selftest_tool_evidence_reaches_the_log()
     selftest_internal_reading_is_judged_even_when_the_tool_fails()
     selftest_capture_verdict_exit()
+    selftest_verdict_codes()
+    selftest_code_and_line_must_agree()
+    selftest_unknown_and_reserved_codes()
+    selftest_motivo_and_codigo_are_printed()
     selftest_run_process()
     selftest_absence_needs_the_declared_line_and_an_exact_exit()
     selftest_each_mode_uses_its_own_probe_file()

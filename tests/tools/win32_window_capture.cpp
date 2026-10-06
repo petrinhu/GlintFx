@@ -41,10 +41,11 @@
 // 10 s, then TerminateProcess).
 //
 // EXIT CODE: 0 all good. 1 the FIXTURE failed (never presented, exited early or non-zero, did not
-// exit after WM_CLOSE). 2 the TOOL failed (bad arguments, launch, file writing). 3 a CAPTURE
-// VERDICT: the line `veredito:` says which (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA por
-// classe=<x>, or CAPTURA RECUSADA mecanismo=<m> erro=<n> when the system refused a capture of a
-// ready window). When several happen the first nonzero wins.
+// exit after WM_CLOSE). 2 the TOOL failed (bad arguments, launch, file writing); nothing measured
+// about the window ever leaves with 2. 10 to 15: one code per VERDICT, the table in
+// window_capture_rules.hpp (10 janelas, 11 INVISIVEL, 12 ICONICA, 13 FORA DA TELA, 14 OCLUIDA,
+// 15 CAPTURA RECUSADA), and the line `veredito:` says the same in words; the driver requires the
+// two to agree (D-W8-45). When several happen the first nonzero wins.
 //
 // ASSUMPTION, declared: 96 DPI (the CI runner). The tool is not DPI aware, so a scaled desktop
 // would shift the screen coordinates the BitBlt reads.
@@ -57,7 +58,6 @@ using glintfx::capture_tool::pixel_rect;
 constexpr int k_exit_ok = 0;
 constexpr int k_exit_fixture = 1;
 constexpr int k_exit_tool = 2;
-constexpr int k_exit_verdict = 3;
 constexpr std::string_view k_presented_line = "presented at attempt";
 constexpr int k_default_present_budget_ms = 30000;
 constexpr int k_default_exit_budget_ms = 10000;
@@ -199,8 +199,10 @@ int report_failed_grab(const char *mechanism, const glintfx::capture_tool::grab_
     if (!grabbed.refused) {
         return refuse(std::string(mechanism) + ": " + grabbed.detail);
     }
-    say("veredito: " + glintfx::capture_tool::judge_capture_refused(mechanism, grabbed.error).text);
-    return k_exit_verdict;
+    const glintfx::capture_tool::verdict refusal =
+        glintfx::capture_tool::judge_capture_refused(mechanism, grabbed.error);
+    say("veredito: " + refusal.text);
+    return refusal.code;
 }
 
 int capture_with_printwindow(HWND window, const tool_options &options) {
@@ -252,7 +254,7 @@ int capture_window(HWND window, const tool_options &options) {
         glintfx::capture_tool::plan_captures(readiness);
     if (!plan.printwindow || !plan.bitblt) {
         say("nenhuma captura tentada, o veredito foi " + readiness.text);
-        return k_exit_verdict;
+        return readiness.code;
     }
     const int printed = capture_with_printwindow(window, options);
     if (printed != k_exit_ok) {
@@ -268,8 +270,8 @@ int run_capture_phase(const child_process &child, const tool_options &options, H
     const glintfx::capture_tool::verdict unique =
         glintfx::capture_tool::judge_window_count(windows.size());
     if (!unique.pass) {
-        say(unique.text);
-        return refuse("a unique window of the fixture was not found");
+        say("veredito: " + unique.text);
+        return unique.code;
     }
     window = windows.front();
     return capture_window(window, options);

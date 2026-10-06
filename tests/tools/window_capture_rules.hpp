@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -24,7 +25,24 @@ namespace glintfx::capture_tool {
 struct verdict {
     bool pass = false;
     std::string text;
+    int code =
+        0; // the tool's exit code for this verdict (0 when it passes); see k_verdict_code_table
 };
+
+// THE TABLE OF EXIT CODES, one per verdict (D-W8-45), the single source: the driver
+// (tests/tools/run_capture_known_color_win32.py) holds a copy that check_sibling_lists.py keeps
+// equal, token by token. The codes avoid the ones already in use: 0 ok, 1 fixture, 2 tool, 77
+// declared absence, 124 timeout and 127 impossible run. The name has no spaces (the gate splits on
+// them); the `veredito:` line carries the same name with spaces ("janelas=<n>" for JANELAS).
+
+// #  GLINTFX-SIBLING-LIST:window-capture-verdict-codes:START
+inline constexpr std::array<std::string_view, 6> k_verdict_code_table{
+    "10=JANELAS",      "11=INVISIVEL", "12=ICONICA",
+    "13=FORA_DA_TELA", "14=OCLUIDA",   "15=CAPTURA_RECUSADA"};
+// #  GLINTFX-SIBLING-LIST:window-capture-verdict-codes:END
+
+// The code of a verdict NAME as written in the table; -1 when the name is not in it.
+[[nodiscard]] int verdict_code(std::string_view name);
 
 // A rectangle in virtual-screen pixels, right/bottom EXCLUSIVE (the RECT convention).
 struct pixel_rect {

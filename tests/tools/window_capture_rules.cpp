@@ -1,7 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "window_capture_rules.hpp"
 
+#include <string>
+
 namespace glintfx::capture_tool {
+
+int verdict_code(std::string_view name) {
+    for (const std::string_view entry : k_verdict_code_table) {
+        const std::size_t separator = entry.find('=');
+        if (!name.empty() && entry.substr(separator + 1) == name) {
+            return std::stoi(std::string(entry.substr(0, separator)));
+        }
+    }
+    return -1;
+}
 
 namespace {
 
@@ -10,7 +22,9 @@ constexpr std::size_t k_occlusion_point_count = 5;
 } // namespace
 
 verdict judge_window_count(std::size_t found) {
-    return {.pass = found == 1, .text = "janelas=" + std::to_string(found)};
+    return {.pass = found == 1,
+            .text = "janelas=" + std::to_string(found),
+            .code = found == 1 ? 0 : verdict_code("JANELAS")};
 }
 
 verdict judge_client_on_screen(const pixel_rect &client, const pixel_rect &virtual_screen) {
@@ -19,7 +33,7 @@ verdict judge_client_on_screen(const pixel_rect &client, const pixel_rect &virtu
                         client.right <= virtual_screen.right &&
                         client.bottom <= virtual_screen.bottom;
     if (empty || !inside) {
-        return {.pass = false, .text = "FORA DA TELA"};
+        return {.pass = false, .text = "FORA DA TELA", .code = verdict_code("FORA_DA_TELA")};
     }
     return {.pass = true, .text = "area cliente dentro da tela"};
 }
@@ -41,7 +55,9 @@ verdict judge_occlusion(const std::vector<occlusion_probe> &probes) {
     }
     for (const occlusion_probe &probe : probes) {
         if (!probe.owned_by_target) {
-            return {.pass = false, .text = "OCLUIDA por classe=" + probe.owner_class};
+            return {.pass = false,
+                    .text = "OCLUIDA por classe=" + probe.owner_class,
+                    .code = verdict_code("OCLUIDA")};
         }
     }
     return {.pass = true, .text = "5 pontos da propria janela"};
@@ -51,10 +67,10 @@ verdict judge_capture_readiness(const window_facts &facts, const pixel_rect &cli
                                 const pixel_rect &virtual_screen,
                                 const std::vector<occlusion_probe> &probes) {
     if (!facts.visible) {
-        return {.pass = false, .text = "INVISIVEL"};
+        return {.pass = false, .text = "INVISIVEL", .code = verdict_code("INVISIVEL")};
     }
     if (facts.iconic) {
-        return {.pass = false, .text = "ICONICA"};
+        return {.pass = false, .text = "ICONICA", .code = verdict_code("ICONICA")};
     }
     verdict on_screen = judge_client_on_screen(client, virtual_screen);
     if (!on_screen.pass) {
@@ -70,7 +86,8 @@ capture_plan plan_captures(const verdict &readiness) {
 verdict judge_capture_refused(std::string_view mechanism, unsigned long error) {
     return {.pass = false,
             .text = "CAPTURA RECUSADA mecanismo=" + std::string(mechanism) +
-                    " erro=" + std::to_string(error)};
+                    " erro=" + std::to_string(error),
+            .code = verdict_code("CAPTURA_RECUSADA")};
 }
 
 std::string describe_dwm_flush(int index, std::optional<long> result) {

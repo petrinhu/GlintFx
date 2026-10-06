@@ -6094,11 +6094,11 @@ O main conferiu na árvore:
 - **Resposta do líder, verbatim:** "exigir 2 fotos compostas locais. Uma da geforce e outra da integrada."
 - **Leitura do main, marcada como interpretação (L-07 global), a confirmar:**
   - A captura no protocolo (D-W8-20) continua como prova do CI, porque somar provas só endurece o critério.
-  - A onda passa a exigir, além dela, duas capturas COMPOSTAS pelo KWin, nesta máquina: uma com a GeForce e outra com a placa integrada. O caminho é o , que exige GL.
+  - A onda passa a exigir, além dela, duas capturas COMPOSTAS pelo KWin, nesta máquina: uma com a GeForce e outra com a placa integrada. O caminho é o `ScreenShot2`, que exige GL.
 - **Leis que isso aciona:**
   - L-09 global: antes de cada rodada que toque a GeForce, tocar o alerta 5 vezes, dizer o que vai rodar e AGUARDAR a autorização explícita do líder para começar.
   - L-09 do projeto, regra 4: a placa dada ao container é decisão consciente por teste, e é esta.
-  - O  reprova com : a rodada local usa uma variante declarada, sem nunca montar o  nem o  do hospedeiro.
+  - O `check_isolation.sh` reprova com `/dev/dri`: a rodada local usa uma variante declarada, sem nunca montar o `XDG_RUNTIME_DIR` nem o `wayland-0` do hospedeiro.
 - **Medição M1 (`/var/tmp/cto-w8/m1-medicao.md`):**
   - Pela cadeia real, o cliente entrega `wl_shm` em ARGB8888 (formato 0), sem `dmabuf` e sem XRGB: a rota da D-W8-20 tem chão.
   - **Achado que muda o desenho:** o `draw2d_parity_test` cria o buffer, mas nunca faz `attach`/`commit` (lê por `glReadPixels` sem trocar de quadro, `draw2d_parity_test.cpp:495`). Já o `gl_context_parity_test` apresenta 3 buffers rotativos.

@@ -161,15 +161,15 @@ def rejects(function, *args):
     return False
 
 
-def write_case(root, raw=CAPTURE_BGRA, meta=CAPTURE_META, readback=READBACK_RGBA,
-               readback_meta=READBACK_META):
+def write_case(root, raw=CAPTURE_BGRA, meta=CAPTURE_META, readback=(READBACK_RGBA, READBACK_META)):
+    """`readback` is the pair (raw bytes, meta text)."""
     root = Path(root)
     capture = root / "capture"
     capture.mkdir(exist_ok=True)
     (capture / "conn1_surface3.raw").write_bytes(raw)
     (capture / "conn1_surface3.meta").write_text(meta)
-    (root / "rb.raw").write_bytes(readback)
-    (root / "rb.meta").write_text(readback_meta)
+    (root / "rb.raw").write_bytes(readback[0])
+    (root / "rb.meta").write_text(readback[1])
     return capture, root / "rb.raw", root / "rb.meta"
 
 
@@ -181,17 +181,17 @@ def selftest_equality_and_difference():
     with tempfile.TemporaryDirectory() as tmp:
         altered = bytearray(READBACK_RGBA)
         altered[3] = 13  # alpha of the bottom-left readback pixel only
-        pixels, differing, samples = compare(*write_case(tmp, readback=bytes(altered)))
+        pixels, differing, samples = compare(*write_case(tmp, readback=(bytes(altered), READBACK_META)))
         check("so o alfa diferente reprova (alfa incluido)",
               pixels == 4 and differing == 1 and samples[0][:2] == (0, 1))
     with tempfile.TemporaryDirectory() as tmp:
         unflipped = bytes([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
         check("readback sem o flip de linhas reprova (imagem assimetrica)",
-              compare(*write_case(tmp, readback=unflipped))[1] == 4)
+              compare(*write_case(tmp, readback=(unflipped, READBACK_META)))[1] == 4)
     with tempfile.TemporaryDirectory() as tmp:
         bgra = bytes([11, 10, 9, 12, 15, 14, 13, 16, 3, 2, 1, 4, 7, 6, 5, 8])
         check("readback com R e B trocados reprova",
-              compare(*write_case(tmp, readback=bgra))[1] == 4)
+              compare(*write_case(tmp, readback=(bgra, READBACK_META)))[1] == 4)
 
 
 def selftest_rejections():
@@ -199,16 +199,17 @@ def selftest_rejections():
         case = write_case(tmp, meta="width=2\nheight=2\nstride=12\nformat=1\n")
         check("captura em XRGB8888 (formato 1) e recusada", rejects(compare, *case))
     with tempfile.TemporaryDirectory() as tmp:
-        case = write_case(tmp, readback_meta="width=3\nheight=2\norigin=bottom_left\norder=rgba\n")
+        wider = "width=3\nheight=2\norigin=bottom_left\norder=rgba\n"
+        case = write_case(tmp, readback=(READBACK_RGBA, wider))
         check("geometria diferente e recusada", rejects(compare, *case))
     with tempfile.TemporaryDirectory() as tmp:
-        case = write_case(tmp, readback_meta=READBACK_META.replace("bottom_left", "top_left"))
+        case = write_case(tmp, readback=(READBACK_RGBA, READBACK_META.replace("bottom_left", "top_left")))
         check("origem do readback desconhecida e recusada, nunca adivinhada", rejects(compare, *case))
     with tempfile.TemporaryDirectory() as tmp:
-        case = write_case(tmp, readback=READBACK_RGBA[:-4])
+        case = write_case(tmp, readback=(READBACK_RGBA[:-4], READBACK_META))
         check("readback com tamanho errado e recusado", rejects(compare, *case))
     with tempfile.TemporaryDirectory() as tmp:
-        case = write_case(tmp, readback=b"", readback_meta="width=0\nheight=0\norigin=bottom_left\norder=rgba\n")
+        case = write_case(tmp, readback=(b"", "width=0\nheight=0\norigin=bottom_left\norder=rgba\n"))
         check("readback vazio e recusado", rejects(compare, *case))
 
 
@@ -241,7 +242,7 @@ def selftest_real_process_exit_codes():
     with tempfile.TemporaryDirectory() as tmp:
         altered = bytearray(READBACK_RGBA)
         altered[0] ^= 0xFF
-        case = [str(part) for part in write_case(tmp, readback=bytes(altered))]
+        case = [str(part) for part in write_case(tmp, readback=(bytes(altered), READBACK_META))]
         proc = run_cli(*case)
         check("processo: um byte diferente sai 1 e imprime o resumo",
               proc.returncode == 1 and "pixels=4 differing=1" in proc.stdout)

@@ -61,7 +61,7 @@ WINDOW_TITLE = "janela da fumaca de cor conhecida"
 FIXTURE_SOURCES = (REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.cpp",
                    REPO_ROOT / "tests" / "container" / "capture_known_color_smoke.cpp")
 ABSENCE_LINE = "AUSENCIA DECLARADA srgb_framebuffer=on"
-ABSENCE_FIXTURE_EXIT = "fixture exit=77"
+ABSENCE_FIXTURE_EXIT = re.compile(r"fixture exit=77\s*$", re.MULTILINE)
 TOOL_FIXTURE_FAILED = 1
 TOOL_CAPTURE_VERDICT = 3
 PROCESS_TIMEOUT_SECONDS = 180
@@ -159,7 +159,7 @@ def classify_tool_run(mode, code, output):
     if code == TOOL_CAPTURE_VERDICT:
         return "refused"
     declared = mode == "on" and code == TOOL_FIXTURE_FAILED and ABSENCE_LINE in output \
-        and ABSENCE_FIXTURE_EXIT in output
+        and ABSENCE_FIXTURE_EXIT.search(output) is not None
     return "absent" if declared else "failed"
 
 
@@ -324,7 +324,7 @@ def check(name, condition):
 def selftest_classification():
     check("off com saida 0 roda", classify_tool_run("off", 0, "...") == "ran")
     check("off com saida 1 falha", classify_tool_run("off", 1, "...") == "failed")
-    absent_text = f"... {ABSENCE_LINE} ...\n{ABSENCE_FIXTURE_EXIT}\n"
+    absent_text = f"... {ABSENCE_LINE} ...\nfixture exit=77\n"
     check("on com a linha de ausencia e a saida 77 da fixture e ausencia declarada",
           classify_tool_run("on", TOOL_FIXTURE_FAILED, absent_text) == "absent")
     check("off com a linha de ausencia NAO e ausencia: so o on declara",
@@ -648,7 +648,7 @@ def selftest_capture_verdict_exit():
     the tool's own failure (2), not the fixture's (1), not a timeout (124) or an impossible run (127)."""
     check("saida 3 da ferramenta e veredito de captura (refused), no off e no on",
           classify_tool_run("off", 3, "veredito: INVISIVEL") == "refused"
-          and classify_tool_run("on", 3, f"{ABSENCE_LINE}\n{ABSENCE_FIXTURE_EXIT}\n") == "refused")
+          and classify_tool_run("on", 3, f"{ABSENCE_LINE}\nfixture exit=77\n") == "refused")
     check("saidas 2, 124 e 127 continuam falha (nunca veredito de captura)",
           all(classify_tool_run("off", code, "x") == "failed" for code in (2, 124, 127)))
     with tempfile.TemporaryDirectory() as tmp, silent():
@@ -721,6 +721,46 @@ def selftest_run_process():
               grandchild != 0 and not process_alive(grandchild))
 
 
+class real_helpers_run:
+    """Real helpers, and the tool double playing `effect` for any mode (exit 0)."""
+
+    def __init__(self, effect):
+        self.effect = effect
+
+    def __call__(self, command):
+        if command[0] != "TOOL":
+            return run_process(command)
+        self.effect(command)
+        return 0, "tool ok\n"
+
+
+def selftest_absence_needs_the_declared_line_and_an_exact_exit():
+    only_exit = "fixture exit=77\n"
+    check("on com fixture exit=77 mas SEM a linha de ausencia declarada falha",
+          classify_tool_run("on", TOOL_FIXTURE_FAILED, only_exit) == "failed")
+    check("on com a linha mas com fixture exit=7712 (prefixo de 77) falha",
+          classify_tool_run("on", TOOL_FIXTURE_FAILED, f"{ABSENCE_LINE}\nfixture exit=7712\n") == "failed")
+    check("on com a linha e o fim de linha certo, com prefixo da ferramenta, e ausencia",
+          classify_tool_run("on", TOOL_FIXTURE_FAILED,
+                            f"{ABSENCE_LINE}\nwin32_window_capture: fixture exit=77\n") == "absent")
+
+
+def selftest_each_mode_uses_its_own_probe_file():
+    """off's file is WRONG for this frame and on's is right: only a run that reads the file of ITS
+    mode can pass (a driver that always read the off file would reject a good `on`)."""
+    with tempfile.TemporaryDirectory() as tmp, silent():
+        config = make_config(tmp)
+        config.probes_dir.mkdir()
+        (config.probes_dir / "capture_known_color_probes_off.txt").write_text("0 0 FFFFFFFF\n")
+        (config.probes_dir / "capture_known_color_probes_on.txt").write_text(PROBES)
+        result = run_mode(config, "on", real_helpers_run(real_frame_tool()))
+        check("modo on que roda e julgado com o arquivo de sondas do on (e passa)",
+              result.status == "ran" and result.passed())
+        result = run_mode(config, "off", real_helpers_run(real_frame_tool()))
+        check("modo off que roda e julgado com o arquivo do off (e reprova com ele errado)",
+              result.status == "ran" and result.checks.get("probes") == 1)
+
+
 def selftest_main():
     selftest_classification()
     selftest_clean_output()
@@ -736,6 +776,8 @@ def selftest_main():
     selftest_internal_reading_is_judged_even_when_the_tool_fails()
     selftest_capture_verdict_exit()
     selftest_run_process()
+    selftest_absence_needs_the_declared_line_and_an_exact_exit()
+    selftest_each_mode_uses_its_own_probe_file()
     selftest_process_level()
     print(f"selftest: {len(CHECKS)} controles OK")
 

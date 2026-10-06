@@ -6321,3 +6321,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D-W8-42:** a sabotagem `occlude` vira o modo de teste `--sabotage-occlude` da ferramenta, num arquivo próprio (`tests/tools/win32_capture_occluder.cpp`). Ela põe sobre a janela uma janela opaca da própria ferramenta, sempre no topo e sem ativar. Entra na C2b-4, e a C2b-5 volta a não mexer na ferramenta. Na estreia, o veredito tem de ser OCLUIDA, e não "cor errada".
 - **D-W8-43, ordem dos vereditos:** janelas, INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, bytes. O único vermelho aceito na C2b-4 é `janelas=1`, `visivel=0`, veredito INVISIVEL, com as 5 sondas internas passando. Qualquer outro volta ao CTO. O A4 (tubo herdado) vem antes da rodada vermelha.
 - **Nenhum afrouxamento do fechamento.**
+
+### 06/10/2026 20:18:20 - Retomada após reinício da sessão; modo autônomo religado
+
+- **Texto do líder, verbatim:** "ligue modo autonomo". A flag vale até 07/10/2026 20:17:43.
+- **Recuperado do disco (L-54 global):** árvore limpa. Os 7 commits de correção da C2b, de `a74bca4` a `b05afee`, estão no ramo; 13 commits locais ainda não empurrados.
+- **Interrompido no reinício:** o `preci --fast` do implementador sobre `b05afee` (`/var/tmp/cto-w8/fin-fast.log` truncado). Fica sem prova até a rodada 2 da revisão rodá-lo de novo.
+- **Rodada 2 da revisão de C2b-1 a C2b-3:** despachada ao mesmo revisor, com o preci na ponta.

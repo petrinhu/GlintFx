@@ -5865,3 +5865,19 @@ Parecer: `/var/tmp/cto-w7d/parecer-passo8.md` (md5 `92d7746d`).
 - **Revisor distinto do passo 8:** `cmp.py` sobre o blob `git archive 3d88900` deu `8/8/0`, rc=0.
 - **Sabotagem do main:** numa cópia de `3d88900`, "For the rows below" virou "For the four rows below" no `gfx_option.hpp`. Resultado: `cmp.py` com `7/8/1`, rc=1, `DIVERGE ...#hunk1`. O comparador morde.
 - **Próximo:** passo 9 (a versão 0.6.0.0 e o CHANGELOG, com `preci` completo), depois o passo 10 (os ✅ no TODO).
+
+### Passos 9, 10 e 11 (06/10/2026, 03:59)
+- **Passo 9 (D-FECH-9):** `1e843f4` sobe a versão de 0.5.2.0 para 0.6.0.0, junto com o `find_package` do teste de pacote. `420fe3b` traz o CHANGELOG `[0.6.0.0]`, e `bf2af2b` corrige a vírgula.
+  - Estreia: com só o `project()` subido, `consume_test` e `install_packager_layout_test` reprovam ("compatible with requested version 0.5").
+  - `preci` completo, rc lido de `/var/tmp/g6-preci.rc`:
+    - rodada 1: rc=1, `log_event_test` caiu por ambiente no win32-link (123 de 124);
+    - rodada 2: rc=0, TUDO VERDE (300/300, sanitizer 136/136, debug 300/300, win32-link 124/124).
+  - A instabilidade virou o item `WIN32-LINK-ENV-FLAKE`.
+  - O CHANGELOG não tinha as seções 0.4.1.0 a 0.5.2.0; virou o item `CHANGELOG-GAP-0.4.1-0.5.2`.
+  - Desvio declarado pelo implementador: o CHANGELOG foi escrito por ele, não pelo `technical-writer` da D-FECH-9. O main leu a seção e só corrigiu a vírgula.
+- **Passo 10 (`9a7a756`):**
+  - `GFX-PRESET`, `R2D-BATCH` e `D-SRGB2-WGL-SLICES` passaram a ✅.
+  - A linha do `D-SRGB2-WGL-SLICES` subiu para antes de `CI-VERDE-W7D`, e o texto deste perdeu `INPUT-EVENTS`.
+  - `parity_exceptions.txt`: a linha do `egl_srgb_surface_test` virou `SEM-PENDENCIA` no mesmo commit.
+  - `check_test_parity.py --textual` deu rc=0. O controle (a exceção antiga contra o TODO novo) deu rc=1, "aponta para item concluido".
+- **Passo 11:** push `f8fe51d..9a7a756`, conferido por `ls-remote`. Run B: 37426916661.

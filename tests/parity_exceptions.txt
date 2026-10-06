@@ -968,5 +968,6 @@ egl_config_attribs_test|windows|nenhum|SEM-PENDENCIA
 # rule (the announcement of the extension, the confirmation query) and the neutral decision decide_gfx_format();
 # the adapter wiring that feeds those facts (wgl_context_adapter.cpp) runs only on the Windows CI and in the
 # live container proof, neither done yet. The asymmetry that stays is the EGL_BAD_* codes, which exist only in EGL.
-# MORTE DESTA LINHA: quando o item D-SRGB2-WGL-SLICES fechar (a revisao decide se a linha vira SEM-PENDENCIA).
-egl_srgb_surface_test|windows|nenhum|D-SRGB2-WGL-SLICES
+# PERMANENTE desde o fechamento da W7-D (06/10/2026, item D-SRGB2-WGL-SLICES concluido): a assimetria que fica
+# e' so' a dos codigos EGL_BAD_*, que nao existem no Windows (D-FECH-2).
+egl_srgb_surface_test|windows|nenhum|SEM-PENDENCIA

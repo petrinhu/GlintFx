@@ -6126,7 +6126,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O item 11 é novo: as fotos das duas placas, com o renderizador, a tabela do G0 e a autorização verbatim da G4.
 - **Interpretação do CTO, marcada:** as "2 fotos" do líder viram duas sessões, uma por placa, cada uma cobrindo os quatro exemplos.
 
-### Tabela da W8 aplicada e placas identificadas (06/10/2026, 10:20)
+### Tabela da W8 aplicada e placas identificadas (06/10/2026, 10:21)
 - **`914a092`:** as mudanças de tabela do v1 §7, do v2 §6 e do v3 §6, feitas pelo `technical-writer` e conferidas pelo main.
   - Só o `TODO.md` mudou: 12 linhas tocadas, 6 delas novas.
   - A W8 tem 9 linhas, na ordem.
@@ -6141,4 +6141,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   | GeForce | `10de:25a2` | `nvidia` proprietário 615.71.09, sem nouveau | `renderD129` + `/dev/nvidia*` |
 
   - **Consequência:** a G4 precisa montar só leitura o espaço de usuário NVIDIA do hospedeiro. Se não bastar, a decisão vai ao líder (L-14).
-- **P1 despachada às 10:20** ao `qa-engineer`: o relé guarda o último quadro `wl_shm` comprometido.
+- **P1 despachada entre 10:18 e 10:21** ao `qa-engineer`: o relé guarda o último quadro `wl_shm` comprometido.

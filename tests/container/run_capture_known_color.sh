@@ -188,17 +188,24 @@ one_mode() {
     judge_mode "$mode" && [ "$fixture_rc" -eq 0 ]
 }
 
+# modes_are_exact <list>: the run covered EXACTLY the two srgb_framebuffer modes, each once. A count is not
+# enough: `off off` has two entries and never runs `on`.
+modes_are_exact() {
+    # shellcheck disable=SC2086
+    [ "$(printf '%s\n' $1 | sort | tr '\n' ' ')" = "off on " ]
+}
+
 main() {
     parse_args "$@"
     mkdir -p "$OUT_DIR"
-    modes_run=0
+    modes_seen=""
     modes_failed=0
     for mode in off on; do
-        modes_run=$((modes_run + 1))
+        modes_seen="$modes_seen $mode"
         one_mode "$mode" || modes_failed=$((modes_failed + 1))
     done
-    echo "run_capture_known_color: modos=$modes_run reprovados=$modes_failed sabotagem=${SABOTAGE:-nenhuma}"
-    [ "$modes_run" -eq 2 ] && [ "$modes_failed" -eq 0 ]
+    echo "run_capture_known_color: modos=$modes_seen reprovados=$modes_failed sabotagem=${SABOTAGE:-nenhuma}"
+    modes_are_exact "$modes_seen" && [ "$modes_failed" -eq 0 ]
 }
 
 # -- selftest: the pure decisions, no container, no docker ------------------------------------------------------
@@ -228,9 +235,20 @@ selftest_empty_out_dir_refuses() {
     ! (OUT_DIR="" clean_mode_output off) 2>/dev/null
 }
 
+selftest_modes_exact_accepts_both() {
+    modes_are_exact " off on" && modes_are_exact " on off"
+}
+
+selftest_modes_exact_rejects_wrong_sets() {
+    ! modes_are_exact " off off" && ! modes_are_exact " off" && ! modes_are_exact " on on" &&
+        ! modes_are_exact "" && ! modes_are_exact " off on on"
+}
+
 selftest_main() {
     selftest_check selftest_stale_output_is_removed
     selftest_check selftest_empty_out_dir_refuses
+    selftest_check selftest_modes_exact_accepts_both
+    selftest_check selftest_modes_exact_rejects_wrong_sets
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }
 

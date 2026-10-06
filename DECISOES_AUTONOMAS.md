@@ -6298,3 +6298,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Controle 12f5 com `--seccomp-bpf`:** continua pegando o fork escondido. O controle positivo pega o filtro cego.
   - **`contido_dentro` com 64 spinners:** de 19-21 s para 1,7-2,1 s.
 - **Push** do `onda-w8` e dispatch do CI para provar no executor Windows o conserto do run 37515318202. A ponta inclui `ee0c57b` (C2b-1), ainda não revisado: o CI dele é evidência, não aceite.
+
+### 06/10/2026 19:04:03 - CI 37535326010 sobre 4297b97: verde
+
+- **Resultado:** 25 verdes e 1 pulado por desenho (VERSION-TAG-SYNC). A lista de jobs é igual à do run 37515318202.
+- **Windows estático:** 289 testes declarados, 287 executados e 287 passaram; 2 pulados por desenho. Suíte em 328 s, contra 680 s no run vermelho. A régua de pesados não acusou nada.
+- **O que isto prova:** no servidor, o conserto `c9b70ba`, `5ab50c4` e `ad035f9`. Os passos C2b-1 e C2b-2 rodaram neste CI só como evidência; ainda não foram revisados.

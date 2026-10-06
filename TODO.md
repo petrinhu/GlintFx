@@ -491,6 +491,8 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 
 - **`FUNCTION-SIZE-GATE` (B7-K5): nenhum portão do projeto reprova função acima dos números duros da L-17; a regressão volta sem aviso.** A revisão B7 do `R2D-BATCH` mediu com um medidor próprio e com o `lizard` (03/10/2026), e a P5-a achou de novo funções fora do limite na fachada GL (06/10/2026). Fecha quando um portão de CI (`readability-function-size` do clang-tidy ou o medidor versionado) reprovar função acima de 40 linhas, 4 parâmetros ou 3 níveis, provado com uma função plantada vista vermelha. Achado da revisão B7 (03/10/2026).
 
+- **`TABLE-SIZE-ASSERT-TWINS`: oito tabelas com `static_assert` de tamanho aceitam linha removida, duplicada ou fora de ordem; só o enumerador novo sem linha é barrado.** Medido em 06/10/2026 pela varredura de só leitura da fatia 5'a (D-FECH-14): `src/gfss/keyword_kind.cpp:95`, `src/gfss/property_table.hpp:367`, `src/gfss/property_value_contract.hpp:403`, `src/gfss/token_kind.cpp:66`, `src/gfss/value_kind.cpp:56`, `src/gfss/value_parse.cpp:156`, `src/gfui/node_state.cpp:46` e `src/gfui/state_pseudo_class_table.hpp:79`. Em todas, o tamanho do array é um número escrito à mão, então tirar uma linha mantendo o número compila com a última linha zerada. Nenhum comentário promete pegar esse caso (lacuna, não promessa falsa). Fecha quando cada tabela ganhar o assert de densidade (linha i com id i), como `gfx_option_table_is_dense()` em `src/platform/gl/gfx_option_registry.hpp`, com a remoção de uma linha vista sem compilar. Achado da fatia 5'a; decisão D-FECH-14 do CTO (06/10/2026).
+
 ## TABELA UNIFICADA
 
 | WSJF | ID | Onda | Grupo | Descrição Técnica | Prioridade | Pré-requisito | Dificuldade | Status | Estado Auditado |

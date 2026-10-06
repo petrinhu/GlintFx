@@ -5796,3 +5796,10 @@ Parecer: `/var/tmp/cto-w7d/parecer-p5a.md` (md5 `207b7be0`). O critério foi fix
   - 5'0 commitada. Os bullets do CTO foram colados por script; mais `GL-CTX-SHARED-EGLDISPLAY`, `CONTAINER-MOUNT-RELABEL` e `FUNCTION-SIZE-GATE`.
   - 5'a e 5'b despachadas em paralelo: arquivos diferentes, e só a 5'b é pesada.
 - **Risco declarado (inferência do CTO):** a linha da P4-c usa o lado `familias`, que o `--compare` não lê. Se o `power_source` continuar entre as "NAO declaradas" no run B, o controle do passo 11 reprova, e volta ao CTO.
+
+### 5'a aceita (`7f0eea5`, 06/10/2026, 02:19), D-FECH-14
+- **O que entrou:** `gfx_option_table_is_dense()` com `static_assert`, mais as mensagens e o comentário que dizem a verdade, só em `gfx_option_registry.hpp`. O enum público não foi tocado.
+- **Estreia:** antes, tirar a linha `suggested_preset` compilava (rc=0); depois, não compila (rc=1).
+- **Ctest:** 11/11. **preci --fast:** 299/300, com a 5'b ainda não commitada na árvore. Fica declarado: esse verde não prova o estado final da 5'b.
+- **Re-verificação do main:** numa cópia de `7f0eea5`, o controle compila (rc=0) e a linha removida dá "static assertion failed: ... must be dense" (rc=1).
+- **Gêmeos:** nenhum comentário mente, mas há a mesma lacuna em 8 tabelas. Lançada na INBOX como `TABLE-SIZE-ASSERT-TWINS`, descrita como lacuna.

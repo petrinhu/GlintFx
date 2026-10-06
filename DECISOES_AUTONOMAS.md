@@ -5717,3 +5717,9 @@ No container, `srgb_support=1`, `open_only_srgb_framebuffer_opened=1`, `srgb_on_
   - **D-A68:** o plano de fechamento rumo à v0.6.0.0.
   - **D-FECH-11:** a célula de duas janelas entra na W7-D.
 - **Incidente do hook:** a pergunta do líder "algum decisao autonoma para revisar?" fez o hook desligar o modo autônomo. Na mesma rodada, ele respondeu "modo autonomo" dentro do AskUserQuestion, mas resposta de AskUserQuestion não dispara o hook, então a flag continua desligada.
+
+### Janela de trabalho ordenada pelo líder (06/10/2026, 00:13)
+- Ordem verbatim: *"continue até 06/10/2026 - 07:30h AM"*.
+- O trabalho autônomo para às 07:30 de 06/10: nenhuma fatia nova começa depois disso.
+- O que estiver em voo às 07:30 é levado a um estado seguro (commit local de algo completo e verificado, nada pela metade) e relatado. Depois vem o `/memo_persistente`.
+- O fim está gravado em `~/.config/olhe_agentes/GlintFx/fim_ordenado`, e o monitor o confere a cada tick.

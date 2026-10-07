@@ -6662,3 +6662,22 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **M3** local, no container: a régua reprovou, como relatado pelo implementador da F1.
 - **Falta, na linha 15:** R1 e R2 (F3-RED), em preparo.
 - **F2:** a revisão PMU reprovou a rodada 2 pelo I-3 ("Only a refusal..." é falso: o `show_window` do Windows também se recupera). A rodada 3 está com o redator.
+
+### 07/10/2026 11:32:17 - F3-RED: R1 e R2 entregues; previsões pré-registradas antes dos runs (plano §3.3)
+
+- **R1** (`w8-pef-r1`, c059679a): os 5 testes sem a tolerância e SEM desenho novo. Sai também a linha `measured_exceptions.txt:190`. O diff tem +72/-605; o main conferiu o --stat.
+  - Grep dos nomes da tolerância em `tests/`: 0, em 240 `.cpp` varridos.
+  - `preci --fast`: rc=0, rodado sozinho. Uma rodada anterior com outro preci ao lado deu rc=8 por um autoteste sem relação com a mudança, e foi descartada.
+  - O `cl.exe` compilou os 4 alvos Windows.
+- **R2** (`w8-pef-r2`, 708428bf): o R1 sem o `g_clear` do laço 1 do `loop_parity_test` e do primeiro sítio do `loop_hidden_test` do Windows (-4 linhas).
+- **Rótulos medidos:** `gl_context_parity_test` e `loop_parity_test` são `consume` e rodam em 3 trabalhos Windows. `loop_hidden_test` é `unit` e roda nos 4, ASan incluído. O rótulo do `win32_iconic_present_test` está na linha abaixo, medido.
+- **Previsão R1:**
+  - `gl_context_parity_test` reprova em todo trabalho Windows que o roda, no primeiro swap do laço `vsync_off_60`, com `platform_failure`/`swap_buffers`; verde nas 2 pernas do container.
+  - `win32_iconic_present_test` reprova em todo trabalho Windows que o roda, no `after_restore`; o `presented_before_minimize` passa.
+  - `loop_parity_test` fica **verde** no Windows. É a prova da inferência C1 do CTO; se reprovar, a C1 cai e o caso volta ao CTO, sem mudar a fatia.
+  - `loop_hidden_test` fica verde em todos.
+- **Previsão R2:**
+  - `loop_parity_test` reprova em todo trabalho Windows que o roda (falha de swap no laço 1, contada e reprovada no check final);
+  - `loop_hidden_test` reprova nos 4 Windows;
+  - verde no Linux.
+- **Qualquer outro desfecho volta ao CTO antes da F3.**

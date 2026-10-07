@@ -41,6 +41,13 @@
 //      budget this fatia's own adapters, fatia 3, manage; Windows:
 //      `IsIconic()`, fatia 4) - the SHAPE of the answer is what this
 //      header freezes, not the mechanism.
+//      THE FIRST PRESENTED FRAME MAPS THE WINDOW, on both systems
+//      (D-W5-8, D-W8-38): a window is born unmapped, and the first
+//      swap_buffers() that is not skipped shows it, once, even when the
+//      launcher asked for a hidden start. A never-shown window is not
+//      "hidden": it is never answered `skipped_hidden` for that reason.
+//      Whether the system also gives it keyboard focus is the system's
+//      decision, requested and never promised.
 //
 //   3. THE NINE METHODS BELOW ARE THE FROZEN SURFACE (D-W6b-2, emended
 //      by sec. 11: `set_swap_interval()` an earlier draft of this plan

@@ -447,6 +447,16 @@ gltfx_rslt<gltfx_present_outcome> win32_gl_context_adapter::swap_buffers() noexc
     // real. ::SetLastError(0) IMEDIATAMENTE antes e' o idioma que a
     // propria documentacao do GetLastError() recomenda (ver o header
     // comment deste arquivo).
+    // WIN-MAP-FIRST-PRESENT (D-W8-38, D-W5-8): the first frame that is not skipped maps the window,
+    // BEFORE SwapBuffers, as on Wayland the first committed buffer maps the surface. A window that
+    // was never shown is not "hidden": only IsIconic() skips (above), so the loop reaches this
+    // line.
+    ::SetLastError(0);
+    if (!m_first_present_map.map_once(m_window)) {
+        return gltfx_rslt<gltfx_present_outcome>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                                          .with_rejected_value("show_window")
+                                                          .with_os_error_code(::GetLastError()));
+    }
     ::SetLastError(0);
     if (::SwapBuffers(m_dc) == 0) {
         // with_os_error_code(::GetLastError()) - THE GEMEO this file

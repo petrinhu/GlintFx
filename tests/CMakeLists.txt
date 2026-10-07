@@ -2488,6 +2488,7 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/first_present_map.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
@@ -2537,6 +2538,7 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/first_present_map.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
@@ -2723,6 +2725,7 @@ if(WIN32)
         # (its own comment there records the THREE separate rounds of
         # LNK2019 that taught this list what it has to carry).
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/first_present_map.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"

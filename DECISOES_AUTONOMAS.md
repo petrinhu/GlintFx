@@ -6375,3 +6375,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **NÃO provado aqui:** a ferramenta abrindo janela no Windows real. Isso nasce na C2b-4, em ramo descartável.
 - **Pendência:** `WIN32-LINK-GATE-RUN-LINK-CHECK-L17` (INBOX).
 - **Próximo:** C2b-4, com o vermelho aceito definido pela D-W8-45 (saída 11, INVISIVEL), seguida da WIN-MAP-1.
+
+### 06/10/2026 21:39:04 - Ordem do líder: laços de espera órfãos dos agentes podem ser encerrados
+
+- **Pergunta do main:** "Posso encerrar este e os próximos desse tipo, sempre conferindo antes pela linha de comando?" **Resposta do líder:** "Sim, este e os próximos (Recomendado)".
+- **Escopo:** só laços de espera órfãos criados por agentes desta sessão, do tipo `until ... pgrep -f '<texto>'` que encontra a própria linha de comando, e sempre depois de conferir a linha de comando. Cada encerramento é registrado aqui.
+- **Encerrado agora:** PID 154428, `until [ /var/tmp/cto-w8/c4-fast.rc -nt ... ] && ! pgrep -f 'tools/preci.sh --fast'`, deixado pelo implementador da C2b-4.

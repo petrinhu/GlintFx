@@ -6498,3 +6498,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   3. esconder antes do segundo swap;
   4. janela mostrada por fora.
 - **Regra escrita antes do dado:** só a variante 3 falhando significa defeito do teste, e a prova de "uma vez só" passa para o seam. A variante 1 ou a 2 falhando significa defeito do produto.
+
+### 06/10/2026 23:29:15 - Sonda swap2 (run 37562036206): o segundo swap falha em TODAS as variantes; defeito de produto
+
+- **Medido no executor Windows** (`862adf0`, 2 rodadas idênticas): nas 4 variantes, `swap1=ok` e `swap2=erro:platform_failure:swap_buffers os_error=0`.
+  - Variante 1: janela visível.
+  - Variante 2: com bombeamento.
+  - Variante 3: escondida por fora.
+  - Variante 4: mostrada por fora, sem o código novo da WIN-MAP-1.
+- **Pela regra escrita antes do dado:** a variante 1 e a 2 falhando significa DEFEITO DO PRODUTO, e não do teste. A variante 4 mostra mais: o defeito não vem do código de mostrar da WIN-MAP-1. Numa janela VISÍVEL, o segundo `SwapBuffers` falha com erro do SO 0. Até hoje toda janela nascia escondida no Windows, e é provável que isso escondesse o defeito (inferência, não medida).
+- **Terceira falha nesta fatia:** pela L-22, a pesquisa vem antes da próxima tentativa. Vai ao CTO, que pesquisa, decide o caminho e planeja. A WIN-MAP-1 não fecha sem isso.
+- **A pausa ordenada pelo líder** ("após acabar e commitar essa fatia") segue esperando o fim da fatia.

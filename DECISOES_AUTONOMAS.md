@@ -6509,3 +6509,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Pela regra escrita antes do dado:** a variante 1 e a 2 falhando significa DEFEITO DO PRODUTO, e não do teste. A variante 4 mostra mais: o defeito não vem do código de mostrar da WIN-MAP-1. Numa janela VISÍVEL, o segundo `SwapBuffers` falha com erro do SO 0. Até hoje toda janela nascia escondida no Windows, e é provável que isso escondesse o defeito (inferência, não medida).
 - **Terceira falha nesta fatia:** pela L-22, a pesquisa vem antes da próxima tentativa. Vai ao CTO, que pesquisa, decide o caminho e planeja. A WIN-MAP-1 não fecha sem isso.
 - **A pausa ordenada pelo líder** ("após acabar e commitar essa fatia") segue esperando o fim da fatia.
+
+### 06/10/2026 23:43:42 - D-W8-46 a D-W8-49 (CTO): causa provável do segundo swap, e quatro perguntas ao líder
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-swap2.md`.
+- **Causa provável, INFERÊNCIA por leitura do Mesa:** o Mesa 26.x (o CI fixa a 26.2.0) devolve FALSE num `SwapBuffers` sem nenhum comando GL desde o anterior, com `GetLastError` 0. Veio do commit `21e5d19f` (MR !39077), desde a mesa-26.0.0.
+- **Evidência indireta do CI (run 37535326010):**
+  - `loop_parity_test` limpa a tela antes de cada apresentação e apresentou 30/30;
+  - `gl_context_parity_test` não desenha entre os swaps e teve 124 de 125 swaps falhos no Windows, contra 0 no Fedora.
+- **Correção pela L-44:** a tolerância de 07/09 ("o renderizador às vezes recusa") tinha justificativa errada. A falha é determinística e tem causa nomeada. Os tempos de vsync medidos no Windows cronometram falhas, não apresentações.
+- **Plano:**
+  - sonda v2 com 5 variantes no ramo `sonda-swap2` (despachada);
+  - a WIN-MAP-1 fecha sem tocar no produto: o teste passa a desenhar antes de cada swap, e o revisor prova que remover o desenho traz a reprovação de volta;
+  - o quadro vazio vira a fatia própria `PRESENT-EMPTY-FRAME`.
+- **Para o líder, por AskUserQuestion:** o contrato do quadro vazio, a tolerância de 07/09, se `PRESENT-EMPTY-FRAME` entra na W8 e se relatamos ao Mesa ou baixamos o Mesa 25.3.

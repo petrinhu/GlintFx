@@ -36,13 +36,26 @@
 // "already done" fact.
 namespace glintfx::platform {
 
+// Shows `window` now and returns 0 when it is visible afterwards, else a
+// NON-ZERO Win32 error code: the failing call's own GetLastError() when it
+// reported one, ERROR_INVALID_WINDOW_HANDLE for a null window, and
+// ERROR_INVALID_STATE when the window simply stayed invisible with no
+// error reported (GetLastError() can be 0 on a failure, so 0 never means
+// "failed" here).
+[[nodiscard]] DWORD show_window_now(HWND window) noexcept;
+
+// The seam the order and failure tests use (GODS_LAWS.md L-04/L-20): same
+// signature as show_window_now(). Production never replaces it.
+using first_present_show_fn = DWORD (*)(HWND) noexcept;
+
 class first_present_map {
   public:
-    // True when the window is visible afterwards (already mapped, or
-    // mapped by this call); false when it still is not, in which case
-    // the next call tries again. NEVER shows a window a second time once
-    // it succeeded: a window hidden later by someone else stays hidden.
-    [[nodiscard]] bool map_once(HWND window) noexcept;
+    // 0 when the window is visible afterwards (already mapped, or mapped
+    // by this call); else the non-zero error code of show_window_now(),
+    // in which case the next call tries again. NEVER shows a window a
+    // second time once it succeeded: a window hidden later by someone
+    // else stays hidden.
+    [[nodiscard]] DWORD map_once(HWND window) noexcept;
 
     [[nodiscard]] bool done() const noexcept { return m_done; }
 
@@ -50,8 +63,14 @@ class first_present_map {
     // starts over: the new window was never shown.
     void reset() noexcept { m_done = false; }
 
+    // nullptr restores show_window_now().
+    void set_show_for_test(first_present_show_fn show) noexcept {
+        m_show = show != nullptr ? show : &show_window_now;
+    }
+
   private:
     bool m_done = false;
+    first_present_show_fn m_show = &show_window_now;
 };
 
 } // namespace glintfx::platform

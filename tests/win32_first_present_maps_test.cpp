@@ -9,8 +9,10 @@
 #endif
 #include <windows.h>
 
+#include <cstdint>
 #include <print>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <glintfx/core/err_code.hpp>
@@ -19,6 +21,7 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 #include "platform/win32/display_adapter.hpp"
+#include "platform/win32/first_present_map.hpp"
 #include "platform/win32/wgl_context_adapter.hpp"
 #include "platform/win32/window_adapter.hpp"
 
@@ -73,6 +76,21 @@ void print_error_detail(std::string_view label, const glintfx::gltfx_err &err) n
                  err.rejected_value());
     std::println("MEASURED win32_first_present_maps_test.{}_os_error_code={}", label,
                  err.os_error_code());
+}
+
+// Seam state for the order and failure cases (GODS_LAWS.md L-04: the order is only observable
+// from inside the first frame, so the fake records what the adapter had done when it was asked
+// to show the window). Single-threaded fixture, plain statics.
+const glintfx::platform::win32_gl_context_adapter *g_seam_context = nullptr;
+std::uint32_t g_swaps_issued_when_shown = 0xFFFFFFFFu;
+DWORD g_seam_error = 0;
+
+DWORD recording_show(HWND window) noexcept {
+    g_swaps_issued_when_shown = g_seam_context->swap_calls_issued();
+    if (g_seam_error != 0) {
+        return g_seam_error;
+    }
+    return glintfx::platform::show_window_now(window);
 }
 
 // The instrument must be proved (L-36): when the parent asked for a
@@ -173,6 +191,61 @@ GLINTFX_TEST(win32_first_present_maps_window_after_context_reopen) {
     std::println("MEASURED win32_first_present_maps_test.visible_after_reopen_first_present={}",
                  visible_after_reopen);
     GLINTFX_CHECK(visible_after_reopen);
+}
+
+// The window must already be visible when the frame is presented: the show comes BEFORE the swap.
+GLINTFX_TEST(win32_first_present_maps_window_before_the_swap) {
+    glintfx::platform::win32_display_adapter display;
+    glintfx::platform::win32_window_adapter window;
+    GLINTFX_CHECK(open_display_and_window(display, window));
+    glintfx::platform::win32_gl_context_adapter context;
+    const std::vector<glintfx::gltfx_gfx_option_entry> options;
+    GLINTFX_CHECK(!context.open(window, options).has_error());
+    GLINTFX_CHECK(!context.make_current().has_error());
+
+    g_seam_context = &context;
+    g_seam_error = 0;
+    g_swaps_issued_when_shown = 0xFFFFFFFFu;
+    context.set_first_present_show_for_test(&recording_show);
+    const auto presented = context.swap_buffers();
+    context.set_first_present_show_for_test(nullptr);
+    GLINTFX_CHECK(!presented.has_error());
+    std::println("MEASURED win32_first_present_maps_test.swaps_issued_when_shown={}",
+                 g_swaps_issued_when_shown);
+    GLINTFX_CHECK(g_swaps_issued_when_shown == 0);
+    GLINTFX_CHECK(context.swap_calls_issued() == 1);
+    GLINTFX_CHECK(::IsWindowVisible(window.native_handle()) != 0);
+}
+
+// A failure to show is a platform_failure "show_window" with a non-zero code, no swap is issued,
+// and the next frame tries again.
+GLINTFX_TEST(win32_first_present_show_failure_is_reported_and_retried) {
+    glintfx::platform::win32_display_adapter display;
+    glintfx::platform::win32_window_adapter window;
+    GLINTFX_CHECK(open_display_and_window(display, window));
+    glintfx::platform::win32_gl_context_adapter context;
+    const std::vector<glintfx::gltfx_gfx_option_entry> options;
+    GLINTFX_CHECK(!context.open(window, options).has_error());
+    GLINTFX_CHECK(!context.make_current().has_error());
+
+    g_seam_context = &context;
+    g_seam_error = ERROR_INVALID_STATE;
+    context.set_first_present_show_for_test(&recording_show);
+    ::SetLastError(0); // the failure must not depend on GetLastError() carrying anything
+    const auto failed = context.swap_buffers();
+    GLINTFX_CHECK(failed.has_error());
+    GLINTFX_CHECK(failed.err().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(failed.err().rejected_value() == std::string_view{"show_window"});
+    GLINTFX_CHECK(failed.err().os_error_code() == ERROR_INVALID_STATE);
+    GLINTFX_CHECK(context.swap_calls_issued() == 0);
+    GLINTFX_CHECK(::IsWindowVisible(window.native_handle()) == 0);
+
+    g_seam_error = 0;
+    const auto retried = context.swap_buffers();
+    context.set_first_present_show_for_test(nullptr);
+    GLINTFX_CHECK(!retried.has_error());
+    GLINTFX_CHECK(context.swap_calls_issued() == 1);
+    GLINTFX_CHECK(::IsWindowVisible(window.native_handle()) != 0);
 }
 
 // Entry the parent relaunches. Run directly (no env var) it is the same

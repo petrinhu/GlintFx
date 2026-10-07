@@ -181,6 +181,12 @@ class win32_gl_context_adapter {
     // `skipped_hidden` never touches the real GDI call), the one fact
     // no return-value assertion alone could distinguish from "SwapBuffers
     // was called and coincidentally reported success".
+    // Test seam (win32_first_present_maps_test): replaces the function that shows the window on the
+    // first presented frame; nullptr restores the real one.
+    void set_first_present_show_for_test(first_present_show_fn show) noexcept {
+        m_first_present_map.set_show_for_test(show);
+    }
+
     [[nodiscard]] std::uint32_t swap_calls_issued() const noexcept { return m_swap_calls_issued; }
 
   private:

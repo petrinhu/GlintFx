@@ -453,11 +453,12 @@ gltfx_rslt<gltfx_present_outcome> win32_gl_context_adapter::swap_buffers() noexc
     // BEFORE SwapBuffers, as on Wayland the first committed buffer maps the surface. A window that
     // was never shown is not "hidden": only IsIconic() skips (above), so the loop reaches this
     // line.
-    ::SetLastError(0);
-    if (!m_first_present_map.map_once(m_window)) {
+    // The error is the atom's own non-zero code (never GetLastError() here: it can be 0 on a
+    // failure).
+    if (const DWORD map_error = m_first_present_map.map_once(m_window); map_error != 0) {
         return gltfx_rslt<gltfx_present_outcome>::err(gltfx_err(gltfx_err_code::platform_failure)
                                                           .with_rejected_value("show_window")
-                                                          .with_os_error_code(::GetLastError()));
+                                                          .with_os_error_code(map_error));
     }
     ::SetLastError(0);
     if (::SwapBuffers(m_dc) == 0) {

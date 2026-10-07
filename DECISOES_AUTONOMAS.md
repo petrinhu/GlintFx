@@ -6482,3 +6482,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **É a segunda falha desta fatia no executor:** pela L-22, a pesquisa vem antes da próxima tentativa. Voltou ao implementador com a ordem de pesquisar e medir antes de consertar, e de não ajustar o teste para passar.
 - **Paridade das distros:** segue pendente, depois deste.
 - **A WIN-MAP-1 NÃO está pronta.** A pausa ordenada pelo líder espera o fim da fatia.
+
+### 06/10/2026 23:24:31 - WIN-MAP-1: revisões fechadas; o defeito do segundo swap vai para medição
+
+- **Commits:**
+  - `44789bd` e `db3e7ac`: reabertura;
+  - `5aea867`: ordem por seam e falha não ambígua;
+  - `fe68a0c`: cppcheck;
+  - `a4137fd`: paridade nas 3 distros, no padrão de `win32_wait_events_test`, provada com `--per-system` sobre os inventários reais do run 37558373506.
+  - `preci --fast` e `--sanitizer-only` com rc 0.
+- **Segundo swap, hipótese do implementador, NÃO medida:** o teste esconde a janela por fora (`SW_HIDE`) e depois apresenta. É o caso `WIN-PRESENT-HIDDEN-EXTERNAL`, sem comportamento definido. O `win32_iconic_present_test` já tolera essa assinatura (software renderer, `GetLastError` 0).
+- **Decisão do main: MEDIR antes de mudar o teste** (L-22, segunda falha). Sonda no ramo descartável `sonda-swap2`, com 4 variantes:
+  1. dois swaps com a janela visível;
+  2. o mesmo, com bombeamento entre eles;
+  3. esconder antes do segundo swap;
+  4. janela mostrada por fora.
+- **Regra escrita antes do dado:** só a variante 3 falhando significa defeito do teste, e a prova de "uma vez só" passa para o seam. A variante 1 ou a 2 falhando significa defeito do produto.

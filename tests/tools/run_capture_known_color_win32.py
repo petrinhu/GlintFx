@@ -33,8 +33,10 @@
 # USAGE: run_capture_known_color_win32.py [--sabotage NAME] <win32_window_capture.exe>
 #            <capture_known_color_smoke.exe> <out_dir>
 #        run_capture_known_color_win32.py --selftest
-# --sabotage is the debut proof (L-36): the fixture draws a wrong frame on purpose and the verdict
-# MUST be a rejection; this script does not invert it. Exit 0 only when every mode passed.
+# --sabotage is the debut proof (L-36): swap_red_blue, alpha_half and corrupt_readback make the fixture
+# draw a wrong frame on purpose; `occlude` (D-W8-42) makes the TOOL cover the window with one of its own
+# (`--sabotage-occlude`), and the verdict MUST be OCLUIDA (code 14). The verdict MUST be a rejection;
+# this script does not invert it. Exit 0 only when every mode passed.
 #
 # WHAT THIS DOES NOT PROVE (declared, L-43): the alpha of the SCREEN capture (absent by
 # construction, counted); ACTIVATION and FOCUS (the tool never reads them); DPI scaling other than
@@ -60,8 +62,14 @@ MODES = ("off", "on")
 # The title the fixture gives its window. A copy of a fact the fixture owns, so a selftest control
 # reads the fixture's source and fails when the two drift (feedback_copia_em_vez_de_fonte).
 WINDOW_TITLE = "janela da fumaca de cor conhecida"
-FIXTURE_SOURCES = (REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.cpp",
-                   REPO_ROOT / "tests" / "container" / "capture_known_color_smoke.cpp")
+FIXTURE_SOURCE = REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.cpp"
+# How long the fixture keeps its window alive and answering messages after it presented (its
+# --hold-until-close budget): longer than the tool's present wait plus the captures plus the close.
+HOLD_UNTIL_CLOSE_MS = 120000
+# THE SABOTAGES. The three of the fixture travel on the fixture's command line; `occlude` is a mode
+# of the TOOL (D-W8-42: it covers the window from outside) and is never handed to the fixture.
+FIXTURE_SABOTAGES = ("swap_red_blue", "alpha_half", "corrupt_readback")
+TOOL_SABOTAGES = {"occlude": "--sabotage-occlude"}
 ABSENCE_LINE = "AUSENCIA DECLARADA srgb_framebuffer=on"
 ABSENCE_FIXTURE_EXIT = re.compile(r"fixture exit=77\s*$", re.MULTILINE)
 TOOL_FIXTURE_FAILED = 1
@@ -175,9 +183,15 @@ def clean_mode_output(config, mode):
 
 
 def tool_command(config, mode):
+    """The tool's command line: its own options (the title, the output, and the sabotage `occlude`, the
+    only one that is the tool's), then `--` and the fixture's: mode, readback directory, the hold budget
+    (always: PrintWindow needs the owner of the window answering messages) and the fixture's sabotage."""
     directory = mode_dir(config, mode)
-    fixture = [config.fixture, mode, directory / "readback"] + ([config.sabotage] if config.sabotage else [])
-    return [config.tool, "--title", WINDOW_TITLE, "--out", directory / "capture", "--", *fixture]
+    fixture = [config.fixture, mode, directory / "readback", "--hold-until-close", str(HOLD_UNTIL_CLOSE_MS)]
+    if config.sabotage in FIXTURE_SABOTAGES:
+        fixture.append(config.sabotage)
+    tool_flags = [TOOL_SABOTAGES[config.sabotage]] if config.sabotage in TOOL_SABOTAGES else []
+    return [config.tool, "--title", WINDOW_TITLE, "--out", directory / "capture", *tool_flags, "--", *fixture]
 
 
 def classify_tool_run(mode, code, output):
@@ -359,7 +373,7 @@ def parse_args(args):
     sabotage = ""
     if len(args) >= 2 and args[0] == "--sabotage":
         sabotage, args = args[1], args[2:]
-    if len(args) != 3:
+    if len(args) != 3 or (sabotage and sabotage not in FIXTURE_SABOTAGES + tuple(TOOL_SABOTAGES)):
         return None
     return run_config(tool=args[0], fixture=args[1], out_dir=Path(args[2]), sabotage=sabotage)
 
@@ -434,22 +448,53 @@ def selftest_measured_lines():
 
 
 def selftest_title_matches_the_fixture():
-    sources = [path for path in FIXTURE_SOURCES if path.is_file()]
-    check("o fonte da fixture existe em um dos dois caminhos conhecidos (piso, L-40)", len(sources) >= 1)
-    check("o titulo que o driver passa e o que a fixture da a janela",
-          all(f'"{WINDOW_TITLE}"' in path.read_text(encoding="utf-8", errors="replace") for path in sources))
+    check("o fonte da fixture existe (piso, L-40): um so, em tests/parity, para os dois sistemas",
+          FIXTURE_SOURCE.is_file())
+    text = FIXTURE_SOURCE.read_text(encoding="utf-8", errors="replace")
+    check("o titulo que o driver passa e o que a fixture da a janela", f'"{WINDOW_TITLE}"' in text)
+    check("a linha de ausencia que o driver procura e a que a fixture imprime, e a saida dela e 77",
+          f'"{ABSENCE_LINE}' in text and "k_exit_declared_absence = 77" in text)
+    check("a gramatica que o driver usa e a que a fixture aceita: --hold-until-close <ms>",
+          '"--hold-until-close"' in text and "--hold-until-close" in " ".join(
+              str(part) for part in tool_command(make_config("."), "off")))
+    check("as sabotagens que o driver entrega a fixture sao exatamente as que a fixture conhece, e occlude nao",
+          all(f'"{name}"' in text for name in FIXTURE_SABOTAGES) and '"occlude"' not in text)
 
 
 def selftest_tool_command():
     with tempfile.TemporaryDirectory() as tmp:
         config = make_config(tmp)
         command = tool_command(config, "off")
-        check("comando da ferramenta: titulo, saida e a linha da fixture depois de --",
+        check("comando da ferramenta: titulo, saida e a linha da fixture depois de --, com o orcamento de espera",
               command[0] == "TOOL" and command[command.index("--title") + 1] == WINDOW_TITLE
               and command[command.index("--out") + 1] == config.out_dir / "off" / "capture"
-              and command[command.index("--") + 1:] == ["FIXTURE", "off", config.out_dir / "off" / "readback"])
+              and command[command.index("--") + 1:] == ["FIXTURE", "off", config.out_dir / "off" / "readback",
+                                                        "--hold-until-close", str(HOLD_UNTIL_CLOSE_MS)])
         config.sabotage = "swap_red_blue"
-        check("sabotagem vai por ultimo, para a fixture", tool_command(config, "on")[-1] == "swap_red_blue")
+        check("sabotagem da fixture vai por ultimo, para a fixture, depois do orcamento de espera",
+              tool_command(config, "on")[-1] == "swap_red_blue"
+              and tool_command(config, "on")[-3] == "--hold-until-close")
+
+
+def selftest_occlude_reaches_only_the_tool():
+    with tempfile.TemporaryDirectory() as tmp:
+        config = make_config(tmp)
+        config.sabotage = "occlude"
+        command = tool_command(config, "off")
+        separator = command.index("--")
+        check("occlude chega a ferramenta como --sabotage-occlude, antes do --",
+              "--sabotage-occlude" in command[:separator])
+        check("occlude NAO chega a fixture (depois do --)",
+              "occlude" not in command[separator + 1:] and "--sabotage-occlude" not in command[separator + 1:])
+        for other in FIXTURE_SABOTAGES + ("",):
+            config.sabotage = other
+            check(f"a sabotagem {other!r} nao liga o oclusor da ferramenta",
+                  "--sabotage-occlude" not in tool_command(config, "off"))
+        check("argumentos: occlude e as tres da fixture sao aceitos, um nome desconhecido e recusado",
+              all(parse_args(["--sabotage", name, "T", "F", "o"]) is not None
+                  for name in ("occlude",) + FIXTURE_SABOTAGES)
+              and parse_args(["--sabotage", "occlude_typo", "T", "F", "o"]) is None
+              and parse_args(["T", "F", "o"]) is not None)
 
 
 def selftest_count_pairs():
@@ -895,6 +940,7 @@ def selftest_main():
     selftest_measured_lines()
     selftest_title_matches_the_fixture()
     selftest_tool_command()
+    selftest_occlude_reaches_only_the_tool()
     selftest_count_pairs()
     selftest_wiring_all_clean()
     selftest_wiring_each_part_counts()

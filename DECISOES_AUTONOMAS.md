@@ -6419,3 +6419,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - run 37558376457: CI inteiro em `efe2734`.
 - **Achado do implementador, não verificado:** o portão win32-link reprova a reconciliação depois que a ferramenta entrou na contagem (bruto 154 contra 155). Pode vir de `905a9b6`; a revisão verifica.
 - **Correção do implementador:** ele disse que a linha `WIN-MAP-FIRST-PRESENT` não existe na TODO.md. Existe: o grep conta 5.
+
+### 06/10/2026 22:43:54 - WIN-MAP-1: a janela aparece no executor Windows (verde da captura)
+
+- **Run 37558358855:** sonda C2b-4 sobre `efe2734`, o conserto. Saída em `/var/tmp/cto-w8/c2b4-verde-run/`.
+- **Resultado:**
+  - `janelas=1 visivel=1 iconico=0`; a janela está pronta nos 5 pontos;
+  - leitura interna com 5 sondas e 0 falhas;
+  - PrintWindow e BitBlt com 76800 pixels cada e 0 diferentes;
+  - `DRIVER_EXIT codigo=0`; o modo `on` saiu como ausência declarada.
+- **Antes e depois, no mesmo teste e no mesmo executor:** o vermelho em `64cb199` (run 37552985243) deu INVISIVEL 11; o conserto deu janela visível, com a cor exata nos dois mecanismos externos. O "FORA_DO_ACEITO" do `check_c2b4` aqui é esperado, porque ele só conhece o vermelho.
+- **Pendente:** CI inteiro no `df22cf8` (o teste novo tem de reprovar) e no `efe2734`, mais a revisão adversarial da WIN-MAP-1.

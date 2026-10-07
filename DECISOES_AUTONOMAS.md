@@ -6367,3 +6367,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **R3-1:** nenhum controle prova que INCOERENTE e CODIGO_DESCONHECIDO reprovam o driver. Sem ele, um `passed()` mutado dá falso verde.
   - **R3-2:** `pontos=N` rejeita com código 0.
 - **Dívida antiga da L-17:** `run_link_check` tem 84 linhas, contra o teto de 40. Foi para a INBOX como `WIN32-LINK-GATE-RUN-LINK-CHECK-L17`.
+
+### 06/10/2026 21:03:06 - C2b-1 a C2b-3 de QA-SCREEN-CAPTURE ACEITOS na rodada 4
+
+- **Ponta aceita:** `e256931`. Quatro rodadas de revisão, em `/var/tmp/cto-w8/rev-c2b-123.md`. A rodada 4 não achou nada novo; os mutantes de R3-1 e R3-2 morreram.
+- **Prova:** `preci --fast` e `--sanitizer-only` com rc 0 na ponta (implementador). A rodada 2 rodou o `--fast` por conta própria. O `cl.exe` real compilou com `/W4 /WX`. Selftest do driver: 81 controles, número exato no CMake (conferido pelo main no blob). `window_capture_rules_test`: 31 casos.
+- **NÃO provado aqui:** a ferramenta abrindo janela no Windows real. Isso nasce na C2b-4, em ramo descartável.
+- **Pendência:** `WIN32-LINK-GATE-RUN-LINK-CHECK-L17` (INBOX).
+- **Próximo:** C2b-4, com o vermelho aceito definido pela D-W8-45 (saída 11, INVISIVEL), seguida da WIN-MAP-1.

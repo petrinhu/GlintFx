@@ -6573,3 +6573,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a linha `PRESENT-EMPTY-FRAME` entrou na W8 por decisão do líder. A onda tem agora 11 linhas, e o piso subiu de 10 para 11.
 - **Em seguida:** push do onda-w8 e retrato da sessão. Depois, **pausa por ordem do líder** ("Pause após acabar e commitar essa fatia").
 - **O próximo trabalho fica para a retomada:** PRESENT-EMPTY-FRAME, a C2b-5, DEMO-1 e as demais. O ramo descartável `w8-mutante-winmap1` fica no remoto até a limpeza.
+
+### 07/10/2026 08:37:01 - Retomada por ordem do líder ("continue")
+
+- A parada que o líder ordenou ao fim da WIN-MAP-1 foi encerrada pela ordem verbatim dele: "continue". O arquivo `parada_do_lider` foi apagado.
+- O modo autônomo segue válido até 07/10/2026 20:17:43.
+- O watchcode foi religado; estava inativo, com origem não identificada, e o monitor foi rearmado.
+- **Próxima fatia: PRESENT-EMPTY-FRAME (W8).** Pela L-34 em modo autônomo, o brainstorm é entre o main e o C-level opus (CTO), que decide no lugar do líder o que não foi decidido por ele. O líder já decidiu o contrato ("indefinido, recusa relatada"), a tolerância ("remover dos 4 testes") e a onda (W8).
+- **Pela L-43, a pesquisa vem antes do plano:** web, RmlUi e SDL3, para ver como tratam a apresentação de quadro sem desenho, as falhas de SwapBuffers e as tolerâncias de renderer por software.

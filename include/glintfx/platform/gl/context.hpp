@@ -49,6 +49,27 @@
 //      Whether the system also gives it keyboard focus is the system's
 //      decision, requested and never promised.
 //
+//      A FRAME WITH NOTHING DRAWN (PRESENT-EMPTY-FRAME, D-W8-50): when
+//      swap_buffers() is reached with no GL drawing command issued since
+//      the previous presentation, the content it presents is undefined
+//      (the same rule WGL_SWAP_UNDEFINED_ARB and EGL_BUFFER_DESTROYED
+//      already give for the back buffer after a swap), and the system MAY
+//      refuse to present it. A refusal is an ordinary error, never a third
+//      gltfx_present_outcome value and never `presented`: code
+//      `gltfx_err_code::platform_failure`, `rejected_value()` naming the
+//      system call that refused (docs/api-conventions.md R7: a token,
+//      never a sentence), and `os_error_code()` carrying what the system
+//      reported, which can be 0. The context stays usable: the next
+//      swap_buffers() after a frame that does draw presents normally.
+//      Whether a system refuses is its driver's decision, never this
+//      library's: a Windows Mesa driver from 26.0 on refuses the second
+//      presentation of a window when nothing was drawn between the two,
+//      while other drivers present it. This library never draws on the
+//      consumer's behalf to avoid the refusal, and never reports a refused
+//      frame as presented. Draw every frame you present; a clear is
+//      enough.
+//      Proved by: present_empty_frame_parity_test.
+//
 //   3. THE NINE METHODS BELOW ARE THE FROZEN SURFACE (D-W6b-2, emended
 //      by sec. 11: `set_swap_interval()` an earlier draft of this plan
 //      proposed is GONE - v-sync is the `vsync` row of the options
@@ -247,6 +268,10 @@ class gltfx_gl_context {
     // blocks indefinitely: a window this library cannot currently
     // repaint degrades to `skipped_hidden` within a bounded budget,
     // never a hang.
+    //
+    // A frame with nothing drawn since the previous presentation: its
+    // content is undefined and the system may refuse it, reported as
+    // `platform_failure` - see this header's own top comment, item 2.
     //
     // The same refusal make_current() above documents applies here, and
     // this call never reaches the driver's own present once it applies.

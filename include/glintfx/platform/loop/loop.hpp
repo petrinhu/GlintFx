@@ -220,6 +220,9 @@ struct gltfx_loop_callbacks {
     // empty - a tick with should_render true and no drawing code would
     // present whatever the back buffer already held, undefined content
     // from the consumer's own point of view.
+    // The system may also refuse that presentation outright
+    // (platform/gl/context.hpp, item 2, PRESENT-EMPTY-FRAME); run()
+    // then ends with that error, unchanged (P9 below).
     gltfx_on_render_fn on_render = nullptr;
 
     // RESERVED for INPUT-EVENTS (W7) - MUST be null in this version.
@@ -473,6 +476,7 @@ class gltfx_loop {
     // and should_render (P4 above). Calling the context directly
     // instead is still allowed (P10) - this loop simply never learns
     // the outcome.
+    // A frame with nothing drawn: platform/gl/context.hpp, item 2.
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_present_outcome> present() noexcept;
 
     // Sugar over step()/on_frame/on_render/present() - see this class's

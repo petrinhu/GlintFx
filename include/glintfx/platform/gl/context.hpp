@@ -54,17 +54,18 @@
 //      the previous presentation (a clear is a drawing command), the
 //      content it presents is undefined (the system APIs may already
 //      leave the back buffer undefined after a swap), and the system
-//      MAY refuse to present it. A refusal is an ordinary
-//      error, never a third gltfx_present_outcome value and never
-//      `presented`: code `gltfx_err_code::platform_failure`;
-//      `rejected_value()` a short identifier of the refusing call
-//      (docs/api-conventions.md R7: a token, never a sentence);
-//      `os_error_code()` the system's own error number when it gave one,
-//      otherwise 0 (R4). The context stays usable: the next
-//      swap_buffers() after a frame that does draw presents normally.
+//      MAY refuse to present it. A refusal is an ordinary error, never
+//      a third gltfx_present_outcome value and never `presented`: code
+//      `gltfx_err_code::platform_failure`; `rejected_value()` a short
+//      identifier of the refusing call (docs/api-conventions.md R7: a
+//      token, never a sentence); `os_error_code()` the system's own
+//      error number when it gave one, otherwise 0 (R4). The context
+//      stays usable: the next swap_buffers() after a frame that does
+//      draw presents normally.
 //      A `platform_failure` from swap_buffers() is not always this
-//      refusal: a failed connection (make_current() below) reports the
-//      same code and, unlike this refusal, never recovers.
+//      refusal: a failed connection (Wayland only, make_current()
+//      below) reports the same code and, unlike this refusal, never
+//      recovers.
 //      Whether a system refuses is its driver's decision, never this
 //      library's: some drivers present such a frame, some refuse it,
 //      and the same program can behave differently on two machines.
@@ -72,8 +73,8 @@
 //      refusal, and never reports a refused frame as presented. Draw
 //      every frame you present; a clear is enough.
 //      Proved by: present_empty_frame_parity_test (the refusal),
-//      egl_protocol_error_smoke and connection_failure_test (a failed
-//      connection never recovers).
+//      egl_protocol_error_smoke, egl_error_read_inside_swap_smoke and
+//      connection_failure_test (a failed connection never recovers).
 //
 //   3. THE NINE METHODS BELOW ARE THE FROZEN SURFACE (D-W6b-2, emended
 //      by sec. 11: `set_swap_interval()` an earlier draft of this plan

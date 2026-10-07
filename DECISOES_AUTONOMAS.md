@@ -6440,3 +6440,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Foco: sem conflito com nenhuma decisão escrita. A sonda X-0 do plano-w6a usava SHOWNOACTIVATE (nota).
 - **Defeito do 905a9b6, já aceito antes:** o portão win32-link soma testes e ferramentas na reconciliação e reprova (154 contra 155). Quebra `preci --win32-link-only` e o estágio 9 do preci completo; o CI não chama o script. O aceite da C2b-1 a C2b-3 não pegou isso, porque o `--fast` não roda esse estágio. Volta ao implementador dele.
 - **Despachados:** o implementador da WIN-MAP-1 cuida dos três itens e o da C2b cuida do portão, em arquivos separados. Prazo de ambos: 23:30, por causa da pausa das 23:50.
+
+### 06/10/2026 22:54:30 - Conserto do portão win32-link (b7c3131) ACEITO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-winmap1.md`, seção 2): ACEITAR.
+  - O controle CONTAGEM-COM-FERRAMENTA morde em 4 mutantes.
+  - A conta fecha: 154 = 126 testes + 18 + 10.
+  - O implementador declara `preci --win32-link-only` com rc 0.
+- **Ressalva menor, foi para a INBOX:** a fiação em `print_not_measured_block` não tem guarda (`WIN32-LINK-GATE-NOT-MEASURED-WIRING`).
+- **WIN-MAP-1:** o veredito NÃO ACEITAR da revisão é anterior às correções `44789bd` e `db3e7ac` (reabertura). Os itens 2 e 3 seguem com o implementador. A nova rodada de revisão vem quando ele entregar.

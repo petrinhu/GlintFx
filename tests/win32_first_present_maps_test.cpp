@@ -48,6 +48,10 @@
 // executor (C2b-4), which runs the consumer loop and never shows the
 // window itself.
 //
+// D-W8-47: every swap_buffers() below is preceded by a real draw (clear_frame), because the
+// Mesa 26 D3D12 driver (commit 21e5d19f) fails a swap with no GL command since the previous one.
+// The empty frame is covered by the slice PRESENT-EMPTY-FRAME (D-W8-48), not by this test.
+//
 // No Windows runs on the machine that wrote this file (L-27 declared):
 // the windows-latest job is the only place these cases execute.
 
@@ -56,6 +60,19 @@ namespace {
 constexpr const wchar_t *k_expect_hidden_env = L"GLINTFX_FIRST_PRESENT_EXPECT_SW_HIDE";
 constexpr const char *k_hidden_child_case = "win32_first_present_maps_under_sw_hide_child";
 constexpr DWORD k_child_timeout_ms = 60'000;
+
+// Draws a real frame (glClearColor + glClear) so the swap that follows presents a frame with
+// content. D-W8-47: Mesa 26 (commit 21e5d19f) refuses to present a frame with no GL command since
+// the previous swap; the empty frame is covered by PRESENT-EMPTY-FRAME (D-W8-48), not here.
+void clear_frame(const glintfx::platform::win32_gl_context_adapter &context) {
+    using fn_clear = void (*)(unsigned);
+    using fn_clear_color = void (*)(float, float, float, float);
+    const auto clear_color = reinterpret_cast<fn_clear_color>(context.proc_address("glClearColor"));
+    const auto clear = reinterpret_cast<fn_clear>(context.proc_address("glClear"));
+    GLINTFX_CHECK(clear_color != nullptr && clear != nullptr);
+    clear_color(0.25F, 0.5F, 0.75F, 1.0F);
+    clear(0x00004000);
+}
 
 [[nodiscard]] bool
 open_display_and_window(glintfx::platform::win32_display_adapter &display,
@@ -141,6 +158,7 @@ void check_first_present_maps_and_only_once() {
     // Still invisible after the context exists: opening a context is not presenting.
     GLINTFX_CHECK(::IsWindowVisible(hwnd) == 0);
 
+    clear_frame(context);
     const auto first = context.swap_buffers();
     if (first.has_error()) {
         print_error_detail("first_swap", first.err());
@@ -159,6 +177,7 @@ void check_first_present_maps_and_only_once() {
     ::ShowWindow(hwnd, SW_HIDE);
     GLINTFX_CHECK(!display.pump_events().has_error());
     GLINTFX_CHECK(::IsWindowVisible(hwnd) == 0);
+    clear_frame(context);
     const auto second = context.swap_buffers();
     if (second.has_error()) {
         print_error_detail("second_swap", second.err());
@@ -186,6 +205,7 @@ GLINTFX_TEST(win32_first_present_maps_window_after_context_reopen) {
     const std::vector<glintfx::gltfx_gfx_option_entry> options;
     GLINTFX_CHECK(!context.open(window, options).has_error());
     GLINTFX_CHECK(!context.make_current().has_error());
+    clear_frame(context);
     GLINTFX_CHECK(!context.swap_buffers().has_error());
     GLINTFX_CHECK(::IsWindowVisible(hwnd) != 0);
 
@@ -196,6 +216,7 @@ GLINTFX_TEST(win32_first_present_maps_window_after_context_reopen) {
 
     GLINTFX_CHECK(!context.open(window, options).has_error());
     GLINTFX_CHECK(!context.make_current().has_error());
+    clear_frame(context);
     GLINTFX_CHECK(!context.swap_buffers().has_error());
     const bool visible_after_reopen = ::IsWindowVisible(hwnd) != 0;
     std::println("MEASURED win32_first_present_maps_test.visible_after_reopen_first_present={}",
@@ -218,6 +239,7 @@ GLINTFX_TEST(win32_first_present_maps_window_before_the_swap) {
     g_seam_error = 0;
     g_swaps_issued_when_shown = 0xFFFFFFFFu;
     context.set_first_present_show_for_test(&recording_show);
+    clear_frame(context);
     const auto presented = context.swap_buffers();
     context.set_first_present_show_for_test(nullptr);
     GLINTFX_CHECK(!presented.has_error());
@@ -244,6 +266,7 @@ GLINTFX_TEST(win32_first_present_show_failure_is_reported_and_retried) {
     g_seam_error = ERROR_INVALID_STATE;
     context.set_first_present_show_for_test(&recording_show);
     ::SetLastError(0); // the failure must not depend on GetLastError() carrying anything
+    clear_frame(context);
     const auto failed = context.swap_buffers();
     GLINTFX_CHECK(failed.has_error());
     GLINTFX_CHECK(failed.err().code() == glintfx::gltfx_err_code::platform_failure);
@@ -253,6 +276,7 @@ GLINTFX_TEST(win32_first_present_show_failure_is_reported_and_retried) {
     GLINTFX_CHECK(::IsWindowVisible(window.native_handle()) == 0);
 
     g_seam_error = 0;
+    clear_frame(context);
     const auto retried = context.swap_buffers();
     context.set_first_present_show_for_test(nullptr);
     GLINTFX_CHECK(!retried.has_error());

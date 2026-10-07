@@ -6466,3 +6466,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Texto do líder, verbatim:** "não pare mais no horário que falei. Pause após acabar e commitar essa fatia".
 - **A fatia é a WIN-MAP-1.** "Acabar" segue o critério do plano: correções commitadas, `preci` verde e o executor Windows provando o teste novo VERMELHO no `df22cf8` e VERDE na ponta. Depois do aceite, o registro, o push e o snapshot, a sessão pausa.
 - **O prazo de 23:30 dado aos agentes está revogado.** A ordem anterior, de pausar às 23:50, foi substituída.
+
+### 06/10/2026 23:09:07 - Run 37558373506 (df22cf8): o vermelho da WIN-MAP-1 confirmado; paridade reprova
+
+- **Jobs Windows** (compartilhado, estático, Debug e ASan): `win32_first_present_maps_test` e `capture_known_color_smoke` reprovam antes do conserto, como esperado. É o vermelho do teste novo no executor real.
+- **Job de paridade também reprova:** `win32_first_present_maps_test` falta em arch, cachyos e ubuntu sem exceção. O apelido de `tests/parity_aliases.txt:373` usa como gêmeo `capture_known_color_smoke`, que é ausência declarada nessas três distros. A mesma configuração está na ponta, então o CI verde também reprovaria aqui. Voltou ao implementador da WIN-MAP-1.
+- O CI da ponta anterior (run 37558376457, `efe2734`) segue rodando. O definitivo será disparado depois do conserto da paridade.

@@ -6472,3 +6472,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Jobs Windows** (compartilhado, estático, Debug e ASan): `win32_first_present_maps_test` e `capture_known_color_smoke` reprovam antes do conserto, como esperado. É o vermelho do teste novo no executor real.
 - **Job de paridade também reprova:** `win32_first_present_maps_test` falta em arch, cachyos e ubuntu sem exceção. O apelido de `tests/parity_aliases.txt:373` usa como gêmeo `capture_known_color_smoke`, que é ausência declarada nessas três distros. A mesma configuração está na ponta, então o CI verde também reprovaria aqui. Voltou ao implementador da WIN-MAP-1.
 - O CI da ponta anterior (run 37558376457, `efe2734`) segue rodando. O definitivo será disparado depois do conserto da paridade.
+
+### 06/10/2026 23:15:22 - Run 37558376457 (efe2734): o conserto mostra a janela, mas o segundo swap falha
+
+- **`capture_known_color_smoke` PASSA nos jobs Windows:** a janela aparece com a cor certa.
+- **`win32_first_present_maps_test` REPROVA nos 4 jobs Windows.**
+  - O primeiro quadro mostra a janela: `first_swap_presented=true`, `visible_after_first_present=true`.
+  - O SEGUNDO `swap_buffers()` devolve `platform_failure`/`swap_buffers` com o erro do SO igual a 0, nos 3 casos e no filho sob SW_HIDE.
+- **É a segunda falha desta fatia no executor:** pela L-22, a pesquisa vem antes da próxima tentativa. Voltou ao implementador com a ordem de pesquisar e medir antes de consertar, e de não ajustar o teste para passar.
+- **Paridade das distros:** segue pendente, depois deste.
+- **A WIN-MAP-1 NÃO está pronta.** A pausa ordenada pelo líder espera o fim da fatia.

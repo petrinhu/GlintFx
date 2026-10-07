@@ -1289,6 +1289,12 @@ def _count_add_test_comment_mentions(repo_root):
     return _count_add_test_comment_mentions_in_text(text)
 
 
+def test_targets_found(summary):
+    """Os glintfx_add_test() ligados: `alvos_encontrados` soma testes E ferramentas, e o bruto do
+    bloco 'NAO MEDIDO AQUI' conta so' 'glintfx_add_test(' (as ferramentas sao add_executable)."""
+    return summary["alvos_encontrados"] - summary.get("ferramentas", 0)
+
+
 def _reconcile_add_test_counts(bruto, encontrados, excluidos, comentario):
     """bruto == encontrados + excluidos + comentario, sempre - a soma
     tem de FECHAR, nunca so' 'explicar' a diferenca por definicao
@@ -1804,7 +1810,7 @@ def real_main(repo_root, image, timeout_seconds, strict=False):
         image,
         abs_repo_root,
         timeout_seconds,
-        summary["alvos_encontrados"],
+        test_targets_found(summary),
         sum(summary["exclusion_counts"].values()),
     )
 
@@ -2434,8 +2440,55 @@ def _selftest_reconcile_summary():
     return True
 
 
+_COUNT_FIXTURE = """
+if(WIN32)
+    glintfx_add_test(fake_a_test)
+    add_executable(fake_tool "${CMAKE_CURRENT_SOURCE_DIR}/tools/fake.cpp")
+    target_link_libraries(fake_tool PRIVATE user32)
+endif()
+glintfx_add_test(fake_b_test)
+if(UNIX)
+    glintfx_add_test(fake_unix_test)
+endif()
+# prosa: o glintfx_add_test(x) citado em comentario
+"""
+
+
+def _selftest_not_measured_counts_with_tools():
+    """O bruto conta SO glintfx_add_test( ; `alvos_encontrados` soma testes E ferramentas. A
+    reconciliacao usa a contagem de testes, e fecha com ferramenta na arvore (achado da revisao da
+    WIN-MAP-1: 154 contra 155 na arvore real)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, "tests"))
+        with open(os.path.join(tmp, "tests", "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write(_COUNT_FIXTURE)
+        targets, exclusion_counts = extract_win32_test_targets(_COUNT_FIXTURE)
+        tools, _ = extract_win32_tool_targets(_COUNT_FIXTURE)
+        summary = new_summary()
+        summary["ferramentas"] = len(tools)
+        summary["alvos_encontrados"] = len(targets) + len(tools)
+        bruto = _raw_add_test_grep_count(tmp)
+        comentario = _count_add_test_comment_mentions(tmp)
+        try:
+            _reconcile_add_test_counts(bruto, test_targets_found(summary), sum(exclusion_counts.values()), comentario)
+        except SystemExit:
+            print(
+                f"selftest: CONTAGEM-COM-FERRAMENTA FALHOU: bruto={bruto} testes={test_targets_found(summary)} "
+                f"(alvos_encontrados={summary['alvos_encontrados']}, ferramentas={len(tools)})",
+                file=sys.stderr,
+            )
+            return False
+    ok = len(tools) == 1 and test_targets_found(summary) == 2 and summary["alvos_encontrados"] == 3
+    if not ok:
+        print(f"selftest: CONTAGEM-COM-FERRAMENTA FALHOU: {summary}", file=sys.stderr)
+        return False
+    print("selftest: CONTAGEM-COM-FERRAMENTA OK (bruto fecha contra os testes, a ferramenta fica de fora do bruto)")
+    return True
+
+
 def _selftest_parsing_result_table():
     return [
+        ("contagem-com-ferramenta", _selftest_not_measured_counts_with_tools()),
         ("ligacao-despacho", _selftest_link_all_targets_dispatch()),
         ("reconciliacao", _selftest_reconcile_summary()),
         ("ferramentas-parsing", _selftest_tool_targets()),

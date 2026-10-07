@@ -6681,3 +6681,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `loop_hidden_test` reprova nos 4 Windows;
   - verde no Linux.
 - **Qualquer outro desfecho volta ao CTO antes da F3.**
+
+### 07/10/2026 12:21:11 - F2 aceita (texto público aprovado na revisão PMU); R1 e R2 batem com a previsão; pausa por ordem do líder
+
+- **F2 aceita.** São 4 commits, só de comentário: cd16154c, 649971c1, 7cf57ba1 e 38392036.
+  - A revisão de API dedicada (PMU) reprovou as rodadas 1 (I-1 e I-2) e 2 (I-3), e APROVOU a rodada 3. Os cosméticos C-6, C-7 e C-8 entraram na rodada 4. Relatório em `/var/tmp/cto-w8/rev-f2-pmu.md`.
+  - O texto final não cita Mesa nem versão de terceiro. Ele diz que a recusa é `platform_failure` e que o contexto segue usável. Diz também que a conexão morta (só no Wayland) devolve o mesmo código e nunca se recupera, e manda desenhar todo quadro.
+  - O `Proved by:` cita 4 testes. O `run()` termina com o erro, conforme a decisão do líder "Encerra e documenta".
+  - Portões: a última rodada do `preci --fast` deu rc=0, sem nenhum outro pesado rodando.
+- **R1** (run 37637534422, c059679a), sem tolerância e sem desenho:
+  - reprovaram só o `gl_context_parity_test` (no swap do laço vsync=off) e o `win32_iconic_present_test` (`after_restore`, com `platform_failure`/`swap_buffers`/0, e `presented_before_minimize=true`), nos trabalhos Windows que rodam cada um;
+  - `loop_parity_test` e `loop_hidden_test` ficaram verdes, o que **confirma a inferência C1** do CTO;
+  - o container ficou verde.
+- **R2** (run 37637539844, 708428bf): além dos dois do R1, reprovaram o `loop_parity_test` (`present() #2` em diante, com `platform_failure`/`swap_buffers`) e o `loop_hidden_test` nos Windows. O container ficou verde.
+- **Com isso, a linha 15 do §4 do plano fecha:** os runs R-G, A, B, R1 e R2 bateram todos com a previsão, e o M3 também. **A F3 pode entrar.**
+- **Pausa:** ordem do líder, verbatim, "pause quando acabar essa fatia". Por AskUserQuestion ele escolheu **"F2, o texto público (Recomendado)"**. A F2 está fechada e o ramo vai ser empurrado agora.
+- **Fica para a retomada:** F3 a F7 (tirar a tolerância dos 5 testes, desenhar antes de cada apresentação, os critérios de vsync e a limpeza dos documentos), a revisão que executa e o CI da ponta.

@@ -6381,3 +6381,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Pergunta do main:** "Posso encerrar este e os próximos desse tipo, sempre conferindo antes pela linha de comando?" **Resposta do líder:** "Sim, este e os próximos (Recomendado)".
 - **Escopo:** só laços de espera órfãos criados por agentes desta sessão, do tipo `until ... pgrep -f '<texto>'` que encontra a própria linha de comando, e sempre depois de conferir a linha de comando. Cada encerramento é registrado aqui.
 - **Encerrado agora:** PID 154428, `until [ /var/tmp/cto-w8/c4-fast.rc -nt ... ] && ! pgrep -f 'tools/preci.sh --fast'`, deixado pelo implementador da C2b-4.
+
+### 06/10/2026 21:39:34 - Ordem do líder: pausar a sessão às 23:50
+
+- **Texto do líder, verbatim:** "Pause a sessão 23:50h". Leitura igual à da ordem das 16:15, em que o líder escolheu "Pausar às 16:15": o trabalho segue até 23:50 e pausa nessa hora.
+- **Até lá:** seguem a C2b-4 (revisão e leitura do run 37552985243) e, se houver tempo, a WIN-MAP-1. Nada novo começa se não couber antes de 23:50.
+- **Às 23:50:** agentes parados, monitor desligado, estado gravado na memória e marcador de parada do líder. A retomada é só por ordem dele.

@@ -6523,3 +6523,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a WIN-MAP-1 fecha sem tocar no produto: o teste passa a desenhar antes de cada swap, e o revisor prova que remover o desenho traz a reprovação de volta;
   - o quadro vazio vira a fatia própria `PRESENT-EMPTY-FRAME`.
 - **Para o líder, por AskUserQuestion:** o contrato do quadro vazio, a tolerância de 07/09, se `PRESENT-EMPTY-FRAME` entra na W8 e se relatamos ao Mesa ou baixamos o Mesa 25.3.
+
+### 07/10/2026 07:44:08 - Decisões do líder sobre o quadro vazio (respostas ao AskUserQuestion)
+
+- **Contrato do quadro vazio:** "Indefinido, recusa relatada (Recomendado)". O sistema pode recusar apresentar um quadro sem desenho; a lib relata a recusa fielmente. A API não muda.
+- **Tolerância de 07/09:** "Remover dos 4 testes (Recomendado)". Os testes passam a desenhar antes de cada apresentação.
+- **`PRESENT-EMPTY-FRAME`:** "Nesta onda, a W8 (Recomendado)". O piso de linhas da W8 sobe de 10 para 11.
+- **Mesa:** "Relatar o comportamento ao Mesa" E "Rodar a sonda com o Mesa 25.3". Os dois ficam autorizados. Só rodam depois de a sonda v2 confirmar a causa, para o relato levar dado medido.
+- **Sonda v2** pronta em `56975af` (ramo `sonda-swap2`): 9 variantes, mais a cópia do teste com desenho entre os swaps.

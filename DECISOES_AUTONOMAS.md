@@ -6460,3 +6460,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o CI do servidor na ponta mostrando `win32_first_present_maps_test` verde nos jobs Windows;
   - o run 37558373506 (`df22cf8`) mostrando o mesmo teste VERMELHO.
 - **Menor:** o hook de teste mora no header de produção, que é interno.
+
+### 06/10/2026 23:08:10 - Ordem do líder: a pausa passa a ser no fim da fatia, não às 23:50
+
+- **Texto do líder, verbatim:** "não pare mais no horário que falei. Pause após acabar e commitar essa fatia".
+- **A fatia é a WIN-MAP-1.** "Acabar" segue o critério do plano: correções commitadas, `preci` verde e o executor Windows provando o teste novo VERMELHO no `df22cf8` e VERDE na ponta. Depois do aceite, o registro, o push e o snapshot, a sessão pausa.
+- **O prazo de 23:30 dado aos agentes está revogado.** A ordem anterior, de pausar às 23:50, foi substituída.

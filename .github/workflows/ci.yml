@@ -1270,6 +1270,19 @@ jobs:
           path: measured_windows.txt
           retention-days: 7
 
+      # QA-SCREEN-CAPTURE C2b-4 (gemeo do passo "Publicar a captura no protocolo" do job wayland-container):
+      # o diretorio de saida do driver da captura no Windows (capturas PrintWindow e BitBlt, leitura interna,
+      # PNGs). A saida de TEXTO do driver, com a linha `veredito:`, vai no log do ctest acima. Roda mesmo com o
+      # passo de testes vermelho: o quadro e para olhar quando falha.
+      - name: Publicar a captura no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
+
       # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN:
       # tools/ci/check-dep-zero-win.ps1, check-port-privacy-win.ps1 e
       # check-exports-win.ps1 (dumpbin.exe contra glintfx.dll) eram
@@ -4147,6 +4160,16 @@ jobs:
         with:
           name: layers-oracle-report-windows-debug
           path: layers_oracle_report.txt
+          retention-days: 7
+
+      # QA-SCREEN-CAPTURE C2b-4: o mesmo artefato do job `windows` acima, para o build Debug (a suite inteira roda aqui).
+      - name: Publicar a captura no Windows (Debug)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-windows-debug
+          path: build-debug/tests/capture_known_color_win32_out
+          if-no-files-found: warn
           retention-days: 7
 
   # Item CLANG-JOB da onda W2 (25/08/2026): honra a promessa de robustez

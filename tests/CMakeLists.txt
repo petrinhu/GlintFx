@@ -6415,6 +6415,31 @@ if(WIN32)
     glintfx_apply_compile_options(win32_window_capture)
 endif()
 
+# QA-SCREEN-CAPTURE C2b-4 (D-W8-39, D-W8-40, D-W8-41): the Windows side of capture_known_color_smoke, the
+# SAME name and the SAME source (tests/parity/capture_known_color_smoke.cpp, public API only, no #if) as the
+# container fixture of the Linux side, so check_test_parity.py pairs them by name with no exception line.
+# The ctest runs the DRIVER (tests/tools/run_capture_known_color_win32.py): it launches the capture tool, which
+# launches the fixture, reads its window by PrintWindow and by BitBlt of the screen, and compares both against
+# the fixture's own glReadPixels. Executes on the CI runner only (the window needs a real desktop, GODS_LAWS.md
+# L-09: never on the leader's live session); locally this target is only compiled (MSVC in a container).
+# The Mesa opengl32 sits beside the fixture in ${builddir}/tests, like every GL test of this file.
+# RUN_SERIAL (glintfx-build-dir: the output directory below lives in the build tree): ANOTHER test window
+# running in parallel could cover this one's client area, and the BitBlt would give a false OCLUIDA.
+if(WIN32)
+    add_executable(capture_known_color_smoke "${CMAKE_CURRENT_SOURCE_DIR}/parity/capture_known_color_smoke.cpp")
+    target_link_libraries(capture_known_color_smoke PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(capture_known_color_smoke)
+    glintfx_copy_runtime_dlls_after_build(capture_known_color_smoke)
+    add_test(
+        NAME capture_known_color_smoke
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" "$<TARGET_FILE:capture_known_color_smoke>"
+            "${CMAKE_CURRENT_BINARY_DIR}/capture_known_color_win32_out"
+    )
+    set_tests_properties(capture_known_color_smoke PROPERTIES LABELS consume RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
 # por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de

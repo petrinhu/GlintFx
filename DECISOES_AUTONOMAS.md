@@ -6408,3 +6408,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o cabeçalho "never shows" sem ressalva para o oclusor.
   Ficam para a C2b-5 porque a WIN-MAP-1 está em voo em `tests/CMakeLists.txt`, e dois agentes na mesma árvore colidem.
 - **Vigiar:** o driver Python tem 982 linhas, metade de selftest.
+
+### 06/10/2026 22:42:32 - WIN-MAP-1 implementada; provas no servidor e revisão em voo
+
+- **Commits:** `df22cf8` (teste vermelho `win32_first_present_maps_test` com apelido bilateral) e `efe2734` (conserto), consecutivos como o plano pede. `onda-w8` empurrado em `efe2734`.
+- **Comportamento novo, pelo efeito:** a janela segue invisível depois de `open()`. O primeiro quadro apresentado a mostra uma vez, mesmo sob `SW_HIDE` do lançador. A ativação é pedida e o sistema arbitra (`SW_SHOW`). **Decisão de foco tomada pelo implementador, a confirmar.** A API pública não muda; só comentários.
+- **Provas no servidor:**
+  - run 37558358855: sonda C2b-4 sobre `efe2734`, no ramo `sonda-c2b4` refeito a partir de `sonda-c2b4-verde`. O remoto antigo (`80c8c1c`) foi apagado e o ramo local ficou como registro;
+  - run 37558373506: CI inteiro no ramo descartável `w8-vermelho-df22cf8`, que deve reprovar o teste novo no Windows;
+  - run 37558376457: CI inteiro em `efe2734`.
+- **Achado do implementador, não verificado:** o portão win32-link reprova a reconciliação depois que a ferramenta entrou na contagem (bruto 154 contra 155). Pode vir de `905a9b6`; a revisão verifica.
+- **Correção do implementador:** ele disse que a linha `WIN-MAP-FIRST-PRESENT` não existe na TODO.md. Existe: o grep conta 5.

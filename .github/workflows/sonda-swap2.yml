@@ -64,7 +64,7 @@ jobs:
         run: |
           cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build build-shared --target win32_swap2_probe
+          cmake --build build-shared --target win32_swap2_probe win32_first_present_maps_draw_test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Aparato de teste - Mesa opengl32 (llvmpipe) ao lado da sonda
@@ -81,12 +81,26 @@ jobs:
           Get-Content sonda.txt | Add-Content $env:GITHUB_STEP_SUMMARY
           exit 0
 
+      # D-W8-47: a copia do teste, com glClear antes de cada swap. Mede, nao reprova (o piso conta).
+      - name: Rodar a copia do teste com desenho
+        shell: pwsh
+        run: |
+          build-shared/tests/win32_first_present_maps_draw_test.exe *> draw_test.txt
+          "DRAW_TEST_EXIT codigo=$LASTEXITCODE" | Add-Content draw_test.txt
+          Get-Content draw_test.txt
+          '```' | Add-Content $env:GITHUB_STEP_SUMMARY
+          Get-Content draw_test.txt | Add-Content $env:GITHUB_STEP_SUMMARY
+          '```' | Add-Content $env:GITHUB_STEP_SUMMARY
+          exit 0
+
       - name: Artefato (sempre)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: sonda-swap2
-          path: sonda.txt
+          path: |
+            sonda.txt
+            draw_test.txt
           if-no-files-found: warn
           retention-days: 7
 
@@ -94,5 +108,5 @@ jobs:
       - name: Piso - as 4 linhas MEASURED
         shell: pwsh
         run: |
-          python tools/sonda-swap2/check_swap2.py sonda.txt
+          python tools/sonda-swap2/check_swap2.py sonda.txt draw_test.txt
           if ($LASTEXITCODE -ne 0) { exit 1 }

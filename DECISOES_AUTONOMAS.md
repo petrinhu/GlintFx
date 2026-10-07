@@ -6597,3 +6597,35 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Correção do CTO pela L-44, aceita:** sob o contrato do líder, o teste novo passa nos dois sistemas desde o primeiro dia. O vermelho dele vem só de sabotagem pré-registrada.
 - **Item L1 do plano, levado ao líder por AskUserQuestion (L-01):** no Windows sob Mesa 26, o `run()` encerra quando o `on_render` não desenha. A opção que ele escolheu não dizia isso. **A F2 (o texto do contrato, porta de mão única) espera a resposta dele. A F1 segue, porque não depende disso.** A D-W8-51 é preenchimento do CTO sobre a decisão do líder (L-07).
 - **Próximo:** F1 com o implementador sonnet.
+
+### 07/10/2026 10:36:31 - Decisão do líder sobre o laço com quadro vazio; F1 entregue; previsões dos vermelhos registradas ANTES dos runs
+
+- **Pergunta L1, por AskUserQuestion.** O líder respondeu, verbatim: **"Encerra e documenta (Recomendado)"**. No Windows sob Mesa 26, o `run()` termina com a recusa do quadro vazio, e o texto público passa a dizer isso e a mandar desenhar todo quadro. A D-W8-51 fica confirmada pelo líder, e a **F2 está liberada**.
+- **F1 (implementador sonnet): `9a02f87c`**, 7 arquivos, +573. O main conferiu o diff --stat e os 3 mutantes.
+  - Os portões locais deram rc 0. O `preci --fast` deu rc 0, e o `--container-link-only` também.
+  - Container Linux local (isolamento provado):
+    - com `presented`: rc 0;
+    - sem a expectativa: rc 1, por causa da guarda;
+    - com `refused`: rc 1;
+    - sem nenhuma variável: rc 0, com `none`.
+  - O `cl.exe` compilou o alvo Windows com rc 0. Sem o define, deu rc 2 (C4996).
+  - M3 local: rc 1, `regua_celulas=12 celulas, 1 erradas`. A mutação chegou ao binário.
+- **Desvios do implementador, aceitos pelo main:**
+  - (1) No R-G, o Linux mantém `GITHUB_ACTIONS=true`, porque o `exec_fixture.sh` não repassa o ambiente. Com isso, o R-G e o M4 ficam iguais no Linux.
+  - (2) **O teste roda em 3 trabalhos Windows, não em 4.** O `windows-sanitizer` só roda `-L unit`, e o teste é `consume`. As previsões abaixo valem para 3.
+- **Previsões pré-registradas (plano §2.5, ajustadas pelos desvios 1 e 2):**
+  - **Ponta `9a02f87c`:**
+    - `present_empty_frame_parity_test` verde em `windows` (compartilhado e estático), em `windows-debug` e nas 2 pernas do `wayland-container`;
+    - nos 3 Windows, `context_empty_1/2` e `loop_empty` = `refused`, e `expectation=refused`;
+    - no container, essas três chaves = `presented`;
+    - `*_recovery_presented` = 1 em todos;
+    - o CI inteiro verde.
+  - **R-G (`w8-pef-rg`, dc80542b):** o teste reprova nos 3 Windows e nas 2 pernas, com "aparato de CI sem expectativa declarada".
+  - **A (`w8-pef-a`, dcac287e):**
+    - M1 reprova a P1 nos 3 Windows, com `context_empty_1=presented` contra a expectativa `refused`;
+    - M-L reprova a P1 nas 2 pernas, com `refused` contra `presented`;
+    - outros testes podem cair junto; o que conta é este cair pela P1.
+  - **B (`w8-pef-b`, 5773c032):**
+    - M2 reprova a P2 (recuperação) nos 3 Windows;
+    - M4 reprova com "sem expectativa declarada" nas 2 pernas.
+  - **Qualquer outro desfecho volta ao CTO.**

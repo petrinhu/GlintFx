@@ -321,6 +321,14 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp \
         $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
+# PRESENT-EMPTY-FRAME (D-W8-53): the fifth public-API fixture, same recipe as draw2d_parity_test right above. The
+# source is the ONE fixture of both systems, tests/parity/ (staged by prepare_arch_ports_fixture.sh), never a copy.
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/present_empty_frame_parity_test \
+        /build/_arch_ports_src/tests/parity/present_empty_frame_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
 # QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33; C2b-4, D-W8-39): the second consumer of the installed library, same
 # recipe as draw2d_parity_test right above. The source is the ONE fixture of both systems, tests/parity/ (staged
 # by prepare_arch_ports_fixture.sh like draw2d_parity_test.cpp), not a copy of it in this directory. It is the fixture whose frame the wire relay captures in the
@@ -1233,6 +1241,7 @@ COPY --from=arch-ports-builder /build/two_seats_test /usr/local/bin/two_seats_te
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 COPY --from=arch-ports-builder /build/gl_context_parity_test /usr/local/bin/gl_context_parity_test
 COPY --from=arch-ports-builder /build/draw2d_parity_test /usr/local/bin/draw2d_parity_test
+COPY --from=arch-ports-builder /build/present_empty_frame_parity_test /usr/local/bin/present_empty_frame_parity_test
 COPY --from=arch-ports-builder /build/capture_known_color_smoke /usr/local/bin/capture_known_color_smoke
 COPY --from=arch-ports-builder /build/egl_protocol_error_smoke /usr/local/bin/egl_protocol_error_smoke
 COPY --from=arch-ports-builder /build/egl_error_read_inside_swap_smoke /usr/local/bin/egl_error_read_inside_swap_smoke
@@ -1253,6 +1262,7 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
         /usr/local/bin/seat_test /usr/local/bin/two_seats_test /usr/local/bin/window_parity_test \
         /usr/local/bin/gl_context_parity_test /usr/local/bin/draw2d_parity_test /usr/local/bin/egl_protocol_error_smoke \
+        /usr/local/bin/present_empty_frame_parity_test \
         /usr/local/bin/egl_error_read_inside_swap_smoke \
         /usr/local/bin/egl_device_reader_probe \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke \

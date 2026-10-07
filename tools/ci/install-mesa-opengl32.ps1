@@ -188,4 +188,15 @@ Confirm-Sha256 -path $archivePath -expected $ExpectedSha256
 $dlls = Expand-MesaArchive -sevenZip $sevenZip -archivePath $archivePath -extractDir $extractDir -archiveName $ArchiveName
 Copy-IntoDestDir -files $dlls -destDir $DestDir
 
+# PRESENT-EMPTY-FRAME (D-W8-54): o fato "este Mesa recusa apresentar um quadro vazio" e' do AMBIENTE, entao mora
+# aqui, no preparo do sistema (GODS_LAWS.md L-04), e nunca no teste. O Mesa 26.2.0 deste pino recusa a segunda
+# apresentacao de uma janela quando nada foi desenhado entre as duas (decisao-swap2 F3 e sonda v2 do plano da
+# fatia), e present_empty_frame_parity_test le a expectativa em GLINTFX_EMPTY_FRAME_EXPECT. A gravacao NAO tem
+# condicao de versao e esta presa ao pino $MesaVersion acima: QUEM TROCAR A VERSAO TROCA ESTA LINHA. So' grava
+# em CI: fora dele $env:GITHUB_ENV e' vazio, e o script tem de continuar rodando localmente.
+if ($env:GITHUB_ENV) {
+    Add-Content -Path $env:GITHUB_ENV -Value "GLINTFX_EMPTY_FRAME_EXPECT=refused"
+    Write-Host "install-mesa-opengl32.ps1: GLINTFX_EMPTY_FRAME_EXPECT=refused gravada em GITHUB_ENV (Mesa $MesaVersion)."
+}
+
 Write-Host "install-mesa-opengl32.ps1: Mesa $MesaVersion (llvmpipe) pronto em $DestDir - a proxima leitura da sonda (win32_runner_probe_test) deve reportar GL_RENDERER diferente de 'GDI Generic' e wglCreateContextAttribsARB available=true."

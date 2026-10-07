@@ -2263,6 +2263,23 @@ jobs:
           printf 'draw2d_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # PRESENT-EMPTY-FRAME (D-W8-53, D-W8-54): o quadro apresentado sem nada desenhado, pelo contexto, pelo laco e pelo
+      # desenho 2D, contra este MESMO compositor e este MESMO EGL. O irmao Windows de mesmo nome e um alvo ctest comum
+      # (tests/CMakeLists.txt, if(WIN32)). A EXPECTATIVA do aparato mora aqui, no preparo do sistema (GODS_LAWS.md
+      # L-04), nunca no teste: o llvmpipe apresenta o quadro vazio (0 de 125 trocas vazias falharam no Fedora, run
+      # 37535326010), entao `presented`. GITHUB_ACTIONS=true entra no container para a guarda do teste reprovar um aparato
+      # sem expectativa (L-40); sem ele o container nao enxerga a variavel do runner. ORDEM: depois de draw2d_parity_test
+      # (mesmo EGL, mesmo compositor).
+      - name: PRESENT-EMPTY-FRAME - quadro vazio apresentado ou recusado, dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "present_empty_frame_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh --env GLINTFX_EMPTY_FRAME_EXPECT=presented --env GITHUB_ACTIONS=true ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} present_empty_frame_parity_test || codigo=$?
+          printf 'present_empty_frame_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
       # QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33): a PROVA DA CAPTURA NO PROTOCOLO. Um segundo rele de fios, dentro do
       # MESMO container e diante do MESMO KWin, guarda o ultimo buffer wl_shm que o cliente entrega; o cliente
       # (capture_known_color_smoke) le o proprio quadro por glReadPixels antes do swap; o driver compara captura e

@@ -2660,6 +2660,25 @@ if(WIN32)
     set_tests_properties(draw2d_parity_test PROPERTIES LABELS consume)
 endif()
 
+# PRESENT-EMPTY-FRAME (D-W8-53, D-W8-54): present_empty_frame_parity_test.cpp (tests/parity/) is the fifth member
+# of the same family - ONE file, only-public-API, no-#if, proving that a frame presented with nothing drawn is
+# either presented or refused with an ordinary platform_failure, on both systems, through the context, the loop
+# and the 2D renderer. Same mechanism as the others: linked against the PUBLIC glintfx::glintfx target,
+# if(WIN32) only here - the Linux side of this SAME name is the container fixture the paridade inventory picks
+# up. RUN_SERIAL: it shows real top-level windows, and another test window opened in parallel would cover them
+# (the same reasoning as win32_first_present_maps_test). _CRT_SECURE_NO_WARNINGS only on THIS target: the test
+# reads GLINTFX_EMPTY_FRAME_EXPECT with std::getenv, which MSVC flags as C4996 (an error under /WX), and the
+# parity source may not carry an #if to hide it (tests/err_context_test.cpp:160-167 has the same problem).
+if(WIN32)
+    add_executable(present_empty_frame_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/present_empty_frame_parity_test.cpp")
+    target_link_libraries(present_empty_frame_parity_test PRIVATE glintfx::glintfx)
+    target_compile_definitions(present_empty_frame_parity_test PRIVATE _CRT_SECURE_NO_WARNINGS)
+    glintfx_apply_compile_options(present_empty_frame_parity_test)
+    glintfx_copy_runtime_dlls_after_build(present_empty_frame_parity_test)
+    add_test(NAME present_empty_frame_parity_test COMMAND present_empty_frame_parity_test)
+    set_tests_properties(present_empty_frame_parity_test PROPERTIES LABELS consume RUN_SERIAL TRUE)
+endif()
+
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_hidden_
 # test is a PAIR OF FILES SHARING ONE NAME - tests/loop_hidden_test.cpp
 # here (harness, ShowWindow(SW_MINIMIZE)/IsIconic) and tests/container/

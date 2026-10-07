@@ -6449,3 +6449,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O implementador declara `preci --win32-link-only` com rc 0.
 - **Ressalva menor, foi para a INBOX:** a fiação em `print_not_measured_block` não tem guarda (`WIN32-LINK-GATE-NOT-MEASURED-WIRING`).
 - **WIN-MAP-1:** o veredito NÃO ACEITAR da revisão é anterior às correções `44789bd` e `db3e7ac` (reabertura). Os itens 2 e 3 seguem com o implementador. A nova rodada de revisão vem quando ele entregar.
+
+### 06/10/2026 23:07:58 - WIN-MAP-1: rodada 2 da revisão ACEITA por leitura; aceite final depende do executor
+
+- **Revisão** (`/var/tmp/cto-w8/rev-winmap1.md`, seção 3): ACEITAR, mas só por leitura dos blobs. Os 3 casos do teste só se executam no Windows real, e aqui os mutantes não foram executados.
+  - **Reabertura:** `close()` agora chama `reset()`, e nenhum estado por janela fica esquecido.
+  - **Ordem:** provada por seam, declarado como seam. O fake lê o contador de swaps no instante do show; depende de o `++` ficar depois do `SwapBuffers`.
+  - **Falha ao mostrar:** vira `platform_failure`/"show_window" com código não zero, sem swap e com nova tentativa no quadro seguinte.
+- **Decisão do main:** a WIN-MAP-1 NÃO fica aceita só com isso. A regra do líder é revisão que EXECUTA. O aceite final exige:
+  - o CI do servidor na ponta mostrando `win32_first_present_maps_test` verde nos jobs Windows;
+  - o run 37558373506 (`df22cf8`) mostrando o mesmo teste VERMELHO.
+- **Menor:** o hook de teste mora no header de produção, que é interno.

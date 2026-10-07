@@ -10,6 +10,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <memory>
 #include <print>
 #include <string>
 #include <string_view>
@@ -81,9 +82,18 @@ void print_error_detail(std::string_view label, const glintfx::gltfx_err &err) n
 // Seam state for the order and failure cases (GODS_LAWS.md L-04: the order is only observable
 // from inside the first frame, so the fake records what the adapter had done when it was asked
 // to show the window). Single-threaded fixture, plain statics.
-const glintfx::platform::win32_gl_context_adapter *g_seam_context = nullptr;
+std::unique_ptr<glintfx::platform::win32_gl_context_adapter> g_seam_context;
 std::uint32_t g_swaps_issued_when_shown = 0xFFFFFFFFu;
 DWORD g_seam_error = 0;
+
+// Drops the context on every exit path (the recorder reaches it through a global, not a local
+// address).
+struct seam_context_guard {
+    seam_context_guard() = default;
+    seam_context_guard(const seam_context_guard &) = delete;
+    seam_context_guard &operator=(const seam_context_guard &) = delete;
+    ~seam_context_guard() { g_seam_context.reset(); }
+};
 
 DWORD recording_show(HWND window) noexcept {
     g_swaps_issued_when_shown = g_seam_context->swap_calls_issued();
@@ -198,12 +208,13 @@ GLINTFX_TEST(win32_first_present_maps_window_before_the_swap) {
     glintfx::platform::win32_display_adapter display;
     glintfx::platform::win32_window_adapter window;
     GLINTFX_CHECK(open_display_and_window(display, window));
-    glintfx::platform::win32_gl_context_adapter context;
+    g_seam_context = std::make_unique<glintfx::platform::win32_gl_context_adapter>();
+    const seam_context_guard seam_guard;
+    glintfx::platform::win32_gl_context_adapter &context = *g_seam_context;
     const std::vector<glintfx::gltfx_gfx_option_entry> options;
     GLINTFX_CHECK(!context.open(window, options).has_error());
     GLINTFX_CHECK(!context.make_current().has_error());
 
-    g_seam_context = &context;
     g_seam_error = 0;
     g_swaps_issued_when_shown = 0xFFFFFFFFu;
     context.set_first_present_show_for_test(&recording_show);
@@ -223,12 +234,13 @@ GLINTFX_TEST(win32_first_present_show_failure_is_reported_and_retried) {
     glintfx::platform::win32_display_adapter display;
     glintfx::platform::win32_window_adapter window;
     GLINTFX_CHECK(open_display_and_window(display, window));
-    glintfx::platform::win32_gl_context_adapter context;
+    g_seam_context = std::make_unique<glintfx::platform::win32_gl_context_adapter>();
+    const seam_context_guard seam_guard;
+    glintfx::platform::win32_gl_context_adapter &context = *g_seam_context;
     const std::vector<glintfx::gltfx_gfx_option_entry> options;
     GLINTFX_CHECK(!context.open(window, options).has_error());
     GLINTFX_CHECK(!context.make_current().has_error());
 
-    g_seam_context = &context;
     g_seam_error = ERROR_INVALID_STATE;
     context.set_first_present_show_for_test(&recording_show);
     ::SetLastError(0); // the failure must not depend on GetLastError() carrying anything

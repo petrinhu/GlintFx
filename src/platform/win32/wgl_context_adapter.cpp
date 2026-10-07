@@ -400,6 +400,8 @@ void win32_gl_context_adapter::close() noexcept {
     m_swap_interval_ext = nullptr;
     m_gpu = gpu_kind_state{};
     m_swap_calls_issued = 0;
+    // A reopened context shows its (new) window on the first frame again.
+    m_first_present_map.reset();
     m_msaa_supported = false;
     m_srgb_requested = false;
     m_srgb_advertised = false;

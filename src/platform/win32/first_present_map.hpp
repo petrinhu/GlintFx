@@ -46,6 +46,10 @@ class first_present_map {
 
     [[nodiscard]] bool done() const noexcept { return m_done; }
 
+    // A context that is closed and reopened (maybe on another window)
+    // starts over: the new window was never shown.
+    void reset() noexcept { m_done = false; }
+
   private:
     bool m_done = false;
 };

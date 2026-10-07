@@ -2556,6 +2556,35 @@ if(WIN32)
     target_link_libraries(win32_first_present_maps_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
     set_tests_properties(win32_first_present_maps_test PROPERTIES RUN_SERIAL TRUE)
 
+    glintfx_add_test(win32_swap2_probe)
+    target_include_directories(win32_swap2_probe PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_swap2_probe PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/first_present_map.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/gl_device_luid.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+    )
+    target_link_libraries(win32_swap2_probe PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+    set_tests_properties(win32_swap2_probe PROPERTIES RUN_SERIAL TRUE)
+
     # win32_wait_events_test - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-
     # 6-8.md sec. 8.2, D-W6b-50, "Prova Windows" column): the Win32
     # mirror of tests/container/wait_events_smoke.cpp, over a REAL

@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Prova da C2b-4 (QA-SCREEN-CAPTURE, plano W8 decisao-c2b.md, D-W8-43/44/45): o ctest
+# capture_known_color_smoke no Windows REAL do executor, contra o produto de hoje (a janela nunca e
+# mostrada), para ver o vermelho aceito: ferramenta com codigo 11, `veredito: INVISIVEL`, janelas=1,
+# visivel=0, leitura interna 5/5 e nenhuma captura tentada. Qualquer outro desfecho PARA e volta ao CTO.
+# Este workflow existe SO no ramo descartavel `sonda-swap2` (criado de `onda-w8`, apagado depois da
+# leitura) e nunca entra no ramo da onda. O gatilho e' o push neste ramo (workflow_dispatch exigiria o
+# arquivo no ramo padrao); o ci.yml (push em main + pull_request) NAO dispara aqui.
+name: sonda-swap2
+on:
+  push:
+    branches: [sonda-swap2]
+permissions:
+  contents: read
+jobs:
+  prova:
+    name: Sonda swap2 (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Verbatim do job `windows` do ci.yml: vswhere + vcvarsall x64 exportado via GITHUB_ENV.
+      - name: Preparar ambiente do compilador (MSVC x64)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $installPath) {
+            Write-Error "Nenhuma instalacao do MSVC com o componente VC.Tools.x86.x64 foi encontrada por vswhere."
+            exit 1
+          }
+          $vcvarsall = Join-Path $installPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat nao encontrado em $vcvarsall"
+            exit 1
+          }
+          $envDump = cmd /c "`"$vcvarsall`" x64 && set"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "vcvarsall.bat x64 falhou com codigo $LASTEXITCODE"
+            exit 1
+          }
+          foreach ($line in $envDump) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
+            }
+          }
+
+      - name: Piso de ferramentas (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1
+
+      - name: CMake pinado (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      - name: Build (compartilhado, so a sonda)
+        shell: pwsh
+        run: |
+          cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-shared --target win32_swap2_probe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) ao lado da sonda
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-shared/tests"
+
+      # Mede, nunca reprova: o codigo de saida da sonda nao decide o passo.
+      - name: Rodar a sonda
+        shell: pwsh
+        run: |
+          build-shared/tests/win32_swap2_probe.exe *> sonda.txt
+          "SONDA_EXIT codigo=$LASTEXITCODE" | Add-Content sonda.txt
+          Get-Content sonda.txt
+          Get-Content sonda.txt | Add-Content $env:GITHUB_STEP_SUMMARY
+          exit 0
+
+      - name: Artefato (sempre)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sonda-swap2
+          path: sonda.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+      # Piso (L-36/L-40): sem as 4 linhas MEASURED o job NAO fica verde.
+      - name: Piso - as 4 linhas MEASURED
+        shell: pwsh
+        run: |
+          python tools/sonda-swap2/check_swap2.py sonda.txt
+          if ($LASTEXITCODE -ne 0) { exit 1 }

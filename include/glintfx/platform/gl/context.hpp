@@ -51,10 +51,10 @@
 //
 //      A FRAME WITH NOTHING DRAWN (PRESENT-EMPTY-FRAME, D-W8-50): when
 //      swap_buffers() is reached with no drawing command issued since
-//      the previous presentation (a clear is a drawing command; a flush
-//      alone is not), the content it presents is undefined (the system
-//      APIs already leave the back buffer undefined after a swap), and
-//      the system MAY refuse to present it. A refusal is an ordinary
+//      the previous presentation (a clear is a drawing command), the
+//      content it presents is undefined (the system APIs may already
+//      leave the back buffer undefined after a swap), and the system
+//      MAY refuse to present it. A refusal is an ordinary
 //      error, never a third gltfx_present_outcome value and never
 //      `presented`: code `gltfx_err_code::platform_failure`;
 //      `rejected_value()` a short identifier of the refusing call
@@ -64,16 +64,16 @@
 //      swap_buffers() after a frame that does draw presents normally.
 //      A `platform_failure` from swap_buffers() is not always this
 //      refusal: a failed connection (make_current() below) reports the
-//      same code and, unlike this refusal, never recovers. Only a
-//      refusal of an empty frame lets the next frame that draws
-//      present.
+//      same code and, unlike this refusal, never recovers.
 //      Whether a system refuses is its driver's decision, never this
 //      library's: some drivers present such a frame, some refuse it,
 //      and the same program can behave differently on two machines.
 //      This library never draws on the consumer's behalf to avoid the
 //      refusal, and never reports a refused frame as presented. Draw
 //      every frame you present; a clear is enough.
-//      Proved by: present_empty_frame_parity_test.
+//      Proved by: present_empty_frame_parity_test (the refusal),
+//      egl_protocol_error_smoke and connection_failure_test (a failed
+//      connection never recovers).
 //
 //   3. THE NINE METHODS BELOW ARE THE FROZEN SURFACE (D-W6b-2, emended
 //      by sec. 11: `set_swap_interval()` an earlier draft of this plan

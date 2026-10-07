@@ -6531,3 +6531,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **`PRESENT-EMPTY-FRAME`:** "Nesta onda, a W8 (Recomendado)". O piso de linhas da W8 sobe de 10 para 11.
 - **Mesa:** "Relatar o comportamento ao Mesa" E "Rodar a sonda com o Mesa 25.3". Os dois ficam autorizados. Só rodam depois de a sonda v2 confirmar a causa, para o relato levar dado medido.
 - **Sonda v2** pronta em `56975af` (ramo `sonda-swap2`): 9 variantes, mais a cópia do teste com desenho entre os swaps.
+
+### 07/10/2026 07:48:34 - Sonda swap2 v2 (run 37609364838): CONFIRMADO pela regra escrita antes do dado
+
+- **Aparato medido:** `GL_RENDERER=D3D12 (Microsoft Basic Render Driver)`, `GL_VERSION=4.6 Mesa 26.2.0`. Log em `/var/tmp/cto-w8/swap2-v2-run/job.log`.
+- **Resultado:**
+  - as variantes 1 a 4 falham no segundo swap (o controle reproduziu);
+  - a 5 (desenho entre os swaps) passou nos 2 swaps, e a 7 (dez quadros com desenho) passou nos 10;
+  - a 6 falha no segundo swap e passa no terceiro;
+  - a 9 (só `glFlush`) falha no segundo;
+  - a 8 (contexto reaberto) passou nos 2.
+- **Veredito pela regra da seção 2 de `decisao-swap2.md`: CONFIRMADO.** A falha é do Mesa 26.x diante de um quadro sem desenho, não do nosso caminho WGL nem da WIN-MAP-1. A premissa da minha regra anterior ("variante 1 ou 2 = produto") foi escrita sem conhecer o mecanismo e fica corrigida pela medição.
+- **A cópia do teste com desenho entre os swaps passou nos 6 casos no executor:** mapeia a janela, mapeia sob SW_HIDE, mapeia depois de reabrir o contexto, mostra antes do swap e relata e repete a falha ao mostrar.
+- **Próximo:** aplicar o desenho ao `win32_first_present_maps_test` verdadeiro, CI verde na ponta e revisão que executa. Aí a WIN-MAP-1 fecha.

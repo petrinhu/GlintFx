@@ -6653,3 +6653,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 ### 07/10/2026 11:22:27 - Laço de espera órfão encerrado (autorização do líder: "Sim, este e os próximos")
 
 - PID 864347, vivo há ~7600 s: `until ! pgrep -f 'tools/preci.sh --fast' ...; do sleep 10; done`. Ele casa com a própria linha de comando e nunca termina ([[feedback_pgrep_encontra_a_si_mesmo]]). Deixado pelo implementador da F1. O main conferiu a cmdline e encerrou.
+
+### 07/10/2026 11:25:26 - Os vermelhos R-G, A e B da F1 batem com a previsão pré-registrada (linha 15 do §4, parte 1)
+
+- **R-G** (run 37629864317, dc80542b): reprovou nos 3 Windows e nas 2 pernas do container, todos pela guarda "aparato de CI sem expectativa declarada". Nenhum outro teste caiu.
+- **A** (run 37629868939, dcac287e): a P1 reprovou nos 3 Windows (M1, `presented` contra `refused`), e só esse teste caiu. Também reprovou nas 2 pernas do container (M-L, `refused` contra `presented`). Lá outros testes caíram junto, porque o mutante recusa todo swap a partir do segundo, como o plano previa.
+- **B** (run 37629875564, 5773c032): a P2 (`context_recovery_presented`) reprovou nos 3 Windows (M2). As 2 pernas reprovaram pela guarda (M4). Nenhum outro teste caiu.
+- **M3** local, no container: a régua reprovou, como relatado pelo implementador da F1.
+- **Falta, na linha 15:** R1 e R2 (F3-RED), em preparo.
+- **F2:** a revisão PMU reprovou a rodada 2 pelo I-3 ("Only a refusal..." é falso: o `show_window` do Windows também se recupera). A rodada 3 está com o redator.

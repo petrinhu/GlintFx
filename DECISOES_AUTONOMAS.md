@@ -6387,3 +6387,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Texto do líder, verbatim:** "Pause a sessão 23:50h". Leitura igual à da ordem das 16:15, em que o líder escolheu "Pausar às 16:15": o trabalho segue até 23:50 e pausa nessa hora.
 - **Até lá:** seguem a C2b-4 (revisão e leitura do run 37552985243) e, se houver tempo, a WIN-MAP-1. Nada novo começa se não couber antes de 23:50.
 - **Às 23:50:** agentes parados, monitor desligado, estado gravado na memória e marcador de parada do líder. A retomada é só por ordem dele.
+
+### 06/10/2026 21:40:02 - C2b-4: o defeito da janela invisível PROVADO no executor Windows
+
+- **Run 37552985243** no ramo descartável `sonda-c2b4` (`80c8c1c`, que sai de `64cb199`). Saída copiada em `/var/tmp/cto-w8/c2b4-run/`.
+- **Ferramenta:** `janelas=1 visivel=0 iconico=0`, `veredito: INVISIVEL`, "nenhuma captura tentada". O driver registra `motivo=INVISIVEL codigo=11`. O modo `on` saiu como ausência declarada.
+- **Leitura:** `VERMELHO_ACEITO` (o único da D-W8-45), piso com `linhas_veredito=1`. Na máquina real, a janela de um consumidor no Windows nunca aparece.
+- **Próximo:** WIN-MAP-1, o conserto de produto. Depois dele, o mesmo teste tem de virar verde no executor. O ramo `sonda-c2b4` fica até essa prova. A revisão adversarial da C2b-4 está em voo.

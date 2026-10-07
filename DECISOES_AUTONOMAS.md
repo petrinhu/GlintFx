@@ -6629,3 +6629,23 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - M2 reprova a P2 (recuperação) nos 3 Windows;
     - M4 reprova com "sem expectativa declarada" nas 2 pernas.
   - **Qualquer outro desfecho volta ao CTO.**
+
+### 07/10/2026 11:13:20 - F1 da PRESENT-EMPTY-FRAME: CI da ponta verde e previsões confirmadas; F2 reprovada na revisão de API
+
+- **Ponta `36997a09` (F1), CI 37629860222: `success`.** Leitura pelos artefatos `measured-*`, guardados em `/var/tmp/cto-w8/pef-runs/tip/`:
+  - **Windows** (compartilhado e estático): `expectation=refused`, e `context_empty_1`, `context_empty_2`, `loop_empty` e `draw2d_empty` todos `refused`;
+  - **container Fedora** (plain e asan): as mesmas chaves todas `presented`;
+  - `*_recovery_presented=1`, `loop_should_render_after_refusal=1` e `regua_celulas=12` nos dois lados;
+  - **o resultado bate com a previsão pré-registrada.**
+- **Dado novo:**
+  - `draw2d_empty=refused` no Windows. A inferência C2 do CTO se confirma: o desenho 2D com `clear_color` vazio e sem peças gera quadro vazio. Isso dispara o item 4 da INBOX do plano §8 (uma frase em `frame_2d_desc.hpp`).
+  - `context_empty_2=refused` também: depois de recusado, o quadro vazio SEGUE recusado até um desenho. A L4 do CTO ("só o segundo swap") fica mais estreita do que ele disse, e o contrato não muda.
+- **Mutantes (runs ainda terminando).** Todos os trabalhos já concluídos reprovaram pelo motivo previsto, e só esse teste caiu em cada um:
+  - **R-G**: "aparato de CI sem expectativa declarada" no Windows compartilhado e Debug e no container asan;
+  - **A**: Windows com `presented` contra `refused` (M1); container com `refused` contra `presented` (M-L);
+  - **B**: Windows com `context_recovery_presented` falhando (M2); container com a guarda (M4).
+- **F2 (cd16154c): a revisão de API dedicada REPROVOU,** com 2 achados IMPORTANTES e 3 COSMÉTICOS (`/var/tmp/cto-w8/rev-f2-pmu.md`):
+  - **I-2:** "Mesa 26.0", "of a window" e "other drivers present it" não foram medidos assim, e congelariam um fato de terceiro em include/.
+  - **I-1:** o mesmo `platform_failure` também sai de uma conexão morta, que nunca se recupera.
+  - O main aceitou tudo. A rodada 2 está com o mesmo redator.
+- **L-11:** dois `preci --fast` rodaram ao mesmo tempo (o da F2 e o do preparo de R1/R2). O main avisou o agente: vermelho de tempo nessa rodada não vale, e a rodada se repete sozinha.

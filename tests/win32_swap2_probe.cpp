@@ -8,6 +8,7 @@
 #endif
 #include <windows.h>
 
+#include <cstdint>
 #include <print>
 #include <string>
 #include <vector>
@@ -24,7 +25,7 @@
 namespace {
 
 std::string describe(const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> &r,
-                     DWORD &os_error) {
+                     std::int64_t &os_error) {
     if (r.has_error()) {
         os_error = r.err().os_error_code();
         return std::string("erro:") + std::string(glintfx::gltfx_err_code_name(r.err().code())) +
@@ -59,8 +60,8 @@ void variant(int n) {
         ::ShowWindow(hwnd, SW_SHOWNOACTIVATE); // mostrada por fora, show_window_now nao age
         (void)display.pump_events();
     }
-    DWORD os1 = 0;
-    DWORD os2 = 0;
+    std::int64_t os1 = 0;
+    std::int64_t os2 = 0;
     const std::string swap1 = describe(context.swap_buffers(), os1);
     if (n == 2) {
         (void)display.pump_events();

@@ -6394,3 +6394,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Ferramenta:** `janelas=1 visivel=0 iconico=0`, `veredito: INVISIVEL`, "nenhuma captura tentada". O driver registra `motivo=INVISIVEL codigo=11`. O modo `on` saiu como ausência declarada.
 - **Leitura:** `VERMELHO_ACEITO` (o único da D-W8-45), piso com `linhas_veredito=1`. Na máquina real, a janela de um consumidor no Windows nunca aparece.
 - **Próximo:** WIN-MAP-1, o conserto de produto. Depois dele, o mesmo teste tem de virar verde no executor. O ramo `sonda-c2b4` fica até essa prova. A revisão adversarial da C2b-4 está em voo.
+
+### 06/10/2026 22:00:19 - C2b-4 de QA-SCREEN-CAPTURE ACEITA
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b4.md`): ACEITAR.
+  - `check_c2b4` aceita só o vermelho da D-W8-45; 14 saídas sintéticas produzidas pelo driver confirmam.
+  - Containerfile construído uma vez com rc 0. Caminho Linux da P3 verde, as 3 sabotagens com rc 1, md5 do PNG `on` igual ao da P3.
+  - A exceção de paridade apagada não quebra o portão.
+- **Prova no executor:** run 37552985243, VERMELHO_ACEITO (registro anterior).
+- **Obrigatórios na C2b-5**, não ficam para depois da onda:
+  - o `windows-sanitizer` não roda o teste e a ausência está declarada só em bloco, sem contagem; tem de virar ausência contada com o motivo;
+  - o orçamento do `--hold-until-close` não é fixado por controle (o mutante de 1 ms sobrevive);
+  - o cabeçalho "never shows" sem ressalva para o oclusor.
+  Ficam para a C2b-5 porque a WIN-MAP-1 está em voo em `tests/CMakeLists.txt`, e dois agentes na mesma árvore colidem.
+- **Vigiar:** o driver Python tem 982 linhas, metade de selftest.

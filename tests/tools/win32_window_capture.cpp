@@ -16,6 +16,7 @@
 
 #include "win32_capture_child.hpp"
 #include "win32_capture_grab.hpp"
+#include "win32_capture_occluder.hpp"
 #include "win32_capture_text.hpp"
 #include "window_capture_rules.hpp"
 
@@ -30,11 +31,17 @@
 // It prints `visivel=` and `iconico=` as found.
 //
 // USAGE: win32_window_capture --title <window title> --out <directory>
-//            [--present-budget-ms <n>] [--exit-budget-ms <n>] -- <fixture.exe> [fixture args...]
+//            [--present-budget-ms <n>] [--exit-budget-ms <n>] [--sabotage-occlude]
+//            -- <fixture.exe> [fixture args...]
 //   the fixture's command line is passed through verbatim after `--`: the driver owns it.
+//   --sabotage-occlude (D-W8-42) is the debut proof of the occlusion guard: after the window is
+//   found, the tool covers the client area with a window of its OWN (win32_capture_occluder.hpp),
+//   and the verdict MUST be `OCLUIDA por classe=GlintFxCaptureOccluder` (exit 14). It only ever
+//   produces a rejection, and only when asked for.
 //
 // WHAT IT DOES, in order: launch; wait for the fixture's "presented at attempt" line (default
-// 30 s); find the window; print `janelas=`, `visivel=`, `iconico=`; DwmFlush twice; the readiness
+// 30 s); find the window; print `janelas=`, `visivel=`, `iconico=`; (--sabotage-occlude: cover the
+// client area); DwmFlush twice; the readiness
 // verdict `veredito:` (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, in that order) and, ONLY if the
 // window is ready, PrintWindow into <out>/printwindow/ then BitBlt into <out>/bitblt/ (a window
 // that is not ready is never captured, D-W8-44); WM_CLOSE; wait for the fixture's exit (default
@@ -68,6 +75,7 @@ struct tool_options {
     std::string out_directory;
     int present_budget_ms = k_default_present_budget_ms;
     int exit_budget_ms = k_default_exit_budget_ms;
+    bool sabotage_occlude = false;
     std::vector<std::string> fixture_command;
 };
 
@@ -102,6 +110,11 @@ bool parse_options(const std::vector<std::string> &args, tool_options &options) 
     std::string present_text = std::to_string(k_default_present_budget_ms);
     std::string exit_text = std::to_string(k_default_exit_budget_ms);
     while (index < args.size() && args[index] != "--") {
+        if (args[index] == "--sabotage-occlude") {
+            options.sabotage_occlude = true;
+            ++index;
+            continue;
+        }
         const bool known = take_option(args, index, "--title", options.title) ||
                            take_option(args, index, "--out", options.out_directory) ||
                            take_option(args, index, "--present-budget-ms", present_text) ||
@@ -247,8 +260,16 @@ glintfx::capture_tool::verdict judge_readiness(HWND window, const pixel_rect &cl
 // CAPTURE verdicts (exit 10 to 15, one per verdict), never the tool's own failure (exit 2).
 int capture_window(HWND window, const tool_options &options) {
     report_window_state(window);
-    flush_dwm();
     const pixel_rect client = glintfx::capture_tool::client_rect_on_screen(window);
+    glintfx::capture_tool::window_occluder cover; // alive until the captures are done
+    if (options.sabotage_occlude) {
+        if (!cover.cover(client)) {
+            return refuse("--sabotage-occlude: the covering window could not be shown");
+        }
+        say("sabotagem occlude: a janela " + std::string(glintfx::capture_tool::k_occluder_class) +
+            " cobre a area cliente");
+    }
+    flush_dwm();
     const glintfx::capture_tool::verdict readiness = judge_readiness(window, client);
     const glintfx::capture_tool::capture_plan plan =
         glintfx::capture_tool::plan_captures(readiness);
@@ -323,10 +344,10 @@ int main(int argc, char **argv) {
     const std::vector<std::string> args(argv + 1, argv + argc);
     tool_options options;
     if (!parse_options(args, options)) {
-        std::fprintf(
-            stderr,
-            "usage: win32_window_capture --title <title> --out <directory> "
-            "[--present-budget-ms <n>] [--exit-budget-ms <n>] -- <fixture.exe> [args...]\n");
+        std::fprintf(stderr,
+                     "usage: win32_window_capture --title <title> --out <directory> "
+                     "[--present-budget-ms <n>] [--exit-budget-ms <n>] [--sabotage-occlude] "
+                     "-- <fixture.exe> [args...]\n");
         return k_exit_tool;
     }
     const int code = run(options);

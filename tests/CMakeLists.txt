@@ -6408,6 +6408,7 @@ if(WIN32)
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_window_capture.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_child.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_grab.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_occluder.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_text.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp")
     target_link_libraries(win32_window_capture PRIVATE user32 gdi32)

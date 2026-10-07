@@ -6558,3 +6558,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o da ponta verde nos 4 trabalhos Windows e nos demais;
   - o do mutante reprovando exatamente como previsto nos 4 trabalhos Windows.
   Qualquer outro desfecho volta ao CTO.
+
+### 07/10/2026 08:30:05 - WIN-MAP-1 ACEITA e fechada (WIN-MAP-FIRST-PRESENT ✅)
+
+- **Ponta `6b19876d`, CI 37611152408:** `success` (25 sucessos e 1 pulo de rotina, o VERSION-TAG-SYNC). O `win32_first_present_maps_test` passou nos 4 trabalhos Windows: compartilhado, estático, Debug e ASan.
+- **Mutante `e097960d` (`w8-mutante-winmap1`), CI 37611317076:** reprovou nos 4 trabalhos Windows **exatamente como previsto pelo revisor antes do dado**.
+  - Caíram 3 casos: `..._window`, `..._under_sw_hide_child` e `..._window_under_sw_hide`.
+  - Passaram os 3 casos previstos como verdes.
+  - A falha foi `second_swap_error_code=platform_failure` / `swap_buffers`, e o teste foi o único a cair em cada trabalho (1/292 ou 1/136).
+  - Logs em `/var/tmp/cto-w8/mutante-winmap1-run/`.
+- **Regra de aceite pré-registrada cumprida inteira.** A fatia fecha: a janela do consumidor no Windows aparece no primeiro quadro apresentado, uma vez só, com falha de exibição relatada e repetida.
+- **TODO.md:**
+  - `WIN-MAP-FIRST-PRESENT` passou a ✅;
+  - a linha `PRESENT-EMPTY-FRAME` entrou na W8 por decisão do líder. A onda tem agora 11 linhas, e o piso subiu de 10 para 11.
+- **Em seguida:** push do onda-w8 e retrato da sessão. Depois, **pausa por ordem do líder** ("Pause após acabar e commitar essa fatia").
+- **O próximo trabalho fica para a retomada:** PRESENT-EMPTY-FRAME, a C2b-5, DEMO-1 e as demais. O ramo descartável `w8-mutante-winmap1` fica no remoto até a limpeza.

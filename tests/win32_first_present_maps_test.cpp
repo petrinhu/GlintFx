@@ -146,6 +146,35 @@ void check_first_present_maps_and_only_once() {
 
 GLINTFX_TEST(win32_first_present_maps_window) { check_first_present_maps_and_only_once(); }
 
+// A closed and reopened context shows its window on its first frame again (the twin of
+// close() resetting every other per-context fact, such as the swap counter).
+GLINTFX_TEST(win32_first_present_maps_window_after_context_reopen) {
+    glintfx::platform::win32_display_adapter display;
+    glintfx::platform::win32_window_adapter window;
+    GLINTFX_CHECK(open_display_and_window(display, window));
+    const HWND hwnd = window.native_handle();
+
+    glintfx::platform::win32_gl_context_adapter context;
+    const std::vector<glintfx::gltfx_gfx_option_entry> options;
+    GLINTFX_CHECK(!context.open(window, options).has_error());
+    GLINTFX_CHECK(!context.make_current().has_error());
+    GLINTFX_CHECK(!context.swap_buffers().has_error());
+    GLINTFX_CHECK(::IsWindowVisible(hwnd) != 0);
+
+    context.close();
+    ::ShowWindow(hwnd, SW_HIDE);
+    GLINTFX_CHECK(!display.pump_events().has_error());
+    GLINTFX_CHECK(::IsWindowVisible(hwnd) == 0);
+
+    GLINTFX_CHECK(!context.open(window, options).has_error());
+    GLINTFX_CHECK(!context.make_current().has_error());
+    GLINTFX_CHECK(!context.swap_buffers().has_error());
+    const bool visible_after_reopen = ::IsWindowVisible(hwnd) != 0;
+    std::println("MEASURED win32_first_present_maps_test.visible_after_reopen_first_present={}",
+                 visible_after_reopen);
+    GLINTFX_CHECK(visible_after_reopen);
+}
+
 // Entry the parent relaunches. Run directly (no env var) it is the same
 // check as the case above, so a full-suite run stays meaningful.
 GLINTFX_TEST(win32_first_present_maps_under_sw_hide_child) {

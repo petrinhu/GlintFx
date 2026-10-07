@@ -2521,6 +2521,39 @@ if(WIN32)
     )
     target_link_libraries(win32_iconic_present_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
 
+    # win32_first_present_maps_test - WIN-MAP-FIRST-PRESENT (D-W8-38, D-W8-41): the first presented
+    # frame maps the window, once, even when the process was launched with SW_HIDE. Same object set
+    # as win32_iconic_present_test (a REAL display + window + WGL context); plus the atom that maps.
+    # RUN_SERIAL: it shows a real top-level window, and another test window opened in parallel would
+    # cover it (the same reasoning as the C2b capture test, D-W8-40).
+    glintfx_add_test(win32_first_present_maps_test)
+    target_include_directories(win32_first_present_maps_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_first_present_maps_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/gl_device_luid.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+    )
+    target_link_libraries(win32_first_present_maps_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+    set_tests_properties(win32_first_present_maps_test PROPERTIES RUN_SERIAL TRUE)
+
     # win32_wait_events_test - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-
     # 6-8.md sec. 8.2, D-W6b-50, "Prova Windows" column): the Win32
     # mirror of tests/container/wait_events_smoke.cpp, over a REAL

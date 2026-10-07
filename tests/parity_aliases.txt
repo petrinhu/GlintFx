@@ -361,3 +361,13 @@ wait_events_smoke|win32_wait_events_test
 # resolve_wgl_proc_address() chamado direto do lado Windows (win32_gl_
 # context_adapter::proc_address() delega para ele numa linha so').
 gl_proc_address_oom_test|win32_gl_proc_address_oom_test
+
+# WIN-MAP-FIRST-PRESENT (D-W8-38, D-W8-41, 06/10/2026): "o primeiro quadro
+# apresentado mapeia a janela" e a MESMA promessa nos dois sistemas, por
+# mecanismos diferentes (L-04). No Linux capture_known_color_smoke prova o
+# mapeamento: o rele so grava o commit com buffer, que e o que mapeia a
+# superficie xdg_toplevel. No Windows quem prova o mapeamento isolado,
+# inclusive sob STARTUPINFO com SW_HIDE, e win32_first_present_maps_test.
+# Apelido, nunca excecao: o par existe dos dois lados e continua existindo
+# depois que o item fecha.
+capture_known_color_smoke|win32_first_present_maps_test|bilateral=capture_known_color_smoke tambem roda no Windows depois da C2b (QA-SCREEN-CAPTURE); so win32_first_present_maps_test e exclusivo do Windows

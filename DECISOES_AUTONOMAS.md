@@ -6544,3 +6544,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Veredito pela regra da seção 2 de `decisao-swap2.md`: CONFIRMADO.** A falha é do Mesa 26.x diante de um quadro sem desenho, não do nosso caminho WGL nem da WIN-MAP-1. A premissa da minha regra anterior ("variante 1 ou 2 = produto") foi escrita sem conhecer o mecanismo e fica corrigida pela medição.
 - **A cópia do teste com desenho entre os swaps passou nos 6 casos no executor:** mapeia a janela, mapeia sob SW_HIDE, mapeia depois de reabrir o contexto, mostra antes do swap e relata e repete a falha ao mostrar.
 - **Próximo:** aplicar o desenho ao `win32_first_present_maps_test` verdadeiro, CI verde na ponta e revisão que executa. Aí a WIN-MAP-1 fecha.
+
+### 07/10/2026 08:02:18 - WIN-MAP-1: teste com desenho (6b19876d) empurrado; o CI da ponta e o mutante estão rodando
+
+- **Implementador (sonnet):** 6b19876d, só `tests/win32_first_present_maps_test.cpp`, +24/-0. Acrescenta `clear_frame` antes de cada um dos 7 `swap_buffers()` e não muda nenhuma asserção da D-W8-38. O `preci --fast` deu rc=0. O main conferiu o diff.
+- **CI da ponta:** run 37611152408, em `6b19876d`. O main empurrou e conferiu com `ls-remote`.
+- **Revisor distinto (sonnet):** a leitura aprova. Há só um achado cosmético, sem ação. Relatório em `/var/tmp/cto-w8/rev-winmap1-desenho.md`.
+- **Mutante:** ramo descartável `w8-mutante-winmap1` (e097960d). Tira o `clear_frame` antes do segundo swap de `check_first_present_maps_and_only_once` (diff de -1 linha, conferido pelo main). CI do mutante: run 37611317076.
+- **Previsão pré-registrada pelo revisor, antes do dado:**
+  - reprovam `win32_first_present_maps_window`, `..._under_sw_hide_child` e `..._window_under_sw_hide` (este último pelo código de saída do filho), com `second_swap_error_code=platform_failure` e `swap_buffers`;
+  - continuam verdes `after_context_reopen`, `before_the_swap` e `show_failure_is_reported_and_retried`.
+- **Regra de aceite:** a WIN-MAP-1 fecha quando os dois runs concluírem:
+  - o da ponta verde nos 4 trabalhos Windows e nos demais;
+  - o do mutante reprovando exatamente como previsto nos 4 trabalhos Windows.
+  Qualquer outro desfecho volta ao CTO.

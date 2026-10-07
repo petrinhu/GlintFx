@@ -223,6 +223,7 @@ struct gltfx_loop_callbacks {
     // The system may also refuse that presentation outright
     // (platform/gl/context.hpp, item 2, PRESENT-EMPTY-FRAME); run()
     // then ends with that error, unchanged (P9 below).
+    // Draw in on_render every time; a clear is enough.
     gltfx_on_render_fn on_render = nullptr;
 
     // RESERVED for INPUT-EVENTS (W7) - MUST be null in this version.

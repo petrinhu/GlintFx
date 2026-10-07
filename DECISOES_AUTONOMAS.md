@@ -6581,3 +6581,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - O watchcode foi religado; estava inativo, com origem não identificada, e o monitor foi rearmado.
 - **Próxima fatia: PRESENT-EMPTY-FRAME (W8).** Pela L-34 em modo autônomo, o brainstorm é entre o main e o C-level opus (CTO), que decide no lugar do líder o que não foi decidido por ele. O líder já decidiu o contrato ("indefinido, recusa relatada"), a tolerância ("remover dos 4 testes") e a onda (W8).
 - **Pela L-43, a pesquisa vem antes do plano:** web, RmlUi e SDL3, para ver como tratam a apresentação de quadro sem desenho, as falhas de SwapBuffers e as tolerâncias de renderer por software.
+
+### 07/10/2026 09:05:01 - PRESENT-EMPTY-FRAME: pesquisa e plano do CTO aceitos pelo main (L-34, passo 3)
+
+- **Pesquisa (L-43), gravada antes do plano:** `/var/tmp/cto-w8/pesquisa-empty-frame.md`. Nenhuma biblioteca do tipo escreve um contrato para o quadro vazio:
+  - GLFW, RmlUi e Qt engolem o retorno do swap;
+  - SDL3 relata a falha, como nós;
+  - RmlUi e os testes do SDL desenham antes de cada apresentação.
+- **Plano:** `/var/tmp/cto-w8/plano-empty-frame.md`. Tem 8 fatias: F1, F2, F3-RED e F3 a F7. Traz 16 critérios de fechamento escritos antes do dado (§4) e 5 runs de vermelho com previsão pré-registrada (R-G, A, B, R1 e R2), mais o mutante M3, que roda em container local.
+- **Decisões do CTO em modo autônomo:** D-W8-50 a D-W8-59 (plano §7). Ficam para o líder confirmar retroativamente.
+- **Conferência do main antes de despachar:**
+  - Citações: `context.hpp:50`, `loop.hpp:373-376` (P9), `loop.hpp:337-342` (P4), `tests/CMakeLists.txt:2626`/`:2654` e `install-mesa-opengl32.ps1:100` batem com o HEAD.
+  - O ps1 do Mesa roda antes do ctest nos 4 trabalhos Windows (`ci.yml:1075/1118`, `:3809/3833`, `:4103/4127`), então a variável de expectativa chega ao teste.
+  - Gêmeos da tolerância fora de `tests/`: só aparecem em documentos (TODO, DECISOES, `docs/plano-loop-callbacks.md`, que a F7 cobre, e uma auditoria datada, que fica). Nenhum leitor em `tools/` ou `.github/`.
+- **Correção do CTO pela L-44, aceita:** sob o contrato do líder, o teste novo passa nos dois sistemas desde o primeiro dia. O vermelho dele vem só de sabotagem pré-registrada.
+- **Item L1 do plano, levado ao líder por AskUserQuestion (L-01):** no Windows sob Mesa 26, o `run()` encerra quando o `on_render` não desenha. A opção que ele escolheu não dizia isso. **A F2 (o texto do contrato, porta de mão única) espera a resposta dele. A F1 segue, porque não depende disso.** A D-W8-51 é preenchimento do CTO sobre a decisão do líder (L-07).
+- **Próximo:** F1 com o implementador sonnet.

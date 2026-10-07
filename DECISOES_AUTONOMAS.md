@@ -6430,3 +6430,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `DRIVER_EXIT codigo=0`; o modo `on` saiu como ausência declarada.
 - **Antes e depois, no mesmo teste e no mesmo executor:** o vermelho em `64cb199` (run 37552985243) deu INVISIVEL 11; o conserto deu janela visível, com a cor exata nos dois mecanismos externos. O "FORA_DO_ACEITO" do `check_c2b4` aqui é esperado, porque ele só conhece o vermelho.
 - **Pendente:** CI inteiro no `df22cf8` (o teste novo tem de reprovar) e no `efe2734`, mais a revisão adversarial da WIN-MAP-1.
+
+### 06/10/2026 22:45:11 - WIN-MAP-1: revisão NÃO ACEITA; correções em voo
+
+- **Revisão** (`/var/tmp/cto-w8/rev-winmap1.md`): NÃO ACEITAR.
+  - **Defeito de produto:** `close()` não zera `m_first_present_map`, então um contexto reaberto sobre outra janela nunca a mostra.
+  - A ordem "mostrar ANTES do SwapBuffers" não é testada.
+  - O retorno do `SetWindowPos` é ignorado, e o `GetLastError` pode vir 0 na falha.
+  - Foco: sem conflito com nenhuma decisão escrita. A sonda X-0 do plano-w6a usava SHOWNOACTIVATE (nota).
+- **Defeito do 905a9b6, já aceito antes:** o portão win32-link soma testes e ferramentas na reconciliação e reprova (154 contra 155). Quebra `preci --win32-link-only` e o estágio 9 do preci completo; o CI não chama o script. O aceite da C2b-1 a C2b-3 não pegou isso, porque o `--fast` não roda esse estágio. Volta ao implementador dele.
+- **Despachados:** o implementador da WIN-MAP-1 cuida dos três itens e o da C2b cuida do portão, em arquivos separados. Prazo de ambos: 23:30, por causa da pausa das 23:50.

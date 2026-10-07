@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -19,24 +19,31 @@
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 
-#include "checked_stdio.hpp"
-
-// capture_known_color_smoke.cpp - QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-32, D-W8-33): the fixture
-// whose frame the wire relay captures IN THE PROTOCOL, and whose own pixel readback the capture is
-// then compared against. Test instrument, not product code: it draws a frame of KNOWN colors
-// through the PUBLIC API only (the shape of draw2d_parity_test.cpp), reads the WHOLE frame back
-// with glReadPixels BEFORE the swap, writes those bytes untouched, and presents the frame
-// (swap_buffers() answering `presented`). The relay saves the last committed wl_shm buffer when
-// this connection closes; the driver (tests/container/run_capture_known_color.sh) compares the two,
-// byte for byte, alpha included, with tests/tools/capture_vs_readback.py, and probes the capture's
-// pixels with tests/tools/image_probe.py against
-// tests/fixtures/capture_known_color_probes_<mode>.txt.
+// capture_known_color_smoke.cpp - QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-32, D-W8-33) and C2b-4
+// (D-W8-39): the ONE fixture, the same source on both systems (no #if, only the public API), whose
+// frame is captured from OUTSIDE and whose own pixel readback the capture is then compared against.
+// Linux: the wire relay captures the frame IN THE PROTOCOL
+// (tests/container/run_capture_known_color.sh). Windows: tests/tools/win32_window_capture.cpp
+// launches this fixture and reads its window by PrintWindow and by BitBlt of the screen
+// (tests/tools/run_capture_known_color_win32.py). Test instrument, not product code: it draws a
+// frame of KNOWN colors through the PUBLIC API only (the shape of draw2d_parity_test.cpp), reads
+// the WHOLE frame back with glReadPixels BEFORE the swap, writes those bytes untouched, and
+// presents the frame (swap_buffers() answering `presented`). The relay saves the last committed
+// wl_shm buffer when this connection closes; the driver
+// (tests/container/run_capture_known_color.sh) compares the two, byte for byte, alpha included,
+// with tests/tools/capture_vs_readback.py, and probes the capture's pixels with
+// tests/tools/image_probe.py against tests/fixtures/capture_known_color_probes_<mode>.txt.
 //
-// USAGE: capture_known_color_smoke <off|on> <readback-directory> [<sabotage>]
+// USAGE: capture_known_color_smoke <off|on> <readback-directory> [--hold-until-close <ms>]
+//            [<sabotage>]
 //   off|on: the context option srgb_framebuffer (open_only), one window per process, so ONE run is
 //   one connection and one captured surface: the mode of every capture is known by construction.
 //   readback-directory: an existing directory INSIDE the container; writes readback_<mode>.raw
 //   (RGBA, glReadPixels order, bottom row first, untouched) and readback_<mode>.meta.
+//   --hold-until-close <ms>: after the frame is presented, pump events every 10 ms until
+//   close_requested() (a window that is read from outside must be alive and answering messages;
+//   PrintWindow waits for the owner of the window). Budget exceeded: the fixture FAILS. The Linux
+//   driver does not pass it (the relay records at disconnect); the Windows driver always does.
 //   sabotage (L-36, the debut proof that the gate bites, never used by the real run): swap_red_blue
 //   draws the red square blue; alpha_half draws it half transparent; corrupt_readback flips one
 //   byte of the readback AFTER it is read (the equality, not the probes, must catch that one).
@@ -57,12 +64,18 @@
 // differ, which is why there is one probe file per mode and a sabotage run in each. The alpha is
 // not encoded in either mode: 127.5, 127 or 128.
 //
-// THE FIXTURE ITSELF FAILS when: the context cannot open (srgb_framebuffer=on included: the Linux
-// llvmpipe supports it, so an absence here is a regression, not a declared absence), the swap never
-// answers `presented` (a frame that is never shown is never captured), the surface is smaller than
-// the scene, or the readback cannot be written. What it does NOT decide: whether the capture equals
-// the readback and whether the pixels are the expected ones - that is the driver's verdict, from
-// the capture the relay writes after this process is gone.
+// EXIT CODES: 0 ok; 1 the fixture failed; 77 DECLARED ABSENCE (D-W8-39, the pattern of
+// draw2d_parity_test.cpp, D-SRGB2-13): the context refused srgb_framebuffer=on and named that very
+// option, printed as the line "AUSENCIA DECLARADA srgb_framebuffer=on". The Windows driver COUNTS
+// that absence (the runner's Mesa has no sRGB framebuffer); the Linux driver treats 77 as a FAILURE
+// (llvmpipe supports it there, so an absence is a regression). Same behavior of the fixture, a
+// verdict per system.
+//
+// THE FIXTURE ITSELF FAILS when: the context cannot open (the srgb refusal above aside), the swap
+// never answers `presented` (a frame that is never shown is never captured), the surface is smaller
+// than the scene, or the readback cannot be written. What it does NOT decide: whether the capture
+// equals the readback and whether the pixels are the expected ones - that is the driver's verdict,
+// from the capture the relay writes after this process is gone.
 
 namespace {
 
@@ -77,6 +90,9 @@ constexpr int k_scene_width = 320;
 constexpr int k_scene_height = 240;
 constexpr int k_present_attempts = 200;
 constexpr std::chrono::milliseconds k_present_pause{10};
+constexpr int k_exit_declared_absence = 77;
+constexpr int k_max_hold_ms = 600000;
+constexpr std::chrono::milliseconds k_hold_pause{10};
 
 struct gl_api {
     void (*get_integerv)(gl_enum, gl_int *) = nullptr;
@@ -89,6 +105,7 @@ struct run_options {
     std::string directory;
     std::string sabotage;
     bool srgb = false;
+    int hold_ms = 0; // 0: no hold (the Linux run)
 };
 
 struct frame_bytes {
@@ -98,13 +115,11 @@ struct frame_bytes {
 };
 
 void say(const char *what, const std::string &detail) {
-    glintfx::container_fixture::checked_fprintf(stdout, "capture_known_color_smoke: %s %s\n", what,
-                                                detail.c_str());
+    std::fprintf(stdout, "capture_known_color_smoke: %s %s\n", what, detail.c_str());
 }
 
 int fail(const char *what, const std::string &detail = "") {
-    glintfx::container_fixture::checked_fprintf(stderr, "capture_known_color_smoke: FAIL %s %s\n",
-                                                what, detail.c_str());
+    std::fprintf(stderr, "capture_known_color_smoke: FAIL %s %s\n", what, detail.c_str());
     return EXIT_FAILURE;
 }
 
@@ -117,16 +132,40 @@ bool is_known_sabotage(std::string_view name) {
            name == "corrupt_readback";
 }
 
+// "<positive integer>" up to k_max_hold_ms; false for anything else (never a guess).
+bool read_hold_ms(const char *text, int &value) {
+    char *end = nullptr;
+    const long parsed = std::strtol(text, &end, 10);
+    if (end == text || *end != '\0' || parsed <= 0 || parsed > k_max_hold_ms) {
+        return false;
+    }
+    value = static_cast<int>(parsed);
+    return true;
+}
+
+// <off|on> <directory> [--hold-until-close <ms>] [<sabotage>]: the Linux driver's two or three
+// arguments stay valid as they were.
 std::optional<run_options> parse_options(int argc, char **argv) {
-    if (argc < 3 || argc > 4) {
+    if (argc < 3) {
         return std::nullopt;
     }
     run_options options;
     options.mode = argv[1];
     options.directory = argv[2];
-    options.sabotage = argc == 4 ? argv[3] : "";
     options.srgb = options.mode == "on";
-    if ((options.mode != "on" && options.mode != "off") || !is_known_sabotage(options.sabotage)) {
+    int next = 3;
+    if (next < argc && std::string_view(argv[next]) == "--hold-until-close") {
+        if (next + 1 >= argc || !read_hold_ms(argv[next + 1], options.hold_ms)) {
+            return std::nullopt;
+        }
+        next += 2;
+    }
+    if (next < argc) {
+        options.sabotage = argv[next];
+        ++next;
+    }
+    if (next != argc || (options.mode != "on" && options.mode != "off") ||
+        !is_known_sabotage(options.sabotage)) {
         return std::nullopt;
     }
     return options;
@@ -204,13 +243,10 @@ void report_probe_pixels(const frame_bytes &frame) {
 }
 
 bool write_all(const std::string &path, const void *data, std::size_t size) {
-    std::FILE *file = std::fopen(path.c_str(), "wb");
-    if (file == nullptr) {
-        return false;
-    }
-    const bool wrote = std::fwrite(data, 1, size, file) == size;
-    const bool closed = std::fclose(file) == 0;
-    return wrote && closed;
+    std::ofstream file(path, std::ios::binary);
+    file.write(static_cast<const char *>(data), static_cast<std::streamsize>(size));
+    file.flush();
+    return static_cast<bool>(file);
 }
 
 bool write_readback(const run_options &options, const frame_bytes &frame) {
@@ -246,9 +282,19 @@ struct opened_surface {
     std::optional<glintfx::gltfx_gl_context> context;
 };
 
+enum class surface_outcome { opened, absent, failed };
+
+// srgb_framebuffer=on refused BY NAME (code unsupported, rejected_value "srgb_framebuffer"): a
+// declared absence (D-SRGB2-13). A refusal that names another option is a defect of the adapter.
+bool is_declared_srgb_absence(const glintfx::gltfx_err &error) {
+    return error.code() == glintfx::gltfx_err_code::unsupported &&
+           error.rejected_value() == "srgb_framebuffer";
+}
+
 // Window, then context with srgb_framebuffer set to the mode, made current, vsync off (swap_buffers
-// never waits for the compositor's frame callback, so the run is not paced by it).
-bool open_surface(glintfx::gltfx_display &display, bool srgb, opened_surface &out) {
+// never waits for the compositor's frame callback, so the run is not paced by it). `absent` only
+// when the mode is on and the context refused srgb_framebuffer by name.
+surface_outcome open_surface(glintfx::gltfx_display &display, bool srgb, opened_surface &out) {
     const glintfx::gltfx_window_desc window_desc{
         .title = "janela da fumaca de cor conhecida",
         .application_id = "org.glintfx.capture_known_color_smoke",
@@ -258,7 +304,7 @@ bool open_surface(glintfx::gltfx_display &display, bool srgb, opened_surface &ou
         glintfx::gltfx_window::open(display, window_desc);
     if (window.has_error()) {
         say("FAIL window open:", code_name(window.err()));
-        return false;
+        return surface_outcome::failed;
     }
     out.window.emplace(std::move(window.value()));
     const glintfx::gltfx_gfx_option_entry options[] = {
@@ -267,8 +313,14 @@ bool open_surface(glintfx::gltfx_display &display, bool srgb, opened_surface &ou
     glintfx::gltfx_rslt<glintfx::gltfx_gl_context> context =
         glintfx::gltfx_gl_context::open(*out.window, desc);
     if (context.has_error()) {
-        say("FAIL context open (srgb_framebuffer is required on Linux):", code_name(context.err()));
-        return false;
+        if (srgb && is_declared_srgb_absence(context.err())) {
+            say("AUSENCIA DECLARADA srgb_framebuffer=on: the context refused the option",
+                code_name(context.err()));
+            return surface_outcome::absent;
+        }
+        say("FAIL context open:", code_name(context.err()) + " rejected_value=" +
+                                      std::string(context.err().rejected_value()));
+        return surface_outcome::failed;
     }
     out.context.emplace(std::move(context.value()));
     const glintfx::gltfx_rslt<void> current = out.context->make_current();
@@ -276,9 +328,9 @@ bool open_surface(glintfx::gltfx_display &display, bool srgb, opened_surface &ou
         out.context->set_option({.id = glintfx::gltfx_gfx_option::vsync, .value = 0});
     if (current.has_error() || vsync.has_error()) {
         say("FAIL make_current or vsync=off", "");
-        return false;
+        return surface_outcome::failed;
     }
-    return true;
+    return surface_outcome::opened;
 }
 
 // The viewport the renderer leaves after an empty frame: the real surface size.
@@ -327,6 +379,26 @@ int draw_read_and_present(glintfx::gltfx_gl_context &context, const run_options 
     return present_until_shown(context) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+// After the frame is presented, pump events until the window is asked to close (the tool posts
+// WM_CLOSE after its captures). A window read from outside has to stay alive and answer messages.
+bool hold_until_close(glintfx::gltfx_display &display, const glintfx::gltfx_window &window,
+                      int budget_ms) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (const glintfx::gltfx_rslt<void> pumped = display.pump_events(); pumped.has_error()) {
+            say("FAIL pump_events while holding:", code_name(pumped.err()));
+            return false;
+        }
+        if (window.close_requested()) {
+            say("close requested", "");
+            return true;
+        }
+        std::this_thread::sleep_for(k_hold_pause);
+    }
+    say("FAIL no close request within ms:", std::to_string(budget_ms));
+    return false;
+}
+
 int run(const run_options &options) {
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {
@@ -334,13 +406,21 @@ int run(const run_options &options) {
     }
     glintfx::gltfx_display display = std::move(display_opened.value());
     opened_surface surface;
-    if (!open_surface(display, options.srgb, surface)) {
+    const surface_outcome opened = open_surface(display, options.srgb, surface);
+    if (opened == surface_outcome::absent) {
+        return k_exit_declared_absence;
+    }
+    if (opened == surface_outcome::failed) {
         return EXIT_FAILURE;
     }
-    if (!surface.context.has_value()) {
+    if (!surface.context.has_value() || !surface.window.has_value()) {
         return fail("context missing after open_surface", "");
     }
-    const int outcome = draw_read_and_present(*surface.context, options);
+    int outcome = draw_read_and_present(*surface.context, options);
+    if (outcome == EXIT_SUCCESS && options.hold_ms > 0 &&
+        !hold_until_close(display, *surface.window, options.hold_ms)) {
+        outcome = EXIT_FAILURE;
+    }
     if (outcome == EXIT_SUCCESS) {
         say("ok mode",
             options.mode + (options.sabotage.empty() ? "" : " sabotage=" + options.sabotage));
@@ -351,11 +431,11 @@ int run(const run_options &options) {
 } // namespace
 
 int main(int argc, char **argv) {
-    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
     const std::optional<run_options> options = parse_options(argc, argv);
     if (!options.has_value()) {
         return fail("usage: capture_known_color_smoke <off|on> <readback-directory> "
-                    "[swap_red_blue|alpha_half|corrupt_readback]");
+                    "[--hold-until-close <ms>] [swap_red_blue|alpha_half|corrupt_readback]");
     }
     return run(*options);
 }

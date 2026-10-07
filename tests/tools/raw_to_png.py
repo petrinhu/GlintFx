@@ -29,7 +29,7 @@
 # every semi-transparent probe in that convention, never "straight".
 #
 # READBACK MODE (QA-SCREEN-CAPTURE C2b-3, Windows): the client's own glReadPixels of the frame
-# (tests/container/capture_known_color_smoke.cpp writes it) is the INTERNAL reading the alpha of
+# (tests/parity/capture_known_color_smoke.cpp writes it) is the INTERNAL reading the alpha of
 # the library is proven on, because the Windows screen capture carries no alpha. It is RGBA, BOTTOM
 # row first, tightly packed; this tool flips the rows and keeps every channel, the alpha included,
 # so image_probe.py can probe it like any other PNG.

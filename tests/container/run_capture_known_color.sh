@@ -5,7 +5,7 @@
 # THE DRIVER of the protocol-capture proof: for each srgb_framebuffer mode (off, on) it starts a SECOND wire
 # relay inside the already-running test container, in front of the SAME KWin the container's own relay talks
 # to, with a capture directory (the third argument of wire_relay_main, which this run is the first end-to-end
-# test of); runs tests/container/capture_known_color_smoke.cpp's binary through that relay; copies the capture
+# test of); runs tests/parity/capture_known_color_smoke.cpp's binary through that relay; copies the capture
 # and the client's own readback OUT of the container with `docker cp`; and judges, on the host:
 #   1. the fixture's own exit code (it must have presented a frame);
 #   2. tests/tools/raw_to_png.py: at least one image converted, nothing unaccounted for (zero reproves, L-40);
@@ -21,7 +21,9 @@
 #        run_capture_known_color.sh --selftest   (no container: the pure decisions of this driver)
 # --env is passed to exec_fixture.sh (the asan leg's runtime options). --sabotage is the debut proof (L-36): the
 # fixture draws a wrong frame on purpose and the verdict MUST be a rejection; this script does not invert it.
-# Exit 0 only when every mode passed all four checks. The verdict line of each mode and a final summary line
+# The fixture's exit 77 is its DECLARED ABSENCE (srgb_framebuffer=on refused by name): the Windows driver counts it,
+# THIS driver treats it as a FAILURE (llvmpipe supports sRGB here, so an absence is a regression); mode_verdict
+# below needs the fixture rc to be exactly 0. Exit 0 only when every mode passed all four checks. The verdict line of each mode and a final summary line
 # are always printed.
 #
 # WHAT THIS DOES NOT PROVE (declared, L-43): the Windows capture (QA-SCREEN-CAPTURE C2b); the composition KWin
@@ -312,7 +314,8 @@ selftest_verdict_needs_every_part_clean() {
 }
 
 selftest_verdict_rejects_each_failed_part() {
-    ! mode_verdict 1 0 0 && ! mode_verdict 0 1 0 && ! mode_verdict 0 0 1 && ! mode_verdict 0 3 1
+    ! mode_verdict 1 0 0 && ! mode_verdict 0 1 0 && ! mode_verdict 0 0 1 && ! mode_verdict 0 3 1 &&
+        ! mode_verdict 0 77 0
 }
 
 selftest_wait_settings_are_validated() {

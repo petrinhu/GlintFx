@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # capture_known_color_probes_on.txt - QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33): the pixels
-# tests/container/capture_known_color_smoke.cpp must leave in the relay's CAPTURE of its frame, for the
+# tests/parity/capture_known_color_smoke.cpp must leave in the relay's CAPTURE of its frame, for the
 # context option srgb_framebuffer=on. Format: tests/tools/image_probe.py ("<x> <y> <RRGGBBAA> [<tol>]",
 # origin top-left, alpha included). Fixed BEFORE the data existed (GODS_LAWS.md L-43); the scene is
 # described in the fixture's own header comment.

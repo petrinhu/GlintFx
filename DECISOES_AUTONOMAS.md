@@ -6649,3 +6649,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **I-1:** o mesmo `platform_failure` também sai de uma conexão morta, que nunca se recupera.
   - O main aceitou tudo. A rodada 2 está com o mesmo redator.
 - **L-11:** dois `preci --fast` rodaram ao mesmo tempo (o da F2 e o do preparo de R1/R2). O main avisou o agente: vermelho de tempo nessa rodada não vale, e a rodada se repete sozinha.
+
+### 07/10/2026 11:22:27 - Laço de espera órfão encerrado (autorização do líder: "Sim, este e os próximos")
+
+- PID 864347, vivo há ~7600 s: `until ! pgrep -f 'tools/preci.sh --fast' ...; do sleep 10; done`. Ele casa com a própria linha de comando e nunca termina ([[feedback_pgrep_encontra_a_si_mesmo]]). Deixado pelo implementador da F1. O main conferiu a cmdline e encerrou.

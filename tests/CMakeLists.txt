@@ -6464,7 +6464,8 @@ target_sources(window_capture_rules_test PRIVATE
 # fixture itself, finds its window by PID and title (exactly one), reads the pixels by PrintWindow and by
 # BitBlt of the screen, and writes one capture pair per mechanism. NOT a test: an executable the driver
 # (C2b-3/C2b-4) runs, so no add_test here and no glintfx_add_test (the win32 link gate enumerates those).
-# It never shows, hides or activates the window (D-W8-37).
+# It never shows, hides or activates the FIXTURE'S window (D-W8-37); the only window it shows is its
+# own occluder, and only with --sabotage-occlude.
 if(WIN32)
     add_executable(win32_window_capture
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_window_capture.cpp"
@@ -6485,8 +6486,9 @@ endif()
 # the fixture's own glReadPixels. Executes on the CI runner only (the window needs a real desktop, GODS_LAWS.md
 # L-09: never on the leader's live session); locally this target is only compiled (MSVC in a container).
 # The Mesa opengl32 sits beside the fixture in ${builddir}/tests, like every GL test of this file.
-# RUN_SERIAL (glintfx-build-dir: the output directory below lives in the build tree): ANOTHER test window
-# running in parallel could cover this one's client area, and the BitBlt would give a false OCLUIDA.
+# RUN_SERIAL: ANOTHER test window running in parallel could cover this one's client area, and the BitBlt
+# would give a false OCLUIDA. (The output directory below lives in the build tree, and RUN_SERIAL also
+# keeps any other test from touching it.)
 if(WIN32)
     add_executable(capture_known_color_smoke "${CMAKE_CURRENT_SOURCE_DIR}/parity/capture_known_color_smoke.cpp")
     target_link_libraries(capture_known_color_smoke PRIVATE glintfx::glintfx)

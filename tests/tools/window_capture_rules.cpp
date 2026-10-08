@@ -100,6 +100,14 @@ std::string describe_dwm_flush(int index, std::optional<long> result) {
     return label + std::to_string(*result) + (*result < 0 ? " (HRESULT de falha)" : "");
 }
 
+std::string describe_fixture_overstay(bool close_posted, int budget_ms) {
+    const std::string budget = "FIXTURE nao saiu em " + std::to_string(budget_ms) + " ms";
+    if (close_posted) {
+        return budget + " apos WM_CLOSE: TerminateProcess";
+    }
+    return budget + " (nenhum WM_CLOSE foi postado, a janela nao foi encontrada): TerminateProcess";
+}
+
 std::string capture_meta_text(int width, int height) {
     return "width=" + std::to_string(width) + "\nheight=" + std::to_string(height) +
            "\nstride=" + std::to_string(width * 4) + "\nformat=1\n";

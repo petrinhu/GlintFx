@@ -333,8 +333,10 @@ def judge_failed_tool(config, mode, run, code):
 def judge_refused_capture(config, mode, run, code):
     """The tool printed a capture verdict (exit 10 to 15): the mode is rejected for it, and nothing else
     is hidden. The internal reading is judged (the library drew right or not), and the PrintWindow
-    pair, which the tool still wrote, is compared and RECORDED as it came (the measurement of a
-    window the library never showed). The screen read was not taken."""
+    pair, when it exists, is compared and RECORDED as it came. It only exists in the case CAPTURA
+    RECUSADA of the BitBlt (PrintWindow runs first, on a window that was READY): the tool captures no
+    window that is not ready (D-W8-44), so the pair is never the measurement of a window the library
+    never showed. The screen read was not taken."""
     result = mode_result(mode, "refused", {"tool": code})
     has_readback = (mode_dir(config, mode) / "readback" / f"readback_{mode}.raw").is_file()
     if has_readback:

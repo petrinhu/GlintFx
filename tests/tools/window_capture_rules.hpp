@@ -124,6 +124,11 @@ struct capture_plan {
 // must be readable as such. A failing HRESULT (negative) is named too; it is never judged here.
 [[nodiscard]] std::string describe_dwm_flush(int index, std::optional<long> result);
 
+// The line the tool prints when the fixture did not exit by itself within the exit budget and was
+// terminated. `close_posted` tells whether a WM_CLOSE was posted to its window first: with no
+// window found there is none, and the text must not claim one it never sent.
+[[nodiscard]] std::string describe_fixture_overstay(bool close_posted, int budget_ms);
+
 // The .meta text of a capture the tool writes: XRGB8888 (wl_shm format 1; the GDI DIB carries
 // no useful alpha), rows tightly packed (stride = width * 4). Same four keys, same order and same
 // decimal-integer grammar tests/tools/raw_to_png.py's parse_meta reads.

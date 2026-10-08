@@ -26,9 +26,11 @@
 // by TWO mechanisms and writes one capture pair per mechanism, in the format the comparator
 // (tests/tools/capture_vs_readback.py) already reads. Test tooling, not product code. Windows only.
 //
-// THIS TOOL NEVER SHOWS, HIDES, MOVES OR ACTIVATES THE WINDOW (D-W8-37). The window is what the
-// library made of it; a tool that forced a show state would repair the defect it exists to measure.
-// It prints `visivel=` and `iconico=` as found.
+// THIS TOOL NEVER SHOWS, HIDES, MOVES OR ACTIVATES THE FIXTURE'S WINDOW (D-W8-37). The window is
+// what the library made of it; a tool that forced a show state would repair the defect it exists to
+// measure. It prints `visivel=` and `iconico=` as found. The one window the tool does show is its
+// OWN: with --sabotage-occlude (below) the occluder (win32_capture_occluder.cpp) is shown over the
+// client area, and the fixture's window is still never touched.
 //
 // USAGE: win32_window_capture --title <window title> --out <directory>
 //            [--present-budget-ms <n>] [--exit-budget-ms <n>] [--sabotage-occlude]
@@ -306,8 +308,7 @@ int shut_down_fixture(const child_process &child, HWND window, int exit_budget_m
     unsigned long exit_code = 1;
     if (!glintfx::capture_tool::wait_for_exit(child, exit_budget_ms, exit_code)) {
         glintfx::capture_tool::terminate_child(child);
-        say("FIXTURE nao saiu em " + std::to_string(exit_budget_ms) +
-            " ms apos WM_CLOSE: TerminateProcess");
+        say(glintfx::capture_tool::describe_fixture_overstay(window != nullptr, exit_budget_ms));
         return k_exit_fixture;
     }
     say("fixture exit=" + std::to_string(exit_code));

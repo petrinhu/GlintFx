@@ -211,6 +211,20 @@ GLINTFX_TEST(dwm_flush_failure_hresult_is_named_as_a_failure) {
                      std::string("dwmflush1=-2147467259 (HRESULT de falha)"));
 }
 
+// -- D-W8-64: the sentence for a fixture that outstays the exit budget says WHAT was done to it.
+
+GLINTFX_TEST(fixture_overstay_after_a_posted_close_names_the_wm_close_and_the_budget) {
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::describe_fixture_overstay(true, 10000),
+                     std::string("FIXTURE nao saiu em 10000 ms apos WM_CLOSE: TerminateProcess"));
+}
+
+GLINTFX_TEST(fixture_overstay_without_a_posted_close_never_claims_a_wm_close) {
+    const std::string text = glintfx::capture_tool::describe_fixture_overstay(false, 2500);
+    GLINTFX_CHECK_EQ(text, std::string("FIXTURE nao saiu em 2500 ms (nenhum WM_CLOSE foi postado, "
+                                       "a janela nao foi encontrada): TerminateProcess"));
+    GLINTFX_CHECK(text.find("apos WM_CLOSE") == std::string::npos);
+}
+
 // -- D-W8-44: readiness first, captures only for a ready window.
 
 GLINTFX_TEST(a_ready_window_plans_both_captures) {

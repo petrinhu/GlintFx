@@ -6884,3 +6884,21 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o Run R da P-OCL;
   - o CI da ponta depois dos consertos.
   - **Os PNG não mudam com os consertos**, que só mexem no texto e nos limites da ferramenta e no leitor. A observação do QA vale, e o main confere os md5 no Run T final.
+
+### 08/10/2026 02:33:01 - C2b-5: Run S2 com as 6 pernas aceitas, a revisão aprova na rodada 2, e o Run R foi disparado
+
+- **Run S2** (ramo `sonda-c2b5` em b1113d4e, run 37732605387): `success`.
+  - O main leu as 6 pernas nos logs dos jobs. Todas dão `RESULTADO perna=...: ACEITO`.
+  - P-SWAP leu (0,0,255,255), P-ALFA leu (127,0,0,128), P-CORR leu FAIL no pixel (0,239) e P-OCL deu `codigo=14` OCLUIDA. As quatro batem com a §4.
+  - A linha `GLINTFX_SANITIZE` (conserto I-1) diz `address` na P-ASAN e vem vazia na P-CTRL e nas 4 de sabotagem.
+- **Revisão, rodada 2** (`/var/tmp/cto-w8/rev-c2b5.md`, seção "Rodada 2"): **APROVADA**.
+  - **I-2:** todos os mutantes que sobreviveram na rodada 1 morrem.
+  - **I-3:** 5 mutantes dos quatro estados da frase, todos mortos. O ramo que só existe no Windows (`PostMessageW != 0`) não tem mutante executável no Linux. Isso fica declarado.
+  - **I-1:** a P-CTRL rotulada P-ASAN agora dá FORA_DO_ACEITO; antes dava ACEITO.
+  - **Cosméticos que ficam:**
+    - o leitor aceita o prefixo `addr`;
+    - os pisos de 10 s, 6 s e 2 s são margens declaradas, não medições por fase.
+- **Run R:** `gh run rerun 37732605387 --job 113164948137` (P-OCL, tentativa 2) foi disparado às 02:32.
+- **Falta para o ✅:**
+  - o Run R ACEITO;
+  - o Run T2 (37732608077) verde, com a captura Passed nos 4 Windows e os md5 `fc3241af`/`33aac7dd` iguais aos que o QA observou.

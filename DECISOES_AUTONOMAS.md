@@ -7020,3 +7020,24 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - CAPTURE-DRIVER-SPLIT ganha nota da D4;
   - INBOX nova: `WIN32-LINK-GATE-EXAMPLES`.
 - **D1:** despachada para um backend-engineer sonnet. O commit tem de sair até 04:40 por causa da pausa ordenada das 05:00. Sem commit, o agente para e relata.
+
+### 08/10/2026 03:50:26 - DEMO-1, D1 entregue em a653e3f4; revisão e CI da ponta em voo
+
+- **D1** (devops-sre sonnet): commit `a653e3f4`, com 20 arquivos (+320/-19).
+  - Os dois vermelhos foram vistos antes do verde: a função ausente e a variável ausente no cache de quem embute.
+  - Em container, `examples_option_default_test` e `embed_test` passaram, 2 de 2, e o configure imprimiu `exemplos diretorios=0 alvos_tratados=0`.
+  - `preci --fast`: rc 0, com 307 declarados, 306 passaram e 1 pulado.
+  - Enumeração A6: `encontrados=86 decididos=86 passam_off=19`.
+- **Conferência do main:**
+  - `git show --stat` mostra os 20 arquivos, e a árvore ficou limpa;
+  - os logs `/var/tmp/d1/preci-fast.log` (0 falhas) e `container-green.log` (a linha da passada) batem com o relatório;
+  - a função `glintfx_examples_default` (`cmake/GlintfxOptions.cmake:64-77`) está ao lado do `option()` que a chama, como manda a D-W8-87.
+- **Pontos para o revisor:**
+  - `check_dep_zero_trace.py` não passa OFF;
+  - `tests/examples_tests.cmake` pode ficar invisível aos portões que leem `tests/CMakeLists.txt` por texto;
+  - o V-8 contra o mutante.
+- **INBOX nova:** `EXAMPLES-UNLISTED-DIR-MESSAGE` (a mensagem errada para uma pasta de exemplo não listada).
+- **Em voo:**
+  - push de `a653e3f4` (ls-remote confere);
+  - CI da ponta, run 37739785623;
+  - revisão adversarial (qa-engineer sonnet, `/var/tmp/cto-w8/rev-d1.md`), com prazo até 04:45 por causa da pausa das 05:00.

@@ -324,6 +324,64 @@ selftest_wait_settings_are_validated() {
         ! ( valid_wait_settings "" 1 ) && ! ( valid_wait_settings 1 "" )
 }
 
+# one_mode_with <fixture-rc> <wait-rc> <judge-rc>: runs one_mode off with every container collaborator replaced by a
+# stub that returns the given code. The stubs live in a subshell, so they never outlive this check (unset -f would
+# erase the real function instead of restoring it). Prints the one_mode line and returns one_mode's own verdict.
+one_mode_with() {
+    (
+        OUT_DIR="$(mktemp -d)" || exit 1
+        STUB_FIXTURE_RC="$1"
+        STUB_WAIT_RC="$2"
+        STUB_JUDGE_RC="$3"
+        start_capture_relay() { :; }
+        wait_for_socket() { return 0; }
+        run_fixture() { return "$STUB_FIXTURE_RC"; }
+        wait_for_capture_files() { return "$STUB_WAIT_RC"; }
+        stop_capture_relay() { :; }
+        copy_out() { :; }
+        judge_mode() { return "$STUB_JUDGE_RC"; }
+        rc=0
+        one_mode off || rc=1
+        rm -rf "${OUT_DIR:?}"
+        exit "$rc"
+    )
+}
+
+# The wiring of one_mode, one case per mutant of the R4-A review (rev-p3.md). The positive control comes first: an
+# all-clean run must PASS, or the four negative cases below would also pass on a broken harness.
+selftest_wiring_clean_mode_passes() {
+    out="$(one_mode_with 0 0 0)" && [ "$out" = "run_capture_known_color: mode=off fixture=0 espera=0" ]
+}
+
+# A timed-out wait fails the mode. Kills the two mutants that alter the path of the wait: mode_verdict given 0 in
+# place of $waited, and `waited=0` in the failure branch of the wait.
+selftest_wiring_timed_out_wait_fails_the_mode() {
+    ! one_mode_with 0 1 0 >/dev/null
+}
+
+selftest_wiring_failed_judge_fails_the_mode() {
+    ! one_mode_with 0 0 1 >/dev/null
+}
+
+# Exit 77 is the declared absence, which this driver counts as a failure (see the header).
+selftest_wiring_absent_fixture_fails_the_mode() {
+    ! one_mode_with 77 0 0 >/dev/null
+}
+
+# valid_wait_settings runs at the top of the script, before any dispatch. The probe runs the script with a bad
+# CAPTURE_WAIT_TRIES and NO arguments: a child started with --selftest would run this selftest again and spawn
+# itself without end. The real script refuses with rc 2 and names the variable; with the call removed, it reaches
+# main, which refuses with the usage line. The message tells the two apart, the rc alone does not.
+selftest_wiring_bad_wait_settings_refused() {
+    out="$(CAPTURE_WAIT_TRIES=abc sh "$0" 2>&1)"
+    rc=$?
+    [ "$rc" -eq 2 ] || return 1
+    case "$out" in
+        *CAPTURE_WAIT_TRIES*) return 0 ;;
+    esac
+    return 1
+}
+
 selftest_main() {
     selftest_check selftest_stale_output_is_removed
     selftest_check selftest_empty_out_dir_refuses
@@ -336,6 +394,11 @@ selftest_main() {
     selftest_check selftest_verdict_needs_every_part_clean
     selftest_check selftest_verdict_rejects_each_failed_part
     selftest_check selftest_wait_settings_are_validated
+    selftest_check selftest_wiring_clean_mode_passes
+    selftest_check selftest_wiring_timed_out_wait_fails_the_mode
+    selftest_check selftest_wiring_failed_judge_fails_the_mode
+    selftest_check selftest_wiring_absent_fixture_fails_the_mode
+    selftest_check selftest_wiring_bad_wait_settings_refused
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }
 

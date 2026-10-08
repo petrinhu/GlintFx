@@ -6495,8 +6495,10 @@ set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS se
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory
 # is removed, the mode set is exactly {off, on}, the wait names the presenting
-# connection, a timed-out wait says what it expected). No container, no docker: only the shell. The control count is
-# EXACT in the regex below: dropping a control is a visible change, never a silent one.
+# connection, a timed-out wait says what it expected) and the wiring of one_mode, with its collaborators stubbed (the
+# five call mutants of QA-SCREEN-CAPTURE R4-A, DEMO-1 D2a, CAPTURE-DRIVER-WIRING-UNTESTED). No container, no docker:
+# only the shell. The control count is EXACT in the regex below: dropping a control is a visible change, never a
+# silent one.
 # if(UNIX): the driver is POSIX sh and its selftest uses mktemp; neither exists natively on the Windows CI
 # (same reason as container_exec_fixture_selftest above). The Windows side is declared in parity_exceptions.txt.
 if(UNIX)
@@ -6505,7 +6507,7 @@ if(UNIX)
         COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
     )
     set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest
-        PASS_REGULAR_EXPRESSION "selftest: 11 controles OK")
+        PASS_REGULAR_EXPRESSION "selftest: 16 controles OK")
 endif()
 
 # QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of

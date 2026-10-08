@@ -7341,3 +7341,22 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
 - **Verbatim:** *"pause quando o agente entregar"*.
 - **Como o main vai cumprir:** quando o agente da D2a-fix entregar, o main confere o commit (árvore e arquivos), registra aqui, empurra o ramo e escreve o `parada_do_lider`. Nada de trabalho novo depois disso: nem revisão da D2a-fix, nem D2b, nem CI disparado. O CI fica para a retomada.
+
+### 08/10/2026 17:01:41 - D2a-fix entregue em ccb2c456; PAUSA ordenada pelo líder
+
+- **D2a-fix** (`ccb2c456`, 2 arquivos, conferido pelo main com `git show --stat`), segundo o implementador (haiku):
+  - **B consertado:** com a espera falhando, `one_mode` para o relé, copia, imprime `espera=socket-falhou` e devolve 1. O controle 19 foi visto vermelho no driver antigo e depois verde.
+  - **A:** os stubs registram as chamadas. Os controles 17 (`on`) e 18 (`off`) já passavam no driver antigo, que estava certo. O vermelho deles vem dos mutantes 7 a 9.
+  - Os 9 mutantes (6 a 9 e os 5 de R4-A) morreram, cada um no seu controle.
+  - O autoteste foi de 16 para 19 controles. `preci --fast` deu rc 0 (downgrade da L-09).
+- **Pausa** pela ordem *"pause quando o agente entregar"*:
+  - o ramo foi empurrado;
+  - o `parada_do_lider` foi escrito;
+  - o monitor foi desligado;
+  - nenhum agente nem trabalho pesado ficou rodando.
+- **Na retomada:**
+  1. o CI novo da ponta (o anterior, 37832462804, ficou vermelho só por tempo esgotado de rede no gitleaks);
+  2. a revisão da D2a-fix por outro agente;
+  3. a INBOX `RERUN-GUARD-CANCELLED-PREP`;
+  4. a pergunta ao CTO sobre o Status de `CAPTURE-DRIVER-WIRING-UNTESTED` (lista INBOX contra tabela);
+  5. depois, a D2b.

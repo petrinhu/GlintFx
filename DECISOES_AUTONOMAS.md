@@ -6936,3 +6936,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - CAPTURE-DRIVER-SPLIT;
   - CAPTURE-FIXTURE-UNDRAWN-RETRY;
   - ASAN-CONSUME-LABEL-JUSTIFICATION.
+
+### 08/10/2026 02:53:47 - Aviso ao Gus Dragon (L-37) e limpeza local dos ramos descartáveis
+
+- **Aviso ao Gus Dragon, pela L-37:** comentário na issue #8 do bus (comment 6053343238), em linguagem para criança. Conta o fechamento de três itens de prioridade Alta: WIN-MAP-FIRST-PRESENT, PRESENT-EMPTY-FRAME e QA-SCREEN-CAPTURE. Diz também que o próximo passo é a DEMO-1, sem prometer data.
+  - **Lacuna admitida:** os dois primeiros fecharam sem aviso na hora. Este comentário cobre os três de uma vez.
+- **Limpeza, escopo "clean":**
+  - 11 cópias de trabalho descartáveis em `worktrees/`, todas limpas, removidas junto com o ramo local de cada uma;
+  - o ramo `sonda-c2b5` apagado no remoto, porque a C2b-5 fechou;
+  - as pontas de todos ficaram em `/var/tmp/cto-w8/ramos-apagados-0810.txt`.
+  - Ficam `infra-preci` (não é desta onda, e não mexi) e `sonda-swap2` (sonda do Mesa 25.3).

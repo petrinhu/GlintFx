@@ -6838,3 +6838,21 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Provas:** `preci --fast` e `--sanitizer-only` rc 0 depois de cada fatia, `--win32-link-only` rc 0 e `cl.exe` rc 0.
 - **TODO:** `QA-SCREEN-CAPTURE` passa a 🔍, como o plano §5 item 6 manda.
 - **Próximo:** F4 (a sonda `sonda-c2b5`, com 6 pernas, e o leitor `check_c2b5.py` com selftest), depois a revisão que executa, os runs S, R e T e a observação do QA.
+
+### 08/10/2026 01:41:53 - Run S da C2b-5 (sonda-c2b5 c4f5cf12, run 37728500175): as 6 pernas batem com o §4, lidas linha a linha pelo main
+
+- **P-CTRL:**
+  - `veredito: 5 pontos da propria janela`;
+  - `probes=5 failed=0`;
+  - os dois comparadores com `differing=0`;
+  - `DRIVER_EXIT codigo=0` e ACEITO.
+- **P-SWAP:** `FAIL probe ... expected (255, 0, 0, 255) ... got (0, 0, 255, 255)`, com `failed=1` e os comparadores com `differing=0`. ACEITO.
+- **P-ALFA:** `got (127, 0, 0, 128)`. R e A ficam em {127, 128}, então o alfa chegou à sonda, como a previsão exigia. ACEITO.
+- **P-CORR:** `FAIL pixel (0,239) capture=(0, 0, 0) readback=(255, 0, 0)`, com `differing=1` e `probes failed=0`. ACEITO.
+- **P-OCL:** `veredito: OCLUIDA por classe=GlintFxCaptureOccluder`, `codigo=14 status=refused` e `checks={tool:14, readback_png:0, probes:0}`, sem captura. **A estreia do código 14 está feita.** ACEITO.
+- **P-ASAN:**
+  - igual à P-CTRL, com zero `ERROR: AddressSanitizer`;
+  - `capture_known_color_smoke` aparece na lista `-L unit`;
+  - ACEITO. **A regra da D-W8-60 caiu no ramo verde: a troca de rótulo (F3 21a6cfaa) fica.**
+- **Pisos do leitor:** `analisadas` vai de 33 a 41 e `driver_exit_presente=1` em todas as pernas.
+- **Próximo:** Run R (perna escolhida pelo revisor), push do `onda-w8` com o Run T, e a observação do QA sobre os PNG do Run T.

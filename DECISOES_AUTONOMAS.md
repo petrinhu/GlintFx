@@ -7115,3 +7115,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Consertos de M6 e M8:** o implementador da D1-fix-a foi retomado para fazê-los, com prazo até 04:47 por causa da pausa das 05:00.
 - **Lacuna confirmada com planta,** e já esperada: `project(` + `add_subdirectory`. Virou o item da INBOX `SINGLE-REGISTRY-REACH`, e o CTO decide antes da D6.
 - **CI da ponta b6897836** (run 37742576202) estava em voo.
+
+### 08/10/2026 04:31:33 - D1-fix-a, I-1 e I-2 consertados em d8363ae7; o main reexecutou o M6
+
+- **Commit `d8363ae7`:** o autoteste do portão passa de 12 para 15 controles.
+  - **I-1:** `add_test(` no início de uma linha dentro de um bloco `#[[ ]]`.
+  - **I-2:** um teste direto de `_UNIVERSE_RE` e um repositório git de fixture que exercita `git_universe`.
+  - Segundo o implementador, M6 e M8 reprovam numa cópia; os logs estão em `/var/tmp/cto-w8/d1fixa/`. Em container, os testes do portão passaram 2 de 2, e o `preci --fast` deu rc 0.
+- **Reexecução do main (L-12),** sobre o blob `d8363ae7` extraído para `/var/tmp/main-chk-d1fixa/`:
+  - o original dá "os 15 controles OK", com rc 0;
+  - o M6 (`strip_comments` → `return text`) dá rc 1, com 2 FALHOU, e reprova exatamente no controle novo do bloco `#[[ ]]`.
+  - Rodou no hospedeiro sobre CÓPIA, como autoteste Python sem janela nem entrada: é o downgrade da L-09.
+- **D1-fix-a aceita pelo main.** Os mutantes M2 e M9 (cosméticos) e a lacuna `SINGLE-REGISTRY-REACH` ficam registrados.
+- **Próxima fatia:** D1-fix-b, depois da pausa.

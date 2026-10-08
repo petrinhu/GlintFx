@@ -6723,3 +6723,23 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O `RUN_SERIAL TRUE` estava ativo (`tests/CMakeLists.txt:2629`, desde a F3), então a "leitura obrigatória" do critério 1 está cumprida: não é carga concorrente.
 - **Leitura:** antes, a maioria desses 60 swaps falhava rápido no quadro vazio e era tolerada, e o cronômetro media falhas. Agora são 60 apresentações reais no renderizador por software do executor, cerca de 13 a 16 ms cada.
 - **Pela regra pré-registrada:** "Se passar de 700, é achado sobre o custo do present por software e volta ao CTO; o orçamento nunca é alargado em silêncio." O main NÃO mexe no orçamento. O caso vai ao CTO.
+
+### 07/10/2026 23:48:40 - D-W8-70 (CTO, modo autônomo): no Windows, a régua de vsync passa a ser o ESTADO lido do driver, não o tempo
+
+- **Arquivo:** `/var/tmp/cto-w8/decisao-orcamento-60.md`.
+- **Base medida:**
+  - antes da F3, o Windows cronometrava falhas (`swap_tolerated_downgrades=124`, de 82 a 96 ms);
+  - os 700 ms do D-W6b-29 (282e7a60) foram calibrados só no Linux e estendidos ao Windows por suposição (`measured_exceptions.txt:129`);
+  - com 60 apresentações reais, o Windows deu 950 (compartilhado), 800 (estático) e no máximo 700 (Debug passou).
+- **Causa, segundo o CTO:** o Mesa 26.2.0 espera a composição do Windows depois de cada present. Por isso nenhum orçamento de tempo separa vsync desligado de vsync ligado no executor.
+- **Decisão:**
+  - A classe de apresentação é declarada no preparo de cada sistema (`GLINTFX_PRESENT_PACING`, com valores `free` ou `compositor`). Em CI, se ela faltar ou vier inválida, o teste reprova.
+  - **Linux (`free`):** os 700 ms ficam.
+  - **Windows (`compositor`):** o teste lê o intervalo de troca do próprio driver (`wglGetSwapIntervalEXT` pelo `proc_address()` público, nunca o valor guardado pela biblioteca) e exige 0 com vsync desligado e 1 com ligado. O tempo fica só como teto de travamento, 6000 ms.
+  - Substitui pelo nome o ramo (ii) da D-W6b-29.
+- **Conferência do main:** a leitura vem do driver, e não do cache. Por isso o mutante R-a (forçar intervalo 1 com vsync desligado em `wgl_context_adapter.cpp:515`) consegue morrer, e a régua não é tautológica.
+- **Critério pré-registrado:**
+  - a fatia só fecha com R-a e R-b vermelhos no Windows;
+  - se o tempo do R-a der 2 vezes ou mais o do run sem mutante, a hipótese da composição cai e o caso volta ao CTO.
+- **Para o líder confirmar retroativamente:** a D-W8-70 e a emenda da linha 4 do §4.
+- **Próximo:** o implementador (§7 da decisão) entra quando o revisor sair de `worktrees/pef-rev`.

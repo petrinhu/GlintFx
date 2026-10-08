@@ -7101,3 +7101,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a inferência sobre `project(` tinha dois buracos, e os dois foram fechados: a raiz nunca é excluída, e os `*.cmake` do diretório excluído também ficam fora.
 - **Lacuna aberta para a D6 (CTO):** um subdiretório com `project(` alcançado por `add_subdirectory` fica excluído, e é exatamente o caso de `examples/`. A correção é uma exclusão por caminho, explícita e impressa, e deve entrar antes da D6.
 - **Registro do main** ("CI da D1 verde", das 04:19) fica neste mesmo commit. Ele tinha sido recusado pelo `check_spdx` porque o arquivo apagado pela D1-fix-a ainda estava no índice. Não usei `--no-verify`; esperei o commit do agente.
+
+### 08/10/2026 04:21:08 - Revisão da D1-fix-a: APROVADA COM RESSALVAS; consertos do autoteste em voo
+
+- **Revisão** (qa-engineer sonnet, `/var/tmp/cto-w8/rev-d1fixa.md`, sobre `d4640108`): APROVADA COM RESSALVAS, sem achado CRÍTICO.
+  - A sabotagem real (`add_test` em `tests/sab.cmake`) reprova nomeando o arquivo e a linha.
+  - A árvore dá `36/7/0`.
+  - O rótulo `consume` roda no job linux do servidor, que executa o ctest sem filtro (`ci.yml:605-620`).
+- **Mutantes:** M1, M3, M3b, M4, M5 e M7 morreram. Sobreviveram:
+  - M6 (`strip_comments` removido), porque o controle de comentário é vazio;
+  - M8 (universo sem `*.cmake`), porque o autoteste nunca exercita `git_universe`;
+  - M2 e M9, cosméticos.
+- **Consertos de M6 e M8:** o implementador da D1-fix-a foi retomado para fazê-los, com prazo até 04:47 por causa da pausa das 05:00.
+- **Lacuna confirmada com planta,** e já esperada: `project(` + `add_subdirectory`. Virou o item da INBOX `SINGLE-REGISTRY-REACH`, e o CTO decide antes da D6.
+- **CI da ponta b6897836** (run 37742576202) estava em voo.

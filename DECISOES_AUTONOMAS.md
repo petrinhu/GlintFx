@@ -7141,3 +7141,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o monitor foi desligado.
   - Nenhum agente nem trabalho pesado ficou rodando.
 - **Na retomada:** a D1-fix-b (D-W8-92 e D-W8-93) da DEMO-1.
+
+### 08/10/2026 05:16:19 - Duas respostas do líder, por AskUserQuestion, na pausa
+
+- **L-32:** a pergunta foi se "a demo verde" quer dizer a DEMO-1 em ✅. Resposta dele, verbatim: *"Sim, DEMO-1 em ✅ (Recomendado)"*.
+  - Ficou registrado no corpo da L-32, em `GODS_LAWS.md`, como precisão dada por ele.
+  - O teto da trilha paralela e o congelamento de 27/08 caem quando a DEMO-1 fechar pelos critérios do plano. Nada é liberado antes disso.
+- **Licença do exemplo:** resposta verbatim: *"AGPL-3.0, como tudo (Recomendado)"*. O exemplo da DEMO-1 segue a L-08, sem exceção.
+- **Continua pendente:** a confirmação retroativa das decisões D-W8-36 a D-W8-93.

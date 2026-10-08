@@ -780,7 +780,7 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Custo assumido:** havendo gente sobrando, ela fica ociosa por regra em vez de adiantar trilha. O líder escolheu isso de olhos abertos, porque cada trilha em andamento consome implementador **e** revisor, e a casa já limita quantos agentes ficam vivos ao mesmo tempo.
 
-**O teto cai quando a demo estiver verde.** A partir daí a ordem volta a ser a da tabela, pelo WSJF.
+**O teto cai quando a demo estiver verde.** A partir daí a ordem volta a ser a da tabela, pelo WSJF. **Precisado pelo líder em 08/10/2026:** "a demo verde" é a `DEMO-1` em ✅ pelos critérios de fechamento do plano dela (`/var/tmp/cto-w8/plano-demo1-v2.md` §4 e a errata 1), e vale também para o congelamento de escopo de 27/08 logo abaixo. Pergunta por AskUserQuestion, resposta dele verbatim: *"Sim, DEMO-1 em ✅ (Recomendado)"*.
 
 ### Quem ocupa o slot único: RCSS, decidido pelo líder em 22/08/2026
 

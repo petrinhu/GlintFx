@@ -7041,3 +7041,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - push de `a653e3f4` (ls-remote confere);
   - CI da ponta, run 37739785623;
   - revisão adversarial (qa-engineer sonnet, `/var/tmp/cto-w8/rev-d1.md`), com prazo até 04:45 por causa da pausa das 05:00.
+
+### 08/10/2026 04:00:07 - D1 da DEMO-1: revisão APROVADA COM RESSALVAS; consertos com o CTO
+
+- **Revisão** (qa-engineer sonnet, `/var/tmp/cto-w8/rev-d1.md`, sobre `a653e3f4`): **APROVADA COM RESSALVAS**.
+  - O V-8 foi provado nas duas metades: o mutante "sempre ON" reprova o fixture e o `embed_test`, e o `option()` fixo só o `embed_test` pega.
+  - A enumeração A6 foi reproduzida: 86/86/19, com diferença 0.
+  - `check_dep_zero_trace` sem OFF foi aprovado.
+- **Achados:**
+  - **I-1:** o mutante "`n != m` não fatal" sobrevive. O ramo "`examples/` faltando" não tem teste.
+  - **I-2:** a contagem compara diretórios com executáveis. Com 2 executáveis sai a mensagem errada, e um `add_executable` direto fica sem `-Werror` e sem sanitizador.
+  - **I-3:** um teste em `tests/examples_tests.cmake` escapa de `check_ctest_parallel_policy.py`, e o `check_selftest_orphan.py` dá falso órfão. O main conferiu: o portão lê só `tests/CMakeLists.txt` (`check_ctest_parallel_policy.py:16`).
+  - O comando de varredura do §3 precisa de `git grep -e`; o número não muda.
+- **Incidente do revisor, registrado como ele relatou:** ele rodou `blob_selftests.py --root` no hospedeiro. Isso executou selftests por alguns segundos dentro de `bwrap`, incluindo o de `tools/win-vm-lab/sessao.sh`. Ele interrompeu e conferiu que não restou processo nem VM, e o main conferiu também: nenhum processo de VM vivo.
+  - Foi um desvio da L-09: selftest sem janela nem entrada, mas fora do container.
+- **Destino:** o CTO decide os consertos (D-W8-91 em diante) até 04:35, numa errata `plano-demo1-v2-errata1.md`. A implementação fica para depois da pausa das 05:00. A D1 continua sem aceite final do main até os consertos.

@@ -327,6 +327,35 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **O que esta emenda NÃO autoriza:** marca antes do veredito do servidor; marca no meio de onda; merge de onda com qualquer trabalho vermelho ou item fora de concluído. A autorização é para o fim de onda **com tudo verde**, e o portão de fechamento é o que prova isso, e não a impressão do agente.
 
+**Marca por fatia e marca de fecho por onda: emendas de 08/09/2026 e 09/09/2026, transferidas para cá em 08/10/2026.** Estavam dentro da L-05 do `GODS_LAWS.md` global e saíram de lá por decisão do líder, verbatim: *"De projeto (Recomendado)"*. **Onde este texto conflitar com a terceira emenda de 22/09/2026 acima, vale a de 22/09/2026, por ser mais recente** (decisão do líder em 08/10/2026, verbatim: *"Com nota: vale a de 22/09 (Recomendado)"*).
+
+**Emenda de 09/09/2026: DOIS níveis de marca, por fatia E por fecho de onda.** Ordem do líder, verbatim: *"pode seguir fazendo as fatias. ao final de cada onda, push/merge/tag"*, e, confrontado com o conflito contra a emenda de 08/09 (a Lei das Leis obriga a argumentar CONTRA antes), ele escolheu **"As duas: marca por fatia E marca de fecho por onda"**.
+
+**O argumento contra a mudança foi apresentado e ele decidiu mesmo assim**, e fica registrado que o custo foi dito antes, não descoberto depois: dois níveis de numeração para manter coerentes, e mais superfície onde o agente pode errar.
+
+**Como os dois níveis convivem, sem ambiguidade:**
+
+- **Fatia consertada → marca de VERSÃO, terceiro componente +1** (`v0.3.5.0`, `v0.3.6.0`, …). É a emenda de 08/09, que continua **inteira**: nada muda para a fatia.
+- **Fecho de onda → marca de ROTULO, com nome próprio** (`onda-w5`, `onda-w6`, …), apontando para o **mesmo commit** em que o servidor fechou verde e a linha `CI-VERDE-<onda>` virou ✅.
+
+**Por que o fecho de onda NÃO cresce um componente de versão, e esta é decisão de execução do agente, declarada:** o quarto componente já tem dono: a L-26 deste projeto o define como componente **de empacotamento**, e usá-lo para contar onda o descaracterizaria. O segundo componente significa mudança de comportamento público, que uma onda pode ou não ter. Sobraria disputar o terceiro com a marca de fatia, e duas regras crescendo o mesmo número é exatamente a ambiguidade que o líder pagou para evitar. **Rótulo com nome próprio não disputa nada**, e responde à pergunta que a marca de onda existe para responder: *qual commit fechou a W5?*
+
+**A ordem completa do fim de onda, e nenhum passo se pula:** todas as fatias ✅ → empurrar → servidor fecha VERDE em todos os trabalhos (a linha `CI-VERDE-<onda>` é o portão, ver a emenda `CI-VERDE-<onda>` desta lei) → marcar essa linha ✅ → juntar, se houver ramo → marca de rótulo da onda. **O verde vem ANTES da marca**, sempre: foi por inverter isso que a `v0.3.0.0` nasceu prematura e que o líder me pegou de novo na W4.
+
+**Emenda de 08/09/2026: a marca sai a cada FATIA consertada, não a cada onda, e não se espera o servidor para criá-la.** Ordem do líder, verbatim: *"é para criar a tag a cada fatia consertada, não invente regra"*, precedida de *"cada fatia que está atrasada será empurrada no final por mim e cresce +1 no terceiro numero"* (mesma data).
+
+**O que gerou a emenda:** depois de empurrar uma fatia consertada, o agente anunciou que criaria a marca *"quando as 22 fecharem"*, apresentando isso como o padrão ratificado. O líder não tinha pedido essa espera para fatia; a espera pelo verde tinha sido decidida para o fechamento de uma ONDA, num caso específico, e o agente a generalizou sozinho para outro caso.
+
+**A regra:** fatia consertada e empurrada ganha marca `vA.B.C.D` **na hora**, com o terceiro componente crescendo +1. A marca acompanha a fatia, não a onda. Não se espera resultado de servidor para criá-la, e não se pergunta de novo a cada fatia: a ordem acima é a autorização permanente para o ato de marcar. O que continua exigindo confirmação no momento é o que a LEI DAS LEIS e a L-24 global já pedem para ação visível em remoto quando a ordem do líder não está no contexto.
+
+**A armadilha específica, e ela é sobre honestidade de processo:** transformar uma decisão dada para UM caso em regra geral, e depois apresentá-la ao líder como se fosse ordem dele, é inventar regra e atribuí-la a quem não a deu. Decisão do líder vale para o caso em que ele a deu; estendê-la a outro caso é decisão NOVA, e decisão nova vai a ele (L-01 global), nunca é anunciada como se já fosse dele.
+
+**Onda concluída antes da seguinte: o caso do GlintFx, transferido para cá em 08/10/2026 da L-24 global** por decisão do líder, verbatim: *"Sim, para o GlintFx (Recomendado)"*. As três regras de conduta que nasceram dele (verde de CI não é cumprimento de escopo; o critério de fechamento é o do plano da onda; detectar a violação não autoriza prosseguir) continuam na L-24 global. Ordem do líder de 08/09/2026, verbatim: *"ataque esses quatro passos antes de continuar o laço, a lei é concluir a onda antes de começar a seguinte"*, e, sobre a marca publicada cedo: *"a tag entao está errada também. você criou tag antes da onda concluir"*.
+
+**A falha medida que gerou a emenda, para o próximo não repetir:** o orquestrador tinha uma ratificação pontual do líder ("marque a versão quando as 22 verificações estiverem verdes") e a aplicou como se fosse o critério **completo** de fechamento. O plano da onda definia o fechamento por **quatro passos** que não haviam sido executados. O orquestrador **detectou a lacuna, escreveu-a num commit, deixou os itens sem marcar como concluídos, e mesmo assim publicou a marca e abriu a onda seguinte**, entregando duas fatias dela antes de o líder corrigir.
+
+**Sobre marca publicada cedo:** decisão do líder de 08/09/2026, por `AskUserQuestion`, foi **manter** a marca já publicada e marcar de novo no fechamento real, em vez de apagar ou mover marca de repositório público - apagar quebraria quem já a tivesse buscado, e contraria o que a documentação do próprio projeto ensina ao consumidor sobre fixar versão.
+
 ## L-12
 
 **Data:** regra permanente.

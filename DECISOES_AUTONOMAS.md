@@ -7277,3 +7277,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **C4:** a justificativa do D-16 está errada no relatório, mas o código está certo.
 - **Decisão do main:** como na D1-fix-a, IMPORTANTE se conserta antes do aceite. R1, R2, R3 e C2 vão num commit novo D1-fix-d, que o mesmo implementador faz. O H2 e o Q2 ficam registrados como lacunas aceitas.
 - **Limites que o revisor não mediu:** MSVC/Windows, gerador multi-config, e o modelo só roda nas plantas. Quem cobre o Windows é o CI.
+
+### 08/10/2026 16:01:09 - D1-fix-d aceita pelo main em da0dc1b2; D1-fix-b fechada; D2a despachada
+
+- **D1-fix-d** (`da0dc1b2`, 16 arquivos, só testes e INBOX):
+  - três plantas novas, `fronteira_separador`, `fora_topo` e `cmakefiles_ignorado`;
+  - Q5, `M_R4_ABS_OFF` e Q2 morrem, cada um só na planta dele;
+  - o texto da INBOX `EXAMPLES-GRAPH-EDGES` foi corrigido;
+  - modelo: `executaveis=6 tratados=6 calibracao=ok`;
+  - ctest em container 8/8, `preci --fast` rc 0 (downgrade da L-09).
+- **Conferência do main:**
+  - li o log do Q5: `plantas=16 conferidas=16 falharam=1`, só em `fronteira_separador`;
+  - o fixture de `CMakeFiles/` (pasta que o `.gitignore` ignora) está no blob: `git ls-tree` mostra os 4 arquivos de `cmakefiles_ignorado`;
+  - nada ficou ignorado fora do commit.
+- **Lacuna aceita:** o H2 (a guarda única da calibração) sobrevive.
+- **Push** para `da0dc1b2`, provado por `ls-remote`. **CI:** run 37828619235. **CI da D1-fix-c:** run 37825297444, `success`, com 25 jobs verdes e 1 pulado, incluindo os 5 Windows e a paridade.
+- **A D1-fix-b está fechada:** `9820e5ea`, `bd017456`, `60bcb4e5` e `da0dc1b2`.
+- **Próxima:** a D2a (`CAPTURE-DRIVER-WIRING-UNTESTED`), despachada a um devops-sre novo em haiku. Briefing em `/var/tmp/cto-w8/briefing-d2a.md`.

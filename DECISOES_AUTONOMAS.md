@@ -7302,3 +7302,22 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Por que o container não pegou:** ele só tem caminhos POSIX. A paridade só o CI prova (memória `feedback_metade_provada_vira_provado`).
 - **Conserto D1-fix-e:** despachado ao mesmo implementador (haiku), com ordem detalhada passo a passo, como o líder mandou. Ele só toca o driver. A raiz passa a ser aceita como `(/|[A-Za-z]:/)` por um único código, sem ramo por sistema, com caso vermelho `D:/` e mutante.
 - **Ordem nova do líder, das 16:12, verbatim:** *"as intrucoes ao haiku devem ser muito bem detalhadas"*. Foi registrada na L-18 global e aplicada à D2a em voo, por um complemento com os comandos exatos.
+
+### 08/10/2026 16:31:51 - D2a entregue em eed653f5 e D1-fix-e em 80db83e7; push, CI e revisão da D2a despachados
+
+- **D2a** (`eed653f5`, 3 arquivos), segundo o implementador (haiku):
+  - os cinco mutantes de R4-A morreram, cada um numa cópia, nos controles 13 a 16;
+  - o autoteste foi de 11 para 16 controles (`tests/CMakeLists.txt:6510`);
+  - nenhum defeito real no driver;
+  - ctest em container 2/2, `preci --fast` rc 0 (downgrade da L-09).
+  - Observação fora da fatia, a conferir na revisão: `one_mode` não para o relé se `wait_for_socket` falha.
+  - Pergunta dele: promover `CAPTURE-DRIVER-WIRING-UNTESTED` da lista INBOX para a tabela.
+- **D1-fix-e** (`80db83e7`, só o driver):
+  - a raiz aceita é `(/|[A-Za-z]:/)`;
+  - o caso `D:/` foi visto vermelho e depois verde;
+  - o mutante `startswith("/")` foi pego;
+  - `plantas=16 falharam=0` em container.
+  - Desvio declarado: um log gravado na raiz por argumentos trocados (é o terceiro do dia), removido.
+- **Push** para `80db83e7`, provado por `ls-remote`. **CI:** run 37832462804.
+- **Revisão da D2a** despachada a um qa-engineer em haiku, com ordem passo a passo e comandos exatos (ordem do líder das 16:12): `/var/tmp/cto-w8/briefing-rev-d2a.md`.
+- **Régua do haiku:** como implementador, ele gravou fora do lugar por caminho relativo ou argumento trocado 3 vezes hoje. As ordens passam a exigir caminho absoluto em todo comando, com a ordem dos argumentos escrita.

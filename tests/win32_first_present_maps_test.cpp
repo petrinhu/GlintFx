@@ -65,13 +65,14 @@ constexpr DWORD k_child_timeout_ms = 60'000;
 // content. D-W8-47: Mesa 26 (commit 21e5d19f) refuses to present a frame with no GL command since
 // the previous swap; the empty frame is covered by PRESENT-EMPTY-FRAME (D-W8-48), not here.
 void clear_frame(const glintfx::platform::win32_gl_context_adapter &context) {
+    constexpr unsigned k_gl_color_buffer_bit = 0x00004000; // GL_COLOR_BUFFER_BIT
     using fn_clear = void (*)(unsigned);
     using fn_clear_color = void (*)(float, float, float, float);
     const auto clear_color = reinterpret_cast<fn_clear_color>(context.proc_address("glClearColor"));
     const auto clear = reinterpret_cast<fn_clear>(context.proc_address("glClear"));
     GLINTFX_CHECK(clear_color != nullptr && clear != nullptr);
     clear_color(0.25F, 0.5F, 0.75F, 1.0F);
-    clear(0x00004000);
+    clear(k_gl_color_buffer_bit);
 }
 
 [[nodiscard]] bool

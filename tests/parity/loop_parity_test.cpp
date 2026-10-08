@@ -166,9 +166,9 @@ void check(const char *key, bool condition, const char *criterion, const std::st
 // itself refuses to hand over a display/window/context (there is no
 // assertion to record in those cases - there is nothing to assert
 // ABOUT). A destructor runs on ANY scope exit, so binding the print to
-// one guarantees it fires exactly once, whatever path got there - the
-// measured reason (a print sitting at the bottom of main() never ran
-// on the paths that reproved).
+// one guarantees it fires exactly once, whatever path got there. A
+// print sitting at the bottom of main() never ran on the paths that
+// reproved (measured).
 struct scope_reporter {
     ~scope_reporter() noexcept {
         std::fprintf(stdout, "loop_parity_test: assercoes %d de %d avaliadas\n",

@@ -21,7 +21,7 @@
 # this file covers only the top-level branch of the real option().
 #
 # NOT add_subdirectory()'d by the main build: an independent configure,
-# run via add_test() in tests/examples_tests.cmake.
+# run via add_test() in tests/CMakeLists.txt.
 #
 # Each assert_* macro asks exactly one question; a failed one calls
 # message(FATAL_ERROR ...), which fails THIS cmake -S/-B invocation - the

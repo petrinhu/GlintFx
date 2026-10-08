@@ -4173,9 +4173,23 @@ add_test(
 )
 set_tests_properties(embed_dll_colocation_test PROPERTIES LABELS consume)
 
-# The tests of the consumer examples live in their own file (D-W8-89),
-# included here so they share this directory scope.
-include("${CMAKE_CURRENT_SOURCE_DIR}/examples_tests.cmake")
+# EXAMPLES-DEFAULT: the default of GLINTFX_BUILD_EXAMPLES, both branches
+# (see tests/examples_option_default/CMakeLists.txt for what it proves
+# and for what it leaves to embed_test). It lives HERE and not in an
+# included file (D-W8-91, revokes D-W8-89): this file is the ONLY test
+# registry, and tests/tools/check_single_test_registry.py fails any other
+# file that registers a test.
+# glintfx-build-dir: private-subdir - tests/examples_option_default_check/ (configura um build aninhado so' ali, LANGUAGES NONE, sem compilador)
+add_test(
+    NAME examples_option_default_test
+    COMMAND "${CMAKE_COMMAND}"
+        --fresh
+        -S "${CMAKE_CURRENT_SOURCE_DIR}/examples_option_default"
+        -B "${CMAKE_CURRENT_BINARY_DIR}/examples_option_default_check"
+        -G "${CMAKE_GENERATOR}"
+        "-DGLINTFX_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(examples_option_default_test PROPERTIES LABELS consume)
 
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
@@ -5174,6 +5188,27 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ignored_fixtures.py" --selftest
 )
 set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
+
+# DEMO-1 D1-fix-a (D-W8-91): this file is the ONLY test registry. Fails any
+# add_test()/glintfx_add_test() in code in another CMakeLists.txt or *.cmake
+# (the exclusions are printed with their reason). Reads `git ls-files`, so it
+# is `consume` like ignored_fixtures_test above.
+add_test(
+    NAME single_test_registry_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_single_test_registry.py" "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(single_test_registry_test PROPERTIES LABELS consume)
+
+# The exact control count is in the regex: dropping a control is a visible
+# change, never a silent one. Python only, builds fixture trees in a temp dir.
+add_test(
+    NAME single_test_registry_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_single_test_registry.py" --selftest
+)
+set_tests_properties(single_test_registry_selftest PROPERTIES LABELS selftest
+    PASS_REGULAR_EXPRESSION "os 12 controles OK")
 
 # CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
 # INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).

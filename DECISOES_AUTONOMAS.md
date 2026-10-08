@@ -6813,3 +6813,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D-W8-69 cumprida:** a F7 e a rodada da revisão da PRESENT-EMPTY-FRAME estão commitadas, e a ponta deu verde (run 37722363592). Só faltam os mutantes R-a/R-b no executor, que não tocam a árvore.
 - **D-W8-68 aplicada na tabela:** `CI-VERDE-W8` passa a depender de `CAPTURE-DRIVER-WIRING-UNTESTED`.
 - **Próximo:** um implementador sonnet faz a F1, a F2 e a F3, uma por vez.
+
+### 08/10/2026 01:04:45 - PRESENT-EMPTY-FRAME ACEITA e fechada (✅)
+
+- **R-a** (run 37722366203): reprovou nos 3 Windows com "leitura de volta 1, esperado 0 (vsync=off)". `vsync_off_60_swaps_ms` deu 971 (compartilhado), 1094 (estático) e 963 (Debug), contra 1171 e 928 do V1. A razão fica entre 0,83 e 1,18 vez, abaixo das 2 vezes: **a hipótese da composição (D-W8-70) se mantém.**
+- **R-b** (run 37722369485): reprovou nos 3 Windows com a mesma mensagem, e mais nada caiu.
+- **Os 16 critérios do §4** (linhas 1 e 4 emendadas pela D-W8-70) estão cumpridos:
+  - V1 verde e lido dos artefatos;
+  - grep da tolerância em `tests/` igual a 0, em 240 `.cpp`;
+  - zero chaves MEASURED antigas em 923 linhas;
+  - todos os vermelhos (R-G, A, B, R1, R2, M1/M2/M3 do revisor, R-a e R-b) batem com a previsão;
+  - revisão adversarial feita, e os achados dela foram tratados.
+- **TODO:**
+  - `PRESENT-EMPTY-FRAME` passa a ✅;
+  - `PARITY-SWAP-REFUSAL-GEMEO` fica resolvido pelo I2;
+  - entra na INBOX `LOOP-PARITY-700-TWIN`.
+- **Para o líder confirmar retroativamente:** D-W8-50 a D-W8-70.

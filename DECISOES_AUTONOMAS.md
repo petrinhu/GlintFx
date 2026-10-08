@@ -6868,3 +6868,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Decisão do main, sem CTO:** os três consertos restauram o critério que o próprio plano escreveu (provar a RELAÇÃO, nenhum texto que mente, a P-ASAN provada pelo artefato). Não é decisão nova de desenho.
 - **Run R:** fica para depois dos consertos. A sonda muda com o I-1, então um Run S novo é obrigatório e o Run R reproduz a P-OCL sobre ele.
 - **Cosméticos:** `ON_ABSENT` morto, `analisadas` equivalente a `has_exit` e o `// 1000`. Entram no mesmo implementador, se forem triviais.
+
+### 08/10/2026 02:09:56 - C2b-5: Run T verde e observação visual do QA APROVADA (§5 itens 4 e 5)
+
+- **Run T** (ponta 6a3fb2db, run 37728732871): `success`.
+  - `capture_known_color_smoke` deu Passed nos 4 Windows: compartilhado, estático, Debug e **ASan**, este pela primeira vez.
+  - Os artefatos `capture-out-windows-*` estão presentes nos 4.
+- **QA visual** (`/var/tmp/cto-w8/qa-c2b5-observacao.md`):
+  - **APROVADO**, com checklist K1 a K8 e R1 a R2 escrito antes de abrir as imagens;
+  - os md5 no início, no fim e o esperado da F-1 batem (captura `fc3241af...` igual nos dois mecanismos, `readback.png` `33aac7dd...`);
+  - o main conferiu que a lista de md5 do início é igual à do fim.
+- **Pendente para fechar a C2b-5:**
+  - os consertos I-1, I-2 e I-3 da revisão (em curso);
+  - a sonda de novo (por causa do I-1);
+  - o Run R da P-OCL;
+  - o CI da ponta depois dos consertos.
+  - **Os PNG não mudam com os consertos**, que só mexem no texto e nos limites da ferramenta e no leitor. A observação do QA vale, e o main confere os md5 no Run T final.

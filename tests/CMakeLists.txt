@@ -5208,7 +5208,7 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_single_test_registry.py" --selftest
 )
 set_tests_properties(single_test_registry_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "os 12 controles OK")
+    PASS_REGULAR_EXPRESSION "os 15 controles OK")
 
 # CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
 # INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).

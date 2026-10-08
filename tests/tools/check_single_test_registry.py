@@ -172,7 +172,7 @@ def run(root):
     return report(root, git_universe(root))
 
 
-# --- selftest: arvores de fixture descartaveis, sem git -----------------
+# --- selftest: arvores de fixture descartaveis (git so' no controle de universo) ---
 
 _REGISTRY_OK = "add_test(NAME a_test COMMAND a)\n"
 _DEF_OK = (
@@ -204,6 +204,24 @@ def _rc(files):
 def _check(nome, condicao, detalhe=""):
     print(f"selftest: {nome} {'OK' if condicao else 'FALHOU'}" + ("" if condicao else f" - {detalhe}"))
     return condicao
+
+
+def _universe_in_git_fixture():
+    """Exercita git_universe + _UNIVERSE_RE de ponta a ponta num repositorio git
+    descartavel (a regressao M8: universo sem *.cmake, o caso exato do I-3)."""
+    arvore = _base(**{"x.cmake": "add_test(NAME rastreado_test COMMAND x)\n",
+                      "y.cmake": "add_test(NAME solto_test COMMAND x)\n", "z.txt": "add_test(\n"})
+    tmp, _ = _tree(arvore)
+    subprocess.run(["git", "-C", tmp, "init", "-q"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", tmp, "add", "--", "CMakeLists.txt", REGISTRY, DEFINITION_FILE, "x.cmake", "z.txt"],
+                   check=True, capture_output=True)
+    universo = git_universe(tmp)
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        rc = run(tmp)
+    saida = buffer.getvalue()
+    return ("x.cmake" in universo and "y.cmake" in universo and "z.txt" not in universo and len(universo) == 5
+            and rc == 1 and "arquivos_varridos=5" in saida and "x.cmake:1" in saida and "y.cmake:1" in saida)
 
 
 def _base(**extra):
@@ -238,6 +256,17 @@ def selftest_main():
     rc, saida = _rc(_base(**{"tests/c.cmake": "# add_test(NAME comentado_test COMMAND x)\n#[[ add_test(NAME bloco_test COMMAND x) ]]\n"}))
     c.append(_check("EXCLUSAO: add_test em comentario (de linha e de bloco) passa",
                     rc == 0 and "registros_fora=0" in saida, saida))
+
+    rc, saida = _rc(_base(**{"tests/c2.cmake": "#[[\nadd_test(NAME bloco_multilinha_test COMMAND x)\n]]\n"}))
+    c.append(_check("EXCLUSAO: add_test no INICIO de uma linha DENTRO de bloco #[[ ]] passa (so' strip_comments prova; # de linha nao)",
+                    rc == 0 and "registros_fora=0" in saida, saida))
+
+    c.append(_check("UNIVERSO (regex): CMakeLists.txt, a/b.cmake entram; c.txt e CMakeLists.txt.in nao",
+                    all(_UNIVERSE_RE.search(p) for p in ("CMakeLists.txt", "a/CMakeLists.txt", "a/b.cmake"))
+                    and not any(_UNIVERSE_RE.search(p) for p in ("c.txt", "a/CMakeLists.txt.in", "a/b.cmake.in"))))
+
+    c.append(_check("UNIVERSO (git real): x.cmake rastreado e y.cmake nao rastreado (nao ignorado) entram; add_test neles reprova",
+                    _universe_in_git_fixture()))
 
     rc, saida = _rc(_base(**{"tests/ind/CMakeLists.txt": "project(ind)\nadd_test(NAME ind_test COMMAND x)\n",
                              "tests/ind/helper.cmake": "add_test(NAME ind2_test COMMAND x)\n"}))

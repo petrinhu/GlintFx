@@ -6743,3 +6743,24 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - se o tempo do R-a der 2 vezes ou mais o do run sem mutante, a hipótese da composição cai e o caso volta ao CTO.
 - **Para o líder confirmar retroativamente:** a D-W8-70 e a emenda da linha 4 do §4.
 - **Próximo:** o implementador (§7 da decisão) entra quando o revisor sair de `worktrees/pef-rev`.
+
+### 07/10/2026 23:50:58 - Revisão adversarial F3 a F7 (relatório `/var/tmp/cto-w8/rev-pef-f3f7.md`) e o que o main decide
+
+- **Veredito do revisor: REPROVADO pelo critério do próprio plano.**
+  - Uma razão é o orçamento de 700 ms, já decidido pela D-W8-70.
+  - A outra é que a linha 16 do §4 não fecha: a ponta com a F7 nunca passou por CI.
+- **I1, IMPORTANTE:** `loop_parity_test` chama `loop.run()` em cinco sítios (:569, :844, :862, :884, :885). O `app::render` (:228) não desenha, então cerca de 14 swaps chegam ao driver sem desenho e passam só pela inferência C1.
+  - **Decisão do main:** a ordem verbatim do líder é "desenhando antes de cada apresentação", e o `run()` apresenta. Portanto o `render` passa a chamar `draw_clear_frame`.
+  - Não vai ao CTO, porque a ordem do líder é o critério ([[feedback_ordem_do_lider_e_criterio]]).
+- **I2, IMPORTANTE:** restaurar no `gl_context_parity_test` o diagnóstico `rejected_value`/`os_error_code` nas falhas de vsync_off (:695), vsync_on (:738) e toggle (:804).
+- **Cosméticos aceitos:**
+  - `docs/plano-loop-callbacks.md:607`, onde ainda se lê "1 de tolerância" (L-67);
+  - as referências a `print_swap_tolerance_refusal` em `TODO.md:196` e em `docs/plano-egl-dead-display-guard.md:102,108`, que viram texto sem o nome morto;
+  - a frase quebrada em `loop_parity_test.cpp:167-171`;
+  - um nome para o `0x00004000` do iconic.
+- **Mutantes** (`w8-pef-rev`, c266c69b), com previsões pré-registradas pelo revisor:
+  - M1 cai em 3 Windows;
+  - M2 cai em 4 Windows;
+  - M3 **sobrevive** nos 3. O desenho no laço de teto é proteção, não prova.
+  - O main empurra e dispara o CI agora.
+- **Próximo:** um implementador aplica a D-W8-70 (§7 da decisão), o I1, o I2 e os cosméticos, com um commit por assunto. Depois vêm o push e o CI na ponta.

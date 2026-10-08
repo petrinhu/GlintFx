@@ -2617,13 +2617,17 @@ endif()
 # above: linked against the PUBLIC glintfx::glintfx target directly,
 # if(WIN32) only here - the Linux side of this SAME name is the
 # container fixture P-0 feeds into the paridade inventory instead.
+# RUN_SERIAL (PRESENT-EMPTY-FRAME, D-W8-58): now that a refused swap reproves at once, the vsync=off cell times
+# 60 REAL presentations against a 700 ms budget; ctest running another test in parallel on the same runner
+# already falsified a timing measurement on Windows (LOOP-HIDDEN-SERIAL below), and this test also shows a real
+# top-level window that another one would cover.
 if(WIN32)
     add_executable(gl_context_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/gl_context_parity_test.cpp")
     target_link_libraries(gl_context_parity_test PRIVATE glintfx::glintfx)
     glintfx_apply_compile_options(gl_context_parity_test)
     glintfx_copy_runtime_dlls_after_build(gl_context_parity_test)
     add_test(NAME gl_context_parity_test COMMAND gl_context_parity_test)
-    set_tests_properties(gl_context_parity_test PROPERTIES LABELS consume)
+    set_tests_properties(gl_context_parity_test PROPERTIES LABELS consume RUN_SERIAL TRUE)
 endif()
 
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_parity_

@@ -116,120 +116,14 @@ using gl_gen_vertex_arrays_fn = void (*)(gl_sizei, gl_uint *);
     return diff >= -tolerance && diff <= tolerance;
 }
 
-// GL-CI-SOFTWARE TOLERANCE (team-lead briefing, 07/09/2026, decisao do
-// lider por AskUserQuestion, "tolerar, mas so sob prova" - GODS_LAWS.md
-// L-04/L-40): the Windows verification runner carries no real GPU, and
-// its software renderer occasionally refuses to present a frame with
-// the OS itself reporting NO cause at all (os_error_code()==0).
-// Downgrades a swap_buffers() failure from a hard reproval to a
-// printed, counted DOWNGRADE ONLY when ALL THREE factors hold at once
-// - any other combination (a different error code/rejected_value, a
-// nonzero os_error_code, a non-software gpu().kind, or NO other
-// successful swap in this SAME execution) still reproves exactly as
-// before. The third factor matters most: a failure before any swap has
-// ever succeeded here is a broken path, not instability, and reproves
-// even under a software renderer.
-[[nodiscard]] bool should_tolerate_swap_failure(const glintfx::gltfx_err &err,
-                                                glintfx::gltfx_gpu_kind gpu_kind,
-                                                bool any_other_swap_succeeded) noexcept {
-    if (err.code() != glintfx::gltfx_err_code::platform_failure) {
-        return false;
-    }
-    if (err.rejected_value() != std::string_view{"swap_buffers"}) {
-        return false;
-    }
-    if (err.os_error_code() != 0) {
-        return false;
-    }
-    // NEVER by renderer-name text (include/glintfx/platform/gl/gpu.hpp's
-    // own header comment forbids it) - only the CLOSED `kind` type.
-    if (gpu_kind != glintfx::gltfx_gpu_kind::software) {
-        return false;
-    }
-    return any_other_swap_succeeded;
+// PRESENT-EMPTY-FRAME (D-W8-55/56, context.hpp item 2): a swap_buffers() that reaches the driver
+// with nothing drawn since the previous presentation may be refused, so EVERY swap below follows
+// a draw. A clear is enough.
+[[nodiscard]] glintfx::gltfx_rslt<glintfx::gltfx_present_outcome>
+draw_then_swap(glintfx::gltfx_gl_context &context, gl_clear_fn clear) {
+    clear(k_gl_color_buffer_bit);
+    return context.swap_buffers();
 }
-
-// MANDATORY TEXT (team-lead briefing, 07/09/2026): in THIS file the
-// third factor above is satisfied almost always by construction - the
-// "first presented within 5 attempts" loop runs before every swap
-// site this function is ever called from, and has to have already
-// succeeded for execution to reach any of them - so it protects little
-// on its own here. What genuinely covers the library's real behaviour
-// in this key's place is the dedicated-GPU-board proof the orchestrator
-// conducts, never this tolerance.
-void print_swap_tolerance_downgrade(std::string_view label,
-                                    const glintfx::gltfx_err &err) noexcept {
-    std::fprintf(
-        stdout,
-        "DOWNGRADE: %s tolerada - error_code=%s rejected_value=%s os_error_code=%lld, "
-        "gpu().kind=software, com outra troca de quadro desta MESMA execucao ja "
-        "bem-sucedida antes desta. (a) o ambiente diverge porque esta maquina de "
-        "verificacao nao tem placa de video real - o renderizador por software as "
-        "vezes recusa apresentar um quadro sem o sistema operacional relatar causa "
-        "nenhuma (os_error_code=0). (b) quem prova o comportamento real da "
-        "biblioteca no lugar desta chave e' a prova em placa dedicada, conduzida "
-        "pelo orquestrador - NAO esta tolerancia: aqui o terceiro fator (outra "
-        "troca ja bem-sucedida) e' satisfeito quase sempre por construcao, porque "
-        "o laco de 'primeiro presented' com sincronizacao ligada roda antes e "
-        "precisa ja ter passado, entao protege pouco por si so.\n",
-        std::string(label).c_str(), std::string(glintfx::gltfx_err_code_name(err.code())).c_str(),
-        std::string(err.rejected_value()).c_str(), static_cast<long long>(err.os_error_code()));
-}
-
-// GL-CI-SOFTWARE TOLERANCE, DIAGNOSTIC ON REFUSAL (team-lead briefing,
-// FACADE-PIN, 07/09/2026: "eu nao consigo saber POR QUE" - THIS file's
-// own `gl_context_parity_test: swap_buffers() (vsync=off) failed:
-// platform_failure` reproval, run 34168049144, never printed the four
-// fields/one boolean should_tolerate_swap_failure() actually decided
-// on, leaving no rastro of WHICH factor tripped the refusal). Printed
-// ONLY when the tolerance is about to REFUSE (right before the
-// `return EXIT_FAILURE` at each swap_buffers() call site below) - the
-// four fields the function above reads, PLUS the fifth (any_other_
-// swap_succeeded) it also needs, each as its OWN MEASURED line (tests/
-// tools/collect_measured.py's own <owner>.<key>=<value> shape, exactly
-// ONE dot), so they are collected like any other measurement in this
-// file, never just diagnostic text a script cannot parse.
-void print_swap_tolerance_refusal(std::string_view site, const glintfx::gltfx_err &err,
-                                  glintfx::gltfx_gpu_kind gpu_kind,
-                                  bool any_other_swap_succeeded) noexcept {
-    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_error_code=%s\n",
-                 std::string(site).c_str(),
-                 std::string(glintfx::gltfx_err_code_name(err.code())).c_str());
-    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_rejected_value=%s\n",
-                 std::string(site).c_str(), std::string(err.rejected_value()).c_str());
-    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_os_error_code=%lld\n",
-                 std::string(site).c_str(), static_cast<long long>(err.os_error_code()));
-    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_gpu_kind=%d\n",
-                 std::string(site).c_str(), static_cast<int>(gpu_kind));
-    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_any_swap_succeeded=%d\n",
-                 std::string(site).c_str(), any_other_swap_succeeded ? 1 : 0);
-}
-
-// GODS_LAWS.md L-40's own non-empty-sweep floor, applied to the
-// `swap_tolerated_downgrades` counter ITSELF, across EVERY exit path
-// of the block below - not just the happy one. Every swap_buffers()
-// refusal site in this file reaches its decision through `return
-// EXIT_FAILURE` (this is a plain int main(), no exception harness),
-// and a print sitting at the BOTTOM of the block - the shape this file
-// used to have - never runs when ANY of those earlier `return EXIT_
-// FAILURE` statements fires (the exact gap run 34168049144 measured:
-// the swap_tolerated_downgrades line never appeared in a log that
-// reproved). A destructor runs on ANY scope exit - normal fall-through
-// OR an early `return` from a nested block alike, per the ordinary
-// C++ rule that leaving a scope destroys its locals in reverse
-// construction order regardless of how control leaves it - so binding
-// the print to one guarantees it fires EXACTLY once, on every path,
-// without duplicating the print statement at each refusal site.
-// `count` is a reference to the block's own local `swap_tolerated_
-// downgrades`, so the destructor always reads its FINAL value,
-// whatever path got there.
-struct swap_tolerated_downgrades_reporter {
-    const int &count;
-    ~swap_tolerated_downgrades_reporter() noexcept {
-        std::fprintf(stdout, "MEASURED gl_context_parity_test.swap_tolerated_downgrades=%d\n",
-                     count);
-    }
-};
 
 } // namespace
 
@@ -750,33 +644,13 @@ int main() {
             return EXIT_FAILURE;
         }
 
-        // GL-CI-SOFTWARE TOLERANCE (team-lead briefing, 07/09/2026):
-        // `any_swap_succeeded` tracks whether SOME OTHER frame swap of
-        // THIS SAME execution already reached `presented` - the third
-        // factor should_tolerate_swap_failure() requires before ever
-        // downgrading a swap_buffers() failure below.
-        bool any_swap_succeeded = false;
-        int swap_tolerated_downgrades = 0;
-        // See swap_tolerated_downgrades_reporter's own header comment
-        // above: this print MUST survive every `return EXIT_FAILURE`
-        // below, so it is bound to a destructor instead of sitting at
-        // the bottom of this block.
-        const swap_tolerated_downgrades_reporter downgrades_reporter{swap_tolerated_downgrades};
-
         // First `presented` within 5 attempts (vsync=on, the registry's
         // own default).
         int first_presented_attempt = 0;
         for (int attempt = 1; attempt <= 5; ++attempt) {
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
+            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
+                draw_then_swap(context, clear);
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
-                    print_swap_tolerance_downgrade("gl_context_parity_test.first_presented_attempt",
-                                                   swapped.err());
-                    ++swap_tolerated_downgrades;
-                    continue;
-                }
-                print_swap_tolerance_refusal("first_presented_attempt", swapped.err(), gpu.kind,
-                                             any_swap_succeeded);
                 std::fprintf(
                     stderr,
                     "gl_context_parity_test: swap_buffers() attempt %d failed: %s "
@@ -788,7 +662,6 @@ int main() {
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
                 first_presented_attempt = attempt;
-                any_swap_succeeded = true;
                 break;
             }
         }
@@ -810,25 +683,22 @@ int main() {
                          std::string(glintfx::gltfx_err_code_name(set_off.err().code())).c_str());
             return EXIT_FAILURE;
         }
+        int vsync_off_presented = 0;
+        int vsync_off_skipped = 0;
         const auto vsync_off_start = std::chrono::steady_clock::now();
         for (int i = 0; i < 60; ++i) {
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
+            const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
+                draw_then_swap(context, clear);
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
-                    print_swap_tolerance_downgrade("gl_context_parity_test.vsync_off_60_swaps",
-                                                   swapped.err());
-                    ++swap_tolerated_downgrades;
-                    continue;
-                }
-                print_swap_tolerance_refusal("vsync_off_60_swaps", swapped.err(), gpu.kind,
-                                             any_swap_succeeded);
                 std::fprintf(
                     stderr, "gl_context_parity_test: swap_buffers() (vsync=off) failed: %s\n",
                     std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
-                any_swap_succeeded = true;
+                ++vsync_off_presented;
+            } else {
+                ++vsync_off_skipped;
             }
         }
         const auto vsync_off_end = std::chrono::steady_clock::now();
@@ -837,6 +707,10 @@ int main() {
                 .count();
         std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_off_60_swaps_ms=%lld\n",
                      static_cast<long long>(vsync_off_ms));
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_off_60_swaps_presented=%d\n",
+                     vsync_off_presented);
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_off_60_swaps_skipped=%d\n",
+                     vsync_off_skipped);
         if (vsync_off_ms > 700) {
             std::fprintf(stderr,
                          "gl_context_parity_test: vsync=off 60 swaps: %lld ms (orcamento 700)\n",
@@ -853,23 +727,22 @@ int main() {
                          std::string(glintfx::gltfx_err_code_name(set_on.err().code())).c_str());
             return EXIT_FAILURE;
         }
+        int vsync_on_presented = 0;
+        int vsync_on_skipped = 0;
         const auto vsync_on_start = std::chrono::steady_clock::now();
         for (int i = 0; i < 60; ++i) {
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
+            const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
+                draw_then_swap(context, clear);
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
-                    print_swap_tolerance_downgrade("gl_context_parity_test.vsync_on_60_swaps",
-                                                   swapped.err());
-                    ++swap_tolerated_downgrades;
-                    continue;
-                }
                 std::fprintf(
                     stderr, "gl_context_parity_test: swap_buffers() (vsync=on) failed: %s\n",
                     std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
-                any_swap_succeeded = true;
+                ++vsync_on_presented;
+            } else {
+                ++vsync_on_skipped;
             }
         }
         const auto vsync_on_end = std::chrono::steady_clock::now();
@@ -878,6 +751,10 @@ int main() {
                 .count();
         std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_on_60_swaps_ms=%lld\n",
                      static_cast<long long>(vsync_on_ms));
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_on_60_swaps_presented=%d\n",
+                     vsync_on_presented);
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_on_60_swaps_skipped=%d\n",
+                     vsync_on_skipped);
 
         // vsync=adaptive: D-W6b-18 recuses it BY NAME on Wayland (no
         // EGL equivalent); WGL may accept it when the driver exposes
@@ -906,6 +783,7 @@ int main() {
         // proves toggling vsync mid-session never wedges the adapter,
         // independent of whether `adaptive` itself was ever accepted.
         constexpr std::int64_t kToggleSequence[] = {0, 1, 0, 1};
+        int toggle_presented = 0;
         for (std::int64_t value : kToggleSequence) {
             if (glintfx::gltfx_rslt<void> set_toggle =
                     context.set_option({.id = glintfx::gltfx_gfx_option::vsync, .value = value});
@@ -918,16 +796,9 @@ int main() {
                     std::string(glintfx::gltfx_err_code_name(set_toggle.err().code())).c_str());
                 return EXIT_FAILURE;
             }
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
+            const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
+                draw_then_swap(context, clear);
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
-                    print_swap_tolerance_downgrade("gl_context_parity_test.vsync_toggle_sequence",
-                                                   swapped.err());
-                    ++swap_tolerated_downgrades;
-                    continue;
-                }
-                print_swap_tolerance_refusal("vsync_toggle_sequence", swapped.err(), gpu.kind,
-                                             any_swap_succeeded);
                 std::fprintf(
                     stderr,
                     "gl_context_parity_test: swap_buffers() during the toggle sequence "
@@ -937,9 +808,11 @@ int main() {
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
-                any_swap_succeeded = true;
+                ++toggle_presented;
             }
         }
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_toggle_presented=%d\n",
+                     toggle_presented);
         std::fprintf(stdout, "gl_context_parity_test: sequencia off/on/off/on de vsync ok\n");
 
         // option_support() sweep over EVERY registry row (piso de
@@ -1004,11 +877,6 @@ int main() {
             !degraded_pair_is_refused_cell(context)) {
             return EXIT_FAILURE;
         }
-
-        // swap_tolerated_downgrades itself is printed by downgrades_
-        // reporter's destructor above (fires on this normal fall-
-        // through AND on any earlier `return EXIT_FAILURE`), never by
-        // a print sitting here - see its own header comment.
 
         std::fprintf(stdout, "gl_context_parity_test: primeiro open() - todas as asserts ok\n");
     } // context closed here

@@ -7212,3 +7212,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o `preci` deu rc 0 de primeira em b1 e em b2;
   - desvios próprios declarados: o `cat >` na raiz, um instrumento de grep falso que ele mesmo achou e uma contagem chutada que o guarda recusou;
   - mais o filtro vazio do ctest, que foi o main que pegou.
+
+### 08/10/2026 14:58:16 - Revisão da D1-fix-b: REPROVADA; o C1 foi conferido pelo main e volta ao CTO
+
+- **Revisão** (qa-engineer em haiku, `/var/tmp/cto-w8/rev-d1fixb.md`): REPROVADA.
+  - **C1, CRÍTICO:** um executável posto em `examples/grupo/exemplo/`, adicionado por `add_subdirectory(grupo/exemplo)`, é construído sem o tratamento, e a saída fica verde.
+  - **IMPORTANTES:** I1, I2, I3 e I5. **COSMÉTICOS:** K1 a K3.
+  - Dos mutantes do revisor, 2 morreram e 4 sobreviveram, mais 1 equivalente.
+  - O revisor também confirmou: as mensagens saem exatas, b1 é refactor puro e os 7 testes em container passaram.
+- **Conferência do main, com sabotagem própria lida no log:** a sonda `probes/grupo_misto` imprime `diretorios=1 alcancados=1 executaveis_tratados=1` com rc 0, embora tenha dois executáveis. A causa é o desenho da D-W8-92 (a caminhada parte do glob), não o código do implementador.
+- **Destino:** o CTO decide numa errata 3 (D-W8-98 em diante). A entrega será um commit novo por cima de `bd017456`, que já está publicado.
+- **Régua do haiku:**
+  - na implementação, 1 rodada de revisão até aqui, REPROVADA;
+  - o CRÍTICO é de desenho do plano;
+  - I3 (a comparação por substring) e K3 vêm do driver escrito pelo implementador;
+  - como revisor, o haiku achou o C1, que nem o plano nem o implementador viram.

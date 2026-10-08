@@ -7294,3 +7294,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Push** para `da0dc1b2`, provado por `ls-remote`. **CI:** run 37828619235. **CI da D1-fix-c:** run 37825297444, `success`, com 25 jobs verdes e 1 pulado, incluindo os 5 Windows e a paridade.
 - **A D1-fix-b está fechada:** `9820e5ea`, `bd017456`, `60bcb4e5` e `da0dc1b2`.
 - **Próxima:** a D2a (`CAPTURE-DRIVER-WIRING-UNTESTED`), despachada a um devops-sre novo em haiku. Briefing em `/var/tmp/cto-w8/briefing-d2a.md`.
+
+### 08/10/2026 16:28:38 - CI vermelho na da0dc1b2: as 3 etapas Windows falham na planta fora_topo; conserto D1-fix-e despachado
+
+- **Run 37828619235** (`da0dc1b2`): `failure`. Falharam `Windows - estatico`, `Windows - compartilhado` e `Windows - Debug`, todos em `examples_pass_test`, com `plantas=16 conferidas=16 falharam=1` (`fora_topo`, "mensagem esperada ausente").
+- **Causa, conferida pelo main no código:** `tests/tools/check_examples_pass.py:208`, `absolute_matches`, exige `middle.startswith("/")`. No Windows o caminho absoluto começa com a letra da unidade (`D:/`). O produto está certo (rc 1, um erro só). O defeito é do teste da D1-fix-d e fere a L-04.
+- **Por que o container não pegou:** ele só tem caminhos POSIX. A paridade só o CI prova (memória `feedback_metade_provada_vira_provado`).
+- **Conserto D1-fix-e:** despachado ao mesmo implementador (haiku), com ordem detalhada passo a passo, como o líder mandou. Ele só toca o driver. A raiz passa a ser aceita como `(/|[A-Za-z]:/)` por um único código, sem ramo por sistema, com caso vermelho `D:/` e mutante.
+- **Ordem nova do líder, das 16:12, verbatim:** *"as intrucoes ao haiku devem ser muito bem detalhadas"*. Foi registrada na L-18 global e aplicada à D2a em voo, por um complemento com os comandos exatos.

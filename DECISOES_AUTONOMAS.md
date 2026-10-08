@@ -6902,3 +6902,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Falta para o ✅:**
   - o Run R ACEITO;
   - o Run T2 (37732608077) verde, com a captura Passed nos 4 Windows e os md5 `fc3241af`/`33aac7dd` iguais aos que o QA observou.
+
+### 08/10/2026 02:37:59 - Run R da P-OCL aceito, 11 ramos descartáveis apagados no remoto, DEMO-1 em planejamento
+
+- **Run R** (tentativa 2 do run 37732605387, job 113165928970): **ACEITO**. A leitura do main e a do revisor, feitas de forma independente, batem com a linha P-OCL da §4:
+  - exit 14, OCLUIDA por classe=GlintFxCaptureOccluder, nenhuma captura tentada, fixture exit=0;
+  - checks {tool:14, readback_png:0, probes:0}, reprovados=1, GLINTFX_SANITIZE vazio;
+  - leitor com 28 regras e 0 falhas, e zero AddressSanitizer.
+  - O código 14 se repetiu igual na segunda execução.
+- **Ramos descartáveis apagados no remoto**, sob o escopo "clean" do modo autônomo. São 11: os mutantes e as sondas de PRESENT-EMPTY-FRAME, WIN-MAP-1 e C2b-4, já fechadas.
+  - A ponta de cada um ficou em `/var/tmp/cto-w8/ramos-apagados-0810.txt`, para recuperar se for preciso.
+  - Ficam o `sonda-c2b5` (até a C2b-5 fechar) e o `sonda-swap2` (até a sonda do Mesa 25.3).
+- **DEMO-1:** o CTO (opus, alto) foi despachado para pesquisar primeiro (L-43) e planejar depois. Os planos vão para `/var/tmp/cto-w8/pesquisa-demo1.md` e `plano-demo1.md`, com decisões a partir de D-W8-71.
+- **Falta para a QA-SCREEN-CAPTURE ✅:** só o Run T2 (37732608077).

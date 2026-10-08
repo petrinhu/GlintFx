@@ -7056,3 +7056,22 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Incidente do revisor, registrado como ele relatou:** ele rodou `blob_selftests.py --root` no hospedeiro. Isso executou selftests por alguns segundos dentro de `bwrap`, incluindo o de `tools/win-vm-lab/sessao.sh`. Ele interrompeu e conferiu que não restou processo nem VM, e o main conferiu também: nenhum processo de VM vivo.
   - Foi um desvio da L-09: selftest sem janela nem entrada, mas fora do container.
 - **Destino:** o CTO decide os consertos (D-W8-91 em diante) até 04:35, numa errata `plano-demo1-v2-errata1.md`. A implementação fica para depois da pausa das 05:00. A D1 continua sem aceite final do main até os consertos.
+
+### 08/10/2026 04:04:23 - DEMO-1: errata 1 do CTO (D-W8-91 a D-W8-93) e a D1-fix-a despachada
+
+- **Errata:** `/var/tmp/cto-w8/plano-demo1-v2-errata1.md`, md5 `85105c27...`. O v2 continua intacto.
+- **D-W8-91 (I-3):** **revoga a D-W8-89.** O teste volta para `tests/CMakeLists.txt`, `tests/examples_tests.cmake` é apagado, e nasce o portão `check_single_test_registry.py`.
+  - Esse portão reprova qualquer `add_test` fora do registro, exceto a função `glintfx_add_test` (`cmake/GlintfxTest.cmake:109`) e os projetos independentes.
+  - O vermelho de estreia é V-18: o portão rodado sobre o blob `a653e3f4`.
+  - A divisão do registro vai para a INBOX `TESTS-REGISTRY-SPLIT`.
+- **D-W8-92 (I-2, C-1, C-2):** a passada trata TODO executável da subárvore, recursivamente. Há três regras com `FATAL_ERROR` e mensagem própria (pasta não alcançada, pasta sem executável e executável na raiz), e a linha impressa passa a ser `diretorios/alcancados/executaveis_tratados`.
+- **D-W8-93 (I-1):** `examples_pass_test`, com 7 plantas configuradas sem a biblioteca, e o resultado de cada uma escrito antes. O vermelho previsto contra a passada atual é 3 plantas reprovando e 4 passando (V-19).
+- **Porte novo:** 12 fatias em 13 commits. A D1-fix-a e a D1-fix-b vêm antes da D2a.
+- **Conferência do main:**
+  - `check_selftest_orphan.py:51` diz "o unico registro de ctest";
+  - `cmake/GlintfxTest.cmake:109` é o `add_test` dentro da função;
+  - `tests/tools/cmake_lexer.py` existe.
+- **TODO:**
+  - INBOX nova: `TESTS-REGISTRY-SPLIT`;
+  - `EXAMPLES-UNLISTED-DIR-MESSAGE` ganha nota: fecha na D1-fix-b.
+- **D1-fix-a:** despachada para um devops-sre sonnet, com prazo duro às 04:40 por causa da pausa das 05:00.

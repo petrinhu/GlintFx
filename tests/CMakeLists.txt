@@ -6433,7 +6433,7 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest
 )
 set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "selftest: 91 controles OK")
+    PASS_REGULAR_EXPRESSION "selftest: 102 controles OK")
 
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory

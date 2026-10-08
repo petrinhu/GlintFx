@@ -52,7 +52,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 SCRIPT_NAME = "run_capture_known_color_win32.py"
@@ -63,9 +63,20 @@ MODES = ("off", "on")
 # reads the fixture's source and fails when the two drift (feedback_copia_em_vez_de_fonte).
 WINDOW_TITLE = "janela da fumaca de cor conhecida"
 FIXTURE_SOURCE = REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.cpp"
+TOOL_SOURCE = TOOLS_DIR / "win32_window_capture.cpp"
+# THE BUDGETS (D-W8-61): this driver OWNS all three and hands them to the tool and the fixture, so
+# no copy of a default of the tool hides here. What is proven is their RELATION (budgets_are_coherent),
+# not a number: a budget fixed alone would let 1 ms and 200000 ms through.
+# How long the tool waits for the fixture's "presented" line, and then for the fixture to exit by itself
+# after the WM_CLOSE (the tool's --present-budget-ms and --exit-budget-ms).
+PRESENT_BUDGET_MS = 30000
+EXIT_BUDGET_MS = 10000
 # How long the fixture keeps its window alive and answering messages after it presented (its
-# --hold-until-close budget): longer than the tool's present wait plus the captures plus the close.
+# --hold-until-close budget): it covers the capture phase, between "presented" and the WM_CLOSE.
 HOLD_UNTIL_CLOSE_MS = 120000
+# The least the hold may be: the capture phase measured 1.21 s whole on the Windows runner (run
+# 37558358855 and CI 37611152408), so 60 s is a margin of about 50 times.
+CAPTURE_PHASE_FLOOR_MS = 60000
 # THE SABOTAGES. The three of the fixture travel on the fixture's command line; `occlude` is a mode
 # of the TOOL (D-W8-42: it covers the window from outside) and is never handed to the fixture.
 FIXTURE_SABOTAGES = ("swap_red_blue", "alpha_half", "corrupt_readback")
@@ -95,6 +106,31 @@ class run_config:
     out_dir: Path
     sabotage: str = ""
     probes_dir: Path = REPO_ROOT / "tests" / "fixtures"
+
+
+@dataclass(frozen=True)
+class budget_set:
+    """The six numbers whose relation D-W8-61 proves (milliseconds, except the two in seconds)."""
+    present_ms: int
+    hold_ms: int
+    exit_ms: int
+    kill_grace_s: int
+    timeout_s: int
+    floor_ms: int
+
+
+def current_budgets():
+    return budget_set(PRESENT_BUDGET_MS, HOLD_UNTIL_CLOSE_MS, EXIT_BUDGET_MS, KILL_GRACE_SECONDS,
+                      PROCESS_TIMEOUT_SECONDS, CAPTURE_PHASE_FLOOR_MS)
+
+
+def budgets_are_coherent(budgets):
+    """True when the hold covers the capture phase (hold >= floor) AND the orphan fixture goes away by
+    itself before the driver kills the tree, even if `taskkill /T` (not measured on Windows) fails: the
+    present wait, the hold, the exit wait and the kill grace fit in the process timeout."""
+    covers_capture = budgets.hold_ms >= budgets.floor_ms
+    total_ms = budgets.present_ms + budgets.hold_ms + budgets.exit_ms + budgets.kill_grace_s * 1000
+    return covers_capture and total_ms <= budgets.timeout_s * 1000
 
 
 def verdict_name(code):
@@ -183,15 +219,16 @@ def clean_mode_output(config, mode):
 
 
 def tool_command(config, mode):
-    """The tool's command line: its own options (the title, the output, and the sabotage `occlude`, the
-    only one that is the tool's), then `--` and the fixture's: mode, readback directory, the hold budget
+    """The tool's command line: its own options (the title, the output, the present and exit budgets of
+    D-W8-61, and the sabotage `occlude`, the only one that is the tool's), then `--` and the fixture's: mode, readback directory, the hold budget
     (always: PrintWindow needs the owner of the window answering messages) and the fixture's sabotage."""
     directory = mode_dir(config, mode)
     fixture = [config.fixture, mode, directory / "readback", "--hold-until-close", str(HOLD_UNTIL_CLOSE_MS)]
     if config.sabotage in FIXTURE_SABOTAGES:
         fixture.append(config.sabotage)
     tool_flags = [TOOL_SABOTAGES[config.sabotage]] if config.sabotage in TOOL_SABOTAGES else []
-    return [config.tool, "--title", WINDOW_TITLE, "--out", directory / "capture", *tool_flags, "--", *fixture]
+    budgets = ["--present-budget-ms", str(PRESENT_BUDGET_MS), "--exit-budget-ms", str(EXIT_BUDGET_MS)]
+    return [config.tool, "--title", WINDOW_TITLE, "--out", directory / "capture", *budgets, *tool_flags, "--", *fixture]
 
 
 def classify_tool_run(mode, code, output):
@@ -465,15 +502,62 @@ def selftest_tool_command():
     with tempfile.TemporaryDirectory() as tmp:
         config = make_config(tmp)
         command = tool_command(config, "off")
-        check("comando da ferramenta: titulo, saida e a linha da fixture depois de --, com o orcamento de espera",
+        check("comando da ferramenta: titulo, saida e os dois orcamentos dela antes de --, a linha da fixture depois, com o orcamento de espera",
               command[0] == "TOOL" and command[command.index("--title") + 1] == WINDOW_TITLE
               and command[command.index("--out") + 1] == config.out_dir / "off" / "capture"
+              and command[command.index("--present-budget-ms") + 1] == str(PRESENT_BUDGET_MS)
+              and command[command.index("--exit-budget-ms") + 1] == str(EXIT_BUDGET_MS)
+              and command.index("--exit-budget-ms") < command.index("--")
               and command[command.index("--") + 1:] == ["FIXTURE", "off", config.out_dir / "off" / "readback",
                                                         "--hold-until-close", str(HOLD_UNTIL_CLOSE_MS)])
         config.sabotage = "swap_red_blue"
         check("sabotagem da fixture vai por ultimo, para a fixture, depois do orcamento de espera",
               tool_command(config, "on")[-1] == "swap_red_blue"
               and tool_command(config, "on")[-3] == "--hold-until-close")
+
+
+def selftest_tool_receives_the_driver_budgets():
+    """D-W8-61: the driver OWNS the present and exit budgets and hands them to the tool, before `--`
+    (they are the tool's options, never the fixture's). The grammar is also read from the tool's source."""
+    command = tool_command(make_config("."), "off")
+    separator = command.index("--")
+    check("o comando da ferramenta passa --present-budget-ms com o valor do driver, antes do --",
+          "--present-budget-ms" in command[:separator]
+          and command[command.index("--present-budget-ms") + 1] == str(PRESENT_BUDGET_MS))
+    check("o comando da ferramenta passa --exit-budget-ms com o valor do driver, antes do --",
+          "--exit-budget-ms" in command[:separator]
+          and command[command.index("--exit-budget-ms") + 1] == str(EXIT_BUDGET_MS))
+    check("os orcamentos da ferramenta NAO chegam a fixture (depois do --)",
+          "--present-budget-ms" not in command[separator + 1:] and "--exit-budget-ms" not in command[separator + 1:])
+    tool_text = TOOL_SOURCE.read_text(encoding="utf-8", errors="replace")
+    check("a gramatica que o driver usa e a que a ferramenta aceita: --present-budget-ms e --exit-budget-ms",
+          '"--present-budget-ms"' in tool_text and '"--exit-budget-ms"' in tool_text)
+
+
+def selftest_budgets_are_coherent():
+    """D-W8-61: the RELATION between the budgets, not a number. Every mutant is the real set with ONE
+    field changed, so a mutated constant of the file (H2 hold 1 ms, H3 hold 200000, H4 timeout 100,
+    H5 floor 1) is caught by the control that holds the real values."""
+    real = current_budgets()
+    check("a relacao vale com as constantes reais do driver", budgets_are_coherent(real))
+    check("H2: hold de 1 ms reprova (a janela nao cobre a fase de captura)",
+          not budgets_are_coherent(replace(real, hold_ms=1)))
+    check("H3: hold de 200000 ms reprova (a fixture orfa sobreviveria ao prazo do processo)",
+          not budgets_are_coherent(replace(real, hold_ms=200000)))
+    check("H4: prazo do processo de 100 s reprova (a soma dos orcamentos nao cabe)",
+          not budgets_are_coherent(replace(real, timeout_s=100)))
+    check("H5: piso de 1 ms deixa o hold de 1 ms passar, e por isso o controle H2 o mata",
+          budgets_are_coherent(replace(real, hold_ms=1, floor_ms=1))
+          and not budgets_are_coherent(replace(real, hold_ms=1)))
+    check("o orcamento de apresentacao, o de saida e a folga de morte entram na soma",
+          not budgets_are_coherent(replace(real, present_ms=real.timeout_s * 1000))
+          and not budgets_are_coherent(replace(real, exit_ms=real.timeout_s * 1000))
+          and not budgets_are_coherent(replace(real, kill_grace_s=real.timeout_s)))
+    check("a soma que fecha exatamente no prazo passa, um milissegundo a mais reprova",
+          budgets_are_coherent(replace(real, timeout_s=(real.present_ms + real.hold_ms + real.exit_ms) // 1000
+                                       + real.kill_grace_s))
+          and not budgets_are_coherent(replace(real, timeout_s=(real.present_ms + real.hold_ms + real.exit_ms) // 1000
+                                               + real.kill_grace_s - 1)))
 
 
 def selftest_occlude_reaches_only_the_tool():
@@ -940,6 +1024,8 @@ def selftest_main():
     selftest_measured_lines()
     selftest_title_matches_the_fixture()
     selftest_tool_command()
+    selftest_tool_receives_the_driver_budgets()
+    selftest_budgets_are_coherent()
     selftest_occlude_reaches_only_the_tool()
     selftest_count_pairs()
     selftest_wiring_all_clean()

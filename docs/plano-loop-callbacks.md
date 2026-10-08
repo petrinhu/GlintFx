@@ -604,7 +604,7 @@ Cada linha é uma asserção que **reprova em qualquer um dos dois lados**; a co
 | recuperação | após restaurar, em até 10 tiques `should_render` volta a verdadeiro e `present()` devolve `presented`; **no Linux condicionada a `restored == 1`** (§S4.3 item 3), no Windows incondicional | `loop_hidden_test` | orçamento em contagem de tiques |
 | linha de escopo | `loop_parity_test: asserções N de N avaliadas` e `loop_hidden_test: asserções N de N avaliadas`, impressas sempre; zero reprova (L-40) | ambos | piso de varredura |
 
-**Régua de tamanho, fixada agora:** `loop_parity_test` com **~18 asserções** (as 14 de 06/09 menos 6 recusas de átomo, mais 2 de posse forma 1, 3 de forma 2, 1 de tolerância, 1 de camada 3 = 15..19) e `loop_hidden_test` com **~8 por modo de v-sync**. Se a implementação passar de 25 no `parity` ou de 12 por modo no `hidden`, é comportamento novo entrando pela porta dos fundos: volta ao plano antes de virar código (L-43).
+**Régua de tamanho, fixada agora:** `loop_parity_test` com **~18 asserções** (as 14 de 06/09 menos 6 recusas de átomo, mais 2 de posse forma 1, 3 de forma 2, 1 de camada 3 = 15..19) e `loop_hidden_test` com **~8 por modo de v-sync**. Se a implementação passar de 25 no `parity` ou de 12 por modo no `hidden`, é comportamento novo entrando pela porta dos fundos: volta ao plano antes de virar código (L-43).
 
 #### S4.5 Medido e impresso, nunca asseverado igual (chaves `MEASURED`, e o que decide se reprovar)
 

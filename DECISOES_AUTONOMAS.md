@@ -7262,3 +7262,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a árvore está limpa.
 - **Push** de `onda-w8` para `60bcb4e5`, provado por `ls-remote`. **CI:** run 37825297444.
 - **Re-revisão** pelo mesmo revisor da primeira rodada (L-12: ele não é o implementador), com os achados dele de volta, os desvios D-16 e D-17 a julgar e mutantes novos: `/var/tmp/cto-w8/rev-d1fixc.md`.
+
+### 08/10/2026 15:45:15 - Re-revisão da D1-fix-c: APROVADA COM RESSALVAS; os consertos vão para a D1-fix-d
+
+- **Re-revisão** (`/var/tmp/cto-w8/rev-d1fixc.md`, sobre `60bcb4e5`):
+  - C1, I1, I2, I3, I5 e K1 foram fechados por execução;
+  - o K2 está na INBOX `EXAMPLES-GRAPH-EDGES`;
+  - dos 25 mutantes, morreram todos menos Q2, Q5, H2 e `M_R4_ABS_OFF`;
+  - 7 de 7 testes em container passaram.
+- **Ressalvas:**
+  - **R1 (IMPORTANTE):** a fronteira de separador no leitor do modelo não tem planta;
+  - **R2 e R3 (cosméticos):** o texto absoluto da regra 4 e a exclusão de `CMakeFiles` não têm prova;
+  - **C2:** o texto da INBOX está errado;
+  - **C4:** a justificativa do D-16 está errada no relatório, mas o código está certo.
+- **Decisão do main:** como na D1-fix-a, IMPORTANTE se conserta antes do aceite. R1, R2, R3 e C2 vão num commit novo D1-fix-d, que o mesmo implementador faz. O H2 e o Q2 ficam registrados como lacunas aceitas.
+- **Limites que o revisor não mediu:** MSVC/Windows, gerador multi-config, e o modelo só roda nas plantas. Quem cobre o Windows é o CI.

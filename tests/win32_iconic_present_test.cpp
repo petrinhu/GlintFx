@@ -13,7 +13,6 @@
 #include <vector>
 
 #include <glintfx/core/err_code.hpp>
-#include <glintfx/platform/gl/gpu.hpp>
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"

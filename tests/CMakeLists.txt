@@ -4191,6 +4191,23 @@ add_test(
 )
 set_tests_properties(examples_option_default_test PROPERTIES LABELS consume)
 
+# EXAMPLES-PASS (D-W8-93): the examples pass on eight plantas, one fresh
+# configure each, WITHOUT the library (see tests/examples_pass/CMakeLists.txt
+# for what it configures, and tests/tools/check_examples_pass.py for the
+# expectation of each planta). The rc of each configure is the signal, read
+# by the driver; no PASS_REGULAR_EXPRESSION here, on purpose.
+# glintfx-build-dir: private-subdir - tests/examples_pass_check/ (um configure aninhado por planta, LANGUAGES CXX, sem construir nada)
+add_test(
+    NAME examples_pass_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_examples_pass.py"
+        --cmake "${CMAKE_COMMAND}"
+        --generator "${CMAKE_GENERATOR}"
+        --source "${PROJECT_SOURCE_DIR}"
+        --work "${CMAKE_CURRENT_BINARY_DIR}/examples_pass_check"
+)
+set_tests_properties(examples_pass_test PROPERTIES LABELS consume)
+
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
 # non-default include directory on its own, with no other install() rule

@@ -6971,3 +6971,23 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `renderer_2d_impl.cpp:132-138` mostra mesmo a codificação da limpeza;
   - `plano-w8-v2.md:297-298` são mesmo as linhas D1 e D2 que o plano substitui.
 - **Próximo:** ataque adversarial ao plano (qa-engineer sonnet, `/var/tmp/cto-w8/ataque-plano-demo1.md`) antes da D1.
+
+### 08/10/2026 03:22:08 - DEMO-1: ataque ao plano com 0 achados que derrubam desenho e 12 importantes; o CTO faz o v2
+
+- **Ataque** (qa-engineer sonnet; relatório `/var/tmp/cto-w8/ataque-plano-demo1.md`, md5 `71d8b487...`):
+  - nada foi executado;
+  - o plano ficou congelado do início ao fim, md5 `35afe97d` nas duas pontas.
+- **Placar (examinadas/verificáveis/suspeitas):**
+  - decisões 9/9/5, fatias 9/9/7, critérios 18/18/9 e vermelhos 12/12/5;
+  - citações 52/52/3: 49 batem, 3 estão off-by-one ou parciais.
+- **Os principais achados importantes:**
+  - **A2:** as sondas do quadro 30 aceitam qualquer quadro de 23 a 38.
+  - **A3:** `exec_fixture.sh` não tem `timeout`, e um exemplo que não sai penduraria o job.
+  - **A4:** o portão de ligação MSVC não enumera `first_window`, então o "rc 0" do critério 12 é vácuo.
+  - **A5:** a D5a não tem vermelho.
+  - **A6:** são 24 sítios com `cmake -S`, não 21, e há forma em lista Python que escapa do `grep`.
+  - **A10:** o piso de 10 imagens aceita imagens da fumaça no lugar das da demo.
+  - **V-10:** reprova antes do lugar previsto (`ci.yml:1946`).
+- **O main conferiu na árvore A3, A6 e V-10,** e os três batem.
+- **Destino:** o CTO (o mesmo agente, retomado) escreve `/var/tmp/cto-w8/plano-demo1-v2.md`, tratando cada achado como aceito ou recusado com evidência. Decisões novas seguem de D-W8-80 em diante.
+  - Os critérios e os vermelhos só mudam porque o ataque achou furo, e ainda não há dado nenhum (L-43).

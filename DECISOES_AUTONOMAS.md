@@ -6915,3 +6915,24 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Ficam o `sonda-c2b5` (até a C2b-5 fechar) e o `sonda-swap2` (até a sonda do Mesa 25.3).
 - **DEMO-1:** o CTO (opus, alto) foi despachado para pesquisar primeiro (L-43) e planejar depois. Os planos vão para `/var/tmp/cto-w8/pesquisa-demo1.md` e `plano-demo1.md`, com decisões a partir de D-W8-71.
 - **Falta para a QA-SCREEN-CAPTURE ✅:** só o Run T2 (37732608077).
+
+### 08/10/2026 02:52:24 - QA-SCREEN-CAPTURE ✅: Run T2 verde na ponta e34a0a22
+
+- **Run T2** (run 37732608077, ponta e34a0a22, com os consertos I-2 e I-3): **success** nos 26 jobs.
+  - `capture_known_color_smoke` deu Passed nos 4 Windows: compartilhado 1,27 s, estático 1,32 s, Debug 1,21 s e ASan 2,01 s.
+  - O main baixou os artefatos `capture-out-windows-*` dos 4 e conferiu os md5:
+    - a captura dá `fc3241af...` nos 2 mecanismos (bitblt e printwindow), nos 4 jobs;
+    - o `readback.png` dá `33aac7dd...` nos 4.
+  - Os md5 são os mesmos que o QA observou e aprovou. A observação visual continua valendo, porque os consertos não mudaram os PNG.
+- **Os 5 itens da §5 do plano da C2b-5 estão cumpridos:**
+  1. Run S2, com as 6 pernas aceitas;
+  2. Run R da P-OCL, aceito;
+  3. revisão aprovada na rodada 2;
+  4. Run T2 verde;
+  5. QA visual aprovado.
+- **QA-SCREEN-CAPTURE:** passa de 🔍 para ✅.
+- **Continua na INBOX, fora deste item:**
+  - CAPTURE-DRIVER-WIRING-UNTESTED, que é pré-requisito do CI-VERDE-W8 (D-W8-68);
+  - CAPTURE-DRIVER-SPLIT;
+  - CAPTURE-FIXTURE-UNDRAWN-RETRY;
+  - ASAN-CONSUME-LABEL-JUSTIFICATION.

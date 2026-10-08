@@ -7245,3 +7245,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o `cmake_file_api()` exige CMake 3.27; o projeto pede 4.1 e as plantas pedem 3.28, então serve;
   - a regra 4 restringe só a árvore `examples/` do próprio repositório; consumidor nenhum é afetado.
 - **CI do `bd017456`:** run 37818621936, `success`, com 25 jobs verdes e 1 pulado. Esse verde não cobre o C1.
+
+### 08/10/2026 15:34:40 - D1-fix-c entregue em 60bcb4e5; push, CI e re-revisão despachados
+
+- **Segundo o implementador (haiku):**
+  - o passo 0 confirmou as quatro inferências;
+  - o vermelho contra `bd017456` bateu tupla a tupla: `plantas=13 conferidas=13 falharam=4`;
+  - o verde deu 13 de 13, com `modelo: executaveis=4 tratados=4 calibracao=ok`;
+  - dos 18 mutantes, 16 mataram exatamente o esperado; M1 e M8 foram comparados sobre a linha de base de `bd017456`; H1 derruba a calibração;
+  - `preci --fast` deu rc 0 (rodado no hospedeiro, downgrade da L-09 até PRECI-IN-CONTAINER).
+  - Desvios declarados: D-16 a D-23.
+- **Conferência do main:**
+  - 29 arquivos;
+  - nenhuma leitura de `PROJECT_*` nem `CMAKE_*_DIR` no código;
+  - o commit de rascunho `6da735e0` não existe no repositório;
+  - a árvore está limpa.
+- **Push** de `onda-w8` para `60bcb4e5`, provado por `ls-remote`. **CI:** run 37825297444.
+- **Re-revisão** pelo mesmo revisor da primeira rodada (L-12: ele não é o implementador), com os achados dele de volta, os desvios D-16 e D-17 a julgar e mutantes novos: `/var/tmp/cto-w8/rev-d1fixc.md`.

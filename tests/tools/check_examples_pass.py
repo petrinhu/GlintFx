@@ -210,7 +210,32 @@ def absolute_matches(body, path_tail):
     if not (body.startswith(ABS_PREFIX) and body.endswith(ABS_TAIL)):
         return False
     middle = body[len(ABS_PREFIX):len(body) - len(ABS_TAIL)]
-    return middle.startswith("/") and middle.endswith(path_tail) and " " not in middle
+    return (re.match(r"(/|[A-Za-z]:/)", middle) is not None
+            and middle.endswith(path_tail) and " " not in middle)
+
+
+# Autoteste da conferencia do caminho absoluto (CI vermelho da D1-fix-d: o
+# caminho do Windows comeca pela letra da unidade). Roda sempre, no inicio do
+# driver, e imprime cada caso; um caso que nao se comporta como escrito reprova.
+ABSOLUTE_CASES = (
+    ("caminho POSIX", "/home/x/plantas/fora_topo/fora", True),
+    ("caminho com letra de unidade", "D:/a/x/plantas/fora_topo/fora", True),
+    ("caminho relativo", "../fora", False),
+    ("caminho sem raiz", "fora_topo/fora", False),
+)
+
+
+def absolute_selfcheck():
+    """Prints each case of ABSOLUTE_CASES; returns how many did not behave as written."""
+    failures = 0
+    for label, path, accepted in ABSOLUTE_CASES:
+        body = ABS_PREFIX + path + ABS_TAIL
+        got = absolute_matches(body, "/fora_topo/fora")
+        ok = got == accepted
+        print("autoteste absolute_matches: %s (%s) %s" % (label, path, "OK" if ok else "FALHOU"))
+        if not ok:
+            failures += 1
+    return failures
 
 
 def body_matches(kind, body, expected_text):
@@ -352,6 +377,9 @@ def parse_args(argv):
 
 def main(argv):
     args = parse_args(argv)
+    if absolute_selfcheck():
+        print(SCRIPT_NAME + ": FALHOU - autoteste de absolute_matches")
+        return 1
     os.makedirs(args.work, exist_ok=True)
     n, checked, failures, tally = run_all(args)
     print("modelo: executaveis=%d tratados=%d calibracao=%s"

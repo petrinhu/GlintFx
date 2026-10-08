@@ -6803,3 +6803,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a linha 15 (R-a e R-b, ainda na fila);
   - a linha 16 (o run da ponta terminar, porque o Windows Lint ainda roda);
   - a releitura das linhas 13 e 14.
+
+### 08/10/2026 00:46:20 - Plano da C2b-5 aceito pelo main (L-34, passo 3); a C2b-5 começa
+
+- **Conferência:** o plano (`/var/tmp/cto-w8/plano-c2b5.md`) tem:
+  - vermelho por item (§3) e previsões pré-registradas das 6 pernas da sonda (§4), cada uma com a verificação que tem de morder e as outras em 0;
+  - critério de fechamento escrito antes do dado (§5);
+  - fatias com arquivos (§6).
+- **D-W8-69 cumprida:** a F7 e a rodada da revisão da PRESENT-EMPTY-FRAME estão commitadas, e a ponta deu verde (run 37722363592). Só faltam os mutantes R-a/R-b no executor, que não tocam a árvore.
+- **D-W8-68 aplicada na tabela:** `CI-VERDE-W8` passa a depender de `CAPTURE-DRIVER-WIRING-UNTESTED`.
+- **Próximo:** um implementador sonnet faz a F1, a F2 e a F3, uma por vez.

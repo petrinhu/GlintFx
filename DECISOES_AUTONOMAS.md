@@ -6697,3 +6697,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Com isso, a linha 15 do §4 do plano fecha:** os runs R-G, A, B, R1 e R2 bateram todos com a previsão, e o M3 também. **A F3 pode entrar.**
 - **Pausa:** ordem do líder, verbatim, "pause quando acabar essa fatia". Por AskUserQuestion ele escolheu **"F2, o texto público (Recomendado)"**. A F2 está fechada e o ramo vai ser empurrado agora.
 - **Fica para a retomada:** F3 a F7 (tirar a tolerância dos 5 testes, desenhar antes de cada apresentação, os critérios de vsync e a limpeza dos documentos), a revisão que executa e o CI da ponta.
+
+### 07/10/2026 22:53:44 - Retomada do GlintFx em modo autônomo (ordem do líder)
+
+- O líder ligou o modo autônomo nesta sessão ("ligue modo autonomo", com validade até 08/10/2026 22:51:57) e disse "aqui é glintfx". A edição #6 do site passou para uma sessão própria, na pasta do site ("#6 está só lá"). O agente do conversor do site foi parado aqui; o trabalho dele está no repositório do site, em a7e308c, já empurrado.
+- A parada de 12:21 (fim da F2) foi encerrada por essa ordem, e o arquivo `parada_do_lider` foi apagado.
+- O CI da ponta `3fd749cf` (run 37643211805) deu `success`.
+- **Próximo:** F3 a F6 da PRESENT-EMPTY-FRAME (plano §3 e §5). Partem da remoção já feita no ramo `w8-pef-r1` e acrescentam o desenho antes de cada apresentação (D-W8-55/56), uma fatia por arquivo, cada uma com o seu commit. O vermelho já está provado pelos runs R1 e R2.

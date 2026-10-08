@@ -7336,3 +7336,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - na tentativa 2 (`gh run rerun --failed`), o `rerun_guard.py` reprovou: "falha nao classificavel na tentativa 1: job com conclusao 'cancelled' e nenhum passo com falha".
   - Nenhum teste do produto falhou, inclusive nas 3 etapas Windows da D1-fix-e.
 - **Lacuna da guarda, isolada ou padrão (L-17):** um cancelamento por tempo num passo de PREPARO é infraestrutura, mas a guarda só sabe ler passo com `failure`. Vai para a INBOX como `RERUN-GUARD-CANCELLED-PREP` no próximo commit de implementador. O verde do CI sai de uma execução nova, depois da D2a-fix.
+
+### 08/10/2026 16:54:42 - Ordem do líder: pausa quando o agente da D2a-fix entregar
+
+- **Verbatim:** *"pause quando o agente entregar"*.
+- **Como o main vai cumprir:** quando o agente da D2a-fix entregar, o main confere o commit (árvore e arquivos), registra aqui, empurra o ramo e escreve o `parada_do_lider`. Nada de trabalho novo depois disso: nem revisão da D2a-fix, nem D2b, nem CI disparado. O CI fica para a retomada.

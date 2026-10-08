@@ -4191,7 +4191,7 @@ add_test(
 )
 set_tests_properties(examples_option_default_test PROPERTIES LABELS consume)
 
-# EXAMPLES-PASS (D-W8-93, D-W8-101): the examples pass on thirteen plantas, one fresh
+# EXAMPLES-PASS (D-W8-93, D-W8-101): the examples pass on sixteen plantas, one fresh
 # configure each, WITHOUT the library (see tests/examples_pass/CMakeLists.txt
 # for what it configures, and tests/tools/check_examples_pass.py for the
 # expectation of each planta). The rc of each configure is the signal, read

@@ -46,6 +46,14 @@ include("${GLINTFX_SOURCE_DIR}/cmake/GlintfxExamples.cmake")
 
 glintfx_add_examples("${_planta_dir}" "${CMAKE_CURRENT_BINARY_DIR}")
 
+# A planta may declare a SIBLING of examples/ (D-W8-101, R1): a directory whose
+# name starts with "examples" (examples2/). The pass never reads it, and the
+# model must not count its executable as an example. Added only when the planta
+# declares it, so the other plantas are not changed.
+if(EXISTS "${_planta_dir}/examples2/CMakeLists.txt")
+    add_subdirectory("${_planta_dir}/examples2" "${CMAKE_CURRENT_BINARY_DIR}/examples2")
+endif()
+
 # The model check of the driver (D-W8-101) reads the File API of this
 # configure. Two targets OUTSIDE examples/, on one shared source, are the
 # calibration ruler: the reference receives the compile options of the

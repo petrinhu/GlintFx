@@ -16,9 +16,12 @@
 #     the body of that error (between "(message):" and "Call Stack") equal,
 #     after space normalization (D-W8-97), to the expected rule message;
 #   - "refuse_prefix": the same, but the body must START with the text
-#     (sem_examples carries the path in its message; declared, D-W8-102).
+#     (sem_examples carries the path in its message; declared, D-W8-102);
+#   - "refuse_absolute": the same, but rule 4 prints an ABSOLUTE path, which
+#     depends on the checkout: only its tail is fixed (R2).
 # A planta that must pass also gets the MODEL check: every EXECUTABLE declared
-# under its examples/ must carry the compile tokens of the reference target
+# under its examples/ must be exactly the t of its expectation (per planta, D-W8-101),
+# and must carry the compile tokens of the reference target
 # and sit under examples/bin/. The calibration (the reference target must
 # differ from the untreated one, D-W8-101) is checked on every model read: a
 # ruler that does not tell them apart refuses the whole run.
@@ -49,7 +52,7 @@ import sys
 
 import examples_pass_codemodel
 
-PLANT_COUNT = 13
+PLANT_COUNT = 16
 SCRIPT_NAME = "check_examples_pass.py"
 PLANTAS_RELDIR = os.path.join("tests", "examples_pass", "plantas")
 PROJECT_RELDIR = os.path.join("tests", "examples_pass")
@@ -57,6 +60,7 @@ PROJECT_RELDIR = os.path.join("tests", "examples_pass")
 PASS = "pass"
 REFUSE = "refuse"
 REFUSE_PREFIX = "refuse_prefix"
+REFUSE_ABSOLUTE = "refuse_absolute"
 
 RULE1_FIRST_LEVEL = (
     "glintfx: examples/foo/ tem CMakeLists.txt mas nao foi adicionado: "
@@ -79,6 +83,13 @@ RULE4 = (
 SEM_EXAMPLES = (
     "GLINTFX_BUILD_EXAMPLES is ON but examples/CMakeLists.txt does not exist"
 )
+# Rule 4 when the entry climbs out of examples/: the path is ABSOLUTE and
+# depends on where the checkout lives, so only its tail is fixed (D-W8-98, R2).
+ABS_PREFIX = "glintfx: examples/CMakeLists.txt adicionou "
+ABS_TAIL = (
+    ", que nao e um diretorio filho de examples/; cada exemplo mora em "
+    "examples/<nome>/, e um agrupamento precisa do proprio CMakeLists.txt"
+)
 
 # name -> (kind, expected)
 #   pass:           expected = (d, a, t), the tuple of the count line
@@ -98,6 +109,9 @@ EXPECTATIONS = {
     "ordem_1_4": (REFUSE, RULE1_FIRST_LEVEL),
     "ordem_4_2": (REFUSE, RULE4),
     "ordem_2_3": (REFUSE, RULE2),
+    "fronteira_separador": (PASS, (1, 1, 1)),
+    "cmakefiles_ignorado": (PASS, (1, 1, 1)),
+    "fora_topo": (REFUSE_ABSOLUTE, "/fora_topo/fora"),
 }
 
 COUNT_LINE_RE = re.compile(
@@ -191,6 +205,31 @@ def pass_problems(rc, output, expected):
     return reasons
 
 
+def absolute_matches(body, path_tail):
+    """Rule 4 with an absolute path: the prefix and tail are fixed, the path ends with path_tail."""
+    if not (body.startswith(ABS_PREFIX) and body.endswith(ABS_TAIL)):
+        return False
+    middle = body[len(ABS_PREFIX):len(body) - len(ABS_TAIL)]
+    return middle.startswith("/") and middle.endswith(path_tail) and " " not in middle
+
+
+def body_matches(kind, body, expected_text):
+    """The matcher of each refusal kind. The body is already normalized."""
+    if kind == REFUSE_ABSOLUTE:
+        return absolute_matches(body, expected_text)
+    wanted = normalize_space(expected_text)
+    if kind == REFUSE_PREFIX:
+        return body.startswith(wanted)
+    return body == wanted
+
+
+def describe_expected(kind, expected_text):
+    """The expectation as text, for the motive line."""
+    if kind == REFUSE_ABSOLUTE:
+        return ABS_PREFIX + "<caminho absoluto terminado em " + expected_text + ">" + ABS_TAIL
+    return expected_text
+
+
 def refuse_problems(rc, output, kind, expected_text):
     reasons = []
     if rc == 0:
@@ -199,10 +238,8 @@ def refuse_problems(rc, output, kind, expected_text):
     if errors != 1:
         reasons.append("erros do CMake=%d, esperado 1" % errors)
     body = extract_error_body(output)
-    wanted = normalize_space(expected_text)
-    matched = body.startswith(wanted) if kind == REFUSE_PREFIX else body == wanted
-    if not matched:
-        reasons.append("mensagem esperada ausente: " + expected_text)
+    if not body_matches(kind, body, expected_text):
+        reasons.append("mensagem esperada ausente: " + describe_expected(kind, expected_text))
     return reasons
 
 
@@ -242,14 +279,22 @@ class ModelTally:
         return "ok"
 
 
-def model_problems(args, planta, build_dir, tally):
-    """Reads the model of one passing planta; returns its reasons, and feeds the tally."""
+def model_problems(args, planta, build_dir, tally, expected_t):
+    """Reads the model of one passing planta; returns its reasons, and feeds the tally.
+
+    The count is checked per planta (its own t, D-W8-101), so a planta that
+    gains an extra executable under examples/ dies by its own name.
+    """
     try:
         model = examples_pass_codemodel.check_model(build_dir, planta_examples_dir(args, planta))
     except MODEL_ERRORS as error:
         return ["modelo indisponivel: %s" % error]
     tally.add(model)
-    return list(model["problems"])
+    reasons = list(model["problems"])
+    found = len(model["executables"])
+    if found != expected_t:
+        reasons.append("modelo: executaveis=%d, esperado %d" % (found, expected_t))
+    return reasons
 
 
 def expected_treated_sum():
@@ -268,7 +313,7 @@ def run_planta(args, planta, tally):
     kind = EXPECTATIONS.get(planta, (None, None))[0]
     if kind == PASS:
         if rc == 0:
-            reasons.extend(model_problems(args, planta, build_dir, tally))
+            reasons.extend(model_problems(args, planta, build_dir, tally, EXPECTATIONS[planta][1][2]))
         else:
             reasons.append("modelo nao lido: configure com rc diferente de 0")
     return rc, reasons, log_path

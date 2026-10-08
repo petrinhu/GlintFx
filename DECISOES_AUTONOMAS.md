@@ -7075,3 +7075,29 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - INBOX nova: `TESTS-REGISTRY-SPLIT`;
   - `EXAMPLES-UNLISTED-DIR-MESSAGE` ganha nota: fecha na D1-fix-b.
 - **D1-fix-a:** despachada para um devops-sre sonnet, com prazo duro às 04:40 por causa da pausa das 05:00.
+
+### 08/10/2026 04:16:52 - CI da D1 (a653e3f4) verde
+
+- **Run 37739785623:** `success`. São 25 de 25 jobs, mais 1 pulado por desenho (VERSION-TAG-SYNC).
+- **No Windows:**
+  - o configure imprime `glintfx: exemplos diretorios=0 alvos_tratados=0`;
+  - `embed_win_test` deu Passed no compartilhado, no estático e no Debug, em 85 a 86 s. O ASan não roda `consume`, por desenho.
+- **Limite honesto:** o ctest esconde a saída de teste que passa. Por isso a linha nova da asserção do `check-embed.ps1` não aparece no log. Fica provado só que o teste passou, não que a asserção nova rodou. A prova de que ela morde no Windows continua aberta, como o revisor já declarou ("não examinado").
+
+### 08/10/2026 04:17:51 - D1-fix-a entregue em d4640108; revisão e CI despachados
+
+- **D1-fix-a** (devops-sre sonnet): commit `d4640108`, com 4 arquivos (+322/-34).
+  - **Vermelhos:**
+    - o autoteste reprovou antes do portão;
+    - o portão sobre o blob `a653e3f4` reprovou, como manda o V-18, com `tests/examples_tests.cmake:21: add_test(examples_option_default_test) fora de tests/CMakeLists.txt` e `arquivos_varridos=37 excluidos=7 registros_fora=1`.
+  - **Verde:**
+    - autoteste com 12 controles;
+    - ctest em container, 7 de 7;
+    - a árvore real dá `36/7/0`;
+    - `preci --fast` rc 0, lido do arquivo `preci-fast.rc`.
+- **Desvios declarados, para o revisor e o CTO:**
+  - o teste real ganhou o rótulo `consume` em vez de `unit`, porque depende do git e da árvore;
+  - o universo inclui os arquivos não rastreados e não ignorados;
+  - a inferência sobre `project(` tinha dois buracos, e os dois foram fechados: a raiz nunca é excluída, e os `*.cmake` do diretório excluído também ficam fora.
+- **Lacuna aberta para a D6 (CTO):** um subdiretório com `project(` alcançado por `add_subdirectory` fica excluído, e é exatamente o caso de `examples/`. A correção é uma exclusão por caminho, explícita e impressa, e deve entrar antes da D6.
+- **Registro do main** ("CI da D1 verde", das 04:19) fica neste mesmo commit. Ele tinha sido recusado pelo `check_spdx` porque o arquivo apagado pela D1-fix-a ainda estava no índice. Não usei `--no-verify`; esperei o commit do agente.

@@ -212,6 +212,14 @@ using wgl_get_swap_interval_fn = int (*)();
     return true;
 }
 
+// The failure text of a swap_buffers() that returned an error: the three fields that say WHY (the
+// code, the rejected_value and the raw OS code), so a red run carries its cause.
+[[nodiscard]] std::string describe_swap_failure(const glintfx::gltfx_err &err) {
+    return "error_code=" + std::string(glintfx::gltfx_err_code_name(err.code())) +
+           " rejected_value=" + std::string(err.rejected_value()) +
+           " os_error_code=" + std::to_string(static_cast<long long>(err.os_error_code()));
+}
+
 } // namespace
 
 namespace {
@@ -801,9 +809,9 @@ int main() {
             const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
                 draw_then_swap(context, clear);
             if (swapped.has_error()) {
-                std::fprintf(
-                    stderr, "gl_context_parity_test: swap_buffers() (vsync=off) failed: %s\n",
-                    std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
+                std::fprintf(stderr,
+                             "gl_context_parity_test: swap_buffers() (vsync=off) #%d failed: %s\n",
+                             i, describe_swap_failure(swapped.err()).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
@@ -872,9 +880,9 @@ int main() {
             const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
                 draw_then_swap(context, clear);
             if (swapped.has_error()) {
-                std::fprintf(
-                    stderr, "gl_context_parity_test: swap_buffers() (vsync=on) failed: %s\n",
-                    std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
+                std::fprintf(stderr,
+                             "gl_context_parity_test: swap_buffers() (vsync=on) #%d failed: %s\n",
+                             i, describe_swap_failure(swapped.err()).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
@@ -949,12 +957,11 @@ int main() {
             const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
                 draw_then_swap(context, clear);
             if (swapped.has_error()) {
-                std::fprintf(
-                    stderr,
-                    "gl_context_parity_test: swap_buffers() during the toggle sequence "
-                    "(vsync=%lld) failed: %s\n",
-                    static_cast<long long>(value),
-                    std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
+                std::fprintf(stderr,
+                             "gl_context_parity_test: swap_buffers() during the toggle sequence "
+                             "(vsync=%lld) failed: %s\n",
+                             static_cast<long long>(value),
+                             describe_swap_failure(swapped.err()).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {

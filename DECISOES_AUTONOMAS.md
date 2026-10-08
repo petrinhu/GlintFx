@@ -7321,3 +7321,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Push** para `80db83e7`, provado por `ls-remote`. **CI:** run 37832462804.
 - **Revisão da D2a** despachada a um qa-engineer em haiku, com ordem passo a passo e comandos exatos (ordem do líder das 16:12): `/var/tmp/cto-w8/briefing-rev-d2a.md`.
 - **Régua do haiku:** como implementador, ele gravou fora do lugar por caminho relativo ou argumento trocado 3 vezes hoje. As ordens passam a exigir caminho absoluto em todo comando, com a ordem dos argumentos escrita.
+
+### 08/10/2026 16:48:27 - Revisão da D2a APROVADA, com A e B IMPORTANTES; D2a-fix despachada; CI 37832462804 vermelho só no gitleaks, por infraestrutura
+
+- **Revisão da D2a** (`/var/tmp/cto-w8/rev-d2a.md`, qa-engineer em haiku): APROVADA.
+  - Os 5 mutantes de R4-A foram reexecutados pelo revisor e morreram.
+  - Dos 8 mutantes próprios, 4 morreram e 4 sobreviveram (6 a 9).
+  - **A (IMPORTANTE):** os stubs do autoteste ignoram argumentos. O mutante 7 abriria um falso verde no modo `on`.
+  - **B (IMPORTANTE, defeito real anterior à D2a):** quando `wait_for_socket` falha, `one_mode` sai sem parar o relé nem dar o veredito (`driver:217` contra `:221-223`).
+  - **C e D:** cosméticos.
+- **Decisão do main, aplicando a regra que o próprio plano já trazia (nota 9 do v2: "defeito real do driver se conserta na D2a"):** A e B se consertam antes da D2b, porque a D2b usa este autoteste como rede. A D2a-fix foi despachada ao mesmo implementador, com ordem passo a passo. C fica registrado. D, o Status em INBOX, vai como pergunta ao CTO.
+- **CI 37832462804** (`80db83e7`):
+  - na tentativa 1, foram 24 jobs verdes, 1 pulado e o `Gitleaks` cancelado no passo "Instalar gitleaks", pelo `timeout-minutes: 10`, um tempo esgotado de rede;
+  - na tentativa 2 (`gh run rerun --failed`), o `rerun_guard.py` reprovou: "falha nao classificavel na tentativa 1: job com conclusao 'cancelled' e nenhum passo com falha".
+  - Nenhum teste do produto falhou, inclusive nas 3 etapas Windows da D1-fix-e.
+- **Lacuna da guarda, isolada ou padrão (L-17):** um cancelamento por tempo num passo de PREPARO é infraestrutura, mas a guarda só sabe ler passo com `failure`. Vai para a INBOX como `RERUN-GUARD-CANCELLED-PREP` no próximo commit de implementador. O verde do CI sai de uma execução nova, depois da D2a-fix.

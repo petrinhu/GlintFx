@@ -6789,3 +6789,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **critério do CTO:** se o `ms` de R-a ficar em 2 vezes ou mais o da ponta (V1), a hipótese do DWM cai e o caso volta ao CTO.
 - **CI da ponta (V1):** espera-se `gl_context_parity_test` verde nos 3 Windows, com `vsync_off_swap_interval_readback=0`, `vsync_on_swap_interval_readback=1` e os dois tempos abaixo de 6000 ms.
 - **TODO:** o `PARITY-SWAP-REFUSAL-GEMEO` fica resolvido pelo I2. O main decide o status quando a ponta ficar verde.
+
+### 08/10/2026 00:41:35 - V1 (ponta b75e5e27, run 37722363592): os 4 trabalhos Windows verdes e os critérios do §4 lidos dos artefatos
+
+- **Windows** (compartilhado / estático, de `measured-windows-*`):
+  - `vsync_off_swap_interval_readback=0`, `vsync_on_swap_interval_readback=1`;
+  - `vsync_off_60_swaps_ms` 1171 / 928; `vsync_on_60_swaps_ms` 1174 / 979. Todos abaixo de 6000, e ligado é praticamente igual a desligado, o que é coerente com a hipótese da composição;
+  - `vsync_off_60_swaps_presented=60`, `vsync_on_60_swaps_presented=60`, `vsync_toggle_presented=4`, `first_presented_attempt=1`;
+  - `presented_after_restore=true`, `swap_interval_honored=1`, `rendered_frames=30`;
+  - `context_empty_1`, `loop_empty` e `draw2d_empty` = `refused`.
+- **Linhas 1 a 11 do §4** (com a 1 e a 4 emendadas pela D-W8-70): todas passam.
+- **Falta, para fechar:**
+  - a linha 15 (R-a e R-b, ainda na fila);
+  - a linha 16 (o run da ponta terminar, porque o Windows Lint ainda roda);
+  - a releitura das linhas 13 e 14.

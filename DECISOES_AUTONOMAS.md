@@ -6704,3 +6704,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - A parada de 12:21 (fim da F2) foi encerrada por essa ordem, e o arquivo `parada_do_lider` foi apagado.
 - O CI da ponta `3fd749cf` (run 37643211805) deu `success`.
 - **Próximo:** F3 a F6 da PRESENT-EMPTY-FRAME (plano §3 e §5). Partem da remoção já feita no ramo `w8-pef-r1` e acrescentam o desenho antes de cada apresentação (D-W8-55/56), uma fatia por arquivo, cada uma com o seu commit. O vermelho já está provado pelos runs R1 e R2.
+
+### 07/10/2026 23:15:00 - Ordem de pausa do líder: 08/10/2026 às 05:00; plano da C2b-5 entregue
+
+- **Ordem, verbatim:** "pausa quando for 07/10/2026 05:00 AM". Por AskUserQuestion o líder confirmou: "Sim, 08/10 às 05:00". O horário está em `~/.config/olhe_agentes/GlintFx/fim_ordenado` (epoch 1791446400), e o monitor confere a cada tick.
+  - Ao chegar a hora, o main faz o registro, empurra o que estiver commitado e verde, atualiza o snapshot e grava `parada_do_lider`.
+  - Agente no meio de fatia recebe ordem de commitar ou de parar sem commitar trabalho vermelho.
+- **Plano da C2b-5 (CTO):** `/var/tmp/cto-w8/plano-c2b5.md` (md5 0d66bd0c055e90a14f7ab1f03b775a15).
+  - São 5 fatias, com as decisões D-W8-60 a D-W8-69, que ficam para o líder confirmar retroativamente.
+  - Ela entra DEPOIS da PRESENT-EMPTY-FRAME (D-W8-69, porque as duas mexem em `tests/CMakeLists.txt`).
+  - Há 3 itens novos para a INBOX: dividir o driver de captura (cerca de 1000 linhas); a nova tentativa sem desenho na fixture, que nunca ocorreu; e a justificativa errada do rótulo `consume` no ASan.

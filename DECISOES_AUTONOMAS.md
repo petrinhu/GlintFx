@@ -7149,3 +7149,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O teto da trilha paralela e o congelamento de 27/08 caem quando a DEMO-1 fechar pelos critérios do plano. Nada é liberado antes disso.
 - **Licença do exemplo:** resposta verbatim: *"AGPL-3.0, como tudo (Recomendado)"*. O exemplo da DEMO-1 segue a L-08, sem exceção.
 - **Continua pendente:** a confirmação retroativa das decisões D-W8-36 a D-W8-93.
+
+### 08/10/2026 13:47:33 - Retomada ordenada pelo líder; a D1-fix-b é a primeira fatia com trabalhador em haiku
+
+- **Ordem do líder, verbatim:** *"pode continuar a trabalhar"*. O arquivo `parada_do_lider` foi apagado.
+- **Modelo dos trabalhadores trocado pelo líder, pela LEI DAS LEIS** (emenda à LEI ZERO em `~/.claude/GODS_LAWS.md`, verbatim *"haiku 5.5 padrao. ele está muito bom e quero testar"*): implementador e revisor operacional em `haiku`, esforço `high`; C-levels em `opus`, `high`.
+- **Régua do teste do haiku, escrita antes do dado (L-06, L-43 global):** em cada fatia, conto
+  - rodadas de revisão até o aceite;
+  - achados CRÍTICOS e IMPORTANTES da revisão;
+  - mutantes que sobrevivem;
+  - `preci --fast` com rc 0 na primeira tentativa (sim ou não);
+  - desvios do briefing que voltam ao CTO.
+  - **Linha de base (sonnet, D1-fix-a):** 1 rodada; APROVADA COM RESSALVAS, sem CRÍTICO; consertos I-1 e I-2; M2 e M9 cosméticos sobreviveram; `preci --fast` rc 0.
+- **Pré-condição da previsão de vermelho conferida:** `git log a653e3f4..HEAD -- cmake/GlintfxExamples.cmake CMakeLists.txt` volta vazio. A previsão "3 reprovam, 4 passam" continua válida.
+- **Prazo:** o modo autônomo vence hoje às 22:51:57. Push depois disso exige ordem nova.

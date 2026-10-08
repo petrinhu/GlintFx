@@ -1,25 +1,40 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# check_examples_pass.py - DEMO-1 D1-fix-b (D-W8-93): exercises the examples
-# pass (cmake/GlintfxExamples.cmake) on each planta of tests/examples_pass/
-# plantas/, one fresh configure per planta, WITHOUT configuring the library.
+# check_examples_pass.py - DEMO-1 D1-fix-b (D-W8-93) and D1-fix-c (D-W8-101,
+# D-W8-102): exercises the examples pass (cmake/GlintfxExamples.cmake) on each
+# planta of tests/examples_pass/plantas/, one fresh configure per planta,
+# WITHOUT configuring the library, and then checks the TREATMENT through the
+# File API model of the CMake (tests/tools/examples_pass_codemodel.py).
 #
-# For each planta the pass must do exactly what its expectation says:
-#   - a planta that must PASS: configure exit code 0, and the printed line
-#     of the pass carries the expected counts;
-#   - a planta that must be REFUSED: configure exit code different from 0,
-#     and the expected FATAL message appears in the output.
-# A wrong exit code or a missing message is a failure of that planta, with
-# the planta's own log kept in the work directory.
+# For each planta, by its expectation (EXPECTATIONS):
+#   - "pass": configure rc 0, and EXACTLY ONE output line equal to
+#     "-- glintfx: exemplos diretorios=d alcancados=a executaveis_tratados=t"
+#     (regex on the whole line, then equality with the formatted tuple: an
+#     integer comparison would accept "00", D-W8-102), and no "CMake Error";
+#   - "refuse": configure rc different from 0, EXACTLY ONE "CMake Error", and
+#     the body of that error (between "(message):" and "Call Stack") equal,
+#     after space normalization (D-W8-97), to the expected rule message;
+#   - "refuse_prefix": the same, but the body must START with the text
+#     (sem_examples carries the path in its message; declared, D-W8-102).
+# A planta that must pass also gets the MODEL check: every EXECUTABLE declared
+# under its examples/ must carry the compile tokens of the reference target
+# and sit under examples/bin/. The calibration (the reference target must
+# differ from the untreated one, D-W8-101) is checked on every model read: a
+# ruler that does not tell them apart refuses the whole run.
 #
 # Piso (L-40): the plantas are enumerated FROM DISK. The script always prints
+#   modelo: executaveis=<n> tratados=<k> calibracao=<ok|falhou>
 #   plantas=<n> conferidas=<c> falharam=<k>
-# and refuses (exit 1) when n is 0 or different from PLANT_COUNT, so a planta
-# that disappears (or one that appears without an expectation) is visible.
+# and refuses (exit 1) when n is 0 or different from PLANT_COUNT, when the
+# model finds 0 executables or a number different from the sum of the expected
+# treated counts of the passing plantas, or when the calibration fails.
 #
-# No --selftest on purpose: this script registers nothing and has no fixture
-# tree of its own; the plantas ARE its fixtures.
+# About the return code (K3, declared): the rc is the only signal for a dead
+# process (rc 128 or more, GODS_LAWS.md L-49), so it is checked, but in the
+# plantas where the message already covers the case it adds nothing. No
+# --selftest on purpose: this script registers nothing; the plantas and the
+# calibration fixtures are its fixtures.
 #
 # Usage:
 #   check_examples_pass.py --cmake <cmake> --generator <gen> \
@@ -27,60 +42,86 @@
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
 
-PLANT_COUNT = 8
+import examples_pass_codemodel
+
+PLANT_COUNT = 13
 SCRIPT_NAME = "check_examples_pass.py"
 PLANTAS_RELDIR = os.path.join("tests", "examples_pass", "plantas")
 PROJECT_RELDIR = os.path.join("tests", "examples_pass")
 
-# name -> (must_pass, expected text in the output)
+PASS = "pass"
+REFUSE = "refuse"
+REFUSE_PREFIX = "refuse_prefix"
+
+RULE1_FIRST_LEVEL = (
+    "glintfx: examples/foo/ tem CMakeLists.txt mas nao foi adicionado: "
+    "acrescente add_subdirectory(foo) em examples/CMakeLists.txt"
+)
+RULE1_NESTED = (
+    "glintfx: examples/misto/interno/ tem CMakeLists.txt mas nao foi adicionado: "
+    "acrescente add_subdirectory(interno) em examples/misto/CMakeLists.txt"
+)
+RULE2 = "glintfx: examples/lib_only/ nao declara nenhum executavel"
+RULE3 = (
+    "glintfx: o executavel root_tool foi declarado em examples/CMakeLists.txt; "
+    "cada exemplo mora no proprio diretorio"
+)
+RULE4 = (
+    "glintfx: examples/CMakeLists.txt adicionou grupo/exemplo, que nao e um "
+    "diretorio filho de examples/; cada exemplo mora em examples/<nome>/, e um "
+    "agrupamento precisa do proprio CMakeLists.txt"
+)
+SEM_EXAMPLES = (
+    "GLINTFX_BUILD_EXAMPLES is ON but examples/CMakeLists.txt does not exist"
+)
+
+# name -> (kind, expected)
+#   pass:           expected = (d, a, t), the tuple of the count line
+#   refuse:         expected = the rule message (one CMake Error, equal body)
+#   refuse_prefix:  expected = the start of the message
 EXPECTATIONS = {
-    "ok": (
-        True,
-        "glintfx: exemplos diretorios=1 alcancados=1 executaveis_tratados=1",
-    ),
-    "dois_executaveis": (
-        True,
-        "glintfx: exemplos diretorios=1 alcancados=1 executaveis_tratados=2",
-    ),
-    "vazio": (
-        True,
-        "glintfx: exemplos diretorios=0 alcancados=0 executaveis_tratados=0",
-    ),
-    "nao_alcancado": (
-        False,
-        "glintfx: examples/foo/ tem CMakeLists.txt mas nao foi adicionado: "
-        "acrescente add_subdirectory(foo) em examples/CMakeLists.txt",
-    ),
-    "so_biblioteca": (
-        False,
-        "glintfx: examples/lib_only/ nao declara nenhum executavel",
-    ),
-    "executavel_na_raiz": (
-        False,
-        "glintfx: o executavel root_tool foi declarado em examples/CMakeLists.txt; "
-        "cada exemplo mora no proprio diretorio",
-    ),
-    "sem_examples": (
-        False,
-        "GLINTFX_BUILD_EXAMPLES is ON but examples/CMakeLists.txt does not exist",
-    ),
-    "aninhado": (
-        True,
-        "glintfx: exemplos diretorios=1 alcancados=1 executaveis_tratados=1",
-    ),
+    "ok": (PASS, (1, 1, 1)),
+    "dois_executaveis": (PASS, (1, 1, 2)),
+    "vazio": (PASS, (0, 0, 0)),
+    "aninhado": (PASS, (1, 2, 1)),
+    "nao_alcancado": (REFUSE, RULE1_FIRST_LEVEL),
+    "so_biblioteca": (REFUSE, RULE2),
+    "executavel_na_raiz": (REFUSE, RULE3),
+    "sem_examples": (REFUSE_PREFIX, SEM_EXAMPLES),
+    "grupo_misto": (REFUSE, RULE4),
+    "aninhado_mixto": (REFUSE, RULE1_NESTED),
+    "ordem_1_4": (REFUSE, RULE1_FIRST_LEVEL),
+    "ordem_4_2": (REFUSE, RULE4),
+    "ordem_2_3": (REFUSE, RULE2),
 }
+
+COUNT_LINE_RE = re.compile(
+    r"^-- glintfx: exemplos diretorios=\d+ alcancados=\d+ executaveis_tratados=\d+$",
+    re.MULTILINE,
+)
+COUNT_GROUPS_RE = re.compile(
+    r"^-- glintfx: exemplos diretorios=(\d+) alcancados=(\d+) executaveis_tratados=(\d+)$"
+)
+CMAKE_ERROR = "CMake Error"
+BODY_START = "(message):"
+BODY_END = "Call Stack (most recent call first):"
+CONFIGURE_INCOMPLETE = "-- Configuring incomplete"
+MODEL_ERRORS = (
+    examples_pass_codemodel.CodemodelError, OSError, ValueError,
+    KeyError, IndexError, TypeError,
+)
 
 
 def normalize_space(text):
     """Collapses every run of whitespace to one space (D-W8-97).
 
-    CMake breaks the text of a FATAL_ERROR over several lines (indent of two
-    spaces, about 77 columns), so a raw substring test would refuse a message
-    that is correct. Applied to BOTH sides: the output and the expectation.
+    CMake breaks the text of a FATAL_ERROR over several lines, so a raw
+    comparison would refuse a message that is correct. Applied to BOTH sides.
     """
     return " ".join(text.split())
 
@@ -112,23 +153,128 @@ def configure_planta(args, planta, build_dir):
     return completed.returncode, output
 
 
-def problems_for(planta, rc, output):
-    """Empty list when the planta behaved as expected; otherwise the reasons."""
-    if planta not in EXPECTATIONS:
-        return ["planta sem expectativa escrita no " + SCRIPT_NAME]
-    must_pass, expected_text = EXPECTATIONS[planta]
+def extract_error_body(output):
+    """The text of the first CMake Error, normalized; empty when there is none."""
+    start = output.find(BODY_START)
+    if start < 0:
+        return ""
+    rest = output[start + len(BODY_START):]
+    end = rest.find(BODY_END)
+    if end < 0:
+        end = rest.find(CONFIGURE_INCOMPLETE)
+    if end < 0:
+        end = len(rest)
+    return normalize_space(rest[:end])
+
+
+def count_line_problems(output, expected):
+    """Exactly one whole-line match, equal to the formatted expected tuple."""
+    matches = list(COUNT_LINE_RE.finditer(output))
+    if len(matches) != 1:
+        return ["linha de contagem: encontradas=%d, esperada=1" % len(matches)]
+    d, a, t = expected
+    expected_line = "-- glintfx: exemplos diretorios=%d alcancados=%d executaveis_tratados=%d" % (d, a, t)
+    if matches[0].group(0) != expected_line:
+        groups = COUNT_GROUPS_RE.match(matches[0].group(0)).groups()
+        return ["contagem: esperado (%d,%d,%d), obtido (%s)" % (d, a, t, ",".join(groups))]
+    return []
+
+
+def pass_problems(rc, output, expected):
     reasons = []
-    if must_pass and rc != 0:
+    if rc != 0:
         reasons.append("rc=%d, esperado 0" % rc)
-    if not must_pass and rc == 0:
-        reasons.append("rc=0, esperado diferente de 0 (a passada deixou passar)")
-    if normalize_space(expected_text) not in normalize_space(output):
+    reasons.extend(count_line_problems(output, expected))
+    errors = output.count(CMAKE_ERROR)
+    if errors != 0:
+        reasons.append("erros do CMake=%d, esperado 0" % errors)
+    return reasons
+
+
+def refuse_problems(rc, output, kind, expected_text):
+    reasons = []
+    if rc == 0:
+        reasons.append("rc=0, esperado diferente de 0")
+    errors = output.count(CMAKE_ERROR)
+    if errors != 1:
+        reasons.append("erros do CMake=%d, esperado 1" % errors)
+    body = extract_error_body(output)
+    wanted = normalize_space(expected_text)
+    matched = body.startswith(wanted) if kind == REFUSE_PREFIX else body == wanted
+    if not matched:
         reasons.append("mensagem esperada ausente: " + expected_text)
     return reasons
 
 
+def expectation_problems(planta, rc, output):
+    """The planta's own reasons (configure and count/message). Model not included."""
+    if planta not in EXPECTATIONS:
+        return ["planta sem expectativa escrita no " + SCRIPT_NAME]
+    kind, expected = EXPECTATIONS[planta]
+    if kind == PASS:
+        return pass_problems(rc, output, expected)
+    return refuse_problems(rc, output, kind, expected)
+
+
+def planta_examples_dir(args, planta):
+    return os.path.normpath(
+        os.path.join(args.source, PROJECT_RELDIR, "plantas", planta, "examples"))
+
+
+class ModelTally:
+    """Sums of the model over the passing plantas, and the calibration verdict."""
+
+    def __init__(self):
+        self.executables = 0
+        self.treated = 0
+        self.calibration_problems = []
+        self.reads = 0
+
+    def add(self, model):
+        self.reads += 1
+        self.executables += len(model["executables"])
+        self.treated += model["treated"]
+        self.calibration_problems.extend(model["calibration"])
+
+    def calibration_verdict(self):
+        if self.reads == 0 or self.calibration_problems:
+            return "falhou"
+        return "ok"
+
+
+def model_problems(args, planta, build_dir, tally):
+    """Reads the model of one passing planta; returns its reasons, and feeds the tally."""
+    try:
+        model = examples_pass_codemodel.check_model(build_dir, planta_examples_dir(args, planta))
+    except MODEL_ERRORS as error:
+        return ["modelo indisponivel: %s" % error]
+    tally.add(model)
+    return list(model["problems"])
+
+
+def expected_treated_sum():
+    """The executables the passing plantas declare: the t of each (d, a, t)."""
+    return sum(expected[2] for kind, expected in EXPECTATIONS.values() if kind == PASS)
+
+
+def run_planta(args, planta, tally):
+    """Configures one planta, checks it, and returns (rc, reasons)."""
+    build_dir = os.path.join(args.work, planta)
+    rc, output = configure_planta(args, planta, build_dir)
+    log_path = os.path.join(args.work, planta + ".log")
+    with open(log_path, "w", encoding="utf-8") as log:
+        log.write(output)
+    reasons = expectation_problems(planta, rc, output)
+    kind = EXPECTATIONS.get(planta, (None, None))[0]
+    if kind == PASS:
+        if rc == 0:
+            reasons.extend(model_problems(args, planta, build_dir, tally))
+        else:
+            reasons.append("modelo nao lido: configure com rc diferente de 0")
+    return rc, reasons, log_path
+
+
 def report_planta(planta, rc, reasons, log_path):
-    """Prints one line per planta; the reasons are printed on failure."""
     status = "OK" if not reasons else "FALHOU"
     print("planta=%s rc=%d resultado=%s log=%s" % (planta, rc, status, log_path))
     for reason in reasons:
@@ -136,23 +282,18 @@ def report_planta(planta, rc, reasons, log_path):
 
 
 def run_all(args):
-    """Runs every planta; returns (n, conferidas, falharam)."""
-    plantas_dir = os.path.join(args.source, PLANTAS_RELDIR)
-    plantas = list_plantas(plantas_dir)
+    """Runs every planta. Returns (n, conferidas, falharam, tally)."""
+    plantas = list_plantas(os.path.join(args.source, PLANTAS_RELDIR))
+    tally = ModelTally()
     failures = 0
     checked = 0
     for planta in plantas:
-        build_dir = os.path.join(args.work, planta)
-        rc, output = configure_planta(args, planta, build_dir)
-        log_path = os.path.join(args.work, planta + ".log")
-        with open(log_path, "w", encoding="utf-8") as log:
-            log.write(output)
-        reasons = problems_for(planta, rc, output)
+        rc, reasons, log_path = run_planta(args, planta, tally)
         report_planta(planta, rc, reasons, log_path)
         checked += 1
         if reasons:
             failures += 1
-    return len(plantas), checked, failures
+    return len(plantas), checked, failures, tally
 
 
 def parse_args(argv):
@@ -167,11 +308,24 @@ def parse_args(argv):
 def main(argv):
     args = parse_args(argv)
     os.makedirs(args.work, exist_ok=True)
-    n, checked, failures = run_all(args)
+    n, checked, failures, tally = run_all(args)
+    print("modelo: executaveis=%d tratados=%d calibracao=%s"
+          % (tally.executables, tally.treated, tally.calibration_verdict()))
+    for problem in tally.calibration_problems:
+        print("  calibracao: " + problem)
     print("plantas=%d conferidas=%d falharam=%d" % (n, checked, failures))
+    expected_sum = expected_treated_sum()
     if n == 0 or n != PLANT_COUNT:
         print(SCRIPT_NAME + ": FALHOU - plantas=%d, o esperado sao %d "
               "(tirar ou acrescentar uma planta muda esta contagem)" % (n, PLANT_COUNT))
+        return 1
+    if tally.executables == 0 or tally.executables != expected_sum:
+        print(SCRIPT_NAME + ": FALHOU - modelo: executaveis=%d, a soma esperada das "
+              "plantas verdes e %d" % (tally.executables, expected_sum))
+        return 1
+    if tally.calibration_verdict() != "ok":
+        print(SCRIPT_NAME + ": FALHOU - calibracao falhou: a regua nao distingue o "
+              "tratado do nao tratado")
         return 1
     if failures:
         print(SCRIPT_NAME + ": FALHOU - %d planta(s) fora do esperado" % failures)

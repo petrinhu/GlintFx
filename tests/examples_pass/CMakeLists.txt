@@ -45,3 +45,13 @@ include("${GLINTFX_SOURCE_DIR}/cmake/GlintfxCompileOptions.cmake")
 include("${GLINTFX_SOURCE_DIR}/cmake/GlintfxExamples.cmake")
 
 glintfx_add_examples("${_planta_dir}" "${CMAKE_CURRENT_BINARY_DIR}")
+
+# The model check of the driver (D-W8-101) reads the File API of this
+# configure. Two targets OUTSIDE examples/, on one shared source, are the
+# calibration ruler: the reference receives the compile options of the
+# product, the untreated receives nothing. The driver refuses a run where
+# the ruler does not tell them apart (memoria "regua que nao distingue").
+cmake_file_api(QUERY API_VERSION 1 CODEMODEL 2)
+add_executable(glintfx_examples_pass_reference "${CMAKE_CURRENT_SOURCE_DIR}/reference.cpp")
+glintfx_apply_compile_options(glintfx_examples_pass_reference)
+add_executable(glintfx_examples_pass_untreated "${CMAKE_CURRENT_SOURCE_DIR}/reference.cpp")

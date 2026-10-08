@@ -13,7 +13,6 @@
 #include <glintfx/core/time.hpp>
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
-#include <glintfx/platform/gl/gpu.hpp>
 #include <glintfx/platform/loop/loop.hpp>
 #include <glintfx/platform/loop/loop_bind.hpp>
 #include <glintfx/platform/loop/loop_context_mark.hpp>
@@ -53,7 +52,7 @@
 //   - MEASURED, PRINTED, NEVER ASSERTED EQUAL (sec. S4.5, each with
 //     its own line in tests/measured_exceptions.txt, added in this
 //     same commit): mean_step_ns, max_step_ns, rendered_frames,
-//     cap30_wall_ms, swap_failures_tolerated.
+//     cap30_wall_ms.
 //   - PLAIN DIAGNOSTIC TEXT: everything else, read by a human.
 //
 // WHAT THIS FILE DELIBERATELY DOES NOT PROVE (sec. S4.3, declared
@@ -118,6 +117,14 @@ using gl_clear_fn = void (*)(gl_enum);
 gl_clear_color_fn g_clear_color = nullptr;
 gl_clear_fn g_clear = nullptr;
 
+// PRESENT-EMPTY-FRAME (D-W8-55/56, platform/gl/context.hpp item 2): a present() that reaches the
+// driver with nothing drawn since the previous presentation may be refused, so EVERY present() in
+// this file follows this draw, the ceiling loops included. A clear is enough.
+void draw_clear_frame() {
+    g_clear_color(0.1F, 0.2F, 0.3F, 1.0F);
+    g_clear(k_gl_color_buffer_bit);
+}
+
 // ---------------------------------------------------------------
 // The verdict ledger (sec. S4.4's own last row, GODS_LAWS.md L-40's
 // own non-empty-sweep floor). k_planned_assertions is a CONSTANT, not
@@ -160,8 +167,6 @@ void check(const char *key, bool condition, const char *criterion, const std::st
 // assertion to record in those cases - there is nothing to assert
 // ABOUT). A destructor runs on ANY scope exit, so binding the print to
 // one guarantees it fires exactly once, whatever path got there - the
-// same technique gl_context_parity_test.cpp's own swap_tolerated_
-// downgrades_reporter already uses one layer down, for the same
 // measured reason (a print sitting at the bottom of main() never ran
 // on the paths that reproved).
 struct scope_reporter {
@@ -176,36 +181,6 @@ struct scope_reporter {
 [[nodiscard]] std::string err_text(const glintfx::gltfx_err &err) {
     return std::string(glintfx::gltfx_err_code_name(err.code())) + "/" +
            std::string(err.rejected_value());
-}
-
-// ---------------------------------------------------------------
-// GL-CI-SOFTWARE TOLERANCE (decisao do lider, 07/09/2026, por
-// AskUserQuestion: "tolerar, mas so sob prova") - the SAME three
-// factors in conjunction gl_context_parity_test.cpp:130-148 already
-// fixes, plus gpu().kind == software, plus "some other swap of THIS
-// SAME execution already succeeded". Any other combination still
-// reproves exactly as before. Copied in SHAPE, never in effect: sec.
-// S4.4's own row requires this file to apply the identical rule so a
-// downgrade means the same thing in both logs.
-// ---------------------------------------------------------------
-[[nodiscard]] bool should_tolerate_swap_failure(const glintfx::gltfx_err &err,
-                                                glintfx::gltfx_gpu_kind gpu_kind,
-                                                bool any_other_swap_succeeded) noexcept {
-    if (err.code() != glintfx::gltfx_err_code::platform_failure) {
-        return false;
-    }
-    if (err.rejected_value() != std::string_view{"swap_buffers"}) {
-        return false;
-    }
-    if (err.os_error_code() != 0) {
-        return false;
-    }
-    // NEVER by renderer-name text (include/glintfx/platform/gl/gpu.hpp
-    // forbids it) - only the CLOSED `kind` type.
-    if (gpu_kind != glintfx::gltfx_gpu_kind::software) {
-        return false;
-    }
-    return any_other_swap_succeeded;
 }
 
 // ---------------------------------------------------------------
@@ -372,8 +347,6 @@ int main() {
     g_clear = reinterpret_cast<gl_clear_fn>(clear_addr);
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) reason: closes the block above
 
-    const glintfx::gltfx_gpu_info gpu = context.gpu();
-
     glintfx::gltfx_rslt<glintfx::gltfx_loop> loop_opened =
         glintfx::gltfx_loop::open(display, window, context);
     if (loop_opened.has_error()) {
@@ -414,10 +387,8 @@ int main() {
     bool now_never_went_back = true;
     bool p_a_holds = true;
     bool p_b_holds = true;
-    bool untolerated_swap_failure = false;
+    bool swap_failure_seen = false;
     int rendered_frames = 0;
-    int swap_failures_tolerated = 0;
-    bool any_swap_succeeded = false;
     std::int64_t total_step_ns = 0;
     std::int64_t max_step_ns = 0;
     std::uint64_t expected_index = 1;
@@ -504,31 +475,18 @@ int main() {
             ++ticks_without_render;
         }
         if (tick.should_render) {
-            g_clear_color(0.1F, 0.2F, 0.3F, 1.0F);
-            g_clear(k_gl_color_buffer_bit);
+            draw_clear_frame();
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
-                if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    ++swap_failures_tolerated;
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_parity_test.manual_present tolerada - %s, "
-                                 "os_error_code=0, gpu().kind=software, com outra troca desta "
-                                 "MESMA execucao ja bem-sucedida antes desta.\n",
-                                 err_text(presented.err()).c_str());
-                    continue;
-                }
-                untolerated_swap_failure = true;
+                swap_failure_seen = true;
                 std::fprintf(stderr,
-                             "loop_parity_test: present() #%d falhou fora da tolerancia: %s "
-                             "(os_error_code=%lld, gpu_kind=%d, outra_troca_ok=%d)\n",
+                             "loop_parity_test: present() #%d falhou: %s (os_error_code=%lld)\n",
                              i + 1, err_text(presented.err()).c_str(),
-                             static_cast<long long>(presented.err().os_error_code()),
-                             static_cast<int>(gpu.kind), any_swap_succeeded ? 1 : 0);
+                             static_cast<long long>(presented.err().os_error_code()));
                 continue;
             }
             if (presented.value() == glintfx::gltfx_present_outcome::presented) {
                 ++rendered_frames;
-                any_swap_succeeded = true;
             } else if (presented.value() == glintfx::gltfx_present_outcome::skipped_hidden) {
                 ++skipped_hidden_outcomes;
             }
@@ -703,25 +661,13 @@ int main() {
                 ++cap_ticks_without_render;
                 continue;
             }
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
+            draw_clear_frame();
+            const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
-                if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    ++swap_failures_tolerated;
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_parity_test.cap30_present tolerada - %s, "
-                                 "os_error_code=0, gpu().kind=software.\n",
-                                 err_text(presented.err()).c_str());
-                    continue;
-                }
-                untolerated_swap_failure = true;
-                std::fprintf(stderr,
-                             "loop_parity_test: present() com teto #%d falhou fora da "
-                             "tolerancia: %s\n",
-                             i + 1, err_text(presented.err()).c_str());
+                swap_failure_seen = true;
+                std::fprintf(stderr, "loop_parity_test: present() com teto #%d falhou: %s\n", i + 1,
+                             err_text(presented.err()).c_str());
                 continue;
-            }
-            if (presented.value() == glintfx::gltfx_present_outcome::presented) {
-                any_swap_succeeded = true;
             }
         }
         const auto cap_end = std::chrono::steady_clock::now();
@@ -841,21 +787,14 @@ int main() {
                 ++preset_ticks_without_render;
                 continue;
             }
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
+            draw_clear_frame();
+            const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
-                if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    ++swap_failures_tolerated;
-                    continue;
-                }
-                untolerated_swap_failure = true;
+                swap_failure_seen = true;
                 std::fprintf(stderr,
-                             "loop_parity_test: present() com teto do preset #%d falhou fora da "
-                             "tolerancia: %s\n",
+                             "loop_parity_test: present() com teto do preset #%d falhou: %s\n",
                              i + 1, err_text(presented.err()).c_str());
                 continue;
-            }
-            if (presented.value() == glintfx::gltfx_present_outcome::presented) {
-                any_swap_succeeded = true;
             }
         }
         const std::int64_t preset_cap30_wall_ms =
@@ -886,11 +825,8 @@ int main() {
         }
     }
 
-    std::fprintf(stdout, "MEASURED loop_parity_test.swap_failures_tolerated=%d\n",
-                 swap_failures_tolerated);
-    check("swap_buffers_fora_da_tolerancia", !untolerated_swap_failure,
-          "nenhuma falha de troca de quadro fora dos tres fatores",
-          untolerated_swap_failure ? std::string("houve") : std::string("nenhuma"));
+    check("swap_buffers_sem_falha", !swap_failure_seen, "nenhuma falha de troca de quadro",
+          swap_failure_seen ? std::string("houve") : std::string("nenhuma"));
 
     // ===============================================================
     // P11 - FORM 1 of context ownership: destroy_context set, handed

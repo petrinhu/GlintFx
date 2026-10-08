@@ -6991,3 +6991,32 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **O main conferiu na árvore A3, A6 e V-10,** e os três batem.
 - **Destino:** o CTO (o mesmo agente, retomado) escreve `/var/tmp/cto-w8/plano-demo1-v2.md`, tratando cada achado como aceito ou recusado com evidência. Decisões novas seguem de D-W8-80 em diante.
   - Os critérios e os vermelhos só mudam porque o ataque achou furo, e ainda não há dado nenhum (L-43).
+
+### 08/10/2026 03:28:49 - DEMO-1: plano v2 aceito pelo main, D-W8-80 a D-W8-90, e a D1 despachada
+
+- **Plano v2:** `/var/tmp/cto-w8/plano-demo1-v2.md`, md5 `bc97949f...`, texto completo. O v1 continua intacto (`35afe97d`).
+- **Os 20 achados do ataque foram aceitos e nenhum recusado.** Três foram aceitos com variante: A5, A11 e A13.
+- **Decisões novas do CTO em modo autônomo** (o líder confirma retroativamente):
+  - **D-W8-80:** o último quadro é provado por borda exata. Só o quadro 30 passa; o V-13 prova que 29 e 31 reprovam.
+  - **D-W8-81:** o driver Linux tem orçamento de 60 s, com `timeout`.
+  - **D-W8-82:** a compilação pelo `cl.exe` é explícita, e a lacuna do portão de ligação vai para a INBOX.
+  - **D-W8-83:** a unidade pura `window_capture_options`.
+  - **D-W8-84:** a passada que conta os alvos de exemplo.
+  - **D-W8-85:** CAPTURE-DRIVER-WIRING-UNTESTED fecha na D2a.
+  - **D-W8-86:** o ramo `find_package` nasce na D6-red.
+  - **D-W8-87:** a função do padrão fica ao lado do `option()`, testada por configure aninhado.
+  - **D-W8-88:** um arquivo de exemplo com seção delimitada. Se o revisor divergir, vai ao líder.
+  - **D-W8-89:** nasce `tests/examples_tests.cmake`.
+  - **D-W8-90:** cada artefato de captura ganha um diretório por exemplo.
+- **Porte:** 10 fatias em 11 commits, 19 critérios e 17 vermelhos. Os critérios e vermelhos mudaram só pelo ataque e ficaram iguais ou mais estritos (L-43).
+- **Conferência do main:**
+  - o md5 do v2 bate;
+  - a tabela de achados tem 20 linhas;
+  - a linha D1 do §3 traz a enumeração em três varreduras com `encontrados - decididos = 0`.
+- **TODO.md (§9 do v2):**
+  - DEMO-1 passa a 🔄 e cita o v2;
+  - destino do `DRAW2D-RAW-GL-INTEROP-DOC`;
+  - CAPTURE-DRIVER-WIRING-UNTESTED fecha na D2a;
+  - CAPTURE-DRIVER-SPLIT ganha nota da D4;
+  - INBOX nova: `WIN32-LINK-GATE-EXAMPLES`.
+- **D1:** despachada para um backend-engineer sonnet. O commit tem de sair até 04:40 por causa da pausa ordenada das 05:00. Sem commit, o agente para e relata.

@@ -6946,3 +6946,28 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o ramo `sonda-c2b5` apagado no remoto, porque a C2b-5 fechou;
   - as pontas de todos ficaram em `/var/tmp/cto-w8/ramos-apagados-0810.txt`.
   - Ficam `infra-preci` (não é desta onda, e não mexi) e `sonda-swap2` (sonda do Mesa 25.3).
+
+### 08/10/2026 03:02:39 - DEMO-1: pesquisa e plano do CTO, decisões D-W8-71 a D-W8-79
+
+- **Pesquisa (L-43, antes do plano):** `/var/tmp/cto-w8/pesquisa-demo1.md`, md5 `d6bbd376...`. Cobre SDL3, raylib, sokol e RmlUi.
+  - Nenhuma dessas bibliotecas executa o exemplo no CI e confere o pixel.
+  - Nenhuma instala o exemplo por padrão.
+- **Plano:** `/var/tmp/cto-w8/plano-demo1.md`, md5 `35afe97d...`. São 8 fatias em 9 commits, com 18 critérios de fechamento (§4) e 12 vermelhos pré-registrados (§5).
+- **Decisões do CTO em modo autônomo** (o líder confirma retroativamente):
+  - **D-W8-71:** a pasta `examples/` usa um único `CMakeLists.txt` dentro e fora da árvore. Exemplo não é instalado. A raiz falha alto se a opção estiver ligada e a pasta faltar. É uma porta de mão única fraca: o nome da opção.
+  - **D-W8-72:** a cena foi pré-registrada: fundo cinza, azul por camada sobre o vermelho, branco translúcido e um quadrado verde que anda. Os valores esperados saem da fórmula do sRGB, nunca da saída do programa.
+  - **D-W8-73:** o contrato é `first_window [--frames N]`, com uma linha de prontidão e saída 0, 1 ou 2. A ferramenta do Windows ganha `--ready-line`.
+  - **D-W8-74, Linux:** o container constrói o exemplo contra o pacote instalado, e o contador de alocação entra pelo aparato de construção.
+  - **D-W8-75, Windows:** a foto é do binário da árvore nos 4 trabalhos, e o alfa é ausência contada.
+  - **D-W8-76:** portão de consumo `check_examples_consume.py` nos dois sistemas. Ele constrói e nunca executa.
+  - **D-W8-77:** quem embute o GlintFx não recebe exemplos, e isso é provado pelo cache.
+  - **D-W8-78:** a interoperação com GL cru vai para um exemplo próprio, fora da DEMO-1.
+  - **D-W8-79:** relógio fixo de 60 quadros por segundo, N=30 na prova do Linux, tolerâncias 0, 1 e 2.
+- **Para o líder, não decidido:**
+  1. **Leitura da L-32:** "a demo verde", que libera o teto de trilha paralela e as linhas congeladas em 27/08, quer dizer a DEMO-1 em ✅ pelo §4. As linhas NÃO são liberadas sem o líder.
+  2. **Licença:** o exemplo fica AGPL-3.0 (L-08). O SDL usa domínio público nos exemplos dele; trocar a licença é escolha do líder.
+- **Verificação do main:**
+  - os md5 batem com o relatório;
+  - `renderer_2d_impl.cpp:132-138` mostra mesmo a codificação da limpeza;
+  - `plano-w8-v2.md:297-298` são mesmo as linhas D1 e D2 que o plano substitui.
+- **Próximo:** ataque adversarial ao plano (qa-engineer sonnet, `/var/tmp/cto-w8/ataque-plano-demo1.md`) antes da D1.

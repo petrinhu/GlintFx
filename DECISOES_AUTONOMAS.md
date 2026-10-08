@@ -7193,3 +7193,22 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Correção do CTO à hipótese do main:** a opção (C) também não dava o 3/4 previsto, porque o teste confere a linha e as mensagens novas, que nenhuma passada antiga imprime.
 - **Conferência do main:** a ordem, os portões de b1 e os mutantes de b2 são coerentes. Uma imprecisão: o portão (c) de b1 compara o md5 com o blob de b1, que só existe depois do commit. Fica como verificação pós-commit, e o vermelho é medido antes.
 - **Contagem:** 12 fatias em 14 commits, 9 vermelhos. As decisões para o líder confirmar retroativamente passam a ser D-W8-71 a D-W8-97.
+
+### 08/10/2026 14:43:02 - D1-fix-b entregue em 9820e5ea (b1) e bd017456 (b2); CI e revisão despachados
+
+- **Segundo o implementador (haiku):**
+  - o vermelho contra b1 bateu tupla a tupla com a errata 2: `plantas=8 conferidas=8 falharam=7`, e `does not exist` só no log de `sem_examples`;
+  - os 6 mutantes de b2 mataram exatamente as plantas previstas;
+  - o verde de b2 deu `falharam=0`;
+  - `preci --fast` deu rc 0 em b1 e em b2 (rodado no hospedeiro, downgrade da L-09 até PRECI-IN-CONTAINER).
+- **Conferência do main:**
+  - b1 tem 2 arquivos, sem nenhuma leitura de `PROJECT_*` nem `CMAKE_*_DIR` no código;
+  - b2 tem 25 arquivos, todos do escopo;
+  - a árvore está limpa.
+- **Push** de `onda-w8` para `bd017456`, provado por `ls-remote`. **CI:** run 37818621936.
+- **Revisão adversarial** despachada a um qa-engineer em haiku, com mutantes próprios: `/var/tmp/cto-w8/rev-d1fixb.md`.
+- **Régua do haiku (implementação):**
+  - 2 voltas ao CTO, e as duas vieram de erro de previsão do plano, não de código;
+  - o `preci` deu rc 0 de primeira em b1 e em b2;
+  - desvios próprios declarados: o `cat >` na raiz, um instrumento de grep falso que ele mesmo achou e uma contagem chutada que o guarda recusou;
+  - mais o filtro vazio do ctest, que foi o main que pegou.

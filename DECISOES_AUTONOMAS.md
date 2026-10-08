@@ -7128,3 +7128,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Rodou no hospedeiro sobre CÓPIA, como autoteste Python sem janela nem entrada: é o downgrade da L-09.
 - **D1-fix-a aceita pelo main.** Os mutantes M2 e M9 (cosméticos) e a lacuna `SINGLE-REGISTRY-REACH` ficam registrados.
 - **Próxima fatia:** D1-fix-b, depois da pausa.
+
+### 08/10/2026 04:59:09 - CI da ponta 352e306e verde; PAUSA ordenada pelo líder às 05:00
+
+- **Run 37743982637** (ponta `352e306e`, com D1, D1-fix-a e os consertos I-1 e I-2): `success`. São 25 de 25 jobs, mais 1 pulado por desenho.
+  - No Fedora, `examples_option_default_test`, `single_test_registry_test` e `single_test_registry_selftest` deram Passed.
+  - O run 37742576202 (ponta `b6897836`) foi cancelado pela concorrência do CI. Até o corte, 21 jobs estavam verdes e nenhum tinha falhado.
+- **Pausa** pela ordem do líder ("pausa quando for 07/10/2026 05:00 AM", confirmada como 08/10 às 05:00):
+  - tudo commitado foi empurrado;
+  - a memória da sessão foi atualizada;
+  - o arquivo `parada_do_lider` foi escrito;
+  - o monitor foi desligado.
+  - Nenhum agente nem trabalho pesado ficou rodando.
+- **Na retomada:** a D1-fix-b (D-W8-92 e D-W8-93) da DEMO-1.

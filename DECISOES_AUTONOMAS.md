@@ -6714,3 +6714,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - São 5 fatias, com as decisões D-W8-60 a D-W8-69, que ficam para o líder confirmar retroativamente.
   - Ela entra DEPOIS da PRESENT-EMPTY-FRAME (D-W8-69, porque as duas mexem em `tests/CMakeLists.txt`).
   - Há 3 itens novos para a INBOX: dividir o driver de captura (cerca de 1000 linhas); a nova tentativa sem desenho na fixture, que nunca ocorreu; e a justificativa errada do rótulo `consume` no ASan.
+
+### 07/10/2026 23:35:44 - CI da ponta d1a9ffff (run 37717216300): o critério 1 do §4 dispara; volta ao CTO
+
+- **Medido:** `gl_context_parity_test` reprova no Windows compartilhado e no estático, e é o único teste que cai.
+  - Os valores são `vsync_off_60_swaps_ms=950` (compartilhado) e `=800` (estático), contra o orçamento de 700 ms do próprio teste.
+  - `vsync_off_60_swaps_presented=60`, `_skipped=0` e `first_presented_attempt=1`.
+  - O `RUN_SERIAL TRUE` estava ativo (`tests/CMakeLists.txt:2629`, desde a F3), então a "leitura obrigatória" do critério 1 está cumprida: não é carga concorrente.
+- **Leitura:** antes, a maioria desses 60 swaps falhava rápido no quadro vazio e era tolerada, e o cronômetro media falhas. Agora são 60 apresentações reais no renderizador por software do executor, cerca de 13 a 16 ms cada.
+- **Pela regra pré-registrada:** "Se passar de 700, é achado sobre o custo do present por software e volta ao CTO; o orçamento nunca é alargado em silêncio." O main NÃO mexe no orçamento. O caso vai ao CTO.

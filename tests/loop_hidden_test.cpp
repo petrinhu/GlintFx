@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
-#include <string_view>
 #include <utility>
 
 #include <glintfx/core/err.hpp>
@@ -20,7 +19,6 @@
 #include <glintfx/core/time.hpp>
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
-#include <glintfx/platform/gl/gpu.hpp>
 #include <glintfx/platform/loop/loop.hpp>
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
@@ -59,8 +57,7 @@
 //     compositor actually did.
 //   - the ENVIRONMENT is a runner with no graphics board: an
 //     opengl32.dll from Mesa sits beside these binaries (tools/ci/
-//     install-mesa-opengl32.ps1) and gpu().kind resolves to `software`,
-//     which is exactly the third factor of the swap tolerance below.
+//     install-mesa-opengl32.ps1) and gpu().kind resolves to `software`.
 //
 // WHY THIS FIXTURE ALSO RECOMPILES THE FACADES, ON TOP OF LINKING THE
 // DLL (MEASURED 15/09/2026, reauditoria W7 - this target DOES link
@@ -333,9 +330,7 @@ void check(const char *mode, const char *key, bool condition, const char *criter
 // The scope line has to survive a GLINTFX_CHECK reproval too: the
 // harness throws case_check_failed to unwind the current case the
 // instant a check fails (harness/check.hpp's own "CASE-FATAL"), and a
-// print sitting at the bottom of the case body would never run - the
-// exact gap win32_iconic_present_test.cpp's own swap_tolerated_
-// downgrades_reporter was written for, measured on a real run.
+// print sitting at the bottom of the case body would never run.
 struct scope_reporter {
     ~scope_reporter() noexcept {
         std::fprintf(stdout, "loop_hidden_test: assercoes %d de %d avaliadas\n",
@@ -348,24 +343,6 @@ struct scope_reporter {
 [[nodiscard]] std::string err_text(const glintfx::gltfx_err &err) {
     return std::string(glintfx::gltfx_err_code_name(err.code())) + "/" +
            std::string(err.rejected_value());
-}
-
-[[nodiscard]] bool should_tolerate_swap_failure(const glintfx::gltfx_err &err,
-                                                glintfx::gltfx_gpu_kind gpu_kind,
-                                                bool any_other_swap_succeeded) noexcept {
-    if (err.code() != glintfx::gltfx_err_code::platform_failure) {
-        return false;
-    }
-    if (err.rejected_value() != std::string_view{"swap_buffers"}) {
-        return false;
-    }
-    if (err.os_error_code() != 0) {
-        return false;
-    }
-    if (gpu_kind != glintfx::gltfx_gpu_kind::software) {
-        return false;
-    }
-    return any_other_swap_succeeded;
 }
 
 struct mode_result {
@@ -408,7 +385,6 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
     check("calibracao", "instrumento_sono_permille", calib_sono_permille <= 250,
           "<= 250 (500ms dormindo)", to_text(calib_sono_permille));
 
-    bool any_swap_succeeded = false;
     mode_result results[2];
     const char *mode_names[2] = {"on", "off"};
     const std::int64_t mode_values[2] = {1, 0};
@@ -416,7 +392,7 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
     for (int mode_index = 0; mode_index < 2; ++mode_index) {
         const char *mode = mode_names[mode_index];
         mode_result &result = results[mode_index];
-        bool untolerated_swap_failure = false;
+        bool swap_failure_seen = false;
 
         // ACHADO 4 (13/09/2026, medido no irmao Linux): CADA modo abre
         // a PROPRIA janela, o proprio contexto grafico e o proprio
@@ -455,8 +431,6 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
         g_clear = reinterpret_cast<gl_clear_fn>(clear_addr);
         // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) reason: closes the block above
 
-        const glintfx::gltfx_gpu_info gpu = context.gpu();
-
         glintfx::gltfx_rslt<glintfx::gltfx_loop> loop_opened =
             glintfx::gltfx_loop::open(display, window, context);
         GLINTFX_CHECK(!loop_opened.has_error());
@@ -486,23 +460,13 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
             g_clear(k_gl_color_buffer_bit);
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
-                if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_hidden_test visible present tolerada "
-                                 "- %s, os_error_code=0, gpu().kind=software.\n",
-                                 err_text(presented.err()).c_str());
-                    continue;
-                }
-                untolerated_swap_failure = true;
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] present() visivel falhou fora da "
-                             "tolerancia: %s\n",
+                swap_failure_seen = true;
+                std::fprintf(stderr, "loop_hidden_test: [vsync=%s] present() visivel falhou: %s\n",
                              mode, err_text(presented.err()).c_str());
                 continue;
             }
             if (presented.value() == glintfx::gltfx_present_outcome::presented) {
                 ++visible_presented;
-                any_swap_succeeded = true;
             }
         }
         const glintfx::gltfx_time_point visible_end = glintfx::gltfx_now();
@@ -567,20 +531,14 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
             }
             g_clear_color(0.4F, 0.4F, 0.4F, 1.0F);
             g_clear(k_gl_color_buffer_bit);
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> settle_present = loop.present();
+            const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> settle_present =
+                loop.present();
             if (settle_present.has_error()) {
-                if (!should_tolerate_swap_failure(settle_present.err(), gpu.kind,
-                                                  any_swap_succeeded)) {
-                    untolerated_swap_failure = true;
-                    std::fprintf(stderr,
-                                 "loop_hidden_test: [vsync=%s] present() pos-minimizar falhou fora "
-                                 "da tolerancia: %s\n",
-                                 mode, err_text(settle_present.err()).c_str());
-                }
+                swap_failure_seen = true;
+                std::fprintf(stderr,
+                             "loop_hidden_test: [vsync=%s] present() pos-minimizar falhou: %s\n",
+                             mode, err_text(settle_present.err()).c_str());
                 continue;
-            }
-            if (settle_present.value() == glintfx::gltfx_present_outcome::presented) {
-                any_swap_succeeded = true;
             }
         }
         result.suspended_seen = window.state(glintfx::gltfx_window_state_bit::suspended);
@@ -636,24 +594,12 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
             }
             g_clear_color(0.6F, 0.2F, 0.2F, 1.0F);
             g_clear(k_gl_color_buffer_bit);
-            glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
+            const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
-                if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_hidden_test hidden present tolerada - "
-                                 "%s, os_error_code=0, gpu().kind=software.\n",
-                                 err_text(presented.err()).c_str());
-                    continue;
-                }
-                untolerated_swap_failure = true;
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] present() oculto falhou fora da "
-                             "tolerancia: %s\n",
+                swap_failure_seen = true;
+                std::fprintf(stderr, "loop_hidden_test: [vsync=%s] present() oculto falhou: %s\n",
                              mode, err_text(presented.err()).c_str());
                 continue;
-            }
-            if (presented.value() == glintfx::gltfx_present_outcome::presented) {
-                any_swap_succeeded = true;
             }
         }
         result.hidden_detected = hidden_detected_in_stretch;
@@ -714,23 +660,14 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
             g_clear(k_gl_color_buffer_bit);
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
-                if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_hidden_test recovery present tolerada "
-                                 "- %s, os_error_code=0, gpu().kind=software.\n",
-                                 err_text(presented.err()).c_str());
-                    continue;
-                }
-                untolerated_swap_failure = true;
+                swap_failure_seen = true;
                 std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] present() de recuperacao falhou fora "
-                             "da tolerancia: %s\n",
+                             "loop_hidden_test: [vsync=%s] present() de recuperacao falhou: %s\n",
                              mode, err_text(presented.err()).c_str());
                 continue;
             }
             if (presented.value() == glintfx::gltfx_present_outcome::presented) {
                 recovered = true;
-                any_swap_succeeded = true;
             }
         }
         // UNCONDITIONAL on this system: SW_RESTORE always restores, so
@@ -741,9 +678,9 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
               std::string(recovered ? "recuperou" : "nao recuperou") + " em " +
                   to_text(recovery_ticks) +
                   " tique(s), restored=" + to_text(result.restored ? 1 : 0));
-        check(mode, "swap_buffers_fora_da_tolerancia", !untolerated_swap_failure,
-              "nenhuma falha de troca de quadro fora dos tres fatores",
-              untolerated_swap_failure ? std::string("houve") : std::string("nenhuma"));
+        check(mode, "swap_buffers_sem_falha", !swap_failure_seen,
+              "nenhuma falha de troca de quadro",
+              swap_failure_seen ? std::string("houve") : std::string("nenhuma"));
 
         result.ran = true;
     }

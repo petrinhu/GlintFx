@@ -7163,3 +7163,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Linha de base (sonnet, D1-fix-a):** 1 rodada; APROVADA COM RESSALVAS, sem CRÍTICO; consertos I-1 e I-2; M2 e M9 cosméticos sobreviveram; `preci --fast` rc 0.
 - **Pré-condição da previsão de vermelho conferida:** `git log a653e3f4..HEAD -- cmake/GlintfxExamples.cmake CMakeLists.txt` volta vazio. A previsão "3 reprovam, 4 passam" continua válida.
 - **Prazo:** o modo autônomo vence hoje às 22:51:57. Push depois disso exige ordem nova.
+
+### 08/10/2026 14:00:12 - D1-fix-b parada no vermelho: desfecho diferente da previsão; volta ao CTO
+
+- **Medido em container:** `plantas=7 conferidas=7 falharam=6`. Só `sem_examples` passou. A previsão era 3 reprovando e 4 passando.
+- **Causa, conferida pelo main:** a passada atual lê `PROJECT_SOURCE_DIR` (`cmake/GlintfxExamples.cmake:24,59,62,65`). Dentro do projeto de plantas esse diretório é `tests/examples_pass/`, que não tem `examples/`. A previsão foi escrita contra a passada sem argumentos, a partir das plantas que a `rev-d1.md` configurou pela raiz.
+- **O implementador (haiku) parou como mandava o briefing**, sem commit e sem consertar a previsão. Desvios que ele mesmo declarou:
+  - um `cat >` caiu na raiz do repositório; ele restaurou a raiz e confirmou a árvore limpa;
+  - o filtro do ctest chegou vazio ao container e a suíte inteira rodou. Quem apontou foi o main, pela lista de processos, e o implementador consertou;
+  - sobrou resíduo com dono root em `out-red`.
+- **Destino:** o CTO decide numa errata 2 (`plano-demo1-v2-errata2.md`). O trabalho não commitado fica na árvore até a decisão.

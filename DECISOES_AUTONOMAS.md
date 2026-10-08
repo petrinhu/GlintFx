@@ -6856,3 +6856,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - ACEITO. **A regra da D-W8-60 caiu no ramo verde: a troca de rótulo (F3 21a6cfaa) fica.**
 - **Pisos do leitor:** `analisadas` vai de 33 a 41 e `driver_exit_presente=1` em todas as pernas.
 - **Próximo:** Run R (perna escolhida pelo revisor), push do `onda-w8` com o Run T, e a observação do QA sobre os PNG do Run T.
+
+### 08/10/2026 01:53:19 - Revisão adversarial da C2b-5 (`/var/tmp/cto-w8/rev-c2b5.md`): aprovada com ressalvas; o main manda consertar os 3 IMPORTANTES
+
+- **I-1:** o leitor não distingue a P-ASAN da P-CTRL pelo artefato. O revisor provou isso reexecutando o leitor com a saída da P-CTRL rotulada como P-ASAN, e saiu ACEITO.
+  - **Conserto:** a perna grava no artefato o `GLINTFX_SANITIZE` do CMakeCache, e a regra da P-ASAN passa a exigi-lo.
+- **I-2:** o `budgets_are_coherent` prova a relação só para o hold. Os mutantes de `PRESENT_BUDGET_MS`, `EXIT_BUDGET_MS` e `KILL_GRACE_SECONDS` sobrevivem.
+  - **Conserto:** um piso para cada um, com o porquê medido (F-1 do plano), e os mutantes do revisor mortos.
+- **I-3:** o `describe_fixture_overstay` ainda mente: diz "janela nao encontrada" quando a fixture não apresentou e a janela nem foi procurada. Além disso, o retorno de `PostMessageW` é ignorado.
+  - **Conserto:** distinguir os três casos (não apresentou, não encontrada, WM_CLOSE postado de fato).
+- **Decisão do main, sem CTO:** os três consertos restauram o critério que o próprio plano escreveu (provar a RELAÇÃO, nenhum texto que mente, a P-ASAN provada pelo artefato). Não é decisão nova de desenho.
+- **Run R:** fica para depois dos consertos. A sonda muda com o I-1, então um Run S novo é obrigatório e o Run R reproduz a P-OCL sobre ele.
+- **Cosméticos:** `ON_ABSENT` morto, `analisadas` equivalente a `has_exit` e o `// 1000`. Entram no mesmo implementador, se forem triviais.

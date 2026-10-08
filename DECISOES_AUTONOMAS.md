@@ -7177,3 +7177,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 ### 08/10/2026 14:01:42 - Modo autônomo renovado pelo líder
 
 - **Ordem, verbatim:** *"ligue modo autonomo"*. A janela vai até 09/10/2026 14:01:34, com os escopos push e clean. A anterior vencia hoje às 22:51:57.
+
+### 08/10/2026 14:08:35 - Errata 2 do CTO (D-W8-94 a D-W8-97) aceita pelo main; D1-fix-b partida em b1 e b2
+
+- **Errata:** `/var/tmp/cto-w8/plano-demo1-v2-errata2.md`, md5 `625739ad99b2a9c3ed941b1dd06a2620`.
+- **D-W8-94:** a D1-fix-b vira dois commits:
+  - **b1:** refactor puro; a passada recebe as raízes de fonte e de construção;
+  - **b2:** as regras, a caminhada recursiva e o teste de plantas.
+  - O vermelho é medido contra b1. O CTO rejeitou o artifício na planta (A) e o 6/1 como vermelho (B).
+- **D-W8-95 a D-W8-97:** ajustes no teste antes do vermelho:
+  - uma 8ª planta, `aninhado`;
+  - `GLINTFX_SANITIZE` e `GLINTFX_WERROR` definidos explicitamente no projeto de plantas;
+  - normalização de espaço na comparação de mensagens.
+- **Previsão nova, escrita antes de b1:** `plantas=8 conferidas=8 falharam=7`, conferida planta a planta. Só `sem_examples` passa, e só o log dela pode conter `does not exist`. O 6/1 das 13:59 fica registrado como o mutante "argumento ignorado".
+- **Correção do CTO à hipótese do main:** a opção (C) também não dava o 3/4 previsto, porque o teste confere a linha e as mensagens novas, que nenhuma passada antiga imprime.
+- **Conferência do main:** a ordem, os portões de b1 e os mutantes de b2 são coerentes. Uma imprecisão: o portão (c) de b1 compara o md5 com o blob de b1, que só existe depois do commit. Fica como verificação pós-commit, e o vermelho é medido antes.
+- **Contagem:** 12 fatias em 14 commits, 9 vermelhos. As decisões para o líder confirmar retroativamente passam a ser D-W8-71 a D-W8-97.

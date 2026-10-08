@@ -159,7 +159,7 @@ endif()
 # library target. Options and output directory are applied here, to the
 # example's targets, by cmake/GlintfxExamples.cmake - never inside examples/.
 if(GLINTFX_BUILD_EXAMPLES)
-    glintfx_add_examples()
+    glintfx_add_examples("${PROJECT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}")
 endif()
 
 if(GLINTFX_BUILD_TESTS)

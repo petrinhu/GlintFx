@@ -8,6 +8,12 @@
 # per target PROPERTY, never through a directory variable: a variable set
 # before add_subdirectory(examples) would be inherited by tests/ too.
 #
+# The pass takes its two roots as ARGUMENTS (D-W8-94), never from
+# PROJECT_SOURCE_DIR or PROJECT_BINARY_DIR: source_root is the directory
+# that CONTAINS examples/, binary_root is the build directory that matches
+# it. The root calls it with PROJECT_*; the examples-pass test project
+# (tests/examples_pass/) calls it with a planta tree, which has no PROJECT.
+#
 # The pass counts what it did and prints it (D-W8-84):
 #   glintfx: exemplos diretorios=<n> alvos_tratados=<m>
 # n is the number of examples/*/CMakeLists.txt, m the number of
@@ -18,10 +24,10 @@
 # yet): the floor "at least one" belongs to the CI criterion that reads
 # this line, not to the pass.
 
-# The example directories, one entry per examples/<name>/CMakeLists.txt.
-function(glintfx_examples_directories out_var)
+# The example directories, one entry per <source_root>/examples/<name>/CMakeLists.txt.
+function(glintfx_examples_directories source_root out_var)
     file(GLOB _manifests LIST_DIRECTORIES false
-        "${PROJECT_SOURCE_DIR}/examples/*/CMakeLists.txt")
+        "${source_root}/examples/*/CMakeLists.txt")
     set(_directories "")
     foreach(_manifest IN LISTS _manifests)
         cmake_path(GET _manifest PARENT_PATH _directory)
@@ -31,45 +37,46 @@ function(glintfx_examples_directories out_var)
 endfunction()
 
 # The glintfx options of ONE example executable: the common compile
-# options (standard, warnings, sanitizer) and its own output directory.
-function(glintfx_examples_treat_target target)
+# options (standard, warnings, sanitizer) and its own output directory,
+# which lives under the build root that the pass was given.
+function(glintfx_examples_treat_target target binary_root)
     glintfx_apply_compile_options(${target})
     set_target_properties(${target} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/examples/bin")
+        RUNTIME_OUTPUT_DIRECTORY "${binary_root}/examples/bin")
 endfunction()
 
 # Treats every executable target of ONE example directory; sets
 # out_count to how many it treated.
-function(glintfx_examples_treat_directory directory out_count)
+function(glintfx_examples_treat_directory directory binary_root out_count)
     get_property(_targets DIRECTORY "${directory}" PROPERTY BUILDSYSTEM_TARGETS)
     set(_treated 0)
     foreach(_target IN LISTS _targets)
         get_target_property(_type ${_target} TYPE)
         if(_type STREQUAL "EXECUTABLE")
-            glintfx_examples_treat_target(${_target})
+            glintfx_examples_treat_target(${_target} "${binary_root}")
             math(EXPR _treated "${_treated} + 1")
         endif()
     endforeach()
     set(${out_count} ${_treated} PARENT_SCOPE)
 endfunction()
 
-# Entry point called by the root CMakeLists.txt when
-# GLINTFX_BUILD_EXAMPLES is ON.
-function(glintfx_add_examples)
-    if(NOT EXISTS "${PROJECT_SOURCE_DIR}/examples/CMakeLists.txt")
+# Entry point. The root calls it with PROJECT_SOURCE_DIR and
+# PROJECT_BINARY_DIR when GLINTFX_BUILD_EXAMPLES is ON.
+function(glintfx_add_examples source_root binary_root)
+    if(NOT EXISTS "${source_root}/examples/CMakeLists.txt")
         message(FATAL_ERROR
             "GLINTFX_BUILD_EXAMPLES is ON but examples/CMakeLists.txt does "
-            "not exist under ${PROJECT_SOURCE_DIR}. A partial copy of the "
+            "not exist under ${source_root}. A partial copy of the "
             "glintfx tree must configure with -DGLINTFX_BUILD_EXAMPLES=OFF.")
     endif()
-    add_subdirectory("${PROJECT_SOURCE_DIR}/examples"
-        "${PROJECT_BINARY_DIR}/examples")
+    add_subdirectory("${source_root}/examples"
+        "${binary_root}/examples")
 
-    glintfx_examples_directories(_directories)
+    glintfx_examples_directories("${source_root}" _directories)
     list(LENGTH _directories _directory_count)
     set(_treated_count 0)
     foreach(_directory IN LISTS _directories)
-        glintfx_examples_treat_directory("${_directory}" _treated_here)
+        glintfx_examples_treat_directory("${_directory}" "${binary_root}" _treated_here)
         math(EXPR _treated_count "${_treated_count} + ${_treated_here}")
     endforeach()
 

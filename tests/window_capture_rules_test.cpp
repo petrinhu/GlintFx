@@ -213,15 +213,43 @@ GLINTFX_TEST(dwm_flush_failure_hresult_is_named_as_a_failure) {
 
 // -- D-W8-64: the sentence for a fixture that outstays the exit budget says WHAT was done to it.
 
+// I-3 of the C2b-5 review: the old bool said "the window was not found" for a fixture that never
+// presented (the window was never looked for) and "after WM_CLOSE" without reading PostMessageW.
+// The four states the tool can be in each have a sentence of their own, and only close_posted
+// claims a WM_CLOSE.
 GLINTFX_TEST(fixture_overstay_after_a_posted_close_names_the_wm_close_and_the_budget) {
-    GLINTFX_CHECK_EQ(glintfx::capture_tool::describe_fixture_overstay(true, 10000),
+    GLINTFX_CHECK_EQ(glintfx::capture_tool::describe_fixture_overstay(
+                         glintfx::capture_tool::close_attempt::close_posted, 10000),
                      std::string("FIXTURE nao saiu em 10000 ms apos WM_CLOSE: TerminateProcess"));
 }
 
-GLINTFX_TEST(fixture_overstay_without_a_posted_close_never_claims_a_wm_close) {
-    const std::string text = glintfx::capture_tool::describe_fixture_overstay(false, 2500);
-    GLINTFX_CHECK_EQ(text, std::string("FIXTURE nao saiu em 2500 ms (nenhum WM_CLOSE foi postado, "
-                                       "a janela nao foi encontrada): TerminateProcess"));
+GLINTFX_TEST(fixture_overstay_when_the_fixture_never_presented_says_the_window_was_not_looked_for) {
+    const std::string text = glintfx::capture_tool::describe_fixture_overstay(
+        glintfx::capture_tool::close_attempt::fixture_not_presented, 2500);
+    GLINTFX_CHECK_EQ(
+        text, std::string("FIXTURE nao saiu em 2500 ms (a fixture nao apresentou, a janela "
+                          "nem foi procurada e nenhum WM_CLOSE foi postado): TerminateProcess"));
+    GLINTFX_CHECK(text.find("apos WM_CLOSE") == std::string::npos);
+    GLINTFX_CHECK(text.find("nao foi encontrada") == std::string::npos);
+}
+
+GLINTFX_TEST(fixture_overstay_when_the_fixture_presented_but_no_window_was_identified_says_so) {
+    const std::string text = glintfx::capture_tool::describe_fixture_overstay(
+        glintfx::capture_tool::close_attempt::window_not_identified, 2500);
+    GLINTFX_CHECK_EQ(text,
+                     std::string("FIXTURE nao saiu em 2500 ms (a fixture apresentou, mas nenhuma "
+                                 "janela unica dela foi identificada e nenhum WM_CLOSE foi "
+                                 "postado): TerminateProcess"));
+    GLINTFX_CHECK(text.find("apos WM_CLOSE") == std::string::npos);
+    GLINTFX_CHECK(text.find("nem foi procurada") == std::string::npos);
+}
+
+GLINTFX_TEST(fixture_overstay_when_postmessage_refused_the_close_never_claims_it_was_posted) {
+    const std::string text = glintfx::capture_tool::describe_fixture_overstay(
+        glintfx::capture_tool::close_attempt::close_not_delivered, 2500);
+    GLINTFX_CHECK_EQ(text,
+                     std::string("FIXTURE nao saiu em 2500 ms (a janela foi identificada, mas o "
+                                 "PostMessageW recusou o WM_CLOSE): TerminateProcess"));
     GLINTFX_CHECK(text.find("apos WM_CLOSE") == std::string::npos);
 }
 

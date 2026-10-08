@@ -100,12 +100,23 @@ std::string describe_dwm_flush(int index, std::optional<long> result) {
     return label + std::to_string(*result) + (*result < 0 ? " (HRESULT de falha)" : "");
 }
 
-std::string describe_fixture_overstay(bool close_posted, int budget_ms) {
+std::string describe_fixture_overstay(close_attempt attempt, int budget_ms) {
     const std::string budget = "FIXTURE nao saiu em " + std::to_string(budget_ms) + " ms";
-    if (close_posted) {
+    switch (attempt) {
+    case close_attempt::close_posted:
         return budget + " apos WM_CLOSE: TerminateProcess";
+    case close_attempt::close_not_delivered:
+        return budget + " (a janela foi identificada, mas o PostMessageW recusou o WM_CLOSE): "
+                        "TerminateProcess";
+    case close_attempt::window_not_identified:
+        return budget +
+               " (a fixture apresentou, mas nenhuma janela unica dela foi identificada e nenhum "
+               "WM_CLOSE foi postado): TerminateProcess";
+    case close_attempt::fixture_not_presented:
+        break;
     }
-    return budget + " (nenhum WM_CLOSE foi postado, a janela nao foi encontrada): TerminateProcess";
+    return budget + " (a fixture nao apresentou, a janela nem foi procurada e nenhum WM_CLOSE foi "
+                    "postado): TerminateProcess";
 }
 
 std::string capture_meta_text(int width, int height) {

@@ -301,14 +301,21 @@ int run_capture_phase(const child_process &child, const tool_options &options, H
 }
 
 // WM_CLOSE (when there is a window), then the fixture must exit by itself within the budget.
-int shut_down_fixture(const child_process &child, HWND window, int exit_budget_ms) {
+// `presented` tells whether the fixture's "presented" line arrived: with it false the window was
+// never looked for, and the overstay sentence says that instead of "not found". PostMessageW's
+// answer is READ, so the sentence claims a WM_CLOSE only when one was really posted (I-3).
+int shut_down_fixture(const child_process &child, HWND window, bool presented, int exit_budget_ms) {
+    using glintfx::capture_tool::close_attempt;
+    close_attempt attempt =
+        presented ? close_attempt::window_not_identified : close_attempt::fixture_not_presented;
     if (window != nullptr) {
-        ::PostMessageW(window, WM_CLOSE, 0, 0);
+        attempt = ::PostMessageW(window, WM_CLOSE, 0, 0) != 0 ? close_attempt::close_posted
+                                                              : close_attempt::close_not_delivered;
     }
     unsigned long exit_code = 1;
     if (!glintfx::capture_tool::wait_for_exit(child, exit_budget_ms, exit_code)) {
         glintfx::capture_tool::terminate_child(child);
-        say(glintfx::capture_tool::describe_fixture_overstay(window != nullptr, exit_budget_ms));
+        say(glintfx::capture_tool::describe_fixture_overstay(attempt, exit_budget_ms));
         return k_exit_fixture;
     }
     say("fixture exit=" + std::to_string(exit_code));
@@ -333,7 +340,9 @@ int run(const tool_options &options) {
                 : "FIXTURE nao apresentou o primeiro quadro no orcamento");
         code = k_exit_fixture;
     }
-    const int shutdown_code = shut_down_fixture(child, window, options.exit_budget_ms);
+    const int shutdown_code =
+        shut_down_fixture(child, window, waited == glintfx::capture_tool::wait_outcome::found,
+                          options.exit_budget_ms);
     glintfx::capture_tool::close_child(child);
     return code != k_exit_ok ? code : shutdown_code;
 }

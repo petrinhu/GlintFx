@@ -124,10 +124,20 @@ struct capture_plan {
 // must be readable as such. A failing HRESULT (negative) is named too; it is never judged here.
 [[nodiscard]] std::string describe_dwm_flush(int index, std::optional<long> result);
 
+// What the tool did to the fixture's window before it waited for the fixture to exit (I-3 of the
+// C2b-5 review). The tool decides it from what it SAW (whether the fixture presented, whether one
+// window was identified, what PostMessageW answered), and the text names exactly that state.
+enum class close_attempt {
+    fixture_not_presented, // the fixture never presented: the window was never even looked for
+    window_not_identified, // the fixture presented, but no single window of it was identified
+    close_not_delivered,   // a window was identified, PostMessageW refused the WM_CLOSE
+    close_posted,          // a window was identified and PostMessageW accepted the WM_CLOSE
+};
+
 // The line the tool prints when the fixture did not exit by itself within the exit budget and was
-// terminated. `close_posted` tells whether a WM_CLOSE was posted to its window first: with no
-// window found there is none, and the text must not claim one it never sent.
-[[nodiscard]] std::string describe_fixture_overstay(bool close_posted, int budget_ms);
+// terminated. It claims a WM_CLOSE only for `close_posted`; every other state says why none was
+// delivered, and never says a window was not found when it was never looked for.
+[[nodiscard]] std::string describe_fixture_overstay(close_attempt attempt, int budget_ms);
 
 // The .meta text of a capture the tool writes: XRGB8888 (wl_shm format 1; the GDI DIB carries
 // no useful alpha), rows tightly packed (stride = width * 4). Same four keys, same order and same

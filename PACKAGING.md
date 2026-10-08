@@ -220,6 +220,8 @@ is off by default when embedded - see "What gets installed" above; a
 consumer that *does* want glintfx installed alongside its own artifacts
 can still set `-DGLINTFX_INSTALL=ON` explicitly).
 
+`GLINTFX_BUILD_EXAMPLES` (the consumer programs under `examples/`) is on by default only when glintfx is the top-level project, off when embedded, and nothing from `examples/` is ever installed, whatever its value.
+
 ### On Windows, shared (the default), glintfx places its own DLL next to your executable
 
 This is the one thing embedding does for you automatically, and it

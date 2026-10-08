@@ -5,7 +5,7 @@
 # purpose: it populates a source tree and then calls add_subdirectory on
 # it, so this script proves both consumption modes at once.
 #
-# Four things are asserted, not just "it configures":
+# Five things are asserted, not just "it configures":
 #   1. configure/build/run of tests/embed/ succeeds.
 #   2. glintfx's generated headers (export.hpp, version_macros.hpp) land
 #      scoped under the embed build's own subdirectory, not spilled into
@@ -25,6 +25,12 @@
 #      never run under this script (GLINTFX_INSTALL default is OFF when
 #      embedded), so a regression in either could sit uncaught forever
 #      (FIX-CONSUMO-2, achado QA-2).
+#   5. glintfx does NOT build its consumer examples (GLINTFX_BUILD_EXAMPLES)
+#      when embedded: the value is read from the CMakeCache.txt of the really
+#      embedded glintfx, so an option() that stopped calling
+#      glintfx_examples_default() (GlintfxOptions.cmake) fails here (the
+#      function alone is proved by examples_option_default_test). The cache
+#      exists right after configure, so the assertion runs before the build.
 #
 # Usage: check_embed.sh <glintfx-source-dir> <embed-src-dir> <cxx-compiler>
 #
@@ -98,6 +104,20 @@ assert_generated_headers_scoped() {
     echo "check_embed.sh: generated headers scoped correctly under glintfx-build/"
 }
 
+# The cache of the build directory holds the value the REAL option() took:
+# an embedded glintfx must have GLINTFX_BUILD_EXAMPLES at OFF (D-W8-77). A
+# variable absent from the cache fails too - absence proves nothing.
+assert_examples_off_in_cache() {
+    embed_build="$1"
+    cache="$embed_build/CMakeCache.txt"
+    [ -f "$cache" ] || fail "CMakeCache.txt not found in the embed build: $cache"
+    if ! grep -q '^GLINTFX_BUILD_EXAMPLES:BOOL=OFF$' "$cache"; then
+        found="$(grep '^GLINTFX_BUILD_EXAMPLES' "$cache" || true)"
+        fail "GLINTFX_BUILD_EXAMPLES:BOOL=OFF not in the embed build cache (found: '${found:-nothing}')"
+    fi
+    echo "check_embed.sh: embedded glintfx has GLINTFX_BUILD_EXAMPLES:BOOL=OFF in the cache"
+}
+
 assert_install_does_not_leak_headers() {
     embed_build="$1"
     scratch_prefix="$2"
@@ -155,6 +175,7 @@ main() {
     scratch_prefix="$scratch/prefix"
 
     configure_embed "$embed_src" "$embed_build" "$glintfx_src" "$cxx"
+    assert_examples_off_in_cache "$embed_build"
     build_embed "$embed_build"
     run_embed "$embed_build"
     assert_generated_headers_scoped "$embed_build"

@@ -152,6 +152,7 @@ def assert_configure_rejects_blank_var(glintfx_src, build_dir, var_name, blank_v
                 f"-DCMAKE_CXX_COMPILER={cxx_compiler}",
                 f"-D{var_name}={blank_value}",
                 "-DGLINTFX_BUILD_TESTS=OFF",
+                "-DGLINTFX_BUILD_EXAMPLES=OFF",
             ],
             capture_output=True,
             text=True,

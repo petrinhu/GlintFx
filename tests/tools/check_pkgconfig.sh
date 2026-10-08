@@ -323,7 +323,8 @@ configure_glintfx() {
         -DCMAKE_INSTALL_LIBDIR="$libdir" \
         -DBUILD_SHARED_LIBS="$shared_libs" \
         -DCMAKE_INSTALL_PREFIX="$prefix_value" \
-        -DGLINTFX_BUILD_TESTS=OFF
+        -DGLINTFX_BUILD_TESTS=OFF \
+        -DGLINTFX_BUILD_EXAMPLES=OFF
 }
 
 build_and_install_glintfx() {
@@ -352,7 +353,8 @@ configure_glintfx_with_absolute_dirs() {
         -DCMAKE_INSTALL_INCLUDEDIR="$abs_includedir" \
         -DBUILD_SHARED_LIBS=ON \
         -DCMAKE_INSTALL_PREFIX="$prefix_value" \
-        -DGLINTFX_BUILD_TESTS=OFF
+        -DGLINTFX_BUILD_TESTS=OFF \
+        -DGLINTFX_BUILD_EXAMPLES=OFF
 }
 
 # No --prefix, deliberately: CMake's install() ignores any prefix for a
@@ -386,7 +388,8 @@ configure_glintfx_fedora_style() {
         -DCMAKE_CXX_COMPILER="$cxx" \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DBUILD_SHARED_LIBS=ON \
-        -DGLINTFX_BUILD_TESTS=OFF
+        -DGLINTFX_BUILD_TESTS=OFF \
+        -DGLINTFX_BUILD_EXAMPLES=OFF
 }
 
 # DESTDIR, not --prefix - the mechanism a real packager's

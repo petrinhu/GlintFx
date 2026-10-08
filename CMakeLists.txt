@@ -76,6 +76,7 @@ include(GlintfxOptions)
 include(GlintfxCompileOptions)
 include(GlintfxLibrary)
 include(GlintfxInstall)
+include(GlintfxExamples)
 include(GlintfxPkgConfigValidate)
 
 # UNIX only (GODS_LAWS.md L-05): pkg_check_modules(... REQUIRED ...)
@@ -152,6 +153,13 @@ if(GLINTFX_INSTALL)
     # step has to find glintfx.pc already written to disk when it runs
     # at `cmake --install` time.
     glintfx_register_pkgconfig_validation()
+endif()
+
+# The consumer examples (DEMO-1): after src/, because an example links the
+# library target. Options and output directory are applied here, to the
+# example's targets, by cmake/GlintfxExamples.cmake - never inside examples/.
+if(GLINTFX_BUILD_EXAMPLES)
+    glintfx_add_examples()
 endif()
 
 if(GLINTFX_BUILD_TESTS)

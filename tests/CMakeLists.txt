@@ -4052,10 +4052,11 @@ endif()
 # not on Windows, which does not have `sh` by default. Windows coverage
 # of this same embedding path is a dedicated CI step, not a ctest case,
 # same shape as consume_test's own Windows counterpart above -
-# tools/ci/check-embed.ps1 proves the identical four things (configure/
+# tools/ci/check-embed.ps1 proves the identical five things (configure/
 # build/run via add_subdirectory, generated headers scoped under the
-# embedded build dir, GLINTFX_INSTALL default not leaking headers, and
-# the GLINTFX_INSTALL=ON opt-in genuinely installing them), invoked from
+# embedded build dir, GLINTFX_INSTALL default not leaking headers, the
+# GLINTFX_INSTALL=ON opt-in genuinely installing them, and
+# GLINTFX_BUILD_EXAMPLES=OFF in the embedded cache), invoked from
 # the `windows` job in .github/workflows/ci.yml (CI-CONSUME).
 if(UNIX)
     # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
@@ -4171,6 +4172,10 @@ add_test(
         "-DGLINTFX_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
 )
 set_tests_properties(embed_dll_colocation_test PROPERTIES LABELS consume)
+
+# The tests of the consumer examples live in their own file (D-W8-89),
+# included here so they share this directory scope.
+include("${CMAKE_CURRENT_SOURCE_DIR}/examples_tests.cmake")
 
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a

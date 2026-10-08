@@ -369,6 +369,7 @@ def reconfigure_glintfx(glintfx_src, build_dir, cxx, prefix_value, skip_validati
     cmd += extra_c_compiler_flags()
     cmd += [
         "-DGLINTFX_BUILD_TESTS=OFF",
+        "-DGLINTFX_BUILD_EXAMPLES=OFF",
         f"-DCMAKE_INSTALL_PREFIX={prefix_value}",
         f"-DGLINTFX_SKIP_PKGCONFIG_VALIDATION={skip_validation}",
     ]
@@ -1597,6 +1598,7 @@ def run_absolute_libdir_scenario(glintfx_src, cxx, build_dir, scratch):
     cmd += extra_c_compiler_flags()
     cmd += [
         "-DGLINTFX_BUILD_TESTS=OFF",
+        "-DGLINTFX_BUILD_EXAMPLES=OFF",
         "-DCMAKE_INSTALL_PREFIX=/usr/local",
         f"-DCMAKE_INSTALL_LIBDIR={absolute_libdir}",
         f"-DCMAKE_INSTALL_INCLUDEDIR={absolute_includedir}",

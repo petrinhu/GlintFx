@@ -48,6 +48,34 @@ option(GLINTFX_BUILD_TESTS
     ${PROJECT_IS_TOP_LEVEL}
 )
 
+# DEMO-1 (D-W8-87): the consumer examples under examples/. Built by
+# default ONLY when glintfx is the top-level project: a consumer that
+# embeds glintfx (add_subdirectory/FetchContent) did not ask for our
+# example programs to land in its own build tree, and an embedded
+# example target must never collide with a target of the consumer's own
+# (D-W8-77). Never installed, whatever the value (D-W8-71).
+#
+# A named function, not inlined, for the same reason as
+# glintfx_embedded_runtime_colocate_default() below: option() caches its
+# default once per build directory, so tests/examples_option_default/
+# CMakeLists.txt can only see both branches by calling the function
+# directly. The is_top_level argument takes ${PROJECT_IS_TOP_LEVEL} (or
+# any CMake boolean), so the test can hand it either branch.
+function(glintfx_examples_default is_top_level out_var)
+    if(is_top_level)
+        set(${out_var} ON PARENT_SCOPE)
+    else()
+        set(${out_var} OFF PARENT_SCOPE)
+    endif()
+endfunction()
+
+glintfx_examples_default(${PROJECT_IS_TOP_LEVEL} GLINTFX_BUILD_EXAMPLES_DEFAULT)
+
+option(GLINTFX_BUILD_EXAMPLES
+    "Build the glintfx consumer examples (examples/); never installed"
+    ${GLINTFX_BUILD_EXAMPLES_DEFAULT}
+)
+
 # FIX-CONSUMO achado A7: when a consumer embeds glintfx via
 # add_subdirectory/FetchContent, glintfx's own install() rules must not
 # run by default under the consumer's `install` target - the consumer

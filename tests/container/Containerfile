@@ -302,12 +302,13 @@ RUN wayland-scanner client-header \
     && gcc -O2 -Wall -Wextra -Werror $(pkg-config --cflags wayland-client) \
         -c /build/xdg-shell-protocol.c -o /build/xdg-shell-protocol.o
 # R2D-BATCH B5 (errata sec. 25, D-B5-1): the library built and INSTALLED the way a consumer gets it (static,
-# Release, warnings as errors, no tests), in a prefix INSIDE the image, with the same sanitizer the fixtures use.
+# Release, warnings as errors, no tests, and no examples: the staged tree is a partial copy without examples/, so
+# GLINTFX_BUILD_EXAMPLES=OFF is explicit, DEMO-1), in a prefix INSIDE the image, with the same sanitizer the fixtures use.
 # The fixtures that use only the PUBLIC API are linked against THAT install through its glintfx.pc (see
 # draw2d_parity_test below), never against sources listed by hand. cmake and ninja-build are packages of this
 # TEST image only (authorized by the leader, GODS_LAWS.md L-51).
 RUN cmake -S /build/_arch_ports_lib -B /build/lib-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=OFF \
+        -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DCMAKE_INSTALL_PREFIX=/build/lib-prefix "-DCMAKE_CXX_FLAGS=$GLINTFX_FIXTURE_SANITIZE" \
     && cmake --build /build/lib-build \
     && cmake --install /build/lib-build

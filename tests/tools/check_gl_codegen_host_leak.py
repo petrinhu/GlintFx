@@ -163,6 +163,7 @@ def configure_build_install(glintfx_src, cxx, generator, build_dir, prefix):
             "-DCMAKE_BUILD_TYPE=Release",
             f"-DCMAKE_CXX_COMPILER={cxx}",
             "-DGLINTFX_BUILD_TESTS=OFF",
+            "-DGLINTFX_BUILD_EXAMPLES=OFF",
         ],
         capture_output=True, text=True,
     )

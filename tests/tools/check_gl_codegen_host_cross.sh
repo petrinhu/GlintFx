@@ -102,7 +102,7 @@ make_scratch_workdir() {
 build_native_golden() {
     build_dir="$1"
     cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
-        -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CROSS_CXX" -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CROSS_CXX" -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         >/dev/null || fail "golden: configure nativo falhou"
     cmake --build "$build_dir" --target glintfx_gl_functions_generated >/dev/null \
         || fail "golden: build nativo falhou"
@@ -157,7 +157,7 @@ assert_path_variable_matches_golden() {
 
     cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DGLINTFX_GL_CODEGEN_EXECUTABLE="$native_tool" \
         >/dev/null || fail "PATH 1 (variable): configure cruzado falhou"
     cmake --build "$build_dir" --target glintfx_gl_functions_generated >/dev/null \
@@ -204,7 +204,7 @@ assert_path_variable_rejects_abi_mismatch() {
     set +e
     configure_output=$(cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DGLINTFX_GL_CODEGEN_EXECUTABLE="$double" 2>&1)
     configure_rc=$?
     set -e
@@ -251,7 +251,7 @@ assert_path_variable_rejects_unresponsive_abi() {
     set +e
     configure_output=$(cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DGLINTFX_GL_CODEGEN_EXECUTABLE="$double" 2>&1)
     configure_rc=$?
     set -e
@@ -303,7 +303,7 @@ assert_path_emulator_matches_golden() {
 
     cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DCMAKE_CROSSCOMPILING_EMULATOR="$double" \
         >/dev/null || fail "PATH 2 (emulator): configure cruzado falhou"
     cmake --build "$build_dir" --target glintfx_gl_functions_generated >/dev/null \
@@ -341,7 +341,7 @@ assert_path_nested_matches_golden() {
 
     cmake -S "$nested_src" -B "$build_dir" -G "$CROSS_GENERATOR" \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DGLINTFX_HOST_CXX_COMPILER="$CROSS_CXX" \
         >/dev/null || fail "PATH 3 (nested): configure cruzado falhou"
     cmake --build "$build_dir" --target glintfx_gl_functions_generated >/dev/null \
@@ -387,7 +387,7 @@ assert_path4_hard_failure() {
     set +e
     configure_output=$(cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
         -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DGLINTFX_HOST_CXX_COMPILER=/nao/existe/compilador-host 2>&1)
     configure_rc=$?
     set -e

@@ -7173,3 +7173,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o filtro do ctest chegou vazio ao container e a suíte inteira rodou. Quem apontou foi o main, pela lista de processos, e o implementador consertou;
   - sobrou resíduo com dono root em `out-red`.
 - **Destino:** o CTO decide numa errata 2 (`plano-demo1-v2-errata2.md`). O trabalho não commitado fica na árvore até a decisão.
+
+### 08/10/2026 14:01:42 - Modo autônomo renovado pelo líder
+
+- **Ordem, verbatim:** *"ligue modo autonomo"*. A janela vai até 09/10/2026 14:01:34, com os escopos push e clean. A anterior vencia hoje às 22:51:57.

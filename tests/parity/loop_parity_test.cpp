@@ -225,7 +225,12 @@ struct app : glintfx::gltfx_loop_context_mark {
         return (ticks % stop_every) != 0;
     }
 
-    void render(const glintfx::gltfx_frame_tick & /*tick*/) noexcept { ++renders; }
+    // PRESENT-EMPTY-FRAME (D-W8-56): run() calls this and then presents, so the draw lives HERE -
+    // every present() that run() makes follows a draw, like the manual ones in main().
+    void render(const glintfx::gltfx_frame_tick & /*tick*/) noexcept {
+        draw_clear_frame();
+        ++renders;
+    }
 };
 
 } // namespace

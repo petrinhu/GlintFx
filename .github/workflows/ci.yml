@@ -2239,13 +2239,17 @@ jobs:
       # manda um xdg_toplevel.configure tardio, medido e reportado ao
       # CTO com arquivo:linha) - este passo fica VERMELHO ate esse
       # conserto (fora do escopo desta fatia, em outras fachadas) landar.
+      # PRESENT-EMPTY-FRAME (D-W8-70): a CLASSE de apresentacao do aparato mora aqui, no preparo do sistema (GODS_LAWS.md L-04),
+      # nunca no teste: o container recebe `free` (a regua estrita, vsync=off <= 700 ms contra 25 a 89 ms medidos), e
+      # GITHUB_ACTIONS=true entra para a guarda do teste reprovar um aparato sem classe (L-40). O irmao Windows recebe
+      # `compositor` de tools/ci/install-mesa-opengl32.ps1.
       - name: GL-CONTEXT fatia 5 - paridade do contexto GL dentro do container
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "gl_context_parity_test" >> parity_inventory.txt
           codigo=0
-          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gl_context_parity_test || codigo=$?
+          tests/container/exec_fixture.sh --env GLINTFX_PRESENT_PACING=free --env GITHUB_ACTIONS=true ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gl_context_parity_test || codigo=$?
           printf 'gl_context_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 

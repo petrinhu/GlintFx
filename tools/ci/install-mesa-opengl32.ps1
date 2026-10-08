@@ -197,6 +197,13 @@ Copy-IntoDestDir -files $dlls -destDir $DestDir
 if ($env:GITHUB_ENV) {
     Add-Content -Path $env:GITHUB_ENV -Value "GLINTFX_EMPTY_FRAME_EXPECT=refused"
     Write-Host "install-mesa-opengl32.ps1: GLINTFX_EMPTY_FRAME_EXPECT=refused gravada em GITHUB_ENV (Mesa $MesaVersion)."
+    # PRESENT-EMPTY-FRAME (D-W8-70): a classe de apresentacao e' tambem fato do AMBIENTE. O Mesa D3D12 deste pino
+    # espera o objeto de latencia da swapchain depois de TODO Present (d3d12_wgl_framebuffer.cpp:346-347 do Mesa
+    # 26.2.0), numa janela composta pelo DWM, entao o ritmo e' o da composicao e o relogio nao distingue vsync ligado
+    # de desligado: gl_context_parity_test troca a prova de relogio pela leitura de volta do intervalo de troca. Sem
+    # condicao de versao e presa ao pino $MesaVersion: QUEM TROCAR A VERSAO TROCA ESTA LINHA.
+    Add-Content -Path $env:GITHUB_ENV -Value "GLINTFX_PRESENT_PACING=compositor"
+    Write-Host "install-mesa-opengl32.ps1: GLINTFX_PRESENT_PACING=compositor gravada em GITHUB_ENV (Mesa $MesaVersion)."
 }
 
 Write-Host "install-mesa-opengl32.ps1: Mesa $MesaVersion (llvmpipe) pronto em $DestDir - a proxima leitura da sonda (win32_runner_probe_test) deve reportar GL_RENDERER diferente de 'GDI Generic' e wglCreateContextAttribsARB available=true."

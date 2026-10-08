@@ -35,7 +35,9 @@
 //   - ASSERTED EQUAL on both systems (a genuine `gl_context_parity_
 //     test: FAIL` and EXIT_FAILURE the moment it disagrees): proc_
 //     address resolution, GL >= 3.3 core, the pixel readback, the
-//     first-presented budget, the vsync=off 700ms budget, option_
+//     first-presented budget, the vsync=off budget BY PRESENTATION
+//     CLASS (D-W8-70: 700ms on `free`, the interval read back from
+//     the driver plus a 6000ms hang ceiling on `compositor`), option_
 //     support's own non-empty sweep and its three specific rows, and
 //     the two reopen cases (fixation).
 //   - MEASURED, PRINTED, NEVER ASSERTED EQUAL (tests/tools/collect_
@@ -123,6 +125,91 @@ using gl_gen_vertex_arrays_fn = void (*)(gl_sizei, gl_uint *);
 draw_then_swap(glintfx::gltfx_gl_context &context, gl_clear_fn clear) {
     clear(k_gl_color_buffer_bit);
     return context.swap_buffers();
+}
+
+// D-W8-70: the pacing class of the apparatus. It is a FACT of the apparatus, declared by its set-up
+// (GLINTFX_PRESENT_PACING, written by tools/ci/install-mesa-opengl32.ps1 on Windows and by --env on
+// the container fixture), never deduced here. `free` is the strict ruler (the vsync=off clock has
+// to prove the swap interval reached the driver); `compositor` is an apparatus whose presentation
+// is paced by a compositor (Mesa D3D12/WARP waits on the DWM after EVERY Present, at 60 or 120 Hz,
+// d3d12_wgl_framebuffer.cpp:346-347 of the pinned Mesa), where the clock cannot tell vsync on from
+// off and the proof is the interval READ BACK from the driver.
+enum class pacing_class { free, compositor };
+
+constexpr long long k_vsync_off_budget_free_ms = 700;
+// 60 presentations times 100 ms, the per-presentation ceiling of the loop (loop.hpp): a hang
+// ceiling, NOT a proof of vsync.
+constexpr long long k_vsync_off_budget_compositor_ms = 6000;
+
+// False means the environment is wrong, and the reason is printed. Absent outside CI is `free`.
+[[nodiscard]] bool resolve_present_pacing(pacing_class &pacing) {
+    const char *declared = std::getenv("GLINTFX_PRESENT_PACING");
+    const char *in_ci = std::getenv("GITHUB_ACTIONS");
+    const bool has_class = declared != nullptr && declared[0] != '\0';
+    const bool is_ci = in_ci != nullptr && in_ci[0] != '\0';
+    if (!has_class) {
+        if (is_ci) {
+            std::fprintf(stderr,
+                         "gl_context_parity_test: FALHOU aparato de CI sem classe de apresentacao "
+                         "declarada (GLINTFX_PRESENT_PACING ausente com GITHUB_ACTIONS definida; "
+                         "GODS_LAWS.md L-40)\n");
+            return false;
+        }
+        pacing = pacing_class::free;
+        std::fprintf(stdout,
+                     "gl_context_parity_test: classe de apresentacao `free` (variavel ausente "
+                     "fora do CI: regua estrita)\n");
+        return true;
+    }
+    const std::string_view text{declared};
+    if (text == "free") {
+        pacing = pacing_class::free;
+    } else if (text == "compositor") {
+        pacing = pacing_class::compositor;
+    } else {
+        std::fprintf(stderr,
+                     "gl_context_parity_test: FALHOU GLINTFX_PRESENT_PACING=%s, esperado `free` "
+                     "ou `compositor`\n",
+                     declared);
+        return false;
+    }
+    std::fprintf(stdout, "gl_context_parity_test: classe de apresentacao `%s` (declarada)\n",
+                 declared);
+    return true;
+}
+
+// wglGetSwapIntervalEXT (WGL_EXT_swap_control), resolved through the PUBLIC proc_address() and
+// never through the adapter. No #if: it is only called on the `compositor` class. A null pointer
+// reproves. Prints WGL_SWAP_INTERVAL when the environment has it: with that variable set, the
+// Mesa wglSwapIntervalEXT becomes a no-op and the reading below would say so.
+using wgl_get_swap_interval_fn = int (*)();
+
+[[nodiscard]] std::string wgl_swap_interval_env_note() {
+    const char *forced = std::getenv("WGL_SWAP_INTERVAL");
+    if (forced == nullptr || forced[0] == '\0') {
+        return {};
+    }
+    return std::string(" [WGL_SWAP_INTERVAL=") + forced + " definida no ambiente]";
+}
+
+[[nodiscard]] bool read_swap_interval(const glintfx::gltfx_gl_context &context, int &interval) {
+    if (const std::string note = wgl_swap_interval_env_note(); !note.empty()) {
+        std::fprintf(stdout, "gl_context_parity_test:%s\n", note.c_str());
+    }
+    void *address = context.proc_address("wglGetSwapIntervalEXT");
+    if (address == nullptr) {
+        std::fprintf(stderr,
+                     "gl_context_parity_test: proc_address(wglGetSwapIntervalEXT) nulo na classe "
+                     "`compositor` (D-W8-70)\n");
+        return false;
+    }
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) reason: the universal dlsym-style
+    // function-to-object-pointer cast every GL loader already relies on (see the GL entry points
+    // in main()).
+    const auto get_interval = reinterpret_cast<wgl_get_swap_interval_fn>(address);
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) reason: closes the block above
+    interval = get_interval();
+    return true;
 }
 
 } // namespace
@@ -464,6 +551,13 @@ int main() {
     // disables buffering on Win32).
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
+    // D-W8-70: the pacing class is read BEFORE anything opens, so a CI apparatus without it fails
+    // at once and names the reason.
+    pacing_class pacing = pacing_class::free;
+    if (!resolve_present_pacing(pacing)) {
+        return EXIT_FAILURE;
+    }
+
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {
         std::fprintf(
@@ -673,9 +767,18 @@ int main() {
             return EXIT_FAILURE;
         }
 
-        // T (D-W6b-27's own proof): vsync=off, 60 swaps, budget 700ms -
-        // a blocked-under-the-Mesa-swap-interval-1 regression costs
-        // ~1000ms for the same 60 swaps (D-W6b-29's own mutation row).
+        // T (D-W6b-27's own proof): vsync=off, 60 swaps. Budget BY PRESENTATION CLASS
+        // (D-W8-70, which supersedes branch (ii) of D-W6b-29 by name):
+        //   - `free` (Linux and any undeclared apparatus): 700 ms. A blocked-under-the-swap-
+        //     interval-1 regression costs ~1000 ms for the same 60 swaps (D-W6b-29's own
+        //     mutation row), against 25 to 89 ms measured.
+        //   - `compositor` (Windows, Mesa D3D12/WARP): the clock cannot tell vsync on from off,
+        //     because every Present waits on the DWM. The proof is the interval READ BACK from
+        //     the driver (== 0 here, == 1 below), and the clock is only a HANG CEILING (6000 ms),
+        //     NOT a proof of vsync.
+        // ORDER (mandatory, D-W8-70 sec. 7): read and print, then run the loop and print the
+        // time, and only then assert - so a mutant that fails the read-back still leaves the
+        // measured time behind.
         if (glintfx::gltfx_rslt<void> set_off =
                 context.set_option({.id = glintfx::gltfx_gfx_option::vsync, .value = 0});
             set_off.has_error()) {
@@ -683,6 +786,14 @@ int main() {
                          std::string(glintfx::gltfx_err_code_name(set_off.err().code())).c_str());
             return EXIT_FAILURE;
         }
+        int vsync_off_readback = -1;
+        bool vsync_off_read_ok = true;
+        if (pacing == pacing_class::compositor) {
+            vsync_off_read_ok = read_swap_interval(context, vsync_off_readback);
+        }
+        std::fprintf(stdout,
+                     "MEASURED gl_context_parity_test.vsync_off_swap_interval_readback=%d\n",
+                     vsync_off_readback);
         int vsync_off_presented = 0;
         int vsync_off_skipped = 0;
         const auto vsync_off_start = std::chrono::steady_clock::now();
@@ -711,10 +822,30 @@ int main() {
                      vsync_off_presented);
         std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_off_60_swaps_skipped=%d\n",
                      vsync_off_skipped);
-        if (vsync_off_ms > 700) {
+        if (pacing == pacing_class::compositor) {
+            if (!vsync_off_read_ok) {
+                return EXIT_FAILURE;
+            }
+            if (vsync_off_readback != 0) {
+                std::fprintf(
+                    stderr,
+                    "gl_context_parity_test: leitura de volta %d, esperado 0 (vsync=off)%s\n",
+                    vsync_off_readback, wgl_swap_interval_env_note().c_str());
+                return EXIT_FAILURE;
+            }
+        }
+        const long long vsync_off_budget_ms = pacing == pacing_class::compositor
+                                                  ? k_vsync_off_budget_compositor_ms
+                                                  : k_vsync_off_budget_free_ms;
+        if (vsync_off_ms > vsync_off_budget_ms) {
             std::fprintf(stderr,
-                         "gl_context_parity_test: vsync=off 60 swaps: %lld ms (orcamento 700)\n",
-                         static_cast<long long>(vsync_off_ms));
+                         "gl_context_parity_test: vsync=off 60 swaps: %lld ms (orcamento %lld, "
+                         "classe `%s`%s)\n",
+                         static_cast<long long>(vsync_off_ms), vsync_off_budget_ms,
+                         pacing == pacing_class::compositor ? "compositor" : "free",
+                         pacing == pacing_class::compositor
+                             ? "; teto de travamento, nao prova de vsync (D-W8-70)"
+                             : "");
             return EXIT_FAILURE;
         }
 
@@ -727,6 +858,13 @@ int main() {
                          std::string(glintfx::gltfx_err_code_name(set_on.err().code())).c_str());
             return EXIT_FAILURE;
         }
+        int vsync_on_readback = -1;
+        bool vsync_on_read_ok = true;
+        if (pacing == pacing_class::compositor) {
+            vsync_on_read_ok = read_swap_interval(context, vsync_on_readback);
+        }
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_on_swap_interval_readback=%d\n",
+                     vsync_on_readback);
         int vsync_on_presented = 0;
         int vsync_on_skipped = 0;
         const auto vsync_on_start = std::chrono::steady_clock::now();
@@ -755,6 +893,18 @@ int main() {
                      vsync_on_presented);
         std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_on_60_swaps_skipped=%d\n",
                      vsync_on_skipped);
+        if (pacing == pacing_class::compositor) {
+            if (!vsync_on_read_ok) {
+                return EXIT_FAILURE;
+            }
+            if (vsync_on_readback != 1) {
+                std::fprintf(
+                    stderr,
+                    "gl_context_parity_test: leitura de volta %d, esperado 1 (vsync=on)%s\n",
+                    vsync_on_readback, wgl_swap_interval_env_note().c_str());
+                return EXIT_FAILURE;
+            }
+        }
 
         // vsync=adaptive: D-W6b-18 recuses it BY NAME on Wayland (no
         // EGL equivalent); WGL may accept it when the driver exposes

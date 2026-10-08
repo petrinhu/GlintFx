@@ -2620,9 +2620,13 @@ endif()
 # RUN_SERIAL (PRESENT-EMPTY-FRAME, D-W8-58): now that a refused swap reproves at once, the vsync=off cell times
 # 60 REAL presentations against the budget of its presentation class (D-W8-70); ctest running another test in parallel on the same runner
 # already falsified a timing measurement on Windows (LOOP-HIDDEN-SERIAL below).
+# _CRT_SECURE_NO_WARNINGS only on THIS target (D-W8-70): the test reads GLINTFX_PRESENT_PACING and WGL_SWAP_INTERVAL
+# with std::getenv, which MSVC flags as C4996 (an error under /WX), and the parity source may not carry an #if to hide
+# it (the same reasoning as present_empty_frame_parity_test below).
 if(WIN32)
     add_executable(gl_context_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/gl_context_parity_test.cpp")
     target_link_libraries(gl_context_parity_test PRIVATE glintfx::glintfx)
+    target_compile_definitions(gl_context_parity_test PRIVATE _CRT_SECURE_NO_WARNINGS)
     glintfx_apply_compile_options(gl_context_parity_test)
     glintfx_copy_runtime_dlls_after_build(gl_context_parity_test)
     add_test(NAME gl_context_parity_test COMMAND gl_context_parity_test)

@@ -77,6 +77,19 @@ HOLD_UNTIL_CLOSE_MS = 120000
 # The least the hold may be: the capture phase measured 1.21 s whole on the Windows runner (run
 # 37558358855 and CI 37611152408), so 60 s is a margin of about 50 times.
 CAPTURE_PHASE_FLOOR_MS = 60000
+# THE OTHER FLOORS (I-2 of the C2b-5 review: a budget without a floor let 0 ms through). What was
+# MEASURED is only the whole test on the Windows runner, 1.21 s (the same two runs), so that figure
+# is a CEILING for each phase (present, hold-to-close and exit all fit in it), never a per-phase
+# measurement: each floor is that ceiling times a declared margin.
+#  - present: 10 s, about 8 times 1.21 s (the wait for the fixture's "presented" line, a window on a
+#    cold runner).
+#  - exit: 6 s, about 5 times 1.21 s (the fixture answers the WM_CLOSE and leaves).
+#  - kill grace: 2 s. NOT MEASURED (taskkill /T is not measured on Windows either, see kill_tree): it is
+#    the declared minimum for the pipe to reach EOF after the kill, and 0 would make the wait for it
+#    expire at once.
+PRESENT_BUDGET_FLOOR_MS = 10000
+EXIT_BUDGET_FLOOR_MS = 6000
+KILL_GRACE_FLOOR_SECONDS = 2
 # THE SABOTAGES. The three of the fixture travel on the fixture's command line; `occlude` is a mode
 # of the TOOL (D-W8-42: it covers the window from outside) and is never handed to the fixture.
 FIXTURE_SABOTAGES = ("swap_red_blue", "alpha_half", "corrupt_readback")
@@ -110,27 +123,36 @@ class run_config:
 
 @dataclass(frozen=True)
 class budget_set:
-    """The six numbers whose relation D-W8-61 proves (milliseconds, except the two in seconds)."""
+    """The numbers whose relation D-W8-61 and I-2 prove (milliseconds, except those named `_s`): the six
+    budgets, the floor of the hold and the three floors of present, exit and kill grace."""
     present_ms: int
     hold_ms: int
     exit_ms: int
     kill_grace_s: int
     timeout_s: int
     floor_ms: int
+    present_floor_ms: int
+    exit_floor_ms: int
+    grace_floor_s: int
 
 
 def current_budgets():
     return budget_set(PRESENT_BUDGET_MS, HOLD_UNTIL_CLOSE_MS, EXIT_BUDGET_MS, KILL_GRACE_SECONDS,
-                      PROCESS_TIMEOUT_SECONDS, CAPTURE_PHASE_FLOOR_MS)
+                      PROCESS_TIMEOUT_SECONDS, CAPTURE_PHASE_FLOOR_MS, PRESENT_BUDGET_FLOOR_MS,
+                      EXIT_BUDGET_FLOOR_MS, KILL_GRACE_FLOOR_SECONDS)
 
 
 def budgets_are_coherent(budgets):
-    """True when the hold covers the capture phase (hold >= floor) AND the orphan fixture goes away by
-    itself before the driver kills the tree, even if `taskkill /T` (not measured on Windows) fails: the
-    present wait, the hold, the exit wait and the kill grace fit in the process timeout."""
+    """True when the hold covers the capture phase (hold >= floor), the present wait, the exit wait and
+    the kill grace each reach their own floor (I-2), AND the orphan fixture goes away by itself before the
+    driver kills the tree, even if `taskkill /T` (not measured on Windows) fails: the present wait, the
+    hold, the exit wait and the kill grace fit in the process timeout."""
     covers_capture = budgets.hold_ms >= budgets.floor_ms
+    reaches_floors = (budgets.present_ms >= budgets.present_floor_ms
+                      and budgets.exit_ms >= budgets.exit_floor_ms
+                      and budgets.kill_grace_s >= budgets.grace_floor_s)
     total_ms = budgets.present_ms + budgets.hold_ms + budgets.exit_ms + budgets.kill_grace_s * 1000
-    return covers_capture and total_ms <= budgets.timeout_s * 1000
+    return covers_capture and reaches_floors and total_ms <= budgets.timeout_s * 1000
 
 
 def verdict_name(code):
@@ -555,11 +577,33 @@ def selftest_budgets_are_coherent():
           not budgets_are_coherent(replace(real, present_ms=real.timeout_s * 1000))
           and not budgets_are_coherent(replace(real, exit_ms=real.timeout_s * 1000))
           and not budgets_are_coherent(replace(real, kill_grace_s=real.timeout_s)))
-    check("a soma que fecha exatamente no prazo passa, um milissegundo a mais reprova",
-          budgets_are_coherent(replace(real, timeout_s=(real.present_ms + real.hold_ms + real.exit_ms) // 1000
-                                       + real.kill_grace_s))
-          and not budgets_are_coherent(replace(real, timeout_s=(real.present_ms + real.hold_ms + real.exit_ms) // 1000
-                                               + real.kill_grace_s - 1)))
+    check("I-2: apresentacao de 0, 1000 e 5000 ms reprova (abaixo do piso: teto medido de 1,21 s do teste inteiro, com margem)",
+          not any(budgets_are_coherent(replace(real, present_ms=value)) for value in (0, 1000, 5000)))
+    check("I-2: saida de 0, 1000 e 5000 ms reprova (abaixo do piso: teto medido de 1,21 s do teste inteiro, com margem)",
+          not any(budgets_are_coherent(replace(real, exit_ms=value)) for value in (0, 1000, 5000)))
+    check("I-2: folga de morte de 0 s reprova (sem tempo para o pipe fechar depois do kill)",
+          not budgets_are_coherent(replace(real, kill_grace_s=0)))
+    check("I-2: o piso de 1 deixa os valores baixos passarem, e por isso os controles acima os matam",
+          budgets_are_coherent(replace(real, present_ms=0, present_floor_ms=0))
+          and budgets_are_coherent(replace(real, exit_ms=0, exit_floor_ms=0))
+          and budgets_are_coherent(replace(real, kill_grace_s=0, grace_floor_s=0)))
+    check("I-2: cada piso e' inclusivo (o valor igual ao piso passa, um a menos reprova)",
+          budgets_are_coherent(replace(real, present_ms=real.present_floor_ms))
+          and not budgets_are_coherent(replace(real, present_ms=real.present_floor_ms - 1))
+          and budgets_are_coherent(replace(real, exit_ms=real.exit_floor_ms))
+          and not budgets_are_coherent(replace(real, exit_ms=real.exit_floor_ms - 1))
+          and budgets_are_coherent(replace(real, kill_grace_s=real.grace_floor_s))
+          and not budgets_are_coherent(replace(real, kill_grace_s=real.grace_floor_s - 1)))
+    # The timeout is in whole seconds, so the exact fit is the sum rounded UP to a second: it holds
+    # whatever the millisecond budgets are, even one that is not a multiple of 1000 (C-5 of the review).
+    total_ms = real.present_ms + real.hold_ms + real.exit_ms + real.kill_grace_s * 1000
+    fits_s = -(-total_ms // 1000)
+    check("a soma que fecha no prazo (arredondada para cima ao segundo) passa, um segundo a menos reprova",
+          budgets_are_coherent(replace(real, timeout_s=fits_s))
+          and not budgets_are_coherent(replace(real, timeout_s=fits_s - 1)))
+    check("o arredondamento vale para um orcamento que nao e' multiplo de 1000 (30500 ms)",
+          budgets_are_coherent(replace(real, present_ms=30500, timeout_s=-(-(total_ms + 500) // 1000)))
+          and not budgets_are_coherent(replace(real, present_ms=30500, timeout_s=-(-(total_ms + 500) // 1000) - 1)))
 
 
 def selftest_occlude_reaches_only_the_tool():

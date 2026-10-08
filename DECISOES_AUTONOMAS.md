@@ -7227,3 +7227,21 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o CRÍTICO é de desenho do plano;
   - I3 (a comparação por substring) e K3 vêm do driver escrito pelo implementador;
   - como revisor, o haiku achou o C1, que nem o plano nem o implementador viram.
+
+### 08/10/2026 15:13:18 - Errata 3 do CTO (D-W8-98 a D-W8-105) aceita pelo main; D1-fix-c despachada
+
+- **Errata:** `/var/tmp/cto-w8/plano-demo1-v2-errata3.md`, md5 `58f74c1f65462039a03f213fc7e65d5f`.
+- **C1:** a passada parte do grafo (`SUBDIRECTORIES` de `examples/`). Uma regra 4 recusa entrada que não seja filha direta. A ordem passa a ser 1, 4, 2, 3.
+- **Regra 1 recursiva**, que nomeia o `CMakeLists.txt` onde falta o `add_subdirectory` (fecha o I2).
+- **`alcancados` com medida própria** (fecha o K1).
+- **Prova do tratamento** pela File API do CMake, com uma régua calibrada a cada execução (fecha o L1 em parte). A V-14 e a V-16 continuam valendo.
+- **Driver:** comparação exata e contagem de erros do CMake (fecha I1 e I3).
+- **Três plantas de ordem** (fecha o I5).
+- **K2** vai para a INBOX `EXAMPLES-GRAPH-EDGES`. K3 e K4 ficam aceitos.
+- **Passo 0:** uma sonda em container antes do código.
+- **Vermelho previsto** contra `bd017456` com o teste novo: `plantas=13 conferidas=13 falharam=4`.
+- **Entrega:** commit novo D1-fix-c por cima do HEAD.
+- **Conferência do main:**
+  - o `cmake_file_api()` exige CMake 3.27; o projeto pede 4.1 e as plantas pedem 3.28, então serve;
+  - a regra 4 restringe só a árvore `examples/` do próprio repositório; consumidor nenhum é afetado.
+- **CI do `bd017456`:** run 37818621936, `success`, com 25 jobs verdes e 1 pulado. Esse verde não cobre o C1.

@@ -6829,3 +6829,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `PARITY-SWAP-REFUSAL-GEMEO` fica resolvido pelo I2;
   - entra na INBOX `LOOP-PARITY-700-TWIN`.
 - **Para o líder confirmar retroativamente:** D-W8-50 a D-W8-70.
+
+### 08/10/2026 01:27:18 - C2b-5: F1, F2 e F3 entregues; a linha passa a 🔍
+
+- **F1 44090997** (D-W8-61): o selftest passa de 91 para 102 controles, e os mutantes H2 a H5 morreram numa cópia fora da árvore.
+- **F2 990c05d5** (D-W8-64): os 2 casos novos foram vistos vermelhos por conteúdo antes do verde.
+- **F3 21a6cfaa** (D-W8-60, a troca `consume` para `unit`): commit próprio, reversível se a perna P-ASAN cair no ramo AMBIENTE.
+- **Provas:** `preci --fast` e `--sanitizer-only` rc 0 depois de cada fatia, `--win32-link-only` rc 0 e `cl.exe` rc 0.
+- **TODO:** `QA-SCREEN-CAPTURE` passa a 🔍, como o plano §5 item 6 manda.
+- **Próximo:** F4 (a sonda `sonda-c2b5`, com 6 pernas, e o leitor `check_c2b5.py` com selftest), depois a revisão que executa, os runs S, R e T e a observação do QA.

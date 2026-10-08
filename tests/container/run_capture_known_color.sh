@@ -214,7 +214,12 @@ one_mode() {
     mode="$1"
     clean_mode_output "$mode"
     start_capture_relay "$mode"
-    wait_for_socket "$mode" || return 1
+    if ! wait_for_socket "$mode"; then
+        stop_capture_relay "$mode"
+        copy_out "$mode"
+        echo "run_capture_known_color: mode=$mode fixture=nao-rodou espera=socket-falhou"
+        return 1
+    fi
     fixture_rc="$(run_check "$OUT_DIR/$mode.fixture.rc" run_fixture "$mode")"
     waited=0
     wait_for_capture_files "$mode" || waited=1
@@ -324,48 +329,58 @@ selftest_wait_settings_are_validated() {
         ! ( valid_wait_settings "" 1 ) && ! ( valid_wait_settings 1 "" )
 }
 
-# one_mode_with <fixture-rc> <wait-rc> <judge-rc>: runs one_mode off with every container collaborator replaced by a
-# stub that returns the given code. The stubs live in a subshell, so they never outlive this check (unset -f would
-# erase the real function instead of restoring it). Prints the one_mode line and returns one_mode's own verdict.
+# CALLS_LOG (set by selftest_main): one line per call the stubs of one_mode_with received, "<collaborator> <mode>".
+# Every control that reads it starts with reset_calls, so a control never reads the calls of an earlier one.
+reset_calls() {
+    : >"$CALLS_LOG"
+}
+
+# one_mode_with <mode> <fixture-rc> <wait-rc> <judge-rc>: runs one_mode <mode> with every container collaborator
+# replaced by a stub. Each stub records its call in CALLS_LOG and returns its code; wait_for_socket returns
+# STUB_SOCKET_RC (0 unless the caller sets it in the prefix of the call). The stubs live in a subshell, so they never
+# outlive this check (unset -f would erase the real function instead of restoring it). Prints the one_mode line and
+# returns one_mode's own verdict.
 one_mode_with() {
     (
+        mode="$1"
         OUT_DIR="$(mktemp -d)" || exit 1
-        STUB_FIXTURE_RC="$1"
-        STUB_WAIT_RC="$2"
-        STUB_JUDGE_RC="$3"
-        start_capture_relay() { :; }
-        wait_for_socket() { return 0; }
-        run_fixture() { return "$STUB_FIXTURE_RC"; }
-        wait_for_capture_files() { return "$STUB_WAIT_RC"; }
-        stop_capture_relay() { :; }
-        copy_out() { :; }
-        judge_mode() { return "$STUB_JUDGE_RC"; }
+        STUB_FIXTURE_RC="$2"
+        STUB_WAIT_RC="$3"
+        STUB_JUDGE_RC="$4"
+        STUB_SOCKET_RC="${STUB_SOCKET_RC:-0}"
+        start_capture_relay() { echo "start_capture_relay $1" >>"$CALLS_LOG"; }
+        wait_for_socket() { echo "wait_for_socket $1" >>"$CALLS_LOG"; return "$STUB_SOCKET_RC"; }
+        run_fixture() { echo "run_fixture $1" >>"$CALLS_LOG"; return "$STUB_FIXTURE_RC"; }
+        wait_for_capture_files() { echo "wait_for_capture_files $1" >>"$CALLS_LOG"; return "$STUB_WAIT_RC"; }
+        stop_capture_relay() { echo "stop_capture_relay $1" >>"$CALLS_LOG"; }
+        copy_out() { echo "copy_out $1" >>"$CALLS_LOG"; }
+        judge_mode() { echo "judge_mode $1" >>"$CALLS_LOG"; return "$STUB_JUDGE_RC"; }
         rc=0
-        one_mode off || rc=1
+        one_mode "$mode" || rc=1
         rm -rf "${OUT_DIR:?}"
         exit "$rc"
     )
 }
 
 # The wiring of one_mode, one case per mutant of the R4-A review (rev-p3.md). The positive control comes first: an
-# all-clean run must PASS, or the four negative cases below would also pass on a broken harness.
+# all-clean run must PASS, or the negative cases below would also pass on a broken harness.
 selftest_wiring_clean_mode_passes() {
-    out="$(one_mode_with 0 0 0)" && [ "$out" = "run_capture_known_color: mode=off fixture=0 espera=0" ]
+    out="$(one_mode_with off 0 0 0)" && [ "$out" = "run_capture_known_color: mode=off fixture=0 espera=0" ]
 }
 
 # A timed-out wait fails the mode. Kills the two mutants that alter the path of the wait: mode_verdict given 0 in
 # place of $waited, and `waited=0` in the failure branch of the wait.
 selftest_wiring_timed_out_wait_fails_the_mode() {
-    ! one_mode_with 0 1 0 >/dev/null
+    ! one_mode_with off 0 1 0 >/dev/null
 }
 
 selftest_wiring_failed_judge_fails_the_mode() {
-    ! one_mode_with 0 0 1 >/dev/null
+    ! one_mode_with off 0 0 1 >/dev/null
 }
 
 # Exit 77 is the declared absence, which this driver counts as a failure (see the header).
 selftest_wiring_absent_fixture_fails_the_mode() {
-    ! one_mode_with 77 0 0 >/dev/null
+    ! one_mode_with off 77 0 0 >/dev/null
 }
 
 # valid_wait_settings runs at the top of the script, before any dispatch. The probe runs the script with a bad
@@ -382,7 +397,42 @@ selftest_wiring_bad_wait_settings_refused() {
     return 1
 }
 
+# collaborators_called_once <mode>: one_mode called each of its seven collaborators exactly once, with <mode>, and
+# nothing else. The total is exact too, so an extra call (or a call with the other mode) fails the control.
+collaborators_called_once() {
+    mode="$1"
+    [ "$(grep -c '' "$CALLS_LOG" || true)" -eq 7 ] || return 1
+    for name in start_capture_relay wait_for_socket run_fixture wait_for_capture_files stop_capture_relay copy_out judge_mode; do
+        [ "$(grep -F -x -c -- "$name $mode" "$CALLS_LOG" || true)" -eq 1 ] || return 1
+    done
+}
+
+selftest_wiring_on_mode_calls_each_collaborator_once() {
+    reset_calls
+    one_mode_with on 0 0 0 >/dev/null && collaborators_called_once on
+}
+
+selftest_wiring_off_mode_calls_each_collaborator_once() {
+    reset_calls
+    one_mode_with off 0 0 0 >/dev/null && collaborators_called_once off
+}
+
+# A socket that never comes up must still stop the relay and copy out what there is, and the mode must say so on its
+# verdict line (the header promises one line per mode). The fixture never ran, so the mode fails.
+selftest_wiring_socket_failure_stops_relay_and_reports() {
+    reset_calls
+    out="$(STUB_SOCKET_RC=1 one_mode_with off 0 0 0)"
+    rc=$?
+    [ "$rc" -ne 0 ] || return 1
+    case "$out" in
+        *"espera=socket-falhou"*) ;;
+        *) return 1 ;;
+    esac
+    grep -F -x -q -- "stop_capture_relay off" "$CALLS_LOG" && grep -F -x -q -- "copy_out off" "$CALLS_LOG"
+}
+
 selftest_main() {
+    CALLS_LOG="${TMPDIR:-/tmp}/run_capture_known_color.selftest.calls.$$"
     selftest_check selftest_stale_output_is_removed
     selftest_check selftest_empty_out_dir_refuses
     selftest_check selftest_modes_exact_accepts_both
@@ -399,6 +449,10 @@ selftest_main() {
     selftest_check selftest_wiring_failed_judge_fails_the_mode
     selftest_check selftest_wiring_absent_fixture_fails_the_mode
     selftest_check selftest_wiring_bad_wait_settings_refused
+    selftest_check selftest_wiring_on_mode_calls_each_collaborator_once
+    selftest_check selftest_wiring_off_mode_calls_each_collaborator_once
+    selftest_check selftest_wiring_socket_failure_stops_relay_and_reports
+    rm -f "$CALLS_LOG"
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }
 

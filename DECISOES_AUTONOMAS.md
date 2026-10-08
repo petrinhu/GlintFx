@@ -6764,3 +6764,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - M3 **sobrevive** nos 3. O desenho no laço de teto é proteção, não prova.
   - O main empurra e dispara o CI agora.
 - **Próximo:** um implementador aplica a D-W8-70 (§7 da decisão), o I1, o I2 e os cosméticos, com um commit por assunto. Depois vêm o push e o CI na ponta.
+
+### 08/10/2026 00:12:38 - Mutantes do revisor (w8-pef-rev c266c69b, run 37719883057): batem com a previsão
+
+- **M1** (`gl_context_parity_test`, primeiro swap do vsync_off sem desenho): reprovou em compartilhado, estático e Debug com `swap_buffers() (vsync=off) failed: platform_failure`. O teste é `consume`, por isso não roda no ASan. **Previsto.**
+- **M2** (iconic, `after_restore` sem desenho): reprovou nos 4 trabalhos Windows com `win32_iconic_present_test.cpp:213: failed: !after_restore.has_error()`. **Previsto.**
+- **M3** (laço de teto do `loop_parity_test` sem desenho): **sobreviveu** nos 3, como o revisor previu.
+- **Leitura:** o desenho antes do primeiro swap e antes do restore é PROVA. O desenho no laço de teto é proteção, que só a ordem do líder mantém ("desenhando antes de cada apresentação"). A inferência C1 do CTO ganha mais um dado a favor.

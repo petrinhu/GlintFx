@@ -6771,3 +6771,21 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **M2** (iconic, `after_restore` sem desenho): reprovou nos 4 trabalhos Windows com `win32_iconic_present_test.cpp:213: failed: !after_restore.has_error()`. **Previsto.**
 - **M3** (laço de teto do `loop_parity_test` sem desenho): **sobreviveu** nos 3, como o revisor previu.
 - **Leitura:** o desenho antes do primeiro swap e antes do restore é PROVA. O desenho no laço de teto é proteção, que só a ordem do líder mantém ("desenhando antes de cada apresentação"). A inferência C1 do CTO ganha mais um dado a favor.
+
+### 08/10/2026 00:21:47 - Rodada 2 entregue (D-W8-70, I1, I2, cosméticos); CI da ponta e mutantes R-a/R-b com previsão escrita antes
+
+- **Commits:** 14706afc (D-W8-70), fd16ebec (I1), 854f85ac (I2), 26ea9572 e 3960e631 (cosméticos) e 82c960be (`_CRT_SECURE_NO_WARNINGS` no alvo, depois que o `cl.exe` reprovou o `getenv` com C4996).
+- **Provas locais:**
+  - `preci --fast` rc 0 e `--sanitizer-only` rc 0;
+  - container com `free` rc 0 (`vsync_off` 39 ms, leituras -1), sem a variável e com CI rc 1 (R-d), com `bogus` rc 1 (R-e);
+  - o `cl.exe` compilou os 4 alvos Windows.
+  - O I1 foi só compilado: o llvmpipe não recusa quadro vazio, então só o executor Windows prova.
+- **Mutantes, conferidos pelo main:** cada um difere de 82c960be por UMA mudança em `wgl_context_adapter.cpp`.
+  - **R-a** (`w8-pef-ra`, a3a9e498): o vsync desligado vira `call_swap_interval(1)`.
+  - **R-b** (`w8-pef-rb`, 1257bed9): com o valor 0, o adaptador devolve ok sem chamar o driver.
+- **Previsão do implementador, gravada antes do run:**
+  - em R-a e R-b, os 3 Windows que rodam o `gl_context_parity_test` (compartilhado, estático e Debug) ficam vermelhos com "leitura de volta 1, esperado 0 (vsync=off)", depois de imprimir `readback=1` e `vsync_off_60_swaps_ms`;
+  - o container Linux fica inalterado;
+  - **critério do CTO:** se o `ms` de R-a ficar em 2 vezes ou mais o da ponta (V1), a hipótese do DWM cai e o caso volta ao CTO.
+- **CI da ponta (V1):** espera-se `gl_context_parity_test` verde nos 3 Windows, com `vsync_off_swap_interval_readback=0`, `vsync_on_swap_interval_readback=1` e os dois tempos abaixo de 6000 ms.
+- **TODO:** o `PARITY-SWAP-REFUSAL-GEMEO` fica resolvido pelo I2. O main decide o status quando a ponta ficar verde.

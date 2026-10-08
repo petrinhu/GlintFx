@@ -6501,7 +6501,12 @@ if(WIN32)
             "$<TARGET_FILE:win32_window_capture>" "$<TARGET_FILE:capture_known_color_smoke>"
             "${CMAKE_CURRENT_BINARY_DIR}/capture_known_color_win32_out"
     )
-    set_tests_properties(capture_known_color_smoke PROPERTIES LABELS consume RUN_SERIAL TRUE TIMEOUT 600)
+    # LABELS unit, not consume (D-W8-60): the `consume` label exists for gates that link a PLAIN consumer
+    # against the sanitized library, which fails by construction under ASan. This test builds its fixture
+    # and its tool through glintfx_apply_compile_options, so both are sanitized themselves (and the driver
+    # is Python), and the job windows-sanitizer already runs a real window and a SW_HIDE child under ASan
+    # (win32_first_present_maps_test). The rule of that job (ctest -L '^unit$') now reaches the capture.
+    set_tests_properties(capture_known_color_smoke PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
 endif()
 
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md

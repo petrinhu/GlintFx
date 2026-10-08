@@ -3727,6 +3727,13 @@ jobs:
   # a lib sanitizada de proposito, e isso falha por construcao sob ASan
   # em QUALQUER compilador (o runtime do sanitizer tem que vir primeiro
   # no processo), nao so no GCC/Clang.
+  #
+  # QA-SCREEN-CAPTURE C2b-5 (D-W8-60): um teste construido com
+  # glintfx_apply_compile_options NAO e' "consumidor comum" - ele recebe
+  # as mesmas flags de sanitizer da lib. capture_known_color_smoke (a
+  # fixture e a ferramenta de captura) e' assim, por isso passou do
+  # rotulo `consume` para `unit` e roda neste job: a captura da janela
+  # nos quatro trabalhos Windows (shared, estatico, Debug e ASan).
   windows-sanitizer:
     name: Windows - Sanitizer (ASan)
     runs-on: windows-latest
@@ -3853,6 +3860,18 @@ jobs:
         run: |
           ctest --test-dir build-shared -L '^unit$' --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # QA-SCREEN-CAPTURE C2b-5 (D-W8-60): o mesmo artefato dos jobs `windows` e `windows-debug`, para o
+      # build ASan (capture_known_color_smoke roda aqui desde que passou ao rotulo `unit`). Nome distinto
+      # dos outros dois: o upload-artifact recusa nome repetido no mesmo run.
+      - name: Publicar a captura no Windows (ASan)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-windows-sanitizer
+          path: build-shared/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
 
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)

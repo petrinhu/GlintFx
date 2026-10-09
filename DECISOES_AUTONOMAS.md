@@ -7583,3 +7583,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **COSMÉTICOS:** o cabeçalho do teste diz "ten" casos; um comentário quebrado na ferramenta; o autoteste do driver só confere presença de texto; o valor duplicado entre a unidade e a fixture.
 - **D5a-fix2:** o mesmo implementador conserta MA e MB no teste, mais dois cosméticos. O código da unidade NÃO muda.
 - **As perguntas abertas da gramática** vão para o CTO no plano da D5b, que é quem usa a ferramenta com `--ready-line`. O mesmo vale para o valor duplicado.
+
+### 09/10/2026 00:24:08 - D5a-fix2 commitada; o mutante MB é equivalente; CI 37876943585 verde; RELAY-SOCKET-STALE em verificação
+
+- **D5a-fix2** em `f8acb388` (`git show --stat`: só os 2 arquivos pedidos). O caso 11b mata o MA (rc_ctest=8), e N1 a N6 morrem.
+- **O mutante MB é equivalente.** O main conferiu em `tests/tools/window_capture_options.cpp:35-36,77`: o valor só falta quando a opção é o último token, e então `index += 2` passa do fim e a linha é recusada pela falta do separador, qualquer que seja o valor. A previsão do plano estava errada, não o teste. A unidade não muda, porque mudá-la sairia do escopo. Decisão autônoma do main sobre um fato verificado; confirmar retroativamente.
+- **CI 37876943585** (tip `131b7e66`): `success`, com 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC, que só roda com etiqueta).
+- **RELAY-SOCKET-STALE** passa a 🔍 na TODO.md, porque o commit 1 da D2b-fix (`1e757433`) entrou.
+- O preci da D4b e o da D5a-fix2 estão na fila da `heavy.lock`.

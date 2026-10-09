@@ -8026,3 +8026,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
 - **D5b-fix** (`ae2d1295`): N de 33 para 34; o rc direto sem MEASURED; M3, M6-SZ e M5 morreram no rc direto e no ctest; o M4 morreu no ctest ("Error regular expression found in output"), com o rc direto em 0, como previsto; trava com `sitios=9 esperado=9`; preci com rc 0.
 - **Revisão** despachada ao revisor da D5b (`rev-d5bfix.md`). Agentes vivos: o revisor da D3, o revisor da D5b-fix e o CTO, 3 no total.
+
+### 09/10/2026 05:11:32 - CI 37900807368 verde; SELFTEST-EXIT-LINE em ✅
+
+- **CI 37900807368** (tip `f182a427`, com D3a-fix, D5a-fix5, SELFTEST-FIX2, D5b e D3a-fix2): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). O `operator==` padrão passou no MSVC, e os scripts novos passaram no dash do Ubuntu.
+- **SELFTEST-EXIT-LINE → ✅.** A cadeia das três revisões fechou (c3ec9d66, 68968bad, dfa3e709), e o CI que contém `dfa3e709` está verde.
+- A D3 (`0cbaba25`) e a D5b-fix (`ae2d1295`) ainda não foram empurradas.

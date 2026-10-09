@@ -7916,3 +7916,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D3a-fix** (`38630bb5`): N=34; R6 caiu no controle 32, R4 no 33, MA no 34; o R3 imprime `34` uma vez e depois a recusa (rc 1). Preci com rc 0 no pai e no SHA, lido de `preci*.rc` pelo main. O diff do registro e de `tests/container/` antes do commit tinha só as mudanças da fatia. O dash continua não medido localmente.
 - **Revisão conjunta** da D2b-fix3 e da D3a-fix despachada ao revisor da D3a, que não implementou nenhuma das duas (`ordem-rev-d2bfix3-d3afix.md`), com o §0 do plano da D5a-fix5 como critério de classe.
 - **Agentes vivos:** a SELFTEST-FIX2, a D5a-fix5 e o revisor conjunto, 3 no total.
+
+### 09/10/2026 03:44:41 - CI 37892805249 verde
+
+- **CI 37892805249** (tip `12dc9ea4`, com D5a-fix3/4, SELFTEST-EXIT-LINE e SELFTEST-FIX, D2b-fix2/3 e D3a): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). Os jobs do Ubuntu, cujo `sh` é dash, passaram, e isso responde por parte do "dash não medido" das revisões. A D3a-fix e as correções seguintes ainda não foram empurradas.

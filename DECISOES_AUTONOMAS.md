@@ -7943,3 +7943,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **SELFTEST-EXIT-LINE:** as três revisões estão fechadas (c3ec9d66, 68968bad, dfa3e709). O item vai a ✅ quando o CI do servidor que contém `dfa3e709` fechar verde (L-63: ✅ só depois de verificar).
 - **D5a-fix5** (`94dc1049`): 19 casos verdes; `cl.exe` com o SHA no log e BUILD_RC 0; lint e link Windows com rc 0; FNEW, OCT0, VINVAL e FC mortos nos casos previstos; preci com rc 0. A revisão foi para o mesmo revisor da D5a-fix4.
 - **Agentes vivos:** o revisor conjunto da D2b-fix3 e da D3a-fix, a D5b e o revisor da D5a-fix5, 3 no total.
+
+### 09/10/2026 04:14:17 - Revisão conjunta: D2b-fix3 APROVADA, D3a-fix APROVADA COM RESSALVAS; RELAY-SOCKET-STALE em ✅
+
+- **Revisão conjunta** (`/var/tmp/cto-w8/rev-d2bfix3-d3afix.md`): IMP-A, I-1 e C-5 FECHADOS; 10 mutantes mortos.
+  - **I-4:** a guarda de despacho único cai se a suíte zerar a própria variável (P2b); a recomendação é `readonly`.
+  - **C-6:** nenhum portão confere o modo 100755.
+  Os dois foram ao CTO (`plano-d3afix2.md`), com a errata para a D3 nascer com a guarda robusta.
+- **RELAY-SOCKET-STALE → ✅.** A cadeia D2b-fix, D2b-fix2 e D2b-fix3 está revisada, e o caso do log vazio está provado (X5 no controle 29). O CI 37892805249, que contém `1e757433` a `5061cffe`, está verde.

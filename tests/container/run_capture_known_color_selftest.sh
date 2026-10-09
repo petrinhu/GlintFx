@@ -397,9 +397,10 @@ selftest_gate_fails_a_failing_control() {
 
 selftest_main() {
     # selftest_main runs once per process (rev-d3a C-5): a second dispatch would run every control twice, and the
-    # executor, which wants one exact OK line, would not see it.
+    # executor, which wants one exact OK line, would not see it. readonly, so no later line can disarm it
+    # (rev-d2bfix3-d3afix I-4): a reset aborts the shell.
     [ -z "${SELFTEST_MAIN_STARTED:-}" ] || { echo "selftest: selftest_main chamado duas vezes" >&2; exit 1; }
-    SELFTEST_MAIN_STARTED=1
+    readonly SELFTEST_MAIN_STARTED=1
     CALLS_LOG="${TMPDIR:-/tmp}/run_capture_known_color.selftest.calls.$$"
     selftest_check selftest_stale_output_is_removed
     selftest_check selftest_empty_out_dir_refuses

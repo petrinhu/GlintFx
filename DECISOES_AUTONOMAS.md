@@ -7712,3 +7712,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
 - **D5a-fix3** em `571d21ec` e `f9401e5d`. O diff do segundo commit, conferido pelo main, é de 2 linhas, só a chamada de `from_chars`. R2 verde (17 casos, 0 falhas); F3 e F4 refeitos e mortos. O preci num clone de `f9401e5d` deu rc 0 em `--lint-only`, `--win32-link-only` (128 alvos, 0 falhas) e `--fast`, lidos de `fix3-*.rc`.
 - **Revisão da D5a-fix3** despachada a um haiku distinto (`ordem-rev-d5afix3.md`). Ela julga as D-W8-120 a 123 pelo consumidor desconhecido e confere se os IMPORTANTES 1 e 2 da revisão anterior fecharam. Agentes vivos: SELFTEST-EXIT-LINE, D2b-fix2, CTO (plano da D3) e o revisor da D5a-fix3, 4 no total.
+
+### 09/10/2026 01:40:56 - Plano da D3 aceito depois da verificação do main
+
+- **Plano** `/var/tmp/cto-w8/plano-d3.md` (md5 `eb734c28`, CTO opus), com as decisões D-W8-136 a D-W8-142, decididas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - **C-5 / RELAY-SESSION-SUBJECTS:** `run_check` sai para `tests/container/run_check.sh`, e `clean_mode_output` fica na biblioteca, que é quem a usa. Pergunta ao líder só se o revisor da D3a discordar.
+  - **CAPTURE-DRIVER-SELFTEST-SPLIT:** os controles vão para `<driver>_selftest.sh`, carregado pelo `--selftest` do próprio driver. A D3a faz isso no driver antigo como refactor puro (31 controles iguais, nenhuma linha em `tests/CMakeLists.txt`).
+  - **O driver da D3:** uma rodada, `timeout -k 5 60` dentro do contêiner, 19 controles e 14 mutantes; ele insere 17 linhas no registro (na forma do executor) e 2 em `tests/parity_exceptions.txt`.
+  - **Ordem:** D2b-fix2, depois D3a junto com a D5b (arquivos disjuntos), depois D3, depois D6-red.
+- **Verificação do main:** `run_check` (`capture_relay_session.sh:150`) e `clean_mode_output` (`:164`) existem; `tests/parity_exceptions.txt` e `tests/container/exec_fixture.sh` existem. As previsões dependem do estado que a D2b-fix2 vai deixar e serão reconferidas contra o HEAD antes do despacho da D3a.
+- **Notas:** o CTO rodou duas sondas só de leitura em imagens existentes (a versão do `timeout` e o `/bin/sh`), declaradas no §1.3 do plano. Isso foi além do pedido de não executar nada, mas não toca superfície nem repositório. **Errata:** não existe portão de shellcheck, ao contrário do que o item 4 do plano-d2bfix2 dizia (o implementador foi avisado), e o `/bin/sh` da `glintfx-devbuild:verify` é bash, e não dash.

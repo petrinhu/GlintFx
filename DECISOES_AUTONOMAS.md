@@ -7766,3 +7766,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Revisão da D2b-fix2** despachada a um haiku distinto (`ordem-rev-d2bfix2.md`). Ela reaplica ao SHA novo os 3 mutantes que sobreviviam na revisão anterior e confere o diagnóstico do IMP-3.
 - **D3a** despachada ao implementador da D2b-fix2 (`ordem-d3a.md`, §4 do `plano-d3.md`). O main conferiu as âncoras contra o HEAD: 31 controles; as linhas 44, 149 e 549 do driver; a linha 160 e o cabeçalho, linhas 8 e 11, da biblioteca; o 12º e o 15º controles batem com os mutantes A1 e A3.
 - **Agentes vivos:** o revisor da SELFTEST-EXIT-LINE, a D5a-fix4, o revisor da D2b-fix2 e a D3a, 4 no total. A D5b espera a D5a-fix4.
+
+### 09/10/2026 02:24:40 - Revisão da SELFTEST-EXIT-LINE: REPROVADA para fechamento; correção ao CTO; D3a commitada
+
+- **Revisão** (`/var/tmp/cto-w8/rev-selftest-exit-line.md`, haiku distinto). O núcleo funciona: rc exato e linha exata; V1 e V3 vermelhos no registro novo; verde 9 de 9. Reprova por lei:
+  - **I1** (L-40): o piso `executor >= 7` conta também o registro do autoteste do próprio executor, então faltar um sítio real passa;
+  - **I5** (L-36): a trava nova não tem autoteste;
+  - **I6**: um comentário com `[` sem fechar esconde um PASS seguinte (medido);
+  - lacunas no autoteste do executor: I2 (sufixo, mutante E2), I3 (`1.0`, E3) e EXPECT_LINE vazia sem caso;
+  - **I4:** três comentários gêmeos que ainda descrevem a regex;
+  - cosméticos C1 e C2.
+- **Encaminhamento:** o CTO planeja a SELFTEST-EXIT-LINE-fix em `plano-selftest-fix.md`. Ela mexe no registro, então entra ANTES da D5b e da D3. A SELFTEST-EXIT-LINE fica em 🔍 até a correção e a revisão dela.
+- **D3a** commitada em `9fe3d4d7` (4 arquivos; os 2 novos com modo 100755 no índice, conferido pelo main com `git ls-files -s`). Os mutantes estão em curso.

@@ -7707,3 +7707,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **SELFTEST-EXIT-LINE** em `c3ec9d66` (`git show --stat`: os 4 arquivos esperados). `git grep PASS_REGULAR_EXPRESSION` em `tests/CMakeLists.txt` acha só 3 linhas, todas comentário; o registro do driver da captura já está na forma do executor. Status passa a 🔍. Os mutantes e o preci dela ainda rodam, sobre clones.
 - **D2b-fix2** despachada ao implementador da D2b-fix (`ordem-d2bfix2.md`), com a pré-condição conferida: o commit da SELFTEST-EXIT-LINE está no HEAD e nenhuma fatia viva escreve no registro. A D5a-fix3 roda em paralelo, em arquivos disjuntos.
 - **Agentes vivos:** a SELFTEST-EXIT-LINE (mutantes e preci), a D5a-fix3 (preci), a D2b-fix2 e o CTO (plano da D3), 4 no total (o teto).
+
+### 09/10/2026 01:40:30 - D5a-fix3 entregue com o conserto de lint; revisão da D5a-fix3 despachada
+
+- **D5a-fix3** em `571d21ec` e `f9401e5d`. O diff do segundo commit, conferido pelo main, é de 2 linhas, só a chamada de `from_chars`. R2 verde (17 casos, 0 falhas); F3 e F4 refeitos e mortos. O preci num clone de `f9401e5d` deu rc 0 em `--lint-only`, `--win32-link-only` (128 alvos, 0 falhas) e `--fast`, lidos de `fix3-*.rc`.
+- **Revisão da D5a-fix3** despachada a um haiku distinto (`ordem-rev-d5afix3.md`). Ela julga as D-W8-120 a 123 pelo consumidor desconhecido e confere se os IMPORTANTES 1 e 2 da revisão anterior fecharam. Agentes vivos: SELFTEST-EXIT-LINE, D2b-fix2, CTO (plano da D3) e o revisor da D5a-fix3, 4 no total.

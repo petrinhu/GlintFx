@@ -7404,3 +7404,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Conferência do main:** 1 arquivo no commit, a árvore limpa, e li os logs de `rv_e`, `rv_i` e `rv_a` (todos com `rc_ctest=8`).
 - **Re-revisão** pelo mesmo revisor da D2a-fix, com os sobreviventes dele de volta e 2 mutantes novos: `/var/tmp/cto-w8/rev-d2afix2.md`.
 - O IMPORTANTE 4 e o COSMÉTICO 5 seguem com o CTO (o padrão dos 11 testes).
+
+### 08/10/2026 22:51:07 - Re-revisão da D2a-fix2: APROVADA COM RESSALVAS; D2a-fix3 despachada
+
+- **Re-revisão** (`/var/tmp/cto-w8/rev-d2afix2.md`):
+  - A e B fechados nos caminhos exercidos;
+  - 7 de 9 mutantes morreram;
+  - **IMPORTANTE:** o controle 19 não confere que os dois modos rodaram (os mutantes `rv_n4` e `rv_n5` sobrevivem e só `on` roda);
+  - **COSMÉTICO** herdado: o veredito não traz a palavra "reprovado". Fica registrado.
+- **D2a-fix3:** o mesmo implementador, que reaproveita `modes_are_exact` depois do laço. A contagem continua 19.

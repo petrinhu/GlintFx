@@ -7642,3 +7642,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Linha `SELFTEST-EXIT-LINE`** gravada acima de `CI-VERDE-W8`, com o texto da D-W8-114 (`/var/tmp/cto-w8/plano-d2b.md`). Ela dependia da D5a, que já entrou, e a D2b-fix, que mexia em `tests/CMakeLists.txt`, também já entrou.
 - **Ordem** `/var/tmp/cto-w8/ordem-selftest-exit-line.md`, para um haiku (`devops-sre`). Correção do main à previsão do plano: o vermelho V3 ("um controle a menos") vai num autoteste da regex genérica (`raw_to_png.py`), porque o driver `.sh` já tem o número exato no registro e reprovaria hoje mesmo.
 - **Serialização:** a D5b (registro novo em `tests/CMakeLists.txt`) espera o commit desta fatia. O CTO será avisado quando o plano dele chegar.
+
+### 09/10/2026 01:08:36 - Plano da D5b aceito depois da verificação do main; D5a-fix3 despachada
+
+- **Plano** `/var/tmp/cto-w8/plano-d5b.md` (md5 `82eab644`, CTO opus), com a pesquisa antes do desenho. As decisões D-W8-120 a D-W8-128, decididas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - `--` aceito como valor (getopt, POSIX Guideline 10);
+  - opção repetida: vence a última;
+  - orçamento por `std::from_chars`, que recusa espaço, tab e `+`;
+  - o literal "presented at attempt" fica, com comentário (a fumaça real é a guarda);
+  - a D5a-fix3 numa fatia só, antes da D5b;
+  - o desenho do driver da D5b, com 33 controles;
+  - a D5b insere 12 linhas em `tests/CMakeLists.txt`;
+  - a herança para a D6-red e o comentário que a D5b corrige.
+- **Verificação do main (L-16, passo 3)** contra a árvore: as âncoras da D5a-fix3 existem nas linhas citadas (`read_positive_int` com `strtol` em `:18-27`, chamadas em `:84-85`, `:77`, `k_default_ready_line` em `.hpp:20`, os auxiliares do teste, 13 casos hoje); o formato `--- N case(s) ---` está em `harness_main.cpp:147`; `<charconv>` já é usado em `src/gfss/`. As previsões de vermelho e de mutante conferem por leitura (F3 e F4 matam na linha certa do 7c).
+- **D5a-fix3** despachada ao mesmo implementador da D5a (`ordem-d5afix3.md`), em paralelo com a SELFTEST-EXIT-LINE (arquivos disjuntos). **D5b** espera a D5a-fix3 e a SELFTEST-EXIT-LINE (as duas mexem em `tests/CMakeLists.txt` ou na unidade).
+- **INBOX:** `CAPTURE-SUCCESS-LINE-TWIN`. **Nota:** a linha 266 do plano-mestre está desatualizada (manda o registro para `tests/examples_tests.cmake`, que não existe); vale o Anexo B do plano da D5b.

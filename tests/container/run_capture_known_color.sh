@@ -425,13 +425,18 @@ selftest_wiring_off_mode_calls_in_order() {
 # A socket that never comes up, in BOTH modes: the run fails, the verdict line names this mode and the socket failure,
 # and the calls are the expected ones in order (stop before copy). A branch that hardcodes one mode passes only one.
 selftest_wiring_socket_failure_stops_relay_and_reports() {
+    modes_run=""
     for m in on off; do
+        modes_run="$modes_run $m"
         out="$(STUB_SOCKET_RC=1 one_mode_with "$m" 0 0 0)"
         rc=$?
         [ "$rc" -ne 0 ] || return 1
         [ "$out" = "run_capture_known_color: mode=$m fixture=nao-rodou espera=socket-falhou" ] || return 1
         [ "$(cat "$CALLS_LOG")" = "$(expected_socket_calls "$m")" ] || return 1
     done
+    # The loop must have run both modes, each once, in order: a loop that drops or repeats one would pass every check
+    # above. modes_are_exact checks the set and the count; the literal compare checks the order.
+    modes_are_exact "$modes_run" && [ "$modes_run" = " on off" ]
 }
 
 selftest_main() {

@@ -7687,3 +7687,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - as cópias (`snap*`, `clone*`, `mut*` e similares) das fatias que fecharam desde a primeira limpeza: D2b-fix, D5a-fix2 e as revisões delas, e restos de ondas anteriores. Lista em `limpeza2f.txt`, com zero caminhos em `scripts/` e nas fatias vivas. O diretório `/var/tmp/cto-w8/b`, de origem desconhecida, foi poupado.
 - **Resultado:** `/var/tmp/cto-w8` de 8,5 para 4,6 GiB; `min` 21,68 GiB.
 - **NÃO feito, e é decisão do líder se quiser:** o Docker guarda 19,6 GB de imagens e 16,9 GB de cache de build recuperáveis, e `/var/tmp/glintfx-win-lab` ocupa 33 GB. Apagar imagens ou o laboratório do Windows é caro de desfazer, porque é preciso reconstruir.
+
+### 09/10/2026 01:23:17 - Plano da D2b-fix2 aceito depois da verificação do main
+
+- **Plano** `/var/tmp/cto-w8/plano-d2bfix2.md` (md5 `90acaad3`, CTO opus), com as decisões D-W8-129 a D-W8-135, decididas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - controle 29: log vazio ou ausente, que mata o X5;
+  - cada controle passa a rodar isolado em subshell, provado pelo controle 31, que mata o X4 obrigatório;
+  - a guarda de CONTAINER sobe para `require_container` na entrada das duas esperas, servindo também `in_container` e `copy_out` (regra de 3), com o controle 30 como vermelho;
+  - COS-1 e COS-4 aceitos, COS-3 recusado em parte (o ramo do S3 mata o RS1);
+  - o IMP-4 vira o item da INBOX `CAPTURE-DRIVER-SELFTEST-SPLIT`;
+  - N vai de 28 para 31, num commit só.
+- **Verificação do main** contra a árvore: `selftest_check` em `run_capture_known_color.sh:152-158` roda `"$@"` no shell principal; as guardas `:?` de CONTAINER estão em `capture_relay_session.sh:55` (in_container) e `:140` (copy_out); `wait_for_socket` (`:89`) e `wait_for_capture_files` (`:117`) não têm guarda própria.
+- **Ordem no tempo (D-W8-135):** SELFTEST-EXIT-LINE, depois a D2b-fix2, depois a D5b (enquanto o CTO planeja a D3), depois a D3. Nunca duas fatias vivas em `tests/CMakeLists.txt`.
+- **Errata à D5b, a levar na ordem dela:** o registro novo copia a forma do executor `expect_exit_and_line`, e não `PASS_REGULAR_EXPRESSION`, senão a trava `check_no_pass_regex` reprova.

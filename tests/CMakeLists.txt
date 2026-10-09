@@ -6519,6 +6519,14 @@ target_include_directories(window_capture_rules_test PRIVATE "${CMAKE_CURRENT_SO
 target_sources(window_capture_rules_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp")
 
+# QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1): the command line of the Windows window-capture tool, as a
+# pure unit (the options it accepts, the --ready-line text, the budget ceiling). No <windows.h>, no
+# system call: it runs on every system, so there is no parity exception.
+glintfx_add_test(window_capture_options_test)
+target_include_directories(window_capture_options_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_sources(window_capture_options_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_options.cpp")
+
 # QA-SCREEN-CAPTURE C2b-2 (D-W8-36, D-W8-37, D-W8-40): the Windows window-capture tool. It launches the
 # fixture itself, finds its window by PID and title (exactly one), reads the pixels by PrintWindow and by
 # BitBlt of the screen, and writes one capture pair per mechanism. NOT a test: an executable the driver
@@ -6532,7 +6540,8 @@ if(WIN32)
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_grab.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_occluder.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_text.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_options.cpp")
     target_link_libraries(win32_window_capture PRIVATE user32 gdi32)
     glintfx_apply_compile_options(win32_window_capture)
 endif()

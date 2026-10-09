@@ -7591,3 +7591,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **CI 37876943585** (tip `131b7e66`): `success`, com 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC, que só roda com etiqueta).
 - **RELAY-SOCKET-STALE** passa a 🔍 na TODO.md, porque o commit 1 da D2b-fix (`1e757433`) entrou.
 - O preci da D4b e o da D5a-fix2 estão na fila da `heavy.lock`.
+
+### 09/10/2026 00:28:00 - D4b aceita; o mutante P4 estava mal desenhado no plano; revisão da D4b despachada
+
+- **D4b** em `a029245f` (`git show --stat`: só os 3 arquivos). Inventário por `ast`: 116 nomes na base e 116 depois, nenhum repetido, nenhum corpo diferente. N=109, preci com rc 0 (`/var/tmp/cto-w8/d4b/preci.rc`). P1, P2 e P3 morreram.
+- **O P4 não reprovou** (`git rm --cached` numa cópia). O `run_ctest.sh` monta a árvore de trabalho, e o arquivo continuava no disco. Leitura do main (INFERÊNCIA, que vai ao revisor): o mutante estava mal desenhado. Um arquivo fora do commit chega ao CI e ao preci, que roda num clone do SHA, como arquivo ausente do disco, e esse é o P4b do implementador, que morreu por `ImportError`.
+- **Desvio aceito:** o commit foi feito antes dos mutantes, pela L-27. A ordem de passos estava invertida.
+- **Revisão da D4b** despachada a um haiku distinto (`ordem-rev-d4b.md`). Agentes vivos: D2b-fix, D5a-fix2 (preci) e o revisor da D4b, 3 no total.

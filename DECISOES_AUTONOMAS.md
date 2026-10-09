@@ -8079,3 +8079,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 ### 09/10/2026 05:41:41 - D5b-fix2 entregue
 
 - **D5b-fix2** (`553e7edc`, só `tests/CMakeLists.txt`): `(MEASURED|SCANCOUNT)[ \t]` nos dois registros. As cinco mortes obrigatórias caíram no ctest, cada uma no registro certo: MT-TAB, M4, MT-2SP e MS-SCAN no driver novo, e MS-TAB-IRMAO no irmão. Trava com `sitios=9`, preci com rc 0. A revisão vai junto com a da D3-fix, que é pequena.
+
+### 09/10/2026 09:04:18 - Resposta do líder sobre a aparência, push do lote 4, D6-red e revisões despachadas
+
+- **O líder respondeu** à pergunta (1) do CTO às 09:01: "Manter a cena atual (Recomendado)". A D6-red usa a cena pré-registrada da D-W8-72, sem mudança.
+- **Entregues, todas com preci rc 0:** D3-fix (`ffdba257`), SPLIT-1 (`62558f78`, N=109) e SPLIT-2 (`835ad26a`, N=34), além da D5b-fix2 já registrada.
+- **Push** de `onda-w8` para `835ad26a`, com local e remoto iguais pelo `git ls-remote`. CI 37927328081 disparado.
+- **D6-red despachada** ao implementador da D3 (`ordem-d6red.md`, que aponta para o §5.3 do `plano-d6-d7.md`). O agente não empurra: as corridas A a E da D-W8-192 no servidor ficam com o main.
+- **Revisões despachadas** (`ordem-rev-lote4.md`, revisores distintos dos implementadores, L-12):
+  - revisor A: a D5b-fix2;
+  - revisor B: a D3-fix, a SPLIT-1 e a SPLIT-2.
+  Os dois revisam clones no SHA, porque a D6-red está viva na árvore real. São 3 agentes vivos.

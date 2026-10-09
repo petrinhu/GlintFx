@@ -8090,3 +8090,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - revisor A: a D5b-fix2;
   - revisor B: a D3-fix, a SPLIT-1 e a SPLIT-2.
   Os dois revisam clones no SHA, porque a D6-red está viva na árvore real. São 3 agentes vivos.
+
+### 09/10/2026 09:05:26 - Ordem do líder: ver na tela a imagem gerada
+
+- **Verbatim (09/10/2026, 09:04):** "vou querer ver na minha tela a imagem gerada".
+- **Como se cumpre:** a imagem é o PNG que a captura tira do exemplo `first_window`, que só passa a desenhar na D6-green. Assim que houver:
+  - o PNG do Linux, da rodada local em contêiner;
+  - e o do Windows, do artefato do CI,
+  o main abre cada um num visualizador na tela do líder. Isso é só abrir um arquivo de imagem, não é teste, e não conflita com a L-09.
+- **A ordem do QA da D-W8-196 fica igual:** a abertura para o líder vem DEPOIS de o main congelar os md5 e não altera o arquivo.

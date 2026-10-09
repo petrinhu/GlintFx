@@ -7989,3 +7989,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D3a-fix2** (`94caef3c`, 1 arquivo): N=34; o P2b morre por `readonly variable`, sem linha OK; preci com rc 0.
 - **Decisão do main:** a revisão da D3a-fix2 (uma linha) será feita junto com a da D3, cujo Anexo B tem a mesma guarda `readonly`. Um revisor distinto, uma rodada só.
 - **Push** de `onda-w8` com o tip `f182a427`, provado por `git ls-remote`. Entram D3a-fix, D5a-fix5, SELFTEST-FIX2, D5b e D3a-fix2. CI disparado: run 37900807368. Ele confere no servidor o `operator==` padrão no MSVC e o dash nos scripts novos.
+
+### 09/10/2026 04:46:41 - Revisão da D5b: APROVADA COM RESSALVAS, sem defeito de código; D5b-fix ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5b.md`, haiku distinto): Anexo A idêntico byte a byte; integridade conferida (`sitios=8`, nenhum `PASS_REGULAR_EXPRESSION` novo); funções com até 21 linhas e 4 parâmetros. Mortos: K2, K7, K17, K18, M1, M2 e M6.
+- **IMPORTANTES** (§0, item 1, regra decidida sem caso):
+  - PROBE_COUNT=12 sem controle (M3);
+  - MEASURED no autoteste não reprova (M4), contra a D-W8-125;
+  - a limpeza de `png/` não está provada (M5).
+  O tamanho do arquivo (516 linhas, com driver e autoteste juntos) foi como pergunta de desenho ao CTO.
+- **Encaminhamento:** o CTO planeja a D5b-fix em `plano-d5bfix.md`. Se ela mudar o N do registro, vem depois do commit da D3.

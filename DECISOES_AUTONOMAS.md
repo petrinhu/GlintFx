@@ -7883,3 +7883,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **I7 (bloqueia a D5b):** a catraca não lembra o máximo. Um registro que tinha 9 sítios e cai para 7, com o piso em 7, passa (mutante N1). **I8:** o autoteste da trava não tem caso de `]` (N3).
 - **Encaminhamento:** o CTO decide a forma da catraca (o revisor sugeriu `EQUAL`) e planeja a SELFTEST-FIX2 em `plano-selftest-fix2.md`. A D5b espera por ela.
 - **Lição:** é a segunda reprovação seguida da mesma trava. Na primeira (I1) e na segunda (I7), o defeito estava em COMO o número é comparado, e não na contagem. Uma trava de contagem precisa de prova nos dois sentidos: sobe sem atualizar e desce sem atualizar.
+
+### 09/10/2026 03:24:14 - D3a-fix commitada; plano da SELFTEST-FIX2 aceito e despachado
+
+- **D3a-fix** em `38630bb5` (4 arquivos; `run_check_selftest.sh` novo, com modo 100755 conferido pelo main; registro com `34 controles OK`). Mutantes e preci em curso.
+- **Plano da SELFTEST-FIX2** (`plano-selftest-fix2.md`, md5 `62171b00`). As decisões D-W8-163 a D-W8-165, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - a catraca vira IGUALDADE exata (`CHECK_NO_PASS_REGEX_SITES`). A trava não lembra máximo; quem lembra é o número no arquivo e a história dele no git. Acrescentar ou tirar um teste sem mudar o número reprova, e baixar o número aparece no diff;
+  - limite declarado: trocar um teste por outro no mesmo commit passa;
+  - autoteste de 9 casos, com as plantas montadas a partir da constante; o caso 8 é o `]` solto;
+  - as erratas da D5b (8) e da D3 (9) continuam, com o nome novo.
+- **Despacho:** a SELFTEST-FIX2 foi para o implementador da D2b-fix, com a guarda de diff. Agentes vivos: a D3a-fix (mutantes e preci), o revisor da D5a-fix4 e a SELFTEST-FIX2, 3 no total. A D5b espera a SELFTEST-FIX2.

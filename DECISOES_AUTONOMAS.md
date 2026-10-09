@@ -7848,3 +7848,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - mais quatro cosméticos.
   - O dash continua não medido: não há imagem local, e o CI vai medir.
 - **Encaminhamento:** o CTO decide e planeja a D3a-fix em `plano-d3afix.md`, DEPOIS da D2b-fix3, que mexe no mesmo arquivo de controles, e antes da D3, porque `run_check.sh` ganha o segundo consumidor nela.
+
+### 09/10/2026 03:13:11 - D2b-fix3 commitada; terceira limpeza do scratch
+
+- **D2b-fix3** em `5061cffe`, com o preci em curso.
+- **Limpeza** (escopo "clean"): 148 cópias (`snap*`, `clone*`, `mut*`, `build` de `out*` e similares) das fatias fechadas desde a última limpeza: D2b-fix2, D3a, D5a-fix3, D5a-fix4, SELFTEST-EXIT-LINE, SELFTEST-FIX e as revisões delas. 55 dos caminhos eram de dono root e foram apagados por contêiner. Lista em `limpeza3.txt`, com zero caminhos em `scripts/`. Foram poupados os diretórios vivos (`d2bfix3`, `rev-d5afix4`, `rev-selftest-fix`), o `rev-selftest-exit-line` (o mesmo revisor reaproveita as plantas dele agora) e o `b`.
+- **Disco:** `min` de 20,84 para 22,09 GiB; `/var/tmp/cto-w8` com 3,6 GiB.

@@ -8021,3 +8021,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D5b-fix** em `ae2d1295`, com o preci em curso.
 - **Limpeza** (escopo "clean"): 131 cópias das fatias fechadas (D5b, D5a-fix5, D3a-fix, D3a-fix2, D2b-fix3, SELFTEST-FIX2 e as revisões delas), das quais 45 eram de dono root e foram apagadas por contêiner. Lista em `limpeza4.txt`, com zero caminhos em `scripts/`. Foram poupados os diretórios vivos (`d5bfix`, `rev-d3`, `d3`) e o `b`.
 - **Disco:** `min` de 20,94 para 21,82 GiB.
+
+### 09/10/2026 05:09:12 - D5b-fix entregue; revisão despachada
+
+- **D5b-fix** (`ae2d1295`): N de 33 para 34; o rc direto sem MEASURED; M3, M6-SZ e M5 morreram no rc direto e no ctest; o M4 morreu no ctest ("Error regular expression found in output"), com o rc direto em 0, como previsto; trava com `sitios=9 esperado=9`; preci com rc 0.
+- **Revisão** despachada ao revisor da D5b (`rev-d5bfix.md`). Agentes vivos: o revisor da D3, o revisor da D5b-fix e o CTO, 3 no total.

@@ -7467,3 +7467,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Conferência do main:** os 3 arquivos estão no commit, e li os logs de M1, M3 e M6 (todos com `rc_ctest=8`) e a linha dos 108 controles.
 - **Revisão** despachada a um qa-engineer em haiku, com ordem de 8 itens: `/var/tmp/cto-w8/ordem-rev-d4.md`.
 - **Agentes vivos:** D2b, D5a e o revisor da D4, num total de 3, dentro do teto de 4.
+
+### 08/10/2026 23:18:03 - D2b: provas 1 a 5 verdes; o MB6 morreu por outro caminho e revelou um defeito anterior (socket residual)
+
+- **Segundo o implementador (haiku), antes do commit:**
+  - inventário com 43 funções, `diff` vazio e `uniq -d` vazio;
+  - corpos idênticos;
+  - autoteste com 19 controles, rc 0 pelo ctest e direto;
+  - **fumaça real antiga contra nova** (imagem `glintfx-wltest:pef-f1`, isolamento com rc 0 antes, configuração exata do CI): limpo com rc 0 e sabotado com rc 1 nas duas versões, e as linhas de veredito iguais por `diff`;
+  - o driver foi de 471 para 366 linhas, mais 132 na biblioteca;
+  - MB1 a MB5 deram o resultado previsto, e o MB2 passou no autoteste e reprovou no inventário.
+- **MB6:** rc 1 nos dois modos, mas com `fixture=1 espera=1` em vez de `espera=socket-falhou`. O `wait_for_socket` (`test -S`) aceitou um socket RESIDUAL de rodada anterior no mesmo container.
+- **Decisão do main:**
+  - o MB6 conta como morto, porque o rc é diferente de 0 na fumaça real;
+  - a D2b é refactor puro e não muda corpo de função, então é commitada como está;
+  - o defeito anterior vira o item `RELAY-SOCKET-STALE`: `test -S` não prova que alguém está escutando. No CI, o mesmo container atende ~15 fixtures seguidas, e um socket residual pode fazer a espera passar antes de o relé novo escutar. Ele vai ao CTO junto com a D3, que reaproveita a biblioteca.
+  - O contrato implícito de `CONTAINER` e `OUT_DIR` entre a biblioteca e o driver também vai para a D3.

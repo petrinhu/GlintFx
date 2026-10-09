@@ -7876,3 +7876,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 ### 09/10/2026 03:18:04 - Push e CI do lote D5a-fix3/4, SELFTEST-EXIT-LINE e correção, D2b-fix2/3 e D3a
 
 - **Push** de `onda-w8` com o tip `12dc9ea4`, provado por `git ls-remote`. Entram 8 commits de código desde `f2f2d3eb`: D5a-fix3 (2), SELFTEST-EXIT-LINE, D2b-fix2, D5a-fix4, D3a, SELFTEST-FIX e D2b-fix3. O CI confere no servidor o que esta máquina não confere: o `sh` dash do Ubuntu e os jobs Windows.
+
+### 09/10/2026 03:21:05 - Revisão da SELFTEST-FIX: REPROVADA de novo para fechamento; SELFTEST-FIX2 ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-selftest-fix.md`, o mesmo revisor distinto). Ficaram FECHADOS no registro de hoje I1, I4 e I6, e o I5 com uma lacuna. Mortos: E2, E3, E4, T1, N2, T2, B1 e N3p.
+- **I7 (bloqueia a D5b):** a catraca não lembra o máximo. Um registro que tinha 9 sítios e cai para 7, com o piso em 7, passa (mutante N1). **I8:** o autoteste da trava não tem caso de `]` (N3).
+- **Encaminhamento:** o CTO decide a forma da catraca (o revisor sugeriu `EQUAL`) e planeja a SELFTEST-FIX2 em `plano-selftest-fix2.md`. A D5b espera por ela.
+- **Lição:** é a segunda reprovação seguida da mesma trava. Na primeira (I1) e na segunda (I7), o defeito estava em COMO o número é comparado, e não na contagem. Uma trava de contagem precisa de prova nos dois sentidos: sobe sem atualizar e desce sem atualizar.

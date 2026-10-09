@@ -7489,3 +7489,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D2b** (`c4411cff`, 2 arquivos). `preci --fast` num clone do SHA: rc 0, 309 de 309 executados passaram (downgrade da L-09). O relatório foi gravado pelo main a partir dos relatos do implementador, em `/var/tmp/cto-w8/d2b/relatorio.md`, porque ele recusou gravar `.md` mesmo com o pedido escrito.
 - **Revisão** despachada a um qa-engineer em haiku (`/var/tmp/cto-w8/ordem-rev-d2b.md`), com o contrato implícito `CONTAINER`/`OUT_DIR` a julgar.
 - **Padrão observado nos implementadores haiku:** três deles recusaram gravar o `relatorio.md`, lendo a L-31 global (".md não solicitado") contra a ordem que o pedia. As próximas ordens dizem, no próprio prompt, que o relatório é pedido.
+
+### 08/10/2026 23:45:56 - D5a entregue em 5f36eaef, com o preci vermelho por um autoteste da D4 que lê a gramática no arquivo antigo; D5a-fix despachada
+
+- **D5a** (`5f36eaef`, 5 arquivos), segundo o implementador (haiku):
+  - passo A vermelho por conteúdo nos casos 3, 10 e 11 (o 11 é novo, pedido pelo main); os casos 4 e 5 passaram por acidente;
+  - passos B e C verdes, com `k_presented_line`=0 e `options.ready_line`=1;
+  - `cl.exe /W4 /WX` deu `BUILD_RC=0` no teste e na ferramenta;
+  - `--lint-only` rc 0 e `--win32-link-only` rc 0 (128 alvos);
+  - N1 a N6 mortos.
+- **`preci --fast` rc 1:** o estágio `--blob` reprovou em `run_capture_known_color_win32_selftest`. O controle (`run_capture_known_color_win32.py:489-491`) procura `"--present-budget-ms"` em `win32_window_capture.cpp`, e a D5a moveu a gramática para `window_capture_options.cpp`. O HEAD `5f36eaef` está vermelho localmente, e o ramo NÃO é empurrado até o conserto.
+- **Decisão do main:** opção (a). O autoteste lê o dono novo (`OPTIONS_SOURCE`), e não uma cópia mantida na ferramenta. A D5a-fix foi despachada ao mesmo implementador, que só toca esse `.py` (a D4 já está commitada), com o trecho antigo e o novo exatos, mutante e `preci`.
+- **Lição, isolada ou padrão (L-17):** a independência das fatias foi conferida por arquivo, mas um autoteste de uma fatia lia o arquivo de outra. A tabela de independência do CTO não pegou essa ligação por conteúdo. A próxima conferência de paralelismo inclui "quem LÊ o arquivo que eu mudo".

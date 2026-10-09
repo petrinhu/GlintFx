@@ -5,9 +5,9 @@
 # exit codes (a copy of tests/tools/window_capture_rules.hpp, kept equal by check_sibling_lists.py),
 # how the tool's veredito line is read, the capture mechanisms and their pairs, and the count of
 # capture pairs. How the tool is run (its deadline and its process tree) is in the sibling module
-# win32_capture_process.py. Test tooling, not product code. Standard library only (L-07). Its user
-# today is run_capture_known_color_win32.py; any other driver that launches the same tool imports it
-# too. Nothing runs when this file is executed: it only defines names for an importer.
+# win32_capture_process.py. Test tooling, not product code. Standard library only (L-07). Its users
+# are run_capture_known_color_win32.py and run_example_capture_win32.py, the two drivers that launch
+# the tool. Nothing runs when this file is executed: it only defines names for an importer.
 
 import re
 import sys

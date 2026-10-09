@@ -4241,6 +4241,22 @@ add_test(
 )
 set_tests_properties(examples_pass_test PROPERTIES LABELS consume)
 
+# DEMO-1 D5b (D-W8-75, D-W8-125): the DRIVER of the Windows capture of the example first_window
+# (tests/tools/run_example_capture_win32.py). Its --selftest needs no Windows, no tool and no window:
+# a tool double writes the capture files and the REAL helpers (raw_to_png.py, image_probe.py) judge
+# them. Python, so it runs on every system (no parity exception). The executor requires exit 0 and the
+# exact line with the control count: dropping a control is a visible change, never a silent one. The
+# real run (first_window on Windows) is registered by D6-red; this is only the selftest.
+add_test(
+    NAME run_example_capture_win32_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 33 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
+)
+set_tests_properties(run_example_capture_win32_selftest PROPERTIES LABELS selftest)
+
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
 # non-default include directory on its own, with no other install() rule

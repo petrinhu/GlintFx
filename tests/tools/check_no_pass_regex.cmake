@@ -15,7 +15,7 @@
 # '[' and ']' is replaced: CMake does not split a list inside unbalanced square brackets, so a comment with an
 # open '[' would swallow the lines after it (D-W8-148).
 
-set(CHECK_NO_PASS_REGEX_SITES 7)
+set(CHECK_NO_PASS_REGEX_SITES 8)
 
 # Puts in `out_pass` and `out_sites` the non-comment uses of PASS_REGULAR_EXPRESSION and the sites of `text`.
 function(check_no_pass_regex_count text out_pass out_sites)

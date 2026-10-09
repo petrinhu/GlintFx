@@ -16,6 +16,9 @@
 #   OUT_DIR               the host output directory; set by the caller before copy_out and clean_mode_output run.
 #
 # CAPTURE_WAIT_TRIES and CAPTURE_WAIT_SLEEP may come from the environment; their defaults and validation are below.
+# load once: a second load aborts on the readonly values, which is what keeps a driver from reloading it over its own stubs.
+# the container functions are proved by the real smoke (ci.yml), not by the selftest's stubs. start_capture_relay and
+# stop_capture_relay have no guard of their own: both call in_container, whose guard fires first.
 
 : "${RELAY_SESSION_CALLER:?capture_relay_session.sh: defina RELAY_SESSION_CALLER antes de carregar}"
 
@@ -49,7 +52,7 @@ fi
 
 # in_container <command...>: runs a command in the test container, with the runtime dir the compositor uses.
 in_container() {
-    docker exec -e XDG_RUNTIME_DIR="$RELAY_RUNTIME_DIR" "$CONTAINER" "$@"
+    docker exec -e XDG_RUNTIME_DIR="$RELAY_RUNTIME_DIR" "${CONTAINER:?capture_relay_session.sh: CONTAINER vazio; o chamador define antes de usar}" "$@"
 }
 
 # relay_socket_name <mode>: the socket the capture relay of <mode> listens on AND the WAYLAND_DISPLAY the fixture
@@ -134,6 +137,7 @@ stop_capture_relay() {
 }
 
 copy_out() {
+    : "${OUT_DIR:?capture_relay_session.sh: OUT_DIR vazio; o chamador define antes de usar}" "${CONTAINER:?capture_relay_session.sh: CONTAINER vazio; o chamador define antes de usar}"
     mode="$1"
     mkdir -p "$OUT_DIR/$mode/frames" "$OUT_DIR/$mode/readback"
     docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/frames/." "$OUT_DIR/$mode/frames"

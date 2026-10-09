@@ -200,13 +200,14 @@ selftest_wait_needs_the_meta_not_the_raw() {
 # The numbering of connections changed (the presenting one is no longer conn1): the wait must FAIL, saying what it
 # expected and what it found, never time out quietly.
 selftest_wait_timeout_names_expected_and_found() {
-    in_container() { printf 'conn7_surface6.meta\nconn7_surface6.raw\n'; }
-    message="$(CAPTURE_WAIT_TRIES=1 CAPTURE_WAIT_SLEEP=0 wait_for_capture_files off 2>&1)" && return 1
-    unset -f in_container
-    case "$message" in
-        *conn1_*conn7_surface6.meta*) return 0 ;;
-        *) echo "$message" >&2; return 1 ;;
-    esac
+    (
+        in_container() { printf 'conn7_surface6.meta\nconn7_surface6.raw\n'; }
+        message="$(CAPTURE_WAIT_TRIES=1 CAPTURE_WAIT_SLEEP=0 wait_for_capture_files off 2>&1)" && exit 1
+        case "$message" in
+            *conn1_*conn7_surface6.meta*) exit 0 ;;
+            *) echo "$message" >&2; exit 1 ;;
+        esac
+    )
 }
 
 selftest_verdict_needs_every_part_clean() {
@@ -393,6 +394,59 @@ selftest_wiring_bad_socket_wait_refused() {
     return 1
 }
 
+# CONTAINER is needed by every container call: empty, the library must refuse BEFORE docker runs (D-W8-117, I-1).
+# The docker stub only echoes: if it is reached, its word shows up in the failure message.
+selftest_empty_container_refused() {
+    root="$(mktemp -d)" || return 1
+    (
+        docker() { echo docker-chamado; }
+        CONTAINER=""
+        OUT_DIR="$root"
+        message="$(in_container true 2>&1)" && { echo "$message" >&2; exit 1; }
+        case "$message" in *CONTAINER*) ;; *) echo "$message" >&2; exit 1 ;; esac
+        message="$(copy_out off 2>&1)" && { echo "$message" >&2; exit 1; }
+        case "$message" in *CONTAINER*) exit 0 ;; *) echo "$message" >&2; exit 1 ;; esac
+    )
+    rc=$?
+    rm -rf "${root:?}"
+    return "$rc"
+}
+
+# OUT_DIR empty: copy_out must refuse before it creates anything. Both stubs only echo, so a call that gets through
+# shows its word in the failure message (the real mkdir of "/off/frames" never runs).
+selftest_empty_out_dir_refused_by_copy_out() {
+    (
+        docker() { echo docker-chamado; }
+        mkdir() { echo mkdir-chamado; }
+        CONTAINER=x
+        OUT_DIR=""
+        message="$(copy_out off 2>&1)" && { echo "$message" >&2; exit 1; }
+        case "$message" in
+            *docker-chamado*|*mkdir-chamado*) echo "$message" >&2; exit 1 ;;
+            *OUT_DIR*) exit 0 ;;
+            *) echo "$message" >&2; exit 1 ;;
+        esac
+    )
+}
+
+# Loading the library without the caller's name must abort, and say so; with the name it must load (the positive case
+# proves the refusal is about the missing name and not about a wrong path). A child shell is needed: the driver holds
+# RELAY_SESSION_CALLER readonly, so a subshell of the driver cannot unset it.
+selftest_library_refuses_load_without_caller() {
+    lib="$SCRIPT_DIR/capture_relay_session.sh"
+    message="$(env -u RELAY_SESSION_CALLER sh -c '. "$1"' _ "$lib" 2>&1)" && return 1
+    case "$message" in
+        *"defina RELAY_SESSION_CALLER"*) ;;
+        *) return 1 ;;
+    esac
+    env RELAY_SESSION_CALLER=x sh -c '. "$1"' _ "$lib" >/dev/null 2>&1
+}
+
+# The caller's name is readonly in the driver: a subshell that reassigns it must fail.
+selftest_caller_name_is_readonly() {
+    ! (RELAY_SESSION_CALLER=outro) 2>/dev/null
+}
+
 selftest_main() {
     CALLS_LOG="${TMPDIR:-/tmp}/run_capture_known_color.selftest.calls.$$"
     selftest_check selftest_stale_output_is_removed
@@ -419,6 +473,10 @@ selftest_main() {
     selftest_check selftest_wait_rejects_stale_socket_without_announcement
     selftest_check selftest_wait_accepts_announcement
     selftest_check selftest_wiring_bad_socket_wait_refused
+    selftest_check selftest_empty_container_refused
+    selftest_check selftest_empty_out_dir_refused_by_copy_out
+    selftest_check selftest_library_refuses_load_without_caller
+    selftest_check selftest_caller_name_is_readonly
     rm -f "$CALLS_LOG"
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }

@@ -7636,3 +7636,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Desvio declarado:** a mensagem do commit 2 diz que G1 a G4 foram vistos vermelhos antes do conserto, mas G3 e G4 só ficaram vermelhos pelos mutantes. O commit não foi emendado (L-25), e o desvio vai ao revisor.
 - **Push** de `onda-w8` com o tip `f2f2d3eb`, provado por `git ls-remote`. CI disparado: run 37882262031.
 - **Revisão da D2b-fix** despachada a um haiku distinto (`ordem-rev-d2bfix.md`). Agentes vivos: o CTO (plano da D5b e da D5a-fix3) e o revisor da D2b-fix, 2 no total.
+
+### 09/10/2026 01:07:13 - SELFTEST-EXIT-LINE aberta na tabela e despachada
+
+- **Linha `SELFTEST-EXIT-LINE`** gravada acima de `CI-VERDE-W8`, com o texto da D-W8-114 (`/var/tmp/cto-w8/plano-d2b.md`). Ela dependia da D5a, que já entrou, e a D2b-fix, que mexia em `tests/CMakeLists.txt`, também já entrou.
+- **Ordem** `/var/tmp/cto-w8/ordem-selftest-exit-line.md`, para um haiku (`devops-sre`). Correção do main à previsão do plano: o vermelho V3 ("um controle a menos") vai num autoteste da regex genérica (`raw_to_png.py`), porque o driver `.sh` já tem o número exato no registro e reprovaria hoje mesmo.
+- **Serialização:** a D5b (registro novo em `tests/CMakeLists.txt`) espera o commit desta fatia. O CTO será avisado quando o plano dele chegar.

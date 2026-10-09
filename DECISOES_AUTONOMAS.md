@@ -7731,3 +7731,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o preci deu rc 0 no pai (R=90, F=16) e no SHA (R=90, F=17, isto é, F mais 1, como a D-W8-114 previa), e o verde da prova deu 9 de 9.
 - **Desvios declarados** (vão ao revisor): o dublê mudou depois que o `check_dep_zero` recusou `cmake_language`; o `:977` usa `$<TARGET_FILE:...>`; três comentários gêmeos perto de `:5240`, `:6512` e `:6530` ainda descrevem a regex antiga; a trava conta `executor=8`.
 - **Revisão** despachada a um haiku distinto (`ordem-rev-selftest-exit-line.md`). Agentes vivos: D2b-fix2, revisor da D5a-fix3 e revisor da SELFTEST-EXIT-LINE, 3 no total.
+
+### 09/10/2026 02:02:54 - Revisão da D5a-fix3: APROVADA COM RESSALVAS; D5a-fix4 ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix3.md`, haiku distinto):
+  - os IMPORTANTES 1 e 2 da revisão anterior (PB2 e SF) estão FECHADOS pelo caso 11c;
+  - a D-W8-122 está correta e provada;
+  - morreram PB2, SF, F4, SEPR, CEIL e NZ;
+  - o lint, o link Windows e o preci rápido deram rc 0.
+- **IMPORTANTE (teste):** o caso 13 prova "vence a última" só para `--title` e `--ready-line`; os mutantes OUTF (`--out`) e BUDF (orçamentos) sobrevivem. O main conferiu: o caso 13 (`:257-277`) não cita `--out` nem os orçamentos. É o gêmeo da L-17.
+- **Para a lista de confirmação do líder:** `--out -- --title T -- f` é aceito com out=`--`, consequência da D-W8-120 (o `--` aceito como valor, como no getopt). A unidade é ferramenta de teste em `tests/tools`, e não API pública; o CTO dirá se mantém. O zero à esquerda (`"05"`) é aceito e não está fixado por teste (LZ); a decisão vai ao CTO.
+- **Encaminhamento:** o CTO recebeu o pedido da D5a-fix4 (casos de OUTF e BUDF, mais a decisão do LZ e os cosméticos), em arquivos disjuntos da D2b-fix2.

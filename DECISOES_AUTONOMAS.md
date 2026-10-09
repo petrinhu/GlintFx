@@ -7755,3 +7755,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - 19 casos de teste.
 - **Verificação do main:** o auxiliar `with_fixture` (`:23`) existe, e `tool_options` tem exatamente os 7 membros na ordem do binding.
 - **Despacho:** a D5a-fix4 foi para o implementador da D5a, em arquivos disjuntos da D2b-fix2 e da D3a. A D5b espera o commit e o preci da D5a-fix4, porque o autoteste dela lê o `.cpp` da unidade.
+
+### 09/10/2026 02:14:12 - D2b-fix2 aceita; revisão da D2b-fix2 e D3a despachadas
+
+- **D2b-fix2** (`0a75c34c`):
+  - os vermelhos A e B saíram pela causa certa (controle 30, guarda silenciada; controle 31, dublê vazando);
+  - o N foi de 28 para 31;
+  - X4, X5, X6, X7, X8 e X1 morreram no controle previsto (o main conferiu X4, X5 e X1 nos logs);
+  - preci com rc 0 (`/var/tmp/cto-w8/d2bfix2/preci.rc`).
+- **Revisão da D2b-fix2** despachada a um haiku distinto (`ordem-rev-d2bfix2.md`). Ela reaplica ao SHA novo os 3 mutantes que sobreviviam na revisão anterior e confere o diagnóstico do IMP-3.
+- **D3a** despachada ao implementador da D2b-fix2 (`ordem-d3a.md`, §4 do `plano-d3.md`). O main conferiu as âncoras contra o HEAD: 31 controles; as linhas 44, 149 e 549 do driver; a linha 160 e o cabeçalho, linhas 8 e 11, da biblioteca; o 12º e o 15º controles batem com os mutantes A1 e A3.
+- **Agentes vivos:** o revisor da SELFTEST-EXIT-LINE, a D5a-fix4, o revisor da D2b-fix2 e a D3a, 4 no total. A D5b espera a D5a-fix4.

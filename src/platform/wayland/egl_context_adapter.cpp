@@ -547,6 +547,31 @@ classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcep
         .count();
 }
 
+// WL-FRAME-WAIT (D-W8-213): waits for THIS surface's frame callback, never for "any event".
+// One poll_and_dispatch_with_budget() returns after the first batch of events read from the
+// socket, and that batch is often not ours: Mesa's wl_buffer.release lands on Mesa's private
+// queue but wakes the same fd, and the callback was still pending - every other frame became
+// skipped_hidden (loop_parity_test measured rendered_frames=15 of 30). So it polls again, with
+// what is left of the ONE budget, until `sequence` says the callback arrived or the budget
+// ends. Returns false only when a poll found the connection unusable.
+[[nodiscard]] bool wait_for_frame_callback(wl_display *display,
+                                           const frame_callback_sequence &sequence,
+                                           std::uint32_t budget_ms) noexcept {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
+    while (sequence.decide_after_wait() == gltfx_present_outcome::skipped_hidden) {
+        const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                      deadline - std::chrono::steady_clock::now())
+                                      .count();
+        if (remaining_ms <= 0) {
+            return true;
+        }
+        if (!poll_and_dispatch_with_budget(display, static_cast<std::uint32_t>(remaining_ms))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 wayland_egl_context_adapter::~wayland_egl_context_adapter() { close(); }
@@ -924,13 +949,14 @@ wayland_egl_context_adapter::open(wayland_window_adapter &window,
     // first") e o que frame_callback_sequence.cpp implementa (m_pending
     // nasce false). Pedir o callback e marcar m_pending=true AQUI, antes
     // de qualquer conteudo jamais commitado nesta superficie, e' pedir
-    // um aviso que a superficie nunca ganha: medido via WAYLAND_DEBUG=1
-    // que este compositor nunca da wl_callback.done para essa superficie
-    // sem buffer - as cinco tentativas da primeira apresentacao
-    // reprovavam com first_presented_attempt=0 antes deste conserto. O
-    // rearme real (attach_frame_listener()+arm_pending()) que ja existe
-    // no fim do ramo vsync=on de swap_buffers(), logo apos um eglSwap
-    // Buffers() bem-sucedido, ja cobre o PROXIMO quadro - esta linha
+    // um aviso que so viria no commit SEGUINTE: wl_surface.frame vale no proximo
+    // wl_surface.commit (wayland.xml), e o primeiro commit desta superficie e' o primeiro
+    // eglSwapBuffers(), que esperaria por esse mesmo aviso. As cinco tentativas da primeira
+    // apresentacao reprovavam com first_presented_attempt=0 antes deste conserto; a leitura de
+    // entao ("este compositor nunca da wl_callback.done para essa superficie sem buffer") era o
+    // mesmo defeito de ordem que WL-FRAME-ORDER (D-W8-208) corrigiu no rearme. O rearme real
+    // (attach_frame_listener() logo ANTES de cada eglSwapBuffers(), e arm_pending() depois de um
+    // swap bem-sucedido) ja cobre o PROXIMO quadro - esta linha
     // aqui era redundante e, pela medicao, ativamente prejudicial.
     return gltfx_rslt<void>::ok();
 }
@@ -1050,7 +1076,7 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     }
 
     if (plan == frame_wait_plan::poll_then_decide) {
-        if (!poll_and_dispatch_with_budget(display, k_frame_callback_budget_ms)) {
+        if (!wait_for_frame_callback(display, m_frame_sequence, k_frame_callback_budget_ms)) {
             // D-W6b-28: poll_and_dispatch_with_budget() only ever
             // returns false when the wl_display connection itself is
             // now unusable (this file's own comment on that function) -
@@ -1068,6 +1094,13 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
 
 gltfx_rslt<gltfx_present_outcome>
 wayland_egl_context_adapter::present_through_egl(wl_display *display) noexcept {
+    // WL-FRAME-ORDER (D-W8-208): the frame request goes out BEFORE eglSwapBuffers(), never
+    // after it. wayland.xml, wl_surface.frame: "The frame request will take effect on the next
+    // wl_surface.commit", and eglSwapBuffers() IS that commit. Requested after it, the callback
+    // belonged to a commit this adapter never sent, because the next swap waited for that very
+    // callback: one frame, then skipped_hidden forever, on any compositor (loop_parity_test
+    // measured rendered_frames=1 in the Linux container from 13/09 to 09/10/2026).
+    attach_frame_listener();
     const EGLBoolean swapped = eglSwapBuffers(m_egl_display, m_egl_surface);
 
     // EGL-DEAD-DISPLAY-GUARD S2 (D-S2): checado SEJA QUAL FOR o retorno
@@ -1092,15 +1125,17 @@ wayland_egl_context_adapter::present_through_egl(wl_display *display) noexcept {
     }
 
     ++m_swap_calls_issued;
-    // D-W6b-46: the frame listener is armed after EVERY presentation,
-    // in BOTH branches - the vsync=off branch never WAITS on it (its
-    // own present_would_skip() already decided the frame without
-    // touching the wire), but present_would_skip()'s own second
-    // criterion needs a callback outstanding to age in the first
-    // place, or a compositor that stops repainting this surface
-    // without ever affirming `suspended` would never be detected at
-    // all.
-    attach_frame_listener();
+    // D-W6b-46: a frame callback is requested for EVERY presentation (at the top of this
+    // function, before the swap), in BOTH branches - the vsync=off branch never WAITS on it (its
+    // own present_would_skip() already decided the frame without touching the wire), but
+    // present_would_skip()'s own second criterion needs a callback outstanding to age in the
+    // first place, or a compositor that stops repainting this surface without ever affirming
+    // `suspended` would never be detected at all.
+    // D-W8-208: the age starts only after a swap that succeeded. A failed swap returns above
+    // without arming, so the next present plans present_immediately and attach_frame_listener()
+    // destroys the orphan proxy. Arming after the swap cannot miss the done event:
+    // eglSwapBuffers() dispatches only Mesa's own private queue, and this callback lives on the
+    // default queue, which only poll_and_dispatch_with_budget() and the loop's pump dispatch.
     m_frame_sequence.arm_pending(steady_now_ns());
     return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);
 }

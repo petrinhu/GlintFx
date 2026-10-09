@@ -7962,3 +7962,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - errata ao Anexo B da D3: a guarda já nasce `readonly`, com o mutante M19.
 - **Verificação do main:** a guarda está nas linhas 401 e 402 do arquivo de controles, ainda sem `readonly`. A fatia mexe só nesse arquivo, sem tocar no registro, e por isso corre junto com a D5b.
 - **Despacho:** a D3a-fix2 foi para o implementador da D2b-fix. Agentes vivos: a D5b (preci), o revisor da D5a-fix5 e a D3a-fix2, 3 no total.
+
+### 09/10/2026 04:35:27 - Revisão da D5a-fix5: APROVADA sem ressalva de código; a cadeia da D5a fecha; D3a-fix2 commitada
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix5.md`): APROVADA. Os 4 IMPORTANTES da D5a-fix4 estão FECHADOS (FNEW, OCT0, VINVAL e FC mortos nos casos previstos; o SFM deixou de existir junto com a comparação escrita à mão). Nenhum defeito de código. O cosmético restante: o preci.log sem SHA.
+- **A cadeia da D5a** (a unidade da linha de comando da ferramenta de captura, mais o teste dela) fecha na revisão, depois de seis fatias: D5a, D5a-fix, fix2, fix3, fix4 e fix5.
+- **Observação NODEF**, pelo §0: um campo sem inicializador leria um valor indeterminado na comparação. É uma regra nova ("todo campo tem valor padrão") que ninguém decidiu; vai para a lista de confirmação do líder, sem abrir fatia.
+- **Lista para a confirmação retroativa do líder** (acumulada): D-W8-144 (`--out --` aceito), D-W8-167 (`operator==` padrão em ferramenta de teste), D-W8-169 (o valor anterior de uma opção repetida é descartado sem ser lido) e a regra do NODEF. Além delas, as decisões D-W8-36 em diante, que já estavam pendentes.
+- **D3a-fix2** em `94caef3c`. O relatório vem a seguir.

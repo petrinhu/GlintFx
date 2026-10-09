@@ -7900,3 +7900,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **IMPORTANTES:** (1) o comentário de `same_fields` promete mais do que o binding garante; (2) a guarda não tem dente, porque FC+SFM juntos passam (proposta: `operator==` padrão); (3) "010" lido como octal passa (OCT0); (4) um valor inválido antes do válido não está fixado (VINVAL).
 - **Encaminhamento:** o CTO decide quais desses entram numa D5a-fix5 e quais viram INBOX ou ficam aceitos com justificativa. É a quarta rodada no mesmo par de arquivos, e cada uma acha algo menor; o main pediu que o CTO diga onde fica o fim, sem relaxar a qualidade (L-15).
 - **Para a lista do líder:** a regra do valor inválido anterior (o CTO decide; se julgar que é do líder, entra na confirmação retroativa) e a D-W8-144 (`--out --`).
+
+### 09/10/2026 03:27:32 - Plano da D5a-fix5 aceito e despachado; o critério de fim das rodadas
+
+- **Plano** `/var/tmp/cto-w8/plano-d5afix5.md` (md5 `c594e9b6`). As decisões D-W8-167 a D-W8-170, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - **§0, onde termina:** uma regra decidida sem caso, ou um caso que não morde, sempre abre fatia, e um defeito de código também, sem limite. Um mutante que inventa uma regra que ninguém decidiu não abre rodada: vai para a lista de confirmação do líder;
+  - `operator==` padrão em `tool_options`, usado por `same_fields` (mutante equivalente: FNEW);
+  - "010" lê 10, no caso 7d (OCT0);
+  - **D-W8-169:** numa opção repetida, o valor anterior é descartado sem ser lido, porque vence o último. O argparse recusaria; isso fica declarado e vai à lista de confirmação do líder, junto com a D-W8-144;
+  - o `cl.exe` é refeito sobre um clone do SHA.
+- **Despacho:** a D5a-fix5 foi para o implementador da D5a. Ela mexe só no `.hpp` e no teste; o `.cpp` lido pela D5b fica intocado, então ela pode correr junto com a D5b. Agentes vivos: a D3a-fix, a SELFTEST-FIX2 e a D5a-fix5, 3 no total.

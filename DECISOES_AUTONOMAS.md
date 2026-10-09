@@ -7605,3 +7605,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Revisão da D5a-fix2** despachada a um haiku distinto (`ordem-rev-d5afix2.md`), com a ordem de tentar DERRUBAR a equivalência do MB.
 - **Plano da D5b** pedido ao CTO (opus, alto), em `/var/tmp/cto-w8/plano-d5b.md`, com a pesquisa antes do desenho (L-22), as três perguntas da gramática e o cosmético do valor duplicado. A D5b espera o commit do N da D2b-fix em `tests/CMakeLists.txt`.
 - **Agentes vivos:** a D2b-fix, o revisor da D4b, o revisor da D5a-fix2 e o CTO, 4 no total (o teto).
+
+### 09/10/2026 00:43:48 - Revisão da D4b: APROVADA COM RESSALVAS; as lacunas vão para a INBOX
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d4b.md`, haiku distinto). O código está certo: 116 definições iguais por `ast.dump`, N=109, ctest 3/3. Morreram P2 e P3 (reexecutados) e os mutantes do revisor R1b, R2, R3 e R4. Sobreviveram P4, R1 e R5.
+- **IMPORTANTE-1, conferido pelo main em `tools/preci.sh`** (`enumerate_untracked_cpp_hpp`): a guarda de não rastreado só vê `.cpp` e `.hpp`. O julgamento do revisor corrige a leitura do main: o P4 não estava mal desenhado; a previsão é que estava errada, e o P4 mediu uma lacuna real na árvore do autor. Vira o item `UNTRACKED-GUARD-PY` da INBOX. Não bloqueia a D4b: as receitas desta onda rodam o preci num clone do SHA, e o CI também roda sobre o commit.
+- **RESSALVA 1** (124/127): somada ao item `CAPTURE-EXIT-CODE-TWIN`, que já existia. **RESSALVA 2** (duplicata e direção entre módulos) e o COSMÉTICO-1: item `TOOLS-MODULE-GATES`.
+- **COSMÉTICO-2 recusado:** o revisor pediu a DEMO-1 em 🔍, mas ela ainda tem D3, D5b, D6 e D7 por fazer. 🔄 é o status certo.
+- **D4b fechada.**

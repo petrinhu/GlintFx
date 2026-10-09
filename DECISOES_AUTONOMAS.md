@@ -8111,3 +8111,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **IMPORTANTE 2:** nenhum caso permanente pina o filtro dos dois registros. MS-NOPIPE e MX-IRMAO-OLD passam.
 - **COSMÉTICO:** a justificativa do FF e do VT no plano está errada. Quem os parte é o `splitlines`.
 - **Encaminhamento:** vai ao CTO junto com o resultado do revisor B, pela regra do §0. A correção toca `tests/CMakeLists.txt`, então espera a D6-red e a D6-green.
+
+### 09/10/2026 09:13:56 - D6-red parada na base da imagem; revisão B entregue; CTO acionado
+
+- **D6-red PARADA no P2, sem commit:**
+  - O `Containerfile` faz `FROM fedora:44`, e essa imagem não existe localmente.
+  - O main mediu que `fedora:latest` local (sha256:43b29f65, de 26/08) é a VERSION_ID=44.
+  - As provas que rodaram passaram: P1 (`prep.rc` 0, 3/3), P6 MSVC (BUILD_RC 0; o V-17 deu BUILD_RC 2 com C4146) e P8 (ctest 8/8).
+  - Os 14 arquivos estão no snapshot `d6red/snap-1`, com os md5 iguais aos anexos.
+- **Revisor B** (`rev-lote4b.md`): D3-fix e SPLIT-1 aprovadas com ressalvas, SPLIT-2 aprovada. Achados:
+  - I-7 (o controle 2 não cobre 125 e 143 diante de "só 124 vira 3"; reconferido pelo main);
+  - C-11, C-12 e C-13.
+  Foram 11 mutantes mortos.
+- **CTO acionado** (`decisao-d6red-base.md`):
+  - (1) a base da imagem: pull, tag local ou trocar o FROM;
+  - (2) o P1 no hospedeiro pela L-09;
+  - (3) a D5b-fix2 pelo §0;
+  - (4) o lote B pelo §0.

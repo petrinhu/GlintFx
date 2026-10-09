@@ -7657,3 +7657,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Verificação do main (L-16, passo 3)** contra a árvore: as âncoras da D5a-fix3 existem nas linhas citadas (`read_positive_int` com `strtol` em `:18-27`, chamadas em `:84-85`, `:77`, `k_default_ready_line` em `.hpp:20`, os auxiliares do teste, 13 casos hoje); o formato `--- N case(s) ---` está em `harness_main.cpp:147`; `<charconv>` já é usado em `src/gfss/`. As previsões de vermelho e de mutante conferem por leitura (F3 e F4 matam na linha certa do 7c).
 - **D5a-fix3** despachada ao mesmo implementador da D5a (`ordem-d5afix3.md`), em paralelo com a SELFTEST-EXIT-LINE (arquivos disjuntos). **D5b** espera a D5a-fix3 e a SELFTEST-EXIT-LINE (as duas mexem em `tests/CMakeLists.txt` ou na unidade).
 - **INBOX:** `CAPTURE-SUCCESS-LINE-TWIN`. **Nota:** a linha 266 do plano-mestre está desatualizada (manda o registro para `tests/examples_tests.cmake`, que não existe); vale o Anexo B do plano da D5b.
+
+### 09/10/2026 01:10:42 - Disco abaixo do piso; limpeza das cópias de fatias fechadas (escopo "clean" da autonomia)
+
+- A D5a-fix3 parou antes de qualquer contêiner porque `Free (estimated) min` estava em 19,76 GiB, abaixo do piso de 20 GiB da ordem. A parada estava certa.
+- **Limpeza** (escopo "clean" autorizado na autonomia): o main apagou, sob `/var/tmp/cto-w8/`, só as cópias pesadas de 21 fatias JÁ FECHADAS e revisadas (D1-fix-b/c/d, D2a e fixes, D4, D4-fix, D2b, D4b, D5a, D5a-fix e as revisões delas): os diretórios `snap*`, `clone*`, `mut-*`, `src`, `base`, `c1`, `c2` e `run-*`, e o `build/` dentro de `out*`. A lista (324 caminhos, `/var/tmp/cto-w8/limpeza-final.txt`) foi conferida antes de apagar: zero caminhos fora do padrão e zero tocando `scripts/` ou as fatias vivas. Ficaram os scripts das receitas, os relatórios, os logs e os `ctest.out`.
+- **Resultado:** `min` de 19,76 para 21,32 GiB. O que sobrou de arquivos criados pelo root nos contêineres (cerca de 152 mil arquivos) não foi apagado. Isso exigiria um contêiner apagando como root, e fica para quando for preciso.
+- D5a-fix3 retomada.

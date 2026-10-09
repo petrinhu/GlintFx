@@ -7791,3 +7791,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Errata para as próximas:** a D5b sobe o piso da trava para 8 e a D3 para 9, cada uma no mesmo commit e ajustando os casos do autoteste da trava.
 - **Verificação do main:** `check_no_pass_regex.cmake:41` tem `LESS 7`, e `grep -c 'expect_exit_and_line.cmake" --'` dá 7 no registro, o que confirma o I1.
 - **Despacho:** a SELFTEST-FIX foi para o implementador da SELFTEST-EXIT-LINE, em paralelo com a D3a e a D5a-fix4 (arquivos disjuntos). Ordem daqui em diante: D5b, depois D3.
+
+### 09/10/2026 02:37:22 - D3a entregue; revisão da D3a despachada
+
+- **D3a** (`9fe3d4d7`, refactor puro):
+  - as provas 7a a 7e estão limpas: 31 nomes, diffs vazios, `run_check` fora da biblioteca, `selftest: 31 controles OK`;
+  - prova real com o isolamento provado antes, `new-limpo-1` com rc 0 e `new-sabotado` com rc 1;
+  - A1, A2 e A3 morreram (A1 com `[: : integer expected` no lugar da linha prevista);
+  - preci com rc 0 (`/var/tmp/cto-w8/d3a/preci.rc`, conferido pelo main).
+- **Revisão da D3a** despachada a um haiku distinto (`ordem-rev-d3a.md`). Ela refaz por conta própria a prova de refactor puro, julga a D-W8-136 (`clean_mode_output` fica na biblioteca; uma discordância vai ao líder) e confere bashismo por leitura, porque não há imagem com dash localmente e baixar uma pede autorização (L-14).
+- **Agentes vivos:** a D5a-fix4, o revisor da D2b-fix2, a SELFTEST-FIX e o revisor da D3a, 4 no total.

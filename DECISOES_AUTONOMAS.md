@@ -7743,3 +7743,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Para a lista de confirmação do líder:** `--out -- --title T -- f` é aceito com out=`--`, consequência da D-W8-120 (o `--` aceito como valor, como no getopt). A unidade é ferramenta de teste em `tests/tools`, e não API pública; o CTO dirá se mantém. O zero à esquerda (`"05"`) é aceito e não está fixado por teste (LZ); a decisão vai ao CTO.
 - **Encaminhamento:** o CTO recebeu o pedido da D5a-fix4 (casos de OUTF e BUDF, mais a decisão do LZ e os cosméticos), em arquivos disjuntos da D2b-fix2.
 - **Correção do main à entrada acima:** o caso 13 CITA `--out`, mas só uma vez em cada linha, como opção obrigatória. O que falta é a REPETIÇÃO de `--out` e dos orçamentos. A frase "não cita `--out`" estava errada; o achado continua de pé.
+
+### 09/10/2026 02:06:39 - D2b-fix2 commitada; plano da D5a-fix4 aceito e a fatia despachada
+
+- **D2b-fix2** em `0a75c34c` (3 arquivos; o registro passa a `selftest: 31 controles OK`). Os mutantes e o preci estão em curso; o relatório vem a seguir.
+- **Plano da D5a-fix4** (`/var/tmp/cto-w8/plano-d5afix4.md`, md5 `09c32001`), com as decisões D-W8-143 a D-W8-146, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - zero à esquerda aceito e fixado ("05" lê 5; "00" é recusado);
+  - `--out --` mantido pela D-W8-120, com a unidade sendo ferramenta de teste, e posto na lista de confirmação do líder;
+  - `same_fields` com binding estruturado, que não compila se faltar um campo novo (mutante GF);
+  - a expressão repetida fica, com comentário, porque o clang-tidy força essa forma;
+  - 19 casos de teste.
+- **Verificação do main:** o auxiliar `with_fixture` (`:23`) existe, e `tool_options` tem exatamente os 7 membros na ordem do binding.
+- **Despacho:** a D5a-fix4 foi para o implementador da D5a, em arquivos disjuntos da D2b-fix2 e da D3a. A D5b espera o commit e o preci da D5a-fix4, porque o autoteste dela lê o `.cpp` da unidade.

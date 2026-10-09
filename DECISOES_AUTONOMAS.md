@@ -8044,3 +8044,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Revisão** (`/var/tmp/cto-w8/rev-d3.md`): D3a-fix2 APROVADA e o I-4 FECHADO; a cadeia da D3a (D3a, fix e fix2) fecha na revisão. Na D3: os md5 batem com os anexos, 15 mutantes morreram, a trava está em `sitios=9`, e não há bashismo novo por leitura (o dash é medido pelo CI do servidor, que já passou nos scripts irmãos).
 - **IMPORTANTES da D3:** I-5, o rc 137 do `timeout -k` sem caso (MY8 sobrevive); I-6, o arquivo de controles com 369 linhas (L-17). Os dois foram ao CTO junto com a D5b-fix2; o I-6 tende ao item da INBOX `CAPTURE-SELFTEST-SUBJECTS`.
 - **Agentes vivos:** só o CTO (planos da D6, da D7, da D5b-fix2 e do I-5).
+
+### 09/10/2026 05:15:39 - Push e CI da D3 e da D5b-fix
+
+- **Push** de `onda-w8` com o tip `fe7cf36a`, provado por `git ls-remote`. CI disparado: run 37903837351. Ele confere no servidor o driver da D3 no dash do Ubuntu e o `FAIL_REGULAR_EXPRESSION` novo da D5b-fix nos jobs do Windows.

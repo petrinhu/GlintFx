@@ -7664,3 +7664,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Limpeza** (escopo "clean" autorizado na autonomia): o main apagou, sob `/var/tmp/cto-w8/`, só as cópias pesadas de 21 fatias JÁ FECHADAS e revisadas (D1-fix-b/c/d, D2a e fixes, D4, D4-fix, D2b, D4b, D5a, D5a-fix e as revisões delas): os diretórios `snap*`, `clone*`, `mut-*`, `src`, `base`, `c1`, `c2` e `run-*`, e o `build/` dentro de `out*`. A lista (324 caminhos, `/var/tmp/cto-w8/limpeza-final.txt`) foi conferida antes de apagar: zero caminhos fora do padrão e zero tocando `scripts/` ou as fatias vivas. Ficaram os scripts das receitas, os relatórios, os logs e os `ctest.out`.
 - **Resultado:** `min` de 19,76 para 21,32 GiB. O que sobrou de arquivos criados pelo root nos contêineres (cerca de 152 mil arquivos) não foi apagado. Isso exigiria um contêiner apagando como root, e fica para quando for preciso.
 - D5a-fix3 retomada.
+
+### 09/10/2026 01:16:12 - Revisão da D2b-fix: APROVADA COM RESSALVAS; três IMPORTANTES bloqueiam a D3; a D2b-fix2 vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2bfix.md`, haiku distinto). O código está certo nos dois commits; rc_ctest=0, 24 e 28 controles; as 5 provas reais batem com os logs, e o isolamento foi provado antes. Mortos: RS1, RC1, RU, RG, RR, X2 e X3. Sobreviveram X1, X4 e X5.
+- **IMP-1** (X5): nenhum controle prova que a espera recusa log vazio ou ausente. O main conferiu `capture_relay_session.sh:94`: o código de hoje recusa, mas falta a prova. **IMP-2** (X4): `selftest_check` não isola os controles, e um dublê vaza; a troca corrigiu a instância, não a classe. **IMP-3:** a guarda de CONTAINER some dentro de `$(...)`, e o diagnóstico sai falso. **IMP-4** (tamanho do driver) não bloqueia. Seis COSMÉTICOS, entre eles a mensagem do commit 2 (COS-2: sem quebra nova da L-20).
+- **Encaminhamento:** o CTO planeja a D2b-fix2 em `/var/tmp/cto-w8/plano-d2bfix2.md`. Ela vem DEPOIS do commit da SELFTEST-EXIT-LINE, porque as duas mexem no registro de `run_capture_known_color_selftest`. A D3 fica bloqueada até a D2b-fix2.
+- **RELAY-SOCKET-STALE** continua em 🔍 até a D2b-fix2 fechar o IMP-1, que é a prova do caso do log vazio.
+
+### 09/10/2026 01:18:17 - D5a-fix3 commitada; o lint reprovou a leitura do orçamento; o conserto aplica o padrão da biblioteca
+
+- **D5a-fix3** em `571d21ec` (3 arquivos). Tupla A como previsto: `--- 17 case(s), 1 failure(s) ---` no 7c. B verde. `cl.exe` com BUILD_RC 0 nas duas ligações. F1 a F4, PB2, SF e MA: 7 de 7 mortos, cada um no `[FAIL]` previsto.
+- **`--lint-only` com rc 1:** `bugprone-suspicious-stringview-data-usage` em `window_capture_options.cpp:25` (`from_chars(text.data(), end, ...)`). O main já tinha visto o aviso no editor e mandado o agente parar se ele reprovasse; ele parou.
+- **Decisão:** usar a forma de `src/gfss/value_parse.cpp:71-72` e `anb_parse.cpp:258-259` (`data()` e `data() + size()` na mesma chamada), que o lint já aceita. É o padrão da casa, sem NOLINT e sem mudança de comportamento, num commit novo (sem amend). F3 e F4 serão refeitos com o trecho novo. Decisão autônoma do main sobre um fato verificado; confirmar retroativamente.
+- **Lição para os planos:** a ordem da D5a-fix3 trazia o código exato, mas o lint não foi conferido. O CTO conferiu por leitura, e o clang-tidy só se vê rodando.
+- **Nota:** o commit anterior do main (o registro da revisão da D2b-fix) foi barrado uma vez pelo `check_spdx.py`, que varre também arquivo não rastreado: os 3 `.cmake` novos da SELFTEST-EXIT-LINE ainda estavam sem cabeçalho. O agente foi avisado e já corrigiu.

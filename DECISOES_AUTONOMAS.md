@@ -7977,3 +7977,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Revisão da D5b** despachada ao revisor das D5a-fix4 e fix5, que conhece a unidade de opções (`ordem-rev-d5b.md`). Ela inclui conformidade com o Anexo A e a L-17, porque o arquivo tem 516 linhas.
 - **D3:** as erratas estão espalhadas em cinco planos, e o `plano-d3.md` está no texto original. O main pediu ao CTO um `plano-d3-v2.md` autossuficiente (Anexos A e B finais, N=20, trava em 9, mutantes M17 a M19, conferido contra o HEAD), porque um haiku não deve juntar cinco fontes (L-11 global).
 - **Agentes vivos:** a D3a-fix2 (fechando o relatório), o revisor da D5b e o CTO, 3 no total.
+
+### 09/10/2026 04:39:35 - Plano da D3 consolidado (v2) aceito; D3 despachada
+
+- **Plano** `/var/tmp/cto-w8/plano-d3-v2.md` (md5 `0d3cdc0e`), autossuficiente: Anexo A (md5 `e2812193`) e Anexo B (md5 `a92bfa4f`), com todas as erratas aplicadas (N=20, trava em 9, guarda `readonly`, a prova de propagação de falha, a recusa de segunda chamada, mutantes M17 a M19). O CTO conferiu os anexos com `bash -n` e com shellcheck, usado só como conferência local, já que não é portão do projeto.
+- **Verificação do main** contra o HEAD: a âncora em `tests/CMakeLists.txt:6572`, `CHECK_NO_PASS_REGEX_SITES 8`, a guarda `readonly` no driver irmão (`:403`). Desde o HEAD do CTO (`666b0acf`), só entraram commits de documentação.
+- **D3** despachada ao implementador da D5b (`ordem-d3.md`). Agentes vivos: a D3a-fix2 (fechando), o revisor da D5b e a D3, 3 no total.

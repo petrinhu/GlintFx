@@ -7679,3 +7679,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Decisão:** usar a forma de `src/gfss/value_parse.cpp:71-72` e `anb_parse.cpp:258-259` (`data()` e `data() + size()` na mesma chamada), que o lint já aceita. É o padrão da casa, sem NOLINT e sem mudança de comportamento, num commit novo (sem amend). F3 e F4 serão refeitos com o trecho novo. Decisão autônoma do main sobre um fato verificado; confirmar retroativamente.
 - **Lição para os planos:** a ordem da D5a-fix3 trazia o código exato, mas o lint não foi conferido. O CTO conferiu por leitura, e o clang-tidy só se vê rodando.
 - **Nota:** o commit anterior do main (o registro da revisão da D2b-fix) foi barrado uma vez pelo `check_spdx.py`, que varre também arquivo não rastreado: os 3 `.cmake` novos da SELFTEST-EXIT-LINE ainda estavam sem cabeçalho. O agente foi avisado e já corrigiu.
+
+### 09/10/2026 01:20:38 - Segunda limpeza do scratch (escopo "clean"); o disco volta a 21,7 GiB
+
+- O disco caiu para `min` 20,90 GiB com duas fatias compilando. O main apagou:
+  - os 222 `build/` de dono root deixados pelos contêineres em fatias fechadas, por um contêiner (`glintfx-devbuild:verify`, montagem `:z`), com lista conferida antes (`/var/tmp/cto-w8/limpeza-root.txt`, todos no padrão `<fatia>/<out>/build`);
+  - as cópias (`snap*`, `clone*`, `mut*` e similares) das fatias que fecharam desde a primeira limpeza: D2b-fix, D5a-fix2 e as revisões delas, e restos de ondas anteriores. Lista em `limpeza2f.txt`, com zero caminhos em `scripts/` e nas fatias vivas. O diretório `/var/tmp/cto-w8/b`, de origem desconhecida, foi poupado.
+- **Resultado:** `/var/tmp/cto-w8` de 8,5 para 4,6 GiB; `min` 21,68 GiB.
+- **NÃO feito, e é decisão do líder se quiser:** o Docker guarda 19,6 GB de imagens e 16,9 GB de cache de build recuperáveis, e `/var/tmp/glintfx-win-lab` ocupa 33 GB. Apagar imagens ou o laboratório do Windows é caro de desfazer, porque é preciso reconstruir.

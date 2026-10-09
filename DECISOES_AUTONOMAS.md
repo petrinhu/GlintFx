@@ -8216,3 +8216,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o `cap30_wall_ms` foi 1066, contra 2977 antes, dentro da faixa;
   - o `capture_known_color_smoke` deu "FAIL display open: platform_failure".
   - Nada foi commitado. É a segunda reprovação do conserto, e foi ao CTO como Q6, com a L-42 (`plano-wlfix2.md`).
+
+### 09/10/2026 11:42:58 - CTO, Q6 (D-W8-212 a 216): segundo defeito na mesma função; WL-FRAME-WAIT despachada
+
+- **(a)** Defeito de código: `poll_and_dispatch_with_budget` acorda com qualquer evento do socket e desiste na primeira leva. São 15 trocas `skipped_hidden`, com passo médio de 6 ms sob um orçamento de 100 ms, o que dá um quadro sim, outro não.
+  - O conserto E6 transforma a espera num laço com o que sobra dos 100 ms, como fazem GLFW e SDL3.
+  - O piso de 27 fica.
+  - O main conferiu a função (`egl_context_adapter.cpp:292`).
+- **(b)** O ckc não é regressão: o plano o pôs depois do `fatal_error_smoke`, que derruba o compositor de propósito, e o erro é do CTO. Ele passa a rodar primeiro, num contêiner novo.
+- **Os "127 s" do D0 eram 127 ms** (o WAYLAND_DEBUG carimba em milissegundos).
+- **Disco:** uma única construção plain, `wlfix2-plain`. A asan fica para o servidor, com o desvio declarado.
+- **Pendente com o líder** (levar quando chegar a hora):
+  - a retomada da D6-red pede mais duas imagens (cerca de 4,6 GB), o que não cabe sem apagar. A resposta "Não apaga nada" encontra a emenda da L-11 de hoje (apagar as imagens a cada push);
+  - limpar as montagens vazadas do containerd exige reiniciar o Docker.

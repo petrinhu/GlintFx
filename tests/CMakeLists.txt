@@ -988,13 +988,26 @@ set_tests_properties(expect_exit_and_line_selftest PROPERTIES LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
 # Guard against PASS_REGULAR_EXPRESSION coming back (D-W8-114, L-36): fails on any non-comment use of it
-# in this file, and on fewer than seven sites that pass through expect_exit_and_line.cmake.
+# in this file, and on fewer sites (the executor followed by `--`) than the ratchet floor in
+# tests/tools/check_no_pass_regex.cmake.
 add_test(
     NAME no_pass_regex_test
     COMMAND "${CMAKE_COMMAND}" "-DREGISTRY=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_pass_regex.cmake"
 )
 set_tests_properties(no_pass_regex_test PROPERTIES LABELS consume)
+
+# The guard's own selftest (D-W8-149, L-36): seven synthetic registries, in memory, with the counts and the
+# verdict fixed before the run. Not through the executor: that would make it a site and inflate the count it
+# protects.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(
+    NAME check_no_pass_regex_selftest
+    COMMAND "${CMAKE_COMMAND}" -DSELFTEST=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_pass_regex.cmake"
+)
+set_tests_properties(check_no_pass_regex_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
 
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
@@ -5237,7 +5250,7 @@ add_test(
 )
 set_tests_properties(single_test_registry_test PROPERTIES LABELS consume)
 
-# The exact control count is in the regex: dropping a control is a visible
+# The executor requires the exact line with the control count: dropping a control is a visible
 # change, never a silent one. Python only, builds fixture trees in a temp dir.
 add_test(
     NAME single_test_registry_selftest
@@ -6509,8 +6522,8 @@ set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest)
 # writes the capture files, the REAL helpers (raw_to_png.py, capture_vs_readback.py, image_probe.py)
 # judge them, and the wiring (modes exactly {off, on}, one pair per mechanism, the alpha-absent flag,
 # the probes over the internal reading) is proven with run() doubles. Python, so it runs on every
-# system (the sh driver's selftest above is UNIX-only). The control count is EXACT in the regex: dropping
-# a control is a visible change, never a silent one. The real run is registered with the fixture
+# system (the sh driver's selftest above is UNIX-only). The executor requires exit 0 and the exact line
+# with the control count: dropping a control is a visible change, never a silent one. The real run is registered with the fixture
 # (C2b-4); this is only the selftest.
 add_test(
     NAME run_capture_known_color_win32_selftest
@@ -6527,8 +6540,8 @@ set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS se
 # is removed, the mode set is exactly {off, on}, the wait names the presenting
 # connection, a timed-out wait says what it expected) and the wiring of one_mode, with its collaborators stubbed (the
 # five call mutants of QA-SCREEN-CAPTURE R4-A, DEMO-1 D2a, CAPTURE-DRIVER-WIRING-UNTESTED). No container, no docker:
-# only the shell. The control count is EXACT in the regex below: dropping a control is a visible change, never a
-# silent one.
+# only the shell. The executor below requires exit 0 and the exact line with the control count:
+# dropping a control is a visible change, never a silent one.
 # if(UNIX): the driver is POSIX sh and its selftest uses mktemp; neither exists natively on the Windows CI
 # (same reason as container_exec_fixture_selftest above). The Windows side is declared in parity_exceptions.txt.
 if(UNIX)

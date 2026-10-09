@@ -12,9 +12,9 @@
 # literal line are both required. No regex and no list: a ';' in the output cannot split it,
 # and an alternation such as (18|19|20) cannot match by construction.
 #
-# Selftest: cmake -DSELFTEST=ON -P expect_exit_and_line.cmake runs seven cases, each one running
+# Selftest: cmake -DSELFTEST=ON -P expect_exit_and_line.cmake runs ten cases, each one running
 # this same script against expect_exit_and_line_double.cmake. It prints the OK line only when all
-# seven verdicts match. The child output is captured and never echoed, so the "FALHOU" word
+# ten verdicts match. The child output is captured and never echoed, so the "FALHOU" word
 # appears only on a real divergence.
 
 set(EXPECT_EXIT_AND_LINE_SELF "${CMAKE_CURRENT_LIST_FILE}")
@@ -129,7 +129,7 @@ macro(expect_exit_and_line_case_without_command case_name expect_exit expect_lin
   expect_exit_and_line_verdict("${case_name}" "${want}")
 endmacro()
 
-# The seven controls. Each one fixes the verdict BEFORE the run: APROVA or REPROVA.
+# The ten controls. Each one fixes the verdict BEFORE the run: APROVA or REPROVA.
 function(expect_exit_and_line_run_selftest)
   set(selftest_total 0)
   set(selftest_failures 0)
@@ -141,7 +141,10 @@ function(expect_exit_and_line_run_selftest)
   expect_exit_and_line_case_with_command("5 x antes da linha reprova" 0 "${line}" "x${line}" 1 0 REPROVA)
   expect_exit_and_line_case_with_command("6 rc esperado 1 com linha e rc 1 aprova" 1 "${line}" "${line}" 1 1 APROVA)
   expect_exit_and_line_case_without_command("7 sem comando reprova" 0 "${line}" REPROVA)
-  if(NOT "${selftest_total}" EQUAL 7 OR selftest_failures GREATER 0)
+  expect_exit_and_line_case_with_command("8 linha com sufixo reprova" 0 "${line}" "${line} extra" 1 0 REPROVA)
+  expect_exit_and_line_case_with_command("9 EXPECT_EXIT nao inteiro reprova" 1.0 "${line}" "${line}" 1 1 REPROVA)
+  expect_exit_and_line_case_with_command("10 EXPECT_LINE vazia reprova" 0 "" "x" 1 0 REPROVA)
+  if(NOT "${selftest_total}" EQUAL 10 OR selftest_failures GREATER 0)
     message(FATAL_ERROR "expect_exit_and_line --selftest: FALHOU ${selftest_failures} de ${selftest_total} casos")
   endif()
   message("expect_exit_and_line --selftest: os ${selftest_total} controles OK")

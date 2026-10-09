@@ -7453,3 +7453,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - (b) entra um caso 11, "recusa não altera options", vermelho no passo A e verde no passo B, com o parse feito numa cópia local que só grava em caso de sucesso;
   - entra um mutante N6.
   - O revisor da D5a julga a decisão.
+
+### 08/10/2026 23:15:48 - D4 entregue em 4762362e; revisão despachada
+
+- **D4** (`4762362e`, 3 arquivos), segundo o implementador (haiku):
+  - inventário por `ast`: 115 nomes contra 115, sem repetição, e corpos iguais exceto `check_capture_pairs` (a assinatura ganhou `who`);
+  - autoteste com 108 controles e rc 0, tanto pelo ctest quanto direto;
+  - pares conferidos, com 0 divergências;
+  - o driver foi de 1114 para 1047 linhas;
+  - `preci --fast` rc 0 (downgrade da L-09);
+  - M1 a M6 mortos.
+  - Desvios declarados, de (c) a (j), que vão para a revisão.
+- **Conferência do main:** os 3 arquivos estão no commit, e li os logs de M1, M3 e M6 (todos com `rc_ctest=8`) e a linha dos 108 controles.
+- **Revisão** despachada a um qa-engineer em haiku, com ordem de 8 itens: `/var/tmp/cto-w8/ordem-rev-d4.md`.
+- **Agentes vivos:** D2b, D5a e o revisor da D4, num total de 3, dentro do teto de 4.

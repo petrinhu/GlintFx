@@ -6507,7 +6507,7 @@ if(UNIX)
         COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
     )
     set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest
-        PASS_REGULAR_EXPRESSION "selftest: 19 controles OK")
+        PASS_REGULAR_EXPRESSION "selftest: 24 controles OK")
 endif()
 
 # QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of

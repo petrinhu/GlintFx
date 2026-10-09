@@ -74,7 +74,7 @@ run_fixture() {
     set --
     [ -z "$SABOTAGE" ] || set -- "$SABOTAGE"
     # shellcheck disable=SC2086
-    "$SCRIPT_DIR/exec_fixture.sh" $ENV_ARGS --env "WAYLAND_DISPLAY=glintfx-cap-$mode" \
+    "$SCRIPT_DIR/exec_fixture.sh" $ENV_ARGS --env "WAYLAND_DISPLAY=$(relay_socket_name "$mode")" \
         "$CONTAINER" capture_known_color_smoke "$mode" "$CAPTURE_ROOT/$mode/readback" "$@"
 }
 
@@ -334,6 +334,65 @@ selftest_wiring_socket_failure_stops_relay_and_reports() {
     modes_are_exact "$modes_run" && [ "$modes_run" = " on off" ]
 }
 
+# The relay's ready line is read from its own log: only the exact line of the mode, whole, counts (RELAY-SOCKET-STALE).
+selftest_relay_announced_accepts_exact_line() {
+    printf '%s\n' "some noise" "wire_relay: listening on /run/glintfx-test/glintfx-cap-off, upstream /run/glintfx-test/glintfx-test-upstream" "more" |
+        relay_announced off &&
+        printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-on, upstream /run/glintfx-test/glintfx-test-upstream" |
+        relay_announced on
+}
+
+selftest_relay_announced_rejects_other_lines() {
+    ! printf '' | relay_announced off &&
+        ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-on, upstream /run/glintfx-test/glintfx-test-upstream" | relay_announced off &&
+        ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-capx-off, upstream /run/glintfx-test/glintfx-test-upstream" | relay_announced off &&
+        ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-off2, upstream /run/glintfx-test/glintfx-test-upstream" | relay_announced off &&
+        ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-off, upstream /run/glintfx-test/glintfx-test-upstream extra" | relay_announced off
+}
+
+# A socket file left by an earlier run passes `test -S`; the wait must NOT pass on it. The stub says the file exists
+# and the log names only the OTHER mode: the wait has to fail, and its message has to name the mode it waited for.
+selftest_wait_rejects_stale_socket_without_announcement() {
+    (
+        SOCKET_WAIT_TRIES=1
+        SOCKET_WAIT_SLEEP=0
+        in_container() {
+            case "$1" in
+                test) return 0 ;;
+                cat) printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-on, upstream /run/glintfx-test/glintfx-test-upstream" ;;
+            esac
+        }
+        message="$(wait_for_socket off 2>&1)" && exit 1
+        case "$message" in
+            *"glintfx-cap-off,"*) exit 0 ;;
+            *) echo "$message" >&2; exit 1 ;;
+        esac
+    )
+}
+
+selftest_wait_accepts_announcement() {
+    (
+        SOCKET_WAIT_TRIES=1
+        SOCKET_WAIT_SLEEP=0
+        in_container() {
+            case "$1" in
+                cat) printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-off, upstream /run/glintfx-test/glintfx-test-upstream" ;;
+            esac
+        }
+        wait_for_socket off >/dev/null 2>&1
+    )
+}
+
+selftest_wiring_bad_socket_wait_refused() {
+    out="$(SOCKET_WAIT_TRIES=abc sh "$0" 2>&1)"
+    rc=$?
+    [ "$rc" -eq 2 ] || return 1
+    case "$out" in
+        *SOCKET_WAIT_TRIES*) return 0 ;;
+    esac
+    return 1
+}
+
 selftest_main() {
     CALLS_LOG="${TMPDIR:-/tmp}/run_capture_known_color.selftest.calls.$$"
     selftest_check selftest_stale_output_is_removed
@@ -355,6 +414,11 @@ selftest_main() {
     selftest_check selftest_wiring_on_mode_calls_in_order
     selftest_check selftest_wiring_off_mode_calls_in_order
     selftest_check selftest_wiring_socket_failure_stops_relay_and_reports
+    selftest_check selftest_relay_announced_accepts_exact_line
+    selftest_check selftest_relay_announced_rejects_other_lines
+    selftest_check selftest_wait_rejects_stale_socket_without_announcement
+    selftest_check selftest_wait_accepts_announcement
+    selftest_check selftest_wiring_bad_socket_wait_refused
     rm -f "$CALLS_LOG"
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }

@@ -119,6 +119,7 @@ int main(int argc, char **argv) {
     const int listen_fd = listen_downstream(downstream_path);
     const relay_endpoints endpoints{listen_fd, upstream_path, capture_directory(argc, argv)};
 
+    // The shell parses this line (relay_ready_line, capture_relay_session.sh): keep both in step.
     glintfx::container_fixture::checked_fprintf(stdout,
                                                 "wire_relay: listening on %s, upstream %s\n",
                                                 downstream_path.c_str(), upstream_path.c_str());

@@ -20,10 +20,13 @@
 : "${RELAY_SESSION_CALLER:?capture_relay_session.sh: defina RELAY_SESSION_CALLER antes de carregar}"
 
 readonly CAPTURE_ROOT="/tmp/glintfx-capture"
-readonly SOCKET_WAIT_TRIES=30
-# Only --selftest overrides these (a one-try, zero-sleep wait). Validated right below, once the helpers exist.
+readonly RELAY_RUNTIME_DIR="/run/glintfx-test"
+readonly RELAY_UPSTREAM_NAME="glintfx-test-upstream"
+# the environment may override these; the selftest controls do so inline. Validated right below, once the helpers exist.
 : "${CAPTURE_WAIT_TRIES:=30}"
 : "${CAPTURE_WAIT_SLEEP:=1}"
+: "${SOCKET_WAIT_TRIES:=30}"
+: "${SOCKET_WAIT_SLEEP:=1}"
 # The one pattern of "the files of the connection that presents the frame": the wait counts with it and its failure
 # message quotes it, so the two cannot drift apart.
 readonly PRESENTING_PATTERN='^conn1_(surface[0-9]+[.]meta|no_frame[.]txt)$'
@@ -39,9 +42,32 @@ if ! valid_wait_settings "$CAPTURE_WAIT_TRIES" "$CAPTURE_WAIT_SLEEP"; then
     exit 2
 fi
 
+if ! valid_wait_settings "$SOCKET_WAIT_TRIES" "$SOCKET_WAIT_SLEEP"; then
+    echo "${RELAY_SESSION_CALLER}: SOCKET_WAIT_TRIES ('$SOCKET_WAIT_TRIES') e inteiro positivo e SOCKET_WAIT_SLEEP ('$SOCKET_WAIT_SLEEP') inteiro nao negativo" >&2
+    exit 2
+fi
+
 # in_container <command...>: runs a command in the test container, with the runtime dir the compositor uses.
 in_container() {
-    docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test "$CONTAINER" "$@"
+    docker exec -e XDG_RUNTIME_DIR="$RELAY_RUNTIME_DIR" "$CONTAINER" "$@"
+}
+
+# relay_socket_name <mode>: the socket the capture relay of <mode> listens on AND the WAYLAND_DISPLAY the fixture
+# connects to; one name, so the two cannot drift apart.
+relay_socket_name() {
+    printf 'glintfx-cap-%s\n' "$1"
+}
+
+# relay_ready_line <mode>: the exact line wire_relay prints AFTER listen() and fflush
+# (tests/container/wire_relay/wire_relay_main.cpp, "wire_relay: listening on %s, upstream %s").
+relay_ready_line() {
+    printf 'wire_relay: listening on %s/%s, upstream %s/%s\n' "$RELAY_RUNTIME_DIR" "$(relay_socket_name "$1")" \
+        "$RELAY_RUNTIME_DIR" "$RELAY_UPSTREAM_NAME"
+}
+
+# relay_announced <mode>: reads a relay log on stdin; 0 only when it holds the ready line of <mode>, whole and exact.
+relay_announced() {
+    grep -F -x -q -e "$(relay_ready_line "$1")"
 }
 
 # start_capture_relay <mode>: the relay's pid goes to a file INSIDE the container, so it is stopped by pid
@@ -51,21 +77,25 @@ start_capture_relay() {
     # A previous run's files would be read as this run's capture (two surfaces, or a stale frame): start clean.
     in_container rm -rf "${CAPTURE_ROOT:?}/$mode"
     in_container mkdir -p "$CAPTURE_ROOT/$mode/frames" "$CAPTURE_ROOT/$mode/readback"
-    docker exec -d -e XDG_RUNTIME_DIR=/run/glintfx-test "$CONTAINER" sh -c \
-        "echo \$\$ > $CAPTURE_ROOT/$mode/relay.pid; exec wire_relay glintfx-test-upstream glintfx-cap-$mode $CAPTURE_ROOT/$mode/frames > $CAPTURE_ROOT/$mode/relay.log 2>&1"
+    docker exec -d -e XDG_RUNTIME_DIR="$RELAY_RUNTIME_DIR" "$CONTAINER" sh -c \
+        "echo \$\$ > $CAPTURE_ROOT/$mode/relay.pid; exec wire_relay $RELAY_UPSTREAM_NAME $(relay_socket_name "$mode") $CAPTURE_ROOT/$mode/frames > $CAPTURE_ROOT/$mode/relay.log 2>&1"
 }
 
+# wait_for_socket <mode>: waits for the relay's OWN announcement, never for the socket file: a file left by an earlier
+# run passes `test -S`, and so does a socket bound but not yet listening (RELAY-SOCKET-STALE).
 wait_for_socket() {
     mode="$1"
     tries=0
+    relay_log=""
     while [ "$tries" -lt "$SOCKET_WAIT_TRIES" ]; do
-        if in_container test -S "/run/glintfx-test/glintfx-cap-$mode"; then
+        relay_log="$(in_container cat "$CAPTURE_ROOT/$mode/relay.log" 2>/dev/null)" || relay_log=""
+        if printf '%s\n' "$relay_log" | relay_announced "$mode"; then
             return 0
         fi
         tries=$((tries + 1))
-        sleep 1
+        sleep "$SOCKET_WAIT_SLEEP"
     done
-    echo "${RELAY_SESSION_CALLER}: FAIL o rele de captura ($mode) nao abriu o socket em ${SOCKET_WAIT_TRIES}s" >&2
+    echo "${RELAY_SESSION_CALLER}: FAIL o rele de captura ($mode) nao anunciou '$(relay_ready_line "$mode")' em ${SOCKET_WAIT_TRIES} tentativa(s); log: $(printf '%s' "$relay_log" | tr '\n' ' ')" >&2
     return 1
 }
 

@@ -8229,3 +8229,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Pendente com o líder** (levar quando chegar a hora):
   - a retomada da D6-red pede mais duas imagens (cerca de 4,6 GB), o que não cabe sem apagar. A resposta "Não apaga nada" encontra a emenda da L-11 de hoje (apagar as imagens a cada push);
   - limpar as montagens vazadas do containerd exige reiniciar o Docker.
+
+### 09/10/2026 12:05:13 - PAUSA do líder; WL-FRAME-ORDER commitada e verde aqui
+
+- **Ordem do líder, verbatim:** "pause". O marcador está em `~/.config/olhe_agentes/GlintFx/parada_do_lider`. Não há despacho novo até ele mandar seguir.
+- **WL-FRAME-ORDER** (`b3861f80`, 3 arquivos, sem push):
+  - `rendered_frames` 30, contra 15 na rodada 1 e 1 na BASE;
+  - `skipped_hidden` 0 e `cap30_wall_ms` 967;
+  - o ckc deu rc 0 rodando primeiro; a varredura deu 25 de 25 com rc 0; o `loop_hidden_test` deu `rendered_while_hidden` 0;
+  - preci `--fast` com rc 0.
+  - O main conferiu o `git show --stat` e a linha `rendered_frames=30` no log.
+  - Construtor antigo declarado; a perna asan local não rodou (disco).
+- **Ficou para depois da pausa:**
+  - o ramo descartável no servidor;
+  - a revisão por outro revisor;
+  - o plano da versão de correção;
+  - o "encontrados=0 analisados=0" do hook pre-commit (L-36, a investigar).

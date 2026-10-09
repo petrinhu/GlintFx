@@ -7528,3 +7528,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **I-3, anterior à D2b:** cinco funções reais nunca rodam no autoteste, e só a fumaça as cobre.
 - **COSMÉTICOS:** de C-1 a C-7. O C-1 corrige a justificativa da D-W8-106: a recarga morre pelo `readonly`, e não por desfazer os stubs.
 - **Encaminhamento:** foi tudo ao CTO, que já planeja o `plano-pos-d4.md`, para uma D2b-fix antes da D3, junto com o `RELAY-SOCKET-STALE`.
+
+### 08/10/2026 23:57:39 - D5a-fix aceita em 6a463cc1 (preci verde); push e CI; D4-fix e revisão da D5a despachadas
+
+- **D5a-fix** (`6a463cc1`, só o `.py`):
+  - autoteste com 108 controles e rc 0;
+  - o mutante `--exit-budget-mx` foi pego;
+  - `preci --fast` rc 0, conferido pelo main no arquivo `preci.rc` e no "TUDO VERDE".
+  - `TOOL_SOURCE` ficou sem uso.
+- **Push** de `onda-w8` para `131b7e66`, provado por `ls-remote`, com D4, D2b, D5a e D5a-fix. **CI:** run 37876943585.
+- **D4-fix** despachada ao mesmo implementador da D5a, que conhece o arquivo:
+  - um controle novo prova que `check_capture_pairs` cita quem chama (o X4 da revisão da D4);
+  - `TOOL_SOURCE` sem uso sai;
+  - a contagem vai de 108 para 109 em `tests/CMakeLists.txt`.
+- **Revisão da D5a e da D5a-fix** despachada a um qa-engineer em haiku (`/var/tmp/cto-w8/ordem-rev-d5a.md`), com a decisão do main sobre o caso 11 a julgar.
+- **Agentes vivos:** o CTO (`plano-pos-d4.md`), a D4-fix e o revisor da D5a, num total de 3.

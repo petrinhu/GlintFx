@@ -7778,3 +7778,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - cosméticos C1 e C2.
 - **Encaminhamento:** o CTO planeja a SELFTEST-EXIT-LINE-fix em `plano-selftest-fix.md`. Ela mexe no registro, então entra ANTES da D5b e da D3. A SELFTEST-EXIT-LINE fica em 🔍 até a correção e a revisão dela.
 - **D3a** commitada em `9fe3d4d7` (4 arquivos; os 2 novos com modo 100755 no índice, conferido pelo main com `git ls-files -s`). Os mutantes estão em curso.
+
+### 09/10/2026 02:30:11 - Plano da SELFTEST-FIX aceito e a fatia despachada
+
+- **Plano** `/var/tmp/cto-w8/plano-selftest-fix.md` (md5 `5331a275`, CTO opus), com as decisões D-W8-147 a D-W8-152, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - a trava conta só os registros `.cmake" --`, com um piso que sobe a cada registro novo e nunca desce, hoje em 7;
+  - `[` e `]` passam a `<` e `>` antes de partir as linhas;
+  - a trava ganha autoteste de 7 casos, fora do executor;
+  - o autoteste do executor vai de 7 para 10 casos;
+  - os 3 comentários gêmeos são reescritos;
+  - C1 e C2 ficam aceitos como estão.
+- **Errata para as próximas:** a D5b sobe o piso da trava para 8 e a D3 para 9, cada uma no mesmo commit e ajustando os casos do autoteste da trava.
+- **Verificação do main:** `check_no_pass_regex.cmake:41` tem `LESS 7`, e `grep -c 'expect_exit_and_line.cmake" --'` dá 7 no registro, o que confirma o I1.
+- **Despacho:** a SELFTEST-FIX foi para o implementador da SELFTEST-EXIT-LINE, em paralelo com a D3a e a D5a-fix4 (arquivos disjuntos). Ordem daqui em diante: D5b, depois D3.

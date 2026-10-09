@@ -8032,3 +8032,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **CI 37900807368** (tip `f182a427`, com D3a-fix, D5a-fix5, SELFTEST-FIX2, D5b e D3a-fix2): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). O `operator==` padrão passou no MSVC, e os scripts novos passaram no dash do Ubuntu.
 - **SELFTEST-EXIT-LINE → ✅.** A cadeia das três revisões fechou (c3ec9d66, 68968bad, dfa3e709), e o CI que contém `dfa3e709` está verde.
 - A D3 (`0cbaba25`) e a D5b-fix (`ae2d1295`) ainda não foram empurradas.
+
+### 09/10/2026 05:12:42 - Revisão da D5b-fix: APROVADA COM RESSALVAS; o formato do MEASURED vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5bfix.md`): M3 e M5 FECHADOS; M4 fechado na forma do mutante. MI-NOPROP prova que a propriedade no registro irmão é necessária. Sem defeito de código.
+- **IMPORTANTE 1:** o `FAIL_REGULAR_EXPRESSION` só casa UM espaço depois de MEASURED, e o coletor (`collect_measured.py`, `\s+`) aceita tab. O mutante com tab passa. A correção `MEASURED[ \t]` foi provada numa cópia. É a lição do formato compartilhado: a guarda tem de casar com o leitor, e não só com o produtor de hoje.
+- **Encaminhamento:** o CTO decide a D5b-fix2 (e se o SCANCOUNT também reprova), depois de entregar o plano da D6 e da D7.

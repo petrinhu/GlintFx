@@ -988,7 +988,7 @@ set_tests_properties(expect_exit_and_line_selftest PROPERTIES LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
 # Guard against PASS_REGULAR_EXPRESSION coming back (D-W8-114, L-36): fails on any non-comment use of it
-# in this file, and on fewer sites (the executor followed by `--`) than the ratchet floor in
+# in this file, and on a number of sites (the executor followed by `--`) other than the exact count in
 # tests/tools/check_no_pass_regex.cmake.
 add_test(
     NAME no_pass_regex_test
@@ -997,7 +997,7 @@ add_test(
 )
 set_tests_properties(no_pass_regex_test PROPERTIES LABELS consume)
 
-# The guard's own selftest (D-W8-149, L-36): seven synthetic registries, in memory, with the counts and the
+# The guard's own selftest (D-W8-149, L-36): nine synthetic registries, in memory, with the counts and the
 # verdict fixed before the run. Not through the executor: that would make it a site and inflate the count it
 # protects.
 # glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci

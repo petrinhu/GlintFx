@@ -7930,3 +7930,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o comentário do registro sem "EXACT in the regex".
   O main conferiu que os arquivos lidos pela D5b não mudaram desde a base do plano, exceto `window_capture_options.cpp`, que mudou em comentário e na leitura do orçamento e ainda tem os 5 literais.
 - **Agentes vivos:** a SELFTEST-FIX2 (fechando o relatório), a D5a-fix5, o revisor conjunto da D2b-fix3 e da D3a-fix, e a D5b, 4 no total.
+
+### 09/10/2026 04:02:09 - SELFTEST-FIX2 entregue; revisão despachada ao mesmo revisor
+
+- **SELFTEST-FIX2** (`dfa3e709`): o vermelho saiu como previsto (só o caso 9 falhou; na base, `sitios=9 piso=7` passava); autoteste de 9 casos verde; N1, N1b, N3 e N4 mortos; a forma composta (trocar 2 por 2) passa, como o limite declarado prevê; trava real com `sitios=7 esperado=7`; preci com rc 0.
+- **Revisão** despachada ao mesmo revisor das duas rodadas anteriores (`rev-selftest-fix2.md`), com o §0 da D5a-fix5 como critério de classe. Ele revisa o clone no SHA, já que a D5b sobe a constante para 8 na árvore.
+- **Agentes vivos:** a D5a-fix5, o revisor conjunto da D2b-fix3 e da D3a-fix, a D5b e o revisor da SELFTEST-FIX2, 4 no total.

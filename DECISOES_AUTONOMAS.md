@@ -7999,3 +7999,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a limpeza de `png/` não está provada (M5).
   O tamanho do arquivo (516 linhas, com driver e autoteste juntos) foi como pergunta de desenho ao CTO.
 - **Encaminhamento:** o CTO planeja a D5b-fix em `plano-d5bfix.md`. Se ela mudar o N do registro, vem depois do commit da D3.
+
+### 09/10/2026 04:51:08 - D3 commitada; plano da D5b-fix aceito e despachado
+
+- **D3** em `0cbaba25` (5 arquivos). O main conferiu: os dois `.sh` novos batem byte a byte com os anexos do plano v2 (md5 `e2812193` e `a92bfa4f`) e estão no índice com modo 100755; `CHECK_NO_PASS_REGEX_SITES` vai a 9; a exceção de paridade entrou. O preci está em curso.
+- **Plano da D5b-fix** (`plano-d5bfix.md`, md5 `744efd6a`). As decisões D-W8-175 a D-W8-178, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - um controle novo fixa `PROBE_COUNT==12` e `CAPTURE_SIZE==(640,480)`, e o N vai de 33 para 34;
+  - o registro reprova MEASURED no autoteste por `FAIL_REGULAR_EXPRESSION`, e o irmão Windows ganha o mesmo. O CTO recusou rodar o autoteste em processo filho: um erro na guarda contra recursão viraria cadeia de processos no hospedeiro, como já aconteceu uma vez;
+  - a limpeza de `png/` passa a ser provada;
+  - o tamanho do arquivo amplia o item da INBOX `CAPTURE-DRIVER-SPLIT`, já feito na TODO.md.
+- **Despacho:** a D5b-fix foi para o implementador da D2b-fix, com a guarda de diff. Agentes vivos: a D3 (preci) e a D5b-fix, 2 no total.

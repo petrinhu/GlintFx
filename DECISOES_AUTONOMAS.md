@@ -7629,3 +7629,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   Um caso 11c, com estado padrão e provado numa cópia, mata PB2 e SF.
 - **O MB é equivalente de fato**, como o main tinha concluído: o revisor não achou nenhuma linha que o distinga, numa enumeração exaustiva de 579.195 linhas.
 - **Encaminhamento:** o CTO, que planeja a D5b, recebeu o relatório com o pedido de uma fatia D5a-fix3 antes da D5b, junto com as respostas da gramática, para evitar duas mãos no mesmo arquivo de teste. A D5a-fix2 fica aberta até a D5a-fix3.
+
+### 09/10/2026 01:05:48 - D2b-fix entregue nos dois commits; push e CI; revisão da D2b-fix despachada
+
+- **Commit 2** (`6b9c8aba`, 3 arquivos): N 24 para 28. Os vermelhos de G1 e G2 saíram pela causa certa. Os mutantes RS1 a RS6, RC1 a RC3, RG e RR morreram onde o plano previa, e o RU (desfazer a troca do `unset -f`) morreu no controle 25 com `command not found`; o main conferiu RS1, RS5, RG, RR e RU por amostra nos logs. A varredura achou um único `unset -f`, o do controle trocado. O preci deu rc 0 nos dois SHAs.
+- **Desvio declarado:** a mensagem do commit 2 diz que G1 a G4 foram vistos vermelhos antes do conserto, mas G3 e G4 só ficaram vermelhos pelos mutantes. O commit não foi emendado (L-25), e o desvio vai ao revisor.
+- **Push** de `onda-w8` com o tip `f2f2d3eb`, provado por `git ls-remote`. CI disparado: run 37882262031.
+- **Revisão da D2b-fix** despachada a um haiku distinto (`ordem-rev-d2bfix.md`). Agentes vivos: o CTO (plano da D5b e da D5a-fix3) e o revisor da D2b-fix, 2 no total.

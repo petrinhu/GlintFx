@@ -8188,3 +8188,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Executado:** `docker builder prune -f --filter until=24h`.
   - O Docker contou 6,529 GB apagados. O cache foi de 36,3 para 29,77 GB, e ainda há 19,5 GB recuperáveis, mas recentes.
   - O mínimo do disco foi de 23,70 para 24,50 GiB. O disco ganhou menos do que o Docker contou, e a causa não foi medida (INFERÊNCIA: compressão do btrfs ou espaço ainda não devolvido).
+
+### 09/10/2026 11:13:27 - WL-FRAME-ORDER: D0 confirmou e o vermelho deu a causa certa; construção travada pelo containerd; pesquisa comparativa
+
+- **D0 (WAYLAND_DEBUG=client)** confirmou: há um único commit do swap e, DEPOIS dele, o `wl_surface.frame`, que nunca recebe `done`.
+- **Vermelho** (só a E4): `rendered_frames=1 (>= 27) FALHOU`, a única asserção reprovada.
+  - A BASE das 25 fixtures deu 25 de 25 com rc 0.
+  - O cap30 deu 2977 ms na BASE e 2976 ms no vermelho.
+- **Construção da imagem verde** falhou duas vezes na exportação do BuildKit, e não no código. A primeira deu "device or resource busy", a segunda "ref locked".
+  - O main pesquisou na web (L-42) e achou duas montagens overlay do containerd vazadas desde 10:57:10 em `/tmp/containerd-mount*`. Soltá-las exige root, que não está autorizado.
+  - A terceira tentativa é pelo construtor antigo (`DOCKER_BUILDKIT=0`). O main provou que ele funciona sem baixar nada, e o desvio fica declarado no relatório; a prova canônica é a do servidor.
+- **O líder perguntou:** "olhou como fazem outras libs?" O CTO tinha lido o protocolo, a SDL3 e o KWin.
+  - O main mandou uma pesquisa comparativa (`pesquisa-frame-order.md`) e segurou o commit até ela voltar.
+  - Resultado: SDL3, GLFW, Mesa, winit e Qt pedem o aviso ANTES do commit, como o conserto. Todas têm teto de espera, menos o Mesa, e o nosso é o orçamento de 100 ms.
+  - O commit foi liberado.
+- **Desvios do implementador:** o modelo fica haiku pela L-11 global; os carimbos de 127 s no D0 ficam como "não explicado, não medido"; e o Anexo E2 tem 13 linhas, não 11, porque o plano contou errado.

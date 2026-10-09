@@ -4255,9 +4255,10 @@ add_test(
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
 )
-# FAIL_REGULAR_EXPRESSION: a MEASURED line in the selftest output fails it (D-W8-176, collect_measured.py).
+# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it, with ANY blank after
+# the word, the way collect_measured.py:86 reads it (D-W8-176, D-W8-180, D-W8-181).
 set_tests_properties(run_example_capture_win32_selftest PROPERTIES LABELS selftest
-    FAIL_REGULAR_EXPRESSION "MEASURED [A-Za-z0-9_]+[.][A-Za-z0-9_]+=")
+    FAIL_REGULAR_EXPRESSION "(MEASURED|SCANCOUNT)[ \t]")
 
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
@@ -6551,9 +6552,10 @@ add_test(
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest
 )
-# FAIL_REGULAR_EXPRESSION: a MEASURED line in the selftest output fails it (D-W8-176, collect_measured.py).
+# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it, with ANY blank after
+# the word, the way collect_measured.py:86 reads it (D-W8-176, D-W8-180, D-W8-181).
 set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest
-    FAIL_REGULAR_EXPRESSION "MEASURED [A-Za-z0-9_]+[.][A-Za-z0-9_]+=")
+    FAIL_REGULAR_EXPRESSION "(MEASURED|SCANCOUNT)[ \t]")
 
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory

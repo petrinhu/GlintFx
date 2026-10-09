@@ -35,26 +35,13 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 readonly SCRIPT_DIR REPO_ROOT
-readonly CAPTURE_ROOT="/tmp/glintfx-capture"
 readonly TOOLS_DIR="$REPO_ROOT/tests/tools"
-readonly SOCKET_WAIT_TRIES=30
-# Only --selftest overrides these (a one-try, zero-sleep wait). Validated right below, once the helpers exist.
-: "${CAPTURE_WAIT_TRIES:=30}"
-: "${CAPTURE_WAIT_SLEEP:=1}"
-# The one pattern of "the files of the connection that presents the frame": the wait counts with it and its failure
-# message quotes it, so the two cannot drift apart.
-readonly PRESENTING_PATTERN='^conn1_(surface[0-9]+[.]meta|no_frame[.]txt)$'
+# shellcheck disable=SC2034 # read by capture_relay_session.sh, loaded on the next lines: the name of this caller.
+readonly RELAY_SESSION_CALLER="run_capture_known_color"
 
-# valid_wait_settings <tries> <sleep>: tries is a positive integer, sleep a non-negative one (digits only).
-valid_wait_settings() {
-    case "$1$2" in *[!0-9]*) return 1 ;; esac
-    [ -n "$1" ] && [ -n "$2" ] && [ "$1" -ge 1 ]
-}
-
-if ! valid_wait_settings "$CAPTURE_WAIT_TRIES" "$CAPTURE_WAIT_SLEEP"; then
-    echo "run_capture_known_color: CAPTURE_WAIT_TRIES ('$CAPTURE_WAIT_TRIES') e inteiro positivo e CAPTURE_WAIT_SLEEP ('$CAPTURE_WAIT_SLEEP') inteiro nao negativo" >&2
-    exit 2
-fi
+# The relay session (wait settings, container and relay helpers, copy-out and run_check) lives in the library.
+# shellcheck source=capture_relay_session.sh
+. "$SCRIPT_DIR/capture_relay_session.sh"
 
 fail_usage() {
     echo "uso: run_capture_known_color.sh [--env NOME=VALOR ...] [--sabotage NOME] <container> <diretorio-de-saida>" >&2
@@ -80,70 +67,6 @@ parse_args() {
     OUT_DIR="$2"
 }
 
-# in_container <command...>: runs a command in the test container, with the runtime dir the compositor uses.
-in_container() {
-    docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test "$CONTAINER" "$@"
-}
-
-# start_capture_relay <mode>: the relay's pid goes to a file INSIDE the container, so it is stopped by pid
-# afterwards, never by a name pattern (pkill -f matches itself, feedback_pgrep_encontra_a_si_mesmo).
-start_capture_relay() {
-    mode="$1"
-    # A previous run's files would be read as this run's capture (two surfaces, or a stale frame): start clean.
-    in_container rm -rf "${CAPTURE_ROOT:?}/$mode"
-    in_container mkdir -p "$CAPTURE_ROOT/$mode/frames" "$CAPTURE_ROOT/$mode/readback"
-    docker exec -d -e XDG_RUNTIME_DIR=/run/glintfx-test "$CONTAINER" sh -c \
-        "echo \$\$ > $CAPTURE_ROOT/$mode/relay.pid; exec wire_relay glintfx-test-upstream glintfx-cap-$mode $CAPTURE_ROOT/$mode/frames > $CAPTURE_ROOT/$mode/relay.log 2>&1"
-}
-
-wait_for_socket() {
-    mode="$1"
-    tries=0
-    while [ "$tries" -lt "$SOCKET_WAIT_TRIES" ]; do
-        if in_container test -S "/run/glintfx-test/glintfx-cap-$mode"; then
-            return 0
-        fi
-        tries=$((tries + 1))
-        sleep 1
-    done
-    echo "run_capture_known_color: FAIL o rele de captura ($mode) nao abriu o socket em ${SOCKET_WAIT_TRIES}s" >&2
-    return 1
-}
-
-# presenting_files_count: reads file names on stdin and prints how many of them are the files of the connection that
-# PRESENTS the frame (conn1, measured in every run: the fixture's first Wayland connection is the display it draws
-# on; the second one, opened by the EGL layer, never commits a buffer). The second connection closes FIRST, so its
-# "nenhum quadro" marker is on disk before the frame is: waiting for ANY marker returned early, and the relay was
-# stopped before it saved the frame.
-presenting_files_count() {
-    grep -c -E "$PRESENTING_PATTERN" || true
-}
-
-# The relay writes the capture when the client's connection closes, a moment AFTER the fixture exits; the
-# .meta is written after its .raw, so the .meta (or the no-frame marker) of the presenting connection means
-# its files are complete.
-wait_for_capture_files() {
-    mode="$1"
-    tries=0
-    listing=""
-    while [ "$tries" -lt "$CAPTURE_WAIT_TRIES" ]; do
-        listing="$(in_container ls "$CAPTURE_ROOT/$mode/frames")"
-        found="$(printf '%s\n' "$listing" | presenting_files_count)"
-        if [ "${found:-0}" -ge 1 ]; then
-            return 0
-        fi
-        tries=$((tries + 1))
-        sleep "$CAPTURE_WAIT_SLEEP"
-    done
-    echo "run_capture_known_color: FAIL ($mode) esperava um arquivo casando $PRESENTING_PATTERN em $CAPTURE_ROOT/$mode/frames em ${CAPTURE_WAIT_TRIES} tentativa(s); achei: $(printf '%s' "$listing" | tr '\n' ' ')" >&2
-    return 1
-}
-
-stop_capture_relay() {
-    mode="$1"
-    in_container sh -c "kill \$(cat $CAPTURE_ROOT/$mode/relay.pid) 2>/dev/null || true"
-}
-
 # run_fixture <mode>: through exec_fixture.sh (the verdict line first, rc from a file). WAYLAND_DISPLAY is
 # overridden AFTER the one exec_fixture.sh always sets, so the fixture connects to the capture relay.
 run_fixture() {
@@ -153,27 +76,6 @@ run_fixture() {
     # shellcheck disable=SC2086
     "$SCRIPT_DIR/exec_fixture.sh" $ENV_ARGS --env "WAYLAND_DISPLAY=glintfx-cap-$mode" \
         "$CONTAINER" capture_known_color_smoke "$mode" "$CAPTURE_ROOT/$mode/readback" "$@"
-}
-
-copy_out() {
-    mode="$1"
-    mkdir -p "$OUT_DIR/$mode/frames" "$OUT_DIR/$mode/readback"
-    docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/frames/." "$OUT_DIR/$mode/frames"
-    docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/readback/." "$OUT_DIR/$mode/readback"
-    docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/relay.log" "$OUT_DIR/$mode/relay.log"
-}
-
-# run_check <rc-file> <command...>: the command's output is shown on stderr, its exit code goes to a FILE and is
-# read back (GODS_LAWS.md L-45); stdout carries only that code.
-run_check() {
-    rc_file="$1"
-    shift
-    set +e
-    "$@" >"$rc_file.log" 2>&1
-    echo "$?" >"$rc_file"
-    set -e
-    cat "$rc_file.log" >&2
-    cat "$rc_file"
 }
 
 # judge_mode <mode>: the three host-side checks over what docker cp brought out. Prints one verdict line.
@@ -194,13 +96,6 @@ judge_mode() {
     echo "$png_rc $cmp_rc $probe_rc" >"$dir/checks.rc"
     echo "run_capture_known_color: mode=$mode raw_to_png=$png_rc capture_vs_readback=$cmp_rc image_probe=$probe_rc"
     [ "$png_rc" -eq 0 ] && [ "$cmp_rc" -eq 0 ] && [ "$probe_rc" -eq 0 ]
-}
-
-# clean_mode_output <mode>: a reused out directory would hand the judge the PREVIOUS run's frames and readback
-# (docker cp lays files over what is there): a fixture that does nothing then reads as a pass. Both expansions
-# abort the shell when empty, so this can never become `rm -rf /` (GODS_LAWS.md L-53).
-clean_mode_output() {
-    rm -rf "${OUT_DIR:?}/${1:?}"
 }
 
 # mode_verdict <judged> <fixture-rc> <waited>: a mode passes only when the three host checks, the fixture AND the wait

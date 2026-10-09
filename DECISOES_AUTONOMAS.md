@@ -8015,3 +8015,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D3** (`0cbaba25`): os md5 batem com os anexos A e B; a tupla A saiu como previsto (controle 4); na B, N=20, com MEASURED=0; trava com `sitios=9 esperado=9`; M1 a M19 morreram no controle previsto (M18 recusa a segunda chamada, M19 dá `readonly variable`); preci com rc 0 (110 registrados e 92 rodados).
 - **Desvio declarado:** `git add -N` e `git reset` só nos dois caminhos novos, no índice compartilhado. O main conferiu que o índice ficou limpo (`git diff --cached` vazio). O julgamento vai ao revisor.
 - **Revisão conjunta** da D3 e da D3a-fix2 despachada ao revisor da D3a (`ordem-rev-d3.md`). Agentes vivos: a D5b-fix, o CTO (plano da D6 e da D7) e o revisor da D3, 3 no total.
+
+### 09/10/2026 05:01:35 - D5b-fix commitada; quarta limpeza do scratch
+
+- **D5b-fix** em `ae2d1295`, com o preci em curso.
+- **Limpeza** (escopo "clean"): 131 cópias das fatias fechadas (D5b, D5a-fix5, D3a-fix, D3a-fix2, D2b-fix3, SELFTEST-FIX2 e as revisões delas), das quais 45 eram de dono root e foram apagadas por contêiner. Lista em `limpeza4.txt`, com zero caminhos em `scripts/`. Foram poupados os diretórios vivos (`d5bfix`, `rev-d3`, `d3`) e o `b`.
+- **Disco:** `min` de 20,94 para 21,82 GiB.

@@ -7360,3 +7360,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   3. a INBOX `RERUN-GUARD-CANCELLED-PREP`;
   4. a pergunta ao CTO sobre o Status de `CAPTURE-DRIVER-WIRING-UNTESTED` (lista INBOX contra tabela);
   5. depois, a D2b.
+
+### 08/10/2026 22:25:39 - Retomada: modo autônomo ligado pelo líder até 09/10/2026 22:25, com o trabalho retomado
+
+- **Ordem, verbatim:** *"ligue modo autonomo"*. À pergunta (`AskUserQuestion`) se isso também retomava a pausa das 16:54, ele respondeu *"Sim, retomar agora (Recomendado)"*. O `parada_do_lider` foi apagado.
+- **Fila:**
+  1. CI novo da ponta `4dac55d9`;
+  2. revisão da D2a-fix (`ccb2c456`) por outro agente;
+  3. a INBOX `RERUN-GUARD-CANCELLED-PREP`;
+  4. a pergunta ao CTO sobre o Status de `CAPTURE-DRIVER-WIRING-UNTESTED`;
+  5. a D2b.
+- **Ordens a agente em haiku** seguem os 8 itens obrigatórios da L-11 global, no parágrafo "Ordem de serviço para modelo menor".

@@ -34,7 +34,7 @@
 | [L-08](#l-08) | criar repo, `LICENSE`, cabeçalho de arquivo, publicar | Público no GitHub, AGPL-3.0 |
 | [L-09](#l-09) | rodar teste que abre janela, injeta input ou captura tela | Container com compositor Wayland dentro; nunca a sessão viva |
 | [L-10](#l-10) | escolher entre duas abordagens, decidir design ou arquitetura | Opções ao líder via `AskUserQuestion`, sem painel lateral |
-| [L-11](#l-11) | `git push`, merge em `main`, criar tag, publicar release, **ou apagar ramo remoto** | Push por onda completa; merge e tag só com aval no contexto; **ramo da onda apagado ao mesclar, provado ancestral de `main` antes** |
+| [L-11](#l-11) | `git push`, merge em `main`, criar tag, publicar release, **ou apagar ramo remoto** | Push por onda completa; merge e tag só com aval no contexto; **ramo da onda apagado ao mesclar, provado ancestral de `main` antes**; **a cada push, apagar as imagens de teste de fatias fechadas (09/10)** |
 | [L-12](#l-12) | escrever ou revisar código de produto | Agente especialista executa; implementer, reviewer e orquestrador são distintos |
 | [L-13](#l-13) | escrever qualquer mensagem ao líder | Timestamp real `[DD/MM/YY - HH:MM:SS]` obtido do `date` |
 | [L-14](#l-14) | instalar, remover ou atualizar pacote de sistema | Pedir autorização; não instalar sozinho |
@@ -355,6 +355,8 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 **A falha medida que gerou a emenda, para o próximo não repetir:** o orquestrador tinha uma ratificação pontual do líder ("marque a versão quando as 22 verificações estiverem verdes") e a aplicou como se fosse o critério **completo** de fechamento. O plano da onda definia o fechamento por **quatro passos** que não haviam sido executados. O orquestrador **detectou a lacuna, escreveu-a num commit, deixou os itens sem marcar como concluídos, e mesmo assim publicou a marca e abriu a onda seguinte**, entregando duas fatias dela antes de o líder corrigir.
 
 **Sobre marca publicada cedo:** decisão do líder de 08/09/2026, por `AskUserQuestion`, foi **manter** a marca já publicada e marcar de novo no fechamento real, em vez de apagar ou mover marca de repositório público - apagar quebraria quem já a tivesse buscado, e contraria o que a documentação do próprio projeto ensina ao consumidor sobre fixar versão.
+
+**Emenda de 09/10/2026: a cada push, as imagens de teste antigas saem do disco.** Ordem do líder, verbatim, em resposta a uma `AskUserQuestion` sobre apagar ~36 GB de imagens `glintfx-wltest` de fatias já fechadas com o disco a 21,6 GiB do piso de 20: *"Já era pra ter apagado, a cada push! Opcao 1."* A opção 1 dizia: apagar só as imagens `glintfx-wltest` de fatias já fechadas, com mais de 2 dias, e manter as da fatia viva e a base `fedora`. **A regra:** depois de cada `git push`, o main apaga as imagens de teste locais (`glintfx-wltest:*`) que não pertencem a uma fatia ainda viva (nenhum agente usando, nenhuma prova pendente nelas), e mede o disco antes e depois pelo `min` do `btrfs filesystem usage /`. **Fica:** a imagem base (`fedora:*`) e as imagens da fatia em curso. **Por que se refazem sem custo de decisão:** cada uma sai de novo do `Containerfile` com uma montagem; a imagem antiga só guarda o estado de uma fatia já fechada, e o histórico verdadeiro está no git.
 
 ## L-12
 

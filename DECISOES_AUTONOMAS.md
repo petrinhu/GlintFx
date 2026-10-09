@@ -8146,3 +8146,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - D-W8-204 e 205: o C-11 e o C-12 vão à lista de ratificação.
   - D-W8-206: o C-13 vai à INBOX como `SELFTEST-MAIN-DUP-GATE`.
 - **Retomada:** a D6-red volta com a receita da D-W8-197, a autorização do líder e a frase da D-W8-199.
+
+### 09/10/2026 10:21:28 - Ordem do líder: a cada push, apagar as imagens de teste antigas; D6-red parada no P5
+
+- **Pergunta ao líder** (disco com min 21,6 GiB): apagar as imagens `glintfx-wltest` de fatias fechadas?
+- **Resposta, verbatim:** "Já era pra ter apagado, a cada push! Opcao 1."
+  - Entrou como emenda na L-11 do `GODS_LAWS.md`, refundida na lei irmã do push (L-68), com o gatilho atualizado no índice e no `CLAUDE.md`.
+- **Executado:**
+  - 45 de 46 imagens apagadas;
+  - ficaram as duas `d6red-*` da fatia viva;
+  - a `egl` não saiu porque um contêiner parado (`7f02bd2af759`, de dono não medido) a usa, e não foi forçada;
+  - o disco foi de min 21,52 para 23,85 GiB.
+  - O `docker system df` mostra mais 25,7 GB recuperáveis no cache de build, que a ordem não cobre (são cache, não imagens) e que não foi tocado.
+- **D6-red PARADA no P5, sem commit:**
+  - Base apelidada, com os Ids iguais (sha256:43b29f65) e sem `Pulling`.
+  - P1, P2 (plain e asan), P3 plain e P4 plain com rc 0.
+  - **O V-1 plain saiu com rc 3 (estouro do teto de 12 s, `exemplo_rc` 124, 61 s), não com o rc 1 previsto.** As sondas deram o previsto (7 de 12 e 2 de 5, 7C7C7C).
+  - É vermelho pela causa errada e vai ao CTO.

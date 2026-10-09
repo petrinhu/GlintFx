@@ -8163,3 +8163,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - P1, P2 (plain e asan), P3 plain e P4 plain com rc 0.
   - **O V-1 plain saiu com rc 3 (estouro do teto de 12 s, `exemplo_rc` 124, 61 s), não com o rc 1 previsto.** As sondas deram o previsto (7 de 12 e 2 de 5, 7C7C7C).
   - É vermelho pela causa errada e vai ao CTO.
+
+### 09/10/2026 10:39:29 - Defeito CRÍTICO da biblioteca: o laço Wayland congela depois do primeiro quadro; o líder pede uma versão de correção
+
+- **CTO, Q5** (`plano-d6red-fix.md`, md5 `a8462d5a`, D-W8-207 a 211): o vermelho errado da D6-red é defeito da BIBLIOTECA. Em `present_through_egl`, o `attach_frame_listener()` (o `wl_surface_frame`) vem depois do `eglSwapBuffers()` (o commit), e pelo `wayland.xml` o pedido só vale no commit seguinte. O laço desenha um quadro e congela, desde a v0.4.0.0.
+  - O servidor já media isso: `rendered_frames` 1 no Linux contra 30 no Windows. A causa estava atribuída ao kwin, errado, em `measured_exceptions.txt:193`.
+  - O exemplo, o driver e o teto estão certos. A previsão do §5.3 errou porque o plano não leu esse arquivo, e o CTO declara o erro como dele.
+- **O main reconferiu no código:** o `present_through_egl` (`egl_context_adapter.cpp:1070`) faz o swap na linha 1071, e o `attach_frame_listener()` e o `arm_pending` vêm nas linhas 1103 e 1104.
+- **Fatia WL-FRAME-ORDER despachada** a um implementador haiku novo (`plano-d6red-fix.md` §3), com o D0 de confirmação antes de editar e o vermelho `loop_parity_test` exigindo 27 de 30.
+  - Os gêmeos de texto foram para a INBOX como `WL-FRAME-ORDER-TWINS`.
+  - A ordem nova é: WL-FRAME-ORDER, retomada da D6-red, D3-fix2 e D6-green, D5b-fix3, D7.
+- **Pergunta ao líder (AskUserQuestion):** como entregar o conserto a quem usa a biblioteca?
+  - **Resposta, verbatim:** "Versão de correção já (Recomendado)".
+  - A opção dizia: assim que o conserto passar no servidor, sai uma versão só de correção sobre a v0.6.0.0 publicada (v0.6.0.1), sem esperar a onda.
+  - O caminho (base, merge e DEPLOY_CHECKLIST) vai ao CTO depois do commit da fatia.
+- **Modelo:** o CTO lembrou que a L-18 diz sonnet, mas a L-11 global manda obedecer a `/modelos_sessao` (haiku, ordem do líder de 08/10), e fica haiku.

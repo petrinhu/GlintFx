@@ -7598,3 +7598,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **O P4 não reprovou** (`git rm --cached` numa cópia). O `run_ctest.sh` monta a árvore de trabalho, e o arquivo continuava no disco. Leitura do main (INFERÊNCIA, que vai ao revisor): o mutante estava mal desenhado. Um arquivo fora do commit chega ao CI e ao preci, que roda num clone do SHA, como arquivo ausente do disco, e esse é o P4b do implementador, que morreu por `ImportError`.
 - **Desvio aceito:** o commit foi feito antes dos mutantes, pela L-27. A ordem de passos estava invertida.
 - **Revisão da D4b** despachada a um haiku distinto (`ordem-rev-d4b.md`). Agentes vivos: D2b-fix, D5a-fix2 (preci) e o revisor da D4b, 3 no total.
+
+### 09/10/2026 00:39:33 - preci da D5a-fix2 verde; revisão da D5a-fix2 e plano da D5b despachados
+
+- **D5a-fix2** (`f8acb388`): preci com rc 0 (`/var/tmp/cto-w8/d5afix2/preci.rc`). O trailer traz `Co-Authored-By: Claude Haiku 5.5`, que é o modelo que executou. Não foi reescrito: a mensagem está certa, e o commit não se emenda.
+- **Revisão da D5a-fix2** despachada a um haiku distinto (`ordem-rev-d5afix2.md`), com a ordem de tentar DERRUBAR a equivalência do MB.
+- **Plano da D5b** pedido ao CTO (opus, alto), em `/var/tmp/cto-w8/plano-d5b.md`, com a pesquisa antes do desenho (L-22), as três perguntas da gramática e o cosmético do valor duplicado. A D5b espera o commit do N da D2b-fix em `tests/CMakeLists.txt`.
+- **Agentes vivos:** a D2b-fix, o revisor da D4b, o revisor da D5a-fix2 e o CTO, 4 no total (o teto).

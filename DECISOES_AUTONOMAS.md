@@ -7700,3 +7700,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Verificação do main** contra a árvore: `selftest_check` em `run_capture_known_color.sh:152-158` roda `"$@"` no shell principal; as guardas `:?` de CONTAINER estão em `capture_relay_session.sh:55` (in_container) e `:140` (copy_out); `wait_for_socket` (`:89`) e `wait_for_capture_files` (`:117`) não têm guarda própria.
 - **Ordem no tempo (D-W8-135):** SELFTEST-EXIT-LINE, depois a D2b-fix2, depois a D5b (enquanto o CTO planeja a D3), depois a D3. Nunca duas fatias vivas em `tests/CMakeLists.txt`.
 - **Errata à D5b, a levar na ordem dela:** o registro novo copia a forma do executor `expect_exit_and_line`, e não `PASS_REGULAR_EXPRESSION`, senão a trava `check_no_pass_regex` reprova.
+
+### 09/10/2026 01:35:49 - CI 37882262031 verde; SELFTEST-EXIT-LINE commitada; D2b-fix2 despachada
+
+- **CI 37882262031** (tip `f2f2d3eb`, com D4b, D2b-fix e D5a-fix2): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC).
+- **SELFTEST-EXIT-LINE** em `c3ec9d66` (`git show --stat`: os 4 arquivos esperados). `git grep PASS_REGULAR_EXPRESSION` em `tests/CMakeLists.txt` acha só 3 linhas, todas comentário; o registro do driver da captura já está na forma do executor. Status passa a 🔍. Os mutantes e o preci dela ainda rodam, sobre clones.
+- **D2b-fix2** despachada ao implementador da D2b-fix (`ordem-d2bfix2.md`), com a pré-condição conferida: o commit da SELFTEST-EXIT-LINE está no HEAD e nenhuma fatia viva escreve no registro. A D5a-fix3 roda em paralelo, em arquivos disjuntos.
+- **Agentes vivos:** a SELFTEST-EXIT-LINE (mutantes e preci), a D5a-fix3 (preci), a D2b-fix2 e o CTO (plano da D3), 4 no total (o teto).

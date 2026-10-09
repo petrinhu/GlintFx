@@ -8048,3 +8048,26 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 ### 09/10/2026 05:15:39 - Push e CI da D3 e da D5b-fix
 
 - **Push** de `onda-w8` com o tip `fe7cf36a`, provado por `git ls-remote`. CI disparado: run 37903837351. Ele confere no servidor o driver da D3 no dash do Ubuntu e o `FAIL_REGULAR_EXPRESSION` novo da D5b-fix nos jobs do Windows.
+
+### 09/10/2026 05:30:41 - Planos da D6, da D7, da D5b-fix2 e da D3-fix aceitos; quatro fatias em paralelo
+
+- **Plano da D6 e da D7** (`plano-d6-d7.md`, md5 `d837e814`), com as decisões D-W8-185 a D-W8-196:
+  - o gatilho do `CAPTURE-DRIVER-SPLIT` dispara antes da D6-red, em duas fatias de refactor puro (SPLIT-1, com N=109, e SPLIT-2, com N=34);
+  - `examples/` ganha um estágio próprio na imagem, e a injeção do contador usa caminho relativo;
+  - o registro do Windows fica `if(WIN32 AND TARGET first_window)`;
+  - na catraca, só a D7 soma um sítio (de 9 para 10);
+  - nas provas, esta máquina vem primeiro, e depois o servidor, em ramos descartáveis, cobertos pelo escopo "push" da autonomia;
+  - a VM do Windows só entra com a confirmação do líder.
+  São 5 commits de fatia: SPLIT-1, SPLIT-2, D6-red, D6-green e D7.
+- **Desvio declarado pelo CTO:** ele rodou uma vez o autoteste do rascunho do script da D7, contra a proibição de executar. Não vale como prova.
+- **Perguntas ao líder, marcadas pelo CTO:**
+  - (1) **a aparência do exemplo**, que deve ser perguntada antes da D6-red;
+  - (2) a licença de `examples/`, que o líder JÁ respondeu em 08/10/2026 (AGPL-3.0, como tudo; registro na memória da sessão), então não é pergunta nova.
+- **D5b-fix2** (`plano-d5bfix2.md`, md5 `935984f0`): `(MEASURED|SCANCOUNT)[ \t]` nos dois registros. A D-W8-181 (o SCANCOUNT também reprova) vai à confirmação retroativa. São cinco mortes obrigatórias, e a catraca fica em 9.
+- **D3-fix** (`plano-d3fix.md`, md5 `b04aeab5`): um caso do 137 dentro do controle 2 (MY8 como morte obrigatória), com N=20 e sem tocar o registro. O I-6 amplia o `CAPTURE-SELFTEST-SUBJECTS` (D-W8-183).
+- **Despacho em paralelo** (`ordem-comum-lote4.md`, com arquivos disjuntos, `git add` só dentro da `git.lock` e proibição de `add -N` e `reset` no índice):
+  - a D5b-fix2, ao implementador da D2b-fix;
+  - a D3-fix, ao da D5b;
+  - a SPLIT-1, ao da D5a;
+  - a SPLIT-2, a um haiku novo, com o commit dela depois do da SPLIT-1.
+  São 4 agentes vivos.

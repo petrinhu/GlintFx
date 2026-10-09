@@ -8038,3 +8038,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Revisão** (`/var/tmp/cto-w8/rev-d5bfix.md`): M3 e M5 FECHADOS; M4 fechado na forma do mutante. MI-NOPROP prova que a propriedade no registro irmão é necessária. Sem defeito de código.
 - **IMPORTANTE 1:** o `FAIL_REGULAR_EXPRESSION` só casa UM espaço depois de MEASURED, e o coletor (`collect_measured.py`, `\s+`) aceita tab. O mutante com tab passa. A correção `MEASURED[ \t]` foi provada numa cópia. É a lição do formato compartilhado: a guarda tem de casar com o leitor, e não só com o produtor de hoje.
 - **Encaminhamento:** o CTO decide a D5b-fix2 (e se o SCANCOUNT também reprova), depois de entregar o plano da D6 e da D7.
+
+### 09/10/2026 05:15:06 - Revisão conjunta: D3a-fix2 APROVADA (a cadeia da D3a fecha); D3 APROVADA COM RESSALVAS
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d3.md`): D3a-fix2 APROVADA e o I-4 FECHADO; a cadeia da D3a (D3a, fix e fix2) fecha na revisão. Na D3: os md5 batem com os anexos, 15 mutantes morreram, a trava está em `sitios=9`, e não há bashismo novo por leitura (o dash é medido pelo CI do servidor, que já passou nos scripts irmãos).
+- **IMPORTANTES da D3:** I-5, o rc 137 do `timeout -k` sem caso (MY8 sobrevive); I-6, o arquivo de controles com 369 linhas (L-17). Os dois foram ao CTO junto com a D5b-fix2; o I-6 tende ao item da INBOX `CAPTURE-SELFTEST-SUBJECTS`.
+- **Agentes vivos:** só o CTO (planos da D6, da D7, da D5b-fix2 e do I-5).

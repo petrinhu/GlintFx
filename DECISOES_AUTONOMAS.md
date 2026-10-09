@@ -8099,3 +8099,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - e o do Windows, do artefato do CI,
   o main abre cada um num visualizador na tela do líder. Isso é só abrir um arquivo de imagem, não é teste, e não conflita com a L-09.
 - **A ordem do QA da D-W8-196 fica igual:** a abertura para o líder vem DEPOIS de o main congelar os md5 e não altera o arquivo.
+
+### 09/10/2026 09:12:28 - Revisão da D5b-fix2: aprovada com ressalvas
+
+- **Revisor A** (`rev-d5bfix2.md`): APROVADA COM RESSALVAS.
+  - As cinco mortes obrigatórias e mais o LEAD morreram no registro certo.
+  - Base: R2 4/4, `sitios=9`.
+- **IMPORTANTE 1:** o filtro `[ \t]` não cobre todo branco que o coletor conta (`\s` do Python). O NBSP sobrevive com rc 0.
+  - O main reconferiu: `collect_measured.py:86` é `\s+`, e `re.match` contra `MEASURED x=1` dá True.
+  - Proposta do revisor: `[^A-Za-z0-9_]`. Ela pega também `MEASURED:`, que o coletor não conta, e o revisor levantou isso como pergunta.
+- **IMPORTANTE 2:** nenhum caso permanente pina o filtro dos dois registros. MS-NOPIPE e MX-IRMAO-OLD passam.
+- **COSMÉTICO:** a justificativa do FF e do VT no plano está errada. Quem os parte é o `splitlines`.
+- **Encaminhamento:** vai ao CTO junto com o resultado do revisor B, pela regra do §0. A correção toca `tests/CMakeLists.txt`, então espera a D6-red e a D6-green.

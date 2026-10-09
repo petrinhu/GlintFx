@@ -75,7 +75,6 @@ MODES = ("off", "on")
 # reads the fixture's source and fails when the two drift (feedback_copia_em_vez_de_fonte).
 WINDOW_TITLE = "janela da fumaca de cor conhecida"
 FIXTURE_SOURCE = REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.cpp"
-TOOL_SOURCE = TOOLS_DIR / "win32_window_capture.cpp"
 OPTIONS_SOURCE = TOOLS_DIR / "window_capture_options.cpp"
 # THE BUDGETS (D-W8-61): this driver OWNS all three and hands them to the tool and the fixture, so
 # no copy of a default of the tool hides here. What is proven is their RELATION (budgets_are_coherent),
@@ -574,6 +573,20 @@ def selftest_count_pairs():
         check("dois pares contam 2", count_pairs(root) == 2)
 
 
+def selftest_check_capture_pairs_names_the_caller():
+    # An empty directory holds no pair, so the first mechanism is a FAIL. The check must say who
+    # asked: every FAIL line starts with the caller's name, and at least one line exists (a check
+    # that printed nothing would pass this comparison for free).
+    with tempfile.TemporaryDirectory() as tmp:
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            code = check_capture_pairs(Path(tmp), "quem_chama_teste")
+        lines = [line for line in stderr.getvalue().splitlines() if line]
+        check("check_capture_pairs cita quem chamou em cada linha de FAIL",
+              code == 1 and len(lines) >= 1
+              and all(line.startswith("quem_chama_teste: FAIL") for line in lines))
+
+
 class scripted_run:
     """A run() double: records every command, answers each helper by script name from `codes`, and
     plays the capture tool by calling `tool_effect(command)` (which writes what the tool would)."""
@@ -1008,6 +1021,7 @@ def selftest_main():
     selftest_budgets_are_coherent()
     selftest_occlude_reaches_only_the_tool()
     selftest_count_pairs()
+    selftest_check_capture_pairs_names_the_caller()
     selftest_wiring_all_clean()
     selftest_wiring_each_part_counts()
     selftest_real_helpers_end_to_end()

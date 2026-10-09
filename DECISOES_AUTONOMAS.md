@@ -8128,3 +8128,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - (2) o P1 no hospedeiro pela L-09;
   - (3) a D5b-fix2 pelo §0;
   - (4) o lote B pelo §0.
+
+### 09/10/2026 09:20:15 - CI 37927328081 verde
+
+- **CI 37927328081** (ponta `835ad26a`, com a D5b-fix2, a D3-fix, a SPLIT-1 e a SPLIT-2): `success`.

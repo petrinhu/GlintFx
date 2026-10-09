@@ -7983,3 +7983,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Plano** `/var/tmp/cto-w8/plano-d3-v2.md` (md5 `0d3cdc0e`), autossuficiente: Anexo A (md5 `e2812193`) e Anexo B (md5 `a92bfa4f`), com todas as erratas aplicadas (N=20, trava em 9, guarda `readonly`, a prova de propagação de falha, a recusa de segunda chamada, mutantes M17 a M19). O CTO conferiu os anexos com `bash -n` e com shellcheck, usado só como conferência local, já que não é portão do projeto.
 - **Verificação do main** contra o HEAD: a âncora em `tests/CMakeLists.txt:6572`, `CHECK_NO_PASS_REGEX_SITES 8`, a guarda `readonly` no driver irmão (`:403`). Desde o HEAD do CTO (`666b0acf`), só entraram commits de documentação.
 - **D3** despachada ao implementador da D5b (`ordem-d3.md`). Agentes vivos: a D3a-fix2 (fechando), o revisor da D5b e a D3, 3 no total.
+
+### 09/10/2026 04:45:20 - D3a-fix2 entregue; push e CI do lote; a revisão da D3a-fix2 vai junto com a da D3
+
+- **D3a-fix2** (`94caef3c`, 1 arquivo): N=34; o P2b morre por `readonly variable`, sem linha OK; preci com rc 0.
+- **Decisão do main:** a revisão da D3a-fix2 (uma linha) será feita junto com a da D3, cujo Anexo B tem a mesma guarda `readonly`. Um revisor distinto, uma rodada só.
+- **Push** de `onda-w8` com o tip `f182a427`, provado por `git ls-remote`. Entram D3a-fix, D5a-fix5, SELFTEST-FIX2, D5b e D3a-fix2. CI disparado: run 37900807368. Ele confere no servidor o `operator==` padrão no MSVC e o dash nos scripts novos.

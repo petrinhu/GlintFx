@@ -6571,6 +6571,23 @@ if(UNIX)
     set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest)
 endif()
 
+# DEMO-1 D3 (D-W8-74, D-W8-81, D-W8-138): the DRIVER of the Linux capture of the example first_window
+# (tests/container/run_example_capture.sh); its controls live in run_example_capture_selftest.sh, loaded by the
+# driver's own --selftest. No container and no docker daemon: doubles of docker and of the example on PATH, the REAL
+# exec_fixture.sh and timeout, and the REAL raw_to_png.py and image_probe.py. The executor requires exit 0 and the exact
+# line. if(UNIX): POSIX sh, mktemp and timeout do not exist on the Windows CI; the Windows side is declared in
+# parity_exceptions.txt (the Windows driver of the example is tests/tools/run_example_capture_win32.py, D5b).
+if(UNIX)
+    add_test(
+        NAME run_example_capture_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 20 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_example_capture.sh" --selftest
+    )
+    set_tests_properties(run_example_capture_selftest PROPERTIES LABELS selftest)
+endif()
+
 # QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of
 # the Windows window-capture tool (window count, client area against the virtual screen, the five
 # occlusion points and their verdict, the XRGB8888 .meta text). No <windows.h>, no system call: it runs

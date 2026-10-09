@@ -8203,3 +8203,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Resultado: SDL3, GLFW, Mesa, winit e Qt pedem o aviso ANTES do commit, como o conserto. Todas têm teto de espera, menos o Mesa, e o nosso é o orçamento de 100 ms.
   - O commit foi liberado.
 - **Desvios do implementador:** o modelo fica haiku pela L-11 global; os carimbos de 127 s no D0 ficam como "não explicado, não medido"; e o Anexo E2 tem 13 linhas, não 11, porque o plano contou errado.
+
+### 09/10/2026 11:36:59 - Disco: o líder manda não apagar nada; WL-FRAME-ORDER com verde parcial (15 de 27) vai ao CTO
+
+- **O líder perguntou:** "como vai fazer? vai esperar? quanto tempo?" O main apagou a `wlfix-red`, cujo vermelho já estava provado, e o min foi de 21,97 para 22,51 GiB.
+- **Pergunta ao líder** (o que apagar se encostar no mínimo):
+  - **Resposta, verbatim:** "Não apaga nada, pode encostar o mínimo".
+  - Fica assim: nenhuma limpeza nova sem pergunta. O piso de 20 GiB continua sendo o PARE dos agentes.
+- **WL-FRAME-ORDER, verde (perna plain, construtor antigo):**
+  - 24 de 25 fixtures deram rc 0;
+  - o `loop_parity_test` deu rc 1, com `rendered_frames` 15 contra o piso de 27 e a previsão de 30;
+  - o `cap30_wall_ms` foi 1066, contra 2977 antes, dentro da faixa;
+  - o `capture_known_color_smoke` deu "FAIL display open: platform_failure".
+  - Nada foi commitado. É a segunda reprovação do conserto, e foi ao CTO como Q6, com a L-42 (`plano-wlfix2.md`).

@@ -7970,3 +7970,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Observação NODEF**, pelo §0: um campo sem inicializador leria um valor indeterminado na comparação. É uma regra nova ("todo campo tem valor padrão") que ninguém decidiu; vai para a lista de confirmação do líder, sem abrir fatia.
 - **Lista para a confirmação retroativa do líder** (acumulada): D-W8-144 (`--out --` aceito), D-W8-167 (`operator==` padrão em ferramenta de teste), D-W8-169 (o valor anterior de uma opção repetida é descartado sem ser lido) e a regra do NODEF. Além delas, as decisões D-W8-36 em diante, que já estavam pendentes.
 - **D3a-fix2** em `94caef3c`. O relatório vem a seguir.
+
+### 09/10/2026 04:36:40 - D5b entregue; revisão despachada; o plano da D3 consolidado pedido ao CTO
+
+- **D5b** (`907ec9b6`): a tupla A saiu como previsto (uma linha FALHOU, a do comando sem `--ready-line`); na tupla B, N=33; a trava em 8 e o autoteste dela passam; 15 mutantes, de K2 a K18, morreram cada um no controle previsto; preci com rc 0 no pai e no SHA (90 para 91 rodados, como esperado). O registro novo está na forma do executor.
+- **Revisão da D5b** despachada ao revisor das D5a-fix4 e fix5, que conhece a unidade de opções (`ordem-rev-d5b.md`). Ela inclui conformidade com o Anexo A e a L-17, porque o arquivo tem 516 linhas.
+- **D3:** as erratas estão espalhadas em cinco planos, e o `plano-d3.md` está no texto original. O main pediu ao CTO um `plano-d3-v2.md` autossuficiente (Anexos A e B finais, N=20, trava em 9, mutantes M17 a M19, conferido contra o HEAD), porque um haiku não deve juntar cinco fontes (L-11 global).
+- **Agentes vivos:** a D3a-fix2 (fechando o relatório), o revisor da D5b e o CTO, 3 no total.

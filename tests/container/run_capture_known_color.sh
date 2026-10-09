@@ -329,8 +329,9 @@ selftest_wait_settings_are_validated() {
         ! ( valid_wait_settings "" 1 ) && ! ( valid_wait_settings 1 "" )
 }
 
-# CALLS_LOG (set by selftest_main): one line per call the stubs of one_mode_with received, "<collaborator> <mode>".
-# Every control that reads it starts with reset_calls, so a control never reads the calls of an earlier one.
+# CALLS_LOG (set by selftest_main): one line per call the stubs of one_mode_with received, "<collaborator> <mode>",
+# in call order. one_mode_with empties it before every run (not each control, so no control can forget to), and a
+# control reads only the calls of its own run.
 reset_calls() {
     : >"$CALLS_LOG"
 }
@@ -341,6 +342,7 @@ reset_calls() {
 # outlive this check (unset -f would erase the real function instead of restoring it). Prints the one_mode line and
 # returns one_mode's own verdict.
 one_mode_with() {
+    reset_calls
     (
         mode="$1"
         OUT_DIR="$(mktemp -d)" || exit 1
@@ -397,38 +399,39 @@ selftest_wiring_bad_wait_settings_refused() {
     return 1
 }
 
-# collaborators_called_once <mode>: one_mode called each of its seven collaborators exactly once, with <mode>, and
-# nothing else. The total is exact too, so an extra call (or a call with the other mode) fails the control.
-collaborators_called_once() {
-    mode="$1"
-    [ "$(grep -c '' "$CALLS_LOG" || true)" -eq 7 ] || return 1
-    for name in start_capture_relay wait_for_socket run_fixture wait_for_capture_files stop_capture_relay copy_out judge_mode; do
-        [ "$(grep -F -x -c -- "$name $mode" "$CALLS_LOG" || true)" -eq 1 ] || return 1
-    done
+# expected_normal_calls <mode>: the calls a clean one_mode run makes, in the order the driver makes them. The order is
+# part of the contract: the capture is waited for (wait_for_capture_files) before the relay is stopped, because the
+# relay can close its connection before the frame is on disk (the comments above wait_for_capture_files).
+expected_normal_calls() {
+    printf '%s\n' "start_capture_relay $1" "wait_for_socket $1" "run_fixture $1" \
+        "wait_for_capture_files $1" "stop_capture_relay $1" "copy_out $1" "judge_mode $1"
 }
 
-selftest_wiring_on_mode_calls_each_collaborator_once() {
-    reset_calls
-    one_mode_with on 0 0 0 >/dev/null && collaborators_called_once on
+# expected_socket_calls <mode>: the calls of a run whose socket never came up. The fixture never runs; the relay is
+# stopped and the capture copied out, in that order, so no relay is left orphaned in the container.
+expected_socket_calls() {
+    printf '%s\n' "start_capture_relay $1" "wait_for_socket $1" "stop_capture_relay $1" "copy_out $1"
 }
 
-selftest_wiring_off_mode_calls_each_collaborator_once() {
-    reset_calls
-    one_mode_with off 0 0 0 >/dev/null && collaborators_called_once off
+# The clean run, one control per mode: the seven calls, in the driver's order, with that mode, and nothing else.
+selftest_wiring_on_mode_calls_in_order() {
+    one_mode_with on 0 0 0 >/dev/null && [ "$(cat "$CALLS_LOG")" = "$(expected_normal_calls on)" ]
 }
 
-# A socket that never comes up must still stop the relay and copy out what there is, and the mode must say so on its
-# verdict line (the header promises one line per mode). The fixture never ran, so the mode fails.
+selftest_wiring_off_mode_calls_in_order() {
+    one_mode_with off 0 0 0 >/dev/null && [ "$(cat "$CALLS_LOG")" = "$(expected_normal_calls off)" ]
+}
+
+# A socket that never comes up, in BOTH modes: the run fails, the verdict line names this mode and the socket failure,
+# and the calls are the expected ones in order (stop before copy). A branch that hardcodes one mode passes only one.
 selftest_wiring_socket_failure_stops_relay_and_reports() {
-    reset_calls
-    out="$(STUB_SOCKET_RC=1 one_mode_with off 0 0 0)"
-    rc=$?
-    [ "$rc" -ne 0 ] || return 1
-    case "$out" in
-        *"espera=socket-falhou"*) ;;
-        *) return 1 ;;
-    esac
-    grep -F -x -q -- "stop_capture_relay off" "$CALLS_LOG" && grep -F -x -q -- "copy_out off" "$CALLS_LOG"
+    for m in on off; do
+        out="$(STUB_SOCKET_RC=1 one_mode_with "$m" 0 0 0)"
+        rc=$?
+        [ "$rc" -ne 0 ] || return 1
+        [ "$out" = "run_capture_known_color: mode=$m fixture=nao-rodou espera=socket-falhou" ] || return 1
+        [ "$(cat "$CALLS_LOG")" = "$(expected_socket_calls "$m")" ] || return 1
+    done
 }
 
 selftest_main() {
@@ -449,8 +452,8 @@ selftest_main() {
     selftest_check selftest_wiring_failed_judge_fails_the_mode
     selftest_check selftest_wiring_absent_fixture_fails_the_mode
     selftest_check selftest_wiring_bad_wait_settings_refused
-    selftest_check selftest_wiring_on_mode_calls_each_collaborator_once
-    selftest_check selftest_wiring_off_mode_calls_each_collaborator_once
+    selftest_check selftest_wiring_on_mode_calls_in_order
+    selftest_check selftest_wiring_off_mode_calls_in_order
     selftest_check selftest_wiring_socket_failure_stops_relay_and_reports
     rm -f "$CALLS_LOG"
     echo "selftest: $SELFTEST_CHECKS controles OK"

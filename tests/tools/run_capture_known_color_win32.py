@@ -76,6 +76,7 @@ MODES = ("off", "on")
 WINDOW_TITLE = "janela da fumaca de cor conhecida"
 FIXTURE_SOURCE = REPO_ROOT / "tests" / "parity" / "capture_known_color_smoke.cpp"
 TOOL_SOURCE = TOOLS_DIR / "win32_window_capture.cpp"
+OPTIONS_SOURCE = TOOLS_DIR / "window_capture_options.cpp"
 # THE BUDGETS (D-W8-61): this driver OWNS all three and hands them to the tool and the fixture, so
 # no copy of a default of the tool hides here. What is proven is their RELATION (budgets_are_coherent),
 # not a number: a budget fixed alone would let 1 ms and 200000 ms through.
@@ -486,9 +487,9 @@ def selftest_tool_receives_the_driver_budgets():
           and command[command.index("--exit-budget-ms") + 1] == str(EXIT_BUDGET_MS))
     check("os orcamentos da ferramenta NAO chegam a fixture (depois do --)",
           "--present-budget-ms" not in command[separator + 1:] and "--exit-budget-ms" not in command[separator + 1:])
-    tool_text = TOOL_SOURCE.read_text(encoding="utf-8", errors="replace")
+    options_text = OPTIONS_SOURCE.read_text(encoding="utf-8", errors="replace")
     check("a gramatica que o driver usa e a que a ferramenta aceita: --present-budget-ms e --exit-budget-ms",
-          '"--present-budget-ms"' in tool_text and '"--exit-budget-ms"' in tool_text)
+          '"--present-budget-ms"' in options_text and '"--exit-budget-ms"' in options_text)
 
 
 def selftest_budgets_are_coherent():

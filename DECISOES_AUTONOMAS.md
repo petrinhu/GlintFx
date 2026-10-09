@@ -8132,3 +8132,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 ### 09/10/2026 09:20:15 - CI 37927328081 verde
 
 - **CI 37927328081** (ponta `835ad26a`, com a D5b-fix2, a D3-fix, a SPLIT-1 e a SPLIT-2): `success`.
+
+### 09/10/2026 09:37:05 - Líder autoriza os pacotes dentro do contêiner; decisões D-W8-197 a 206 do CTO
+
+- **Pergunta ao líder (AskUserQuestion):** a reconstrução da imagem de teste roda `dnf install`, que baixa pacotes para DENTRO do contêiner. Isso conta pela L-51? O CTO tinha lido a ordem como "não baixar IMAGEM" e devolveu a dúvida ao main.
+- **Resposta do líder, verbatim:** "Autorizo dentro do contêiner (Recomendado)". A opção dizia: os pacotes vão só para a imagem de teste do projeto, nada se instala no sistema, e a autorização não cobre o sistema dele. Continua proibido baixar imagem nova (`docker pull`).
+- **Decisões do CTO** (`/var/tmp/cto-w8/decisao-d6red-base.md`):
+  - D-W8-197: apelido local `docker tag fedora:latest fedora:44`, só se não houver `fedora:44`. Sem `--pull`, com o Id conferido depois de cada build, e PARA se aparecer `Pulling`. O main remove o apelido depois da D6-green.
+  - D-W8-198: o pino `FROM fedora:44` é um gêmeo que a ordem de 27/08 não alcançou. O item já existia na INBOX (`CONTAINERFILE-FEDORA-PIN`) e foi atualizado, não duplicado.
+  - D-W8-199: o P1 no hospedeiro é um downgrade declarado da L-09 até a PRECI-IN-CONTAINER.
+  - D-W8-200 a 202: D5b-fix3 (`plano-d5bfix3.md`). O filtro vira `[^A-Za-z0-9_]`, com um dono só e uma trava de 13 controles. Entra depois da D6-green e antes da D7.
+  - D-W8-203: o I-7 vira a D3-fix2 (`plano-d3fix2.md`): 123, 125, 126, 127 e 143 saem 1, com N=20. Entra depois do commit da D6-red.
+  - D-W8-204 e 205: o C-11 e o C-12 vão à lista de ratificação.
+  - D-W8-206: o C-13 vai à INBOX como `SELFTEST-MAIN-DUP-GATE`.
+- **Retomada:** a D6-red volta com a receita da D-W8-197, a autorização do líder e a frase da D-W8-199.

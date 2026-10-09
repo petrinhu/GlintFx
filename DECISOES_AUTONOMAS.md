@@ -7483,3 +7483,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a D2b é refactor puro e não muda corpo de função, então é commitada como está;
   - o defeito anterior vira o item `RELAY-SOCKET-STALE`: `test -S` não prova que alguém está escutando. No CI, o mesmo container atende ~15 fixtures seguidas, e um socket residual pode fazer a espera passar antes de o relé novo escutar. Ele vai ao CTO junto com a D3, que reaproveita a biblioteca.
   - O contrato implícito de `CONTAINER` e `OUT_DIR` entre a biblioteca e o driver também vai para a D3.
+
+### 08/10/2026 23:30:57 - D2b entregue em c4411cff; revisão despachada
+
+- **D2b** (`c4411cff`, 2 arquivos). `preci --fast` num clone do SHA: rc 0, 309 de 309 executados passaram (downgrade da L-09). O relatório foi gravado pelo main a partir dos relatos do implementador, em `/var/tmp/cto-w8/d2b/relatorio.md`, porque ele recusou gravar `.md` mesmo com o pedido escrito.
+- **Revisão** despachada a um qa-engineer em haiku (`/var/tmp/cto-w8/ordem-rev-d2b.md`), com o contrato implícito `CONTAINER`/`OUT_DIR` a julgar.
+- **Padrão observado nos implementadores haiku:** três deles recusaram gravar o `relatorio.md`, lendo a L-31 global (".md não solicitado") contra a ordem que o pedia. As próximas ordens dizem, no próprio prompt, que o relatório é pedido.

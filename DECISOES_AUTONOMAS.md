@@ -7392,3 +7392,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Nota do revisor sobre o `push.log`: o push de `80db83e7` para `574a4041` foi do main, não do implementador. O relatório do implementador ("sem push") está certo.
 - **Decisão do main:** 1, 2, 3 e 6 se consertam agora, só no driver (D2a-fix2), antes da D2b. Os itens 4 e 5 são padrão: `PASS_REGULAR_EXPRESSION` aparece 11 vezes em `tests/CMakeLists.txt` (L-17). Foram ao CTO, para desenhar um conserto único, em série com a D5a, que mexe no mesmo arquivo.
 - **Agentes em voo:** o CTO (planos de D2b, D4, D5a e do padrão do rc) e o implementador da D2a-fix2. Os dois usam as travas de `flock`.
+
+### 08/10/2026 22:48:44 - D2a-fix2 entregue em a6770233; re-revisão despachada
+
+- **D2a-fix2** (`a6770233`, só o driver), segundo o implementador (haiku):
+  - os controles continuam 19, ampliados sem criar novos;
+  - `rv_a`, `rv_d1` e `rv_i` morrem no controle 19, que agora roda nos dois modos e confere a ordem exata;
+  - `rv_e` e `rv_c2` morrem no 17, que confere a ordem completa das 7 chamadas;
+  - os 10 mutantes anteriores continuam mortos;
+  - `preci --fast` rc 0 (downgrade da L-09).
+- **Conferência do main:** 1 arquivo no commit, a árvore limpa, e li os logs de `rv_e`, `rv_i` e `rv_a` (todos com `rc_ctest=8`).
+- **Re-revisão** pelo mesmo revisor da D2a-fix, com os sobreviventes dele de volta e 2 mutantes novos: `/var/tmp/cto-w8/rev-d2afix2.md`.
+- O IMPORTANTE 4 e o COSMÉTICO 5 seguem com o CTO (o padrão dos 11 testes).

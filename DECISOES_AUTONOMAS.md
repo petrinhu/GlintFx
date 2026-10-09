@@ -7826,3 +7826,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o COS-A vira o item da INBOX `CONTAINER-BLANK-GUARD`, e o COS-B fica recusado.
 - **Verificação do main:** o registro está em `tests/CMakeLists.txt:6549-6551`, com `31 controles OK`; `run_control` e `selftest_check` estão no arquivo de controles, linhas 12 a 18.
 - **Despacho:** a D2b-fix3 foi para o implementador da D2b-fix, com a ordem de PARAR se o diff de `tests/CMakeLists.txt` trouxer mudança alheia. Agentes vivos: a SELFTEST-FIX, os revisores da D3a e da D5a-fix4, e a D2b-fix3, 4 no total.
+
+### 09/10/2026 03:07:20 - SELFTEST-FIX entregue; revisão da correção despachada
+
+- **SELFTEST-FIX** (`68968bad`):
+  - vermelho exatamente como previsto ("FALHOU 2 de 7", nos casos 4 e 6);
+  - autoteste da trava com 7 casos e do executor com 10;
+  - E2, E3, E4, T1, T3, T4 e T5 mortos na tupla prevista;
+  - as plantas do revisor reprovam: I1 com `sitios=6 piso=7` e I6 com `PASS=1`, ambas rc 1;
+  - preci com rc 0 no pai (F=17) e no SHA (F=18), lido de `preci-*.rc` pelo main.
+- **Revisão da correção** despachada ao MESMO revisor que a reprovou: ele não é o implementador (L-12) e conhece os furos que achou. Ele reaplica as plantas e os mutantes dele ao SHA novo.
+- **Agentes vivos:** a D2b-fix3, os revisores da D3a e da D5a-fix4, e o revisor da SELFTEST-FIX, 4 no total.

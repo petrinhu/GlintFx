@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "window_capture_options.hpp"
 
-#include <cstdlib>
+#include <charconv>
+#include <cstddef>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 // window_capture_options.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1): the argument parsing of
@@ -15,14 +17,17 @@ namespace {
 
 constexpr int k_budget_ceiling_ms = 600000;
 
-// Reads a whole number of milliseconds in (0, ceiling]; false for text, zero, a sign or overflow.
-bool read_positive_int(const char *text, int &value) {
-    char *end = nullptr;
-    const long parsed = std::strtol(text, &end, 10);
-    if (end == text || *end != '\0' || parsed <= 0 || parsed > k_budget_ceiling_ms) {
+// Reads a whole number of milliseconds in (0, ceiling]: decimal digits only, the whole text, no
+// space and no plus sign (std::from_chars, the reading the library itself uses, D-W8-122).
+bool read_positive_int(std::string_view text, int &value) {
+    int parsed = 0;
+    const char *const end = text.data() + text.size();
+    const std::from_chars_result result = std::from_chars(text.data(), end, parsed);
+    const bool whole_number = result.ec == std::errc{} && result.ptr == end;
+    if (!whole_number || parsed <= 0 || parsed > k_budget_ceiling_ms) {
         return false;
     }
-    value = static_cast<int>(parsed);
+    value = parsed;
     return true;
 }
 
@@ -81,8 +86,8 @@ bool parse_tool_options(const std::vector<std::string> &args, tool_options &opti
     parsed.fixture_command.assign(args.begin() + static_cast<difference_type>(index) + 1,
                                   args.end());
     if (parsed.fixture_command.empty() ||
-        !read_positive_int(present_text.c_str(), parsed.present_budget_ms) ||
-        !read_positive_int(exit_text.c_str(), parsed.exit_budget_ms)) {
+        !read_positive_int(present_text, parsed.present_budget_ms) ||
+        !read_positive_int(exit_text, parsed.exit_budget_ms)) {
         return false;
     }
     options = parsed; // only a whole, accepted command line reaches the caller's options

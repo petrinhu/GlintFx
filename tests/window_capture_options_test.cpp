@@ -7,11 +7,11 @@
 #include "harness/test_registry.hpp"
 #include "tools/window_capture_options.hpp"
 
-// window_capture_options_test.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1): the eleven decided
-// cases of the Windows window-capture tool's command line, in thirteen test functions (cases 7 and
-// 11 take two each), proven on every system. Every expected value
-// is a LITERAL written here by hand from the decision's own table, never read back from the unit
-// (a test that compares the code with its own constant proves nothing).
+// window_capture_options_test.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1), D5a-fix3 (D-W8-120
+// to D-W8-122): the thirteen decided cases of the Windows window-capture tool's command line, in
+// seventeen test functions (cases 7 and 11 take three each), proven on every system. Every expected
+// value is a LITERAL written here by hand from the decision's own table, never read back from the
+// unit (a test that compares the code with its own constant proves nothing).
 
 namespace {
 
@@ -42,6 +42,8 @@ bool refused(const args_list &args) {
     return !parse_tool_options(args, options);
 }
 
+// Every field of tool_options: a field added there must be added here, or a refusal that writes
+// it goes unseen.
 // True when every field of the two options is equal: the test of "a refusal changed nothing".
 bool same_fields(const tool_options &left, const tool_options &right) {
     return left.title == right.title && left.out_directory == right.out_directory &&
@@ -52,7 +54,8 @@ bool same_fields(const tool_options &left, const tool_options &right) {
 }
 
 // The options before a refused command line: every field holds a known value, so a refusal that
-// writes any one field is caught by same_fields.
+// writes any one field is caught by same_fields. sabotage_occlude starts TRUE here, the very value
+// the parser would write, so case 11c starts from the defaults to see a flag written as it is read.
 tool_options known_options() {
     tool_options options;
     options.title = "kept_title";
@@ -158,6 +161,17 @@ GLINTFX_TEST(budget_ceiling_passes_and_defaults_are_30000_and_10000) {
     GLINTFX_CHECK(budget_accepted("--exit-budget-ms", "600000"));
 }
 
+// Case 7c: a budget is decimal digits only: a leading space, a tab, a plus sign or a trailing space
+// is refused, for both flags (D-W8-122: std::from_chars, the reading the library itself uses).
+GLINTFX_TEST(budget_with_space_tab_or_plus_is_refused) {
+    GLINTFX_CHECK(!budget_accepted("--present-budget-ms", " 5"));
+    GLINTFX_CHECK(!budget_accepted("--present-budget-ms", "\t5"));
+    GLINTFX_CHECK(!budget_accepted("--present-budget-ms", "+5"));
+    GLINTFX_CHECK(!budget_accepted("--present-budget-ms", "5 "));
+    GLINTFX_CHECK(!budget_accepted("--exit-budget-ms", " 5"));
+    GLINTFX_CHECK(!budget_accepted("--exit-budget-ms", "+5"));
+}
+
 // Case 8: --sabotage-occlude sets the field; without it the field stays false.
 GLINTFX_TEST(sabotage_occlude_sets_the_field_only_when_present) {
     tool_options with_flag;
@@ -193,22 +207,11 @@ GLINTFX_TEST(options_are_accepted_in_any_order) {
     GLINTFX_CHECK_EQ(options.title, std::string("T"));
 }
 
-// Case 11: a refused command line changes NOTHING in options, field by field. The options start
-// with known values, and the refusal comes in the middle of the line (--out is read, then --frames
-// is refused), so a parser that writes as it reads is caught here.
+// Case 11: a refusal in the middle of the line (--out is read, then --frames is refused) changes
+// nothing in the known options, field by field.
 GLINTFX_TEST(refused_command_line_leaves_options_untouched) {
-    tool_options options;
-    options.title = "kept_title";
-    options.out_directory = "kept_out";
-    options.present_budget_ms = 1234;
-    options.exit_budget_ms = 4321;
-    options.sabotage_occlude = true;
-    options.ready_line = "kept_line";
-    options.fixture_command = {"kept_fixture"};
-    const tool_options before = options;
     const args_list args{"--out", "O", "--frames", "3", "--", "f"};
-    GLINTFX_CHECK(!parse_tool_options(args, options));
-    GLINTFX_CHECK(same_fields(options, before));
+    GLINTFX_CHECK(refusal_keeps_known_options(args));
 }
 
 // Case 11b: a refusal found AFTER the loop changes nothing either. Each line below gets through the
@@ -221,4 +224,46 @@ GLINTFX_TEST(refusal_after_the_loop_leaves_options_untouched) {
     GLINTFX_CHECK(refusal_keeps_known_options(without_title));
     GLINTFX_CHECK(refusal_keeps_known_options(without_command));
     GLINTFX_CHECK(refusal_keeps_known_options(bad_budget));
+}
+
+// Case 11c: a refusal after a VALID present budget (the exit budget is refused) changes nothing,
+// starting from the DEFAULTS: known_options() already holds sabotage_occlude = true, the value the
+// parser would write, so only a default start sees the flag written as it is read.
+GLINTFX_TEST(refusal_after_a_valid_budget_leaves_defaults_untouched) {
+    tool_options options;
+    const tool_options before = options;
+    const args_list args{
+        "--sabotage-occlude", "--title", "T",  "--out", "O", "--present-budget-ms", "5",
+        "--exit-budget-ms",   "0",       "--", "f"};
+    GLINTFX_CHECK(!parse_tool_options(args, options));
+    GLINTFX_CHECK(same_fields(options, before));
+}
+
+// Case 12: an option's value is the NEXT argument whatever it is, `--` included, as getopt reads it
+// (D-W8-120): only the first `--` that is not a value ends the tool's options.
+GLINTFX_TEST(separator_text_is_taken_as_an_option_value) {
+    tool_options titled;
+    const args_list title_dashes{"--title", "--", "--out", "O", "--", "f"};
+    GLINTFX_CHECK(parse_tool_options(title_dashes, titled));
+    GLINTFX_CHECK_EQ(titled.title, std::string("--"));
+    GLINTFX_CHECK(titled.fixture_command == args_list{"f"});
+
+    tool_options ready;
+    const args_list ready_dashes{"--ready-line", "--", "--title", "T", "--out", "O", "--", "f"};
+    GLINTFX_CHECK(parse_tool_options(ready_dashes, ready));
+    GLINTFX_CHECK_EQ(ready.ready_line, std::string("--"));
+}
+
+// Case 13: a repeated option keeps its LAST value (D-W8-121: POSIX guideline 11, argparse, getopt).
+GLINTFX_TEST(repeated_option_keeps_the_last_value) {
+    tool_options ready;
+    const args_list ready_twice{"--ready-line", "A", "--ready-line", "B", "--title", "T",
+                                "--out",        "O", "--",           "f"};
+    GLINTFX_CHECK(parse_tool_options(ready_twice, ready));
+    GLINTFX_CHECK_EQ(ready.ready_line, std::string("B"));
+
+    tool_options titled;
+    const args_list title_twice{"--title", "T1", "--title", "T2", "--out", "O", "--", "f"};
+    GLINTFX_CHECK(parse_tool_options(title_twice, titled));
+    GLINTFX_CHECK_EQ(titled.title, std::string("T2"));
 }

@@ -17,6 +17,9 @@
 
 namespace glintfx::capture_tool {
 
+// The line tests/parity/capture_known_color_smoke.cpp prints when it presents (its `presented at
+// attempt` line). The two are kept equal by the real capture: if they drift, the tool never finds
+// the line and capture_known_color_smoke fails on every Windows job (D-W8-123).
 inline constexpr std::string_view k_default_ready_line = "presented at attempt";
 inline constexpr int k_default_present_budget_ms = 30000;
 inline constexpr int k_default_exit_budget_ms = 10000;
@@ -33,6 +36,9 @@ struct tool_options {
 
 // True when the arguments before `--` name a title, an output directory and budgets in range, and
 // after `--` name a fixture command. Anything else is refused as a whole, never partly applied.
+// An option's value is the next argument whatever it is, `--` included, as getopt reads it
+// (D-W8-120); a repeated option keeps its last value (D-W8-121); a budget is decimal digits only,
+// no sign, no space (D-W8-122).
 [[nodiscard]] bool parse_tool_options(const std::vector<std::string> &args, tool_options &options);
 
 } // namespace glintfx::capture_tool

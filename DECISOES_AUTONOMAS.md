@@ -7559,3 +7559,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o C-5 foi para a INBOX;
   - o C-4 e o C-7 ficam aceitos.
 - **Conferência do main:** a ordem do `who` (D4-fix) já inclui a linha do N em `tests/CMakeLists.txt`. A linha `RELAY-SOCKET-STALE` entrou na tabela, acima de `CI-VERDE-W8`, com ⏳.
+
+### 09/10/2026 00:08:23 - D4-fix aceita em b8858db1; D2b-fix e D4b despachadas em paralelo
+
+- **D4-fix** (`b8858db1`, o `.py` mais a linha 108 para 109 de `tests/CMakeLists.txt`):
+  - o controle "cita quem chamou" mata o X4;
+  - a contagem 108 no CMake reprova;
+  - `TOOL_SOURCE` saiu;
+  - `preci --fast` rc 0.
+  - Ela fecha o IMPORTANTE-1 da revisão da D4.
+- **D2b-fix** despachada (`ordem-d2bfix.md`, 2 commits, prova real com o mutante RCP), assim que a D4-fix commitou a linha de `tests/CMakeLists.txt`.
+- **D4b** despachada (`ordem-d4b.md`) depois do `preci` verde da D4-fix, porque mexe no mesmo driver.
+- **Agentes vivos:** a D2b-fix, a D4b e o revisor da D5a, num total de 3.

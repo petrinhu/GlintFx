@@ -7893,3 +7893,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - autoteste de 9 casos, com as plantas montadas a partir da constante; o caso 8 é o `]` solto;
   - as erratas da D5b (8) e da D3 (9) continuam, com o nome novo.
 - **Despacho:** a SELFTEST-FIX2 foi para o implementador da D2b-fix, com a guarda de diff. Agentes vivos: a D3a-fix (mutantes e preci), o revisor da D5a-fix4 e a SELFTEST-FIX2, 3 no total. A D5b espera a SELFTEST-FIX2.
+
+### 09/10/2026 03:24:42 - Revisão da D5a-fix4: APROVADA COM RESSALVAS, sem defeito de código; o CTO decide onde fica o fim
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix4.md`, haiku distinto). Mortos: OUTF, BUDF, EXITF, LZ, ZERO00, Z3Z, GF e FC. Sobreviveram SFM, FC+SFM, SFMW, OCT0 e VINVAL.
+- **IMPORTANTES:** (1) o comentário de `same_fields` promete mais do que o binding garante; (2) a guarda não tem dente, porque FC+SFM juntos passam (proposta: `operator==` padrão); (3) "010" lido como octal passa (OCT0); (4) um valor inválido antes do válido não está fixado (VINVAL).
+- **Encaminhamento:** o CTO decide quais desses entram numa D5a-fix5 e quais viram INBOX ou ficam aceitos com justificativa. É a quarta rodada no mesmo par de arquivos, e cada uma acha algo menor; o main pediu que o CTO diga onde fica o fim, sem relaxar a qualidade (L-15).
+- **Para a lista do líder:** a regra do valor inválido anterior (o CTO decide; se julgar que é do líder, entra na confirmação retroativa) e a D-W8-144 (`--out --`).

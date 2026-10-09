@@ -7426,3 +7426,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a regex alternada.
   - O cosmético da palavra "reprovado" fica registrado.
 - **CI 37869725565** (`4b15048e`): `success`, com 25 jobs verdes e 1 pulado, incluindo o gitleaks, que desta vez instalou dentro do tempo.
+
+### 08/10/2026 22:58:39 - Planos do CTO (D-W8-106 a D-W8-114) aceitos; D2b, D4 e D5a despachadas em paralelo
+
+- **Planos:** `/var/tmp/cto-w8/plano-d2b.md` (md5 `0f017818`) e `/var/tmp/cto-w8/plano-paralelo.md` (md5 `f5782c77`).
+- **D-W8-106 e D-W8-107 (D2b):** a sessão do relé sai para `capture_relay_session.sh`. A prova de "sem comportamento novo" se faz por inventário, por corpo idêntico, pelo N medido e pela fumaça real antiga contra nova, com isolamento provado antes. Mutantes MB1 a MB6.
+- **D-W8-108:** `RERUN-GUARD-CANCELLED-PREP` foi para a INBOX, e o conserto fica fora da W8. Não bloqueia `CI-VERDE-W8`, porque o `workflow_dispatch` roda o mesmo SHA como tentativa 1.
+- **D-W8-109:** `CAPTURE-DRIVER-WIRING-UNTESTED` saiu da INBOX para a tabela, acima de `CI-VERDE-W8`, com 🔍. Este commit faz a mudança.
+- **D-W8-110 e D-W8-111:** as três fatias não se cruzam (a tabela tem arquivo:linha), só a D5a toca `tests/CMakeLists.txt`, e o `TODO.md` fica com o main. Oito travas novas: add, diff, commit e show numa única seção do `git.lock`; snapshot por `git clone`; nomes próprios de container; `flock -E 99`; entre outras.
+- **D-W8-112 (D4) e D-W8-113 (D5a):** detalhadas no plano paralelo.
+- **D-W8-114:** o `PASS_REGULAR_EXPRESSION` sai dos 7 registros reais (o CTO corrigiu os 11 do main: 4 eram comentário) e é trocado por um executor `cmake -P` que exige o rc e a linha exata. Fatia `SELFTEST-EXIT-LINE`, em série depois da D5a.
+- **Conferência do main:** a base da D2b passou a ser o HEAD com a D2a-fix3. A contagem continua 19, então a divergência do CTO sobre a regex não se aplica.
+- **Despacho, 3 implementadores haiku em paralelo:**
+  - D4 (devops-sre), D5a (backend-engineer) e D2b (devops-sre);
+  - cada um tem ordem própria (`ordem-d4.md`, `ordem-d5a.md`, `ordem-d2b.md`) mais a comum (`ordem-comum-paralelo.md`), com os 8 itens da L-11;
+  - as leis estão em `leis-paralelo.md`.

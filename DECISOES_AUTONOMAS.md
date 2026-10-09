@@ -7371,3 +7371,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   4. a pergunta ao CTO sobre o Status de `CAPTURE-DRIVER-WIRING-UNTESTED`;
   5. a D2b.
 - **Ordens a agente em haiku** seguem os 8 itens obrigatórios da L-11 global, no parágrafo "Ordem de serviço para modelo menor".
+
+### 08/10/2026 22:32:43 - Ordem do líder: até 4 agentes em paralelo, sem corrida
+
+- **Verbatim:** *"pod eusar até 4 agentes ao mesmo tempo, sem corrida"*. Registrada na L-11 global (commit `265d2db` em `~/.claude`).
+- **Efeito na DEMO-1:** vence o "em série, nunca em paralelo" do plano v2 (linha 248), que era decisão de plano. O CTO vai detalhar D2b, D4 e D5a para rodarem em paralelo, cada uma com o seu implementador e com listas de arquivos que não se cruzam.
+- **Travas contra corrida:**
+  - trabalho pesado só dentro de `flock /var/tmp/cto-w8/heavy.lock`, o que mantém o portão de um pesado por vez da L-11;
+  - commit só dentro de `flock /var/tmp/cto-w8/git.lock`, sempre por caminho;
+  - cada agente usa um snapshot próprio para o container.
+- **Em voo agora:** a revisão da D2a-fix (haiku), o CTO (D2b, D4 e D5a) e o CI 37869725565.

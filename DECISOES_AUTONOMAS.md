@@ -7515,3 +7515,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o IMPORTANTE-1 vira um controle novo no autoteste do driver Windows, em série DEPOIS da D5a-fix, que mexe no mesmo arquivo agora;
   - o IMPORTANTE-2 e o `RELAY-SOCKET-STALE` vão ao CTO (`plano-pos-d4.md`), junto com o contrato implícito da biblioteca para a D3;
   - a lição "quem LÊ o arquivo que eu mudo" vai para o método de paralelismo do CTO.
+
+### 08/10/2026 23:56:06 - Revisão da D2b: APROVADA COM RESSALVAS; os consertos vão ao CTO, para uma D2b-fix antes da D3
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2b.md`, haiku):
+  - o refactor está correto: 43 funções, `diff` vazio, corpos idênticos e 19 de 19 controles;
+  - a fumaça real bate com o aceite;
+  - MB1, MB3 e MB4 reexecutados e mortos; dos mutantes do revisor, 4 morreram e 3 sobreviveram (RR, RG e RCP).
+- **IMPORTANTES:**
+  - **I-1:** `CONTAINER` e `OUT_DIR` sem guarda de chamada (`OUT_DIR` vazio vira `/off/frames`);
+  - **I-2:** a guarda `RELAY_SESSION_CALLER` não tem controle;
+  - **I-3, anterior à D2b:** cinco funções reais nunca rodam no autoteste, e só a fumaça as cobre.
+- **COSMÉTICOS:** de C-1 a C-7. O C-1 corrige a justificativa da D-W8-106: a recarga morre pelo `readonly`, e não por desfazer os stubs.
+- **Encaminhamento:** foi tudo ao CTO, que já planeja o `plano-pos-d4.md`, para uma D2b-fix antes da D3, junto com o `RELAY-SOCKET-STALE`.

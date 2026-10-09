@@ -7807,3 +7807,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D5a-fix4** (`27b0e8ef`): 19 casos verdes; `cl.exe` com BUILD_RC 0 nas duas ligações; lint, link Windows e preci com rc 0. OUTF, BUDF e LZ morrem nos casos novos; GF não compila, como desenhado.
 - **Ponto aberto:** o mutante SFM (`same_fields` sem comparar `fixture_command`) sobreviveu. O plano aceitava isso, mas, na leitura do main, o binding obriga a nomear o campo, não a compará-lo. Foi ao revisor (haiku distinto, `ordem-rev-d5afix4.md`), com o pedido de um mutante na unidade que só morra se a comparação existir.
 - **Agentes vivos:** a SELFTEST-FIX, o revisor da D2b-fix2, o revisor da D3a e o revisor da D5a-fix4, 4 no total. A D5b espera a SELFTEST-FIX.
+
+### 09/10/2026 02:47:36 - Revisão da D2b-fix2: APROVADA COM RESSALVAS; IMP-1, 2 e 3 fechados; o IMP-A novo vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2bfix2.md`, haiku distinto): IMP-1, IMP-2 e IMP-3 da revisão anterior estão FECHADOS. Dos mutantes, 13 morreram, entre eles X4-classe, X5, X8, X1, X6 e X7. O dash rodou num Debian 13 local e deu rc 0.
+- **IMP-A (novo):** nenhum controle prova que a falha de um controle reprova o autoteste. Com `( "$@" ) || true` em `run_control`, o resultado é `31 OK, rc=0`. É a cegueira do portão (L-40 e L-36).
+- **Encaminhamento:** o CTO planeja a D2b-fix3 em `plano-d2bfix3.md`, DEPOIS da SELFTEST-FIX e ANTES da D5b, porque mexe no N do registro. A D3 espera a D2b-fix3. O COS-A (CONTAINER só com espaços) vai à INBOX se o CTO concordar.
+- **RELAY-SOCKET-STALE** pode ir a ✅ depois da D2b-fix3: o caso do log vazio já está provado (X5 morre no controle 29).

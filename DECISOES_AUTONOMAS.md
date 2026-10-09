@@ -7854,3 +7854,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D2b-fix3** em `5061cffe`, com o preci em curso.
 - **Limpeza** (escopo "clean"): 148 cópias (`snap*`, `clone*`, `mut*`, `build` de `out*` e similares) das fatias fechadas desde a última limpeza: D2b-fix2, D3a, D5a-fix3, D5a-fix4, SELFTEST-EXIT-LINE, SELFTEST-FIX e as revisões delas. 55 dos caminhos eram de dono root e foram apagados por contêiner. Lista em `limpeza3.txt`, com zero caminhos em `scripts/`. Foram poupados os diretórios vivos (`d2bfix3`, `rev-d5afix4`, `rev-selftest-fix`), o `rev-selftest-exit-line` (o mesmo revisor reaproveita as plantas dele agora) e o `b`.
 - **Disco:** `min` de 20,84 para 22,09 GiB; `/var/tmp/cto-w8` com 3,6 GiB.
+
+### 09/10/2026 03:17:06 - Plano da D3a-fix aceito e despachado; dois itens novos na INBOX
+
+- **Plano** `/var/tmp/cto-w8/plano-d3afix.md` (md5 `b269e66b`), com as decisões D-W8-157 a D-W8-162, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - I-1 consertado antes da D3, num arquivo novo, `run_check_selftest.sh`: o R6 cai no controle 32 e o R4 no 33;
+  - C-5: `selftest_main` recusa uma segunda chamada (o R3 sai com rc 1);
+  - N vai de 32 para 34, sem efeito na trava;
+  - I-3 vira o item `CAPTURE-SELFTEST-SUBJECTS`, cujo gatilho é antes de qualquer controle novo entrar no arquivo grande;
+  - C-4 corrigido; C-2 vira o item `SH-DUPLICATE-FUNCTION-GATE`; C-3 recusado;
+  - errata à D3: o Anexo B ganha a mesma recusa de segunda chamada (o N continua 20, mutante M18).
+- **Verificação do main:** o registro diz `32 controles OK` (`tests/CMakeLists.txt:6551`); `selftest_main` está no arquivo de controles, linha 394; o `set +e` e o `set -e` estão em `run_check.sh`, linhas 14 e 17.
+- **Despacho:** a D3a-fix foi para o implementador da SELFTEST-EXIT-LINE, com a guarda de diff em `tests/CMakeLists.txt` e `tests/container/`. Agentes vivos: a D2b-fix3 (preci), os revisores da D5a-fix4 e da SELFTEST-FIX, e a D3a-fix, 4 no total.
+- **Sequência:** D2b-fix3 e D3a-fix, depois a D5b, depois a D3.

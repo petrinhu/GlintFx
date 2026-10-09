@@ -101,10 +101,11 @@ selftest_overrun_is_exit_3() {
     [ "$(example_exit_code 124 0 0)" = 3 ] && [ "$(example_exit_code 124 1 1)" = 3 ]
 }
 
+# 137 is timeout -k's KILL, a death by signal that exec_fixture.sh reports: exit 1, never 3 (plano-d3.md:28).
 selftest_exit_0_needs_every_part_clean() {
     [ "$(example_exit_code 0 0 0)" = 0 ] && [ "$(example_exit_code 1 0 0)" = 1 ] &&
-        [ "$(example_exit_code 139 0 0)" = 1 ] && [ "$(example_exit_code 0 1 0)" = 1 ] &&
-        [ "$(example_exit_code 0 0 1)" = 1 ]
+        [ "$(example_exit_code 139 0 0)" = 1 ] && [ "$(example_exit_code 137 0 0)" = 1 ] &&
+        [ "$(example_exit_code 0 1 0)" = 1 ] && [ "$(example_exit_code 0 0 1)" = 1 ]
 }
 
 selftest_decided_name_frames_and_budget() {

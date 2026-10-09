@@ -29,8 +29,8 @@ struct verdict {
         0; // the tool's exit code for this verdict (0 when it passes); see k_verdict_code_table
 };
 
-// THE TABLE OF EXIT CODES, one per verdict (D-W8-45), the single source: the driver
-// (tests/tools/run_capture_known_color_win32.py) holds a copy that check_sibling_lists.py keeps
+// THE TABLE OF EXIT CODES, one per verdict (D-W8-45), the single source: the protocol module
+// (tests/tools/win32_capture_protocol.py) holds a copy that check_sibling_lists.py keeps
 // equal, token by token. The codes avoid the ones already in use: 0 ok, 1 fixture, 2 tool, 77
 // declared absence, 124 timeout and 127 impossible run. The name has no spaces (the gate splits on
 // them); the `veredito:` line carries the same name with spaces ("janelas=<n>" for JANELAS).

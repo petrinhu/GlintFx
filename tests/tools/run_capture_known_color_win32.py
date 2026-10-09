@@ -57,14 +57,16 @@ from pathlib import Path
 from win32_capture_protocol import (
     MECHANISMS,
     PLAIN_FAILURE_CODES,
-    PROCESS_TIMEOUT_SECONDS,
-    KILL_GRACE_SECONDS,
     VERDICT_NAME_BY_CODE,
     check_capture_pairs,
     count_pairs,
     line_agrees_with_code,
-    run_process,
     verdict_name,
+)
+from win32_capture_process import (
+    PROCESS_TIMEOUT_SECONDS,
+    KILL_GRACE_SECONDS,
+    run_process,
 )
 
 SCRIPT_NAME = "run_capture_known_color_win32.py"
@@ -96,7 +98,8 @@ CAPTURE_PHASE_FLOOR_MS = 60000
 #  - present: 10 s, about 8 times 1.21 s (the wait for the fixture's "presented" line, a window on a
 #    cold runner).
 #  - exit: 6 s, about 5 times 1.21 s (the fixture answers the WM_CLOSE and leaves).
-#  - kill grace: 2 s. NOT MEASURED (taskkill /T is not measured on Windows either, see kill_tree in win32_capture_protocol.py): it is
+#  - kill grace: 2 s. NOT MEASURED (taskkill /T is not measured on Windows either, see kill_tree in
+#    win32_capture_process.py): it is
 #    the declared minimum for the pipe to reach EOF after the kill, and 0 would make the wait for it
 #    expire at once.
 PRESENT_BUDGET_FLOOR_MS = 10000

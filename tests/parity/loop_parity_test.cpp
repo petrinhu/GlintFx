@@ -536,7 +536,10 @@ int main() {
     check("P_b_sem_render_implica_skipped_hidden", p_b_holds,
           "!should_render => last_present == skipped_hidden",
           p_b_holds ? std::string("vale") : std::string("violada"));
-    check("rendered_frames", rendered_frames >= 1, ">= 1 em 30 tiques visiveis",
+    // D-W8-209: the floor is 27 of the 30 visible ticks, fixed before the first run with
+    // WL-FRAME-ORDER: up to three callbacks may miss the 100 ms budget on a loaded runner.
+    // ">= 1" let a loop that drew one frame and then froze pass from 13/09 to 09/10/2026.
+    check("rendered_frames", rendered_frames >= 27, ">= 27 em 30 tiques visiveis",
           to_text(rendered_frames));
     check("set_title_no_meio_do_laco", set_title_ok, "ok()",
           set_title_ok ? std::string("ok") : std::string("erro"));

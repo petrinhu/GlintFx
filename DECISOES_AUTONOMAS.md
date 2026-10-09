@@ -7814,3 +7814,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **IMP-A (novo):** nenhum controle prova que a falha de um controle reprova o autoteste. Com `( "$@" ) || true` em `run_control`, o resultado é `31 OK, rc=0`. É a cegueira do portão (L-40 e L-36).
 - **Encaminhamento:** o CTO planeja a D2b-fix3 em `plano-d2bfix3.md`, DEPOIS da SELFTEST-FIX e ANTES da D5b, porque mexe no N do registro. A D3 espera a D2b-fix3. O COS-A (CONTAINER só com espaços) vai à INBOX se o CTO concordar.
 - **RELAY-SOCKET-STALE** pode ir a ✅ depois da D2b-fix3: o caso do log vazio já está provado (X5 morre no controle 29).
+
+### 09/10/2026 02:50:48 - SELFTEST-FIX commitada; plano da D2b-fix3 aceito e a fatia despachada
+
+- **SELFTEST-FIX** em `68968bad` (3 arquivos). Os mutantes e o preci estão em curso; o agente foi avisado de não tocar mais `tests/CMakeLists.txt` sem antes falar com o main.
+- **Plano da D2b-fix3** (`plano-d2bfix3.md`, md5 `58c51157`). As decisões D-W8-153 a D-W8-155, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - a prova da propagação da falha roda DIRETO no `selftest_main` e conta como controle 32. Ela não pode ser um controle comum: o MA engoliria também a falha dele, um furo da sugestão do revisor que o CTO apontou;
+  - sem vermelho de TDD, porque a estreia vermelha é o MA;
+  - nenhum efeito no piso da trava;
+  - errata à D3: o autoteste dela ganha a mesma prova, o N vai a 20 e entra o mutante M17;
+  - o COS-A vira o item da INBOX `CONTAINER-BLANK-GUARD`, e o COS-B fica recusado.
+- **Verificação do main:** o registro está em `tests/CMakeLists.txt:6549-6551`, com `31 controles OK`; `run_control` e `selftest_check` estão no arquivo de controles, linhas 12 a 18.
+- **Despacho:** a D2b-fix3 foi para o implementador da D2b-fix, com a ordem de PARAR se o diff de `tests/CMakeLists.txt` trouxer mudança alheia. Agentes vivos: a SELFTEST-FIX, os revisores da D3a e da D5a-fix4, e a D2b-fix3, 4 no total.

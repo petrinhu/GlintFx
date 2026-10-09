@@ -8178,3 +8178,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A opção dizia: assim que o conserto passar no servidor, sai uma versão só de correção sobre a v0.6.0.0 publicada (v0.6.0.1), sem esperar a onda.
   - O caminho (base, merge e DEPLOY_CHECKLIST) vai ao CTO depois do commit da fatia.
 - **Modelo:** o CTO lembrou que a L-18 diz sonnet, mas a L-11 global manda obedecer a `/modelos_sessao` (haiku, ordem do líder de 08/10), e fica haiku.
+
+### 09/10/2026 10:55:53 - Cache de montagem do Docker: o líder autoriza apagar o que tem mais de 24 h
+
+- **Pergunta do líder:** "quanto foi apagado?"
+- **Resposta medida:** o mínimo do disco foi de 20,81 GiB (manhã) a 23,85 GiB (depois das imagens). As 45 imagens liberaram pouco, porque dividiam camadas. O `docker system df` mostrou 36,3 GB de cache de montagem, 26 GB dele recuperáveis.
+- **Pergunta ao líder (AskUserQuestion):** apagar o cache?
+  - **Resposta, verbatim:** "Apagar o cache com mais de 24 h (Recomendado)".
+- **Executado:** `docker builder prune -f --filter until=24h`.
+  - O Docker contou 6,529 GB apagados. O cache foi de 36,3 para 29,77 GB, e ainda há 19,5 GB recuperáveis, mas recentes.
+  - O mínimo do disco foi de 23,70 para 24,50 GiB. O disco ganhou menos do que o Docker contou, e a causa não foi medida (INFERÊNCIA: compressão do btrfs ou espaço ainda não devolvido).

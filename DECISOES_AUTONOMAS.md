@@ -7413,3 +7413,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **IMPORTANTE:** o controle 19 não confere que os dois modos rodaram (os mutantes `rv_n4` e `rv_n5` sobrevivem e só `on` roda);
   - **COSMÉTICO** herdado: o veredito não traz a palavra "reprovado". Fica registrado.
 - **D2a-fix3:** o mesmo implementador, que reaproveita `modes_are_exact` depois do laço. A contagem continua 19.
+
+### 08/10/2026 22:52:40 - D2a-fix3 aceita em e1b56f95; a rede da D2b está fechada; CI 37869725565 verde
+
+- **D2a-fix3** (`e1b56f95`, +5 linhas no driver):
+  - o controle 19 registra os modos do laço e confere `" on off"` exato;
+  - `rv_n4`, `rv_n5`, `rv_a`, `rv_d1` e `rv_i` morrem no 19;
+  - a contagem continua 19.
+  - **Conferência do main:** 1 arquivo no commit, a árvore limpa, e o log de `rv_n4` com `rc_ctest=8`.
+- **Aceite do main:** a D2a, a D2a-fix, a D2a-fix2 e a D2a-fix3 fecham `CAPTURE-DRIVER-WIRING-UNTESTED`, a menos dos dois itens que estão com o CTO:
+  - o padrão do `PASS_REGULAR_EXPRESSION` que ignora rc;
+  - a regex alternada.
+  - O cosmético da palavra "reprovado" fica registrado.
+- **CI 37869725565** (`4b15048e`): `success`, com 25 jobs verdes e 1 pulado, incluindo o gitleaks, que desta vez instalou dentro do tempo.

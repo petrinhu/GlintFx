@@ -5,10 +5,10 @@
 #
 # A POSIX sh LIBRARY, loaded once with `.` by a driver (tests/container/run_capture_known_color.sh). It has no main and
 # no selftest dispatch of its own: loading it runs nothing except the wait settings below (their defaults and their
-# validation). Its one shell option change is in run_check (`set +e` around the command, then `set -e`): a caller
-# without -e gains it there. Its functions start a wire relay inside the running test container, wait
-# for the relay socket and for the capture files of the presenting connection, stop the relay, copy the files out
-# with docker cp, and judge them with run_check. The mode-specific parts (fixture, verdict, modes) stay in the driver.
+# validation). Its functions start a wire relay inside the running test container, wait for the relay socket and
+# for the capture files of the presenting connection, stop the relay, copy the files out with docker cp, and clean the
+# host directory copy_out writes to (clean_mode_output: copy_out lays files over what is there, so a run starts from an
+# empty one). The mode-specific parts (fixture, verdict, modes) stay in the driver.
 #
 # CONTRACT with the caller (read by the functions below, never assigned here):
 #   RELAY_SESSION_CALLER  readonly, set by the caller BEFORE loading; prefixes every message of this library.
@@ -155,19 +155,6 @@ copy_out() {
     docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/frames/." "$OUT_DIR/$mode/frames"
     docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/readback/." "$OUT_DIR/$mode/readback"
     docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/relay.log" "$OUT_DIR/$mode/relay.log"
-}
-
-# run_check <rc-file> <command...>: the command's output is shown on stderr, its exit code goes to a FILE and is
-# read back (GODS_LAWS.md L-45); stdout carries only that code.
-run_check() {
-    rc_file="$1"
-    shift
-    set +e
-    "$@" >"$rc_file.log" 2>&1
-    echo "$?" >"$rc_file"
-    set -e
-    cat "$rc_file.log" >&2
-    cat "$rc_file"
 }
 
 # clean_mode_output <mode>: a reused out directory would hand the judge the PREVIOUS run's frames and readback

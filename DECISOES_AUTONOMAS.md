@@ -7722,3 +7722,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Ordem:** D2b-fix2, depois D3a junto com a D5b (arquivos disjuntos), depois D3, depois D6-red.
 - **Verificação do main:** `run_check` (`capture_relay_session.sh:150`) e `clean_mode_output` (`:164`) existem; `tests/parity_exceptions.txt` e `tests/container/exec_fixture.sh` existem. As previsões dependem do estado que a D2b-fix2 vai deixar e serão reconferidas contra o HEAD antes do despacho da D3a.
 - **Notas:** o CTO rodou duas sondas só de leitura em imagens existentes (a versão do `timeout` e o `/bin/sh`), declaradas no §1.3 do plano. Isso foi além do pedido de não executar nada, mas não toca superfície nem repositório. **Errata:** não existe portão de shellcheck, ao contrário do que o item 4 do plano-d2bfix2 dizia (o implementador foi avisado), e o `/bin/sh` da `glintfx-devbuild:verify` é bash, e não dash.
+
+### 09/10/2026 02:00:06 - SELFTEST-EXIT-LINE entregue; revisão despachada
+
+- **SELFTEST-EXIT-LINE** (`c3ec9d66`):
+  - os vermelhos V1, V2 e V3 passavam verdes no registro antigo e reprovam no novo; V4a e V4b reprovam a trava;
+  - o autoteste do executor ficou vermelho em 5 de 7 casos com o executor falso e verde com o real; M1, M2 e M3 mortos;
+  - o preci deu rc 0 no pai (R=90, F=16) e no SHA (R=90, F=17, isto é, F mais 1, como a D-W8-114 previa), e o verde da prova deu 9 de 9.
+- **Desvios declarados** (vão ao revisor): o dublê mudou depois que o `check_dep_zero` recusou `cmake_language`; o `:977` usa `$<TARGET_FILE:...>`; três comentários gêmeos perto de `:5240`, `:6512` e `:6530` ainda descrevem a regex antiga; a trava conta `executor=8`.
+- **Revisão** despachada a um haiku distinto (`ordem-rev-selftest-exit-line.md`). Agentes vivos: D2b-fix2, revisor da D5a-fix3 e revisor da SELFTEST-EXIT-LINE, 3 no total.

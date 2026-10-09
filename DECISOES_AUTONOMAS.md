@@ -7441,3 +7441,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - D4 (devops-sre), D5a (backend-engineer) e D2b (devops-sre);
   - cada um tem ordem própria (`ordem-d4.md`, `ordem-d5a.md`, `ordem-d2b.md`) mais a comum (`ordem-comum-paralelo.md`), com os 8 itens da L-11;
   - as leis estão em `leis-paralelo.md`.
+
+### 08/10/2026 23:03:39 - D5a parada no passo A por um vermelho fora da previsão; decisão do main, a confirmar pela revisão
+
+- **FATO, medido pelo implementador:**
+  - no passo A reprovaram os casos 3 e 10, como previsto, e também o caso 6;
+  - a causa é que o teste reaproveita o mesmo `tool_options` em quatro chamadas;
+  - e o código movido grava `out_directory` antes de recusar (`window_capture_options.cpp:53` contra `:60-61`). A recusa aplica a opção pela metade.
+- **Decisão do main, de execução dentro da D-W8-113:**
+  - (a) cada sub-caso do caso 6 usa um `tool_options` novo, porque reaproveitar estado mede a ordem do teste e não a unidade;
+  - (b) entra um caso 11, "recusa não altera options", vermelho no passo A e verde no passo B, com o parse feito numa cópia local que só grava em caso de sucesso;
+  - entra um mutante N6.
+  - O revisor da D5a julga a decisão.

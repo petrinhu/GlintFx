@@ -7951,3 +7951,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **C-6:** nenhum portão confere o modo 100755.
   Os dois foram ao CTO (`plano-d3afix2.md`), com a errata para a D3 nascer com a guarda robusta.
 - **RELAY-SOCKET-STALE → ✅.** A cadeia D2b-fix, D2b-fix2 e D2b-fix3 está revisada, e o caso do log vazio está provado (X5 no controle 29). O CI 37892805249, que contém `1e757433` a `5061cffe`, está verde.
+
+### 09/10/2026 04:17:04 - D5b commitada; plano da D3a-fix2 aceito e despachado; SH-MODE-GATE na INBOX
+
+- **D5b** em `907ec9b6` (4 arquivos). As erratas estão aplicadas, conferidas pelo main no diff: `CHECK_NO_PASS_REGEX_SITES` foi de 7 para 8, e nenhum `PASS_REGULAR_EXPRESSION` novo entrou. O preci está em curso.
+- **Plano da D3a-fix2** (`plano-d3afix2.md`, md5 `fe4d4736`). As decisões D-W8-172 a D-W8-174, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - pelo §0, o I-4 é "caso que não morde" e abre fatia, cujo conserto é `readonly SELFTEST_MAIN_STARTED=1` (o P2b é morte obrigatória);
+  - fica aceito e declarado que apagar a guarda inteira sobrevive, porque isso é remover o mecanismo, e não furá-lo;
+  - o C-6 vira o item `SH-MODE-GATE`;
+  - errata ao Anexo B da D3: a guarda já nasce `readonly`, com o mutante M19.
+- **Verificação do main:** a guarda está nas linhas 401 e 402 do arquivo de controles, ainda sem `readonly`. A fatia mexe só nesse arquivo, sem tocar no registro, e por isso corre junto com a D5b.
+- **Despacho:** a D3a-fix2 foi para o implementador da D2b-fix. Agentes vivos: a D5b (preci), o revisor da D5a-fix5 e a D3a-fix2, 3 no total.

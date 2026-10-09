@@ -7910,3 +7910,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-169:** numa opção repetida, o valor anterior é descartado sem ser lido, porque vence o último. O argparse recusaria; isso fica declarado e vai à lista de confirmação do líder, junto com a D-W8-144;
   - o `cl.exe` é refeito sobre um clone do SHA.
 - **Despacho:** a D5a-fix5 foi para o implementador da D5a. Ela mexe só no `.hpp` e no teste; o `.cpp` lido pela D5b fica intocado, então ela pode correr junto com a D5b. Agentes vivos: a D3a-fix, a SELFTEST-FIX2 e a D5a-fix5, 3 no total.
+
+### 09/10/2026 03:42:01 - D3a-fix entregue; revisão conjunta da D2b-fix3 e da D3a-fix despachada
+
+- **D3a-fix** (`38630bb5`): N=34; R6 caiu no controle 32, R4 no 33, MA no 34; o R3 imprime `34` uma vez e depois a recusa (rc 1). Preci com rc 0 no pai e no SHA, lido de `preci*.rc` pelo main. O diff do registro e de `tests/container/` antes do commit tinha só as mudanças da fatia. O dash continua não medido localmente.
+- **Revisão conjunta** da D2b-fix3 e da D3a-fix despachada ao revisor da D3a, que não implementou nenhuma das duas (`ordem-rev-d2bfix3-d3afix.md`), com o §0 do plano da D5a-fix5 como critério de classe.
+- **Agentes vivos:** a SELFTEST-FIX2, a D5a-fix5 e o revisor conjunto, 3 no total.

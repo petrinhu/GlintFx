@@ -7872,3 +7872,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
 - **D2b-fix3** (`5061cffe`, 2 arquivos; o diff do registro foi conferido antes do commit: só 31 para 32). N=32, rc direto verde. O MA caiu no controle 32 ("o portao aprovou um controle que falha"); MC e MN no 32 e X4 no 31. Preci com rc 0.
 - **Decisão do main:** a revisão da D2b-fix3 será feita JUNTO com a da D3a-fix, que mexe no mesmo arquivo de controles e no mesmo N, por um único haiku distinto, assim que a D3a-fix entregar. São fatias pequenas e encadeadas, e uma revisão só poupa uma vaga de agente e tempo de trava.
+
+### 09/10/2026 03:18:04 - Push e CI do lote D5a-fix3/4, SELFTEST-EXIT-LINE e correção, D2b-fix2/3 e D3a
+
+- **Push** de `onda-w8` com o tip `12dc9ea4`, provado por `git ls-remote`. Entram 8 commits de código desde `f2f2d3eb`: D5a-fix3 (2), SELFTEST-EXIT-LINE, D2b-fix2, D5a-fix4, D3a, SELFTEST-FIX e D2b-fix3. O CI confere no servidor o que esta máquina não confere: o `sh` dash do Ubuntu e os jobs Windows.

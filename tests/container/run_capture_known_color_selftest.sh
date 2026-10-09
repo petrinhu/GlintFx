@@ -367,6 +367,30 @@ selftest_run_control_contains_a_stub() {
     [ "$(relay_socket_name off)" = "glintfx-cap-off" ]
 }
 
+# fake_failing_control and fake_passing_control: the two controls the gate is checked with (no selftest_ prefix, so
+# they are never counted among the real ones).
+fake_failing_control() { return 1; }
+fake_passing_control() { return 0; }
+
+# selftest_gate_fails_a_failing_control: the gate itself, checked OUTSIDE selftest_check, because a blind gate cannot
+# vouch for itself (rev-d2bfix2 IMP-A): a failing control must make selftest_check exit non-zero and name it, and a
+# passing one must not. It counts as one control.
+selftest_gate_fails_a_failing_control() {
+    SELFTEST_CHECKS=$((SELFTEST_CHECKS + 1))
+    if out="$( (selftest_check fake_failing_control) 2>&1)"; then
+        echo "selftest: controle $SELFTEST_CHECKS FALHOU: o portao aprovou um controle que falha" >&2
+        exit 1
+    fi
+    case "$out" in
+        *"FALHOU: fake_failing_control"*) ;;
+        *) echo "selftest: controle $SELFTEST_CHECKS FALHOU: o portao nao nomeou o controle que falhou" >&2; exit 1 ;;
+    esac
+    if ! (selftest_check fake_passing_control) >/dev/null 2>&1; then
+        echo "selftest: controle $SELFTEST_CHECKS FALHOU: o portao reprovou um controle que passa" >&2
+        exit 1
+    fi
+}
+
 selftest_main() {
     CALLS_LOG="${TMPDIR:-/tmp}/run_capture_known_color.selftest.calls.$$"
     selftest_check selftest_stale_output_is_removed
@@ -400,6 +424,7 @@ selftest_main() {
     selftest_check selftest_wait_rejects_empty_or_missing_log
     selftest_check selftest_waits_refuse_empty_container
     selftest_check selftest_run_control_contains_a_stub
+    selftest_gate_fails_a_failing_control
     rm -f "$CALLS_LOG"
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }

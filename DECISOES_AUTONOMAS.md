@@ -7543,3 +7543,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a contagem vai de 108 para 109 em `tests/CMakeLists.txt`.
 - **Revisão da D5a e da D5a-fix** despachada a um qa-engineer em haiku (`/var/tmp/cto-w8/ordem-rev-d5a.md`), com a decisão do main sobre o caso 11 a julgar.
 - **Agentes vivos:** o CTO (`plano-pos-d4.md`), a D4-fix e o revisor da D5a, num total de 3.
+
+### 09/10/2026 00:01:16 - Plano do CTO D-W8-115 a D-W8-119 aceito; o TODO recebe RELAY-SOCKET-STALE, CAPTURE-EXIT-CODE-TWIN e RELAY-SESSION-SUBJECTS
+
+- **Plano:** `/var/tmp/cto-w8/plano-pos-d4.md`, md5 `25aa2158`.
+- **D-W8-115:** o CTO aceitou o IMPORTANTE-2 da D4 contra o próprio desenho. O módulo parte em `win32_capture_protocol.py` (contrato) e `win32_capture_process.py` (processo e prazos), na fatia D4b, depois do controle do `who` e antes da D5b. O gêmeo 124/127 foi para a INBOX.
+- **D-W8-116 (`RELAY-SOCKET-STALE`):** a espera passa a exigir a linha exata que o relé imprime depois do `listen()`. Correção do CTO à inferência do main: no CI o driver roda uma vez por container, então ali o defeito não ocorre; ele morde em rodada local e na D3.
+- **D-W8-117:**
+  - as guardas de `CONTAINER` e `OUT_DIR` ficam no ponto de uso;
+  - a guarda do chamador e o `readonly` ganham controle;
+  - fatia D2b-fix em 2 commits, com N indo de 19 para 24 e depois para 28.
+- **D-W8-118:** primeiro o `who` (a D4-fix, em voo). Depois a D4b em paralelo com a D2b-fix. Depois a D3 e a D5b. O `who`, a D2b-fix e a D-W8-114 nunca rodam juntas, porque mexem em `tests/CMakeLists.txt`.
+- **D-W8-119:**
+  - a I-3 tem a fumaça como prova, MEDIDA pelo mutante RCP na prova real da D2b-fix;
+  - o C-5 foi para a INBOX;
+  - o C-4 e o C-7 ficam aceitos.
+- **Conferência do main:** a ordem do `who` (D4-fix) já inclui a linha do N em `tests/CMakeLists.txt`. A linha `RELAY-SOCKET-STALE` entrou na tabela, acima de `CI-VERDE-W8`, com ⏳.

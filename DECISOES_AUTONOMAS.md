@@ -7501,3 +7501,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **`preci --fast` rc 1:** o estágio `--blob` reprovou em `run_capture_known_color_win32_selftest`. O controle (`run_capture_known_color_win32.py:489-491`) procura `"--present-budget-ms"` em `win32_window_capture.cpp`, e a D5a moveu a gramática para `window_capture_options.cpp`. O HEAD `5f36eaef` está vermelho localmente, e o ramo NÃO é empurrado até o conserto.
 - **Decisão do main:** opção (a). O autoteste lê o dono novo (`OPTIONS_SOURCE`), e não uma cópia mantida na ferramenta. A D5a-fix foi despachada ao mesmo implementador, que só toca esse `.py` (a D4 já está commitada), com o trecho antigo e o novo exatos, mutante e `preci`.
 - **Lição, isolada ou padrão (L-17):** a independência das fatias foi conferida por arquivo, mas um autoteste de uma fatia lia o arquivo de outra. A tabela de independência do CTO não pegou essa ligação por conteúdo. A próxima conferência de paralelismo inclui "quem LÊ o arquivo que eu mudo".
+
+### 08/10/2026 23:46:39 - Revisão da D4: APROVADA COM RESSALVAS; IMPORTANTE-1 entra em série depois da D5a-fix; IMPORTANTE-2 e o socket residual vão ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d4.md`, haiku):
+  - nenhum CRÍTICO;
+  - M2, M4 e M6 reexecutados e mortos; dos mutantes do revisor, X1 a X3 morreram e o X4 sobreviveu;
+  - **IMPORTANTE-1:** o parâmetro `who` de `check_capture_pairs` não tem controle (o X4 sobrevive);
+  - **IMPORTANTE-2 (L-17):** o módulo reúne o contrato de saída e a execução de processo;
+  - **COSMÉTICOS:** uma linha com 133 colunas; o "sem cópia" da especificação contra o import, que copia a ligação;
+  - os desvios (c), (d) e (e) do implementador foram julgados CERTOS.
+- **Decisão do main:**
+  - o IMPORTANTE-1 vira um controle novo no autoteste do driver Windows, em série DEPOIS da D5a-fix, que mexe no mesmo arquivo agora;
+  - o IMPORTANTE-2 e o `RELAY-SOCKET-STALE` vão ao CTO (`plano-pos-d4.md`), junto com o contrato implícito da biblioteca para a D3;
+  - a lição "quem LÊ o arquivo que eu mudo" vai para o método de paralelismo do CTO.

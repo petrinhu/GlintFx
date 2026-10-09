@@ -6548,7 +6548,7 @@ if(UNIX)
     add_test(
         NAME run_capture_known_color_selftest
         COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-            "-DEXPECT_LINE=selftest: 32 controles OK"
+            "-DEXPECT_LINE=selftest: 34 controles OK"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
             sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
     )

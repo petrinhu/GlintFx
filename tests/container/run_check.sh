@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# run_check.sh - a POSIX sh LIBRARY of one function, loaded once with `.` by the capture drivers
-# (run_capture_known_color.sh, run_example_capture.sh). run_check runs one command, shows its output and keeps its
+# run_check.sh - a POSIX sh LIBRARY of one function, loaded once with `.` by each capture driver that runs a
+# command and judges its exit code. run_check runs one command, shows its output and keeps its
 # exit code in a FILE (GODS_LAWS.md L-45). It left capture_relay_session.sh, which keeps only the relay session
 # (RELAY-SESSION-SUBJECTS, D-W8-136). Its one shell option change: `set +e` around the command, then `set -e`, so a
 # caller without -e gains it there. Loading it runs nothing.

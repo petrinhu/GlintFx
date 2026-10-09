@@ -7,6 +7,10 @@
 # -- selftest: the pure decisions, no container, no docker ------------------------------------------------------
 SELFTEST_CHECKS=0
 
+# The controls of run_check.sh live beside it (D-W8-157); they are registered in selftest_main below.
+# shellcheck source=run_check_selftest.sh
+. "$SCRIPT_DIR/run_check_selftest.sh"
+
 # run_control <control>: runs one control in a SUBSHELL, so a stub or a variable it leaves behind dies with it and
 # never reaches the next control (rev-d2bfix IMP-2: a convention in a comment protected one control, not the class).
 run_control() {
@@ -392,6 +396,10 @@ selftest_gate_fails_a_failing_control() {
 }
 
 selftest_main() {
+    # selftest_main runs once per process (rev-d3a C-5): a second dispatch would run every control twice, and the
+    # executor, which wants one exact OK line, would not see it.
+    [ -z "${SELFTEST_MAIN_STARTED:-}" ] || { echo "selftest: selftest_main chamado duas vezes" >&2; exit 1; }
+    SELFTEST_MAIN_STARTED=1
     CALLS_LOG="${TMPDIR:-/tmp}/run_capture_known_color.selftest.calls.$$"
     selftest_check selftest_stale_output_is_removed
     selftest_check selftest_empty_out_dir_refuses
@@ -424,6 +432,8 @@ selftest_main() {
     selftest_check selftest_wait_rejects_empty_or_missing_log
     selftest_check selftest_waits_refuse_empty_container
     selftest_check selftest_run_control_contains_a_stub
+    selftest_check selftest_run_check_restores_errexit
+    selftest_check selftest_run_check_loading_changes_nothing
     selftest_gate_fails_a_failing_control
     rm -f "$CALLS_LOG"
     echo "selftest: $SELFTEST_CHECKS controles OK"

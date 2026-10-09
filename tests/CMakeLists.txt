@@ -4250,12 +4250,14 @@ set_tests_properties(examples_pass_test PROPERTIES LABELS consume)
 add_test(
     NAME run_example_capture_win32_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 33 controles OK"
+        "-DEXPECT_LINE=selftest: 34 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
 )
-set_tests_properties(run_example_capture_win32_selftest PROPERTIES LABELS selftest)
+# FAIL_REGULAR_EXPRESSION: a MEASURED line in the selftest output fails it (D-W8-176, collect_measured.py).
+set_tests_properties(run_example_capture_win32_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "MEASURED [A-Za-z0-9_]+[.][A-Za-z0-9_]+=")
 
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
@@ -6549,7 +6551,9 @@ add_test(
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest
 )
-set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest)
+# FAIL_REGULAR_EXPRESSION: a MEASURED line in the selftest output fails it (D-W8-176, collect_measured.py).
+set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "MEASURED [A-Za-z0-9_]+[.][A-Za-z0-9_]+=")
 
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory

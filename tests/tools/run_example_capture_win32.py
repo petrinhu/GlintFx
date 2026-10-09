@@ -449,13 +449,16 @@ def selftest_stale_output():
         stale = Path(tmp) / "out" / "first_window" / "capture" / "printwindow" / "conn9_surface1.raw"
         stale.parent.mkdir(parents=True)
         stale.write_bytes(b"x")
+        stale_png = Path(tmp) / "out" / "first_window" / "png" / "printwindow" / "velho.png"
+        stale_png.parent.mkdir(parents=True)
+        stale_png.write_bytes(b"x")
         neighbour = Path(tmp) / "out" / "outro" / "fica.txt"
         neighbour.parent.mkdir(parents=True)
         neighbour.write_text("x")
         with captured_output():
             run_example(config, double_run(None, FAILED_REPLY))
-        check("a saida velha de first_window/ e apagada antes da ferramenta, e o vizinho em <out>/ fica",
-              not stale.exists() and neighbour.exists())
+        check("a saida velha de first_window/ (capture/ e png/) e apagada antes da ferramenta, e o vizinho em "
+              "<out>/ fica", not stale.exists() and not stale_png.exists() and neighbour.exists())
 
 
 def selftest_budgets_fit():
@@ -478,6 +481,11 @@ def selftest_process_level():
           no_args.returncode == 2 and empty_arg.returncode == 2)
 
 
+def selftest_decided_scene_constants():
+    check("as constantes decididas da cena: 12 sondas estaticas e captura de 640x480 (D-W8-72)",
+          PROBE_COUNT == 12 and CAPTURE_SIZE == (640, 480))
+
+
 def selftest_main():
     selftest_tool_command()
     selftest_grammar_text()
@@ -491,6 +499,7 @@ def selftest_main():
     selftest_stale_output()
     selftest_budgets_fit()
     selftest_process_level()
+    selftest_decided_scene_constants()
     print(f"selftest: {len(CHECKS)} controles OK")
 
 

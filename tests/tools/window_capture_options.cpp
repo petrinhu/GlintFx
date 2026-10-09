@@ -22,7 +22,8 @@ constexpr int k_budget_ceiling_ms = 600000;
 bool read_positive_int(std::string_view text, int &value) {
     int parsed = 0;
     const char *const end = text.data() + text.size();
-    const std::from_chars_result result = std::from_chars(text.data(), end, parsed);
+    const std::from_chars_result result =
+        std::from_chars(text.data(), text.data() + text.size(), parsed);
     const bool whole_number = result.ec == std::errc{} && result.ptr == end;
     if (!whole_number || parsed <= 0 || parsed > k_budget_ceiling_ms) {
         return false;

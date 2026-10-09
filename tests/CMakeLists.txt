@@ -958,23 +958,43 @@ set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES
 # broken behavior ALSO exits non-zero (a crash's return code is
 # non-zero too), so a plain "did the process fail" check would stay
 # green across the regression this test exists to catch.
-# PASS_REGULAR_EXPRESSION checks the ACTUAL diagnostic text instead
-# (CTest ignores the return code once this property is set) - the
-# CLEAN parse_decimal_number()-plus-fail() message this tool now
-# prints, naming both the culprit ARGUMENT ("argumento max-version")
-# and the culprit VALUE (the exact invalid text), never the generic
-# libstdc++ terminate() banner the crash used to print.
+# The exit code (1, from fail() in main.cpp) and the exact diagnostic line are both checked by
+# tests/tools/expect_exit_and_line.cmake (D-W8-114): the CLEAN parse_decimal_number()-plus-fail()
+# message this tool now prints, naming both the culprit ARGUMENT ("argumento max-version")
+# and the culprit VALUE (the exact invalid text), never the generic libstdc++ terminate() banner
+# the crash used to print. The executor sits in front of the command because ctest resolves a target
+# name only in the first COMMAND token, so the binary is passed as $<TARGET_FILE:...>.
 # glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/bad_max_version/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
 add_test(
     NAME gl_registry_codegen_bad_max_version_argument_reproves_test
-    COMMAND gl_registry_codegen
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=gl_registry_codegen: argumento max-version nao e um numero decimal valido: 'nao-e-numero'"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "$<TARGET_FILE:gl_registry_codegen>"
         "${CMAKE_CURRENT_SOURCE_DIR}/gl_registry_codegen_fixtures/empty_registry.xml"
         "${CMAKE_CURRENT_BINARY_DIR}/gl_registry_codegen_cli_out/bad_max_version"
         "nao-e-numero"
 )
 set_tests_properties(gl_registry_codegen_bad_max_version_argument_reproves_test PROPERTIES
-    LABELS unit
-    PASS_REGULAR_EXPRESSION "argumento max-version nao e um numero decimal valido: 'nao-e-numero'")
+    LABELS unit)
+
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(
+    NAME expect_exit_and_line_selftest
+    COMMAND "${CMAKE_COMMAND}" -DSELFTEST=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake"
+)
+set_tests_properties(expect_exit_and_line_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# Guard against PASS_REGULAR_EXPRESSION coming back (D-W8-114, L-36): fails on any non-comment use of it
+# in this file, and on fewer than seven sites that pass through expect_exit_and_line.cmake.
+add_test(
+    NAME no_pass_regex_test
+    COMMAND "${CMAKE_COMMAND}" "-DREGISTRY=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_pass_regex.cmake"
+)
+set_tests_properties(no_pass_regex_test PROPERTIES LABELS consume)
 
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
@@ -5221,11 +5241,13 @@ set_tests_properties(single_test_registry_test PROPERTIES LABELS consume)
 # change, never a silent one. Python only, builds fixture trees in a temp dir.
 add_test(
     NAME single_test_registry_selftest
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=check_single_test_registry.py --selftest: os 15 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_single_test_registry.py" --selftest
 )
-set_tests_properties(single_test_registry_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "os 15 controles OK")
+set_tests_properties(single_test_registry_selftest PROPERTIES LABELS selftest)
 
 # CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
 # INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).
@@ -6440,25 +6462,29 @@ set_tests_properties(python_unbuffered_selftest PROPERTIES LABELS selftest)
 # PNG and rejects zero probes. Each one's --selftest runs the three L-40
 # controls (good passes, bad rejects, empty rejects). Standard library
 # only (L-07). The consumer is P3 (capture_known_color_smoke).
-# PASS_REGULAR_EXPRESSION: a selftest whose main never runs exits 0 in
-# silence (GODS_LAWS.md L-36/L-40); the "N controles OK" line, N >= 1,
-# is what proves controls ran. ctest then ignores the exit code, so the
-# selftest prints that line only after every control passed.
+# Each selftest below is checked by tests/tools/expect_exit_and_line.cmake (D-W8-114, GODS_LAWS.md
+# L-36/L-40): its exit code must be 0 AND its "N controles OK" line must appear exactly once, with N the
+# exact control count. A main that never runs prints no line and fails; a selftest that prints the line
+# and then exits 1 also fails. The count is exact, so dropping one control is a visible failure.
 add_test(
     NAME raw_to_png_selftest
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 44 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/raw_to_png.py" --selftest
 )
-set_tests_properties(raw_to_png_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
+set_tests_properties(raw_to_png_selftest PROPERTIES LABELS selftest)
 
 add_test(
     NAME image_probe_selftest
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 26 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/image_probe.py" --selftest
 )
-set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
+set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
 
 # QA-SCREEN-CAPTURE P3 (D-W8-33): capture_vs_readback.py compares the relay's
 # capture of a frame against the client's own glReadPixels of the same frame,
@@ -6469,11 +6495,13 @@ set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest
 # The consumer is tests/container/run_capture_known_color.sh.
 add_test(
     NAME capture_vs_readback_selftest
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 23 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_vs_readback.py" --selftest
 )
-set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "selftest: [1-9][0-9]* controles OK")
+set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest)
 
 # QA-SCREEN-CAPTURE C2b-3 (D-W8-36, D-W8-39): the DRIVER of the Windows capture proof
 # (tests/tools/run_capture_known_color_win32.py), the Python counterpart of the container's
@@ -6486,11 +6514,13 @@ set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest
 # (C2b-4); this is only the selftest.
 add_test(
     NAME run_capture_known_color_win32_selftest
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 109 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest
 )
-set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest
-    PASS_REGULAR_EXPRESSION "selftest: 109 controles OK")
+set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest)
 
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory
@@ -6504,10 +6534,12 @@ set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS se
 if(UNIX)
     add_test(
         NAME run_capture_known_color_selftest
-        COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 28 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
     )
-    set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest
-        PASS_REGULAR_EXPRESSION "selftest: 28 controles OK")
+    set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest)
 endif()
 
 # QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of

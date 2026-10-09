@@ -3,9 +3,10 @@
 #
 # capture_relay_session.sh - the wire relay session of the known-color capture (DEMO-1, D2b).
 #
-# A POSIX sh LIBRARY, loaded once with `.` by a driver (tests/container/run_capture_known_color.sh). It has no main,
-# no `set` of its own and no selftest dispatch of its own: loading it runs nothing except the wait settings below
-# (their defaults and their validation). Its functions start a wire relay inside the running test container, wait
+# A POSIX sh LIBRARY, loaded once with `.` by a driver (tests/container/run_capture_known_color.sh). It has no main and
+# no selftest dispatch of its own: loading it runs nothing except the wait settings below (their defaults and their
+# validation). Its one shell option change is in run_check (`set +e` around the command, then `set -e`): a caller
+# without -e gains it there. Its functions start a wire relay inside the running test container, wait
 # for the relay socket and for the capture files of the presenting connection, stop the relay, copy the files out
 # with docker cp, and judge them with run_check. The mode-specific parts (fixture, verdict, modes) stay in the driver.
 #
@@ -19,6 +20,8 @@
 # load once: a second load aborts on the readonly values, which is what keeps a driver from reloading it over its own stubs.
 # the container functions are proved by the real smoke (ci.yml), not by the selftest's stubs. start_capture_relay and
 # stop_capture_relay have no guard of their own: both call in_container, whose guard fires first.
+# The two waits call require_container FIRST: their in_container runs inside $(...), where its guard would only end
+# that substitution and the wait would time out blaming the relay (rev-d2bfix IMP-3).
 
 : "${RELAY_SESSION_CALLER:?capture_relay_session.sh: defina RELAY_SESSION_CALLER antes de carregar}"
 
@@ -50,9 +53,15 @@ if ! valid_wait_settings "$SOCKET_WAIT_TRIES" "$SOCKET_WAIT_SLEEP"; then
     exit 2
 fi
 
+# require_container: aborts the shell (or the substitution it runs in) when CONTAINER is empty, before any docker call.
+require_container() {
+    : "${CONTAINER:?capture_relay_session.sh: CONTAINER vazio; o chamador define antes de usar}"
+}
+
 # in_container <command...>: runs a command in the test container, with the runtime dir the compositor uses.
 in_container() {
-    docker exec -e XDG_RUNTIME_DIR="$RELAY_RUNTIME_DIR" "${CONTAINER:?capture_relay_session.sh: CONTAINER vazio; o chamador define antes de usar}" "$@"
+    require_container
+    docker exec -e XDG_RUNTIME_DIR="$RELAY_RUNTIME_DIR" "$CONTAINER" "$@"
 }
 
 # relay_socket_name <mode>: the socket the capture relay of <mode> listens on AND the WAYLAND_DISPLAY the fixture
@@ -87,6 +96,7 @@ start_capture_relay() {
 # wait_for_socket <mode>: waits for the relay's OWN announcement, never for the socket file: a file left by an earlier
 # run passes `test -S`, and so does a socket bound but not yet listening (RELAY-SOCKET-STALE).
 wait_for_socket() {
+    require_container
     mode="$1"
     tries=0
     relay_log=""
@@ -115,6 +125,7 @@ presenting_files_count() {
 # .meta is written after its .raw, so the .meta (or the no-frame marker) of the presenting connection means
 # its files are complete.
 wait_for_capture_files() {
+    require_container
     mode="$1"
     tries=0
     listing=""
@@ -137,7 +148,8 @@ stop_capture_relay() {
 }
 
 copy_out() {
-    : "${OUT_DIR:?capture_relay_session.sh: OUT_DIR vazio; o chamador define antes de usar}" "${CONTAINER:?capture_relay_session.sh: CONTAINER vazio; o chamador define antes de usar}"
+    : "${OUT_DIR:?capture_relay_session.sh: OUT_DIR vazio; o chamador define antes de usar}"
+    require_container
     mode="$1"
     mkdir -p "$OUT_DIR/$mode/frames" "$OUT_DIR/$mode/readback"
     docker cp "$CONTAINER:$CAPTURE_ROOT/$mode/frames/." "$OUT_DIR/$mode/frames"

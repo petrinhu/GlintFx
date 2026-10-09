@@ -149,9 +149,15 @@ main() {
 # -- selftest: the pure decisions, no container, no docker ------------------------------------------------------
 SELFTEST_CHECKS=0
 
+# run_control <control>: runs one control in a SUBSHELL, so a stub or a variable it leaves behind dies with it and
+# never reaches the next control (rev-d2bfix IMP-2: a convention in a comment protected one control, not the class).
+run_control() {
+    ( "$@" )
+}
+
 selftest_check() {
     SELFTEST_CHECKS=$((SELFTEST_CHECKS + 1))
-    if ! "$@"; then
+    if ! run_control "$@"; then
         echo "selftest: controle $SELFTEST_CHECKS FALHOU: $*" >&2
         exit 1
     fi
@@ -201,6 +207,7 @@ selftest_wait_needs_the_meta_not_the_raw() {
 # expected and what it found, never time out quietly.
 selftest_wait_timeout_names_expected_and_found() {
     (
+        CONTAINER=x
         in_container() { printf 'conn7_surface6.meta\nconn7_surface6.raw\n'; }
         message="$(CAPTURE_WAIT_TRIES=1 CAPTURE_WAIT_SLEEP=0 wait_for_capture_files off 2>&1)" && exit 1
         case "$message" in
@@ -348,13 +355,16 @@ selftest_relay_announced_rejects_other_lines() {
         ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-on, upstream /run/glintfx-test/glintfx-test-upstream" | relay_announced off &&
         ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-capx-off, upstream /run/glintfx-test/glintfx-test-upstream" | relay_announced off &&
         ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-off2, upstream /run/glintfx-test/glintfx-test-upstream" | relay_announced off &&
-        ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-off, upstream /run/glintfx-test/glintfx-test-upstream extra" | relay_announced off
+        ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-off, upstream /run/glintfx-test/glintfx-test-upstream extra" | relay_announced off &&
+        ! printf '%s\n' "wire_relay: listening on /run/glintfx-test/glintfx-cap-off, upstream /run/glintfx-test/glintfx-test-upstream" | relay_announced on
 }
 
-# A socket file left by an earlier run passes `test -S`; the wait must NOT pass on it. The stub says the file exists
-# and the log names only the OTHER mode: the wait has to fail, and its message has to name the mode it waited for.
+# A socket file left by an earlier run passes `test -S`; the wait must NOT pass on it. The stub's `test` branch says the
+# file exists (that branch is what kills RS1, the old `test -S` wait), and the log names only the OTHER mode: the wait
+# has to fail, and its message has to name the mode it waited for.
 selftest_wait_rejects_stale_socket_without_announcement() {
     (
+        CONTAINER=x
         SOCKET_WAIT_TRIES=1
         SOCKET_WAIT_SLEEP=0
         in_container() {
@@ -373,6 +383,7 @@ selftest_wait_rejects_stale_socket_without_announcement() {
 
 selftest_wait_accepts_announcement() {
     (
+        CONTAINER=x
         SOCKET_WAIT_TRIES=1
         SOCKET_WAIT_SLEEP=0
         in_container() {
@@ -447,6 +458,57 @@ selftest_caller_name_is_readonly() {
     ! (RELAY_SESSION_CALLER=outro) 2>/dev/null
 }
 
+# A relay that has not written its log yet (empty) or whose log does not exist (cat fails): the wait must fail and name
+# the mode it waited for, never pass (rev-d2bfix IMP-1: the case right after the relay starts).
+selftest_wait_rejects_empty_or_missing_log() {
+    (
+        CONTAINER=x
+        SOCKET_WAIT_TRIES=1
+        SOCKET_WAIT_SLEEP=0
+        in_container() { return 0; }
+        message="$(wait_for_socket off 2>&1)" && exit 1
+        case "$message" in *"glintfx-cap-off,"*) ;; *) echo "$message" >&2; exit 1 ;; esac
+        in_container() { return 1; }
+        message="$(wait_for_socket off 2>&1)" && exit 1
+        case "$message" in *"glintfx-cap-off,"*) exit 0 ;; *) echo "$message" >&2; exit 1 ;; esac
+    )
+}
+
+# CONTAINER empty: both waits must refuse with the guard's OWN message before any docker call, never time out blaming the
+# relay or the capture (rev-d2bfix IMP-3). -e is off here, as in one_mode's real context (called on the left of ||), so
+# a guard silenced inside $(...) would let the wait run on: that is the defect this control sees.
+selftest_waits_refuse_empty_container() {
+    (
+        set +e
+        docker() { echo docker-chamado; }
+        CONTAINER=""
+        SOCKET_WAIT_TRIES=1
+        SOCKET_WAIT_SLEEP=0
+        CAPTURE_WAIT_TRIES=1
+        CAPTURE_WAIT_SLEEP=0
+        message="$(wait_for_socket off 2>&1)" && { echo "$message" >&2; exit 1; }
+        case "$message" in
+            *docker-chamado*|*"nao anunciou"*) echo "$message" >&2; exit 1 ;;
+            *"CONTAINER vazio"*) ;;
+            *) echo "$message" >&2; exit 1 ;;
+        esac
+        message="$(wait_for_capture_files off 2>&1)" && { echo "$message" >&2; exit 1; }
+        case "$message" in
+            *docker-chamado*|*esperava*) echo "$message" >&2; exit 1 ;;
+            *"CONTAINER vazio"*) exit 0 ;;
+            *) echo "$message" >&2; exit 1 ;;
+        esac
+    )
+}
+
+# run_control must contain what a control leaves behind: a stub defined inside one run_control never reaches the code
+# after it (rev-d2bfix IMP-2). The expected answer is the literal name of the off socket, never read from the code.
+selftest_run_control_contains_a_stub() {
+    leak_a_stub() { relay_socket_name() { echo stub-vazado; }; }
+    run_control leak_a_stub
+    [ "$(relay_socket_name off)" = "glintfx-cap-off" ]
+}
+
 selftest_main() {
     CALLS_LOG="${TMPDIR:-/tmp}/run_capture_known_color.selftest.calls.$$"
     selftest_check selftest_stale_output_is_removed
@@ -477,6 +539,9 @@ selftest_main() {
     selftest_check selftest_empty_out_dir_refused_by_copy_out
     selftest_check selftest_library_refuses_load_without_caller
     selftest_check selftest_caller_name_is_readonly
+    selftest_check selftest_wait_rejects_empty_or_missing_log
+    selftest_check selftest_waits_refuse_empty_container
+    selftest_check selftest_run_control_contains_a_stub
     rm -f "$CALLS_LOG"
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }

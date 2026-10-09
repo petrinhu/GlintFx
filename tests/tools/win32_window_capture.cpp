@@ -43,13 +43,12 @@
 //   and the verdict MUST be `OCLUIDA por classe=GlintFxCaptureOccluder` (exit 14). It only ever
 //   produces a rejection, and only when asked for.
 //
-// WHAT IT DOES, in order: launch; wait for the fixture's ready line (default "presented at
-// attempt",
-// --ready-line; 30 s); find the window; print `janelas=`, `visivel=`, `iconico=`;
-// (--sabotage-occlude: cover the client area); DwmFlush twice; the readiness verdict `veredito:`
-// (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, in that order) and, ONLY if the window is ready,
-// PrintWindow into <out>/printwindow/ then BitBlt into <out>/bitblt/ (a window that is not ready is
-// never captured, D-W8-44); WM_CLOSE; wait for the fixture's exit (default 10 s, then
+// WHAT IT DOES, in order: launch; wait for the fixture's ready line (default
+// "presented at attempt", --ready-line; 30 s); find the window; print `janelas=`, `visivel=`,
+// `iconico=`; (--sabotage-occlude: cover the client area); DwmFlush twice; the readiness verdict
+// `veredito:` (INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, in that order) and, ONLY if the window
+// is ready, PrintWindow into <out>/printwindow/ then BitBlt into <out>/bitblt/ (a window that is
+// not ready is never captured, D-W8-44); WM_CLOSE; wait for the fixture's exit (default 10 s, then
 // TerminateProcess).
 //
 // EXIT CODE: 0 all good. 1 the FIXTURE failed (never presented, exited early or non-zero, did not

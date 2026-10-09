@@ -7,8 +7,9 @@
 #include "harness/test_registry.hpp"
 #include "tools/window_capture_options.hpp"
 
-// window_capture_options_test.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1): the ten decided cases
-// of the Windows window-capture tool's command line, proven on every system. Every expected value
+// window_capture_options_test.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1): the eleven decided
+// cases of the Windows window-capture tool's command line, in thirteen test functions (cases 7 and
+// 11 take two each), proven on every system. Every expected value
 // is a LITERAL written here by hand from the decision's own table, never read back from the unit
 // (a test that compares the code with its own constant proves nothing).
 
@@ -50,6 +51,27 @@ bool same_fields(const tool_options &left, const tool_options &right) {
            left.fixture_command == right.fixture_command;
 }
 
+// The options before a refused command line: every field holds a known value, so a refusal that
+// writes any one field is caught by same_fields.
+tool_options known_options() {
+    tool_options options;
+    options.title = "kept_title";
+    options.out_directory = "kept_out";
+    options.present_budget_ms = 1234;
+    options.exit_budget_ms = 4321;
+    options.sabotage_occlude = true;
+    options.ready_line = "kept_line";
+    options.fixture_command = {"kept_fixture"};
+    return options;
+}
+
+// True when the command line is refused AND the known options come back unchanged.
+bool refusal_keeps_known_options(const args_list &args) {
+    tool_options options = known_options();
+    const tool_options before = options;
+    return !parse_tool_options(args, options) && same_fields(options, before);
+}
+
 } // namespace
 
 // Case 1: an option the tool does not know, before the separator, is refused.
@@ -76,7 +98,11 @@ GLINTFX_TEST(ready_line_takes_the_whole_text_with_spaces_and_colon) {
     GLINTFX_CHECK_EQ(options.ready_line, std::string("first_window: first frame presented"));
 }
 
-// Case 4: --ready-line as the last argument, with no value, is refused.
+// Case 4: --ready-line as the last argument, with no value, is refused. No separator can follow
+// it, so the line is refused for the missing separator as well. Through this API a missing value
+// and a missing separator both refuse the line, so this case proves the refusal, not its reason.
+// The mutant that turns a missing value into "x" is EQUIVALENT: a value is missing only at the last
+// token, and line 77 of the unit refuses that line whatever the value is.
 GLINTFX_TEST(ready_line_without_value_at_the_end_is_refused) {
     tool_options options;
     const args_list args{"--title", "T", "--out", "O", "--ready-line"};
@@ -183,4 +209,16 @@ GLINTFX_TEST(refused_command_line_leaves_options_untouched) {
     const args_list args{"--out", "O", "--frames", "3", "--", "f"};
     GLINTFX_CHECK(!parse_tool_options(args, options));
     GLINTFX_CHECK(same_fields(options, before));
+}
+
+// Case 11b: a refusal found AFTER the loop changes nothing either. Each line below gets through the
+// loop and is refused by the checks that follow it (no title, no command, a budget out of range),
+// so a parser that copies `parsed` into `options` before those checks is caught here.
+GLINTFX_TEST(refusal_after_the_loop_leaves_options_untouched) {
+    const args_list without_title{"--out", "O", "--", "f"};
+    const args_list without_command{"--title", "T", "--out", "O", "--"};
+    const args_list bad_budget{"--title", "T", "--out", "O", "--present-budget-ms", "0", "--", "f"};
+    GLINTFX_CHECK(refusal_keeps_known_options(without_title));
+    GLINTFX_CHECK(refusal_keeps_known_options(without_command));
+    GLINTFX_CHECK(refusal_keeps_known_options(bad_budget));
 }

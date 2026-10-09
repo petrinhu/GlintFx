@@ -7619,3 +7619,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Commit 1** (`1e757433`, RELAY-SOCKET-STALE): S3 vermelho válido, N 19 para 24, preci com rc 0. As cinco provas reais do container deram o esperado, com o isolamento provado antes (rc 0). Isso inclui o RCP com rc 1 e o mutante MB6 reproduzindo o vermelho de ponta a ponta na base.
 - **Commit 2 parado:** o vermelho do G1 saiu com `in_container: command not found`. FATO conferido pelo main: `tests/container/run_capture_known_color.sh:203-205` define um dublê de `in_container` no shell principal, e o `unset -f` apaga junto a função real (`capture_relay_session.sh:51`). O próprio arquivo avisa disso na linha 237, e os outros controles já usam subshell.
 - **Decisão: opção A**, o dublê em subshell. É a aplicação de um padrão que já existe no arquivo, não desenho novo, por isso o main decidiu sem acionar o CTO, que está ocupado com o plano da D5b. Confirmar retroativamente. O implementador vai varrer os gêmeos (`unset -f` em `tests/container/*.sh`) e rodar um mutante novo, o RU, que desfaz a troca.
+
+### 09/10/2026 00:56:03 - Revisão da D5a-fix2: REPROVADA; a D5a-fix3 vai para o plano do CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix2.md`, haiku distinto). O código da unidade está certo, mas o teste não prova a frase do assunto do commit `f8acb388`:
+  - **IMPORTANTE 1:** a recusa pelo orçamento de SAÍDA depois do laço não está coberta; o mutante PB2 sobrevive;
+  - **IMPORTANTE 2:** o estado de partida do 11b já tem `sabotage_occlude = true`, então uma escrita indevida desse campo fica invisível; o mutante SF sobrevive;
+  - **IMPORTANTE 3:** `--` aceito como valor segue sem decisão.
+  Um caso 11c, com estado padrão e provado numa cópia, mata PB2 e SF.
+- **O MB é equivalente de fato**, como o main tinha concluído: o revisor não achou nenhuma linha que o distinga, numa enumeração exaustiva de 579.195 linhas.
+- **Encaminhamento:** o CTO, que planeja a D5b, recebeu o relatório com o pedido de uma fatia D5a-fix3 antes da D5b, junto com as respostas da gramática, para evitar duas mãos no mesmo arquivo de teste. A D5a-fix2 fica aberta até a D5a-fix3.

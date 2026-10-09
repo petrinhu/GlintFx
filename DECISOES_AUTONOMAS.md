@@ -7920,3 +7920,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 ### 09/10/2026 03:44:41 - CI 37892805249 verde
 
 - **CI 37892805249** (tip `12dc9ea4`, com D5a-fix3/4, SELFTEST-EXIT-LINE e SELFTEST-FIX, D2b-fix2/3 e D3a): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). Os jobs do Ubuntu, cujo `sh` é dash, passaram, e isso responde por parte do "dash não medido" das revisões. A D3a-fix e as correções seguintes ainda não foram empurradas.
+
+### 09/10/2026 04:01:35 - D5a-fix5 e SELFTEST-FIX2 commitadas; D5b despachada com erratas
+
+- **D5a-fix5** em `94dc1049` e **SELFTEST-FIX2** em `dfa3e709` (2 arquivos). O preci da SELFTEST-FIX2 deu rc 0 (`/var/tmp/cto-w8/selftest-fix2/preci.rc`); os mutantes da D5a-fix5 estão em curso.
+- **D5b** despachada ao implementador da SELFTEST-EXIT-LINE (`ordem-d5b.md`), com as erratas que vencem o plano:
+  - o registro na forma do executor;
+  - `CHECK_NO_PASS_REGEX_SITES` de 7 para 8 no mesmo commit;
+  - o comentário do registro sem "EXACT in the regex".
+  O main conferiu que os arquivos lidos pela D5b não mudaram desde a base do plano, exceto `window_capture_options.cpp`, que mudou em comentário e na leitura do orçamento e ainda tem os 5 literais.
+- **Agentes vivos:** a SELFTEST-FIX2 (fechando o relatório), a D5a-fix5, o revisor conjunto da D2b-fix3 e da D3a-fix, e a D5b, 4 no total.

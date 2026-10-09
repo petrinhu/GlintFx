@@ -32,13 +32,19 @@ struct tool_options {
     bool sabotage_occlude = false;
     std::string ready_line{k_default_ready_line};
     std::vector<std::string> fixture_command;
+
+    // Every field, compared by the compiler in declaration order: a field added above is compared
+    // with no edit anywhere (D-W8-167). The tests use it to prove that a refused command line
+    // changes nothing.
+    bool operator==(const tool_options &) const = default;
 };
 
 // True when the arguments before `--` name a title, an output directory and budgets in range, and
 // after `--` name a fixture command. Anything else is refused as a whole, never partly applied.
 // An option's value is the next argument whatever it is, `--` included, as getopt reads it
-// (D-W8-120); a repeated option keeps its last value (D-W8-121); a budget is decimal digits only,
-// no sign, no space, a leading zero read as digits (D-W8-122, D-W8-143).
+// (D-W8-120); a repeated option keeps its last value (D-W8-121), and an earlier value is discarded
+// unread, even one that would be refused (D-W8-169); a budget is decimal digits only, no sign, no
+// space, a leading zero read as digits (D-W8-122, D-W8-143).
 [[nodiscard]] bool parse_tool_options(const std::vector<std::string> &args, tool_options &options);
 
 } // namespace glintfx::capture_tool

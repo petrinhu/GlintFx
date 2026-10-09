@@ -43,15 +43,10 @@ bool refused(const args_list &args) {
     return !parse_tool_options(args, options);
 }
 
-// True when every field of the two options is equal: the test of "a refusal changed nothing". The
-// structured bindings name EVERY field of tool_options, so a field added there stops this file from
-// compiling until it is compared here too.
-bool same_fields(const tool_options &left, const tool_options &right) {
-    const auto &[l_title, l_out, l_present, l_exit, l_sabotage, l_ready, l_command] = left;
-    const auto &[r_title, r_out, r_present, r_exit, r_sabotage, r_ready, r_command] = right;
-    return l_title == r_title && l_out == r_out && l_present == r_present && l_exit == r_exit &&
-           l_sabotage == r_sabotage && l_ready == r_ready && l_command == r_command;
-}
+// True when every field of the two options is equal: the test of "a refusal changed nothing". It is
+// tool_options's own defaulted operator==, so a field added to the struct is compared with no edit
+// here (D-W8-167).
+bool same_fields(const tool_options &left, const tool_options &right) { return left == right; }
 
 // The options before a refused command line: every field holds a known value, so a refusal that
 // writes any one field is caught by same_fields. sabotage_occlude starts TRUE here, the very value
@@ -105,7 +100,8 @@ GLINTFX_TEST(ready_line_takes_the_whole_text_with_spaces_and_colon) {
 // it, so the line is refused for the missing separator as well. Through this API a missing value
 // and a missing separator both refuse the line, so this case proves the refusal, not its reason.
 // The mutant that turns a missing value into "x" is EQUIVALENT: a value is missing only at the last
-// token, and line 77 of the unit refuses that line whatever the value is.
+// token, and the separator check after the option loop of parse_tool_options refuses that line
+// whatever the value is.
 GLINTFX_TEST(ready_line_without_value_at_the_end_is_refused) {
     tool_options options;
     const args_list args{"--title", "T", "--out", "O", "--ready-line"};
@@ -172,8 +168,8 @@ GLINTFX_TEST(budget_with_space_tab_or_plus_is_refused) {
     GLINTFX_CHECK(!budget_accepted("--exit-budget-ms", "+5"));
 }
 
-// Case 7d: a leading zero is still decimal digits only (D-W8-143): "05" reads 5 and "007" reads 7,
-// and "00" is zero, refused like "0".
+// Case 7d: a leading zero is still decimal digits only (D-W8-143): "05" reads 5, "007" reads 7,
+// and "010" reads 10 (decimal, never octal). "00" is zero, refused like "0".
 GLINTFX_TEST(budget_with_a_leading_zero_reads_the_number) {
     tool_options options;
     const args_list args = with_fixture(
@@ -181,6 +177,12 @@ GLINTFX_TEST(budget_with_a_leading_zero_reads_the_number) {
     GLINTFX_CHECK(parse_tool_options(args, options));
     GLINTFX_CHECK_EQ(options.present_budget_ms, 5);
     GLINTFX_CHECK_EQ(options.exit_budget_ms, 7);
+
+    tool_options ten;
+    const args_list ten_args =
+        with_fixture({"--title", "T", "--out", "O", "--present-budget-ms", "010"});
+    GLINTFX_CHECK(parse_tool_options(ten_args, ten));
+    GLINTFX_CHECK_EQ(ten.present_budget_ms, 10);
     GLINTFX_CHECK(!budget_accepted("--present-budget-ms", "00"));
 }
 
@@ -281,7 +283,8 @@ GLINTFX_TEST(repeated_option_keeps_the_last_value) {
 }
 
 // Case 13b: the same rule for the output directory and both budgets: D-W8-121 holds for EVERY
-// option with a value, not only the two of case 13.
+// option with a value, not only the two of case 13. An earlier value is discarded unread, even "0",
+// which alone is refused (D-W8-169).
 GLINTFX_TEST(repeated_out_and_budgets_keep_the_last_value) {
     tool_options out_twice;
     const args_list out_args{"--title", "T", "--out", "O1", "--out", "O2", "--", "f"};
@@ -295,4 +298,10 @@ GLINTFX_TEST(repeated_out_and_budgets_keep_the_last_value) {
     GLINTFX_CHECK(parse_tool_options(budget_args, budgets_twice));
     GLINTFX_CHECK_EQ(budgets_twice.present_budget_ms, 7);
     GLINTFX_CHECK_EQ(budgets_twice.exit_budget_ms, 9);
+
+    tool_options zero_then_seven;
+    const args_list zero_args = with_fixture(
+        {"--title", "T", "--out", "O", "--present-budget-ms", "0", "--present-budget-ms", "7"});
+    GLINTFX_CHECK(parse_tool_options(zero_args, zero_then_seven));
+    GLINTFX_CHECK_EQ(zero_then_seven.present_budget_ms, 7);
 }

@@ -7613,3 +7613,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **RESSALVA 1** (124/127): somada ao item `CAPTURE-EXIT-CODE-TWIN`, que já existia. **RESSALVA 2** (duplicata e direção entre módulos) e o COSMÉTICO-1: item `TOOLS-MODULE-GATES`.
 - **COSMÉTICO-2 recusado:** o revisor pediu a DEMO-1 em 🔍, mas ela ainda tem D3, D5b, D6 e D7 por fazer. 🔄 é o status certo.
 - **D4b fechada.**
+
+### 09/10/2026 00:51:20 - D2b-fix parou no commit 2: um controle antigo apagava a função real; o conserto aplica o padrão que o arquivo já usa
+
+- **Commit 1** (`1e757433`, RELAY-SOCKET-STALE): S3 vermelho válido, N 19 para 24, preci com rc 0. As cinco provas reais do container deram o esperado, com o isolamento provado antes (rc 0). Isso inclui o RCP com rc 1 e o mutante MB6 reproduzindo o vermelho de ponta a ponta na base.
+- **Commit 2 parado:** o vermelho do G1 saiu com `in_container: command not found`. FATO conferido pelo main: `tests/container/run_capture_known_color.sh:203-205` define um dublê de `in_container` no shell principal, e o `unset -f` apaga junto a função real (`capture_relay_session.sh:51`). O próprio arquivo avisa disso na linha 237, e os outros controles já usam subshell.
+- **Decisão: opção A**, o dublê em subshell. É a aplicação de um padrão que já existe no arquivo, não desenho novo, por isso o main decidiu sem acionar o CTO, que está ocupado com o plano da D5b. Confirmar retroativamente. O implementador vai varrer os gêmeos (`unset -f` em `tests/container/*.sh`) e rodar um mutante novo, o RU, que desfaz a troca.

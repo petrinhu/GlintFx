@@ -7571,3 +7571,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D2b-fix** despachada (`ordem-d2bfix.md`, 2 commits, prova real com o mutante RCP), assim que a D4-fix commitou a linha de `tests/CMakeLists.txt`.
 - **D4b** despachada (`ordem-d4b.md`) depois do `preci` verde da D4-fix, porque mexe no mesmo driver.
 - **Agentes vivos:** a D2b-fix, a D4b e o revisor da D5a, num total de 3.
+
+### 09/10/2026 00:12:34 - Revisão da D5a: APROVADA COM RESSALVAS; D5a-fix2 despachada; as perguntas da gramática vão ao CTO junto com a D5b
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5a.md`, haiku):
+  - o código está certo e a unidade fica verde no container;
+  - N2, N4 e N6 reexecutados e mortos; dos mutantes do revisor, MC, MD e MF morreram, e MA, MB e ME sobreviveram;
+  - **a decisão do main sobre o caso 11:** (a) CERTA, (b) CERTA no desenho e INCOMPLETA no teste, (c) CERTA;
+  - **IMPORTANTES:** o caso 11 só testa recusa dentro do laço (MA sobrevive); o caso 4 é recusado por outro motivo (MB sobrevive);
+  - **perguntas abertas:** `--` aceito como valor, repetição de `--ready-line` (ME) e espaço inicial em orçamento;
+  - **COSMÉTICOS:** o cabeçalho do teste diz "ten" casos; um comentário quebrado na ferramenta; o autoteste do driver só confere presença de texto; o valor duplicado entre a unidade e a fixture.
+- **D5a-fix2:** o mesmo implementador conserta MA e MB no teste, mais dois cosméticos. O código da unidade NÃO muda.
+- **As perguntas abertas da gramática** vão para o CTO no plano da D5b, que é quem usa a ferramenta com `--ready-line`. O mesmo vale para o valor duplicado.

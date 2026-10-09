@@ -7867,3 +7867,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Verificação do main:** o registro diz `32 controles OK` (`tests/CMakeLists.txt:6551`); `selftest_main` está no arquivo de controles, linha 394; o `set +e` e o `set -e` estão em `run_check.sh`, linhas 14 e 17.
 - **Despacho:** a D3a-fix foi para o implementador da SELFTEST-EXIT-LINE, com a guarda de diff em `tests/CMakeLists.txt` e `tests/container/`. Agentes vivos: a D2b-fix3 (preci), os revisores da D5a-fix4 e da SELFTEST-FIX, e a D3a-fix, 4 no total.
 - **Sequência:** D2b-fix3 e D3a-fix, depois a D5b, depois a D3.
+
+### 09/10/2026 03:17:28 - D2b-fix3 entregue; revisão junto com a D3a-fix
+
+- **D2b-fix3** (`5061cffe`, 2 arquivos; o diff do registro foi conferido antes do commit: só 31 para 32). N=32, rc direto verde. O MA caiu no controle 32 ("o portao aprovou um controle que falha"); MC e MN no 32 e X4 no 31. Preci com rc 0.
+- **Decisão do main:** a revisão da D2b-fix3 será feita JUNTO com a da D3a-fix, que mexe no mesmo arquivo de controles e no mesmo N, por um único haiku distinto, assim que a D3a-fix entregar. São fatias pequenas e encadeadas, e uma revisão só poupa uma vaga de agente e tempo de trava.

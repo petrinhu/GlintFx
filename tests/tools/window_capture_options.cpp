@@ -21,6 +21,8 @@ constexpr int k_budget_ceiling_ms = 600000;
 // space and no plus sign (std::from_chars, the reading the library itself uses, D-W8-122).
 bool read_positive_int(std::string_view text, int &value) {
     int parsed = 0;
+    // end serves the comparison; the call spells data() + size() itself, as the
+    // bugprone-suspicious-stringview-data-usage check of clang-tidy requires.
     const char *const end = text.data() + text.size();
     const std::from_chars_result result =
         std::from_chars(text.data(), text.data() + text.size(), parsed);

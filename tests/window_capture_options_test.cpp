@@ -7,11 +7,12 @@
 #include "harness/test_registry.hpp"
 #include "tools/window_capture_options.hpp"
 
-// window_capture_options_test.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1), D5a-fix3 (D-W8-120
-// to D-W8-122): the thirteen decided cases of the Windows window-capture tool's command line, in
-// seventeen test functions (cases 7 and 11 take three each), proven on every system. Every expected
-// value is a LITERAL written here by hand from the decision's own table, never read back from the
-// unit (a test that compares the code with its own constant proves nothing).
+// window_capture_options_test.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1), D5a-fix3 and
+// D5a-fix4 (D-W8-120 to D-W8-122, D-W8-143): the thirteen decided cases of the Windows
+// window-capture tool's command line, in nineteen test functions (case 7 takes four, case 11
+// three, case 13 two), proven on every system. Every expected value is a LITERAL written here by
+// hand from the decision's own table, never read back from the unit (a test that compares the code
+// with its own constant proves nothing).
 
 namespace {
 
@@ -42,15 +43,14 @@ bool refused(const args_list &args) {
     return !parse_tool_options(args, options);
 }
 
-// Every field of tool_options: a field added there must be added here, or a refusal that writes
-// it goes unseen.
-// True when every field of the two options is equal: the test of "a refusal changed nothing".
+// True when every field of the two options is equal: the test of "a refusal changed nothing". The
+// structured bindings name EVERY field of tool_options, so a field added there stops this file from
+// compiling until it is compared here too.
 bool same_fields(const tool_options &left, const tool_options &right) {
-    return left.title == right.title && left.out_directory == right.out_directory &&
-           left.present_budget_ms == right.present_budget_ms &&
-           left.exit_budget_ms == right.exit_budget_ms &&
-           left.sabotage_occlude == right.sabotage_occlude && left.ready_line == right.ready_line &&
-           left.fixture_command == right.fixture_command;
+    const auto &[l_title, l_out, l_present, l_exit, l_sabotage, l_ready, l_command] = left;
+    const auto &[r_title, r_out, r_present, r_exit, r_sabotage, r_ready, r_command] = right;
+    return l_title == r_title && l_out == r_out && l_present == r_present && l_exit == r_exit &&
+           l_sabotage == r_sabotage && l_ready == r_ready && l_command == r_command;
 }
 
 // The options before a refused command line: every field holds a known value, so a refusal that
@@ -172,6 +172,18 @@ GLINTFX_TEST(budget_with_space_tab_or_plus_is_refused) {
     GLINTFX_CHECK(!budget_accepted("--exit-budget-ms", "+5"));
 }
 
+// Case 7d: a leading zero is still decimal digits only (D-W8-143): "05" reads 5 and "007" reads 7,
+// and "00" is zero, refused like "0".
+GLINTFX_TEST(budget_with_a_leading_zero_reads_the_number) {
+    tool_options options;
+    const args_list args = with_fixture(
+        {"--title", "T", "--out", "O", "--present-budget-ms", "05", "--exit-budget-ms", "007"});
+    GLINTFX_CHECK(parse_tool_options(args, options));
+    GLINTFX_CHECK_EQ(options.present_budget_ms, 5);
+    GLINTFX_CHECK_EQ(options.exit_budget_ms, 7);
+    GLINTFX_CHECK(!budget_accepted("--present-budget-ms", "00"));
+}
+
 // Case 8: --sabotage-occlude sets the field; without it the field stays false.
 GLINTFX_TEST(sabotage_occlude_sets_the_field_only_when_present) {
     tool_options with_flag;
@@ -266,4 +278,21 @@ GLINTFX_TEST(repeated_option_keeps_the_last_value) {
     const args_list title_twice{"--title", "T1", "--title", "T2", "--out", "O", "--", "f"};
     GLINTFX_CHECK(parse_tool_options(title_twice, titled));
     GLINTFX_CHECK_EQ(titled.title, std::string("T2"));
+}
+
+// Case 13b: the same rule for the output directory and both budgets: D-W8-121 holds for EVERY
+// option with a value, not only the two of case 13.
+GLINTFX_TEST(repeated_out_and_budgets_keep_the_last_value) {
+    tool_options out_twice;
+    const args_list out_args{"--title", "T", "--out", "O1", "--out", "O2", "--", "f"};
+    GLINTFX_CHECK(parse_tool_options(out_args, out_twice));
+    GLINTFX_CHECK_EQ(out_twice.out_directory, std::string("O2"));
+
+    tool_options budgets_twice;
+    const args_list budget_args = with_fixture({"--title", "T", "--out", "O", "--present-budget-ms",
+                                                "5", "--present-budget-ms", "7", "--exit-budget-ms",
+                                                "8", "--exit-budget-ms", "9"});
+    GLINTFX_CHECK(parse_tool_options(budget_args, budgets_twice));
+    GLINTFX_CHECK_EQ(budgets_twice.present_budget_ms, 7);
+    GLINTFX_CHECK_EQ(budgets_twice.exit_budget_ms, 9);
 }

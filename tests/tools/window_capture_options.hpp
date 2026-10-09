@@ -38,7 +38,7 @@ struct tool_options {
 // after `--` name a fixture command. Anything else is refused as a whole, never partly applied.
 // An option's value is the next argument whatever it is, `--` included, as getopt reads it
 // (D-W8-120); a repeated option keeps its last value (D-W8-121); a budget is decimal digits only,
-// no sign, no space (D-W8-122).
+// no sign, no space, a leading zero read as digits (D-W8-122, D-W8-143).
 [[nodiscard]] bool parse_tool_options(const std::vector<std::string> &args, tool_options &options);
 
 } // namespace glintfx::capture_tool

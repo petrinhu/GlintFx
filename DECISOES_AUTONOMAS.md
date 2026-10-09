@@ -7381,3 +7381,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - commit só dentro de `flock /var/tmp/cto-w8/git.lock`, sempre por caminho;
   - cada agente usa um snapshot próprio para o container.
 - **Em voo agora:** a revisão da D2a-fix (haiku), o CTO (D2b, D4 e D5a) e o CI 37869725565.
+
+### 08/10/2026 22:34:54 - Revisão da D2a-fix: APROVADA COM RESSALVAS; D2a-fix2 despachada; o PASS_REGULAR_EXPRESSION que ignora rc vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2afix.md`, haiku):
+  - A e B fechados, com ressalvas;
+  - os 10 mutantes do implementador morreram; dos 15 do revisor, morreram 7;
+  - **IMPORTANTES:** (1) o ramo de falha da espera só é testado com `off`; (2) a ordem nesse ramo não é conferida; (3) a ordem no caminho normal não é conferida; (4) o `PASS_REGULAR_EXPRESSION` ignora o código de saída (o mutante `rv_h` passa);
+  - **COSMÉTICOS:** (5) a regex alternada aceitaria a queda de um controle; (6) registro de chamadas residual.
+  - Nota do revisor sobre o `push.log`: o push de `80db83e7` para `574a4041` foi do main, não do implementador. O relatório do implementador ("sem push") está certo.
+- **Decisão do main:** 1, 2, 3 e 6 se consertam agora, só no driver (D2a-fix2), antes da D2b. Os itens 4 e 5 são padrão: `PASS_REGULAR_EXPRESSION` aparece 11 vezes em `tests/CMakeLists.txt` (L-17). Foram ao CTO, para desenhar um conserto único, em série com a D5a, que mexe no mesmo arquivo.
+- **Agentes em voo:** o CTO (planos de D2b, D4, D5a e do padrão do rc) e o implementador da D2a-fix2. Os dois usam as travas de `flock`.

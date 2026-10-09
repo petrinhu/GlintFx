@@ -8071,3 +8071,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a SPLIT-1, ao da D5a;
   - a SPLIT-2, a um haiku novo, com o commit dela depois do da SPLIT-1.
   São 4 agentes vivos.
+
+### 09/10/2026 05:40:33 - CI 37903837351 verde
+
+- **CI 37903837351** (tip `fe7cf36a`, com a D3 e a D5b-fix): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). O driver novo da D3 passou no dash do Ubuntu, e o `FAIL_REGULAR_EXPRESSION` da D5b-fix passou nos jobs Windows.

@@ -7837,3 +7837,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - preci com rc 0 no pai (F=17) e no SHA (F=18), lido de `preci-*.rc` pelo main.
 - **Revisão da correção** despachada ao MESMO revisor que a reprovou: ele não é o implementador (L-12) e conhece os furos que achou. Ele reaplica as plantas e os mutantes dele ao SHA novo.
 - **Agentes vivos:** a D2b-fix3, os revisores da D3a e da D5a-fix4, e o revisor da SELFTEST-FIX, 4 no total.
+
+### 09/10/2026 03:12:23 - Revisão da D3a: APROVADA COM RESSALVAS; D3a-fix ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d3a.md`, haiku distinto): o refactor puro está provado (60 de 60 corpos de função idênticos, 31 controles na mesma ordem, bloco de 400 linhas idêntico); autoteste com rc 0; A1, A2 e A3 mortos. O revisor **concorda com a D-W8-136**, então não há pergunta ao líder.
+- **Ressalvas:**
+  - **I-1:** nenhum controle prova que `run_check` restaura o `set -e` (mutante R6);
+  - **I-3:** o arquivo de controles tem 406 linhas e reprova as perguntas Q1 e Q2 da L-17 do projeto (sinal de monolito);
+  - **C-5:** o despacho duplicado não é barrado (R3);
+  - mais quatro cosméticos.
+  - O dash continua não medido: não há imagem local, e o CI vai medir.
+- **Encaminhamento:** o CTO decide e planeja a D3a-fix em `plano-d3afix.md`, DEPOIS da D2b-fix3, que mexe no mesmo arquivo de controles, e antes da D3, porque `run_check.sh` ganha o segundo consumidor nela.

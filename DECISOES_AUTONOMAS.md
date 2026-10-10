@@ -8285,3 +8285,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a git.lock para todo commit (o .git é compartilhado com a cópia de trabalho);
   - a D6-red na árvore principal e a correção só na cópia de trabalho;
   - o revisor só no clone dele, e o investigador sem escrita nenhuma.
+
+### 10/10/2026 16:45:35 - Ramo da v0.6.1.0 preparado; vigia global de travessão: o líder manda consertar
+
+- **Ramo local `hotfix/v0.6.1.0`** (cópia de trabalho `worktrees/hotfix-0610`, base `origin/main` `e31aa774`), nada empurrado:
+  - `dd763772`: cherry-pick `-x`, com patch-id `8a5568e7` igual ao de `b3861f80` (o main reconferiu com `git patch-id --stable`);
+  - `e3c1321a`: a versão vai para 0.6.1.0 no CMakeLists:43;
+  - `e102f6d7`: o CHANGELOG.
+  - Preci `--fast` com rc 0: ctest 299 passaram, 0 falharam, 1 pulado.
+  - Desvio: o commit do cherry-pick não tem os trailers de coautoria (termina na linha do `-x`, sem amend).
+  - Falta o G1, a revisão de `b3861f80`, que ainda roda: o M2 matou com `rendered_frames=14`, e o M3 está em construção.
+- **O "encontrados=0" do hook** (`hook-zero/relatorio.md`): vem do vigia GLOBAL de travessão (`~/.claude/skills/tab_pendencias/tools/hooks/no_mdash_staged.py:163`).
+  - O zero é legítimo (só arquivos internos), mas não é declarado.
+  - Há um defeito real: `is_user_facing` compara fragmentos com barra contra caminhos relativos, então `public/` e `docs/narrative/` escapam em outros projetos.
+- **Pergunta ao líder, resposta verbatim:** "Consertar os dois (Recomendado)". O conserto foi despachado a um haiku, com cópia antes de editar (L-32), TDD e prova num repositório descartável.

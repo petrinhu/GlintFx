@@ -8320,3 +8320,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - main e onda-w8;
   - `hotfix/v0.6.1.0` (a correção em preparo);
   - `infra-preci`, com 2 commits sem equivalente na onda: o estágio Clang do preci, item `PRECI-ESTAGIO-CLANG` da INBOX, ainda sem prova.
+
+### 10/10/2026 17:05:45 - Vigia global de travessão consertado; o líder aceita o efeito colateral e manda fechar a falha aberta
+
+- **Conserto** (`hook-fix/relatorio.md`):
+  - commits locais `ab73c1e` (repositório tab_pendencias) e `e23b480` (`~/.claude`), sem push;
+  - o autoteste dá 12 de 12, e o main reconferiu rodando pelo `~/.claude/githooks`;
+  - a declaração "0 user-facing file(s) among N" passa a aparecer quando o zero é legítimo;
+  - `public/`, `docs/narrative/` e `site/` relativos passam a ser verificados (o vermelho antes, com 4 falhas, e o verde depois);
+  - a prova foi num repositório descartável.
+- **Pergunta ao líder, resposta verbatim:**
+  - (1) "Aceitar, fica coerente (Recomendado)": .html relativo em lib/, api/ e scripts/ deixa de ser verificado, como já era com caminho completo;
+  - (2) "Consertar agora (Recomendado)": o verificador vai reprovar alto quando não achar o canon (fail-closed, L-36). Despachado ao mesmo agente, junto com tirar o .bak de dentro de `~/.claude/githooks/`.
+- O ponteiro do submódulo no repositório pai não foi commitado. Fica pendente com o líder.

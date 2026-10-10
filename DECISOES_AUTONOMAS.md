@@ -8376,3 +8376,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `WL-FRAME-ORDER-TEXT`: I-1, I-3, I-4 e C-1, mais os gêmeos já anotados.
   - O C-2 e a asserção do teto do M4 vão para a INBOX. Nada disso vira 0.6.1.x.
 - **Para confirmação retroativa do líder:** as ressalvas saem na W8, e o comportamento atual da I-5 fica declarado até a fatia.
+
+### 10/10/2026 17:35:29 - v0.6.1.0 juntada ao main; falta o CI do main para marcar
+
+- **CI do PR 38083144109:** `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). `rendered_frames=30` com critério >= 27 nas pernas plain e asan.
+- **Merge do PR #15** (merge commit), pela autorização do líder ("autorizo merge/push/tag") e pela D-HF-4: `origin/main` = `bcc72f1d`, e `e102f6d7` foi provado ancestral do main.
+- O ramo `hotfix/v0.6.1.0` foi apagado no servidor e aqui (L-11 do projeto), junto com a cópia de trabalho, que estava limpa. O servidor tem só main e onda-w8.
+- **CI do main:** 38084300781 rodando. A marca `v0.6.1.0` sai no commit `bcc72f1d` quando ele fechar verde.
+- A volta do main para a onda-w8 fica para depois do commit da D6-red, que está viva na árvore.

@@ -962,6 +962,8 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 
 **Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.
 
+**Emenda de 10/10/2026: dúvida vai ao C-level antes de ir ao líder.** Ordem do líder, verbatim: *"se tiver dúvidas consulte clevel"*. **A regra:** quando o main tiver dúvida de execução ou de desenho, consulta primeiro o C-level do domínio (o CTO, para engenharia), no modelo e esforço da `/modelos_sessao`, e segue a decisão dele, registrada em `DECISOES_AUTONOMAS.md` para confirmação retroativa. **Continua indo ao líder, sem exceção:** o que a L-11 reserva a ele (merge em `main`, marca, publicação), o que mexe em lei ou em canon global fora do projeto, o que apaga ou instala fora do que ele já autorizou, e a decisão de produto que ele já declarou como dele. Esta emenda não reduz a L-01 global; ela fixa que o C-level é o primeiro destino da dúvida, e o líder o segundo.
+
 ## L-35
 
 **Data:** 23/08/2026, decisão do líder. **Origem:** cobrança do **Gus Dragon** na discussion 7 do bus, item (1), endereçada nominalmente ao GlintFx e ao GusWorld.

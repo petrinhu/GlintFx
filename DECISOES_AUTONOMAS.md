@@ -8333,3 +8333,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - (1) "Aceitar, fica coerente (Recomendado)": .html relativo em lib/, api/ e scripts/ deixa de ser verificado, como já era com caminho completo;
   - (2) "Consertar agora (Recomendado)": o verificador vai reprovar alto quando não achar o canon (fail-closed, L-36). Despachado ao mesmo agente, junto com tirar o .bak de dentro de `~/.claude/githooks/`.
 - O ponteiro do submódulo no repositório pai não foi commitado. Fica pendente com o líder.
+
+### 10/10/2026 17:16:12 - Ordem do líder: dúvida vai ao C-level
+
+- **Verbatim:** "se tiver dúvidas consulte clevel". Entrou como emenda na L-34 do projeto (a irmã do modo autônomo, L-68).
+- O C-level é o primeiro destino da dúvida. Continuam indo ao líder: merge, marca e publicação (L-11), lei e canon global, apagar ou instalar fora do que ele já autorizou, e decisão de produto declarada como dele.

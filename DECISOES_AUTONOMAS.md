@@ -8395,3 +8395,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **R5:** rc 1 no clang-tidy, com cert-err33-c em `first_window.cpp:153`, `:191` e `:244`.
   - Não é dúvida (L-23: portão vermelho não se aceita). O main mandou corrigir com `(void)`, no padrão do projeto, num commit novo, e refazer a R5.
 - Erro de texto na mensagem do `3eafee6e` ("sondas de 12 e 5"); o certo é 7 de 12 e 2 de 5. Fica registrado aqui, sem reescrita.
+
+### 10/10/2026 18:00:46 - v0.6.1.0 publicada; Gus avisado; main volta para a onda
+
+- **CI do main** 38084300781, sobre o merge `bcc72f1d`: `success`, 25 jobs verdes e 1 pulado.
+- **Marca anotada `v0.6.1.0`** em `bcc72f1d` (objeto `e127f505`), empurrada; o `git ls-remote` confere a marca e o `^{}`. O CI da marca, 38085933605, deu `success`, com VERSION-TAG-SYNC verde (G7).
+- **L-37:** o Gus Dragon foi avisado na issue #8 do bus (comentário 6102124887), com o texto do Anexo D, o número corrigido para 0.6.1.0 e o carimbo do `date`.
+- **Volta para a onda:** `git merge --no-ff origin/main` em onda-w8 (`04196415`), limpo; só entram o CHANGELOG e a versão. A onda-w8 NÃO foi empurrada, porque a D-W8-192 proíbe push entre a D6-red e a D6-green.
+- **D6-red:** `3eafee6e` mais a correção do lint `bc0abe54`, com a R5 rc 0. Faltam as corridas A a E no servidor (ramos descartáveis) e a revisão.
+- **Imagens (emenda da L-11):** apagada a `wlfix2-plain`, da WL-FRAME-ORDER, já fechada. As `d6red-*` ficam, porque a fatia está em revisão.

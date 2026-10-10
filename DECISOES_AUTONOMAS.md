@@ -8384,3 +8384,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - O ramo `hotfix/v0.6.1.0` foi apagado no servidor e aqui (L-11 do projeto), junto com a cópia de trabalho, que estava limpa. O servidor tem só main e onda-w8.
 - **CI do main:** 38084300781 rodando. A marca `v0.6.1.0` sai no commit `bcc72f1d` quando ele fechar verde.
 - A volta do main para a onda-w8 fica para depois do commit da D6-red, que está viva na árvore.
+
+### 10/10/2026 17:47:41 - D6-red commitada (3eafee6e); a R5 pegou o lint, que o main manda corrigir
+
+- **D6-red** (`3eafee6e`, 14 caminhos, local):
+  - base apelidada e sem pull; `DOCKER_BUILDKIT=0`;
+  - P1, P2 plain, P3 e P4 com rc 0;
+  - **P5 plain com rc 1, `exemplo_rc` 0 e `frames_drawn=30`**, com 7 de 12 e 2 de 5 sondas reprovadas (7C7C7C), igual à previsão: o exemplo agora desenha os 30 quadros, por causa da WL-FRAME-ORDER;
+  - P7 V-10 com nm 0; ML1 a ML3 mortos; MB1 morto; MS-STAGE declarado e não rodado; a perna asan só no servidor.
+- **R5:** rc 1 no clang-tidy, com cert-err33-c em `first_window.cpp:153`, `:191` e `:244`.
+  - Não é dúvida (L-23: portão vermelho não se aceita). O main mandou corrigir com `(void)`, no padrão do projeto, num commit novo, e refazer a R5.
+- Erro de texto na mensagem do `3eafee6e` ("sondas de 12 e 5"); o certo é 7 de 12 e 2 de 5. Fica registrado aqui, sem reescrita.

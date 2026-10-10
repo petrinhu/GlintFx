@@ -8348,3 +8348,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - PR #15 aberto contra main, com o CI do PR 38083144109;
   - `onda-w8` empurrada, com o local igual ao remoto (abaixo), levando a WL-FRAME-ORDER e os registros.
 - **Imagens (emenda da L-11):** nenhuma é de fatia fechada neste push. A `wlfix2-plain` e as do revisor e da D6-red estão em uso.
+
+### 10/10/2026 17:17:50 - Refinamento do líder: o C-level pesquisa outras bibliotecas, a comunidade e a web antes de decidir
+
+- **Verbatim:** "se tiver duvidas, clevel busca outras libs para aprender, busque comunidade e web em geral, antes de resolver o problema sozinho".
+- Foi refundido na emenda de hoje da L-34 (L-68). Decisão de C-level sem pesquisa com as fontes citadas volta para ser refeita.

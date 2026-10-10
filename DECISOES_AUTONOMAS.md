@@ -8404,3 +8404,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Volta para a onda:** `git merge --no-ff origin/main` em onda-w8 (`04196415`), limpo; só entram o CHANGELOG e a versão. A onda-w8 NÃO foi empurrada, porque a D-W8-192 proíbe push entre a D6-red e a D6-green.
 - **D6-red:** `3eafee6e` mais a correção do lint `bc0abe54`, com a R5 rc 0. Faltam as corridas A a E no servidor (ramos descartáveis) e a revisão.
 - **Imagens (emenda da L-11):** apagada a `wlfix2-plain`, da WL-FRAME-ORDER, já fechada. As `d6red-*` ficam, porque a fatia está em revisão.
+
+### 10/10/2026 18:22:11 - Revisão da D6-red: aprovada com ressalvas
+
+- **Revisor** (`rev-d6red.md`), haiku distinto do implementador: APROVADO COM RESSALVAS.
+  - Os 17 md5 dos anexos conferem.
+  - P1, P2 e P5 plain refeitos e iguais à previsão.
+  - P6 MSVC refeito em `bc0abe54` com rc 0; V-17 com rc 2 (C4146); P7 com nm 0.
+  - Mortos: M1 (fundo 0.5, 10 de 12), M2, M3, ML1 a ML3 e V-17. O MS-STAGE fica declarado.
+- **Ressalvas:**
+  - A-1, IMPORTANTE latente: as sondas `:20` e `:24` (BDBDBD, tolerância 2) não distinguem o fundo 188;
+  - A-2, cosmético: espaçamento em `selftest.py:277`;
+  - A-3, PERGUNTA: `puts` e `printf` sem `(void)` (71 no repositório);
+  - A-4: a mensagem do `3eafee6e`.
+  - As quatro foram ao CTO, junto com o plano das corridas.
+- **Desvios declarados pelo revisor:** o prepare e os gates de texto rodaram no hospedeiro (a mesma classe da D-W8-199); o configure do MSVC rodou no hospedeiro.

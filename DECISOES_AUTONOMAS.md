@@ -8449,3 +8449,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A contagem errada é do plano. As 5 linhas novas ficam entre as existentes, sem alterar nenhuma, e o commit fica.
 - **Desvio:** `TMPDIR=/tmp` foi barrado pelo hook P9; usou-se `/var/tmp` dentro do contêiner.
 - A revisão vai junto com a da D6-green.
+
+### 10/10/2026 18:37:15 - Ramos B a E preparados; corrida B disparada
+
+- **Haiku** (`corridas-d6red/relatorio.md`): os ramos locais foram criados sobre `34bf8d08`, com um commit e um arquivo cada:
+  - B `fe42243f` e C `53509e35`;
+  - D `1251ae67` e E `8710163b`.
+  Os md5 dos patches e dos arquivos resultantes conferem com o plano. O cl.exe deu BUILD_RC 0 em B e E. A cópia de trabalho foi removida.
+- **Corrida B:** `descartavel/d6-b` empurrado (o `ls-remote` confere), CI 38088288278.
+- **Onda 1 = A+B** (D-W8-220). C, D e E só saem depois de lida a corrida A.
+- **Corrida A em andamento:** o "Windows - Sanitizer (ASan)" já deu failure, o que é PREVISTO. O plano prevê failure nos 4 trabalhos Windows com SÓ o `first_window` reprovado, e o main vai conferir isso no log quando o run fechar.

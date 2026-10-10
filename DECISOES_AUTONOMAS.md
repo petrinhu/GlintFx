@@ -8253,3 +8253,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Despachados:**
   - a revisão adversarial da WL-FRAME-ORDER, por um haiku distinto do implementador, com mutantes M1 e M2 de previsão escrita e só em contêiner (`rev-wlfix.md`);
   - o CTO, para o plano da versão de correção v0.6.0.1 que o líder pediu (`plano-hotfix-0601.md`).
+
+### 10/10/2026 16:01:28 - Plano da versão de correção; o líder fixa o número v0.6.1.0 e confirma a limpeza a cada envio
+
+- **CTO** (`plano-hotfix-0601.md`, md5 `e039c9a9`):
+  - o ramo `hotfix/v0.6.1.0` nasce de `origin/main` (`e31aa774`), e o cherry-pick de `b3861f80` aplica limpo (patch-id `8a5568e7`);
+  - portões G1 a G9: a revisão e o CI 38077288715 antes de despachar, e depois preci, CI do PR, CI do main, versão contra marca, CHANGELOG e DEPLOY_CHECKLIST;
+  - a volta para a onda é pelo merge de `origin/main` em `onda-w8`;
+  - avisos: CHANGELOG, PR e anotação da marca, mais a issue #8 do Gus (L-37) e o bus.
+- **Erro do main declarado:** a opção de ontem dizia "v0.6.0.1", o que viola a L-26 (uma correção de código sobe o terceiro número).
+- **Pergunta ao líder (AskUserQuestion), resposta verbatim:** "v0.6.1.0 (Recomendado)".
+- **Pergunta ao líder** (a emenda da L-11 de apagar imagens a cada push contra "Não apaga nada"), **resposta verbatim:** "Apagar a cada envio (Recomendado)". A emenda da L-11 vale; o "não apaga nada" cobriu só aquele aperto de disco.
+- **Merge e marca:** continuam pedindo o aval do líder no momento (o hook barra marca sem confirmação). O main pergunta quando os portões G1 a G7 estiverem verdes.

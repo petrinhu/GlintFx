@@ -8419,3 +8419,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A-4: a mensagem do `3eafee6e`.
   - As quatro foram ao CTO, junto com o plano das corridas.
 - **Desvios declarados pelo revisor:** o prepare e os gates de texto rodaram no hospedeiro (a mesma classe da D-W8-199); o configure do MSVC rodou no hospedeiro.
+
+### 10/10/2026 18:30:38 - Corridas da D6-red: plano do CTO, corrida A disparada, preparo de B a E despachado
+
+- **CTO** (`plano-corridas-d6red.md`, md5 `3cd147c1`, D-W8-217 a 222, com fontes Microsoft citadas para a D-W8-217):
+  - base `34bf8d08` para as 5 corridas; B a E levam um patch cada, com md5 e previsão por trabalho escritos antes;
+  - a WL-FRAME-ORDER não torna nenhuma V-n obsoleta;
+  - a V-16 é redesenhada, porque desde o MSVC 17.7 a mistura com ASan é suportada; a corrida A confere se o executor tem 19.37 ou mais;
+  - a V-2 é adaptada; a V-12 lê a assinatura da V-1;
+  - no máximo 2 corridas por vez, em 3 ondas (A+B, C+D, E), com C, D e E depois de lido A.
+- **Ressalvas da revisão:**
+  - A-1: vira o mutante M1g na D6-green (D-W8-221);
+  - A-2: vai para a INBOX;
+  - A-3: não existe regra, porque o cert-err33-c não cobra printf/puts (D-W8-222);
+  - A-4: fica.
+- **Corrida A:** `descartavel/d6-a` = `34bf8d08` empurrado (o `ls-remote` confere), CI 38087850239.
+- **B a E:** o preparo foi despachado a um haiku numa cópia de trabalho em worktrees/, sem push.
+- Para o líder ratificar: D-W8-217 a 222.

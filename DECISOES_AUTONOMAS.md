@@ -8271,3 +8271,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - `success`: 25 jobs verdes e 1 pulado.
 - O log do servidor mostra `loop_parity_test.rendered_frames=30` na perna plain e na perna asan (critério >= 27). A perna asan não tinha rodado aqui por causa do disco; agora está provada pelo servidor. O portão G2 do plano da v0.6.1.0 está verde.
 - **Imagens (emenda da L-11):** nenhuma apagada neste push. A `wlfix2-plain` é da fatia ainda em revisão, e as `glintfx-rev:*` são do revisor, que as apaga ao terminar com elas.
+
+### 10/10/2026 16:13:27 - Ordem do líder: até 4 agentes em paralelo, sem corrida; três frentes novas despachadas
+
+- **Verbatim:** "use até 4 agentes paralelos sem corrida". Confirma a ordem de 08/10.
+- **Vivos agora (4):**
+  - o revisor da WL-FRAME-ORDER (mutantes, no clone);
+  - a retomada da D6-red sobre `b3861f80` (só a perna plain local, `DOCKER_BUILDKIT=0`, commit pela git.lock);
+  - o preparo do ramo da v0.6.1.0 (Anexo A do `plano-hotfix-0601.md`), numa cópia de trabalho em `worktrees/hotfix-0610`, sem push. O G1 (revisão) ainda roda, e o ramo é refeito se ela achar defeito;
+  - a investigação, só de leitura, do "encontrados=0 analisados=0" do hook de pre-commit (L-40).
+- **Separação contra corrida:**
+  - a heavy.lock para todo contêiner, build e preci;
+  - a git.lock para todo commit (o .git é compartilhado com a cópia de trabalho);
+  - a D6-red na árvore principal e a correção só na cópia de trabalho;
+  - o revisor só no clone dele, e o investigador sem escrita nenhuma.

@@ -8299,3 +8299,24 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O zero é legítimo (só arquivos internos), mas não é declarado.
   - Há um defeito real: `is_user_facing` compara fragmentos com barra contra caminhos relativos, então `public/` e `docs/narrative/` escapam em outros projetos.
 - **Pergunta ao líder, resposta verbatim:** "Consertar os dois (Recomendado)". O conserto foi despachado a um haiku, com cópia antes de editar (L-32), TDD e prova num repositório descartável.
+
+### 10/10/2026 16:47:05 - Limpeza de ramos por ordem do líder
+
+- **Pedido do líder, verbatim:** "veja se tem ramos/pr/ pendentes de merge ou de serem deletados se forem desnecessarios".
+- **Inventário:**
+  - nenhum PR aberto;
+  - 10 ramos já mesclados (em main ou na onda);
+  - 4 sondas e sabotagens descartáveis;
+  - `sonda-swap2` (local, remoto e cópia de trabalho);
+  - `descartavel/wlfix` (remoto, já serviu).
+- **Resposta do líder (AskUserQuestion), verbatim:** "Tudo que é lixo ou sonda (Recomendado)".
+- **Executado:**
+  - 15 ramos locais apagados;
+  - a cópia de trabalho `worktrees/sonda-swap2` removida, porque estava limpa;
+  - os ramos remotos `sonda-swap2` e `descartavel/wlfix` apagados;
+  - o `git ls-remote` agora mostra só main e onda-w8.
+  - O SHA de cada ramo apagado ficou em `/var/tmp/cto-w8/ramos-apagados-20261010.txt`, recuperável pelo reflog.
+- **Ficam:**
+  - main e onda-w8;
+  - `hotfix/v0.6.1.0` (a correção em preparo);
+  - `infra-preci`, com 2 commits sem equivalente na onda: o estágio Clang do preci, item `PRECI-ESTAGIO-CLANG` da INBOX, ainda sem prova.

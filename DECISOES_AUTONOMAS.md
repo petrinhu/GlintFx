@@ -8436,3 +8436,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Corrida A:** `descartavel/d6-a` = `34bf8d08` empurrado (o `ls-remote` confere), CI 38087850239.
 - **B a E:** o preparo foi despachado a um haiku numa cópia de trabalho em worktrees/, sem push.
 - Para o líder ratificar: D-W8-217 a 222.
+
+### 10/10/2026 18:35:14 - D3-fix2 commitada (fb7f6041)
+
+- **Vermelho:** MR1 e MR2 com rc 0, porque o controle 2 não cobria 125 e 143.
+- **Verde:**
+  - N=20 sem mudança;
+  - mutantes pós-commit MR1 a MR5 todos mortos;
+  - R5 preci com rc 0 (no hospedeiro, o downgrade da L-09).
+- **Parada atravessada pelo implementador:** a previsão "1 linha tirada e 6 postas" não bateu; saíram 5 postas e nenhuma tirada.
+  - O main conferiu: o arquivo commitado é IGUAL ao "passa a ser" do item 3 do plano (`run_example_capture_selftest.sh:107-113`).
+  - A contagem errada é do plano. As 5 linhas novas ficam entre as existentes, sem alterar nenhuma, e o commit fica.
+- **Desvio:** `TMPDIR=/tmp` foi barrado pelo hook P9; usou-se `/var/tmp` dentro do contêiner.
+- A revisão vai junto com a da D6-green.

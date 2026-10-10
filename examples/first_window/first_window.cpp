@@ -150,7 +150,7 @@ void example_state::announce_first_frame(const glintfx::gltfx_frame_tick &tick) 
         return;
     }
     std::puts("first_window: first frame presented");
-    std::fflush(stdout);
+    (void)std::fflush(stdout);
     ready_line_printed = true;
 }
 
@@ -188,9 +188,9 @@ command_line read_command_line(int argc, char **argv) {
 int fail(std::string_view step, const glintfx::gltfx_err &error) {
     const std::string_view code = glintfx::gltfx_err_code_name(error.code());
     const std::string_view rejected = error.rejected_value();
-    std::fprintf(stderr, "first_window: %.*s failed: %.*s rejected_value=%.*s\n",
-                 static_cast<int>(step.size()), step.data(), static_cast<int>(code.size()),
-                 code.data(), static_cast<int>(rejected.size()), rejected.data());
+    (void)std::fprintf(stderr, "first_window: %.*s failed: %.*s rejected_value=%.*s\n",
+                       static_cast<int>(step.size()), step.data(), static_cast<int>(code.size()),
+                       code.data(), static_cast<int>(rejected.size()), rejected.data());
     return k_exit_failed;
 }
 
@@ -241,7 +241,7 @@ int run_example(std::optional<std::uint64_t> frames_to_draw) {
 int main(int argc, char **argv) {
     const command_line args = read_command_line(argc, argv);
     if (!args.valid) {
-        std::fputs("usage: first_window [--frames N]   (N from 1 to 1000000)\n", stderr);
+        (void)std::fputs("usage: first_window [--frames N]   (N from 1 to 1000000)\n", stderr);
         return k_exit_usage;
     }
     return run_example(args.frames_to_draw);

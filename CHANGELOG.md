@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+## [0.6.1.0] - 2026-10-10
+
+This release is a `PATCH` bump: one fix, no new feature, no change to the API or the ABI. `find_package(glintfx 0.6)` keeps finding it, and `SOVERSION` stays 0.
+
+### Fixed
+
+- **On Linux (Wayland), the window no longer freezes on its first frame (`WL-FRAME-ORDER`).** Since `0.4.0.0`, a program that presents through a `gltfx_gl_context`, whether it calls `present()` itself or lets the main loop do it, showed its first frame and then never showed another one: every later present came back as `skipped_hidden` without reaching the screen, and with vsync on each of those presents spent the full 100 ms wait first. The library asked the compositor for its "ready for the next frame" signal only after that frame had already been handed over, so the signal never came. The request now travels with the frame it belongs to, and the wait ends as soon as that signal arrives, within the same 100 ms budget. Windows was not affected. If you use `0.6.0.0`, this release changes nothing else; if you pinned `0.4.x` or `0.5.x`, read the `[0.6.0.0]` section below before moving, because `find_package(glintfx 0.5)` no longer finds `0.6`.
+
 ## [0.6.0.0] - 2026-10-06
 
 This release is a `MINOR` bump while the project is pre-1.0 (`SOVERSION` stays 0): the 2D drawing surface is new, and the installed CMake package now refuses `find_package(glintfx 0.5)` against it (`SameMinorVersion`), so a consumer asks for `0.6`.

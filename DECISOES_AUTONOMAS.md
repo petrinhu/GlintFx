@@ -8367,3 +8367,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - I-5: um comentário anterior a esta fatia chama de "degradação honesta" um congelamento permanente.
 - **COSMÉTICO:** C-1 e C-2.
 - **Pela emenda de hoje da L-34**, a dúvida (merge agora com fatia de acompanhamento, ou ressalva antes do merge) foi ao CTO (`decisao-g1-hotfix.md`).
+
+### 10/10/2026 17:29:21 - CTO, D-HF-4: a v0.6.1.0 junta e marca com os CIs verdes; as ressalvas viram fatias da W8
+
+- **Decisão** (`decisao-g1-hotfix.md`, com fontes da libwayland e do Mesa citadas, como pede a emenda de hoje da L-34): opção (a). O merge sai quando o CI do PR (38083144109) fechar verde, e a marca quando o CI do main depois do merge fechar verde. Nenhuma ressalva entra antes, para não quebrar a identidade com o patch que a revisão executou.
+- **Fatias novas na W8:**
+  - `WL-FRAME-ORDER-ARM-TEST`: I-2 (com um swap que falha, armar antes congelaria a janela) junto com I-5 (defeito de código numa falha de alocação);
+  - `WL-FRAME-ORDER-TEXT`: I-1, I-3, I-4 e C-1, mais os gêmeos já anotados.
+  - O C-2 e a asserção do teto do M4 vão para a INBOX. Nada disso vira 0.6.1.x.
+- **Para confirmação retroativa do líder:** as ressalvas saem na W8, e o comportamento atual da I-5 fica declarado até a fatia.

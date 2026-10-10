@@ -8245,3 +8245,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a revisão por outro revisor;
   - o plano da versão de correção;
   - o "encontrados=0 analisados=0" do hook pre-commit (L-36, a investigar).
+
+### 10/10/2026 15:48:39 - Líder liga o modo autônomo de novo; a pausa acaba; ramo descartável e dois agentes despachados
+
+- **Ordem do líder, verbatim:** "ligue modo autonomo". O hook ligou o modo até 11/10/2026 15:45:26, com os escopos push e clean. O main leu isso como fim da pausa de 09/10 12:04 e apagou o marcador `parada_do_lider`.
+- **Ramo descartável:** `descartavel/wlfix` foi empurrado em `b3861f80` (`git ls-remote` confere), pela autoridade da D-W8-192.
+- **Despachados:**
+  - a revisão adversarial da WL-FRAME-ORDER, por um haiku distinto do implementador, com mutantes M1 e M2 de previsão escrita e só em contêiner (`rev-wlfix.md`);
+  - o CTO, para o plano da versão de correção v0.6.0.1 que o líder pediu (`plano-hotfix-0601.md`).

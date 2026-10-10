@@ -4250,7 +4250,7 @@ set_tests_properties(examples_pass_test PROPERTIES LABELS consume)
 add_test(
     NAME run_example_capture_win32_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 34 controles OK"
+        "-DEXPECT_LINE=selftest: 35 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
@@ -6592,6 +6592,28 @@ if(UNIX)
             sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_example_capture.sh" --selftest
     )
     set_tests_properties(run_example_capture_selftest PROPERTIES LABELS selftest)
+endif()
+
+# DEMO-1 D6-red (D-W8-75, D-W8-127, D-W8-188): the Windows side of the example first_window, the SAME name the
+# container inventory gives the Linux capture (check_test_parity.py pairs them by name; arch, cachyos and ubuntu are
+# declared in parity_exceptions.txt). The ctest runs the DRIVER (tests/tools/run_example_capture_win32.py): it
+# launches the capture tool, which launches the example built by the tree (its options and examples/bin come from
+# the glintfx root, cmake/GlintfxExamples.cmake), and judges both captures with the 12 static probes. Executes on the
+# CI runner only (a real desktop, GODS_LAWS.md L-09). The Mesa opengl32 sits beside the example in examples/bin
+# (ci.yml). RUN_SERIAL: another window could cover this one and give a false OCLUIDA. TARGET first_window: a tree
+# configured with the examples OFF and the tests ON configures on Windows as it does on Linux (L-04); in the CI the
+# parity gate fails if the name is missing.
+if(WIN32 AND TARGET first_window)
+    add_test(
+        NAME first_window
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" "$<TARGET_FILE:first_window>"
+            "${CMAKE_CURRENT_BINARY_DIR}/first_window_capture_out"
+    )
+    # LABELS unit, not consume (D-W8-60, the same reason as capture_known_color_smoke): the example is built through
+    # the root's options, sanitized in the sanitizer job, so the job's `ctest -L '^unit$'` reaches it.
+    set_tests_properties(first_window PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
 endif()
 
 # QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of

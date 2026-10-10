@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# first_window_probes_frames30.txt - DEMO-1 D6-red (D-W8-72, D-W8-80): the 5 edge probes of the 30th drawn frame
+# of `first_window --frames 30`, Linux only (tests/container/run_example_capture.sh). With --frames, the green
+# square of drawn frame d sits at x = 20 + 2 * (d - 1), so frame 30 covers x 78 to 109 on row 415. Tolerance 0:
+# the edges accept ONLY d = 30 (d = 29 turns (77, 415) green; d = 31 turns (78, 415) background). Format:
+# tests/tools/image_probe.py. Fixed BEFORE the data existed (GODS_LAWS.md L-43).
+#
+# just left of the square: background
+77 415 7C7C7CFF 0
+# the first and the last column of the square: green
+78 415 00FF00FF 0
+109 415 00FF00FF 0
+# just right of the square: background
+110 415 7C7C7CFF 0
+# where the square was in drawn frame 1 (x = 20 to 51): background
+36 415 7C7C7CFF 0

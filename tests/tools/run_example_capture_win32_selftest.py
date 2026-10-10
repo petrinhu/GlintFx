@@ -9,6 +9,9 @@ from run_example_capture_win32 import *  # the driver's names, unqualified, as b
 
 DRIVER_SCRIPT = Path(__file__).resolve().parent / "run_example_capture_win32.py"
 
+# The example's source: the control below reads its title and its ready line there (D-W8-127).
+EXAMPLE_SOURCE = REPO_ROOT / "examples" / "first_window" / "first_window.cpp"
+
 
 # -- selftest ---------------------------------------------------------
 CHECKS = []
@@ -271,6 +274,12 @@ def selftest_process_level():
 def selftest_decided_scene_constants():
     check("as constantes decididas da cena: 12 sondas estaticas e captura de 640x480 (D-W8-72)",
           PROBE_COUNT == 12 and CAPTURE_SIZE == (640, 480))
+def selftest_example_source_matches():
+    text = EXAMPLE_SOURCE.read_text(encoding="utf-8", errors="replace") if EXAMPLE_SOURCE.is_file() else ""
+    check("o fonte do exemplo existe e da a janela o titulo que o driver passa a ferramenta, e imprime a linha de "
+          "prontidao que o driver espera (D-W8-127)", f'"{WINDOW_TITLE}"' in text and f'"{READY_LINE}"' in text)
+
+
 
 
 def selftest_main():
@@ -287,4 +296,5 @@ def selftest_main():
     selftest_budgets_fit()
     selftest_process_level()
     selftest_decided_scene_constants()
+    selftest_example_source_matches()
     print(f"selftest: {len(CHECKS)} controles OK")

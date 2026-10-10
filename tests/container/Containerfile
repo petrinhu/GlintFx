@@ -1198,6 +1198,18 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp
 
+# DEMO-1 D6-red (D-W8-74, D-W8-86, D-W8-186, D-W8-187): the example first_window, built by ITS OWN CMakeLists.txt
+# (examples/ configured on its own: the find_package branch) against the library installed above, the way a consumer
+# builds it. The test allocation counter reaches it through CMAKE_PROJECT_INCLUDE (inject_alloc_counter.cmake), never
+# through a line of the example. Warnings and sanitizer are the fixtures' own. Last in this stage on purpose: a change
+# to the example rebuilds only these layers.
+COPY _arch_ports_examples /build/_arch_ports_examples
+COPY inject_alloc_counter.cmake /build/inject_alloc_counter.cmake
+RUN cmake -S /build/_arch_ports_examples -B /build/examples-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_PREFIX_PATH=/build/lib-prefix -DCMAKE_PROJECT_INCLUDE=/build/inject_alloc_counter.cmake \
+        "-DCMAKE_CXX_FLAGS=-g -Wall -Wextra -Werror $GLINTFX_FIXTURE_SANITIZE" \
+    && cmake --build /build/examples-build
+
 FROM fedora:44
 
 # libasan/libubsan/binutils: always installed, one recipe for both
@@ -1255,6 +1267,7 @@ COPY --from=arch-ports-builder /build/loop_parity_test /usr/local/bin/loop_parit
 COPY --from=arch-ports-builder /build/loop_hidden_test /usr/local/bin/loop_hidden_test
 COPY --from=arch-ports-builder /build/surface_size_policy_adapter_test /usr/local/bin/surface_size_policy_adapter_test
 COPY --from=arch-ports-builder /build/wire_relay_bin /usr/local/bin/wire_relay
+COPY --from=arch-ports-builder /build/examples-build/first_window/first_window /usr/local/bin/first_window
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \

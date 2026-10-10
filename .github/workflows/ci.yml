@@ -1074,6 +1074,11 @@ jobs:
         shell: pwsh
         run: tools/ci/install-mesa-opengl32.ps1 -DestDir "${{ matrix.builddir }}/tests"
 
+      # DEMO-1 D6-red (D-W8-75): o exemplo roda de <builddir>/examples/bin e precisa do Mesa ao lado dele.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para o exemplo first_window (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "${{ matrix.builddir }}/examples/bin"
+
       # WIN-HANG: colhe evidencia real do runner (localizacao do .dll x
       # .exe, execucao direta com limite de tempo proprio) ANTES do
       # ctest tentar rodar version_test.exe - GODS_LAWS.md L-27, fato
@@ -1280,6 +1285,16 @@ jobs:
         with:
           name: capture-out-${{ matrix.slug }}-${{ matrix.modo }}
           path: ${{ matrix.builddir }}/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
+      - name: Publicar a captura do exemplo first_window no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-first-window-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/first_window_capture_out
           if-no-files-found: warn
           retention-days: 7
 
@@ -2297,6 +2312,22 @@ jobs:
           codigo=0
           tests/container/run_capture_known_color.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
           printf 'capture_known_color_smoke\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # DEMO-1 D6-red (D-W8-74, D-W8-90, D-W8-142, D-W8-191): o exemplo first_window, construido pelo CMakeLists.txt
+      # dele contra a biblioteca INSTALADA na imagem, capturado no protocolo pelo driver de exemplo. A saida vai para o
+      # MESMO capture_out (subdiretorio first_window/), publicado pelo passo seguinte. A duracao impressa e um TETO
+      # (inclui rele e docker cp): acima de 12 s volta ao CTO antes de fechar (D-W8-81).
+      - name: DEMO-1 - exemplo first_window capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "first_window" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "first_window: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, regra 12, D-W8-81)"
+          printf 'first_window\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
       # QA-SCREEN-CAPTURE P3 (S3 da revisao): as imagens da captura (PNG, raw, meta, log do rele) saem como artefato,
@@ -3836,6 +3867,11 @@ jobs:
         shell: pwsh
         run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-shared/tests"
 
+      # DEMO-1 D6-red (D-W8-75): o exemplo roda de <builddir>/examples/bin e precisa do Mesa ao lado dele.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para o exemplo first_window
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-shared/examples/bin"
+
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar:
       # ctest -N conta quantos casos o rotulo `unit` casa ANTES de
       # confiar no passo seguinte - mesmo padrao que "Saida verbosa da
@@ -3870,6 +3906,16 @@ jobs:
         with:
           name: capture-out-windows-sanitizer
           path: build-shared/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
+      - name: Publicar a captura do exemplo first_window no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-first-window-windows-sanitizer
+          path: build-shared/tests/first_window_capture_out
           if-no-files-found: warn
           retention-days: 7
 
@@ -4142,6 +4188,11 @@ jobs:
         shell: pwsh
         run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-debug/tests"
 
+      # DEMO-1 D6-red (D-W8-75): o exemplo roda de <builddir>/examples/bin e precisa do Mesa ao lado dele.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para o exemplo first_window
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-debug/examples/bin"
+
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar -
       # mesmo padrao que o job `windows-sanitizer` acima ja usa.
       - name: Prova - suite nao esta vazia
@@ -4209,6 +4260,16 @@ jobs:
         with:
           name: capture-out-windows-debug
           path: build-debug/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
+      - name: Publicar a captura do exemplo first_window no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-first-window-windows-debug
+          path: build-debug/tests/first_window_capture_out
           if-no-files-found: warn
           retention-days: 7
 

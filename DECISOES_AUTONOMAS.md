@@ -8353,3 +8353,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
 - **Verbatim:** "se tiver duvidas, clevel busca outras libs para aprender, busque comunidade e web em geral, antes de resolver o problema sozinho".
 - Foi refundido na emenda de hoje da L-34 (L-68). Decisão de C-level sem pesquisa com as fontes citadas volta para ser refeita.
+
+### 10/10/2026 17:26:49 - G1 da v0.6.1.0: revisão adversarial da WL-FRAME-ORDER aprovada com ressalvas
+
+- **Revisor** (`rev-wlfix.md`), haiku distinto do implementador: APROVADO COM RESSALVAS, sem CRÍTICO.
+  - Base: rendered_frames 30 e cap30 967 ms.
+  - M1 morto (1); M2 morto (14); M3 (armar antes do swap) sobrevive (30); no M4 (espera sem teto), o loop_parity sobrevive e o loop_hidden morre por timeout.
+- **IMPORTANTE:**
+  - I-1: a premissa do Mesa está escrita como fato, mas não foi medida;
+  - I-2: a ordem de armar depois do swap não tem teste;
+  - I-3: comentários do .hpp descrevem a ordem velha;
+  - I-4: `measured_exceptions.txt:193` continua com a causa e o valor antigos;
+  - I-5: um comentário anterior a esta fatia chama de "degradação honesta" um congelamento permanente.
+- **COSMÉTICO:** C-1 e C-2.
+- **Pela emenda de hoje da L-34**, a dúvida (merge agora com fatia de acompanhamento, ou ressalva antes do merge) foi ao CTO (`decisao-g1-hotfix.md`).

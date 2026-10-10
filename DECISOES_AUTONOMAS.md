@@ -8338,3 +8338,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 
 - **Verbatim:** "se tiver dúvidas consulte clevel". Entrou como emenda na L-34 do projeto (a irmã do modo autônomo, L-68).
 - O C-level é o primeiro destino da dúvida. Continuam indo ao líder: merge, marca e publicação (L-11), lei e canon global, apagar ou instalar fora do que ele já autorizou, e decisão de produto declarada como dele.
+
+### 10/10/2026 17:17:38 - O líder autoriza merge, push e marca; PR #15 da v0.6.1.0 aberto; onda-w8 empurrada
+
+- **Verbatim:** "autorizo merge/push/tag".
+- **Leitura do main, pela L-11 e pela L-15:** a autorização vale com os portões fechados. O merge da v0.6.1.0 e a marca saem depois do G1 (a revisão adversarial de `b3861f80`, ainda rodando) e do G5 (o CI do PR) verdes. Nada de qualidade é relaxado.
+- **Feito:**
+  - `hotfix/v0.6.1.0` empurrado em `e102f6d7` (`git ls-remote` confere);
+  - PR #15 aberto contra main, com o CI do PR 38083144109;
+  - `onda-w8` empurrada, com o local igual ao remoto (abaixo), levando a WL-FRAME-ORDER e os registros.
+- **Imagens (emenda da L-11):** nenhuma é de fatia fechada neste push. A `wlfix2-plain` e as do revisor e da D6-red estão em uso.

@@ -8265,3 +8265,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Pergunta ao líder (AskUserQuestion), resposta verbatim:** "v0.6.1.0 (Recomendado)".
 - **Pergunta ao líder** (a emenda da L-11 de apagar imagens a cada push contra "Não apaga nada"), **resposta verbatim:** "Apagar a cada envio (Recomendado)". A emenda da L-11 vale; o "não apaga nada" cobriu só aquele aperto de disco.
 - **Merge e marca:** continuam pedindo o aval do líder no momento (o hook barra marca sem confirmação). O main pergunta quando os portões G1 a G7 estiverem verdes.
+
+### 10/10/2026 16:08:33 - CI 38077288715 (descartavel/wlfix, b3861f80) verde: o servidor confirma 30 de 30 nas duas pernas
+
+- `success`: 25 jobs verdes e 1 pulado.
+- O log do servidor mostra `loop_parity_test.rendered_frames=30` na perna plain e na perna asan (critério >= 27). A perna asan não tinha rodado aqui por causa do disco; agora está provada pelo servidor. O portão G2 do plano da v0.6.1.0 está verde.
+- **Imagens (emenda da L-11):** nenhuma apagada neste push. A `wlfix2-plain` é da fatia ainda em revisão, e as `glintfx-rev:*` são do revisor, que as apaga ao terminar com elas.

@@ -4268,6 +4268,7 @@ set_tests_properties(examples_pass_test PROPERTIES LABELS consume)
 # CMAKE_PREFIX_PATH only there and the same compiler, builds it, and never runs it. LABELS consume: a plain consumer
 # against a sanitized library fails by construction (the same reason as consume_test).
 # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - MEDIDO 11/10/2026: `cmake --install` escreve install_manifest.txt no build dir (o unico arquivo novo no topo do build dir, medido com find -newer), gemeo do consume_test
+# glintfx-nested-build: heavy - configura e constroi examples/ com CMake e Ninja contra a biblioteca instalada (build aninhado)
 add_test(
     NAME examples_consume_installed_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"

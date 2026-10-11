@@ -8499,3 +8499,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Verbatim:** "ligue modo autonomo". O hook renovou o modo até 12/10/2026 00:55:40, com os escopos push e clean. O trabalho segue sem interrupção.
 - **Corrida C** (38108570269): igual à previsão. "context failed: platform_failure rejected_value=wgl_loader_extensions", "FIXTURE saiu antes de apresentar o primeiro quadro", codigo=1, só o first_window reprovado, e o capture_known_color_smoke passou.
 - **Corrida E** disparada (38109627748), ao lado da D. A D5b-fix3 foi commitada (`cf212666`) e roda os mutantes.
+
+### 11/10/2026 00:56:20 - Líder renova a autorização de push, marca e merge
+
+- **Verbatim:** "autorizo push/tag/merge".
+- **Leitura do main, pela L-11 e pela L-15, como nas autorizações anteriores:**
+  - vale com os portões fechados. Os ramos descartáveis e os pushes de fatia seguem como antes;
+  - a onda-w8 só é empurrada depois que a D6-green fechar (D-W8-192);
+  - o merge em main e a marca `v0.7.0.0` saem quando a W8 cumprir inteira a definição de fechamento do plano.
+  - Nada de qualidade é relaxado.

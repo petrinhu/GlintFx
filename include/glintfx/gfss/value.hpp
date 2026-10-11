@@ -140,6 +140,12 @@
 // enumeration test this file's own discipline (GODS_LAWS.md L-40)
 // exists to make impossible to miss.
 
+// EXPERIMENTAL. This header is installed and usable, but it is outside
+// the compatibility contracts described in README.md ("Versioning and
+// compatibility"): its functions and types may change, or be removed,
+// in any later release, without a MAJOR version bump. See README.md,
+// "Status".
+
 namespace glintfx::style {
 
 // GLINTFX_GFSS_VALUE_KIND_LIST(X) - the closed set of value natures,

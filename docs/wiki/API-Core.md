@@ -188,9 +188,15 @@ fixed rate, instead of the variable time a frame actually took:
 | `gltfx_fixed_step{dt, max_steps}` | Describes the fixed step size you want, and an optional cap on how many steps to report at once (protects against a runaway "spiral of death" after a stall). |
 | `gltfx_fixed_step_accumulate(step, elapsed)` | Feed it how much wall time just passed; it tells you how many `dt`-sized steps to run right now, plus a leftover fraction (`alpha`) for smoothly interpolating what is drawn between steps. |
 
+This is opt-in: [API Reference: Main Loop](API-Main-Loop)'s own loop never
+calls `gltfx_fixed_step_accumulate()` on your behalf, it only ever hands
+you plain `elapsed` time.
+
 ## See also
 
 - [Getting Started](Getting-Started) - if you have not built glintfx yet.
 - [API Reference: Window and Display](API-Window-and-Display) - the next
   thing most consumers reach for, and the one place these math types
   and the error-handling pattern above are put to use together.
+- [API Reference: Main Loop](API-Main-Loop) - where `gltfx_frame_tick`'s
+  own `elapsed` field, mentioned above, comes from.

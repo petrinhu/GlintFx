@@ -1,9 +1,10 @@
 # Getting started
 
 This page walks you from an empty folder to a running program that opens a
-real window using glintfx, explaining every tool and every word along the
-way. It assumes nothing except that you have a terminal (a text-based
-window where you type commands) open.
+real window, runs glintfx's own main loop and draws something on screen
+every frame, explaining every tool and every word along the way. It
+assumes nothing except that you have a terminal (a text-based window where
+you type commands) open.
 
 If a word here is unfamiliar and this page does not explain it, check
 [Concepts](Concepts) first.
@@ -129,11 +130,138 @@ int main() {
 ```
 
 This program opens a window and keeps it open until you close it - it does
-not draw anything inside the window yet, because 2D drawing is not built
-yet (see the README's "Status" section for the current, dated list of what
-exists). `has_value()`/`value()` is the pattern every fallible glintfx
-function uses to report success or failure without exceptions; the full
-rules are in [`docs/api-conventions.md`](https://github.com/petrinhu/GlintFx/blob/main/docs/api-conventions.md).
+not draw anything inside the window yet. `has_value()`/`value()` is the
+pattern every fallible glintfx function uses to report success or failure
+without exceptions; the full rules are in [`docs/api-conventions.md`](https://github.com/petrinhu/GlintFx/blob/main/docs/api-conventions.md).
+Step 6 below builds on this exact program to actually draw something.
+
+## Step 6: draw something, every frame
+
+A window with nothing drawn into it is not very useful. Two more pieces
+turn the program above into one that actually draws, once per frame, for
+as long as the window stays open:
+
+- A **graphics context**: the connection between your program and the
+  graphics card, through OpenGL (see [Concepts](Concepts) if "OpenGL" is
+  new to you: in short, the standard interface almost every operating
+  system offers for talking to the graphics card, which glintfx uses so
+  it does not have to write its own driver for each one).
+- A **main loop**: the piece that keeps calling your own code, once per
+  frame, for as long as the program runs, instead of you writing that
+  repetition by hand. You hand it two small functions of your own: one
+  that runs every frame (used here to stop the program after a while),
+  and one that runs only on the frames that should actually draw.
+
+Replace `hello.cpp` from Step 5 with this:
+
+```cpp
+#include <utility>
+
+#include <glintfx/platform/gl/context.hpp>
+#include <glintfx/platform/gl/gfx_option.hpp>
+#include <glintfx/platform/loop/loop.hpp>
+#include <glintfx/platform/window/display.hpp>
+#include <glintfx/platform/window/window.hpp>
+
+namespace {
+
+// OpenGL functions this simple example needs are looked up by name at
+// runtime (proc_address() below), rather than linked directly - the
+// normal way any program written against OpenGL loads them.
+using gl_clear_color_fn = void (*)(float, float, float, float);
+using gl_clear_fn = void (*)(unsigned int);
+gl_clear_color_fn g_gl_clear_color = nullptr;
+gl_clear_fn g_gl_clear = nullptr;
+
+// Runs once per frame, before anything is drawn. Returning `false` ends
+// the loop cleanly - here, after 300 frames (about five seconds at 60
+// frames per second), so the example does not run forever.
+bool on_frame(void * /*context*/, const glintfx::gltfx_frame_tick &tick) noexcept {
+    return tick.frame_index < 300;
+}
+
+// Runs once per frame, but only on the frames that should actually be
+// drawn (a minimized window, for instance, skips this on purpose).
+void on_render(void * /*context*/, const glintfx::gltfx_frame_tick & /*tick*/) noexcept {
+    constexpr unsigned int k_gl_color_buffer_bit = 0x00004000;
+    g_gl_clear_color(0.1F, 0.4F, 0.7F, 1.0F); // a plain blue
+    g_gl_clear(k_gl_color_buffer_bit);
+}
+
+} // namespace
+
+int main() {
+    auto display_result = glintfx::gltfx_display::open();
+    if (!display_result.has_value()) {
+        return 1;
+    }
+    glintfx::gltfx_display display = std::move(display_result.value());
+
+    glintfx::gltfx_window_desc desc{};
+    desc.title = "Hello, glintfx";
+    desc.application_id = "com.example.hello";
+    desc.logical_size = {800, 600};
+
+    auto window_result = glintfx::gltfx_window::open(display, desc);
+    if (!window_result.has_value()) {
+        return 1;
+    }
+    glintfx::gltfx_window window = std::move(window_result.value());
+
+    // Open the graphics context, with vsync on (present waits for the
+    // screen's own refresh, instead of drawing faster than it can show).
+    glintfx::gltfx_gfx_option_entry vsync_on{.id = glintfx::gltfx_gfx_option::vsync, .value = 1};
+    glintfx::gltfx_gl_context_desc context_desc{.options = &vsync_on, .option_count = 1};
+
+    auto context_result = glintfx::gltfx_gl_context::open(window, context_desc);
+    if (!context_result.has_value()) {
+        return 1;
+    }
+    glintfx::gltfx_gl_context context = std::move(context_result.value());
+
+    if (!context.make_current().has_value()) {
+        return 1;
+    }
+    g_gl_clear_color =
+        reinterpret_cast<gl_clear_color_fn>(context.proc_address("glClearColor"));
+    g_gl_clear = reinterpret_cast<gl_clear_fn>(context.proc_address("glClear"));
+    if (g_gl_clear_color == nullptr || g_gl_clear == nullptr) {
+        return 1;
+    }
+
+    // Open the loop over the display, window and context above, then
+    // hand it the two functions defined earlier and let it run.
+    auto loop_result = glintfx::gltfx_loop::open(display, window, context);
+    if (!loop_result.has_value()) {
+        return 1;
+    }
+    glintfx::gltfx_loop loop = std::move(loop_result.value());
+
+    glintfx::gltfx_loop_callbacks callbacks{};
+    callbacks.on_frame = on_frame;
+    callbacks.on_render = on_render;
+
+    auto run_result = loop.run(callbacks);
+    return run_result.has_value() ? 0 : 1;
+}
+```
+
+Build and run it the same way as Step 5's program. A window opens, turns a
+plain blue, and closes itself after about five seconds (or immediately, if
+you close it yourself first). The full effect of every field and function
+used here, including exactly what the loop promises and what it does not
+yet, is in [API Reference: Graphics Context](API-Graphics-Context) and
+[API Reference: Main Loop](API-Main-Loop).
+
+**What this program still cannot do.** There is no keyboard, mouse or
+gamepad input yet, anywhere in glintfx: a loop like this one has no way
+to learn that a key was pressed. The program above paints the whole
+window one color with raw OpenGL calls, which is the smallest possible
+drawing. glintfx also has its own 2D renderer, which draws filled
+rectangles and quadrilaterals (four-cornered shapes) for you; see
+[API Reference: Draw 2D](API-Draw-2D). It does not draw images or text
+yet. See the main README's ["Status"](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction)
+section for the current, dated list of what exists.
 
 ## If something does not work
 

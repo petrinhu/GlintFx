@@ -1,8 +1,8 @@
 # API reference: Draw 2D
 
 Filled rectangles and quadrilaterals, drawn into an OpenGL 3.3 core
-context you already opened, gathered into as few draw calls as the order
-you asked for allows. Same public API on Linux and Windows, no
+context you already opened, gathered into as few draw calls (one instruction sent to the
+graphics card each) as the order you asked for allows. Same public API on Linux and Windows, no
 platform-specific code at the call site.
 
 Before reading this page, read [API Reference: Core](API-Core)'s "Error
@@ -27,7 +27,8 @@ renderer.fill_rect({{40, 40}, {80, 80}}, {1.0F, 0.0F, 0.0F, 1.0F});
 renderer.fill_rect({{80, 80}, {80, 80}}, {0.0F, 0.0F, 1.0F, 1.0F},
                    glintfx::gltfx_draw_layer{1});        // painted on top
 auto report = renderer.finish_frame();                   // does NOT present
-context.swap_buffers();                                  // you present
+auto presented = context.swap_buffers();                 // you present
+if (presented.has_error()) { /* presented.err() says why */ }
 ```
 
 A frame is `begin_frame()`, any number of `fill_rect()` and `fill_quad()`
@@ -88,11 +89,14 @@ A y-up world is a negative y scale.
 
 ## Color
 
-`gltfx_rgba` is linear light with straight alpha. Blending happens with
-premultiplied alpha inside the library, so a half-transparent edge never
+`gltfx_rgba` is linear light (brightness values that are proportional to
+real light, unlike the encoded values a screen stores) with straight alpha.
+Blending happens with premultiplied alpha (each color already multiplied by
+its own transparency) inside the library, so a half-transparent edge never
 grows a dark fringe. With the context option `srgb_framebuffer` on,
 blending happens in linear light and the surface encodes the result. With
-it off, the color is encoded to sRGB before blending, which is what most
+it off, the color is encoded to sRGB (the standard brightness encoding that
+most screens and image files use) before blending, which is what most
 2D libraries do, and the clear color is encoded the same way.
 
 ## The frame report
@@ -147,11 +151,11 @@ When there is an error, the report is still there: read it with
 The renderer trusts no GL state when it draws: it sets everything it
 depends on. After `flush()` and `finish_frame()` it leaves GL as follows,
 and promises nothing else: no program, vertex array, buffer or texture
-bound and texture unit zero active; blending on with premultiplied
+bound and texture unit zero active (the numbered slot a texture is attached to); blending on with premultiplied
 factors and the add equation; polygon mode fill; depth, stencil, scissor
-and face culling off; color mask fully on; rasterizer discard, color
+and face culling off; color mask fully on; rasterizer discard (a switch that stops shapes from being turned into pixels), color
 logic op and alpha-to-coverage off; the draw framebuffer zero; the
-viewport over the whole surface; and `GL_FRAMEBUFFER_SRGB` on exactly when
+viewport over the whole surface; and `GL_FRAMEBUFFER_SRGB` (the switch that makes the screen encode colors as sRGB) on exactly when
 `srgb_framebuffer` is on. Call `flush()` before you call GL yourself in
 the middle of a frame.
 

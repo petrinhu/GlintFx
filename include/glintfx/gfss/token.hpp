@@ -78,6 +78,12 @@
 // does it hold once escapes are resolved"), which GODS_LAWS.md L-17's
 // "a frase sem e" test rejects.
 
+// EXPERIMENTAL. This header is installed and usable, but it is outside
+// the compatibility contracts described in README.md ("Versioning and
+// compatibility"): its functions and types may change, or be removed,
+// in any later release, without a MAJOR version bump. See README.md,
+// "Status".
+
 namespace glintfx::style {
 
 // The closed vocabulary. Order matches the CSS Syntax Module Level 3

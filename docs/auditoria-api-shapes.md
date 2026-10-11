@@ -8,14 +8,15 @@
 **Carimbo de início:** [11/10/26 - 11:41:40]
 
 **Errata aplicadas (CTO; r2 §12 e r7 D-W8-334):**
-- **D-W8-281 (DIV-01):** o alinhamento é parâmetro de `stroke_rect`, padrão `centered`, fora de `gltfx_stroke`. Já era o texto proposto; confirmado.
+- **D-W8-281 (DIV-01):** o alinhamento fica fora de `gltfx_stroke`, padrão `centered`. Desde a D-W8-354 ele vive em `gltfx_rect_outline_style`, lido por `stroke_rect`.
 - **D-W8-282 (DIV-02):** dois nomes, `fill_triangles(vertices, layer)` e `fill_indexed_triangles(vertices, indices, layer)`. Condição: a sonda de colisão roda de novo com `fill_indexed_triangles` no passo 0 da S1.
-- **D-W8-283 (Q-01):** opção (a), quebra de layout pré-1.0 aceita e anunciada pela versão, com "recompilar obrigatório" na nota de versão. Decisão do CTO, inferida da regra de `SOVERSION 0` (L-26 global); a ratificação retroativa pelo líder está pendente (L-01).
+- **D-W8-283 (Q-01):** opção (a), quebra de layout pré-1.0 aceita e anunciada pela versão, com "recompilar obrigatório" na nota de versão. Decisão do LÍDER pela L-26 (`GODS_LAWS.md:699` e `:701`), aplicada pelo CTO (D-W8-356).
 - **D-W8-284 (Q-02):** sem intervalo inventado. Valor válido é finito e maior que zero; o custo tem teto de 512 segmentos por elipse (D-W8-269).
 - **D-W8-285 (Q-03):** valor de enum fora da faixa recusa a chamada inteira, com o motivo `unknown_option`.
 - **D-W8-286 (Q-04):** `flat`, com `butt` (SVG e Canvas) citado como sinônimo.
 - **D-W8-287 (IMP-03, IMP-04):** uma chamada é uma peça; casos de borda escritos nos cabeçalhos; novo motivo `too_many_vertices`.
 - **D-W8-334 (errata do layout):** saem `image_without_owner` e `pieces_refused_image_without_owner`; `shadow_groups` vira `shadow_segments` (D-W8-322); `light_below_piece` não entra (D-W8-320). O motivo `image_without_owner` nasce com a primeira ponte de pintura (D-W8-336, R0).
+- **D-W8-353 a 356 (r13):** nomes finais e assinaturas com quatro parâmetros ou menos. `stroke_line` e `stroke_rect` recebem `gltfx_segment_world`, `gltfx_line_style` e `gltfx_rect_outline_style` (D-W8-354), e a nova cerca `core/segment.hpp` entra na seção 2. Ver a nota D-W8-354 ao lado de cada assinatura trocada. As seções 3 a 7 são análise e citam, onde indicam, as assinaturas anteriores; o texto vigente é o da seção 2.
 - **Achados de texto:** IMP-08 (`measured` sai de `fill_ellipse`) e COS-01 (`planned for fatia S3` sai de `stroke.hpp`) aplicados no texto da seção 2. IMP-02 (quatro sítios de contrato desatualizados) não está nos trechos da seção 2: é corrigido nos commits da S2b e da S5, como manda a r2 §12.
 
 ---
@@ -93,9 +94,9 @@ struct gltfx_vertex_2d_world {
 // whole call, counted as `unknown_option` in the frame report (D-W8-285).
 // It never falls back to a default silently.
 //
-// THE RECTANGLE ALIGNMENT lives in stroke_rect(), not here: lines and
-// ellipses have no inside or outside, and a field that a method ignores is a
-// lie about what that method does.
+// THE RECTANGLE ALIGNMENT lives in gltfx_rect_outline_style, read by
+// stroke_rect(), not here: lines and ellipses have no inside or outside, and a
+// field that a method ignores is a lie about what that method does.
 //
 // Proved by: stroke_geometry_test (the thickness unit and the three caps).
 
@@ -123,6 +124,44 @@ struct gltfx_stroke {
     // and counted in the frame report (refusal `negative_size`).
     double thickness = 1.0;
     gltfx_stroke_unit unit = gltfx_stroke_unit::world;
+};
+
+// The style of a line (D-W8-354): the thickness and the end cap. Grouped so
+// that stroke_line() keeps within four parameters (CONTRACT.md §6.2).
+struct gltfx_line_style {
+    gltfx_stroke stroke;
+    gltfx_line_cap cap = gltfx_line_cap::flat;
+};
+
+// The style of a rectangle outline (D-W8-354): the thickness and the
+// alignment on the edge. The alignment belongs to the rectangle, and not to
+// gltfx_stroke, because lines and ellipses ignore it.
+struct gltfx_rect_outline_style {
+    gltfx_stroke stroke;
+    gltfx_stroke_align align = gltfx_stroke_align::centered;
+};
+
+} // namespace glintfx
+```
+
+### `include/glintfx/core/segment.hpp` (novo, D-W8-354)
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <glintfx/core/vec2.hpp>
+
+// core/segment.hpp - R2D-SHAPES. A straight segment in WORLD space: its two
+// ends. A value type, like gltfx_rect_world: the layout is the contract
+// (GODS_LAWS.md L-19, L-26). Pure geometry, no drawing, no GL, no operating
+// system.
+
+namespace glintfx {
+
+struct gltfx_segment_world {
+    gltfx_vec2_world start;
+    gltfx_vec2_world end;
 };
 
 } // namespace glintfx
@@ -186,23 +225,22 @@ struct gltfx_ellipse_world {
                                             std::span<const std::uint32_t> indices,
                                             gltfx_draw_layer layer = {}) noexcept;
 
-    // A straight line from `start` to `end`, `stroke.thickness` wide, with
-    // the end caps `cap`. The thickness is in the unit `stroke.unit`
-    // (stroke.hpp): world by default, pixel on request. A zero-length line
-    // (start equals end) draws the cap alone: nothing for `flat`, a square for
-    // `square`, a disc for `rounded`, as SVG 2 defines it (D-W8-270).
-    GLINTFX_API void stroke_line(gltfx_vec2_world start, gltfx_vec2_world end,
-                                 gltfx_stroke stroke, gltfx_rgba color,
-                                 gltfx_line_cap cap = gltfx_line_cap::flat,
+    // A straight line from `segment.start` to `segment.end`, `style.stroke.thickness`
+    // wide, with the end caps `style.cap`. The thickness is in the unit
+    // `style.stroke.unit` (stroke.hpp): world by default, pixel on request. A
+    // zero-length line (start equals end) draws the cap alone: nothing for `flat`,
+    // a square for `square`, a disc for `rounded`, as SVG 2 defines it (D-W8-270).
+    // D-W8-354: segment, style and colour are grouped; four parameters at most.
+    GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
+                                 gltfx_rgba color,
                                  gltfx_draw_layer layer = {}) noexcept;
 
-    // The outline of an axis-aligned rectangle, grown by `align`: centered
+    // The outline of an axis-aligned rectangle, grown by `style.align`: centered
     // on the edge (the default), inside the rectangle, or outside it. The
     // four sides do not overlap at the corners, so a half-transparent
-    // outline has no darker corner.
-    GLINTFX_API void stroke_rect(gltfx_rect_world rect, gltfx_stroke stroke,
+    // outline has no darker corner. D-W8-354: four parameters at most.
+    GLINTFX_API void stroke_rect(gltfx_rect_world rect, gltfx_rect_outline_style style,
                                  gltfx_rgba color,
-                                 gltfx_stroke_align align = gltfx_stroke_align::centered,
                                  gltfx_draw_layer layer = {}) noexcept;
 
     // A filled ellipse (a circle when its radii are equal). Its outline is
@@ -355,7 +393,7 @@ Classes: **CRÍTICO** bloqueia a S1 ou quebra o que já está fechado; **IMPORTA
 - **IMP-04. Casos de borda não especificados.** A proposta não diz o que acontece com: (a) `stroke_line` de comprimento zero, com `square` ou `rounded` (desenhar a ponta sozinha, ou nada); (b) raio zero (proposta: nada) ou negativo (proposta: `negative_size`); (c) centro, raio, ou vértice que não é número finito (`not_a_number`); (d) `fill_triangles` com mais de 2^32 vértices, que o índice de 32 bits não endereça. Cada caso precisa de uma linha no cabeçalho e de um teste citado. **Decidido (D-W8-287, IMP-04):** (a) `stroke_line` de comprimento zero desenha só a ponta, como a SVG 2 (D-W8-270); (b) raio zero não desenha nem conta, negativo é `negative_size`; (c) NaN é `not_a_number` e infinito é `infinite`; (d) acima de 2^32 vértices, recusa com `too_many_vertices`. Os quatro estão nos cabeçalhos da seção 2. O nome `too_many_vertices` passa pela sonda de colisão do passo 0 da S1, como os demais novos.
 - **IMP-05. Tolerância de elipse sem piso nem teto.** `ellipse_max_error_pixels` aceita qualquer número maior que zero, e um valor de 1e-12 faz o desenhador gerar uma quantidade enorme de segmentos por elipse, num valor que o consumidor escolheu. Proposta: `open()` recusa valores fora de um intervalo, por exemplo de 0,01 a 64 pixels, e o intervalo entra no cabeçalho com o teste que o prova. O intervalo é decisão do CTO (números), o achado é a falta dele. **Decidido (D-W8-284, Q-02):** sem intervalo inventado; a faixa válida é finita e maior que zero, e o teto de custo é o de 512 segmentos por elipse (D-W8-269).
 - **IMP-06. Sobrecarga `fill_triangles(v, {})` é AMBÍGUA. FATO, medido por compilação só-sintaxe (sem execução) no host.** Com `fill_triangles(span, gltfx_draw_layer = {})` e `fill_triangles(span, span<const uint32_t>, gltfx_draw_layer = {})`, a chamada `r.fill_triangles(v, {})` é recusada por `g++` (rc=1, "call ... is ambiguous") e por `clang++` (rc=1, "call to member function 'fill_triangles' is ambiguous"). É erro de compilação, não silêncio, e o caso é justamente a forma sem índices que o plano pedia. A correção é decisão de desenho: ver DIV-02 na seção 7. O texto proposto NÃO foi alterado para a correção, para que a divergência vá ao CTO inteira. **Decidido (D-W8-282, DIV-02):** a correção está aplicada na seção 2 (`fill_triangles` e `fill_indexed_triangles`).
-- **IMP-07. Mudança de layout de `gltfx_renderer_2d_desc` e de `gltfx_frame_2d_report` (decisão de ABI do líder, L-01).** Os dois structs ganham campos ao fim. FATO: nenhum teste em `tests/` fixa o `sizeof` nem o layout desses dois tipos (busca por `sizeof(gltfx_frame_2d_report)`, `sizeof(gltfx_renderer_2d_desc)` e `is_trivial` sem resultado para eles; só `draw2d_parity_test` e `renderer_2d_impl_test` os usam). O cabeçalho diz que "antes de 1.0 é permitido e anunciado pela versão". Mas o consumidor que compilou com o cabeçalho antigo e liga no `.so` novo passa um objeto menor do que a biblioteca lê (no `desc`) ou recebe um relatório que a biblioteca escreve além do tamanho dele (no `report`, por valor dentro de `gltfx_rslt`). Como o `SOVERSION` está em zero, nenhuma compatibilidade é prometida. Mas a base de consumidores é desconhecida (L-21), e a marca B (D-W8-19) anuncia "compatível". Isto não é do revisor decidir: o líder escolhe entre (a) aceitar a quebra de layout pré-1.0 e anunciar "recompilar obrigatório" na nota de versão; (b) trocar o `desc` por tipo novo com sobrecarga de `open()`, como o próprio cabeçalho sugere para depois de 1.0; (c) reservar campos de folga agora. Tratado na seção 7 como pergunta. **Decidido (D-W8-283, Q-01, opção a):** quebra de layout pré-1.0 aceita, com "recompilar obrigatório" na nota de versão. Decisão do CTO inferida da regra de `SOVERSION 0`; a ratificação retroativa pelo líder está pendente (L-01).
+- **IMP-07. Mudança de layout de `gltfx_renderer_2d_desc` e de `gltfx_frame_2d_report` (decisão de ABI do líder, L-01).** Os dois structs ganham campos ao fim. FATO: nenhum teste em `tests/` fixa o `sizeof` nem o layout desses dois tipos (busca por `sizeof(gltfx_frame_2d_report)`, `sizeof(gltfx_renderer_2d_desc)` e `is_trivial` sem resultado para eles; só `draw2d_parity_test` e `renderer_2d_impl_test` os usam). O cabeçalho diz que "antes de 1.0 é permitido e anunciado pela versão". Mas o consumidor que compilou com o cabeçalho antigo e liga no `.so` novo passa um objeto menor do que a biblioteca lê (no `desc`) ou recebe um relatório que a biblioteca escreve além do tamanho dele (no `report`, por valor dentro de `gltfx_rslt`). Como o `SOVERSION` está em zero, nenhuma compatibilidade é prometida. Mas a base de consumidores é desconhecida (L-21), e a marca B (D-W8-19) anuncia "compatível". Isto não é do revisor decidir: o líder escolhe entre (a) aceitar a quebra de layout pré-1.0 e anunciar "recompilar obrigatório" na nota de versão; (b) trocar o `desc` por tipo novo com sobrecarga de `open()`, como o próprio cabeçalho sugere para depois de 1.0; (c) reservar campos de folga agora. Tratado na seção 7 como pergunta. **Decidido (D-W8-283, Q-01, opção a):** quebra de layout pré-1.0 aceita, com "recompilar obrigatório" na nota de versão. Decisão do líder pela L-26 (`GODS_LAWS.md:699` e `:701`), aplicada pelo CTO (D-W8-356).
 - **IMP-08. Texto proposto de `fill_ellipse` usa "measured" sem citação.** "Measured on the SCREEN" está no vocabulário fechado de `check_claim_citations.py`, e sem `Proved by:` o portão reprova o cabeçalho quando ele entrar. Corrigir o texto ou citar o teste, na S5. **Decidido (IMP-08, r2 §12):** o texto de `fill_ellipse` já traz `Proved by: ellipse_tessellation_test` e não usa a palavra `measured`; o teste entra com a S5.
 
 ### COSMÉTICO: 3
@@ -393,7 +431,7 @@ Leitura, em duas linhas separadas, como a ordem pede:
 
 Quem decide é o CTO, e o líder onde o item diz. O revisor não decide nenhum deles. Cada um traz o que o plano diz, o que a proposta diz e a recomendação, que é só recomendação.
 
-**DIV-01. Alinhamento de `stroke_rect` (D-W8-06).** **Decidido (D-W8-281):** parâmetro, padrão `centered`.
+**DIV-01. Alinhamento de `stroke_rect` (D-W8-06).** **Decidido (D-W8-281):** fora de `gltfx_stroke`, padrão `centered`; agrupado em `gltfx_rect_outline_style` (D-W8-354).
 - O plano diz: "campo de alinhamento com os três, padrão centrado".
 - A proposta diz: parâmetro `align` de `stroke_rect`, padrão `centered`, fora de `gltfx_stroke`.
 - Motivo: `stroke_line` e `stroke_ellipse` ignorariam o campo (um campo que o método ignora mente sobre o método, L-28).
@@ -406,7 +444,7 @@ Quem decide é o CTO, e o líder onde o item diz. O revisor não decide nenhum d
 - Recomendação do revisor: (b). Ressalva: `fill_indexed_triangles` é nome novo e ainda não passou pela sonda de colisão. Antes de aceitar, a sonda roda de novo com o nome novo.
 - Quem decide: CTO.
 
-**Q-01. Mudança de layout de `gltfx_renderer_2d_desc` e de `gltfx_frame_2d_report` (IMP-07).** **Decidido (D-W8-283):** opção (a), com a ratificação do líder pendente.
+**Q-01. Mudança de layout de `gltfx_renderer_2d_desc` e de `gltfx_frame_2d_report` (IMP-07).** **Decidido (D-W8-283):** opção (a). Decisão do líder pela L-26, aplicada pelo CTO (D-W8-356).
 - O plano diz: marca B, "recurso novo compatível" (D-W8-19).
 - A proposta muda o layout dos dois tipos, e o consumidor que não recompila pode ter corrupção de memória.
 - Opções do revisor: (a) quebra pré-1.0 aceita, com "recompilar obrigatório" na nota de versão; (b) tipo de descritor novo com sobrecarga de `open()`; (c) campos de folga agora.

@@ -15,14 +15,15 @@
 - **D-W8-291 (Q-T02):** código `no_free_space`, no fim de `gltfx_err_code`.
 - **D-W8-292 (Q-T03):** `texture_switches` conta toda mudança de ligação, inclusive de e para nenhuma textura.
 - **D-W8-293 e D-W8-304 (Q-T06):** a promessa do filtro é pelo formato e é provada em cada sistema. Texto público em `texture_2d_desc.hpp` (D-W8-308). A pergunta ao líder (seção 3 do parecer) foi respondida com "pesquise e implemente"; a escolha (d) é decisão do CTO, com ratificação retroativa pendente.
-- **D-W8-294 (Q-T04):** `mipmap_levels` é contagem nos dois descritores; `gltfx_all_mipmap_levels` pede a cadeia inteira.
+- **D-W8-294 (Q-T04):** `mipmap_levels` é contagem nos dois descritores; `gltfx_all_mipmap_levels` pede a cadeia inteira (valor `0xFFFFFFFFU`, D-W8-353).
 - **D-W8-295 (Q-T05):** `unspecified = 0` é recusado pelo nome; os formatos são 1 a 4; o filtro tem padrão `linear`.
 - **D-W8-296 (Q-T07):** tipos de texel em `draw2d/texture_region.hpp`; enum de formato em `core/image_view.hpp`. Sem mudança de texto.
-- **D-W8-297 (Q-T08):** espelhamento por extenso: `flip_left_right` e `flip_top_bottom`. O valor dos dois eixos recebe o nome `flip_both`, que é rascunho desta cópia e entra na mesma sonda de colisão.
+- **D-W8-297 (Q-T08):** espelhamento por extenso: `flip_left_right` e `flip_top_bottom`. O valor dos dois eixos é `flip_left_right_and_top_bottom` (D-W8-353).
 - **D-W8-298 (Q-T09):** regra `margem >= 2^k`, com teste na fronteira. Se reprovar com `2^k`, a regra vira `2^(k+1) - 1`.
 - **D-W8-299 (IMP-T07):** a justificativa do WebRender sai do texto.
 - **D-W8-300 (IMP-T03, IMP-T04, IMP-T10, IMP-T11, COS-T01 a COS-T03):** regras e textos que entram nas fatias indicadas; marcadores de planejamento saem do texto público.
 - **D-W8-301 e D-W8-302:** a T2 se parte em T2a (handle, subida e descritor) e T2b (amostragem e texto do filtro). A T1 entra na fila logo depois da S1.
+- **D-W8-353 a 356 (r13):** nomes finais: `flip_left_right_and_top_bottom`, `release_slot`, `gltfx_all_mipmap_levels = 0xFFFFFFFFU` (com a regra reescrita), `draw_atlas_image` e `gltfx_light_tint` (no parecer H0). Os desenhos com textura passam a ter quatro parâmetros ou menos, por `gltfx_texture_paint` e `gltfx_atlas_paint` (D-W8-354). Ver a nota D-W8-354 ao lado de cada assinatura trocada. As seções 3 a 7 são análise e citam, onde indicam, os nomes anteriores; o texto vigente é o da seção 2.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -162,13 +163,17 @@ enum class gltfx_texture_filter : std::uint8_t {
 struct gltfx_texture_2d_desc {
     gltfx_texture_filter filter = gltfx_texture_filter::linear;
     // Number of mipmap levels, the same count the atlas uses.
-    // Zero: no mipmap. k: exactly k levels. The named constant
-    // gltfx_all_mipmap_levels asks for the whole chain (its value is set
-    // together with the test that proves it). A count larger than the
-    // chain the texture size allows is refused by name (invalid_argument,
+    // Zero: no mipmap. k: exactly k levels. gltfx_all_mipmap_levels (below)
+    // asks for the whole chain. ANY OTHER count larger than the chain the
+    // texture size allows is refused by name (invalid_argument,
     // rejected_value() "mipmap_levels").
     std::uint32_t mipmap_levels = 0;
 };
+
+// D-W8-353: the value that asks for the whole mipmap chain. It is the largest
+// uint32, which is never a real count. This value asks for the whole chain;
+// ANY OTHER count larger than the chain is refused by name.
+inline constexpr std::uint32_t gltfx_all_mipmap_levels = 0xFFFFFFFFU;
 
 } // namespace glintfx
 ```
@@ -196,7 +201,7 @@ struct gltfx_texture_2d_desc {
 //
 // MIRRORING is a named value, never a sign: `flip_left_right` swaps the
 // left and right edges of the source, `flip_top_bottom` the top and bottom,
-// `flip_both` both (docs/api-conventions.md R7: the reader sees the effect
+// `flip_left_right_and_top_bottom` both (docs/api-conventions.md R7: the reader sees the effect
 // of the name). A value outside this list is refused for the whole call,
 // counted as `unknown_option`.
 //
@@ -220,7 +225,7 @@ enum class gltfx_texture_mirror : std::uint8_t {
     none = 0,
     flip_left_right = 1,
     flip_top_bottom = 2,
-    flip_both = 3,
+    flip_left_right_and_top_bottom = 3,
 };
 
 // A region of a texture, as a VALUE: the rectangle in texels and the
@@ -234,6 +239,14 @@ enum class gltfx_texture_mirror : std::uint8_t {
 struct gltfx_texture_region {
     gltfx_rect_texel source;
     gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
+};
+
+// What a textured drawing call paints with, grouped (D-W8-354): the region and
+// the tint. In a shadow (draw_shadow_texture) the tint is the colour of the
+// shadow. Grouping keeps each drawing call within four parameters.
+struct gltfx_texture_paint {
+    gltfx_texture_region region;
+    gltfx_rgba tint;
 };
 
 // The vertex of the textured triangles. Position in WORLD space, like
@@ -418,6 +431,7 @@ class gltfx_atlas_allocator {
 #include <glintfx/core/atlas_allocator.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/export.hpp>
 
 // draw2d/texture_atlas.hpp - R2D-TEXTURE.
@@ -445,8 +459,8 @@ class gltfx_atlas_allocator {
 // gltfx_atlas_slot of the cell (its place and its generation), not a region.
 // A drawing call that takes a cell receives that slot. The atlas checks the
 // generation: a slot whose cell was released is refused as `stale_region`.
-// The name of the drawing call that takes a slot is fixed with the probe of
-// its fatia, under the same collision rule as the other names.
+// The drawing call that takes a slot is draw_atlas_image (D-W8-353), which
+// receives a gltfx_atlas_paint (D-W8-354).
 //
 // REMOVAL: `release_slot` gives the cell back to the allocator. The slot it
 // was handed is then STALE, and every drawing call refuses it as
@@ -464,6 +478,14 @@ struct gltfx_texture_atlas_desc {
     std::uint32_t side = 0;             // square edge in texels; zero refused
     std::uint32_t margin_pixels = 1;    // copied border per side, see above
     std::uint32_t mipmap_levels = 0;    // zero: no mipmap; k: exactly k levels
+};
+
+// What an atlas cell is painted with (D-W8-354): the slot that names the cell,
+// with its generation; the mirroring; and the tint.
+struct gltfx_atlas_paint {
+    gltfx_atlas_slot slot;
+    gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
+    gltfx_rgba tint;
 };
 
 class gltfx_texture_atlas {
@@ -511,6 +533,7 @@ class gltfx_texture_atlas {
 #include <glintfx/draw2d/texture_2d.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
+#include <glintfx/draw2d/texture_atlas.hpp>
 // Dentro da classe gltfx_renderer_2d, antes de "private:":
 
     // Makes a texture from `image`, on this renderer's context. The pixels
@@ -543,31 +566,42 @@ class gltfx_texture_atlas {
     update_texture(gltfx_texture_2d &texture, std::uint32_t x, std::uint32_t y,
                    gltfx_image_view image) noexcept;
 
-    // Draws `region` of `texture` into the axis-aligned rectangle `rect`
-    // (world space, like fill_rect), multiplied by `tint`. Mirroring is
-    // applied to the source, not to the rectangle. Refused as ONE piece,
-    // counted in the report, never an exception:
+    // Draws the region of `paint.region` from `texture` into the axis-aligned
+    // rectangle `rect` (world space, like fill_rect), multiplied by `paint.tint`.
+    // Mirroring is applied to the source, not to the rectangle. Refused as ONE
+    // piece, counted in the report, never an exception:
     //   - texture_not_open: the texture is released or was never opened;
     //   - texture_other_renderer: the texture belongs to another renderer;
     //   - region_out_of_range: the source rectangle is outside the texture;
-    //   - not_a_number: the origin of the source is not a finite number.
+    //   - not_a_number: the origin of the source is not a finite number;
+    //   - unknown_option: the mirror is a value outside its enumeration.
     // Each change of the bound texture between two calls counts in
     // texture_switches, including a change to or from no texture.
+    // D-W8-354: texture, paint and rect with the layer; four parameters at most.
     GLINTFX_API void draw_texture(const gltfx_texture_2d &texture,
-                                  gltfx_texture_region region, gltfx_rect_world rect,
-                                  gltfx_rgba tint, gltfx_draw_layer layer = {}) noexcept;
+                                  gltfx_texture_paint paint, gltfx_rect_world rect,
+                                  gltfx_draw_layer layer = {}) noexcept;
 
-    // Draws `region` of `texture` into a free quadrilateral, with PROJECTIVE
-    // interpolation: a straight line of the texture stays a straight line on
-    // the screen, even when the quad is a trapezoid. The corner roles of
-    // gltfx_quad_world say where the texture's top-left lands. Refused as ONE
-    // piece, counted in the report: `degenerate_quad` when the corners do not
-    // define a projective mapping (three of them on one line, or a quad whose
+    // Draws the region of `paint.region` from `texture` into a free quadrilateral,
+    // with PROJECTIVE interpolation: a straight line of the texture stays a
+    // straight line on the screen, even when the quad is a trapezoid. The corner
+    // roles of gltfx_quad_world say where the texture's top-left lands. Refused
+    // as ONE piece, counted in the report: `degenerate_quad` when the corners do
+    // not define a projective mapping (three of them on one line, or a quad whose
     // edges cross; a quad of zero area has its corners on one line, so it is
     // refused the same way); plus the refusals of draw_texture.
+    // D-W8-354: four parameters at most.
     GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture,
-                                       gltfx_texture_region region, gltfx_quad_world corners,
-                                       gltfx_rgba tint, gltfx_draw_layer layer = {}) noexcept;
+                                       gltfx_texture_paint paint, gltfx_quad_world corners,
+                                       gltfx_draw_layer layer = {}) noexcept;
+
+    // Draws one cell of an atlas, named by `paint.slot`, into `rect`. A slot whose
+    // cell was released is refused as `stale_region`. D-W8-353 and D-W8-354: the
+    // name is draw_atlas_image, and the parameters are the atlas, the paint and
+    // the rectangle, with the layer; four parameters at most.
+    GLINTFX_API void draw_atlas_image(const gltfx_texture_atlas &atlas,
+                                      gltfx_atlas_paint paint, gltfx_rect_world rect,
+                                      gltfx_draw_layer layer = {}) noexcept;
 
     // Filled triangles textured from `texture`. Each vertex carries its
     // own texel coordinate and tint. Without indices, the vertices are read
@@ -671,7 +705,7 @@ Classes: **CRÍTICO** quebra o que já está publicado ou aponta comportamento i
 | IMP-T12 | D-W8-294: `mipmap_levels` é contagem nos dois descritores. |
 | IMP-T13 | D-W8-295: `pixel_format` sem padrão (`unspecified` é recusado); o filtro tem padrão `linear`. |
 | IMP-T14 | D-W8-288: a peça na fila mostra o pixel do momento do envio; atualizar não envia o lote. |
-| IMP-T15 | D-W8-297: `flip_left_right` e `flip_top_bottom`; o valor dos dois eixos é `flip_both`. |
+| IMP-T15 | D-W8-297: `flip_left_right` e `flip_top_bottom`; o valor dos dois eixos é `flip_left_right_and_top_bottom` (D-W8-353). |
 | COS-T01 | Sai com a D-W8-289. |
 | COS-T02 | `Proved by:` só entra quando o teste existir (D-W8-300). |
 | COS-T03 | Os marcadores de planejamento saem do texto público (seção 2). |
@@ -742,7 +776,7 @@ Leitura, em duas linhas, como a ordem pede:
 - **Controle positivo (`col-pos.log`):** `rc_ctest=8`, nomeando `major`. A sonda enxerga o que deve enxergar. O critério de parada da ordem ("controle passa verde") não ocorreu.
 - **Neutralizadas, sem relação com a T0:** `/usr/lib/gcc/.../stdbool.h:36:bool` e `/usr/include/fcntl.h:215:open` (guarda inativa por padrão). `open` é o nome já publicado da fachada, e não é causado por esta fatia.
 - **Rodada 2:** não houve, porque a rodada 1 foi limpa. Não houve correção de texto.
-- **Repetição com os nomes finais (D-W8-290, 291, 294, 295, 297 e `flip_both`, D-W8-303):** pendente. Roda no passo 0 da T1, antes de qualquer linha de código (D-W8-303).
+- **Repetição com os nomes finais (D-W8-290, 291, 294, 295, 297 e `flip_left_right_and_top_bottom`, D-W8-303):** pendente. Roda no passo 0 da T1, antes de qualquer linha de código (D-W8-303).
 
 **Prova de sintaxe (sem execução de teste de produto):** `probe/base.cpp` usa todos os nomes novos e as chamadas previstas, com `-std=c++23 -fsyntax-only -Wall -Wextra -Werror`:
 - `g++` 16.2.1: rc=0. `clang++` 22.1.8: rc=0.
@@ -813,7 +847,7 @@ Quem decide é o CTO, e o líder onde o item diz. O revisor não decide nenhum d
   - O texto põe `gltfx_vec2_texel` e `gltfx_rect_texel` em `draw2d/texture_region.hpp`, e o enum de formato em `core/image_view.hpp`. A alternativa é mover os tipos de texel para `core/`.
   - Recomendação: manter como está. O alocador de `core/` trabalha em pixels inteiros e não precisa do tipo de texel. A pergunta só existe se o CTO quiser arquivo próprio para o enum de formato (L-17).
 
-- **Q-T08 (IMP-T15). Nomes do espelhamento.** **Decidido (D-W8-297): opção (b),** `flip_left_right` e `flip_top_bottom`, com a sonda de colisão de novo. O valor dos dois eixos recebe `flip_both` nesta cópia: o nome não foi fixado pela decisão e entra na mesma sonda.
+- **Q-T08 (IMP-T15). Nomes do espelhamento.** **Decidido (D-W8-297): opção (b),** `flip_left_right` e `flip_top_bottom`, com a sonda de colisão de novo. O valor dos dois eixos é `flip_left_right_and_top_bottom` (D-W8-353).
   - Opções: (a) manter `horizontal`, `vertical`; (b) `flip_left_right`, `flip_top_bottom`; (c) `mirror_x`, `mirror_y`.
   - Recomendação: (b), porque "verboso vence curto" (L-28). Trocar o nome exige nova sonda de colisão.
 

@@ -16,6 +16,7 @@
 - **D-W8-324 (Q-H02):** faixas de elevação `(0, 90]`, azimute finito, altura da peça finita e não negativa (motivo `piece_height`), altura da luz finita e estritamente maior que a da peça, coordenadas finitas.
 - **D-W8-325 (Q-H03, IMP-H06):** a luz sobre a peça é função pura do núcleo, com a lei de queda como escolha obrigatória do consumidor. Ver a seção 2.1.
 - **D-W8-326:** IMP-H04 (base `(0,0)-(0,10)`), IMP-H05 (ordem dos papéis), IMP-H08 (textura por referência, região como valor) e COS-H01 (`Proved by:` só com o teste existindo).
+- **D-W8-353 a 356 (r13):** `gltfx_light_tint` tem cabeçalho próprio em `core/light_tint.hpp` (seção 2.1, D-W8-355), com o tipo de luz `gltfx_light_source_2d`. `draw_shadow_texture` recebe `gltfx_texture_paint` (D-W8-354), e o `tint` é a cor da sombra. As seções 3 a 7 são análise e citam, onde indicam, os nomes anteriores; o texto vigente é o da seção 2.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta.
 
@@ -212,15 +213,15 @@ gltfx_project_point_shadow(gltfx_point_light_2d light,
     GLINTFX_API void fill_shadow(gltfx_quad_world shadow, gltfx_rgba tint,
                                  gltfx_draw_layer layer = {}) noexcept;
 
-    // The silhouette of `texture` as a shadow, through `region`: the texture's
-    // alpha is the shape, and `tint` and the segment rule are those of
-    // fill_shadow(). The corners of `shadow` carry the corners of the region
-    // in the roles of gltfx_quad_world (core/projected_shadow.hpp). The
-    // parameter order is the one of the texture drawing calls: the texture by
-    // reference, the region as a value.
+    // The silhouette of `texture` as a shadow, through `paint.region`: the
+    // texture's alpha is the shape, and `paint.tint` (the colour of the shadow,
+    // D-W8-321) and the segment rule are those of fill_shadow(). The corners of
+    // `shadow` carry the corners of the region in the roles of gltfx_quad_world
+    // (core/projected_shadow.hpp). The texture comes by reference, the paint as
+    // a value. D-W8-354: four parameters at most, with the layer.
     GLINTFX_API void draw_shadow_texture(const gltfx_texture_2d &texture,
-                                         gltfx_texture_region region,
-                                         gltfx_quad_world shadow, gltfx_rgba tint,
+                                         gltfx_texture_paint paint,
+                                         gltfx_quad_world shadow,
                                          gltfx_draw_layer layer = {}) noexcept;
 
 ```
@@ -236,15 +237,15 @@ gltfx_project_point_shadow(gltfx_point_light_2d light,
 
 ### 2.1 Luz sobre a peça (H4): contrato decidido (D-W8-325)
 
-A luz sobre a peça é uma função PURA do núcleo, `gltfx_light_tint(...)`. Ela recebe os vértices, as luzes pontuais e a luz ambiente, e devolve a tinta de cada vértice. O consumidor passa a tinta ao desenho com cor por vértice (`fill_triangles` ou `fill_indexed_triangles`, do R2D-SHAPES). O desenhador não ganha estado novo.
+A luz sobre a peça é uma função PURA do núcleo, `gltfx_light_tint`, em `core/light_tint.hpp` (D-W8-353). Ela recebe os vértices, as luzes pontuais e a luz ambiente, e escreve a tinta de cada vértice num `span` de saída, sem alocar. O consumidor passa a tinta ao desenho com cor por vértice (`fill_triangles` ou `fill_indexed_triangles`, do R2D-SHAPES). O desenhador não ganha estado novo.
 
-- Cada luz pontual tem `position`, `range` (finito e maior que zero), `color` (luz linear), `intensity` (zero ou maior) e `falloff`.
-- `falloff` é um enum que só cresce, SEM padrão. A lei de queda é escolha obrigatória do consumidor:
-  - `linear`: `f = clamp(1 - d/r, 0, 1)`;
-  - `smooth`: `f = clamp(1 - (d/r)^2, 0, 1)^2`, a janela quadrática usada em motores 3D para cortar a queda no alcance. INFERÊNCIA do parecer: o nome e a fonte exatos serão citados na ordem da H4.
+- Cada luz pontual tem `position`, `range` (finito e maior que zero), `color` (luz linear), `intensity` (zero ou maior) e `falloff`. É um tipo PRÓPRIO, `gltfx_light_source_2d`, e não o `gltfx_point_light_2d` da sombra: aquele tem altura, que a tinta não usa.
+- `falloff` é um enum SEM padrão: o valor `unspecified` é recusado pelo nome. A lei de queda é escolha obrigatória do consumidor, entre:
+  - `linear`: `f = clamp(1 - d/range, 0, 1)`;
+  - `smooth`: `f = clamp(1 - (d/range)^2, 0, 1)^2`.
   - A queda pelo inverso do quadrado não entra: em 2D ela depende da escala da unidade de mundo.
 - A conta: `tinta = clamp(ambiente + soma(cor · intensidade · f(d)), 0, 1)`, canal a canal. `d` é a distância NO PLANO, da luz ao vértice. A altura da luz serve à sombra, não à tinta.
-- Valor de `falloff` fora do enum: recusado pelo nome (`unknown_option`, D-W8-285).
+- Recusa, com `invalid_argument` e o nome do campo: `out_tints` com tamanho diferente de `vertices`; um vértice que não é número finito (`vertices`); e os campos da luz fora da faixa (`range`, `intensity`, `falloff`, `position`).
 
 Valores fixados (luz em `(0,0)`, `r = 10`, branca, intensidade 1):
 
@@ -257,9 +258,59 @@ Valores fixados (luz em `(0,0)`, `r = 10`, branca, intensidade 1):
 | `d = 12` | 0 |
 | ambiente `(0,2; 0,2; 0,2)` mais `linear`, `d = 5` | 0,7 |
 | duas luzes de 0,6 no mesmo vértice | 1 (satura) |
-| `falloff` fora do enum | recusado pelo nome |
+| `falloff` `unspecified` ou fora do enum | recusado pelo nome (`falloff`) |
 
-Os tipos e o cabeçalho de `gltfx_light_tint` saem na ordem da H4, com a sonda de colisão de nomes.
+Cabeçalho (D-W8-355, texto vigente):
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <cstdint>
+#include <span>
+
+#include <glintfx/core/color.hpp>
+#include <glintfx/core/err.hpp>
+#include <glintfx/core/vec2.hpp>
+#include <glintfx/export.hpp>
+
+// core/light_tint.hpp - R2D-SPRITE-SHADE (H4; D-W8-325 and D-W8-355). The light
+// that point lights put on ground vertices: a PURE function of the core, with
+// no drawing, no GL and no operating system. The consumer passes the result to
+// the drawing as a colour per vertex.
+//
+// The light's height does not enter here: it belongs to the shadow
+// (core/light_2d.hpp). A field that this function ignored would describe it
+// wrongly (GODS_LAWS.md L-28), so the light has its own type.
+
+namespace glintfx {
+
+enum class gltfx_light_falloff : std::uint8_t {
+    unspecified = 0,  // the default of the field; refused by name: the law of fall-off is the consumer's choice
+    linear = 1,       // f = clamp(1 - d / range, 0, 1)
+    smooth = 2,       // f = clamp(1 - (d / range)^2, 0, 1)^2
+};
+
+struct gltfx_light_source_2d {
+    gltfx_vec2_world position;
+    double range = 0.0;        // finite and greater than zero
+    gltfx_rgba color;          // linear light
+    double intensity = 0.0;    // finite, zero or more
+    gltfx_light_falloff falloff = gltfx_light_falloff::unspecified;
+};
+
+// Writes in out_tints[i] the light that reaches vertices[i]: ambient plus, for each light, color * intensity *
+// f(d), with d the distance ON THE PLANE, clamped to [0, 1] per channel. Refused with invalid_argument and the
+// field's name: out_tints.size() != vertices.size() ("out_tints"), a vertex not finite ("vertices"), and each
+// light field out of range ("range", "intensity", "falloff", "position").
+[[nodiscard]] GLINTFX_API gltfx_rslt<void>
+gltfx_light_tint(std::span<const gltfx_vec2_world> vertices, std::span<const gltfx_light_source_2d> lights,
+                 gltfx_rgba ambient, std::span<gltfx_rgba> out_tints) noexcept;
+
+} // namespace glintfx
+```
+
+Os quatro parâmetros de `gltfx_light_tint` ficam no limite de `CONTRACT.md` §6.2 (D-W8-354).
 
 ---
 

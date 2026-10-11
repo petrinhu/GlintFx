@@ -8677,3 +8677,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-240:** o comando literal dos "10 sítios" está em `plano-wlframe-acomp.md:563-566`. Ele conta LINHAS (10 → 0). A diferença vinha de três universos: linhas, blocos e entradas. Fica junto o contador `gemeos_multilinha.py`, com piso, medido em 6 → 1.
   - **D-W8-241:** dois implementadores haiku em paralelo, em arquivos disjuntos.
   O main conferiu contra a árvore em b02677a5: os md5 de base dos dois arquivos (6154f94f e ed11a1f2) e os de todos os anexos e scripts batem com os P0. O watchcode está armado ("VIGIANDO"). Os dois implementadores foram despachados entre 10:22 e 10:27. O teto é de 2 agentes vivos.
+- **11/10/26 10:45 (main).** A documentação foi publicada (ordem do líder: "atualize a documentação md do github e a wiki. Autorizo push da wiki").
+  - **PR #16:** o CI dele (38142083938) teve 25 jobs ok, 1 pulado e nenhuma falha. Foi mesclado em `main` com `--match-head-commit 3bdc60e2`. `main` = 680aa609 (`ls-remote`), e o CI de `main` pós-merge é o 38144086310.
+  - **Wiki:** antes do push, o diff provou que o `master` local 5c09dd36 é igual ao `docs/wiki` de 680aa609. Empurrado (260d3b2..5c09dd3), e o `ls-remote` confere.
+  - **Limpeza:** o ramo remoto `docs-0610` foi apagado, e também a cópia de trabalho local e o ramo local (eram ancestrais de `origin/main`).
+  - **Ainda falta:** mesclar `origin/main` em `onda-w8`. Fica para depois do relatório da D5b-fix4, para não mexer na árvore com um agente ativo.
+  - **Gêmeo do TEXT:** commit 5acba5a4, reverificado pelo main. Só comentário (o filtro não imprimiu nada), blob b3bb955c e `preci.rc` 0.

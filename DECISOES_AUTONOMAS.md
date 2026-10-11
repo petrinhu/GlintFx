@@ -8538,3 +8538,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **sobreviventes:** MB (quadrado -1 px em y, porque a posição vertical não tem sonda) e X1 (255 vira 3, que o controle 2 não cobre);
   - equivalente: MC (a ordem de envio de A e B).
 - Os dois sobreviventes foram ao CTO, junto com a corrida D (`decisao-corrida-d.md`), agora dentro do teto de 4.
+
+### 11/10/2026 01:08:05 - CTO, D-W8-226 a 229: a corrida D e as ressalvas da revisão viram três fatias pequenas
+
+- **Diagnóstico da corrida D** (`decisao-corrida-d.md`, md5 `5edc0a6c`, com a documentação Microsoft da ordem de busca de DLL e a do CMake citadas):
+  - o exemplo achou a `glintfx.dll` na pasta ATUAL (`build-shared\tests`), que entra na busca do Windows antes do PATH;
+  - a cópia de DLLs da D6-red não é código morto: é o padrão do CMake, e protege o exemplo rodado da própria pasta e o consumidor instalado;
+  - o defeito está na rota do teste. O erro de previsão é do CTO.
+- **Fatias:**
+  - D-W8-228, `D3-FIX3`: o caso do código 255 no controle 2, com N=20;
+  - D-W8-227, `EXAMPLE-PROBE-Y`: o `frames30` vai de 5 para 9 sondas, medindo as bordas de cima e de baixo do quadrado;
+  - D-W8-226, `EXAMPLE-RUN-DIR`: o teste do first_window no Windows roda na pasta do próprio exemplo, e a V-12 é refeita como corrida H.
+  - D-W8-229: o MC, o anexo defasado e a contagem da D3-fix2 ficam sem fatia.
+- **Ordem:** D3-FIX3, EXAMPLE-PROBE-Y, EXAMPLE-RUN-DIR; depois as corridas F e G juntas, e H. A D7 espera a EXAMPLE-RUN-DIR, porque as duas mexem em tests/CMakeLists.txt.
+- O CTO escreve as ordens de 8 itens. Para ratificar: D-W8-226 a 229.

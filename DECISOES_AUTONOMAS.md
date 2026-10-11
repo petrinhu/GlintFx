@@ -8715,3 +8715,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Despachados juntos:** os implementadores da D5b-fix5 e da D7. O `watchcode` está armado ("VIGIANDO"). São 2 agentes vivos.
   - **Ordem do líder no meio do trabalho, verbatim: "Siga para acabar w8".**
 - **D-W8-208** (registrada pela D-W8-247; texto de origem em `/var/tmp/cto-w8/plano-d6red-fix.md:44-50`). O conserto WL-FRAME-ORDER pede o aviso de quadro (`wl_surface_frame`) ANTES do `eglSwapBuffers()`, que é o commit da superfície. O `arm_pending()` fica depois de um swap bem-sucedido. Commit `b3861f80`, publicado na v0.6.1.0.
+- **11/10/26 11:30 (main).** O CI do ramo `onda-w8` em 56892b46 (38145668922, disparado à mão) ficou verde: a ponta com a D6-green fechada, o gêmeo do TEXT, a D5b-fix4 e a `main` com a documentação. Este verde ainda não é o CI-VERDE-W8, porque faltam a D7, a D5b-fix5 e os itens R2D e QA da onda.

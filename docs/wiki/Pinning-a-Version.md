@@ -104,8 +104,7 @@ checked directly against the repository, there is no entry on the
 them, so a tag's own message on the commit it marks (`git show <tag>`)
 is part of the real description of what changed, together with
 [`CHANGELOG.md`](https://github.com/petrinhu/GlintFx/blob/main/CHANGELOG.md),
-which has one dated section per tag. glintfx's very first tag, `v0.2.0.0`, was pushed
-05/09/2026 - the version-number table above tells you what each tag after
+which has one dated section per version tag (`vA.B.C.D`). glintfx's very first version tag, `v0.2.0.0`, was tagged on 2026-09-05 - the version-number table above tells you what each tag after
 it changed to earn its own bump. What has not changed since is the
 pre-1.0 caveat: until `MAJOR` reaches `1`, treat every tag, however
 recent, as still allowed to break API, ABI (the compiled binary interface

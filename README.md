@@ -15,7 +15,7 @@ glintfx is public, on GitHub, under **AGPL-3.0-or-later**. It is written for a c
 
 This section states what actually exists in the source tree today, not what is planned. Planned scope (window, rendering, input, a style engine, a map format, and more) is real and tracked, but is **not** built yet unless listed below as "implemented."
 
-**Implemented and tested today** (measured against the source tree on 2026-10-11, check `ls src/` and `ls include/glintfx/` yourself: this list rots the moment new code lands):
+**Implemented and tested today** (measured against the source tree on 2026-09-10, check `ls src/` and `ls include/glintfx/` yourself: this list rots the moment new code lands):
 
 - **`glintfx::version`**: the library's own version, exposed as a value type with four components (see "Versioning" below).
 - **`glintfx::gltfx_err` / `glintfx::gltfx_rslt<T>`**: the library's public error-handling types. Every fallible public function returns `gltfx_rslt<T>`; no exceptions cross the public API. Full contract: [`docs/api-conventions.md`](docs/api-conventions.md).
@@ -131,7 +131,7 @@ A raw commit SHA still works in the same `GIT_TAG` field (find one with `git ls-
 
 The public error-handling contract (the type every fallible function returns, why reading it wrong is a precondition violation rather than a recoverable error, and how the public surface is checked against name collisions on five platforms) is documented in [`docs/api-conventions.md`](docs/api-conventions.md). It is the template every later API review is checked against, not prose to be taken on faith: every rule cites the test that proves it.
 
-What every public function and type does, area by area, each page with a working example and written for someone new to C++ builds, is on the [wiki](https://github.com/petrinhu/GlintFx/wiki): [Core](https://github.com/petrinhu/GlintFx/wiki/API-Core) (errors, version, 2D math, color, time), [Window and Display](https://github.com/petrinhu/GlintFx/wiki/API-Window-and-Display), [Graphics Context](https://github.com/petrinhu/GlintFx/wiki/API-Graphics-Context), [Main Loop](https://github.com/petrinhu/GlintFx/wiki/API-Main-Loop), [Draw 2D](https://github.com/petrinhu/GlintFx/wiki/API-Draw-2D) and [Node View](https://github.com/petrinhu/GlintFx/wiki/API-Node-View). The wiki is published from [`docs/wiki/`](docs/wiki/) in this repository and describes only released code.
+What every public function and type does, area by area, each page with a working example and written for someone new to C++ builds, is on the [wiki](https://github.com/petrinhu/GlintFx/wiki): [Core](https://github.com/petrinhu/GlintFx/wiki/API-Core) (errors, version, 2D math, color, time), [Window and Display](https://github.com/petrinhu/GlintFx/wiki/API-Window-and-Display), [Graphics Context](https://github.com/petrinhu/GlintFx/wiki/API-Graphics-Context), [Main Loop](https://github.com/petrinhu/GlintFx/wiki/API-Main-Loop), [Draw 2D](https://github.com/petrinhu/GlintFx/wiki/API-Draw-2D) and [Node View](https://github.com/petrinhu/GlintFx/wiki/API-Node-View). The wiki is a copy of [`docs/wiki/`](docs/wiki/) in this repository; the copy is made by hand for now, and automatic publishing is planned. The wiki describes only released code.
 
 ## Changes
 

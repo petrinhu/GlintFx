@@ -63,8 +63,9 @@ section for what is still being built.
   Linux and Windows, and actually drawing something.
 - **[API Reference: Main Loop](API-Main-Loop)** - the piece that keeps
   calling your own code once per frame and presents at whatever cadence
-  the display can sustain. Proven live on both Linux and Windows today,
-  including a real minimized-then-restored window on Windows - the page
+  the display can sustain. Proven live on both Linux and Windows as of
+  2026-09-15, before the `v0.6.1.0` fix, including a real
+  minimized-then-restored window on Windows - the page
   says exactly which few effects still have no live proof on either
   system.
 - **[API Reference: Draw 2D](API-Draw-2D)** - filled rectangles and

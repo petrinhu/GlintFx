@@ -111,11 +111,12 @@ Every promise above is built and tested without needing a real display,
 window or graphics context first. On top of that, the identical tests run
 through the public API alone, against a real display, window and graphics
 context, on both Linux (inside an isolated container, against a real
-compositor) and Windows - most recently in [CI run `34975391524`](https://github.com/petrinhu/GlintFx/actions/runs/34975391524),
-over the exact commit the `v0.4.0.0` tag marks, all jobs green including
-every Windows job and the Linux/Windows parity job.
+compositor) and Windows - as of 2026-09-15, in [CI run `34975391524`](https://github.com/petrinhu/GlintFx/actions/runs/34975391524),
+over commit `14427bc`, which the `v0.4.0.0` tag marks; all jobs green including
+every Windows job and the Linux/Windows parity job. That run predates the
+Linux frame fix of release `v0.6.1.0`.
 
-**Proven live on both systems:** ticks arrive in an unbroken sequence
+**Proven live on both systems as of 2026-09-15, before the `v0.6.1.0` fix:** ticks arrive in an unbroken sequence
 starting at 1; the very first tick reports zero elapsed time; a minimized
 window is not drawn into while it stays hidden; `run()` ends cleanly the
 moment your own `on_frame` says to; a moved-from loop handle is refused by

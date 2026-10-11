@@ -74,7 +74,7 @@ This release is a `PATCH` bump: one fix, no new feature, no change to the API or
 
 ### Fixed
 
-- **On Linux (Wayland), a compositor that closes the connection is now noticed when reading, not only when writing (`CONT-WARMUP`).** A wait for incoming events could take a closed connection for "nothing to read yet". It is now reported as a connection failure, as the writing side already did. Messages the compositor sent before closing are still delivered first, so the failure appears on a later call.
+- **On Linux (Wayland), the wait for the compositor now tells a closed connection apart from "nothing to read yet", so a compositor that goes away is reported as a connection failure when reading, not only when writing.** Before, the wait could take a closed connection for "nothing to read yet". The wait now checks the connection itself, not only that the process exists. Messages the compositor sent before closing are still delivered first, so the failure appears on a later call. This is proven by a unit test of that decision; a real compositor closing the connection does not reach that branch in the live test, so no end-to-end run shows it yet.
 
 ### Infrastructure
 
@@ -116,7 +116,7 @@ This release is a `PATCH` bump: a fix in how errors are copied, no new feature.
 
 ### Fixed
 
-- **When memory runs out, glintfx returns an error instead of ending your program (`ERR-COPY-FIX`).** Copying a `gltfx_err` that carried diagnostic details, such as a path or a rejected value, allocated memory. Inside functions that promise never to throw, a failed allocation ended the consumer's process, on every platform and in Release builds too. The diagnostic details are now shared between copies instead of duplicated, so copying an error no longer allocates, and copy and assignment are now `noexcept`. The size of `gltfx_err` stays two pointers, and no exported symbol was renamed.
+- **When memory runs out, glintfx returns an error instead of ending your program (`ERR-COPY-FIX`).** Copying a `gltfx_err` that carried diagnostic details, such as a path or a rejected value, allocated memory. Inside functions that promise never to throw, a failed allocation ended the consumer's process, on every platform and in Release builds too. The diagnostic details are now shared between copies instead of duplicated, so copying an error no longer allocates, and copy and assignment are now `noexcept`. The size of `gltfx_err` stays two pointers, and on Windows no exported symbol was renamed (checked there with `dumpbin`).
 
 ### Infrastructure
 

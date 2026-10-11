@@ -97,7 +97,7 @@ them, newest first. None is accompanied by a formal GitHub Release
 (checked directly against the repository: no entry exists on the
 releases page for any tag as of this writing) - each tag's own
 annotated message (`git show <tag>` on a clone) and `CHANGELOG.md`
-together describe what it marks. `CHANGELOG.md` has one dated section per tag.
+together describe what it marks. `CHANGELOG.md` has one dated section per version tag (`vA.B.C.D`).
 
 Pin `GIT_TAG` to the tag name directly:
 

@@ -8587,3 +8587,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Linux plain 967 e asan 966. Preci rc 0.
 - **D3-FIX3** (`a24a3dca`): commitada; o preci dela roda agora.
 - **Documentação:** o ramo local `docs-0610` está preparado (11 arquivos, ainda sem commit), e a wiki local tem os 9 .md copiados. O verificador de links espera a vez na trava pesada. Os portões de texto passaram.
+
+### 11/10/2026 09:07:41 - D3-FIX3 fechada; EXAMPLE-PROBE-Y despachada; as quedas do bash explicadas
+
+- **D3-FIX3** (`a24a3dca`): o X1 (255 como estouro) reprova com o anexo e sobrevive sem ele, o que prova que o caso é novo. N=20, R5 rc 0.
+- **EXAMPLE-PROBE-Y** (D-W8-227) foi despachada ao mesmo implementador (seção 2 de `ordens-d3fix3-probey-rundir.md`).
+- **Watchcode:** as quedas do bash (SIGSEGV e SIGABRT aos pares) registradas desde 09/10 vêm dos autotestes, que derrubam um processo de propósito. O `coredumpctl info` mostra `Command Line: sh -c 'kill -ABRT 2114384'`. A ligação está provada, e não é só correlação temporal.

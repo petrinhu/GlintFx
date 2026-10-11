@@ -702,14 +702,16 @@ int main() {
         // prova que o executor nao deixou o laco desenhar em NENHUM dos
         // 30 tiques. Nesse estado cada tique paga a espera de janela
         // oculta (100 ms) em vez da espera do teto, e o numero medido
-        // nao fala mais sobre o teto - fato de ambiente medido em
-        // 13/09/2026 (kwin_wayland --virtual nunca entrega o retorno de
-        // quadro do EGL), declarado e CONTADO em tests/measured_
-        // exceptions.txt sob o item SONDA-OCULTA-PUNE-JANELA-VISIVEL
-        // (TODO.md), com a prova da biblioteca no lugar dele (frame_cap_schedule_test,
-        // sem sistema operacional, seis celulas que mordem por mutacao).
-        // Num executor que mostra a janela - o Windows de hoje, e um
-        // compositor de sessao real amanha - a faixa volta a reprovar.
+        // nao fala mais sobre o teto. Medido no container de 13/09 a
+        // 09/10/2026 e atribuido ao kwin_wayland --virtual, mas era
+        // defeito nosso: a biblioteca pedia o retorno de quadro DEPOIS do
+        // commit do eglSwapBuffers (WL-FRAME-ORDER, D-W8-208). Desde o
+        // conserto o container desenha os 30 tiques e a faixa reprova
+        // nele tambem. A valvula fica para o executor que de fato
+        // esconda a janela (item SONDA-OCULTA-PUNE-JANELA-VISIVEL, TODO.md,
+        // decisao do lider), com a prova da biblioteca no lugar dele
+        // (frame_cap_schedule_test, sem sistema operacional, seis celulas
+        // que mordem por mutacao).
         //
         // TODOS os tiques, nunca "ao menos um" (achado da re-verificacao
         // por arquivo:linha, 13/09/2026): a primeira versao desta linha

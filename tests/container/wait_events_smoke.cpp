@@ -49,15 +49,16 @@
 // PRIMEIRO teste do teto de quadros VIVO que este lado jamais teve -
 // loop_parity_test.cpp's own cap30_wall_ms esteve desligada aqui desde
 // 13/09/2026 pela excecao SONDA-OCULTA-PUNE-JANELA-VISIVEL (tests/
-// measured_exceptions.txt), porque aquele teste abre janela e contexto
-// grafico, e o kwin_wayland --virtual deste container nunca entrega o
-// retorno de quadro do EGL. Este arquivo ganha uma segunda prova, mais
+// measured_exceptions.txt), porque ate WL-FRAME-ORDER (D-W8-208,
+// 09/10/2026) a biblioteca pedia o retorno de quadro DEPOIS do commit
+// do eglSwapBuffers e ele nunca chegava - defeito nosso, nao do
+// kwin_wayland --virtual. Este arquivo ganha uma segunda prova, mais
 // abaixo em main(), que chama wait_for_frame_cap() (platform/loop/
 // loop_engine.hpp) DIRETO sobre o MESMO adapter real ja aberto acima -
-// sem janela, sem contexto grafico, sem present() - entao o defeito de
-// ambiente que desliga a faixa em loop_parity_test.cpp nao tem como
-// existir aqui: nao ha janela nenhuma para o compositor julgar
-// escondida. Gemeo Windows: tests/win32_wait_events_test.cpp's own
+// sem janela, sem contexto grafico, sem present() - entao o defeito que
+// desligava a faixa em loop_parity_test.cpp nao tinha como existir
+// aqui: nao ha janela nenhuma para a biblioteca julgar escondida.
+// Gemeo Windows: tests/win32_wait_events_test.cpp's own
 // win32_wait_events_frame_cap_30hz_motor_isolated_from_fiacao - mesma
 // faixa (900..1500 ms), mesmo motor, mesma isolacao da fiacao que le
 // frame_rate_cap_hz() do contexto grafico (H2-A x H2-B, plano sec. 3).

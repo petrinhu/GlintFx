@@ -727,9 +727,10 @@ int main() {
     // auditor (logs/h3_loop_hidden.log): no modo vsync=on, so 1 de 5
     // apresentacoes da fase visivel teve sucesso ANTES de minimizar - a
     // sonda ja relatava "nao desenhar" numa janela ainda mapeada e
-    // ativa, por um defeito de ambiente ja registrado (TODO.md, INBOX,
-    // SONDA-OCULTA-PUNE-JANELA-VISIVEL, decisao de produto do lider,
-    // fora de escopo aqui). Nesse modo, ver hidden_detected=1 DEPOIS de
+    // ativa - entao atribuido ao ambiente (TODO.md, INBOX,
+    // SONDA-OCULTA-PUNE-JANELA-VISIVEL), mas era defeito nosso, o pedido
+    // de quadro depois do commit (WL-FRAME-ORDER, D-W8-208). Nesse modo,
+    // ver hidden_detected=1 DEPOIS de
     // minimizar nao prova que foi o minimizar que causou a deteccao -
     // pode ser a MESMA leitura falsa que ja vinha de antes. So o modo
     // vsync=off (5 de 5 na fase visivel) prova isso de verdade. ANTES:

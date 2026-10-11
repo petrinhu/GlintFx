@@ -8611,3 +8611,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Sequência: commits 2 e 3 → revisão → push, PR e CI → merge → origin/main na onda → último push manual da wiki → Ordem B.
 - **Para ratificar:** D-DOC-5 e o desvio residual da D-DOC-7. O token `contents: write` alcança o repositório inteiro, não só a wiki, com 4 controles conferidos a cada execução.
 - A Ordem A foi despachada ao redator. O revisor segue sobre o `0380c5e9` e depois revisa os commits 2 e 3.
+
+### 11/10/2026 09:37:36 - Disco: regra permanente do líder; a revisão reprova o commit 1 da documentação
+
+- **Pergunta ao líder, resposta verbatim:** "Sim, sempre que encostar (Recomendado)". Entrou como refinamento da emenda de 09/10 na L-11 (L-68). Quando o disco encostar no piso, apagam-se o cache de montagem e as camadas sem nome com mais de 2 h, nunca com `-a`.
+  - Aplicada agora: o `builder prune` liberou 1,19 GB e o `image prune` 13,33 GB. O min foi de 20,51 para 28,14 GiB.
+- **Revisão da documentação** (commit 1, `0380c5e9`): REPROVADO para push.
+  - Omissão: o `API-Draw-2D.md` ficou fora da wiki, e 4 páginas linkam para ele. Já corrigido no commit novo da wiki `7429037f`.
+  - Frases falsas:
+    - `README.md:130` ("published from docs/wiki/");
+    - `API-Main-Loop.md:115` (o run é de outro SHA);
+    - `:118` e `Home.md:66` ("proven live today", com evidência de antes da WL-FRAME-ORDER);
+    - `Pinning-a-Version.md:107` e `:109`.
+  - Gêmeo: `gl-loop-portability-matrix.md:48`.
+  - Também: o link de release inexistente no `CHANGELOG.md:228` e o jargão sem explicação no `API-Draw-2D`.
+  - A compilação dos exemplos da wiki contra a v0.6.1.0 passou, e as sabotagens morreram.
+- **Commits 2 e 3** feitos (`2fcf5188` e `f37e9703`), com portões e links verdes.
+- **Próximo:** um commit 4 corrige os achados, e depois vem a revisão dos commits 2, 3 e 4 e da wiki. O push só sai depois disso.

@@ -8628,3 +8628,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A compilação dos exemplos da wiki contra a v0.6.1.0 passou, e as sabotagens morreram.
 - **Commits 2 e 3** feitos (`2fcf5188` e `f37e9703`), com portões e links verdes.
 - **Próximo:** um commit 4 corrige os achados, e depois vem a revisão dos commits 2, 3 e 4 e da wiki. O push só sai depois disso.
+
+### 11/10/2026 09:38:07 - EXAMPLE-PROBE-Y fechada; EXAMPLE-RUN-DIR e a revisão do lote 5 despachadas
+
+- **EXAMPLE-PROBE-Y** (`6d772895`):
+  - o MY1 reprova o autoteste;
+  - P5 verde, com 12/12 e 9/9 sondas e frames_drawn 30;
+  - o MB (y 399) e o MB' (y 401) reprovam 2 sondas cada, como previsto;
+  - R5 com rc 0, e as imagens removidas pelo nome.
+- **EXAMPLE-RUN-DIR** (D-W8-226) despachada ao mesmo implementador; o ramo `d6-h` fica local, e o push é do main.
+- **Revisão do lote 5** despachada a um haiku distinto (D5b-fix3, TEXT, D3-FIX3 e PROBE-Y): `rev-lote5.md`.
+- **Vivos:** o redator do commit 4 da documentação, o implementador da RUN-DIR e o revisor do lote 5 (3).

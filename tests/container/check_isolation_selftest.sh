@@ -90,7 +90,7 @@ selftest_check() {
 
 # golden_matches <variant> <md5 of the gold>: the normalized text of the variant hashes to the gold.
 golden_matches() {
-    line="$(read_baseline_or_fail)"
+    line="$(read_baseline_or_fail "$(baseline_file_for_variant ci)")"
     got="$(normalize_host_config "$("$1" "$line")" | md5sum | cut -d' ' -f1)"
     [ "$got" = "$2" ] || { echo "ouro $1: md5 $got, esperado $2" >&2; return 1; }
 }
@@ -126,7 +126,7 @@ selftest_console_planted_is_golden_a() {
 
 # Normalizing twice gives the same text as once, for every variant.
 selftest_normalize_is_idempotent() {
-    line="$(read_baseline_or_fail)"
+    line="$(read_baseline_or_fail "$(baseline_file_for_variant ci)")"
     for v in $HC_VARIANT_NAMES; do
         once="$(normalize_host_config "$("$v" "$line")")"
         twice="$(normalize_host_config "$once")"
@@ -136,7 +136,7 @@ selftest_normalize_is_idempotent() {
 
 # MJ1: the order of the elements does not change the result, and the reversed input really is different.
 selftest_array_order_is_irrelevant() {
-    line="$(read_baseline_or_fail)"
+    line="$(read_baseline_or_fail "$(baseline_file_for_variant ci)")"
     straight="$(hc_variant_a "$line")"
     reversed="$(hc_variant_f "$line")"
     [ "$reversed" != "$straight" ] || { echo "controle de ordem sem efeito: a entrada invertida e igual a original" >&2; return 1; }
@@ -146,7 +146,7 @@ selftest_array_order_is_irrelevant() {
 
 # The four poisoned variants must NOT normalize to the gold: the normalizer may not hide an attack.
 selftest_poisoned_entries_differ_from_golden() {
-    line="$(read_baseline_or_fail)"
+    line="$(read_baseline_or_fail "$(baseline_file_for_variant ci)")"
     gold="$(normalize_host_config "$(hc_variant_a "$line")")"
     for v in hc_variant_b hc_variant_c hc_variant_d hc_variant_e; do
         got="$(normalize_host_config "$("$v" "$line")")"
@@ -163,6 +163,98 @@ selftest_null_inside_string_is_kept() {
     [ "$got" = "$expected" ] || { echo "null dentro de string reescrito: $got" >&2; return 1; }
 }
 
+# -- QA-COMPOSED-PATH G1b (D-W8-266): variantes por placa -------------------------------------------------------------
+# The variant picks the baseline FILE; the comparison is the same whole-block compare as the CI's. Only
+# assert_full_hostconfig_matches_baseline is called here (never the thermal_throttle count: it compares against the
+# host, and these fixtures carry no such entries). The integrated capture is the baseline's own data line, the
+# text the live `docker create` produced after the placeholders.
+
+# hc_compare <variante> <texto>: the whole-block compare against the variant's baseline, in a subshell (its fail
+# exits), output silenced. A name that does not map fails here too, so a refusal control never passes on a typo.
+hc_compare() {
+    file="$(baseline_file_for_variant "$1")" || return 1
+    ( assert_full_hostconfig_matches_baseline selftest "$2" "$file" ) >/dev/null 2>&1
+}
+
+hc_must_accept() {
+    hc_compare "$1" "$2" || { echo "variante $1 reprovou o que devia passar" >&2; return 1; }
+}
+
+hc_must_refuse() {
+    if hc_compare "$1" "$2"; then echo "variante $1 aceitou o que devia reprovar" >&2; return 1; fi
+}
+
+integrated_line() {
+    read_baseline_or_fail "$(baseline_file_for_variant gpu_integrated)"
+}
+
+# The argv rule: two arguments mean the CI default, three mean the variant. require_args accepts both shapes.
+selftest_require_args_accepts_two_and_three() {
+    ( require_args a b ) >/dev/null 2>&1 || { echo "require_args recusou dois argumentos" >&2; return 1; }
+    ( require_args a b c ) >/dev/null 2>&1 || { echo "require_args recusou tres argumentos" >&2; return 1; }
+    if ( require_args a ) >/dev/null 2>&1; then echo "require_args aceitou um argumento" >&2; return 1; fi
+}
+
+selftest_variant_defaults_to_ci() {
+    [ "$(variant_of_args c s)" = ci ] || { echo "sem 3o argumento a variante nao e ci" >&2; return 1; }
+}
+
+selftest_variant_takes_the_third_argument() {
+    [ "$(variant_of_args c s gpu_integrated)" = gpu_integrated ] || { echo "o 3o argumento nao virou a variante" >&2; return 1; }
+}
+
+# Each name reads its OWN file. A mutant that sends every name to the CI file breaks here, not only in the compare.
+selftest_variant_map_names_its_own_file() {
+    [ "$(baseline_file_for_variant ci)" = "$BASELINE_DIR/hostconfig_baseline.txt" ] || return 1
+    [ "$(baseline_file_for_variant gpu_integrated)" = "$BASELINE_DIR/hostconfig_baseline_gpu_integrated.txt" ] || return 1
+    [ "$(baseline_file_for_variant gpu_geforce)" = "$BASELINE_DIR/hostconfig_baseline_gpu_geforce.txt" ] || return 1
+}
+
+# Refused BY NAME. A bare failure is not enough: an open list also fails (for want of a file), so the message must
+# name the variant.
+selftest_unknown_variant_fails_by_name() {
+    out="$( (baseline_file_for_variant xyz) 2>&1 )" && { echo "variante xyz aceita" >&2; return 1; }
+    printf '%s' "$out" | grep -q "variante desconhecida 'xyz'" \
+        || { echo "xyz reprovou sem o nome da variante: $out" >&2; return 1; }
+}
+
+selftest_integrated_capture_passes_its_baseline() {
+    hc_must_accept gpu_integrated "$(integrated_line)"
+}
+
+selftest_integrated_capture_under_ci_is_refused() {
+    hc_must_refuse ci "$(integrated_line)"
+}
+
+# The GeForce node in place of the integrated one: a different device, same shape.
+selftest_renderd129_in_integrated_is_refused() {
+    hc_must_refuse gpu_integrated "$(integrated_line | sed 's#/dev/dri/renderD128#/dev/dri/renderD129#g')"
+}
+
+# The integrated node plus one extra node (the /dev/uinput shape of FURO 1): one more device, refused.
+selftest_renderd128_plus_uinput_is_refused() {
+    hc_must_refuse gpu_integrated "$(integrated_line | sed 's#"Devices":\[{#"Devices":[{"PathOnHost":"/dev/uinput","PathInContainer":"/dev/uinput","CgroupPermissions":"rwm"},{#')"
+}
+
+# The host's XDG_RUNTIME_DIR as a bind, as TEXT only (never mounted; GODS_LAWS.md L-09 rule 2).
+selftest_run_user_bind_is_refused() {
+    hc_must_refuse gpu_integrated "$(integrated_line | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#')"
+}
+
+# Sem 3o argumento, a variante e ci, e a linha de base do CI passa contra o arquivo do CI.
+selftest_ci_default_passes_its_baseline() {
+    variant="$(variant_of_args c s)"
+    line="$(read_baseline_or_fail "$(baseline_file_for_variant "$variant")")"
+    hc_must_accept "$variant" "$line"
+}
+
+# A baseline that does not exist fails closed, never passes by omission (GODS_LAWS.md L-40).
+selftest_missing_baseline_fails_closed() {
+    if ( read_baseline_or_fail "$BASELINE_DIR/hostconfig_baseline_inexistente.txt" ) >/dev/null 2>&1; then
+        echo "baseline ausente passou" >&2; return 1
+    fi
+}
+
 selftest_main() {
     selftest_check selftest_golden_a
     selftest_check selftest_golden_b
@@ -175,5 +267,17 @@ selftest_main() {
     selftest_check selftest_array_order_is_irrelevant
     selftest_check selftest_poisoned_entries_differ_from_golden
     selftest_check selftest_null_inside_string_is_kept
+    selftest_check selftest_require_args_accepts_two_and_three
+    selftest_check selftest_variant_defaults_to_ci
+    selftest_check selftest_variant_takes_the_third_argument
+    selftest_check selftest_variant_map_names_its_own_file
+    selftest_check selftest_unknown_variant_fails_by_name
+    selftest_check selftest_integrated_capture_passes_its_baseline
+    selftest_check selftest_integrated_capture_under_ci_is_refused
+    selftest_check selftest_renderd129_in_integrated_is_refused
+    selftest_check selftest_renderd128_plus_uinput_is_refused
+    selftest_check selftest_run_user_bind_is_refused
+    selftest_check selftest_ci_default_passes_its_baseline
+    selftest_check selftest_missing_baseline_fails_closed
     echo "selftest: $SELFTEST_CHECKS controles OK"
 }

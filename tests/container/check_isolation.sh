@@ -133,7 +133,12 @@
 # env var, a label - is left untouched, byte for byte, no matter what
 # it is followed by.
 #
-# Usage: check_isolation.sh <container-name> <socket-name>
+# VARIANTES POR PLACA (QA-COMPOSED-PATH G1b, D-W8-266): an optional third argument picks the baseline file of the
+# whole-block HostConfig compare. The list is CLOSED: ci (the default, no third argument), gpu_integrated and
+# gpu_geforce. A name outside it is refused by name, before docker is touched. The FORBIDDEN_PATH_PATTERNS list does
+# not change per variant. gpu_geforce has no baseline yet (born in G4a, D-W8-266 / §5.6): until then it fails closed.
+#
+# Usage: check_isolation.sh <container-name> <socket-name> [variante]
 # Usage: check_isolation.sh --selftest   (D-W8-274: the controls of hostconfig_json.sh, no container, no docker)
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -169,7 +174,8 @@ BASELINE_DIR="$(dirname "$0")" || fail "nao foi possivel resolver o diretorio de
 # The HostConfig normalization lives in its own file (D-W8-274, G1a); its controls live in check_isolation_selftest.sh.
 # shellcheck source=hostconfig_json.sh
 . "$BASELINE_DIR/hostconfig_json.sh"
-readonly BASELINE_FILE="$BASELINE_DIR/hostconfig_baseline.txt"
+# No readonly BASELINE_FILE here on purpose (G1b): the file depends on the variant of the run, chosen by
+# baseline_file_for_variant(), so one process can read more than one baseline (the selftest does).
 
 # Defense in depth for the ss/lsof TEXT output check further down
 # (assert_output_has_no_forbidden_pattern) only - the HostConfig this
@@ -181,7 +187,23 @@ readonly BASELINE_FILE="$BASELINE_DIR/hostconfig_baseline.txt"
 readonly FORBIDDEN_PATH_PATTERNS="/run/user wayland-0 /dev/uinput /tmp/.X11-unix"
 
 require_args() {
-    [ "$#" -eq 2 ] || fail "usage: check_isolation.sh <container-name> <socket-name>"
+    { [ "$#" -eq 2 ] || [ "$#" -eq 3 ]; } || fail "usage: check_isolation.sh <container-name> <socket-name> [variante]"
+}
+
+# The third argument is the variant; without it the run is the CI one (G1b, D-W8-266).
+variant_of_args() {
+    if [ "$#" -ge 3 ]; then printf '%s' "$3"; else printf '%s' ci; fi
+}
+
+# The closed list of variants, and the one file each reads. Printed to stdout so the caller takes the path with
+# $(...); an unknown name fails here, by name, before any file or docker call.
+baseline_file_for_variant() {
+    case "$1" in
+        ci) printf '%s' "$BASELINE_DIR/hostconfig_baseline.txt" ;;
+        gpu_integrated) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_integrated.txt" ;;
+        gpu_geforce) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_geforce.txt" ;;
+        *) fail "variante desconhecida '$1' (lista fechada: ci, gpu_integrated, gpu_geforce; QA-COMPOSED-PATH D-W8-266)" ;;
+    esac
 }
 
 # `docker inspect` failing outright (typo'd container name, daemon
@@ -291,11 +313,12 @@ assert_cpu_masked_path_count_matches_host() {
 
 
 read_baseline_or_fail() {
-    [ -f "$BASELINE_FILE" ] \
-        || fail "baseline ausente: $BASELINE_FILE (portao sem baseline nao aprova por omissao, GODS_LAWS.md L-40)"
-    content="$(grep -v '^#' "$BASELINE_FILE")"
+    baseline_file="$1"
+    [ -f "$baseline_file" ] \
+        || fail "baseline ausente: $baseline_file (portao sem baseline nao aprova por omissao, GODS_LAWS.md L-40)"
+    content="$(grep -v '^#' "$baseline_file")"
     [ -n "$content" ] \
-        || fail "baseline vazio (so tinha comentario) em $BASELINE_FILE - varredura vazia disfarcada de OK"
+        || fail "baseline vazio (so tinha comentario) em $baseline_file - varredura vazia disfarcada de OK"
     printf '%s' "$content"
 }
 
@@ -321,11 +344,12 @@ read_baseline_or_fail() {
 assert_full_hostconfig_matches_baseline() {
     container="$1"
     raw="$2"
+    baseline_file="$3"
     normalized="$(normalize_host_config "$raw")"
-    baseline_raw="$(read_baseline_or_fail)"
+    baseline_raw="$(read_baseline_or_fail "$baseline_file")"
     baseline="$(normalize_host_config "$baseline_raw")"
     if [ "$normalized" = "$baseline" ]; then
-        echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $BASELINE_DOCKER_VERSION)"
+        echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $BASELINE_DOCKER_VERSION, $(basename "$baseline_file"))"
         return 0
     fi
     diff_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-iso-baseline-XXXXXX")"
@@ -342,7 +366,7 @@ assert_full_hostconfig_matches_baseline() {
     printf '%s\n' "$normalized" | tr ',' '\n' > "$diff_dir/atual"
     echo "check_isolation.sh: HostConfig DIVERGE do baseline medido (um campo por linha, virgula quebrada para leitura):" >&2
     diff -u "$diff_dir/baseline" "$diff_dir/atual" >&2 || true
-    fail "HostConfig nao bate com o baseline medido em $BASELINE_FILE (GODS_LAWS.md L-40/ISO-BASELINE)"
+    fail "HostConfig nao bate com o baseline medido em $baseline_file (GODS_LAWS.md L-40/ISO-BASELINE)"
 }
 
 compositor_pid_in_container() {
@@ -468,6 +492,11 @@ main() {
     require_args "$@"
     container="$1"
     socket_name="$2"
+    # The variant is resolved BEFORE any docker call: an unknown name is refused by name, and the baseline file of
+    # the run is fixed here (G1b, D-W8-266).
+    variant="$(variant_of_args "$@")"
+    baseline_file="$(baseline_file_for_variant "$variant")"
+    echo "check_isolation.sh: variante de placa '$variant' (baseline: $(basename "$baseline_file"))"
 
     # Metadata checks only (docker inspect, never docker exec) go
     # first and in full, on purpose: every one of them has to pass
@@ -477,7 +506,7 @@ main() {
     raw="$(raw_host_config "$container")"
     assert_hostconfig_key_count_matches_baseline "$container"
     assert_cpu_masked_path_count_matches_host "$raw"
-    assert_full_hostconfig_matches_baseline "$container" "$raw"
+    assert_full_hostconfig_matches_baseline "$container" "$raw" "$baseline_file"
 
     assert_only_internal_socket "$container" "$socket_name"
 

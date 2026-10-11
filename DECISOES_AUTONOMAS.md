@@ -8514,3 +8514,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Verbatim:** "atualize a documentação md do github e a wiki. Autorizo push da wiki".
 - **Pela emenda da L-34**, a dúvida de onde cada texto entra (main por PR de documentação, a onda-w8, ou a wiki, que não pode descrever como publicado o que ainda não saiu) foi ao CTO, com pesquisa: `plano-docs-wiki.md`.
 - A execução é de um technical-writer haiku (L-63 global). O push da wiki é do main.
+
+### 11/10/2026 01:01:26 - Corrida D: a V-12 sobreviveu no Windows; vai ao CTO
+
+- **CI 38108577899:** no "Windows - compartilhado", o exemplo rodou sem a cópia das DLLs: `first frame presented`, `frames_drawn=12`, `fixture exit=0` e veredito `motivo=PRONTA codigo=0`. O first_window reprovou só pelas sondas, porque a base é a D6-red.
+- A previsão (o processo não chega ao main, exit 3221225781) não bateu: o mutante V-12 sobreviveu.
+- Foi ao CTO pela emenda da L-34, com pesquisa (`decisao-corrida-d.md`): por onde as DLLs foram achadas, e se a cópia é código morto ou protege um caso que o CI não exerce.

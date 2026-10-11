@@ -25,6 +25,7 @@
 import struct
 import subprocess
 import sys
+from selftest_controls import CHECKS, check
 import tempfile
 import zlib
 from pathlib import Path
@@ -164,14 +165,9 @@ def run_probes(width, height, rows, probes):
 # filters from the spec formulas), independent of the decoder above. The
 # CLI controls run the real process and read its real exit code.
 
-CHECKS = []
 
 
-def check(name, condition):
-    CHECKS.append(name)
-    if not condition:
-        print(f"selftest: {name} FALHOU", file=sys.stderr)
-        sys.exit(1)
+
 
 
 def rejects(function, *args):

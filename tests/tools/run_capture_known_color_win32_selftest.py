@@ -8,19 +8,15 @@
 from pathlib import Path
 import ast
 from run_capture_known_color_win32 import *  # the driver's names, unqualified, as before the move
+from selftest_controls import CHECKS, check
 
 DRIVER_SCRIPT = Path(__file__).resolve().parent / "run_capture_known_color_win32.py"
 
 
 # -- selftest ---------------------------------------------------------
-CHECKS = []
 
 
-def check(name, condition):
-    CHECKS.append(name)
-    if not condition:
-        print(f"selftest: {name} FALHOU", file=sys.stderr)
-        sys.exit(1)
+
 
 
 def selftest_classification():

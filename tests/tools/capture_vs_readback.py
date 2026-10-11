@@ -32,6 +32,7 @@
 import re
 import subprocess
 import sys
+from selftest_controls import CHECKS, check
 import tempfile
 from pathlib import Path
 
@@ -126,7 +127,6 @@ def compare(capture_dir, readback_raw_path, readback_meta_path, alpha_absent_dec
 # missing flip or a missing R/B swap changes a byte (a symmetric image
 # would pass both mistakes).
 
-CHECKS = []
 # top row: P(1,2,3,4) Q(5,6,7,8); bottom row: R(9,10,11,12) S(13,14,15,16), as R,G,B,A.
 CAPTURE_BGRA = bytes([3, 2, 1, 4, 7, 6, 5, 8]) + bytes([0xEE] * 4) + bytes(
     [11, 10, 9, 12, 15, 14, 13, 16]) + bytes([0xEE] * 4)
@@ -135,11 +135,7 @@ READBACK_RGBA = bytes([9, 10, 11, 12, 13, 14, 15, 16, 1, 2, 3, 4, 5, 6, 7, 8])
 READBACK_META = "width=2\nheight=2\norigin=bottom_left\norder=rgba\n"
 
 
-def check(name, condition):
-    CHECKS.append(name)
-    if not condition:
-        print(f"selftest: {name} FALHOU", file=sys.stderr)
-        sys.exit(1)
+
 
 
 def rejects(function, *args):

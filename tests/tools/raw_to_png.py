@@ -45,6 +45,7 @@ import re
 import struct
 import subprocess
 import sys
+from selftest_controls import CHECKS, check
 import tempfile
 import zlib
 from collections import namedtuple
@@ -232,7 +233,6 @@ def convert_one(capture_dir, out_dir, stem):
 # back from this program's output. The CLI controls run the real process
 # (subprocess) and read its real exit code.
 
-CHECKS = []
 CaptureSpec = namedtuple("CaptureSpec", "width height stride fmt")
 # 2x2 ARGB8888, stride 12 (4 bytes of padding per row), little-endian
 # memory B,G,R,A; expected RGBA rows: (1,2,3,4)(5,6,7,8) / (9..12)(13..16).
@@ -242,11 +242,7 @@ SPEC_2X2 = CaptureSpec(2, 2, 12, 0)
 ROWS_2X2 = [bytes([1, 2, 3, 4, 5, 6, 7, 8]), bytes([9, 10, 11, 12, 13, 14, 15, 16])]
 
 
-def check(name, condition):
-    CHECKS.append(name)
-    if not condition:
-        print(f"selftest: {name} FALHOU", file=sys.stderr)
-        sys.exit(1)
+
 
 
 def rejects(function, *args):

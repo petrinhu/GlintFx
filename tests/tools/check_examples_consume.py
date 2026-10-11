@@ -25,6 +25,7 @@ import io
 import shutil
 import subprocess
 import sys
+from selftest_controls import CHECKS, check
 import tempfile
 from pathlib import Path
 
@@ -116,14 +117,9 @@ def parse_args(argv):
 
 
 # -- selftest ---------------------------------------------------------
-CHECKS = []
 
 
-def check(name, condition):
-    CHECKS.append(name)
-    if not condition:
-        print(f"selftest: {name} FALHOU", file=sys.stderr)
-        sys.exit(1)
+
 
 
 def fake_args(root):

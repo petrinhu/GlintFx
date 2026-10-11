@@ -7,6 +7,7 @@
 from pathlib import Path
 import ast
 from run_example_capture_win32 import *  # the driver's names, unqualified, as before the move
+from selftest_controls import CHECKS, check
 
 DRIVER_SCRIPT = Path(__file__).resolve().parent / "run_example_capture_win32.py"
 
@@ -15,14 +16,9 @@ EXAMPLE_SOURCE = REPO_ROOT / "examples" / "first_window" / "first_window.cpp"
 
 
 # -- selftest ---------------------------------------------------------
-CHECKS = []
 
 
-def check(name, condition):
-    CHECKS.append(name)
-    if not condition:
-        print(f"selftest: {name} FALHOU", file=sys.stderr)
-        sys.exit(1)
+
 
 
 # A coherent 2x2 frame as the tool writes it: XRGB8888 (B, G, R, X), top row first, tightly packed, the X

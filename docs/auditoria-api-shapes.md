@@ -61,8 +61,8 @@ Os cabeçalhos novos e os trechos dos existentes, como ficam na cópia de sonda 
 namespace glintfx {
 
 struct gltfx_vertex_2d_world {
-    gltfx_vec2_world position;
-    gltfx_rgba color;
+    gltfx_vec2_world position{};
+    gltfx_rgba color{};
 };
 
 } // namespace glintfx
@@ -97,8 +97,6 @@ struct gltfx_vertex_2d_world {
 // THE RECTANGLE ALIGNMENT lives in gltfx_rect_outline_style, read by
 // stroke_rect(), not here: lines and ellipses have no inside or outside, and a
 // field that a method ignores is a lie about what that method does.
-//
-// Proved by: stroke_geometry_test (the thickness unit and the three caps).
 
 namespace glintfx {
 
@@ -129,7 +127,7 @@ struct gltfx_stroke {
 // The style of a line (D-W8-354): the thickness and the end cap. Grouped so
 // that stroke_line() keeps within four parameters (CONTRACT.md §6.2).
 struct gltfx_line_style {
-    gltfx_stroke stroke;
+    gltfx_stroke stroke{};
     gltfx_line_cap cap = gltfx_line_cap::flat;
 };
 
@@ -137,7 +135,7 @@ struct gltfx_line_style {
 // alignment on the edge. The alignment belongs to the rectangle, and not to
 // gltfx_stroke, because lines and ellipses ignore it.
 struct gltfx_rect_outline_style {
-    gltfx_stroke stroke;
+    gltfx_stroke stroke{};
     gltfx_stroke_align align = gltfx_stroke_align::centered;
 };
 
@@ -191,7 +189,7 @@ struct gltfx_segment_world {
 namespace glintfx {
 
 struct gltfx_ellipse_world {
-    gltfx_vec2_world center;
+    gltfx_vec2_world center{};
     double radius_x = 0.0;
     double radius_y = 0.0;
     gltfx_angle rotation{};

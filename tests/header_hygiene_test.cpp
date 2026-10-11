@@ -124,6 +124,7 @@
 
 #include <glintfx/core/angle.hpp>
 #include <glintfx/core/color.hpp>
+#include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/err_format.hpp>
@@ -146,6 +147,8 @@
 #include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/renderer_2d.hpp>
 #include <glintfx/draw2d/renderer_2d_desc.hpp>
+#include <glintfx/draw2d/stroke.hpp>
+#include <glintfx/draw2d/vertex_2d.hpp>
 #include <glintfx/gfss/keyword.hpp>
 #include <glintfx/gfss/property.hpp>
 #include <glintfx/gfss/token.hpp>

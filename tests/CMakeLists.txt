@@ -46,6 +46,12 @@ glintfx_add_test(harness_check_invariant_test)
 # color_test.cpp's own header comment.
 glintfx_add_test(color_test)
 
+# R2D-SHAPES, S1 (docs/auditoria-api-shapes.md section 2; GODS_LAWS.md L-19/L-20/L-26): frozen
+# layout of the public formas-2D types - the vertex of fill_triangles() (vertex_2d_layout_test)
+# and the ellipse of core/ellipse.hpp (ellipse_test). See each file's own header comment.
+glintfx_add_test(vertex_2d_layout_test)
+glintfx_add_test(ellipse_test)
+
 # CORE-TIME (TODO.md W3, GODS_LAWS.md L-19/L-20/L-26): the core
 # layer's public representation of elapsed time - gltfx_duration/
 # gltfx_time_point and the four gltfx_duration_*/gltfx_now() functions

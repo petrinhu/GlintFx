@@ -8705,3 +8705,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O CTO também decide a correção de texto do item `SONDA-OCULTA-PUNE-JANELA-VISIVEL` (TODO.md:284), o destino do apelido `fedora:44` e se a D7 corre em paralelo.
   - **`onda-w8` empurrado**, com a D6-green fechada (D-W8-192): f2dbfafe..56892b46, 65 commits, e o `ls-remote` confere. O CI foi disparado no ramo: 38145668922.
 - **11/10/26 11:05 (main).** O CI de `main` depois do merge do PR #16 (38144086310, em 680aa609) ficou verde. A publicação da documentação está fechada.
+- **11/10/26 11:22 (main).** O CTO decidiu o lote 6 em `/var/tmp/cto-w8/decisao-lote6.md` (md5 f05f06e2), com D-W8-242 a D-W8-247. Pela L-42, a pesquisa veio antes: o testador exaustivo do RE2, o "test them all" do Dawson e uma sonda do Python.
+  - **D-W8-242:** fatia `D5b-fix5`. A trava VARRE os bytes 1 a 255 depois de cada palavra (510 vereditos). O esperado sai de faixas numéricas, nunca de regex. Acabam as amostras de borda escolhidas à mão. A minha inferência de 128 bytes estava errada: a D-W8-200 lê bytes.
+  - **D-W8-243:** P-BRACKET, P-CONCAT3 e P-VARS1LINE são forma que nenhuma decisão cobriu. Não ganham caso e **vão à lista de ratificação retroativa do líder** (junto da D-W8-237). O contador não vê palavra partida ou mascarada, e a defesa que sobra é `consumidores=2`.
+  - **D-W8-244:** o título e a regra de `SONDA-OCULTA-PUNE-JANELA-VISIVEL` passam a dizer o estado medido, e a referência `:751` vira o nome da constante. A medição por sistema foi refundida em `MEASURED-EXC-POS-WLFRAME`, com o primeiro dado pós-conserto: 987 e 991 ms, 60/60, no contêiner Fedora.
+  - **D-W8-245:** o apelido `fedora:44` FICA até a `CONTAINERFILE-FEDORA-PIN` fechar. É só uma etiqueta (o mesmo Id 43b29f65, que é Fedora 44). Removê-lo faria um build local tentar `docker pull`. O número de linha na TODO virou o comando que o mede.
+  - **D-W8-246:** a D7 corre em paralelo com a D5b-fix5, sem arquivo em comum. O plano vale contra `83ab40c8`, com as erratas E1 (`--target glintfx_library`) e E2.
+  - **D-W8-247:** a D-W8-208 entra no livro (abaixo).
+  - **Despachados juntos:** os implementadores da D5b-fix5 e da D7. O `watchcode` está armado ("VIGIANDO"). São 2 agentes vivos.
+  - **Ordem do líder no meio do trabalho, verbatim: "Siga para acabar w8".**
+- **D-W8-208** (registrada pela D-W8-247; texto de origem em `/var/tmp/cto-w8/plano-d6red-fix.md:44-50`). O conserto WL-FRAME-ORDER pede o aviso de quadro (`wl_surface_frame`) ANTES do `eglSwapBuffers()`, que é o commit da superfície. O `arm_pending()` fica depois de um swap bem-sucedido. Commit `b3861f80`, publicado na v0.6.1.0.

@@ -80,15 +80,51 @@ endfunction()
 # malformed copy. This is the idiom CMake users reach for on this exact
 # generator-expression pitfall (no single blessed recipe exists in the
 # upstream docs for it).
-function(glintfx_copy_runtime_dlls_after_build target)
-    if(WIN32 AND BUILD_SHARED_LIBS)
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E
-                "$<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:${target}>>,copy_if_different,true>"
-                "$<TARGET_RUNTIME_DLLS:${target}>" "$<TARGET_FILE_DIR:${target}>"
-            COMMAND_EXPAND_LISTS
-        )
+# WIN-DLL-COPY-RACE (D-W8-363 to D-W8-365): the copy is ONE step per destination folder, never one per test.
+# The old POST_BUILD put the same copy of glintfx.dll into the same tests/ folder from every test target, and
+# ninja runs those steps in parallel: one copy failed while another was still writing the file ("Error copying
+# file (if different)", CI run 38171206274). Now the FIRST target of a folder that links glintfx::glintfx gets a
+# copy target, glintfx_runtime_dlls_<n>, that copies $<TARGET_RUNTIME_DLLS:<that target>> into
+# $<TARGET_FILE_DIR:<that target>> once; every later target of the folder only depends on it. A target that links
+# no glintfx::glintfx (win32_facade_pin_test recompiles its sources standalone) needs no copy and gets none.
+# A target with its own RUNTIME_OUTPUT_DIRECTORY is refused at configure time: its DLL would go nowhere.
+function(glintfx_runtime_dll_copy_target out_name anchor)
+    get_property(_count GLOBAL PROPERTY GLINTFX_RUNTIME_DLL_COPY_COUNT)
+    if(NOT _count)
+        set(_count 0)
     endif()
+    math(EXPR _count "${_count} + 1")
+    set_property(GLOBAL PROPERTY GLINTFX_RUNTIME_DLL_COPY_COUNT ${_count})
+    set(_copy glintfx_runtime_dlls_${_count})
+    add_custom_target(${_copy}
+        COMMAND "${CMAKE_COMMAND}" -E
+            "$<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:${anchor}>>,copy_if_different,true>"
+            "$<TARGET_RUNTIME_DLLS:${anchor}>" "$<TARGET_FILE_DIR:${anchor}>"
+        COMMAND_EXPAND_LISTS
+    )
+    add_dependencies(${_copy} glintfx_library)
+    set(${out_name} ${_copy} PARENT_SCOPE)
+endfunction()
+
+function(glintfx_copy_runtime_dlls_after_build target)
+    if(NOT (WIN32 AND BUILD_SHARED_LIBS))
+        return()
+    endif()
+    get_target_property(_linked ${target} LINK_LIBRARIES)
+    if(NOT "glintfx::glintfx" IN_LIST _linked)
+        return()
+    endif()
+    get_target_property(_output_dir ${target} RUNTIME_OUTPUT_DIRECTORY)
+    if(_output_dir)
+        message(FATAL_ERROR "glintfx_copy_runtime_dlls_after_build: ${target} tem RUNTIME_OUTPUT_DIRECTORY proprio "
+            "(${_output_dir}); a copia unica da DLL so chega a pasta do primeiro alvo da pasta (WIN-DLL-COPY-RACE)")
+    endif()
+    get_property(_copy DIRECTORY PROPERTY GLINTFX_RUNTIME_DLL_COPY)
+    if(NOT _copy)
+        glintfx_runtime_dll_copy_target(_copy ${target})
+        set_property(DIRECTORY PROPERTY GLINTFX_RUNTIME_DLL_COPY ${_copy})
+    endif()
+    add_dependencies(${target} ${_copy})
 endfunction()
 
 # LABELS unit (FUND-4): the CI sanitizer job (GODS_LAWS.md L-23 portao 2)

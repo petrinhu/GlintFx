@@ -8739,3 +8739,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Despachados:** a S0 (revisão de API das formas, só em `/var/tmp/cto-w8/s0/`) e a revisão do lote 7, que já estava com a parte (a) e agora tem também a (c), `CAPTURE-DRIVER-WIRING-UNTESTED`; a parte (b) espera o commit da D7.
   - **Segunda rodada do CTO pedida:** as ordens R2D, G1 e G2 e a pesquisa da NVIDIA.
   - **Agentes vivos: 4** (D7, revisor do lote 7, S0 e CTO).
+- **11/10/26 11:49 (main).** Revisão do lote 7, partes (a) e (c) (`/var/tmp/cto-w8/rev-lote7.md`):
+  - **(a) D5b-fix5 (73d3ed2f): APROVADA, com 1 IMPORTANTE.** O modo `run` não exige o piso `varridos=510`; só o `selftest` o pega, nos casos 17 a 19 (`measured_leak_filter.cmake:27`, `:178`, `:180-181`). Os 6 mutantes próprios do revisor (O1 a O5 e O3b) morreram todos por alguma das duas pernas, e nenhum inventa regra. O IMPORTANTE vai ao CTO para classificar.
+  - **`win_vm_lab_*` no preci: COSMÉTICO.** Só fixtures e bwrap; a VM real não é tocada.
+  - **(c) `CAPTURE-DRIVER-WIRING-UNTESTED`: APROVADA.** A base 4ac6d1b7 deu `rc_ctest=0` e 34 controles OK. MW1 a MW5 morreram (`rc_ctest=8`), nos controles 13, 13, 14, 15 e 16. O MW6 também morreu, no 24.
+  - **Status (L-63), verificação feita:** `CAPTURE-DRIVER-WIRING-UNTESTED` passa de 🔍 para ✅ (critério 19 da DEMO-1). `WL-FRAME-ORDER-TEXT` também passa de 🔍 para ✅: o gêmeo 5acba5a4 foi aprovado no lote 6 e reverificado pelo main, e os 10 sítios estão em 0 desde 4c672778.
+  - **A D7 foi commitada (66a823e1).** O relatório do implementador ainda não chegou. A parte (b) da revisão sai depois dele.

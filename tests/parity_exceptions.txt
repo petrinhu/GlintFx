@@ -671,6 +671,9 @@ run_capture_known_color_selftest|windows|nenhum|SEM-PENDENCIA
 # run_example_capture_selftest (tests/container/run_example_capture.sh --selftest, controles em run_example_capture_selftest.sh): o driver da captura do exemplo e POSIX sh e usa mktemp e timeout, que nao existem no Windows CI; o driver so executa de verdade no job wayland-container (Linux). O lado Windows do exemplo e tests/tools/run_example_capture_win32.py (D5b).
 run_example_capture_selftest|windows|nenhum|SEM-PENDENCIA
 
+# check_isolation_selftest (tests/container/check_isolation.sh --selftest, controles em check_isolation_selftest.sh, D-W8-274): o portao de isolamento do contêiner Wayland (check_isolation.sh) prova um contêiner com compositor Wayland, e o Windows nao tem esse mecanismo (L-05: Wayland puro, sem X11). Os controles sao POSIX sh e usam md5sum e mktemp, que nao existem no Windows CI; a normalizacao que eles cobrem roda so no job wayland-container (Linux).
+check_isolation_selftest|windows|nenhum|SEM-PENDENCIA
+
 # container_alloc_report_selftest (tests/container/check_alloc_report.sh
 # --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX),
 # CONTAINER-LEAK-COUNTER sub-fatia S3) - MESMA assimetria que container_

@@ -1,0 +1,179 @@
+#!/usr/bin/env sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# check_isolation_selftest.sh - the controls of check_isolation.sh's HostConfig normalization (hostconfig_json.sh),
+# loaded once with `.` by that script's own --selftest (D-W8-274; D-W8-137: a driver's controls live beside it,
+# never inside it). No container, no docker, no socket: every input is derived by TEXT from
+# hostconfig_baseline.txt. The poisoned variants are fixtures in text, never a real mount: mounting the host's
+# XDG_RUNTIME_DIR, wayland-0 or /dev/uinput into a container is forbidden even when the container never starts
+# (GODS_LAWS.md L-09, regra 2). It has no main and no dispatch of its own; $0 is still check_isolation.sh.
+#
+# The gold values below were measured BEFORE the split, with the pre-split functions of check_isolation.sh at
+# HEAD 164c15fe (ouro, D-W8-274): the normalized text of each input hashed with md5sum. A control that compares
+# against them proves the split changed no byte.
+
+SELFTEST_CHECKS=0
+
+# -- inputs: the baseline data line, six variants of it, and the ConsoleSize plant ----------------------------------
+
+# (a): the baseline line as it is.
+hc_variant_a() {
+    printf '%s' "$1"
+}
+
+# (b): one device smuggled into HostConfig.Devices (the /dev/uinput shape of FURO 1).
+hc_variant_b() {
+    printf '%s' "$1" | sed 's#"Devices":\[\]#"Devices":[{"PathOnHost":"/dev/uinput","PathInContainer":"/dev/uinput","CgroupPermissions":"rwm"}]#'
+}
+
+# (c): PidMode host.
+hc_variant_c() {
+    printf '%s' "$1" | sed 's#"PidMode":""#"PidMode":"host"#'
+}
+
+# (d): a bind of the host's XDG_RUNTIME_DIR, as TEXT only (never mounted).
+hc_variant_d() {
+    printf '%s' "$1" | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#'
+}
+
+# (e): MaskedPaths emptied (the --security-opt systempaths=unconfined shape).
+hc_variant_e() {
+    printf '%s' "$1" | sed -E 's#"MaskedPaths":\[[^]]*\]#"MaskedPaths":[]#'
+}
+
+# (f): the elements of CapAdd and MaskedPaths in reverse order (the ORDER-DRIFT shape). CapAdd has one element,
+# so only MaskedPaths really moves; the reversal of CapAdd is a no-op kept so the variant states its intent.
+hc_variant_f() {
+    hc_reverse_array "$(hc_reverse_array "$1" CapAdd)" MaskedPaths
+}
+
+# hc_reverse_array <text> <key>: reverses the elements of the flat array "<key>":[...] in plain text.
+hc_reverse_array() {
+    printf '%s' "$1" | awk -v key="$2" '
+        {
+            s = $0
+            pre = "\"" key "\":["
+            p = index(s, pre)
+            if (p == 0) { printf "%s", s; exit }
+            start = p + length(pre)
+            rest = substr(s, start)
+            q = index(rest, "]")
+            n = split(substr(rest, 1, q - 1), parts, ",")
+            rev = ""
+            for (i = n; i >= 1; i--) rev = rev (i < n ? "," : "") parts[i]
+            printf "%s", substr(s, 1, start - 1) rev substr(rest, q)
+        }'
+}
+
+# The ConsoleSize plant: the live capture carries real numbers where the baseline carries "NORMALIZED".
+hc_variant_a_console_planted() {
+    printf '%s' "$1" | sed 's#"ConsoleSize":"NORMALIZED"#"ConsoleSize":[24,80]#'
+}
+
+# The variant names, in the order the controls use them.
+HC_VARIANT_NAMES="hc_variant_a hc_variant_b hc_variant_c hc_variant_d hc_variant_e hc_variant_f hc_variant_a_console_planted"
+
+# -- controls ----------------------------------------------------------------------------------------------------
+
+# run_control <control>: runs one control in a SUBSHELL, so a variable or a stub it leaves behind dies with it.
+run_control() {
+    ( "$@" )
+}
+
+selftest_check() {
+    SELFTEST_CHECKS=$((SELFTEST_CHECKS + 1))
+    if ! run_control "$@"; then
+        echo "selftest: controle $SELFTEST_CHECKS FALHOU: $*" >&2
+        exit 1
+    fi
+}
+
+# golden_matches <variant> <md5 of the gold>: the normalized text of the variant hashes to the gold.
+golden_matches() {
+    line="$(read_baseline_or_fail)"
+    got="$(normalize_host_config "$("$1" "$line")" | md5sum | cut -d' ' -f1)"
+    [ "$got" = "$2" ] || { echo "ouro $1: md5 $got, esperado $2" >&2; return 1; }
+}
+
+selftest_golden_a() {
+    golden_matches hc_variant_a 4a11a53c59e2f59e694963385e0743df
+}
+
+selftest_golden_b() {
+    golden_matches hc_variant_b 57f7c8d5963b5ce24d00f0262ba94c09
+}
+
+selftest_golden_c() {
+    golden_matches hc_variant_c 6003674c9009fd4b3ffd9ddc7aca31bb
+}
+
+selftest_golden_d() {
+    golden_matches hc_variant_d 1a4ef7e438d7b64013a174d874c50914
+}
+
+selftest_golden_e() {
+    golden_matches hc_variant_e 9bf929f73f24be0ced39307e493e6930
+}
+
+selftest_golden_f() {
+    golden_matches hc_variant_f 4a11a53c59e2f59e694963385e0743df
+}
+
+# MJ3: a live ConsoleSize must be normalized to the same gold as the baseline's "NORMALIZED".
+selftest_console_planted_is_golden_a() {
+    golden_matches hc_variant_a_console_planted 4a11a53c59e2f59e694963385e0743df
+}
+
+# Normalizing twice gives the same text as once, for every variant.
+selftest_normalize_is_idempotent() {
+    line="$(read_baseline_or_fail)"
+    for v in $HC_VARIANT_NAMES; do
+        once="$(normalize_host_config "$("$v" "$line")")"
+        twice="$(normalize_host_config "$once")"
+        [ "$once" = "$twice" ] || { echo "nao idempotente: $v" >&2; return 1; }
+    done
+}
+
+# MJ1: the order of the elements does not change the result, and the reversed input really is different.
+selftest_array_order_is_irrelevant() {
+    line="$(read_baseline_or_fail)"
+    straight="$(hc_variant_a "$line")"
+    reversed="$(hc_variant_f "$line")"
+    [ "$reversed" != "$straight" ] || { echo "controle de ordem sem efeito: a entrada invertida e igual a original" >&2; return 1; }
+    [ "$(normalize_host_config "$reversed")" = "$(normalize_host_config "$straight")" ] \
+        || { echo "ordem dos elementos mudou o resultado" >&2; return 1; }
+}
+
+# The four poisoned variants must NOT normalize to the gold: the normalizer may not hide an attack.
+selftest_poisoned_entries_differ_from_golden() {
+    line="$(read_baseline_or_fail)"
+    gold="$(normalize_host_config "$(hc_variant_a "$line")")"
+    for v in hc_variant_b hc_variant_c hc_variant_d hc_variant_e; do
+        got="$(normalize_host_config "$("$v" "$line")")"
+        [ "$got" != "$gold" ] || { echo "envenenada $v normalizou igual ao ouro (normalizacao cega)" >&2; return 1; }
+    done
+}
+
+# ISO-NULL-QUOTE: a null inside a JSON string is content and stays; a bare null after a colon becomes [], also
+# after a string that holds an escaped quote and a brace.
+selftest_null_inside_string_is_kept() {
+    input='{"Binds":["a:null,b"],"VolumesFrom":null,"Env":["x\"y:null}z"]}'
+    expected='{"Binds":["a:null,b"],"VolumesFrom":[],"Env":["x\"y:null}z"]}'
+    got="$(normalize_host_config "$input")"
+    [ "$got" = "$expected" ] || { echo "null dentro de string reescrito: $got" >&2; return 1; }
+}
+
+selftest_main() {
+    selftest_check selftest_golden_a
+    selftest_check selftest_golden_b
+    selftest_check selftest_golden_c
+    selftest_check selftest_golden_d
+    selftest_check selftest_golden_e
+    selftest_check selftest_golden_f
+    selftest_check selftest_console_planted_is_golden_a
+    selftest_check selftest_normalize_is_idempotent
+    selftest_check selftest_array_order_is_irrelevant
+    selftest_check selftest_poisoned_entries_differ_from_golden
+    selftest_check selftest_null_inside_string_is_kept
+    echo "selftest: $SELFTEST_CHECKS controles OK"
+}

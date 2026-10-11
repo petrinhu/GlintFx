@@ -747,6 +747,8 @@ BINDING_FORMS = [
     ("from SIBLING import selftest_main, CHECKS", ["CHECKS", "selftest_main"], 0, "import statements"),
     ("from SIBLING import *", ["*"], 0, "import *"),
     ("from OTHER import *", ["*"], 0, "import *"),
+    ("from . import CHECKS", ["CHECKS"], 0, "import statements"),
+    ("from .raw import *", ["*"], 0, "import *"),
     ("type CHECKS = int", ["CHECKS"], 0, "type statements"),
     ("def f[selftest_t](): pass", ["selftest_t"], 0, "type parameter lists"),
     ("class C[*selftest_u]: pass", ["selftest_u"], 0, "type parameter lists"),
@@ -777,7 +779,7 @@ def selftest_driver_keeps_no_controls():
     layout_wrong = [str(case) for case, want in LAYOUT_CASES if driver_layout_ok(*case) != want]
     check(f"as formas de ligacao da secao 4.2.1 e o veredito: formas={len(BINDING_FORMS)} casos={len(LAYOUT_CASES)}, "
           "erradas: " + (" | ".join(forms_wrong + layout_wrong) or "nenhuma"),
-          len(BINDING_FORMS) == 40 and len(LAYOUT_CASES) == 4 and not forms_wrong and not layout_wrong)
+          len(BINDING_FORMS) == 42 and len(LAYOUT_CASES) == 4 and not forms_wrong and not layout_wrong)
     controls, dispatches = driver_control_bindings(DRIVER_SCRIPT.read_text(encoding="utf-8"), sibling)
     check(f"o driver nao define controles e despacha uma vez (D-W8-137, D-W8-206): controles="
           f"{', '.join(controls) or 'nenhum'} despachos={dispatches}", driver_layout_ok(controls, dispatches))

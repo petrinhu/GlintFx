@@ -8766,3 +8766,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Decisões:** 8 confirmadas, e a D-W8-12 diverge na parte do envio.
   - **Sondas:** a negativa deu rc 0 de primeira; o positivo deu rc 8, nomeando `major` em `sysmacros.h:60`.
   - DIV-T01, DIV-T02 e Q-T01 a Q-T09 foram ao CTO (terceira rodada, `plano-fechamento-w8-r3.md`). Pedi que confira se a Q-T06 (filtro sRGB) toca as decisões do líder de 01/10 sobre sRGB no Windows.
+- **11/10/26 13:04 (main).** O CTO fez a terceira rodada em `/var/tmp/cto-w8/plano-fechamento-w8-r3.md` (md5 ac89839b), com D-W8-288 a D-W8-303. O parecer T0 foi aceito.
+  - **D-W8-288:** destruir ou atualizar uma textura não envia o lote; a liberação fica para o `finish_frame`.
+  - **D-W8-289:** a região é um valor, sem ponteiro.
+  - **D-W8-290 a 299:** decidem as Q-T01 a Q-T09, menos a Q-T06.
+  - **D-W8-300 e 301:** a T2 se parte em duas.
+  - **D-W8-302:** a T1 entra na fila depois da S1 (para ratificação).
+  - **D-W8-303:** errata do parecer, que o main aplica antes da T1.
+  - **Q-T06 levada ao líder** (D-W8-293). As extensões da Khronos PERMITEM converter sRGB depois de filtrar, e por isso a promessa pelo formato é falsa. Opções dadas: testar e avisar, só documentar, ou garantir na própria biblioteca. **Resposta do líder, verbatim: "pesquise as outras libs, comunidade e depois impremente e teste".** O CTO foi mandado pesquisar SDL3, bgfx, Skia/ANGLE, Godot, raylib, LÖVE e os fóruns, decidir com base nisso e escrever a ordem de implementação e teste (`plano-fechamento-w8-r4.md`).
+  - **Fatias fechadas pelos implementadores:**
+    - SG (ea410b00): 6 mutantes mortos. Desvio: os `python3 -I` da ordem falham com `ModuleNotFoundError`, e as provas saíram pelo R2 em contêiner.
+    - D5b-fix6 (63cc4763): o blob tem md5 6068d325, e o O2 dá "olhou 508 de 510", rc 8.
+    - D7: 66a823e1 mais 881d731e, a linha da declaração.
+    O `preci` deu rc 0, 320/320, no 881d731e, que contém as três. Os `preci` de SG e D5b-fix6 nos próprios SHAs deram rc 8 só pela linha herdada da D7.
+  - **Revisões despachadas:** a (b) do lote 7, sobre a D7 em 881d731e, e o lote 8, sobre SG e D5b-fix6 (`/var/tmp/cto-w8/rev-lote8.md`). São 3 agentes vivos.

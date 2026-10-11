@@ -8875,3 +8875,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `WIN-DLL-COPY-RACE` (o CI verde nos Windows é a verificação; o vermelho foi a falha original, e a camada N3 da L-12 dispensa a contagem);
   - `SELFTEST-CHECK-CANARY` (o canário, a CANARY-2 e 2b e a CANARY-3, com o efeito provado nos dois sistemas: Linux pela R2, Windows pelo CI 38173301746).
   - **Pela L-32, o congelamento de escopo CAI** com a DEMO-1 em ✅, e a ordem volta a ser a da tabela. Aviso ao Gus Dragon pela L-37 em seguida.
+- **11/10/26 19:00 (main).** **A S1 foi commitada** (2eafff25, 8 caminhos: vértice, contorno e elipse; `preci` rc 0 antes e depois e sanitizer rc 0). É o primeiro código da biblioteca desde 09/10. A citação `Proved by` de teste futuro saiu do cabeçalho e da cerca; a S3 a devolve. Despachados em paralelo: a revisão N1 da S1 (no máximo 10 mutantes nas linhas mudadas) e a S2a. O snapshot da memória da sessão foi atualizado.

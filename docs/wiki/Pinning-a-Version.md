@@ -60,20 +60,26 @@ section; this page only explains the number, not the whole contract.
 
 ## What to pin, right now
 
-**The first tag exists: `v0.2.0.0`, pushed 05/09/2026.** It is not
-accompanied by a formal GitHub Release yet - checked directly against
-the repository, there is no entry on the
-[releases page](https://github.com/petrinhu/GlintFx/releases) for it,
-so the tag's own message on the commit it marks is the real description
-of what changed, not a release-notes page. Pin to the tag name directly,
-using CMake's `FetchContent`:
+**glintfx has already tagged more than one version - this page does not
+name which one is newest, because that changes with every release and a
+written-down number goes stale.** Find the current, real list yourself,
+from a clone:
+
+```bash
+git tag --list 'v*' --sort=-v:refname
+```
+
+The first line printed is the newest tag; the repository's own
+[Tags page](https://github.com/petrinhu/GlintFx/tags) shows the same list
+without cloning anything. Pin to whichever one you choose, using CMake's
+`FetchContent`:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
   glintfx
   GIT_REPOSITORY https://github.com/petrinhu/GlintFx.git
-  GIT_TAG        v0.2.0.0
+  GIT_TAG        v0.6.1.0  # an example; replace with the tag name you picked above
 )
 FetchContent_MakeAvailable(glintfx)
 
@@ -92,14 +98,24 @@ That prints the exact 40-character commit currently at the tip of
 Once a named tag covers the commit you want, prefer it instead: it
 tells a teammate what was tested without anyone looking up a hash.
 
-**glintfx has already reached this state once, with `v0.2.0.0`: the
-version-number table above tells you exactly what changed getting
-there** (the tag's own message, `git show v0.2.0.0`, has the details;
-`CHANGELOG.md` will too, once it is updated to match - as of this
-writing it still lists everything under `[Unreleased]`, a known gap).
-What has not changed is the pre-1.0 caveat: until `MAJOR` reaches `1`,
-treat every tag, `v0.2.0.0` included, as still allowed to break API,
-ABI or file format at the next one.
+**None of the tags today is accompanied by a formal GitHub Release** -
+checked directly against the repository, there is no entry on the
+[releases page](https://github.com/petrinhu/GlintFx/releases) for any of
+them, so a tag's own message on the commit it marks (`git show <tag>`)
+is part of the real description of what changed, together with
+[`CHANGELOG.md`](https://github.com/petrinhu/GlintFx/blob/main/CHANGELOG.md),
+which has one dated section per tag except `0.4.1.0` through `0.5.2.0`:
+those were published without an entry, as the note in its `[0.6.0.0]`
+section explains. glintfx's very first tag, `v0.2.0.0`, was pushed
+05/09/2026 - the version-number table above tells you what each tag after
+it changed to earn its own bump. What has not changed since is the
+pre-1.0 caveat: until `MAJOR` reaches `1`, treat every tag, however
+recent, as still allowed to break API, ABI (the compiled binary interface
+that programs link against) or file format at the next one.
+
+**On Linux, pick `v0.6.1.0` or newer** if your program draws anything:
+earlier tags from `v0.4.0.0` on show only the first frame of a window
+(see the `[0.6.1.0]` section of `CHANGELOG.md`).
 
 ## See also
 

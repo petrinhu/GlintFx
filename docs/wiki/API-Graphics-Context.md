@@ -44,6 +44,8 @@ call below returns the same `gltfx_rslt<T>` those pages already explain.
 `open_only` means) - a later, disagreeing request is refused with
 `invalid_argument`, naming the option.
 
+**If you pinned a version older than `v0.6.1.0`:** from `v0.4.0.0` through `v0.6.0.0`, on Linux (Wayland), only the first `swap_buffers()` reaches the screen; every later one returns `skipped_hidden`, and with `vsync` (the setting that makes each frame wait for the monitor's refresh) on each of them first waits its full time budget. This happens whether you call `swap_buffers()` yourself or let the [Main Loop](API-Main-Loop) do it. Windows was not affected. `v0.6.1.0` fixes it and changes nothing else; see the `[0.6.1.0]` section of [`CHANGELOG.md`](https://github.com/petrinhu/GlintFx/blob/main/CHANGELOG.md).
+
 ## Options
 
 [`gfx_option.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/platform/gl/gfx_option.hpp) -
@@ -179,5 +181,8 @@ int main() {
 
 - [API Reference: Window and Display](API-Window-and-Display) - opening
   the window a graphics context is built on top of.
+- [API Reference: Main Loop](API-Main-Loop) - the next piece: keeps
+  calling your own code once per frame and presents through this
+  context, including honoring `frame_rate_cap` above.
 - [API Reference: Core](API-Core) - the error-handling pattern used
   throughout this page.

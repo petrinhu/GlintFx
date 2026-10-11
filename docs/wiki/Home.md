@@ -55,15 +55,22 @@ section for what is still being built.
 - **[API Reference: Core](API-Core)** - error handling, versioning, 2D
   math, color and time. Start here: almost everything else builds on the
   error-handling pattern this page explains first.
-- **[API Reference: Window and Display](API-Window-and-Display)** - the
-  one area that is complete and tested on both Linux and Windows today:
-  connecting to the display and opening a real window.
+- **[API Reference: Window and Display](API-Window-and-Display)** -
+  connecting to the display and opening a real window, tested on both
+  Linux and Windows.
 - **[API Reference: Graphics Context](API-Graphics-Context)** - opening
-  an OpenGL 3.3 core context on top of a window, and actually drawing
-  something.
+  an OpenGL 3.3 core context on top of a window, also tested on both
+  Linux and Windows, and actually drawing something.
+- **[API Reference: Main Loop](API-Main-Loop)** - the piece that keeps
+  calling your own code once per frame and presents at whatever cadence
+  the display can sustain. Proven live on both Linux and Windows today,
+  including a real minimized-then-restored window on Windows - the page
+  says exactly which few effects still have no live proof on either
+  system.
 - **[API Reference: Draw 2D](API-Draw-2D)** - filled rectangles and
-  quadrilaterals drawn into a graphics context, in layers, in as few draw
-  calls as the order allows, with one report per frame.
+  quadrilaterals (four-cornered shapes) drawn into a graphics context, in
+  layers, in as few draw calls (one instruction sent to the graphics card
+  each) as the order allows, with one report per frame.
 - **[API Reference: Node View](API-Node-View)** - the one contract from
   the future style engine that is already public and stable: the table
   of callbacks your own UI tree implements so glintfx can inspect it.

@@ -1,12 +1,12 @@
 # API reference: Window and Display
 
-This is the area a consumer touches first: it is the only part of
-glintfx that is complete, tested, and proven to behave the same way on
-Linux and Windows today (see [`docs/window-portability-matrix.md`](https://github.com/petrinhu/GlintFx/blob/main/docs/window-portability-matrix.md)
-for the exact, row-by-row proof). It lets you connect to the display
-server and open a real, visible window - nothing is drawn inside it yet
-(see the main README's ["Status"](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction)
-section for what comes next).
+This is the area a consumer touches first: connecting to the display
+server and opening a real, visible window, tested and proven to behave
+the same way on Linux and Windows today (see [`docs/window-portability-matrix.md`](https://github.com/petrinhu/GlintFx/blob/main/docs/window-portability-matrix.md)
+for the exact, row-by-row proof). A window on its own has nothing drawn
+inside it - see [API Reference: Graphics Context](API-Graphics-Context),
+[API Reference: Main Loop](API-Main-Loop) and [API Reference: Draw 2D](API-Draw-2D)
+for the pieces that build on top of a window to actually draw.
 
 Before reading this page, read [API Reference: Core](API-Core)'s "Error
 handling" section - every fallible function below returns a
@@ -94,15 +94,22 @@ int main() {
 
 ## What is not here yet
 
-Nothing in this window is drawn on - that needs a graphics context (see
-[`docs/gl-loop-portability-matrix.md`](https://github.com/petrinhu/GlintFx/blob/main/docs/gl-loop-portability-matrix.md)
-for exactly how far that part has landed), and there is no keyboard,
-mouse or gamepad input delivery yet. Do not write code that assumes
-either exists.
+Nothing in this window is drawn on by the code on this page alone - that
+needs a graphics context and, to keep drawing every frame, a main loop
+(both exist and are documented, see "See also" below). There is still no
+keyboard, mouse or gamepad input delivery anywhere in glintfx. Do not
+write code that assumes input delivery exists.
 
 ## See also
 
 - [API Reference: Core](API-Core) - the error-handling pattern and the
   math types used throughout this page.
+- [API Reference: Graphics Context](API-Graphics-Context) - the next
+  piece, opened on top of the window this page documents.
+- [API Reference: Main Loop](API-Main-Loop) - draws every frame, driven
+  by a display, window and graphics context together.
+- [API Reference: Draw 2D](API-Draw-2D) - draws filled rectangles and
+  quadrilaterals inside that window.
 - [Getting Started](Getting-Started) - the full build-from-source
-  walkthrough this example is drawn from.
+  walkthrough this example is drawn from, continued through opening a
+  graphics context and running the loop.

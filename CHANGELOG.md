@@ -212,7 +212,9 @@ The first tagged version of glintfx. It marks the point where all five supported
 
 - glintfx is pre-1.0: the public surface can still change at any time, and any compatibility promise made today only holds within the same second version component.
 
-[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.4.0.0...HEAD
+[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.6.1.0...HEAD
+[0.6.1.0]: https://github.com/petrinhu/GlintFx/compare/v0.6.0.0...v0.6.1.0
+[0.6.0.0]: https://github.com/petrinhu/GlintFx/compare/v0.5.2.0...v0.6.0.0
 [0.4.0.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.8.0...v0.4.0.0
 [0.3.8.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.7.0...v0.3.8.0
 [0.3.7.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.6.0...v0.3.7.0

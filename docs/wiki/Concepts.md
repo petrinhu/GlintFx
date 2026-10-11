@@ -16,6 +16,37 @@ someone else's program. (Its test programs, and a future demo, are
 exceptions built only to prove the library itself works - they are not
 "the product".)
 
+## The shape of a glintfx program
+
+Every one of glintfx's pieces builds on the one before it, in a fixed
+order - knowing that order makes the API reference pages easier to follow,
+since each one assumes you already have what the previous one opens:
+
+1. **Display** - the one connection to the display server (Wayland on
+   Linux, the equivalent on Windows). Everything else needs one of these
+   open first.
+2. **Window** - a real, visible window, opened against that display.
+3. **Graphics context** - the connection to the graphics card (through
+   OpenGL), opened on top of that window, which is what actually lets a
+   program draw.
+4. **Main loop** - opened over all three above. It keeps calling your own
+   code, once per frame, for as long as the program runs: pumping the
+   system's events, telling you whether this frame should draw, and
+   presenting what you drew.
+5. **2D renderer** - opened over a graphics context. It draws filled
+   rectangles and quadrilaterals (shapes with four corners) inside the
+   frames the main loop asks you to draw.
+
+Each of those pieces is documented on its own wiki page, in this same
+order: [Window and Display](API-Window-and-Display), [Graphics Context](API-Graphics-Context),
+[Main Loop](API-Main-Loop), [Draw 2D](API-Draw-2D). What still has no
+public API, and so no page here, is the rest of what a finished program
+would need: keyboard, mouse and gamepad input, drawing images and text,
+sound, and decoding image, font and sound files. See the main README's
+["Status"](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction)
+section for the current, dated list of what exists versus what is only
+planned.
+
 ## Compiling, linking, and "building"
 
 Computers do not run the C++ source code (`.cpp`/`.hpp` files) you or a

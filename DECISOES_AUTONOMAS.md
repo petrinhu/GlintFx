@@ -8657,3 +8657,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Corrida G** (`descartavel/d6-g` = `03252d27`, a ponta com D6-green, D3-FIX3, PROBE-Y e RUN-DIR): CI 38140776246. Previsão: first_window Passed nos 4 Windows, com `probes=12 failed=0` nas duas capturas.
 - **Corrida H** (`d6-h`): CI 38140778624, com a V-12 refeita: os três trabalhos com DLL falham ao iniciar, e o estático passa.
 - O `ls-remote` confere os dois ramos. O preparo da **F** (V-3 sobre `03252d27`) foi despachado; ela sai quando G ou H fecharem (no máximo 2 por vez).
+
+- **11/10/26 10:10 (main).** DOCS-0610: a revisão liberou o push em 658a94d9 com duas ressalvas. O commit 6 (3bdc60e2) devolveu "Ubuntu 24" à lista de planejadas (L-04). A conciliação C-2 do 0.5.1.0 fica para o ciclo seguinte. Ramo `docs-0610` empurrado (`git ls-remote` = 3bdc60e2) e PR #16 aberto contra `main`; o CI do PR está na fila. A wiki só sobe depois do merge.
+- **11/10/26 10:10 (main).** Revisão do lote 5 (relatório em `/var/tmp/cto-w8/rev-lote5.md`):
+  - D3-FIX3 e EXAMPLE-PROBE-Y aprovadas;
+  - TEXT aprovada, com um gêmeo pendente em `tests/parity/present_empty_frame_parity_test.cpp:48-49`;
+  - D5b-fix3 com a guarda incompleta: 4 mutantes de classe 1 sobreviveram (M-NODIG, M-NOLET, M-NOCOLON, M-LITSPLIT).
+  Os achados foram ao CTO (decisão em `/var/tmp/cto-w8/decisao-lote5.md`, IDs a partir de D-W8-236).
+  O revisor disse que não achou o watchcode. O main conferiu às 10:09 que o vigia estava armado ("VIGIANDO por 1 sessao").

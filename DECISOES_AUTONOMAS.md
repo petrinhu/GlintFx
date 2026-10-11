@@ -8717,3 +8717,25 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D-W8-208** (registrada pela D-W8-247; texto de origem em `/var/tmp/cto-w8/plano-d6red-fix.md:44-50`). O conserto WL-FRAME-ORDER pede o aviso de quadro (`wl_surface_frame`) ANTES do `eglSwapBuffers()`, que é o commit da superfície. O `arm_pending()` fica depois de um swap bem-sucedido. Commit `b3861f80`, publicado na v0.6.1.0.
 - **11/10/26 11:30 (main).** O CI do ramo `onda-w8` em 56892b46 (38145668922, disparado à mão) ficou verde: a ponta com a D6-green fechada, o gêmeo do TEXT, a D5b-fix4 e a `main` com a documentação. Este verde ainda não é o CI-VERDE-W8, porque faltam a D7, a D5b-fix5 e os itens R2D e QA da onda.
 - **11/10/26 11:35 (main).** A D5b-fix5 foi commitada (73d3ed2f) e reverificada pelo main: o blob `.cmake` tem md5 63254fda, igual ao previsto no plano, e o diff é 61+/6-. O implementador relatou `varridos=510`, 19 controles OK, os 15 mutantes conforme a tabela e `preci.rc` 0. A revisão independente foi despachada, com pelo menos 2 mutantes próprios FORA da classe varrida, e vai em `/var/tmp/cto-w8/rev-lote7.md`. Achado do implementador, que o revisor classifica: o `preci` roda autotestes `win_vm_lab_*` no hospedeiro. São 3 agentes vivos (D7, CTO do fechamento e o revisor).
+- **11/10/26 11:38 (main).** O CTO escreveu o plano de fechamento da W8 em `/var/tmp/cto-w8/plano-fechamento-w8.md` (md5 647a3e35), com D-W8-248 a D-W8-262. O main conferiu o plano.
+  - **Critério de fechamento:** o de `plano-w8.md:103-118`, mais o v2 e o v3, sem corte, do CTO ou do líder. A **D-W8-248** só endurece:
+    - o piso passa a 17 linhas W8;
+    - a DEMO-1 só fecha pelos 19 critérios;
+    - os 4 pareceres de API entram no apêndice;
+    - a subida para 0.7.0.0 entra no F1;
+    - entram também a lista de ratificação e a verificação profunda.
+  - **D-W8-249:** `WL-FRAME-ORDER-TEXT` (🔍), `WL-FRAME-ORDER-ARM-TEST` (⏳) e `SELFTEST-MAIN-DUP-GATE` (⏳) saíram do INBOX e viraram linhas W8, depois da DEMO-1. Isso foi feito neste commit, e `grep -nE '\| W8 *\|' TODO.md` dá 17 linhas.
+  - **D-W8-250 a 257:**
+    - um dono por vez de `tests/CMakeLists.txt`;
+    - revisão de API é desenho e pode começar já (L-32);
+    - pela pesquisa da L-43 (SDL 3.4), o modo "pixel art" vira linha da W9-B;
+    - a R0 recebe o pedido numa struct;
+    - G2 e G4 abrem com sonda;
+    - a G1 começa pela revisão L-17;
+    - a marca é só `v0.7.0.0`;
+    - a verificação profunda vem antes do CI-VERDE-W8.
+  - **D-W8-258 e 261 (para o líder, no momento certo):** a autorização da GeForce (G4), só depois do alerta 5x, e a pergunta condicional do kit da NVIDIA.
+  - **D-W8-262:** a ratificação em bloco no fechamento.
+  - **Despachados:** a S0 (revisão de API das formas, só em `/var/tmp/cto-w8/s0/`) e a revisão do lote 7, que já estava com a parte (a) e agora tem também a (c), `CAPTURE-DRIVER-WIRING-UNTESTED`; a parte (b) espera o commit da D7.
+  - **Segunda rodada do CTO pedida:** as ordens R2D, G1 e G2 e a pesquisa da NVIDIA.
+  - **Agentes vivos: 4** (D7, revisor do lote 7, S0 e CTO).

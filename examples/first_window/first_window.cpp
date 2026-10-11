@@ -69,8 +69,8 @@ constexpr double k_square_pixels_per_second = 120.0;
 // on top.
 void draw_scene(glintfx::gltfx_renderer_2d &renderer, double square_x) {
     renderer.begin_frame(glintfx::gltfx_frame_2d_desc{.clear_color = k_background});
-    renderer.fill_rect({{160.0, 120.0}, {200.0, 150.0}}, {0.0F, 0.0F, 1.0F, 1.0F}, {1});
-    renderer.fill_rect({{40.0, 40.0}, {200.0, 150.0}}, {1.0F, 0.0F, 0.0F, 1.0F}, {0});
+    renderer.fill_rect({{160.0, 120.0}, {200.0, 150.0}}, {0.0F, 0.0F, 1.0F, 1.0F}, {0});
+    renderer.fill_rect({{40.0, 40.0}, {200.0, 150.0}}, {1.0F, 0.0F, 0.0F, 1.0F}, {1});
     renderer.fill_rect({{300.0, 200.0}, {200.0, 150.0}}, {1.0F, 1.0F, 1.0F, 0.5F}, {2});
     renderer.fill_rect({{square_x, 400.0}, {32.0, 32.0}}, {0.0F, 1.0F, 0.0F, 1.0F}, {3});
 }

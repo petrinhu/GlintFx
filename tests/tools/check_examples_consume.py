@@ -175,14 +175,14 @@ def selftest_commands():
     args = fake_args("/r")
     prefix, build_dir = Path("/r/work/prefix"), Path("/r/work/build")
     check("a instalacao vai para o prefixo proprio, na configuracao pedida",
-          install_command(args, prefix) == ["CMAKE", "--install", "B", "--prefix", "/r/work/prefix", "--config",
+          install_command(args, prefix) == ["CMAKE", "--install", "B", "--prefix", str(prefix), "--config",
                                             "Release"])
     configure = configure_command(args, prefix, build_dir)
     check("a configuracao le examples/ sozinho, com CMAKE_PREFIX_PATH so no prefixo e o mesmo compilador",
-          configure[:3] == ["CMAKE", "-S", str(Path("/r") / "examples")] and "-DCMAKE_PREFIX_PATH=/r/work/prefix"
+          configure[:3] == ["CMAKE", "-S", str(Path("/r") / "examples")] and f"-DCMAKE_PREFIX_PATH={prefix}"
           in configure and "-DCMAKE_CXX_COMPILER=CXX" in configure and configure[configure.index("-G") + 1] == "GEN")
     check("a construcao usa o diretorio proprio e a configuracao pedida",
-          build_command(args, build_dir) == ["CMAKE", "--build", "/r/work/build", "--config", "Release"])
+          build_command(args, build_dir) == ["CMAKE", "--build", str(build_dir), "--config", "Release"])
 
 
 def selftest_counting():

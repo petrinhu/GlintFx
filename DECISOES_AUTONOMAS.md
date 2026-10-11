@@ -8639,3 +8639,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **EXAMPLE-RUN-DIR** (D-W8-226) despachada ao mesmo implementador; o ramo `d6-h` fica local, e o push é do main.
 - **Revisão do lote 5** despachada a um haiku distinto (D5b-fix3, TEXT, D3-FIX3 e PROBE-Y): `rev-lote5.md`.
 - **Vivos:** o redator do commit 4 da documentação, o implementador da RUN-DIR e o revisor do lote 5 (3).
+
+### 11/10/2026 09:49:43 - EXAMPLE-RUN-DIR commitada; commit 4 da documentação; segunda rodada da revisão
+
+- **EXAMPLE-RUN-DIR** (`03252d27`): o anexo foi aplicado como DELTA sobre o HEAD, decisão do main. Copiar o arquivo inteiro teria desfeito o `4b2b72a2`, e o implementador parou e perguntou, como devia.
+  - O main conferiu o diff: só a linha `WORKING_DIRECTORY "$<TARGET_FILE_DIR:first_window>"` e 4 linhas de comentário.
+  - A R5 roda agora.
+- **Documentação:**
+  - commit 4 (`056e73f4`) corrige os 11 achados; a wiki local está em `5c09dd36` (10 páginas);
+  - portões verdes e links 121/121.
+  - **A medição derrubou um achado do revisor:** a marca v0.4.0.0 aponta para `14427bc6`, o mesmo commit do run 34975391524. O main conferiu com `rev-parse`.
+  - A segunda rodada da revisão (commits 2, 3 e 4 e a wiki) foi despachada ao mesmo revisor.

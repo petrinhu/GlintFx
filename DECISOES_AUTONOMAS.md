@@ -8786,3 +8786,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-307:** a mistura em shader fica registrada como conserto pronto, para o caso de aparecer um vermelho real.
   - **Implementação:** entra na T2b, com os valores fixados antes (186,7 e 188,3 contra cerca de 127) e 4 mutantes de morte obrigatória, depois da DEMO-1 ✅, da T1 e da T2a.
   - Vai à ratificação do líder no fechamento.
+- **11/10/26 13:09 (main).** Revisão (b) do lote 7: **a D7 (66a823e1 + 881d731e) foi APROVADA, com 2 IMPORTANTES e 1 COSMÉTICO.**
+  - P1 e P2 verdes; V1 e V2 vermelhos, como previsto; MC1 a MC3 mortos; E1 e E2 aplicadas.
+  - **B1:** o mutante M-A (`check_examples_consume.py:106`, `built=len(names)`) sobrevive. Falta o caso "build com rc 0 e sem executável".
+  - **B2:** `tests/CMakeLists.txt` tem 6981 linhas (L-17).
+  - **B3:** o motivo da declaração diz "Ninja" e omite o install.
+  - Os três foram ao CTO (`plano-fechamento-w8-r5.md`), junto com a pergunta de se a DEMO-1 vira ✅ antes ou depois de uma `D7-fix1`.
+  - O revisor não conseguiu apagar ~21 MB de árvores de build criadas pelo root do contêiner (`/var/tmp/cto-w8/rev-lote7/run/b/out-*/build`), porque está sem sudo (L-51). Fica para a limpeza por contêiner.
+  - **Despachados:** R0 (resolvedor de imagem) e H0 (luz e sombra), revisões de API só no papel, depois de a T0 ser aceita. São 4 agentes vivos (revisor do lote 8, R0, H0 e CTO).

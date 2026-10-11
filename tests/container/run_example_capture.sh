@@ -9,7 +9,7 @@
 #   1. the example's exit code (0; timeout's 124 is the overrun, the driver's exit 3);
 #   2. tests/tools/raw_to_png.py: exactly ONE image, and its size is 640x480 (D-W8-72) BEFORE any probe;
 #   3. tests/tools/image_probe.py over that image, twice: the 12 static probes (tests/fixtures/first_window_probes.txt)
-#      and the 5 edge probes of the 30th drawn frame (tests/fixtures/first_window_probes_frames30.txt), each with
+#      and the 9 edge probes of the 30th drawn frame (tests/fixtures/first_window_probes_frames30.txt), each with
 #      exactly that many probes reported and none failed.
 # Output under <out-directory>/first_window/ (D-W8-90). The verdict line is always printed.
 #
@@ -43,7 +43,7 @@ readonly EXAMPLE_KILL_GRACE_SECONDS=5  # timeout -k: an example that ignores TER
 readonly EXIT_OVERRUN=3
 readonly CAPTURE_SIZE="640x480"
 readonly STATIC_PROBE_COUNT=12
-readonly FRAMES_PROBE_COUNT=5
+readonly FRAMES_PROBE_COUNT=9
 readonly STATIC_PROBES_FILE="$REPO_ROOT/tests/fixtures/first_window_probes.txt"
 readonly FRAMES_PROBES_FILE="$REPO_ROOT/tests/fixtures/first_window_probes_frames30.txt"
 

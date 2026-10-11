@@ -78,13 +78,13 @@ write_probes() {
 }
 
 # judge_setup: a fresh JUDGE_ROOT with the good frame under OUT_DIR/first_window/frames, a static file of 12 good probes
-# and a frames30 file of 5 good probes.
+# and a frames30 file of 9 good probes.
 judge_setup() {
     JUDGE_ROOT="$(mktemp -d)"
     OUT_DIR="$JUDGE_ROOT/out"
     write_good_frame "$OUT_DIR/first_window/frames"
     write_probes "$JUDGE_ROOT/static.txt" 12 "0 0 010203FF"
-    write_probes "$JUDGE_ROOT/frames30.txt" 5 "1 1 0D0E0FFF"
+    write_probes "$JUDGE_ROOT/frames30.txt" 9 "1 1 0D0E0FFF"
 }
 
 # judge_on <size>: judge_example over JUDGE_ROOT's files, quiet; removes JUDGE_ROOT and returns the judge's status.
@@ -192,7 +192,7 @@ selftest_judge_rejects_a_wrong_probe_count() {
 
 selftest_judge_rejects_a_failed_probe() {
     judge_setup
-    write_probes "$JUDGE_ROOT/frames30.txt" 5 "1 1 0D0E10FF"
+    write_probes "$JUDGE_ROOT/frames30.txt" 9 "1 1 0D0E10FF"
     ! judge_on 2x2
 }
 

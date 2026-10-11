@@ -8698,3 +8698,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **A D6-green está FECHADA:** V-3, V-5, V-13a, V-13b, M1g, a V-4 e a V-14 refeitas, as corridas F, G e H e o QA.
   - **Próximo:** quando a revisão do lote 6 sair, empurrar `onda-w8` (D-W8-192), disparar o CI no ramo e partir para a D7.
   - **Apelido `fedora:44`:** a remoção espera o revisor do lote 6, que pode estar usando as imagens locais. Aviso registrado: o `Containerfile` ainda diz `FROM fedora:44` (CONTAINERFILE-FEDORA-PIN), e sem o apelido uma montagem local nova exigiria `docker pull`, que está proibido. Isso vai ao CTO antes de remover.
+- **11/10/26 11:04 (main).** Revisão do lote 6 (`/var/tmp/cto-w8/rev-lote6.md`):
+  - **O gêmeo do TEXT (5acba5a4) foi APROVADO.** O contador dá `achados=0` no HEAD e 1 no pai.
+  - **A D5b-fix4 (5bdb994a) foi APROVADA na implementação.** A tabela de 14 foi reproduzida, com o vermelho nos casos 14 e 15. Mas sobreviveram mutantes próprios do revisor: P-DOT, P-DEL, as seis bordas de faixa, P-BRACKET, P-CONCAT3 e P-VARS1LINE.
+  - **É a terceira volta seguida da mesma trava** (fix3, fix4 e agora). Pela L-42, o CTO foi acionado com pesquisa na web obrigatória antes de uma nova tentativa, e com a hipótese de enumerar os 128 bytes ASCII em vez de amostras à mão (L-17 global). Decisão em `/var/tmp/cto-w8/decisao-lote6.md`.
+  - O CTO também decide a correção de texto do item `SONDA-OCULTA-PUNE-JANELA-VISIVEL` (TODO.md:284), o destino do apelido `fedora:44` e se a D7 corre em paralelo.
+  - **`onda-w8` empurrado**, com a D6-green fechada (D-W8-192): f2dbfafe..56892b46, 65 commits, e o `ls-remote` confere. O CI foi disparado no ramo: 38145668922.

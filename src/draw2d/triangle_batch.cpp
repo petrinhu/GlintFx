@@ -47,7 +47,7 @@ bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_
     // Straight linear color in, premultiplied color stored (the one place it happens).
     const std::size_t first_index = index_store.size;
     write_quad(corners, glintfx::gltfx_rgba_premultiplied(color));
-    record_run(state, first_index, starts_a_run);
+    record_run(state, first_index, k_quad_indices, starts_a_run);
     return true;
 }
 
@@ -76,13 +76,68 @@ void triangle_batch::write_quad(const quad_corners_pixel &corners,
 }
 
 // The piece either opens a run of its own or extends the last one.
-void triangle_batch::record_run(batch_state state, std::size_t first_index,
+void triangle_batch::record_run(batch_state state, std::size_t first_index, std::size_t index_count,
                                 bool starts_a_run) noexcept {
     if (starts_a_run) {
-        run_store.data[run_store.size] = draw_run{state, first_index, k_quad_indices};
+        run_store.data[run_store.size] = draw_run{state, first_index, index_count};
         ++run_store.size;
     } else {
-        run_store.data[run_store.size - 1].index_count += k_quad_indices;
+        run_store.data[run_store.size - 1].index_count += index_count;
+    }
+}
+
+// A triangle piece (S2a): room first, then the vertices and the indices, then its run. The indices
+// are shifted by the base of the piece, so the batch keeps one index space for every kind of piece.
+// Validation of the indices (count, range) is S2b's; this unit takes what it is given.
+bool triangle_batch::add_triangles(std::span<const colored_pixel_vertex> vertices,
+                                   std::span<const std::uint32_t> local_indices,
+                                   batch_state state) noexcept {
+    if (vertices.empty()) {
+        return true; // nothing to draw: a piece with no vertices adds nothing, and is not dropped
+    }
+    const std::size_t index_count = local_indices.empty() ? vertices.size() : local_indices.size();
+    const bool starts_a_run =
+        run_store.size == 0 || !(run_store.data[run_store.size - 1].state == state);
+    if (!make_room_for_triangles(vertices.size(), index_count, starts_a_run)) {
+        ++dropped;
+        return false;
+    }
+    const std::size_t first_index = index_store.size;
+    write_triangles(vertices, local_indices);
+    record_run(state, first_index, index_count, starts_a_run);
+    return true;
+}
+
+// The vertex store, then the index store, then the run store: the order the growth is counted in.
+bool triangle_batch::make_room_for_triangles(std::size_t vertex_count, std::size_t index_count,
+                                             bool starts_a_run) noexcept {
+    return ensure_room<batch_vertex>(allocator, vertex_store, vertex_count) &&
+           ensure_room<std::uint32_t>(allocator, index_store, index_count) &&
+           (!starts_a_run || ensure_room<draw_run>(allocator, run_store, 1));
+}
+
+// Called only with the room made. Each vertex keeps its position and gets its color premultiplied
+// (one by one, so a half-transparent vertex never grows a dark fringe); the texture coordinate of a
+// triangle is inert (0).
+void triangle_batch::write_triangles(std::span<const colored_pixel_vertex> vertices,
+                                     std::span<const std::uint32_t> local_indices) noexcept {
+    const auto base = static_cast<std::uint32_t>(vertex_store.size);
+    for (const colored_pixel_vertex &vertex : vertices) {
+        const glintfx::gltfx_rgba premultiplied = glintfx::gltfx_rgba_premultiplied(vertex.color);
+        vertex_store.data[vertex_store.size++] = batch_vertex{vertex.position.x,
+                                                              vertex.position.y,
+                                                              0.0F,
+                                                              0.0F,
+                                                              premultiplied.red,
+                                                              premultiplied.green,
+                                                              premultiplied.blue,
+                                                              premultiplied.alpha};
+    }
+    const std::size_t count = local_indices.empty() ? vertices.size() : local_indices.size();
+    for (std::size_t i = 0; i < count; ++i) {
+        const std::uint32_t local =
+            local_indices.empty() ? static_cast<std::uint32_t>(i) : local_indices[i];
+        index_store.data[index_store.size++] = base + local;
     }
 }
 

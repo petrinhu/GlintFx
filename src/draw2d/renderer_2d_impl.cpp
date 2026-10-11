@@ -190,14 +190,21 @@ void renderer_2d_impl::drop_pending_without_context() noexcept {
     pieces.clear();
 }
 
+bool renderer_2d_impl::add_piece_to_batch(const draw2d::pending_piece &piece) noexcept {
+    const draw2d::batch_state state{program.program, 0, 0};
+    if (piece.kind == draw2d::piece_kind::triangles) {
+        return batch.add_triangles(pieces.triangle_vertices(piece), pieces.triangle_indices(piece),
+                                   state);
+    }
+    return batch.add_quad(piece.corners, piece.color, state);
+}
+
 std::size_t renderer_2d_impl::batch_pending_in_paint_order() noexcept {
     // Paint order: (layer, submission). In place, allocates nothing, cannot fail (D-B4-2).
     pieces.sort();
     std::size_t added = 0;
     for (std::size_t i = 0; i < pieces.size(); ++i) {
-        const draw2d::pending_piece &piece = pieces.painted(i);
-        if (batch.add_quad(piece.corners, piece.color,
-                           draw2d::batch_state{program.program, 0, 0})) {
+        if (add_piece_to_batch(pieces.painted(i))) {
             ++added;
         } else {
             tally.piece_dropped_out_of_memory();

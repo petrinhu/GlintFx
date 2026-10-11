@@ -8,6 +8,7 @@
 #include <glintfx/core/color.hpp>
 
 #include "draw2d/piece_list.hpp"
+#include "draw2d/triangle_batch.hpp"
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
@@ -36,7 +37,9 @@
 using glintfx::gltfx_rgba;
 using glintfx::gltfx_vec2_screen;
 using glintfx::draw2d::batch_allocator;
+using glintfx::draw2d::colored_pixel_vertex;
 using glintfx::draw2d::default_batch_allocator;
+using glintfx::draw2d::piece_kind;
 using glintfx::draw2d::piece_list;
 using glintfx::draw2d::quad_corners_pixel;
 
@@ -251,4 +254,94 @@ GLINTFX_TEST(piece_list_the_paint_order_does_not_depend_on_memory_after_the_rese
     GLINTFX_CHECK_EQ(g_armed.calls, calls_before_sort); // the sort called the allocator no more
     // layer 0: 1,4,8; layer 1: 2,5,6; layer 2: 0,3,7 - each in submission order
     GLINTFX_CHECK((paint_order(list) == std::vector<int>{1, 4, 8, 2, 5, 6, 0, 3, 7}));
+}
+
+// S2a: a TRIANGLE piece (its vertices in pixels, a color each, and local indices or none) takes
+// its place in the paint order of quads: same layer, same order of submission.
+namespace {
+
+[[nodiscard]] colored_pixel_vertex vertex_at(float x, float y) {
+    return colored_pixel_vertex{gltfx_vec2_screen{x, y}, k_red};
+}
+
+// Three vertices whose x is `marker`, `marker + 1`, `marker + 1`.
+[[nodiscard]] std::array<colored_pixel_vertex, 3> triangle_marked(float marker) {
+    return {vertex_at(marker, 0.0F), vertex_at(marker + 1.0F, 0.0F),
+            vertex_at(marker + 1.0F, 1.0F)};
+}
+
+// The marker of a piece: the x of its first corner (quad) or of its first vertex (triangles).
+[[nodiscard]] int marker_of(const piece_list &list, std::size_t position) {
+    const auto &piece = list.painted(position);
+    if (piece.kind == piece_kind::triangles) {
+        return static_cast<int>(list.triangle_vertices(piece)[0].position.x);
+    }
+    return static_cast<int>(piece.corners[0].x);
+}
+
+[[nodiscard]] std::vector<int> paint_markers(const piece_list &list) {
+    std::vector<int> order;
+    order.reserve(list.size());
+    for (std::size_t i = 0; i < list.size(); ++i) {
+        order.push_back(marker_of(list, i));
+    }
+    return order;
+}
+
+} // namespace
+
+// Q1 (layer 0), T1 (layer 0, 3 vertices), Q2 (layer 0): painted Q1, T1, Q2, submissions 0, 1, 2.
+GLINTFX_TEST(piece_list_triangle_takes_its_place_in_the_quad_order) {
+    piece_list list;
+    const auto t1 = triangle_marked(20.0F);
+    GLINTFX_CHECK(list.add(marked(10), k_red, 0));
+    GLINTFX_CHECK(list.add_triangles(t1, {}, 0));
+    GLINTFX_CHECK(list.add(marked(30), k_red, 0));
+    list.sort();
+    GLINTFX_CHECK((paint_markers(list) == std::vector<int>{10, 20, 30}));
+    GLINTFX_CHECK_EQ(list.painted(0).submission, std::uint32_t{0});
+    GLINTFX_CHECK_EQ(list.painted(1).submission, std::uint32_t{1});
+    GLINTFX_CHECK_EQ(list.painted(2).submission, std::uint32_t{2});
+}
+
+// T1 on layer 1, submitted first; then Q1 on layer 0: painted Q1, T1.
+GLINTFX_TEST(piece_list_triangle_on_a_higher_layer_is_painted_after_the_quad_below) {
+    piece_list list;
+    const auto t1 = triangle_marked(20.0F);
+    GLINTFX_CHECK(list.add_triangles(t1, {}, 1));
+    GLINTFX_CHECK(list.add(marked(10), k_red, 0));
+    list.sort();
+    GLINTFX_CHECK((paint_markers(list) == std::vector<int>{10, 20}));
+}
+
+// Q1 (layer 0), T1 (layer 1), Q2 (layer 0): the triangle breaks the "one layer" shortcut, so the
+// sort must run: painted Q1, Q2, T1. A list that forgot the layer of a triangle keeps the
+// submission order (Q1, T1, Q2) and fails here.
+GLINTFX_TEST(piece_list_triangle_on_another_layer_breaks_the_one_layer_shortcut) {
+    piece_list list;
+    const auto t1 = triangle_marked(20.0F);
+    GLINTFX_CHECK(list.add(marked(10), k_red, 0));
+    GLINTFX_CHECK(list.add_triangles(t1, {}, 1));
+    GLINTFX_CHECK(list.add(marked(30), k_red, 0));
+    list.sort();
+    GLINTFX_CHECK((paint_markers(list) == std::vector<int>{10, 30, 20}));
+}
+
+// The piece COPIES its vertices and indices: the caller overwrites its own arrays after the add,
+// and the list keeps the values submitted. The expected values are the literals written here.
+GLINTFX_TEST(piece_list_triangle_piece_copies_its_vertices_and_indices) {
+    piece_list list;
+    std::array<colored_pixel_vertex, 3> source = triangle_marked(20.0F);
+    std::array<std::uint32_t, 3> source_indices{0U, 1U, 2U};
+    GLINTFX_CHECK(list.add_triangles(source, source_indices, 0));
+    source = triangle_marked(99.0F);
+    source_indices = {2U, 1U, 0U};
+    const auto &piece = list.painted(0);
+    const auto stored = list.triangle_vertices(piece);
+    GLINTFX_CHECK_EQ(stored.size(), std::size_t{3});
+    GLINTFX_CHECK(stored[0].position.x == 20.0F && stored[0].position.y == 0.0F);
+    GLINTFX_CHECK(stored[1].position.x == 21.0F && stored[2].position.y == 1.0F);
+    const auto indices = list.triangle_indices(piece);
+    GLINTFX_CHECK_EQ(indices.size(), std::size_t{3});
+    GLINTFX_CHECK(indices[0] == 0U && indices[1] == 1U && indices[2] == 2U);
 }

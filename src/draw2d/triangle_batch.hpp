@@ -6,6 +6,7 @@
 #include <span>
 
 #include <glintfx/core/color.hpp>
+#include <glintfx/core/vec2.hpp>
 
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
@@ -66,6 +67,14 @@ struct batch_state {
            first.blend == second.blend;
 }
 
+// One vertex of a TRIANGLE piece (S2a): its position in PIXELS and its color, LINEAR and straight
+// (add_triangles() premultiplies it, the same as add_quad()). The input of add_triangles() and of
+// the triangle pieces of piece_list.
+struct colored_pixel_vertex {
+    gltfx_vec2_screen position{};
+    glintfx::gltfx_rgba color{};
+};
+
 // One draw call: `index_count` indices starting at `first_index`, all with `state`.
 struct draw_run {
     batch_state state;
@@ -88,6 +97,14 @@ class triangle_batch {
     [[nodiscard]] bool add_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                                 batch_state state) noexcept;
 
+    // Adds one TRIANGLE piece (S2a): `vertices` in pixels with a color each, and `local_indices`
+    // into them (0..n-1). NO indices means 0..n-1 in order. The same atomicity as add_quad(): every
+    // buffer the piece needs grows BEFORE anything is written. True when added; false when memory
+    // ran out, with the batch unchanged and the piece counted as dropped.
+    [[nodiscard]] bool add_triangles(std::span<const colored_pixel_vertex> vertices,
+                                     std::span<const std::uint32_t> local_indices,
+                                     batch_state state) noexcept;
+
     // Makes room, in one go, for `pieces` MORE pieces (4 vertices and 6 indices each, plus a
     // run each, the worst case), so the fill that follows allocates nothing: what the public
     // `reserve_pieces` hint asks for at open(). True when the room is there; false when memory ran
@@ -107,7 +124,13 @@ class triangle_batch {
   private:
     // add_quad() in two steps (D-B7-1): the vertices and indices of one piece, and its run.
     void write_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba premultiplied) noexcept;
-    void record_run(batch_state state, std::size_t first_index, bool starts_a_run) noexcept;
+    // The triangles of one piece (S2a): the vertices and the indices, shifted by the base.
+    void write_triangles(std::span<const colored_pixel_vertex> vertices,
+                         std::span<const std::uint32_t> local_indices) noexcept;
+    [[nodiscard]] bool make_room_for_triangles(std::size_t vertex_count, std::size_t index_count,
+                                               bool starts_a_run) noexcept;
+    void record_run(batch_state state, std::size_t first_index, std::size_t index_count,
+                    bool starts_a_run) noexcept;
 
     batch_allocator allocator;
     pod_buffer<batch_vertex> vertex_store;

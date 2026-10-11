@@ -99,6 +99,9 @@ struct renderer_2d_impl {
     // graphics side.
     void drop_pending_without_context() noexcept;
     [[nodiscard]] std::size_t batch_pending_in_paint_order() noexcept;
+    // One pending piece into the batch: a quad through add_quad(), a triangle piece (S2a) through
+    // add_triangles(). False when memory ran out.
+    [[nodiscard]] bool add_piece_to_batch(const draw2d::pending_piece &piece) noexcept;
     [[nodiscard]] bool upload_and_draw_batch() noexcept;
     void settle_piece_counts(std::size_t added, bool drawn) noexcept;
     void remember_error(const gltfx_err &error) noexcept;

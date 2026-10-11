@@ -503,3 +503,14 @@ GLINTFX_TEST(triangle_batch_triangle_vertices_are_copied_not_referenced) {
     GLINTFX_CHECK(stored[1].x == 3.0F && stored[2].y == 4.0F);
     GLINTFX_CHECK(stored[2].r == 1.0F && stored[2].a == 1.0F);
 }
+
+// S2a-fix1: a run OPENED by a triangle piece counts the indices it was given, not six.
+// The batch starts with the triangle, so the run is opened (not extended) by it.
+GLINTFX_TEST(triangle_batch_a_run_opened_by_a_triangle_counts_its_given_indices) {
+    triangle_batch batch;
+    const auto tri = triangle_at(0.0F, 0.0F, k_white);
+    const std::array<std::uint32_t, 3> local{0U, 1U, 2U};
+    GLINTFX_CHECK(batch.add_triangles(tri, local, k_state_a));
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(batch.runs()[0].index_count, std::size_t{3});
+}

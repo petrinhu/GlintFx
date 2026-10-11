@@ -550,6 +550,7 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 - **`WL-FRAME-ORDER-TEXT`: dez textos que ainda descrevem a causa antiga do congelamento, em 6 arquivos; absorve `WL-FRAME-ORDER-TWINS`.** Plano e ordem: `/var/tmp/cto-w8/plano-wlframe-acomp.md` §6. Sem pontuar.
 - **`MEASURED-EXC-POS-WLFRAME`: rever, com os dados por sistema, as exceções de medição que dependiam do aviso de quadro (`tests/measured_exceptions.txt` :135 a :139, :193, :197 e :200).** Linha sem divergência sai, com a cascata das que dizem "mesmo motivo". Origem: `plano-wlframe-acomp.md` §7. Sem pontuar.
 - **`WL-FRAME-ORDER-COMMIT-ID`: o commit `b3861f80` (WL-FRAME-ORDER) não cita ID do TODO.md (C-2 da revisão `rev-wlfix.md`).** Linha retroativa, só registro. Sem pontuar.
+- **`DOCS-COUNT-VOCAB-SCOPE`: o portão `docs_count_vocab_test` só varre .txt rastreado; comentários de src/, include/, .cmake e .md ainda escrevem contagens por extenso ("twelve", "eleven", "sixteen").** Achado do agente da D5b-fix3 em 11/10/2026 (L-17, gêmeo). Decidir se o portão se estende ou se é regra só de registro de teste. Sem pontuar.
 
 ## TABELA UNIFICADA
 

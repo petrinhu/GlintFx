@@ -8571,3 +8571,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **TODO:** entram `WL-FRAME-ORDER-ARM-TEST`, `WL-FRAME-ORDER-TEXT` (absorve os TWINS), `MEASURED-EXC-POS-WLFRAME` e `WL-FRAME-ORDER-COMMIT-ID`.
   - O item `SONDA-OCULTA-PUNE-JANELA-VISIVEL` foi reescrito por decisão do líder, verbatim: "Manter aberto e reescrito (Recomendado)".
 - **Correção da D6.2:** a causa escrita lá ("kwin_wayland --virtual nunca entrega o retorno de quadro") era defeito nosso: a biblioteca pedia o retorno depois do commit e desistia na primeira leva (WL-FRAME-ORDER, D-W8-208 e 212).
+
+### 11/10/2026 09:00:12 - Decisões do líder sobre a documentação; D5b-fix3 verde; WL-FRAME-ORDER-TEXT e D3-FIX3 commitadas
+
+- **Respostas do líder (AskUserQuestion), verbatim:**
+  - wiki: "Criar a publicação automática (Recomendado)";
+  - CHANGELOG das seis versões antigas (0.4.1.0 a 0.5.2.0): "Reconstruir";
+  - distros da L-04 ampliada no README: "Planejadas, ainda não testadas (Recomendado)";
+  - a leitura de recurso e o gfss: "Marcar como experimentais (Recomendado)".
+  - O merge do PR `docs-0610` em main entra na autorização "autorizo push/tag/merge" do mesmo dia, porque ele pediu explicitamente a documentação do GitHub atualizada. Sai depois da revisão (§5.2 do plano).
+- **D5b-fix3:** o texto foi consertado em `4b2b72a2` ("thirteen controls" virou "the controls", nos dois gêmeos). O ctest dos 3 portões e o preci deram rc 0, TUDO VERDE.
+  - Achado fora do escopo: palavras-número por extenso em comentários de src/, include/ e .md, que o portão não varre. Vai para a INBOX `DOCS-COUNT-VOCAB-SCOPE`.
+- **WL-FRAME-ORDER-TEXT** (`4c672778`, 6 arquivos): os 10 sítios trocados, sem nenhum gêmeo restante.
+  - I-4 decidido pela regra escrita antes: a exceção do cap30 FICA, porque a chave está em "instáveis declaradas" (fedora e windows).
+  - Linux plain 967 e asan 966. Preci rc 0.
+- **D3-FIX3** (`a24a3dca`): commitada; o preci dela roda agora.
+- **Documentação:** o ramo local `docs-0610` está preparado (11 arquivos, ainda sem commit), e a wiki local tem os 9 .md copiados. O verificador de links espera a vez na trava pesada. Os portões de texto passaram.

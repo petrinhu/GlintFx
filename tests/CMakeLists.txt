@@ -52,6 +52,10 @@ glintfx_add_test(color_test)
 glintfx_add_test(vertex_2d_layout_test)
 glintfx_add_test(ellipse_test)
 
+# R2D-SHAPES, S1-fix1 (review N1 of S1, achado A1): the public defaults and the enumerator values of
+# draw2d/stroke.hpp, each as the parecer fixes them - see stroke_test.cpp's own header comment.
+glintfx_add_test(stroke_test)
+
 # CORE-TIME (TODO.md W3, GODS_LAWS.md L-19/L-20/L-26): the core
 # layer's public representation of elapsed time - gltfx_duration/
 # gltfx_time_point and the four gltfx_duration_*/gltfx_now() functions

@@ -15,8 +15,9 @@
 // reader sees which one is horizontal), and rotation (gltfx_angle, never a bare double, so
 // degrees cannot pass for radians).
 //
-// The default values are the ones the parecer fixes: centre at the origin, both radii 0.0 (a
-// zero radius draws nothing), rotation 0 radians.
+// The default values: the centre is the origin, from its own initialiser center{} (errata E1,
+// D-W8-366; the parecer leaves the centre without a default); both radii 0.0 (the parecer's
+// value: a zero radius draws nothing, D-W8-287); rotation 0 radians (rotation{}).
 
 static_assert(std::is_aggregate_v<glintfx::gltfx_ellipse_world>,
               "gltfx_ellipse_world must stay an aggregate: the layout IS the contract");
@@ -57,8 +58,8 @@ GLINTFX_TEST(ellipse_world_layout_matches_the_frozen_offsets_at_run_time) {
 }
 
 GLINTFX_TEST(ellipse_world_defaults_are_origin_zero_radii_and_zero_rotation) {
-    // Value-initialised with {}: the centre has no initialiser of its own, so it is zeroed by
-    // the braces and not read uninitialised (reading a default-initialised centre is UB).
+    // Value-initialised with {}. The centre carries its own initialiser center{} (errata E1,
+    // D-W8-366), so it reads as the origin and is never an indeterminate value.
     const glintfx::gltfx_ellipse_world ellipse{};
 
     GLINTFX_CHECK_EQ(ellipse.center.x, 0.0);

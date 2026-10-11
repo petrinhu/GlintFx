@@ -13,7 +13,8 @@
 // library. Colour: linear light with straight alpha, like every gltfx_rgba.
 // The library premultiplies it itself before upload.
 //
-// Trivial aggregate; the layout IS the contract (GODS_LAWS.md L-19, L-26).
+// Aggregate, trivially copyable; the layout IS the contract (GODS_LAWS.md L-19, L-26).
+// It is NOT trivially default-constructible: position and color carry {} (errata E1, D-W8-366).
 
 namespace glintfx {
 

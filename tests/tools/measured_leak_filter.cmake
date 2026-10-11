@@ -22,10 +22,11 @@ endif()
 # `set_tests_properties(<owner> PROPERTIES LABELS selftest`, and AFTER the include() that defines it (D-W8-201).
 set(MEASURED_LEAK_FILTER_OWNERS run_example_capture_win32_selftest run_capture_known_color_win32_selftest)
 
-# The size of the byte sweep below (D-W8-242): the bytes 1 to 255 after each of the two words. Every sweep case
-# of the selftest and the run itself require it, so a sweep that shrinks (a narrower range, a word dropped)
-# fails there (L-40).
+# The size of the byte sweep below (D-W8-242): the bytes 1 to 255 after each of the two words. The judge requires
+# it, so a sweep that shrinks (a narrower range, a word dropped) fails the run and the selftest (L-40).
 set(MEASURED_LEAK_FILTER_SWEPT 510)
+# This file, for the selftest's end-to-end cases (D-W8-315): they run it again as a script, in run mode.
+set(MEASURED_LEAK_FILTER_SELF "${CMAKE_SCRIPT_MODE_FILE}")
 
 # Puts in `out` the names of the decided leak samples (D-W8-200) that `filter` does NOT catch, joined by ','.
 function(measured_leak_filter_misses filter out)
@@ -85,10 +86,10 @@ endfunction()
 # 255 (a CMake string cannot hold byte 0), so it is swept whole instead of sampled by hand. The decided verdict
 # (D-W8-200) is written as code ranges, never as a regex, so it cannot copy the class it judges: '0'-'9' is 48-57,
 # 'A'-'Z' 65-90, '_' 95 and 'a'-'z' 97-122 (63 bytes) do NOT end the word; every other byte does, and must match.
-function(measured_leak_filter_byte_sweep filter out_wrong out_swept)
+function(measured_leak_filter_byte_sweep filter first_byte last_byte out_wrong out_swept)
   set(wrong "")
   set(swept 0)
-  foreach(code RANGE 1 255)
+  foreach(code RANGE ${first_byte} ${last_byte})
     set(ends_word TRUE)
     if((code GREATER_EQUAL 48 AND code LESS_EQUAL 57) OR (code GREATER_EQUAL 65 AND code LESS_EQUAL 90)
        OR code EQUAL 95 OR (code GREATER_EQUAL 97 AND code LESS_EQUAL 122))
@@ -161,7 +162,35 @@ function(measured_leak_filter_registry_passes owned consumers literals out_ok)
   endif()
 endfunction()
 
-# The real check: the value against the samples, and the registry named by -DREGISTRY against the owners.
+# The judge (D-W8-315): the whole verdict of the guard as a function of its inputs, the filter, the registry text
+# and the byte range swept. `out_reason` is empty when everything passes, else the FIRST failure, in this order:
+# varredura (the sweep did not judge MEASURED_LEAK_FILTER_SWEPT bytes; L-40, the count before the verdict),
+# amostra (a decided sample missed, a clean line caught, or a byte judged wrong) and registro (an owner without
+# its anchor, a use outside the owners, or a filter written by hand). The selftest calls it with each bad input.
+function(measured_leak_filter_judge filter registry_text first_byte last_byte out_reason out_summary)
+  measured_leak_filter_misses("${filter}" missed)
+  measured_leak_filter_clean_hits("${filter}" hits)
+  measured_leak_filter_byte_sweep("${filter}" ${first_byte} ${last_byte} wrong_bytes swept)
+  measured_leak_filter_count("${registry_text}" owned consumers literals)
+  list(LENGTH MEASURED_LEAK_FILTER_OWNERS want)
+  string(CONCAT summary_text "perdidas=<${missed}> limpas_pegas=<${hits}> donos=${owned} consumidores=${consumers}"
+         " esperado=${want} literais=${literals} bytes_errados=<${wrong_bytes}> varridos=${swept}")
+  set(${out_summary} "${summary_text}" PARENT_SCOPE)
+  measured_leak_filter_registry_passes(${owned} ${consumers} ${literals} registry_ok)
+  string(LENGTH "${missed}${hits}${wrong_bytes}" wrong_samples)
+  if(NOT "${swept}" EQUAL ${MEASURED_LEAK_FILTER_SWEPT})
+    set(${out_reason} "varredura" PARENT_SCOPE)
+  elseif(wrong_samples GREATER 0)
+    set(${out_reason} "amostra" PARENT_SCOPE)
+  elseif(NOT registry_ok)
+    set(${out_reason} "registro" PARENT_SCOPE)
+  else()
+    set(${out_reason} "" PARENT_SCOPE)
+  endif()
+endfunction()
+
+# The run, a shell around the judge: reads the registry named by -DREGISTRY, judges the decided filter over the
+# whole sweep, prints the counts, and fails on any reason. Its own wiring is proved end to end by the selftest.
 function(measured_leak_filter_run)
   if(NOT DEFINED REGISTRY OR "${REGISTRY}" STREQUAL "")
     message(FATAL_ERROR "measured_leak_filter: FALHOU - -DREGISTRY vazio ou ausente")
@@ -169,23 +198,12 @@ function(measured_leak_filter_run)
   if(NOT EXISTS "${REGISTRY}")
     message(FATAL_ERROR "measured_leak_filter: FALHOU - registro inexistente: ${REGISTRY}")
   endif()
-  measured_leak_filter_misses("${GLINTFX_MEASURED_LEAK_FILTER}" missed)
-  measured_leak_filter_clean_hits("${GLINTFX_MEASURED_LEAK_FILTER}" hits)
-  measured_leak_filter_byte_sweep("${GLINTFX_MEASURED_LEAK_FILTER}" wrong_bytes swept)
   file(READ "${REGISTRY}" registry_text)
-  measured_leak_filter_count("${registry_text}" owned consumers literals)
-  list(LENGTH MEASURED_LEAK_FILTER_OWNERS want)
-  message("measured_leak_filter: perdidas=<${missed}> limpas_pegas=<${hits}> donos=${owned} consumidores=${consumers}"
-          " esperado=${want} literais=${literals} bytes_errados=<${wrong_bytes}> varridos=${swept}")
-  if(NOT "${swept}" EQUAL ${MEASURED_LEAK_FILTER_SWEPT})
-    message(FATAL_ERROR "measured_leak_filter: FALHOU - a varredura de bytes olhou ${swept} de"
-            " ${MEASURED_LEAK_FILTER_SWEPT} (L-40: o portao confere o que varreu antes do veredito)")
-  endif()
-  measured_leak_filter_registry_passes(${owned} ${consumers} ${literals} ok)
-  string(LENGTH "${missed}${hits}${wrong_bytes}" wrong_samples)
-  if(NOT ok OR wrong_samples GREATER 0)
-    message(FATAL_ERROR "measured_leak_filter: FALHOU - amostra perdida, linha limpa pega, byte com veredito errado,"
-            " dono sem ancora, uso fora dos donos ou filtro escrito a mao (linha acima)")
+  measured_leak_filter_judge("${GLINTFX_MEASURED_LEAK_FILTER}" "${registry_text}" 1 255 reason summary)
+  message("measured_leak_filter: ${summary}")
+  if(NOT "${reason}" STREQUAL "")
+    message(FATAL_ERROR "measured_leak_filter: FALHOU (${reason}) - varredura menor que a decidida, amostra perdida,"
+            " linha limpa pega, byte com veredito errado, dono sem ancora, uso fora dos donos ou filtro a mao")
   endif()
 endfunction()
 
@@ -206,7 +224,7 @@ endfunction()
 
 # One sweep case: the wrong <word>+<code> list of `filter` must be the expected text, over the whole sweep.
 function(measured_leak_filter_sweep_case case_name filter want_wrong)
-  measured_leak_filter_byte_sweep("${filter}" wrong swept)
+  measured_leak_filter_byte_sweep("${filter}" 1 255 wrong swept)
   math(EXPR total "${selftest_total} + 1")
   set(selftest_total ${total} PARENT_SCOPE)
   set(got "<${wrong}>/${swept}")
@@ -236,7 +254,61 @@ function(measured_leak_filter_registry_case case_name text want)
   endif()
 endfunction()
 
-# The controls, over values and texts built here (no file), each with its result fixed BEFORE the run.
+# One judge case (D-W8-315): the reason the judge gives for these inputs must be the expected one ("" = passes).
+function(measured_leak_filter_judge_case case_name filter registry_text first_byte last_byte want)
+  measured_leak_filter_judge("${filter}" "${registry_text}" ${first_byte} ${last_byte} got summary)
+  math(EXPR total "${selftest_total} + 1")
+  set(selftest_total ${total} PARENT_SCOPE)
+  if(NOT "<${got}>" STREQUAL "<${want}>")
+    math(EXPR failures "${selftest_failures} + 1")
+    set(selftest_failures ${failures} PARENT_SCOPE)
+    message("FALHOU caso ${case_name}: obtido=<${got}> esperado=<${want}>")
+  endif()
+endfunction()
+
+# One end-to-end case (D-W8-315): this file run again as a script over `registry_text`, written to a scratch file
+# under the current binary directory and removed after; the exit code must be zero exactly when `want_pass`.
+function(measured_leak_filter_run_case case_name registry_text want_pass)
+  set(scratch "${CMAKE_CURRENT_BINARY_DIR}/measured_leak_filter_selftest_registry.txt")
+  file(WRITE "${scratch}" "${registry_text}")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DREGISTRY=${scratch}" -P "${MEASURED_LEAK_FILTER_SELF}"
+                  RESULT_VARIABLE rc OUTPUT_QUIET ERROR_QUIET)
+  file(REMOVE "${scratch}")
+  set(passed FALSE)
+  if("${rc}" STREQUAL "0")
+    set(passed TRUE)
+  endif()
+  math(EXPR total "${selftest_total} + 1")
+  set(selftest_total ${total} PARENT_SCOPE)
+  if(NOT passed STREQUAL want_pass)
+    math(EXPR failures "${selftest_failures} + 1")
+    set(selftest_failures ${failures} PARENT_SCOPE)
+    message("FALHOU caso ${case_name}: rc=${rc} esperado_passar=${want_pass}")
+  endif()
+endfunction()
+
+# The judge and the run, cases 20 to 27 (D-W8-315), over the right registry and one with a single owner.
+function(measured_leak_filter_judge_controls good one_owner)
+  measured_leak_filter_judge_case("20 o juiz aprova o filtro decidido, o registro certo e a varredura inteira"
+                                  "${GLINTFX_MEASURED_LEAK_FILTER}" "${good}" 1 255 "")
+  measured_leak_filter_judge_case("21 a varredura sem o byte 1 reprova por varredura (O2)"
+                                  "${GLINTFX_MEASURED_LEAK_FILTER}" "${good}" 2 255 "varredura")
+  measured_leak_filter_judge_case("22 a varredura sem o byte 255 reprova por varredura"
+                                  "${GLINTFX_MEASURED_LEAK_FILTER}" "${good}" 1 254 "varredura")
+  measured_leak_filter_judge_case("23 o filtro que erra so o byte 46 reprova por amostra (P-DOT)"
+                                  "(MEASURED|SCANCOUNT)[^A-Za-z0-9_.]" "${good}" 1 255 "amostra")
+  measured_leak_filter_judge_case("24 o filtro antigo de espaco e tab reprova por amostra"
+                                  "(MEASURED|SCANCOUNT)[ \t]" "${good}" 1 255 "amostra")
+  measured_leak_filter_judge_case("25 o registro com um dono so reprova por registro"
+                                  "${GLINTFX_MEASURED_LEAK_FILTER}" "${one_owner}" 1 255 "registro")
+  measured_leak_filter_run_case("26 o run sobre o registro certo sai 0" "${good}" TRUE)
+  measured_leak_filter_run_case("27 o run sobre o registro com um dono so sai diferente de 0"
+                                "${one_owner}" FALSE)
+  set(selftest_total ${selftest_total} PARENT_SCOPE)
+  set(selftest_failures ${selftest_failures} PARENT_SCOPE)
+endfunction()
+
+# The controls, over values and texts built here, each with its result fixed BEFORE the run.
 function(measured_leak_filter_run_selftest)
   set(selftest_total 0)
   set(selftest_failures 0)
@@ -291,7 +363,8 @@ function(measured_leak_filter_run_selftest)
                                   "(MEASURED|SCANCOUNT)[^A-Za-z0-9_.]" "MEASURED+46,SCANCOUNT+46")
   measured_leak_filter_sweep_case("19 uma classe que perde o A erra so o byte 65 (P-CLEAN-A)"
                                   "(MEASURED|SCANCOUNT)[^B-Za-z0-9_]" "MEASURED+65,SCANCOUNT+65")
-  if(NOT "${selftest_total}" EQUAL 19 OR selftest_failures GREATER 0)
+  measured_leak_filter_judge_controls("${top}${inc}${both}" "${top}${inc}${head_a}${use}")
+  if(NOT "${selftest_total}" EQUAL 27 OR selftest_failures GREATER 0)
     message(FATAL_ERROR "measured_leak_filter --selftest: FALHOU ${selftest_failures} de ${selftest_total} casos")
   endif()
   message("measured_leak_filter --selftest: os ${selftest_total} controles OK")

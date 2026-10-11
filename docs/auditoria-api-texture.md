@@ -104,7 +104,7 @@ enum class gltfx_pixel_format : std::uint8_t {
 
 struct gltfx_image_view {
     // Read only during the call that receives this view (see above).
-    std::span<const std::byte> pixels;
+    std::span<const std::byte> pixels{};
     // Size in pixels. Zero is refused by the texture call, not here.
     std::uint32_t width = 0;
     std::uint32_t height = 0;
@@ -217,8 +217,8 @@ struct gltfx_vec2_texel {
 };
 
 struct gltfx_rect_texel {
-    gltfx_vec2_texel corner;
-    gltfx_vec2_texel size;
+    gltfx_vec2_texel corner{};
+    gltfx_vec2_texel size{};
 };
 
 enum class gltfx_texture_mirror : std::uint8_t {
@@ -237,7 +237,7 @@ enum class gltfx_texture_mirror : std::uint8_t {
 // by the drawing call (`texture_not_open`, `texture_other_renderer`). A
 // region whose origin is not a finite number is refused as `not_a_number`.
 struct gltfx_texture_region {
-    gltfx_rect_texel source;
+    gltfx_rect_texel source{};
     gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
 };
 
@@ -245,8 +245,8 @@ struct gltfx_texture_region {
 // the tint. In a shadow (draw_shadow_texture) the tint is the colour of the
 // shadow. Grouping keeps each drawing call within four parameters.
 struct gltfx_texture_paint {
-    gltfx_texture_region region;
-    gltfx_rgba tint;
+    gltfx_texture_region region{};
+    gltfx_rgba tint{};
 };
 
 // The vertex of the textured triangles. Position in WORLD space, like
@@ -257,9 +257,9 @@ struct gltfx_texture_paint {
 // gives the right colour and the right alpha, not a dark halo.
 // `texel` is in texel units of the texture being drawn.
 struct gltfx_textured_vertex_2d {
-    gltfx_vec2_world position;
-    gltfx_rgba tint;
-    gltfx_vec2_texel texel;
+    gltfx_vec2_world position{};
+    gltfx_rgba tint{};
+    gltfx_vec2_texel texel{};
 };
 
 } // namespace glintfx
@@ -383,7 +383,7 @@ struct gltfx_atlas_rect {
 // The receipt of one allocation: where it is, and which generation of
 // the allocator handed it out.
 struct gltfx_atlas_slot {
-    gltfx_atlas_rect rect;
+    gltfx_atlas_rect rect{};
     std::uint32_t id = 0;
     std::uint32_t generation = 0;
 };
@@ -483,9 +483,9 @@ struct gltfx_texture_atlas_desc {
 // What an atlas cell is painted with (D-W8-354): the slot that names the cell,
 // with its generation; the mirroring; and the tint.
 struct gltfx_atlas_paint {
-    gltfx_atlas_slot slot;
+    gltfx_atlas_slot slot{};
     gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
-    gltfx_rgba tint;
+    gltfx_rgba tint{};
 };
 
 class gltfx_texture_atlas {

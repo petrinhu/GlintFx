@@ -292,9 +292,9 @@ enum class gltfx_light_falloff : std::uint8_t {
 };
 
 struct gltfx_light_source_2d {
-    gltfx_vec2_world position;
+    gltfx_vec2_world position{};
     double range = 0.0;        // finite and greater than zero
-    gltfx_rgba color;          // linear light
+    gltfx_rgba color{};        // linear light
     double intensity = 0.0;    // finite, zero or more
     gltfx_light_falloff falloff = gltfx_light_falloff::unspecified;
 };

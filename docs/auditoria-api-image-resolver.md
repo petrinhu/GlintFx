@@ -98,7 +98,7 @@ namespace glintfx {
 // text is valid only during the resolver call: copy what you keep before you
 // return.
 struct gltfx_image_reference {
-    std::string_view text;
+    std::string_view text{};
 };
 
 // What the consumer answers. texture == nullptr means "no owner": the

@@ -8794,3 +8794,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os três foram ao CTO (`plano-fechamento-w8-r5.md`), junto com a pergunta de se a DEMO-1 vira ✅ antes ou depois de uma `D7-fix1`.
   - O revisor não conseguiu apagar ~21 MB de árvores de build criadas pelo root do contêiner (`/var/tmp/cto-w8/rev-lote7/run/b/out-*/build`), porque está sem sudo (L-51). Fica para a limpeza por contêiner.
   - **Despachados:** R0 (resolvedor de imagem) e H0 (luz e sombra), revisões de API só no papel, depois de a T0 ser aceita. São 4 agentes vivos (revisor do lote 8, R0, H0 e CTO).
+- **11/10/26 13:11 (main).** Quinta rodada do CTO: `/var/tmp/cto-w8/plano-fechamento-w8-r5.md` (md5 a654fb3a), D-W8-310 a 313.
+  - **D-W8-310:** o B1 é regra decidida sem caso e vira a fatia `D7-fix1`: um controle de "rc 0 sem executável", com o `EXPECT_LINE` passando de 14 para 15.
+  - **D-W8-311:** o B3 entra na mesma fatia; a declaração passa a citar o install e o `CMAKE_GENERATOR`.
+  - **D-W8-312:** o B2 foi refundido no item `TESTS-REGISTRY-SPLIT` já existente (L-68), neste commit. Fica fora da W8.
+  - **D-W8-313:** a DEMO-1 só vira ✅ depois da `D7-fix1`, de uma revisão curta e do CI da ponta com ela.
+  - **`D7-fix1` despachada.** Agentes vivos: 4 (revisor do lote 8, R0, H0 e D7-fix1).

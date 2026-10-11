@@ -8527,3 +8527,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - Isso viola a ordem do líder ("até 4 agentes paralelos sem corrida") e o teto da L-11 global.
 - **Corrigido em menos de um minuto:** o CTO das corridas foi parado com TaskStop, antes de qualquer escrita. A questão da corrida D volta a ele quando outro agente terminar.
 - **Lição:** contar os vivos ANTES de cada despacho ou retomada, inclusive na retomada por SendMessage.
+
+### 11/10/2026 01:04:11 - Revisão da D6-green e da D3-fix2: conformes com ressalva
+
+- **Revisor** (`rev-d6green.md`):
+  - D6-green (`9a733496`): o anexo mais o lint dá o md5 commitado; P5 plain verde; o PNG é idêntico ao do implementador (307 200 pixels);
+  - D3-fix2 (`fb7f6041`): conforme ao "passa a ser"; 20 controles.
+- **Mutantes:**
+  - mortos: MA (C opaca), MD (quadrado +1 px para a direita) e X2 (126 vira 3);
+  - **sobreviventes:** MB (quadrado -1 px em y, porque a posição vertical não tem sonda) e X1 (255 vira 3, que o controle 2 não cobre);
+  - equivalente: MC (a ordem de envio de A e B).
+- Os dois sobreviventes foram ao CTO, junto com a corrida D (`decisao-corrida-d.md`), agora dentro do teto de 4.

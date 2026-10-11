@@ -1009,6 +1009,28 @@ add_test(
 set_tests_properties(check_no_pass_regex_selftest PROPERTIES LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# The ONE value of the filter that keeps MEASURED and SCANCOUNT lines out of a selftest's output (D-W8-200), and
+# its guard (D-W8-201): every decided leak sample caught, no clean line caught, the two owners setting it through
+# the variable after this include(), and no filter of that kind written by hand. Not through the executor: that
+# would make it a site of check_no_pass_regex.cmake.
+include("${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake")
+add_test(
+    NAME measured_leak_filter_test
+    COMMAND "${CMAKE_COMMAND}" "-DREGISTRY=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake"
+)
+set_tests_properties(measured_leak_filter_test PROPERTIES LABELS consume)
+
+# The guard's own selftest (D-W8-201, L-36): thirteen controls over values and texts built in memory.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(
+    NAME measured_leak_filter_selftest
+    COMMAND "${CMAKE_COMMAND}" -DSELFTEST=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake"
+)
+set_tests_properties(measured_leak_filter_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a
@@ -4255,10 +4277,10 @@ add_test(
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
 )
-# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it, with ANY blank after
-# the word, the way collect_measured.py:86 reads it (D-W8-176, D-W8-180, D-W8-181).
+# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it. The value and its rule
+# (anything but a letter, a digit or '_' after the word) live in tests/tools/measured_leak_filter.cmake (D-W8-200).
 set_tests_properties(run_example_capture_win32_selftest PROPERTIES LABELS selftest
-    FAIL_REGULAR_EXPRESSION "(MEASURED|SCANCOUNT)[ \t]")
+    FAIL_REGULAR_EXPRESSION "${GLINTFX_MEASURED_LEAK_FILTER}")
 
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
@@ -6552,10 +6574,10 @@ add_test(
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest
 )
-# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it, with ANY blank after
-# the word, the way collect_measured.py:86 reads it (D-W8-176, D-W8-180, D-W8-181).
+# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it. The value and its rule
+# (anything but a letter, a digit or '_' after the word) live in tests/tools/measured_leak_filter.cmake (D-W8-200).
 set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest
-    FAIL_REGULAR_EXPRESSION "(MEASURED|SCANCOUNT)[ \t]")
+    FAIL_REGULAR_EXPRESSION "${GLINTFX_MEASURED_LEAK_FILTER}")
 
 # QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
 # the driver tests/container/run_capture_known_color.sh (stale output directory

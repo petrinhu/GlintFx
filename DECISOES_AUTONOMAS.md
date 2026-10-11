@@ -8508,3 +8508,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - a onda-w8 só é empurrada depois que a D6-green fechar (D-W8-192);
   - o merge em main e a marca `v0.7.0.0` saem quando a W8 cumprir inteira a definição de fechamento do plano.
   - Nada de qualidade é relaxado.
+
+### 11/10/2026 00:59:10 - Ordem do líder: atualizar a documentação .md do GitHub e a wiki, com push da wiki autorizado
+
+- **Verbatim:** "atualize a documentação md do github e a wiki. Autorizo push da wiki".
+- **Pela emenda da L-34**, a dúvida de onde cada texto entra (main por PR de documentação, a onda-w8, ou a wiki, que não pode descrever como publicado o que ainda não saiu) foi ao CTO, com pesquisa: `plano-docs-wiki.md`.
+- A execução é de um technical-writer haiku (L-63 global). O push da wiki é do main.

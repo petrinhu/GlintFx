@@ -8593,3 +8593,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **D3-FIX3** (`a24a3dca`): o X1 (255 como estouro) reprova com o anexo e sobrevive sem ele, o que prova que o caso é novo. N=20, R5 rc 0.
 - **EXAMPLE-PROBE-Y** (D-W8-227) foi despachada ao mesmo implementador (seção 2 de `ordens-d3fix3-probey-rundir.md`).
 - **Watchcode:** as quedas do bash (SIGSEGV e SIGABRT aos pares) registradas desde 09/10 vêm dos autotestes, que derrubam um processo de propósito. O `coredumpctl info` mostra `Command Line: sh -c 'kill -ABRT 2114384'`. A ligação está provada, e não é só correlação temporal.
+
+### 11/10/2026 09:08:18 - Documentação: ramo docs-0610 e wiki local commitados; revisão despachada
+
+- **`docs-0610`** (`0380c5e9`, local, sobre `bcc72f1d`): 11 arquivos (README, AGENTS.md, rodapé do CHANGELOG e docs/wiki/), +513/-68. Portões de texto e links verdes (`docs-wiki/gates.log` e `links.log`).
+- **Wiki local** (`78806dd`, master à frente 1): cópia de docs/wiki. O `API-Draw-2D.md` ficou NÃO rastreado no clone; a revisão confere se isso é omissão.
+- **Revisão §5.2** despachada a um qa-engineer haiku distinto do redator (`rev-docs.md`): inventário, gêmeos, compilação dos exemplos da wiki contra a v0.6.1.0 em contêiner e sabotagens.
+- **Push** do docs-0610, do PR e da wiki: só depois da revisão e do adendo (as 4 decisões do líder).

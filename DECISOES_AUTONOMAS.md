@@ -8746,3 +8746,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Status (L-63), verificação feita:** `CAPTURE-DRIVER-WIRING-UNTESTED` passa de 🔍 para ✅ (critério 19 da DEMO-1). `WL-FRAME-ORDER-TEXT` também passa de 🔍 para ✅: o gêmeo 5acba5a4 foi aprovado no lote 6 e reverificado pelo main, e os 10 sítios estão em 0 desde 4c672778.
   - **A D7 foi commitada (66a823e1).** O relatório do implementador ainda não chegou. A parte (b) da revisão sai depois dele.
 - **11/10/26 11:49 (main).** A S0 (revisão de API das formas, `R2D-SHAPES`) saiu APROVADA COM CONDIÇÕES, como desenho. O parecer está em `/var/tmp/cto-w8/s0/auditoria-api-shapes.md` (md5 2fb68acc). Achados: 1 CRÍTICO, já corrigido no texto (o enumerador `round` colide com `tgmath.h` e virou `rounded`), 8 IMPORTANTES e 3 COSMÉTICOS. A sonda de colisão deu rc 0 na rodada 2, e o controle positivo deu rc 8, nomeando `major`. DIV-01, DIV-02 e a Q-01 (o layout dos descritores muda e quebra quem não recompilar) foram ao CTO, que diz se a Q-01 já está decidida pela D-W8-30 e pela L-26 pré-1.0 ou se vai ao líder. Agentes vivos: 2 (D7 e CTO).
+- **11/10/26 11:56 (main).** A segunda rodada do CTO está em `/var/tmp/cto-w8/plano-fechamento-w8-r2.md` (md5 44a4d21a), com D-W8-263 a D-W8-287, e o main a conferiu.
+  - **D-W8-263:** a `WL-FRAME-ORDER-ARM-TEST` desce para logo depois da `QA-COMPOSED-PATH`. Feito neste commit.
+  - **D-W8-264:** `tests/CMakeLists.txt` tem fila: SG, G1a, G1b, G2, ARM-TEST e S1.
+  - **D-W8-280:** a metade (i) do IMPORTANTE-1 do lote 7 vira a fatia `D5b-fix6` (o `run` exige o piso de 510, pela L-40). As metades (ii) e (iii) ficam cobertas pelos casos 17 a 19.
+  - **§12:** o parecer S0 foi aceito.
+    - DIV-01: o alinhamento vira parâmetro.
+    - DIV-02: `fill_triangles` e `fill_indexed_triangles`, com nova sonda de colisão antes da S1.
+    - Q-02 a Q-04 decididas.
+  - **A Q-01 NÃO vai ao líder:** já é decisão dele, na L-26 (`GODS_LAWS.md:699` e `:701`, de 21/08): antes da 1.0, a quebra de ABI mora no B. O F1 ganha o aviso "recompilar obrigatório" no CHANGELOG.
+  - **G4 (D-W8-268):** o SELinux deve barrar os dispositivos da NVIDIA no contêiner. A pergunta ao líder (§6.1) sai depois da G4a, com os valores medidos colados. Recomendação do CTO: `label=disable` só naquele contêiner. Nunca `semodule` ou `audit2allow` (L-60).
+  - **O push que fecha a DEMO-1** vai explícito, no SHA aprovado: `git push origin <SHA>:onda-w8`.
+  - **Despachados:** SG (§4), D5b-fix6 (§11) e T0 (§2.4). São 4 agentes vivos: D7 no `preci`, SG, D5b-fix6 e T0. A parte (b) do revisor do lote 7 sai quando houver vaga.

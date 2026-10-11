@@ -8475,3 +8475,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Corrida A** (38087850239): igual à previsão. Reprovaram os 6 trabalhos previstos, e no Windows só o first_window. MSVC 19.51, então a premissa da D-W8-217 vale.
 - **Corrida B** (38088288278): Linux medido em 12/12 e 5/5; Windows na "forma alternativa", mas com o código 10 (JANELAS) no lugar de 1. A confirmação foi ao CTO.
 - **Onda 2:** C (38108570269) e D (38108577899) disparadas.
+
+### 11/10/2026 00:33:44 - CTO, D-W8-223 a 225: V-4 e V-14 eram erro do plano; código 10 da corrida B aceito; corrida E liberada
+
+- **D-W8-223, V-4:** o mutante passa a ser `(void)all_frames_drawn(); return true;`. O `return true;` sozinho deixava a função sem chamador, e o -Werror derrubava a compilação; o CTO reproduziu isso no rascunho.
+- **D-W8-224, V-14:** o mutante roda com `-DGLINTFX_WERROR=ON`, como o CI, mais um controle limpo. Nenhuma fatia nova.
+- **D-W8-225:** o código 10 (JANELAS) da corrida B é aceito sem emenda. O "código 1" valia só para a forma primária, e o erro de redação é do CTO.
+  - A B mostrou que o Windows apresenta a primeira troca vazia e recusa as seguintes. Isso refuta a inferência da D-W8-218, sem mudança de contrato público.
+- **Anexo A:** o anexo mais o diff do lint dá exatamente o md5 commitado (medido pelo CTO).
+- **Corrida E:** liberada, porque a A confirmou o MSVC 19.51. Sai quando C ou D fecharem (no máximo 2 por vez).
+- A refação de V-4 e V-14 foi despachada ao implementador da D6-green.
+- Para o líder ratificar: D-W8-223 a 225.

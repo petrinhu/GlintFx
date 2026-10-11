@@ -4306,7 +4306,7 @@ set_tests_properties(check_examples_consume_selftest PROPERTIES LABELS selftest)
 add_test(
     NAME run_example_capture_win32_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 36 controles OK"
+        "-DEXPECT_LINE=selftest: 37 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
@@ -6603,7 +6603,7 @@ set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest)
 add_test(
     NAME run_capture_known_color_win32_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 110 controles OK"
+        "-DEXPECT_LINE=selftest: 111 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest

@@ -283,16 +283,95 @@ def selftest_example_source_matches():
 
 
 
+CONTROL_NAME_PREFIX = "selftest_"
+
+
+def bound_names(node):
+    """The names one AST node binds, in every form Python has: a def or class, an assignment target of any shape
+    (a Name or an attribute in store context, so tuples, starred, augmented, annotated, for, with, walrus and
+    comprehensions all reach here through ast.walk), an import alias, a global or nonlocal, a match capture."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+        return [node.id]
+    if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store):
+        return [node.attr]
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        return [alias.asname or alias.name.split(".")[0] for alias in node.names]
+    if isinstance(node, (ast.Global, ast.Nonlocal)):
+        return list(node.names)
+    if isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
+        return [node.name]
+    return []
+
+
+def is_dispatch(node, sibling):
+    """The one sanctioned binding (D-W8-185): `from <this module> import selftest_main`, no alias."""
+    return (isinstance(node, ast.ImportFrom) and node.module == sibling and len(node.names) == 1
+            and node.names[0].name == "selftest_main" and node.names[0].asname is None)
+
+
+def driver_control_bindings(source, sibling):
+    """(controls, dispatches) of a driver's source: every binding named CHECKS or selftest_*, anywhere in the tree
+    (ast.walk, so nesting hides nothing), apart from the sanctioned dispatch, which is counted on its own. The
+    rule (D-W8-137, D-W8-206): a driver's controls live beside it, never inside it. Not seen, declared: names made
+    at run time (setattr, globals(), exec), which no static reading can see."""
+    controls, dispatches = [], 0
+    for node in ast.walk(ast.parse(source)):
+        if is_dispatch(node, sibling):
+            dispatches += 1
+            continue
+        controls += [name for name in bound_names(node) if name == "CHECKS" or name.startswith(CONTROL_NAME_PREFIX)]
+    return sorted(controls), dispatches
+
+
+# Every binding form, each with the result fixed before the run (D-W8-316): a closed enumeration, printed.
+BINDING_FORMS = [
+    ("def selftest_a(): pass", ["selftest_a"], 0),
+    ("if True:\n    def selftest_b(): pass", ["selftest_b"], 0),
+    ("CHECKS, _u = [], 0", ["CHECKS"], 0),
+    ("*CHECKS, = [1]", ["CHECKS"], 0),
+    ("CHECKS += []", ["CHECKS"], 0),
+    ("CHECKS: list = []", ["CHECKS"], 0),
+    ("for selftest_c in []: pass", ["selftest_c"], 0),
+    ("with open(__file__) as selftest_d: pass", ["selftest_d"], 0),
+    ("(selftest_e := 1)", ["selftest_e"], 0),
+    ("import os as selftest_f", ["selftest_f"], 0),
+    ("from os import path as CHECKS", ["CHECKS"], 0),
+    ("class selftest_g: pass", ["selftest_g"], 0),
+    ("def f():\n    global CHECKS\n    CHECKS = []", ["CHECKS", "CHECKS"], 0),
+    ("import sys\nsys.modules[__name__].CHECKS = []", ["CHECKS"], 0),
+    ("[0 for selftest_h in []]", ["selftest_h"], 0),
+    ("match 1:\n    case selftest_i:\n        pass", ["selftest_i"], 0),
+    ("from SIBLING import selftest_main", [], 1),
+    ("from SIBLING import selftest_main as selftest_main", ["selftest_main"], 0),
+    ("from OTHER import selftest_main", ["selftest_main"], 0),
+    ("", [], 0),
+    ("x = 1", [], 0),
+]
+
+
+def driver_layout_ok(controls, dispatches):
+    """The decided layout (D-W8-137, D-W8-185, D-W8-206): no control in the driver, and the dispatch exactly once.
+    Zero dispatches is also how an empty or unread driver looks, so it fails too (L-40: a scan of nothing)."""
+    return not controls and dispatches == 1
+
+
+# The verdict over (controls, dispatches), fixed before the run.
+LAYOUT_CASES = [(([], 1), True), (([], 0), False), ((["CHECKS"], 1), False), (([], 2), False)]
+
+
 def selftest_driver_keeps_no_controls():
-    tree = ast.parse(DRIVER_SCRIPT.read_text(encoding="utf-8"))
-    found = []
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("selftest_"):
-            found.append(node.name)
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
-        found += [t.id for t in targets if isinstance(t, ast.Name) and t.id == "CHECKS"]
-    check("o driver nao define controles no nivel de topo (D-W8-137, D-W8-206): " + (", ".join(found) or "nenhum"),
-          not found)
+    sibling = Path(__file__).stem
+    forms_wrong = [source for source, controls, dispatches in BINDING_FORMS
+                   if driver_control_bindings(source.replace("SIBLING", sibling), sibling) != (controls, dispatches)]
+    layout_wrong = [str(case) for case, want in LAYOUT_CASES if driver_layout_ok(*case) != want]
+    check(f"as formas de ligacao e o veredito: formas={len(BINDING_FORMS)} casos={len(LAYOUT_CASES)}, erradas: "
+          + (" | ".join(forms_wrong + layout_wrong) or "nenhuma"),
+          len(BINDING_FORMS) == 21 and len(LAYOUT_CASES) == 4 and not forms_wrong and not layout_wrong)
+    controls, dispatches = driver_control_bindings(DRIVER_SCRIPT.read_text(encoding="utf-8"), sibling)
+    check(f"o driver nao define controles e despacha uma vez (D-W8-137, D-W8-206): controles="
+          f"{', '.join(controls) or 'nenhum'} despachos={dispatches}", driver_layout_ok(controls, dispatches))
 
 
 def selftest_main():

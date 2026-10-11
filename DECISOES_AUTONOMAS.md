@@ -8780,3 +8780,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - D7: 66a823e1 mais 881d731e, a linha da declaração.
     O `preci` deu rc 0, 320/320, no 881d731e, que contém as três. Os `preci` de SG e D5b-fix6 nos próprios SHAs deram rc 8 só pela linha herdada da D7.
   - **Revisões despachadas:** a (b) do lote 7, sobre a D7 em 881d731e, e o lote 8, sobre SG e D5b-fix6 (`/var/tmp/cto-w8/rev-lote8.md`). São 3 agentes vivos.
+- **11/10/26 13:08 (main).** Quarta rodada do CTO, para cumprir a ordem do líder sobre a Q-T06 ("pesquise as outras libs, comunidade e depois impremente e teste"): `/var/tmp/cto-w8/plano-fechamento-w8-r4.md` (md5 2e657333), D-W8-304 a 309.
+  - **Pesquisa:** nenhuma biblioteca testa na abertura. O SDL3 mistura no espaço codificado, de propósito. O Skia liga por capacidade e mantém uma lista de drivers ruins, achados pelos próprios testes. Os únicos drivers relatados que convertem depois do filtro são as placas anteriores à GeForce 8 e o SwiftShader antigo, que já foi corrigido. Por inferência, o GL 3.3 exigido pela L-31 implica hardware que converte antes.
+  - **D-W8-304, opção (d), que saiu da pesquisa:** a promessa se apoia no formato sRGB da placa, e uma célula permanente de paridade REPROVA se qualquer sistema misturar no espaço errado. Ela mede no Linux e no Windows do CI e nas placas das sessões G3 e G4. Sem ausência declarada (respeita a D-A62), sem teste na abertura e sem mistura em shader.
+  - **D-W8-307:** a mistura em shader fica registrada como conserto pronto, para o caso de aparecer um vermelho real.
+  - **Implementação:** entra na T2b, com os valores fixados antes (186,7 e 188,3 contra cerca de 127) e 4 mutantes de morte obrigatória, depois da DEMO-1 ✅, da T1 e da T2a.
+  - Vai à ratificação do líder no fechamento.

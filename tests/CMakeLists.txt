@@ -6265,25 +6265,27 @@ add_test(
 set_tests_properties(check_selftest_orphan_selftest PROPERTIES LABELS selftest)
 
 # SELFTEST-CHECK-CANARY, CANARY-2 (D-W8-357, GODS_LAWS.md L-33, L-36, L-40): one owner for check(). The
-# --check gate reads the real tree (analisados must be > 0; donos=1, fora=0, arme=1). The --selftest registration
-# is the executor's form, so its line is a site of check_no_pass_regex.cmake (11 -> 12, D-W8-357).
+# SELFTEST-CHECK-CANARY, CANARY-3 (D-W8-360 to D-W8-362, GODS_LAWS.md L-17, L-36, L-40): the EFFECT of check().
+# Every module of the repository that names check is imported, and its check, called with a false condition,
+# must stop with a non-zero SystemExit. The --selftest is the executor's form, so its line is a site of
+# check_no_pass_regex.cmake (the helper's site leaves and this one enters: the count stays 12).
 add_test(
-    NAME check_selftest_helper_test
+    NAME selftest_check_effect_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_helper.py" --check
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_check_effect.py" --check
         "${CMAKE_SOURCE_DIR}"
 )
-set_tests_properties(check_selftest_helper_test PROPERTIES LABELS consume)
+set_tests_properties(selftest_check_effect_test PROPERTIES LABELS consume)
 
 add_test(
-    NAME check_selftest_helper_selftest
+    NAME check_selftest_check_effect_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 6 controles OK"
+        "-DEXPECT_LINE=selftest: 8 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_helper.py" --selftest
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_check_effect.py" --selftest
 )
-set_tests_properties(check_selftest_helper_selftest PROPERTIES LABELS selftest)
+set_tests_properties(check_selftest_check_effect_selftest PROPERTIES LABELS selftest)
 
 # check_format_selftest - o autoteste do gate de formato que entrou em
 # be66fa6 (item LOOP-FMT-CLASS, cadeia de ganchos do commit) - registro

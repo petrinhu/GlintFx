@@ -1,0 +1,855 @@
+<!-- Origem: /var/tmp/cto-w8/t0/auditoria-api-texture.md, md5 f8d6415d18fb06bb9707815ebafdc709. Texto do parecer com as errata aplicadas no próprio texto (a errata vence o parecer). Ver "Errata aplicadas" logo abaixo. -->
+
+# Auditoria de API: R2D-TEXTURE (T0), textura 2D, atlas e desenho com textura
+
+**Revisor:** revisor de API da T0 (distinto do CTO, do revisor da S0 e de qualquer implementador da W8, L-12).
+**Natureza:** DESENHO. Aceito pelo CTO com as errata abaixo. Esta cópia em `docs/` é o texto que a T1 copia para o repositório (D-W8-303).
+**Árvore revisada:** `bd179b077fbb4000cb8ae26148cb15fe1a266afd` (ramo `onda-w8`), clone `/var/tmp/cto-w8/t0/fixture`. Durante o trabalho a árvore real passou de `a2a63ea4` para `bd179b07` (só documentação: `git diff a2a63ea4 bd179b07 -- include src` vazio); as duas cópias de sonda foram refeitas no mesmo SHA.
+**Modelo:** parecer da S0 (`/var/tmp/cto-w8/s0/auditoria-api-shapes.md`), mesmo formato de 8 seções.
+**Carimbo de início:** [11/10/26 - 12:13:13]
+
+**Errata aplicadas (CTO; r3 D-W8-288 a 303, r4 D-W8-304, D-W8-308):**
+- **D-W8-288 (DIV-T01):** destruir a textura adia a liberação para o fim do quadro, sem enviar o lote. Atualizar não envia o lote. Seção 2, `texture_2d.hpp` e `renderer_2d.hpp`.
+- **D-W8-289 (DIV-T02, opção c):** a região é valor (retângulo em texels e espelhamento). A textura entra em cada chamada de desenho. O atlas usa o slot com geração.
+- **D-W8-290 (Q-T01):** lista única de motivos de textura, acrescentada depois da S0. Sem `light_below_piece` (D-W8-334).
+- **D-W8-291 (Q-T02):** código `no_free_space`, no fim de `gltfx_err_code`.
+- **D-W8-292 (Q-T03):** `texture_switches` conta toda mudança de ligação, inclusive de e para nenhuma textura.
+- **D-W8-293 e D-W8-304 (Q-T06):** a promessa do filtro é pelo formato e é provada em cada sistema. Texto público em `texture_2d_desc.hpp` (D-W8-308). A pergunta ao líder (seção 3 do parecer) foi respondida com "pesquise e implemente"; a escolha (d) é decisão do CTO, com ratificação retroativa pendente.
+- **D-W8-294 (Q-T04):** `mipmap_levels` é contagem nos dois descritores; `gltfx_all_mipmap_levels` pede a cadeia inteira.
+- **D-W8-295 (Q-T05):** `unspecified = 0` é recusado pelo nome; os formatos são 1 a 4; o filtro tem padrão `linear`.
+- **D-W8-296 (Q-T07):** tipos de texel em `draw2d/texture_region.hpp`; enum de formato em `core/image_view.hpp`. Sem mudança de texto.
+- **D-W8-297 (Q-T08):** espelhamento por extenso: `flip_left_right` e `flip_top_bottom`. O valor dos dois eixos recebe o nome `flip_both`, que é rascunho desta cópia e entra na mesma sonda de colisão.
+- **D-W8-298 (Q-T09):** regra `margem >= 2^k`, com teste na fronteira. Se reprovar com `2^k`, a regra vira `2^(k+1) - 1`.
+- **D-W8-299 (IMP-T07):** a justificativa do WebRender sai do texto.
+- **D-W8-300 (IMP-T03, IMP-T04, IMP-T10, IMP-T11, COS-T01 a COS-T03):** regras e textos que entram nas fatias indicadas; marcadores de planejamento saem do texto público.
+- **D-W8-301 e D-W8-302:** a T2 se parte em T2a (handle, subida e descritor) e T2b (amostragem e texto do filtro). A T1 entra na fila logo depois da S1.
+
+A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
+
+---
+
+## 1. Veredito
+
+**APROVADO COM CONDIÇÕES, com 2 CRÍTICOS.** A T1 (vista de imagem e conversão de pixel) pode começar: `core/image_view.hpp` e o enum de formato estão confirmados e compilam. A T2 em diante depende de três coisas que não decido aqui: a barreira implícita da destruição (DIV-T01), a forma do campo `texture` na região (DIV-T02, CRI-T02) e a lista única de motivos de recusa (Q-T01).
+
+- **CRI-T01 (divergência do plano, vai à seção 7):** D-W8-12 manda enviar o lote ao destruir textura. Esse envio é uma barreira, e a barreira muda a ordem de camadas. A promessa de `flush()` é publicada.
+- **CRI-T02 (defeito do rascunho desta revisão):** `gltfx_texture_region::texture` como ponteiro para objeto que o consumidor destrói deixa a biblioteca desreferenciar memória liberada. A forma final é decisão, seção 7.
+- **Rodada negativa da sonda de colisão: `rc_ctest=0` na primeira rodada.** Nenhum nome proposto colidiu, então nenhum nome foi corrigido e a sonda não produziu CRÍTICO de nome. O controle positivo (`major` em várias linhas) reprovou com `rc_ctest=8`.
+- **Contagem:** CRÍTICO 2, IMPORTANTE 15, COSMÉTICO 3.
+- **Decisões do plano:** confirmadas 8 (D-W8-10, 11, 13, 14, 23, 25, 26 e 252, com condições), divergente 1 (D-W8-12). A pergunta extra tem resposta: `image_view` mora em `core/`.
+
+---
+
+## 2. Texto proposto
+
+Os seis cabeçalhos novos e o trecho da fachada, exatamente como foram copiados para a sonda (`/var/tmp/cto-w8/t0/proposta/`). Nada disto está no repositório. Nenhum texto proposto existia antes desta revisão: o plano descreve os cabeçalhos só pelos nomes e pelas decisões, então o texto foi redigido a partir das decisões D-W8-10 a 14, 23, 25, 26 e 252, e cada desvio das decisões está marcado no texto e nas seções 5 e 7.
+
+### `include/glintfx/core/image_view.hpp` (novo)
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
+
+// core/image_view.hpp - R2D-TEXTURE. A NON-OWNING view of
+// pixels the caller already has in memory. Pure value type, no GL, no
+// operating system: it lives in core/ next to gltfx_rgba8 (color.hpp),
+// the 8-bit boundary type it describes.
+//
+// THE POINTER LIFETIME (docs/api-conventions.md R5): the library reads
+// `pixels` only during the call that receives the view, and copies what
+// it keeps. The caller owns the bytes and frees them; the library never
+// frees them and never keeps the pointer.
+//
+// ROW STRIDE: `bytes_per_row` is the distance in BYTES from the first
+// byte of one row to the first byte of the next. It may be larger than
+// width * 4 (padded rows); it may not be smaller. A smaller value, or a
+// `pixels` span shorter than height * bytes_per_row, is refused by the
+// call that receives the view with invalid_argument, rejected_value()
+// "bytes_per_row" or "pixels".
+//
+// PIXEL FORMAT: append-only (GODS_LAWS.md L-26). A value is never
+// renumbered and never reused. Names are spelled out (GODS_LAWS.md
+// L-28): the reader sees the color space and the alpha convention
+// without opening this header. An 8-bit alpha-only format for glyph
+// coverage is added later by appending a value, in R2D-TEXT.
+// A value this build does not know is refused by name, never read as
+// undefined behaviour (docs/api-conventions.md R4).
+
+namespace glintfx {
+
+enum class gltfx_pixel_format : std::uint8_t {
+    // Not a format. It is the value of a view that does not say its format,
+    // and it is REFUSED by name (invalid_argument, rejected_value()
+    // "pixel_format"): a view without a format gets an error, never a wrong
+    // colour.
+    unspecified = 0,
+    // Four 8-bit channels per pixel. Red, green and blue are sRGB-encoded
+    // (the way a PNG or a camera stores them); alpha is straight, that
+    // is, not multiplied into the colour.
+    rgba8_srgb_straight = 1,
+    // Same channels, sRGB-encoded, but the colour is ALREADY multiplied
+    // by alpha in the encoding the caller chose.
+    rgba8_srgb_premultiplied = 2,
+    // Red, green and blue are linear light (the library's own convention,
+    // core/color.hpp); alpha is straight.
+    rgba8_linear_straight = 3,
+    // Linear light, colour already multiplied by alpha.
+    rgba8_linear_premultiplied = 4,
+};
+
+struct gltfx_image_view {
+    // Read only during the call that receives this view (see above).
+    std::span<const std::byte> pixels;
+    // Size in pixels. Zero is refused by the texture call, not here.
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    // Bytes from one row to the next (see above).
+    std::size_t bytes_per_row = 0;
+    // No default on purpose: the field must be written. The value
+    // `unspecified` is refused by name.
+    gltfx_pixel_format pixel_format = gltfx_pixel_format::unspecified;
+};
+
+} // namespace glintfx
+```
+
+### `include/glintfx/draw2d/texture_2d_desc.hpp` (novo)
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <cstdint>
+
+// draw2d/texture_2d_desc.hpp - R2D-TEXTURE. What the
+// texture is sampled with, decided when the texture is created.
+//
+// APPEND-ONLY (GODS_LAWS.md L-26, the same growth rule as
+// gltfx_gfx_option): a value is never renumbered and never reused, and
+// this enum GROWS in later fatias (the pixel-art mode is a new value in
+// R2D-SCALE-PIXEL-ART, W9-B). Do not write a `switch` over it that has no
+// default: a value this build does not know is refused by name, never
+// read as undefined behaviour (docs/api-conventions.md R4).
+//
+// Proved by: texture_desc_validation_test (a value outside the enum is
+// refused with rejected_value() "filter").
+
+namespace glintfx {
+
+enum class gltfx_texture_filter : std::uint8_t {
+    // Each screen pixel takes the colour of the nearest texel: sharp
+    // edges, the right choice for pixel art drawn at its own size.
+    nearest = 0,
+    // Each screen pixel blends the four nearest texels, weighted in
+    // linear light (the sampling of the sRGB format).
+    linear = 1,
+};
+
+// FILTERING AND COLOUR: a texture keeps sRGB-encoded colour that is already
+// multiplied by alpha (core/image_view.hpp). With the linear filter, the
+// graphics card turns each texel into linear light BEFORE it blends the
+// neighbours, so an edge between two colours does not come out darker
+// than it should. OpenGL lets a driver do the conversion after the blend
+// instead; this library treats that as a driver defect, and the test below
+// checks the order on every system it is tested on, failing when a driver
+// converts after the blend.
+// Proved by: draw2d_texture_parity_test
+
+struct gltfx_texture_2d_desc {
+    gltfx_texture_filter filter = gltfx_texture_filter::linear;
+    // Number of mipmap levels, the same count the atlas uses.
+    // Zero: no mipmap. k: exactly k levels. The named constant
+    // gltfx_all_mipmap_levels asks for the whole chain (its value is set
+    // together with the test that proves it). A count larger than the
+    // chain the texture size allows is refused by name (invalid_argument,
+    // rejected_value() "mipmap_levels").
+    std::uint32_t mipmap_levels = 0;
+};
+
+} // namespace glintfx
+```
+
+### `include/glintfx/draw2d/texture_region.hpp` (novo)
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <cstdint>
+
+#include <glintfx/core/color.hpp>
+#include <glintfx/core/rect.hpp>
+#include <glintfx/core/vec2.hpp>
+
+// draw2d/texture_region.hpp - R2D-TEXTURE. A part of a
+// texture (in TEXELS, the texture's own pixels), how it is mirrored, and
+// the vertex that carries texel coordinates to the textured triangles.
+//
+// TEXEL COORDINATES are their own type, not world and not screen
+// (GODS_LAWS.md L-19): a world rectangle passed where a texel rectangle
+// is expected must not compile. Double precision, as the world is, so a
+// source rectangle can start between two texels.
+//
+// MIRRORING is a named value, never a sign: `flip_left_right` swaps the
+// left and right edges of the source, `flip_top_bottom` the top and bottom,
+// `flip_both` both (docs/api-conventions.md R7: the reader sees the effect
+// of the name). A value outside this list is refused for the whole call,
+// counted as `unknown_option`.
+//
+// Proved by: texture_region_mirror_test (each mirror value, read back
+// as pixels) and projective_quad_test (the corner roles of
+// core/quad.hpp survive the mirror).
+
+namespace glintfx {
+
+struct gltfx_vec2_texel {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+struct gltfx_rect_texel {
+    gltfx_vec2_texel corner;
+    gltfx_vec2_texel size;
+};
+
+enum class gltfx_texture_mirror : std::uint8_t {
+    none = 0,
+    flip_left_right = 1,
+    flip_top_bottom = 2,
+    flip_both = 3,
+};
+
+// A region of a texture, as a VALUE: the rectangle in texels and the
+// mirroring. It holds NO reference to the texture. The texture comes in each
+// drawing call, as in SDL_RenderTexture, so a region can never point to a
+// texture that was released. Copying a region copies two numbers and a name.
+//
+// A texture that is not open, or that belongs to another renderer, is refused
+// by the drawing call (`texture_not_open`, `texture_other_renderer`). A
+// region whose origin is not a finite number is refused as `not_a_number`.
+struct gltfx_texture_region {
+    gltfx_rect_texel source;
+    gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
+};
+
+// The vertex of the textured triangles. Position in WORLD space, like
+// every world position; `tint` is linear light with straight alpha, as
+// every gltfx_rgba. The library multiplies the premultiplied texel by the
+// tint in two parts: the colour by `tint` times `tint.alpha`, and the alpha
+// by `tint.alpha`. So a tint of alpha 0.5 over a texel of partial alpha
+// gives the right colour and the right alpha, not a dark halo.
+// `texel` is in texel units of the texture being drawn.
+struct gltfx_textured_vertex_2d {
+    gltfx_vec2_world position;
+    gltfx_rgba tint;
+    gltfx_vec2_texel texel;
+};
+
+} // namespace glintfx
+```
+
+### `include/glintfx/draw2d/texture_2d.hpp` (novo)
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <cstdint>
+
+#include <glintfx/export.hpp>
+
+// draw2d/texture_2d.hpp - R2D-TEXTURE. A texture on the
+// graphics card: a move-only handle, opaque (PIMPL), in the same shape as
+// gltfx_renderer_2d. Created by gltfx_renderer_2d::create_texture()
+// (renderer_2d.hpp), the way SDL_CreateTexture takes its renderer: the
+// texture belongs to ONE renderer and to that renderer's context.
+//
+// LIFETIME (docs/api-conventions.md R3, R5):
+//   - The texture does NOT outlive its renderer. Destroying the renderer
+//     while a texture is alive is a precondition violation (the same
+//     rule as the window and the context).
+//   - Destroying the texture takes the graphics object out of the consumer's
+//     hands at once. The renderer keeps the GL name in a list and releases it
+//     at finish_frame(), when its context is already current. If a frame is
+//     abandoned, the release happens at the next begin_frame(), or when the
+//     renderer is destroyed. Destroying the texture OUTSIDE an open frame
+//     releases it at once, after making the renderer's context current on the
+//     calling thread (the rule begin_frame() follows, D-API-07).
+//   - If the release fails, the graphics object leaks, the destructor does not
+//     throw and does not return an error, and the event
+//     `texture_release_failed` says so (identifier plus typed fields, the same
+//     shape as `draw2d_program_rejected`).
+//   - A piece already queued that uses the texture still draws with it, and
+//     the order of layers does not change. Destruction is NOT a barrier: it
+//     does not send the batch (see renderer_2d.hpp, update_texture).
+//
+// Proved by: renderer_2d_impl_test (destruction with a piece in the queue
+// draws the piece and keeps layer order; the release happens at
+// finish_frame(); a release outside a frame makes the context current first
+// and emits the event on a failing release; pure, with a fake GL table).
+
+namespace glintfx {
+
+class gltfx_renderer_2d;
+struct texture_2d_impl;
+
+class gltfx_texture_2d {
+  public:
+    gltfx_texture_2d(const gltfx_texture_2d &) = delete;
+    gltfx_texture_2d &operator=(const gltfx_texture_2d &) = delete;
+    GLINTFX_API gltfx_texture_2d(gltfx_texture_2d &&other) noexcept;
+    GLINTFX_API gltfx_texture_2d &operator=(gltfx_texture_2d &&other) noexcept;
+    GLINTFX_API ~gltfx_texture_2d();
+
+    [[nodiscard]] GLINTFX_API bool is_open() const noexcept;
+    // Size in texels, fixed at creation.
+    [[nodiscard]] GLINTFX_API std::uint32_t width() const noexcept;
+    [[nodiscard]] GLINTFX_API std::uint32_t height() const noexcept;
+
+  private:
+    friend class gltfx_renderer_2d;
+    explicit gltfx_texture_2d(texture_2d_impl *interior) noexcept : impl(interior) {}
+    texture_2d_impl *impl = nullptr;
+};
+
+} // namespace glintfx
+```
+
+### `include/glintfx/core/atlas_allocator.hpp` (novo)
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <cstdint>
+
+#include <glintfx/core/err.hpp>
+#include <glintfx/export.hpp>
+
+// core/atlas_allocator.hpp - R2D-TEXTURE. A PURE
+// packing allocator: it decides WHERE a rectangle goes inside a fixed
+// square of pixels, and it takes space BACK when the rectangle is
+// released. It knows no texture, no GL and no operating system, so it is
+// testable without a graphics card (CONTRACT.md, core layer).
+//
+// WHY RELEASE EXISTS: a dynamic atlas (a glyph, a sprite loaded and
+// unloaded) must reuse the space of what left. An allocator without
+// release fills up for good.
+//
+// STALE SLOTS (the ABA problem): a slot that was released can hand its
+// space to a new allocation. A second release of the OLD slot would then
+// free the NEW owner's space. Every slot therefore carries a generation,
+// and release() refuses a slot whose generation is no longer current
+// (invalid_argument, rejected_value() "stale_slot"). Proved by:
+// atlas_allocator_test (release, reallocate into the hole, then release
+// the old slot: refused, the new owner's space untouched).
+//
+// NO ROOM is a result, never a null or an empty optional (R1): allocate()
+// returns gltfx_rslt<gltfx_atlas_slot>. The error code for "no room" is
+// `no_free_space`, appended to the end of gltfx_err_code, with
+// rejected_value() "atlas_full". It says what is missing and does not read as
+// a shortage of process memory (out_of_memory would say that).
+//
+// Proved by: atlas_allocator_test (allocate, release, reallocate into the
+// hole, full atlas refused, a rectangle larger than the atlas refused).
+
+namespace glintfx {
+
+// A rectangle of pixels inside the atlas, in whole pixels. Trivial value.
+struct gltfx_atlas_rect {
+    std::uint32_t x = 0;
+    std::uint32_t y = 0;
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+};
+
+// The receipt of one allocation: where it is, and which generation of
+// the allocator handed it out.
+struct gltfx_atlas_slot {
+    gltfx_atlas_rect rect;
+    std::uint32_t id = 0;
+    std::uint32_t generation = 0;
+};
+
+class gltfx_atlas_allocator {
+  public:
+    // A square atlas of `side` pixels per edge. Zero is refused with
+    // invalid_argument, rejected_value() "side".
+    [[nodiscard]] GLINTFX_API static gltfx_rslt<gltfx_atlas_allocator>
+    open(std::uint32_t side) noexcept;
+
+    gltfx_atlas_allocator(const gltfx_atlas_allocator &) = delete;
+    gltfx_atlas_allocator &operator=(const gltfx_atlas_allocator &) = delete;
+    GLINTFX_API gltfx_atlas_allocator(gltfx_atlas_allocator &&other) noexcept;
+    GLINTFX_API gltfx_atlas_allocator &operator=(gltfx_atlas_allocator &&other) noexcept;
+    GLINTFX_API ~gltfx_atlas_allocator();
+
+    // A rectangle of `width` by `height` pixels. Zero is refused
+    // (invalid_argument, "width" or "height"); larger than the atlas, or no
+    // free place of that size, is refused as described above.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_atlas_slot>
+    allocate(std::uint32_t width, std::uint32_t height) noexcept;
+
+    // Gives the space of `slot` back. A stale slot is refused (see above).
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void>
+    release(gltfx_atlas_slot slot) noexcept;
+
+  private:
+    explicit gltfx_atlas_allocator(struct atlas_allocator_impl *interior) noexcept
+        : impl(interior) {}
+    struct atlas_allocator_impl *impl = nullptr;
+};
+
+} // namespace glintfx
+```
+
+### `include/glintfx/draw2d/texture_atlas.hpp` (novo)
+
+```cpp
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <cstdint>
+
+#include <glintfx/core/atlas_allocator.hpp>
+#include <glintfx/core/err.hpp>
+#include <glintfx/core/image_view.hpp>
+#include <glintfx/export.hpp>
+
+// draw2d/texture_atlas.hpp - R2D-TEXTURE.
+// A convenience over the pure allocator (core/atlas_allocator.hpp): one
+// texture, a packing allocator, and the upload of each image into its
+// place. The caller hands an image and gets back the slot of the cell that holds it.
+//
+// MARGIN AND EXTRUSION: each image is written with `margin_pixels` of
+// copied border on every side, so a sample near its edge reads the
+// image's own colour and never the neighbour's (the bleed of a linear
+// filter). The region returned covers the image only, not the
+// margin.
+//
+// MIPMAPS AND MARGIN: a mipmap level k averages 2^k pixels, so the margin
+// must cover it. The rule is:
+//     mipmap_levels == k  requires  margin_pixels >= 2^k
+// A request that breaks it is refused at open() with invalid_argument,
+// rejected_value() "margin_pixels". The rule and its refusal are proved
+// by atlas_extrude_test, which tests one step beyond the border, in a cell
+// that is NOT aligned to 2^k: margin 2^k - 1 must be refused (or must fail),
+// margin 2^k must pass. If the test refuses margin 2^k, the rule becomes
+// margin 2^(k+1) - 1. A cell at 0.5x minification must not bleed.
+//
+// THE CELL IS A SLOT, WITH A GENERATION. add_image() returns the
+// gltfx_atlas_slot of the cell (its place and its generation), not a region.
+// A drawing call that takes a cell receives that slot. The atlas checks the
+// generation: a slot whose cell was released is refused as `stale_region`.
+// The name of the drawing call that takes a slot is fixed with the probe of
+// its fatia, under the same collision rule as the other names.
+//
+// REMOVAL: `release_slot` gives the cell back to the allocator. The slot it
+// was handed is then STALE, and every drawing call refuses it as
+// `stale_region`. A second release of the same slot is refused as
+// `stale_slot` (see atlas_allocator.hpp).
+//
+// Proved by: atlas_extrude_test (see above); atlas_allocator_test (the
+// allocator under the atlas, through release and reuse).
+
+namespace glintfx {
+
+class gltfx_renderer_2d;
+
+struct gltfx_texture_atlas_desc {
+    std::uint32_t side = 0;             // square edge in texels; zero refused
+    std::uint32_t margin_pixels = 1;    // copied border per side, see above
+    std::uint32_t mipmap_levels = 0;    // zero: no mipmap; k: exactly k levels
+};
+
+class gltfx_texture_atlas {
+  public:
+    // Opens the atlas on `renderer`. Refusals: invalid_argument on
+    // "side", "margin_pixels" (the rule above) or "mipmap_levels" (more
+    // levels than `side` allows).
+    [[nodiscard]] GLINTFX_API static gltfx_rslt<gltfx_texture_atlas>
+    open(gltfx_renderer_2d &renderer, const gltfx_texture_atlas_desc &desc) noexcept;
+
+    gltfx_texture_atlas(const gltfx_texture_atlas &) = delete;
+    gltfx_texture_atlas &operator=(const gltfx_texture_atlas &) = delete;
+    GLINTFX_API gltfx_texture_atlas(gltfx_texture_atlas &&other) noexcept;
+    GLINTFX_API gltfx_texture_atlas &operator=(gltfx_texture_atlas &&other) noexcept;
+    GLINTFX_API ~gltfx_texture_atlas();
+
+    // Places `image` in the atlas and returns the slot of the cell that
+    // holds it. No room: refused with the allocator's error (`no_free_space`,
+    // see atlas_allocator.hpp).
+    [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_atlas_slot>
+    add_image(gltfx_image_view image) noexcept;
+
+    // Gives the cell of `slot` back. A slot already released, or from another
+    // atlas, is refused (invalid_argument, "slot").
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void>
+    release_slot(gltfx_atlas_slot slot) noexcept;
+
+  private:
+    explicit gltfx_texture_atlas(struct texture_atlas_impl *interior) noexcept
+        : impl(interior) {}
+    struct texture_atlas_impl *impl = nullptr;
+};
+
+} // namespace glintfx
+```
+
+### `include/glintfx/draw2d/renderer_2d.hpp` (trecho: includes e cinco métodos de textura, dentro da classe, antes de `private:`)
+
+```cpp
+// TRECHO para inserir em include/glintfx/draw2d/renderer_2d.hpp.
+// Includes novos, junto aos existentes:
+#include <cstdint>
+#include <span>
+#include <glintfx/core/image_view.hpp>
+#include <glintfx/draw2d/texture_2d.hpp>
+#include <glintfx/draw2d/texture_2d_desc.hpp>
+#include <glintfx/draw2d/texture_region.hpp>
+// Dentro da classe gltfx_renderer_2d, antes de "private:":
+
+    // Makes a texture from `image`, on this renderer's context. The pixels
+    // are read only during this call (docs/api-conventions.md R5). Refused
+    // as gltfx_err, never an exception (R1, R3):
+    //   - invalid_argument: "width" or "height" is zero; "pixel_format" is
+    //     `unspecified` or a value this build does not know; "bytes_per_row"
+    //     or "pixels" does not hold the image (see image_view.hpp); "filter"
+    //     is not a value of gltfx_texture_filter; "mipmap_levels" is more
+    //     levels than the chain of this size allows.
+    //   - unsupported, rejected_value() "width" or "height": larger than
+    //     the card allows (the limit is read from the card, never assumed).
+    //   - out_of_memory: the card or the library ran out of memory
+    //     (rejected_value() "texture_create", os_error_code() the GL code).
+    // The texture is made current by this call before it touches GL, as
+    // begin_frame() does (D-API-07).
+    [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_texture_2d>
+    create_texture(gltfx_image_view image, gltfx_texture_2d_desc desc = {}) noexcept;
+
+    // Overwrites the part of `texture` that starts at texel (x, y) with
+    // `image`. A rectangle outside the texture is refused with
+    // invalid_argument, rejected_value() "rect". A texture of another
+    // renderer is refused and counted as `texture_other_renderer`.
+    //
+    // The texture is READ at the send: updating it changes what the pieces
+    // not yet sent show. This call does NOT send the batch. To keep the
+    // previous content in those pieces, call flush() before it. The barrier
+    // belongs to the consumer and is explicit.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void>
+    update_texture(gltfx_texture_2d &texture, std::uint32_t x, std::uint32_t y,
+                   gltfx_image_view image) noexcept;
+
+    // Draws `region` of `texture` into the axis-aligned rectangle `rect`
+    // (world space, like fill_rect), multiplied by `tint`. Mirroring is
+    // applied to the source, not to the rectangle. Refused as ONE piece,
+    // counted in the report, never an exception:
+    //   - texture_not_open: the texture is released or was never opened;
+    //   - texture_other_renderer: the texture belongs to another renderer;
+    //   - region_out_of_range: the source rectangle is outside the texture;
+    //   - not_a_number: the origin of the source is not a finite number.
+    // Each change of the bound texture between two calls counts in
+    // texture_switches, including a change to or from no texture.
+    GLINTFX_API void draw_texture(const gltfx_texture_2d &texture,
+                                  gltfx_texture_region region, gltfx_rect_world rect,
+                                  gltfx_rgba tint, gltfx_draw_layer layer = {}) noexcept;
+
+    // Draws `region` of `texture` into a free quadrilateral, with PROJECTIVE
+    // interpolation: a straight line of the texture stays a straight line on
+    // the screen, even when the quad is a trapezoid. The corner roles of
+    // gltfx_quad_world say where the texture's top-left lands. Refused as ONE
+    // piece, counted in the report: `degenerate_quad` when the corners do not
+    // define a projective mapping (three of them on one line, or a quad whose
+    // edges cross; a quad of zero area has its corners on one line, so it is
+    // refused the same way); plus the refusals of draw_texture.
+    GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture,
+                                       gltfx_texture_region region, gltfx_quad_world corners,
+                                       gltfx_rgba tint, gltfx_draw_layer layer = {}) noexcept;
+
+    // Filled triangles textured from `texture`. Each vertex carries its
+    // own texel coordinate and tint. Without indices, the vertices are read
+    // in order, three at a time; with indices, each three indices name three
+    // vertices (the same split as fill_triangles and fill_indexed_triangles).
+    // Refusals as in fill_triangles, plus a texel coordinate that is not a
+    // finite number (not_a_number), plus the two texture refusals of
+    // draw_texture (texture_not_open, texture_other_renderer).
+    GLINTFX_API void fill_textured_triangles(const gltfx_texture_2d &texture,
+                                             std::span<const gltfx_textured_vertex_2d> vertices,
+                                             gltfx_draw_layer layer = {}) noexcept;
+    GLINTFX_API void fill_indexed_textured_triangles(
+        const gltfx_texture_2d &texture,
+        std::span<const gltfx_textured_vertex_2d> vertices,
+        std::span<const std::uint32_t> indices,
+        gltfx_draw_layer layer = {}) noexcept;
+```
+
+
+---
+
+## 3. R1 a R10 de `docs/api-conventions.md`, uma a uma
+
+Cada regra: **confirmada** (o desenho proposto cumpre), **confirmada com condição** (cumpre se a T1 a T6 fizerem X), ou **não se aplica**. Achado fica na seção 5.
+
+- **R1 (retorno único `gltfx_rslt<T>`): confirmada com nota.** `create_texture`, `update_texture`, `open`, `add_image`, `release_region`, `allocate` e `release` devolvem `gltfx_rslt`. Os métodos de desenho (`draw_texture`, `draw_texture_quad`, `fill_textured_triangles`, `fill_indexed_textured_triangles`) devolvem `void`, pela decisão 2 do líder (19/09): o problema sai no relatório. O plano pedia "cheio devolve vazio" no alocador, que é a segunda forma de retorno que R1 proíbe: IMP-T01.
+- **R2 (`[[nodiscard]]` estrutural): confirmada.** Todo método que devolve valor leva `[[nodiscard]]`, inclusive `is_open()`, `width()` e `height()`. Os métodos de desenho não devolvem valor, então não se aplica a eles.
+- **R3 (`noexcept` na borda): confirmada com condição.** Todo método público é `noexcept`, inclusive construtores de movimento e destrutores. Condição para a T2 e a T6: a alocação de prateleiras, de cópias de pixel e de tabelas do atlas tem de virar `out_of_memory` (degrau 2 da R3), nunca `bad_alloc` que escape. O gate `noexcept_alloc_test` precisa passar nesses arquivos.
+- **R4 (campo ou código desconhecido nunca é comportamento indefinido): NÃO confirmada no texto proposto; corrigível.** `pixel_format` e `filter` fora da faixa são recusados por nome (`invalid_argument`). Falta a mesma regra para `gltfx_texture_mirror` (um `static_cast` com valor 9 hoje passa sem recusa) e para a origem não finita de uma região. Também `gltfx_texture_region::texture` com ponteiro pendurado é UB (CRI-T02). Achados IMP-T10 e CRI-T02.
+- **R5 (alocação e liberação do mesmo lado): confirmada.** `gltfx_image_view` não possui bytes: `std::span` é lido só durante a chamada, e o texto diz isso. A textura copia os pixels para a placa dentro da chamada. O alocador é dono das próprias prateleiras e as libera no destrutor. Nota de ABI igual à da S0: `std::span` é template de cabeçalho, sem objeto no `.so`.
+- **R6 (nome público sem colisão com macro nem com nome da biblioteca padrão): confirmada com limite declarado.** Todos os nomes novos passaram pela sonda de colisão (seção 6), e os que o portão não varre estão listados lá. Nomes evitados por R6 e pelo item 3 da ordem: `format`, `data`, `stride`, `clamp`, `index`, `min`, `max`, `near`, `far`, `remove`. Os campos são `pixel_format`, `bytes_per_row`, `pixels`.
+- **R7 (formatação é vocabulário de token, nunca frase): confirmada.** Os tokens do texto são identificadores: `invalid_argument`, `rejected_value()` com `"pixel_format"`, `"bytes_per_row"`, `"stale_slot"`, `"atlas_full"` (provisório, Q-T02), `"margin_pixels"`. Nenhum campo novo leva texto livre.
+- **R8 (callback com ponteiro de função + contexto): não se aplica.** Nenhum callback novo.
+- **R9 (evento de log é identificador mais campos tipados): aplica-se ao evento `texture_release_failed` (D-W8-26), e fica confirmado.** FATO: o evento irmão `draw2d_program_rejected` é constante interna em `src/draw2d/embedded_program.hpp:49` (`k_program_rejected_event`), com campo de texto do driver como campo tipado (`k_driver_log_field`), e não aparece em cabeçalho público. O evento de textura segue a mesma forma: constante em `src/`, campo do código de erro da placa como inteiro tipado. Ele sai de um destrutor, então os campos precisam ser tipados, sem texto livre.
+- **R10 (callbacks entregues à biblioteca): não se aplica.** A T0 não entrega callback à biblioteca.
+
+**Citação de comentário público (regra de abertura de `docs/api-conventions.md`):** os cabeçalhos citam testes com `Proved by:` (`renderer_2d_impl_test`, `draw2d_parity_test` e os novos). Dois dos novos não existem ainda: `texture_desc_validation_test`, `texture_region_mirror_test`, `atlas_allocator_test`, `atlas_extrude_test`, `projective_quad_test` e `texture_update_region_test` não aparecem em `tests/`, `CMakeLists.txt` nem `cmake/`. É o mesmo estado da S0 (seção 3, COS-01 de lá): o texto só entra no repositório junto com o teste que cita. Achado COS-T02.
+
+---
+
+## 4. As decisões D-W8-10 a 14, 23, 25, 26 e 252, e a pergunta extra
+
+### 4.1 Decisões, uma a uma
+
+- **D-W8-10 (cor pré-multiplicada em luz linear, codificada em sRGB na placa; alfa linear): CONFIRMADA.** A escolha (c) é a única que filtra em luz linear com alfa pré-multiplicado, e o formato `SRGB8_ALPHA8` deixa o alfa linear por definição, o que o texto respeita. O enum de formato de entrada tem quatro valores por extenso e cresce por acréscimo, como o plano pede. Nota: "conversão por tabela" vale só para a decodificação de 8 bits (256 entradas). A codificação depois da multiplicação é função de ponto flutuante, e isso é aceito porque o `CONTRACT.md` §8.3 manda que a decodificação de asset pesado fique fora do caminho quente (FATO, lido). Sem divergência.
+- **D-W8-11 (amostragem e mipmap no descritor; `image-rendering` fica na W9-B; repetição vira linha nova): CONFIRMADA na substância, com condições.** O descritor tem `filter` e `mipmaps`. Condições: a forma do mipmap (IMP-T12, Q-T04), o padrão de filtro (IMP-T13, Q-T05). A repetição em mosaico fica de fora, como o plano pede.
+- **D-W8-12 (tempo de vida: não sobrevive ao desenhador; destruir envia o lote antes): DIVERGENTE, na parte de envio.** Confirmada a parte "não sobrevive ao desenhador". Divergente a parte "destruir envia o lote", porque o envio é barreira e o contrato de `flush()` diz que a ordem de camadas não atravessa barreira (CRI-T01). Vai à seção 7, DIV-T01. **Decidido: D-W8-288.**
+- **D-W8-13 (desenho com textura: região com espelhamento, quadrilátero projetivo, tinta que multiplica, triângulos texturizados; troca de textura não reordena): CONFIRMADA na substância, com condições.** Sem a correção projetiva, o trapézio da sombra de luz pontual (D-W8-16) entorta, e por isso a decisão é necessária. A troca de textura parte o lote sem reordenar, e isso precisa de teste "A, B, A dá 3 lotes na ordem" (já previsto no plano). Condições: regra de premultiplicação da tinta (IMP-T03), casos de borda do quad (IMP-T11), significado de `texture_switches` (IMP-T09), nomes do espelhamento (IMP-T15). Ponto de contrato a registrar: a tinta multiplica a cor pré-multiplicada do texel, e isso não é a multiplicação direta de canais.
+- **D-W8-14 (atlas: alocador público com liberação no núcleo, e atlas de conveniência com margem e extrusão; opção c): CONFIRMADA na decisão, com condições.** A liberação é requisito do atlas dinâmico (glifo, sprite carregado e descarregado), e isso não depende de citação externa. Condições: reuso após liberação (ABA, IMP-T02), código de "atlas cheio" (IMP-T01, Q-T02), e justificativa factual (IMP-T07). A justificativa de WebRender do plano não se sustenta com as fontes que achei (IMP-T07), e a decisão não depende dela. **Decidido: D-W8-299** (a frase do WebRender sai do texto).
+- **D-W8-23 (vértice interno de 9 floats, 36 bytes, sem preenchimento, como interno): CONFIRMADA.** A conta é posição (2) mais cor (4) mais texel (2) mais coordenada homogênea (1) = 9 floats de 4 bytes, 36 bytes, sem preenchimento. É interno: não aparece em cabeçalho público, e o tipo público `gltfx_textured_vertex_2d` tem 8 floats, sem a coordenada homogênea, que o desenho calcula por dentro. Custo registrado: toda peça sólida também paga 4 bytes a mais por vértice (+12,5% de largura de banda do vértice), e o plano não diz isso. A alternativa de dois formatos de vértice foi descartada pelo plano e não a reabro, mas o custo fica escrito. O teste que trava 32 bytes em `batch_vertex` (static_assert, fato 1.7 do plano) muda na T2 e na T4.
+- **D-W8-25 (tolerância de 1 nível em `double`; promessa honesta sobre o filtro; margem para atlas com mipmap): CONFIRMADA com condições.** A tolerância fica fixada antes do teste (L-43 global), e isso está correto. Condições: a promessa sobre o filtro depende do driver no texto do plano (IMP-T05, Q-T06), e a regra de margem `2^k` precisa de alinhamento e de teste na fronteira (IMP-T06, Q-T09). **Decidido: D-W8-295** (formato obrigatório, filtro `linear`), **D-W8-304** (promessa pelo formato) e **D-W8-298** (margem).
+- **D-W8-26 (destruir torna corrente o contexto do próprio desenhador antes de tocar GL; falha vaza, sem travar, e emite `texture_release_failed`): CONFIRMADA com condição.** O texto segue a forma de `begin_frame()` (D-API-07), e o evento segue R9 (seção 3). Condição: a ordem de envio depende de DIV-T01. A prova prevista, `renderer_2d_impl_test` com tabela de funções GL falsa, tem o nome em dois arquivos de `tests/`; não li se a tabela falsa já cobre o caminho de destruição, e isso fica como pergunta de implementação, não como achado.
+- **D-W8-252 (enum de amostragem nasce com dois valores e texto de "só cresce"; cabeçalho não promete `switch` exaustivo): CONFIRMADA.** `gltfx_texture_filter` tem `nearest` e `linear`, e o cabeçalho diz "APPEND-ONLY" e pede que o consumidor não escreva `switch` sem `default` (texto de `texture_2d_desc.hpp`). O texto não promete que o enum é exaustivo, que era o pedido do plano. FATO lido na documentação do SDL 3.4: `SDL_SCALEMODE_PIXELART` existe desde 3.4.0 e é linha futura do plano (W9-B), e não entra aqui. Sem divergência.
+
+### 4.2 Pergunta extra: `image_view` mora em `core/`?
+
+**Sim, em `core/`.** Critério: é valor puro, sem GL e sem sistema operacional, como `core/quad.hpp` e `core/rect.hpp`; o formato de pixel é propriedade dos bytes, não da placa; e o tipo de 8 bits `gltfx_rgba8` (em `core/color.hpp`) já está lá e descreve exatamente a mesma fronteira. A dependência fica para baixo (`draw2d` usa `core`, L-19). O cabeçalho junta a vista e o enum de formato, que são um só assunto (dado de pixel, L-17). A pergunta de se o enum merece arquivo próprio não é decisão minha: fica como Q-T07, junto com o lugar dos tipos de texel.
+
+### 4.3 L-28 do projeto: "quem nunca viu entende lendo uma vez?", nome por nome
+
+| Nome | Lê de uma vez? | Nota |
+|---|---|---|
+| `gltfx_image_view` (`pixels`, `width`, `height`, `bytes_per_row`, `pixel_format`) | sim | `bytes_per_row` diz a unidade no nome |
+| `gltfx_pixel_format::rgba8_srgb_premultiplied` (e os outros três) | sim | a cor e o alfa estão no nome; por isso o padrão é o problema (IMP-T13) |
+| `gltfx_texture_2d_desc::filter` / `mipmaps` | parcial | `mipmaps` é bool e não diz quantos níveis (IMP-T12) |
+| `gltfx_texture_filter::nearest` / `linear` | sim | os nomes do SDL, e a palavra "linear" é a da luz, por D-W8-10 |
+| `gltfx_texture_mirror::horizontal` / `vertical` | NÃO | "horizontal" lê-se como linha de espelho ou como direção do flip (IMP-T15) |
+| `gltfx_texture_region` (`texture`, `source`, `mirror`) | parcial | `texture` é ponteiro com vida fora do controle (CRI-T02) |
+| `gltfx_rect_texel`, `gltfx_vec2_texel` | sim | o tipo diz que a unidade é o texel |
+| `gltfx_textured_vertex_2d` (`position`, `tint`, `texel`) | sim | `tint` diz a função, e a regra de multiplicação está em IMP-T03 |
+| `create_texture`, `update_texture`, `draw_texture`, `draw_texture_quad` | sim | |
+| `fill_textured_triangles` / `fill_indexed_textured_triangles` | sim | mesmo par de nomes da S0 (D-W8-282) |
+| `gltfx_atlas_allocator::allocate` / `release`, `gltfx_atlas_slot` (`generation`) | sim | |
+| `gltfx_texture_atlas::add_image` / `release_region` | sim | nome antigo `remove` foi trocado por `release_region` (R6) |
+| `gltfx_texture_atlas_desc::side`, `margin_pixels`, `mipmap_levels` | sim | `mipmap_levels` diz contagem, em oposição ao bool do descritor |
+
+
+---
+
+## 5. Achados por classe
+
+Classes: **CRÍTICO** quebra o que já está publicado ou aponta comportamento indefinido no desenho; **IMPORTANTE** é contrato a fechar antes da fatia que o usa; **COSMÉTICO** é nome, comentário ou citação. Nenhum achado é divergência com decisão do plano: essas estão na seção 7.
+
+**Decisões que fecham os achados (a errata vence o texto dos achados abaixo):**
+
+| Achado | Decisão |
+|---|---|
+| CRI-T01 | D-W8-288: destruir adia a liberação para o fim do quadro, sem enviar o lote; atualizar também não envia o lote. |
+| CRI-T02 | D-W8-289: `gltfx_texture_region` é valor (retângulo em texels e espelhamento); a textura entra em cada chamada de desenho. |
+| IMP-T01 | `allocate` devolve `gltfx_rslt`; o código de "sem lugar" é `no_free_space` (D-W8-291). |
+| IMP-T02 | D-W8-289 e D-W8-290: slot com geração; `release` recusa slot antigo como `stale_slot`; o desenho recusa a célula velha como `stale_region`. |
+| IMP-T03 | Regra escrita no comentário de `gltfx_textured_vertex_2d`; teste na fatia de tinta (D-W8-300). |
+| IMP-T04 | D-W8-300: a lista de chamadas que tornam o contexto corrente entra no cabeçalho do desenhador (`create_texture` e `update_texture` incluídos); a paridade com `srgb_framebuffer` ligado e desligado entra na fatia de tinta. |
+| IMP-T05 | D-W8-304: a promessa é pelo formato e é provada em cada sistema; o texto público está em `texture_2d_desc.hpp` (D-W8-308). |
+| IMP-T06 | D-W8-298: regra `margem >= 2^k`, com teste na fronteira em célula desalinhada; se reprovar com `2^k`, a regra vira `2^(k+1) - 1`. |
+| IMP-T07 | D-W8-299: a justificativa do WebRender sai do texto. |
+| IMP-T08 | D-W8-290: lista única de motivos de textura, acrescentada depois da S0. |
+| IMP-T09 | D-W8-292: toda mudança da textura ligada conta, inclusive de e para nenhuma. |
+| IMP-T10 | Origem de região não finita: `not_a_number`; espelhamento fora da faixa: `unknown_option` (D-W8-285, D-W8-297). |
+| IMP-T11 | D-W8-290: `degenerate_quad`, com o critério escrito (três cantos alinhados ou cantos que se cruzam). |
+| IMP-T12 | D-W8-294: `mipmap_levels` é contagem nos dois descritores. |
+| IMP-T13 | D-W8-295: `pixel_format` sem padrão (`unspecified` é recusado); o filtro tem padrão `linear`. |
+| IMP-T14 | D-W8-288: a peça na fila mostra o pixel do momento do envio; atualizar não envia o lote. |
+| IMP-T15 | D-W8-297: `flip_left_right` e `flip_top_bottom`; o valor dos dois eixos é `flip_both`. |
+| COS-T01 | Sai com a D-W8-289. |
+| COS-T02 | `Proved by:` só entra quando o teste existir (D-W8-300). |
+| COS-T03 | Os marcadores de planejamento saem do texto público (seção 2). |
+
+### CRÍTICO: 2
+
+- **CRI-T01. Destruir textura com peça na fila envia o lote, e esse envio é barreira (D-W8-12, parte b).**
+  FATO: o texto de `flush()` em `renderer_2d.hpp` diz: "Layer order does not cross a barrier: a piece submitted after flush() is painted over everything before it, whatever its layer." O plano manda enviar o lote ao destruir textura, e o envio é a mesma operação de `flush()`.
+  INFERÊNCIA (não rodada): destruir uma textura não relacionada no meio do quadro passa a mudar a ordem de camadas das peças seguintes, sem chamada explícita de barreira. Quem usa camadas para empilhar (fundo, personagem, interface) perde a ordem sem saber por quê.
+  Classe CRÍTICO porque quebra promessa publicada. Correção: DIV-T01 (seção 7). Enquanto a decisão não sai, a T3 (sub-retângulo e destruição) não começa.
+
+- **CRI-T02. `gltfx_texture_region::texture` é ponteiro para um objeto cuja vida o consumidor controla (defeito do rascunho desta revisão, `draw2d/texture_region.hpp`).**
+  FATO: o consumidor pode destruir o `gltfx_texture_2d` e depois desenhar uma região que ainda guarda o endereço dele. A biblioteca desreferencia memória liberada, o que é comportamento indefinido do lado dela, e R4 proíbe que um campo inválido chegue a esse ponto. O mesmo vale para uma região de outro desenhador.
+  Não substituí o campo por outro tipo nesta revisão, porque a forma é decisão (DIV-T02, seção 7). O texto como está não pode ser implementado: a T2 não começa com ponteiro.
+
+### IMPORTANTE: 15
+
+- **IMP-T01. "Cheio devolve vazio" no alocador (T6, plano-w8.md:267) fere R1.** FATO: o plano pede que `allocate` devolva "vazio" quando não há lugar, e isso é uma segunda forma de retorno. Corrigido no texto: `allocate` devolve `gltfx_rslt<gltfx_atlas_slot>`. O código de erro para "sem lugar" está provisório em `out_of_memory` com `rejected_value()` `"atlas_full"`, e a escolha é Q-T02.
+
+- **IMP-T02. Reuso de espaço depois de liberação (problema ABA).** FATO do desenho: um slot liberado pode ter o espaço entregue a outro dono. Uma segunda liberação do slot antigo liberaria o espaço do novo, e uma região antiga desenharia a imagem nova sem erro nenhum. O plano não menciona isso. Corrigido no texto do alocador: cada slot leva uma geração, e `release` recusa slot de geração antiga com `stale_slot`. Para a região: depois de `release_region`, o desenho recusa a região (a forma exata da recusa depende de DIV-T02 e Q-T01).
+
+- **IMP-T03. A tinta multiplicada precisa de regra de premultiplicação escrita.** D-W8-13 diz "tinta que multiplica", mas o texel está pré-multiplicado (D-W8-10). Conta: texel de cor `t` e alfa `a_t` (pré-multiplicado `P = t·a_t`), tinta de cor `k` e alfa `a_k`. O resultado pré-multiplicado é `P·k·a_k` nos canais de cor e `a_t·a_k` no alfa. Ou seja: o texel pré-multiplicado é multiplicado por `k·a_k` na cor e por `a_k` no alfa. Multiplicar só por `k` produz halo escuro ou cor errada com tinta semitransparente. INFERÊNCIA (não rodada): o teste precisa de tinta de alfa 0,5 e de texel de alfa parcial, nos dois valores de `srgb_framebuffer`. Entra na T4.
+
+- **IMP-T04. Contrato de cor e de GL congelados não cobre textura.** (a) `renderer_2d.hpp`, "COLOR, frozen": quando `srgb_framebuffer` está desligado, a cor é codificada em sRGB antes da mistura. A cor amostrada da textura entra no mesmo caminho, e a T4 precisa de paridade com o `srgb_framebuffer` ligado e desligado (`draw2d_parity_test`). O plano não pede isso. (b) O texto de `begin_frame`, `flush` e `finish_frame` lista quais chamadas tornam o contexto corrente. `create_texture` e `update_texture` tocam GL e não estão na lista. O texto proposto já diz isso no próprio método, mas o cabeçalho do desenhador precisa da mesma lista.
+
+- **IMP-T05. Promessa de filtro condicionada ao driver (D-W8-25).** FATO: o plano manda prometer "o filtro age em luz linear quando o driver decodifica sRGB antes de filtrar". Isso põe a promessa pública no comportamento de cada driver. INFERÊNCIA a confirmar antes de virar texto público: a especificação do OpenGL 3.3 core trata o formato sRGB como decodificação obrigatória antes da filtragem, e não como opção. Não li a especificação nesta sessão. Recomendação: promessa pelo formato, e um driver que não cumpre é defeito que a sonda prova; "ausência declarada" fica só para extensão opcional. Pergunta Q-T06.
+
+- **IMP-T06. Regra de margem `margem ≥ 2^k` (D-W8-25) é aritmética não medida e o teste é insuficiente.** INFERÊNCIA: o filtro bilinear no nível `k` lê até um texel desse nível (2^k pixels da base) além da borda. A margem cobre se a célula estiver alinhada a múltiplo de 2^k; célula desalinhada precisa de 2^k − 1 a mais, ou o alinhamento vira regra de alocação. O plano prova só 0,5x, que é o nível `k = 1`. Exigência para `atlas_extrude_test`: testar cada `k` de 1 até o máximo permitido, e a fronteira, com margem `2^k − 1` (tem de falhar ou ser recusada) e `2^k` (tem de passar), em célula desalinhada. É o "um passo além da fronteira" da L-43 global. Pergunta Q-T09.
+
+- **IMP-T07. Justificativa factual de D-W8-14 não confirmada (L-44).** O plano diz que a liberação "foi isso que levou o WebRender a trocar de algoritmo". FATO das fontes que li: o alocador atual do WebRender é `ShelfAllocator`, alias do crate etagere, de prateleiras com coalescência de prateleiras vazias; o módulo guilhotina continua na árvore, e não achei registro da troca nem do motivo. "Skyline sem liberação (stb, fontstash)" não foi verificado. A decisão (c) não depende disso, porque liberação é requisito do atlas dinâmico, mas o texto da decisão não pode afirmar o motivo. Correção: reescrever a justificativa com a fonte real ou sem a comparação histórica.
+
+- **IMP-T08. Recusas do desenho com textura não cabem no layout travado de D-W8-30.** O desenho com textura precisa de recusas que o layout da S0 não tem: textura não aberta ou liberada, textura de outro desenhador, região fora da textura, texel ou tinta não finitos, região nula, quad sem homografia. O layout da S0 tem seis motivos, e D-W8-30 diz que o layout é decidido uma vez para a onda inteira. Sem a lista, a T4 não tem onde contar a recusa. Pergunta Q-T01, junto com a lista única de motivos.
+
+- **IMP-T09. Significado de `texture_switches` não está definido.** FATO: o layout da S0 diz "vezes que a textura ligada mudou entre duas chamadas de desenho". Não diz se uma peça de cor sólida depois de uma texturizada conta. Se a sólida usar textura branca de 1x1, conta; se usar programa sem textura, não conta. O número muda de sentido conforme a resposta. Pergunta Q-T03.
+
+- **IMP-T10. Valores fora da faixa e origem não finita de região (R4).** O texto recusa `pixel_format` e `filter` por nome, mas não recusa `gltfx_texture_mirror` fora da faixa nem origem de região não finita. Correção: recusa por nome (`invalid_argument` com `"mirror"`) e recusa de não finito (motivo de Q-T01). Não apliquei no texto, porque a sonda de nomes não depende disso, e a recusa depende da lista de Q-T01.
+
+- **IMP-T11. Quad degenerado no desenho projetivo.** Três cantos alinhados e quad que se cruza não têm homografia. O texto diz "refused" sem critério de área zero e sem motivo. Desenhar quad de área zero "não cobre pixel" (regra de `fill_quad`), mas sem homografia a textura não tem o que mostrar. Mesma família da IMP-04 da S0: cada caso de borda precisa de linha no cabeçalho e de teste citado. Pergunta Q-T01.
+
+- **IMP-T12. Duas formas de dizer mipmap.** `gltfx_texture_2d_desc::mipmaps` é bool (cadeia completa) e `gltfx_texture_atlas_desc::mipmap_levels` é contagem. São dois conceitos com o mesmo nome de família, e o bool não diz quantos níveis (L-28). Pergunta Q-T04.
+
+- **IMP-T13. Padrões escondem decisão de cor e de filtro.** `gltfx_image_view::pixel_format` tem padrão `rgba8_srgb_straight`, e `gltfx_texture_2d_desc::filter` tem padrão `linear`. O formato de cor é a decisão que D-W8-10 quer explícita ("o formato diz o alfa e a codificação por extenso"). Um consumidor que esquece o campo recebe cor errada sem erro. Recomendação: formato obrigatório, sem padrão. O padrão de filtro é escolha de produto. Pergunta Q-T05.
+
+- **IMP-T14. Atualizar sub-retângulo com peça na fila (T3).** O contrato não diz o que a peça já enfileirada mostra. A amostragem acontece no envio, então a peça mostra o pixel novo. Se `update_texture` também enviar o lote, cai em CRI-T01. O texto precisa dizer uma das duas coisas. Entra em DIV-T01.
+
+- **IMP-T15. Nomes de espelhamento ambíguos (L-28).** `horizontal` e `vertical` podem ler-se como "linha de espelho horizontal" (que inverte de cima para baixo) ou como "direção do flip". Sugestão, não aplicada (a sonda de nomes já foi rodada com os nomes atuais): `flip_left_right` e `flip_top_bottom`, ou outro par que o CTO escolher. Pergunta Q-T08.
+
+### COSMÉTICO: 2
+
+- **COS-T01. Forma elaborada no campo `texture`.** `const class gltfx_texture_2d *texture` usa o especificador elaborado sem necessidade. Some com a decisão de CRI-T02.
+- **COS-T02. Citação de testes inexistentes.** Os nomes de `Proved by:` listados na seção 3 ainda não existem no repositório. O portão de citação reprova o cabeçalho enquanto isso for verdade (INFERÊNCIA: não rodei o portão de citação nesta revisão). Declarado, mesmo estado da S0.
+- **COS-T03. Comentários de planejamento dentro de texto público.** Os cabeçalhos propostos `texture_2d.hpp`, `texture_region.hpp`, `atlas_allocator.hpp` e o trecho de `renderer_2d.hpp` citam "seção 7", "SEÇÃO 7" ou IDs de revisão (CRI-T02, Q-T01 e outros). Esses marcadores envelhecem dentro de um cabeçalho público, como a COS-01 da S0. Saem antes de o texto entrar no repositório.
+
+
+---
+
+## 6. Sonda de colisão
+
+Rodadas dentro da trava (`flock -w 7200 -E 99 /var/tmp/cto-w8/heavy.lock`), em contêiner (`glintfx-devbuild:verify`), pelo `run_ctest.sh` da ordem, filtro `public_name_collision_test`. Base: `bd179b077fbb4000cb8ae26148cb15fe1a266afd`. Disco antes da rodada negativa: `Device unallocated` 21,23 GiB, `Free (estimated)` min 25,00 GiB.
+
+| Rodada | Cópia | Texto | rc_configure | rc_ctest | Log | Resultado |
+|---|---|---|---|---|---|---|
+| 1, negativa | `fixture` | seis cabeçalhos e trecho, nomes propostos | 0 | **0** | `col.log` | passou |
+| 1, controle | `fixture-pos` | o mesmo, mais `controle_positivo_major.hpp` (enumerador `major` em linha própria) | 0 | **8** | `col-pos.log` | reprovou: `/usr/include/sys/sysmacros.h:60:major` |
+
+Leitura, em duas linhas, como a ordem pede:
+- **Negativa (`col.log`):** `rc_ctest=0`, na primeira rodada. Nenhum nome proposto colidiu, então nenhum CRÍTICO de nome e nenhuma correção de nome. A frase "0 colisão real" não aparece no log: o `ctest` oculta a saída de um teste que passa. A prova é o rc.
+- **Controle positivo (`col-pos.log`):** `rc_ctest=8`, nomeando `major`. A sonda enxerga o que deve enxergar. O critério de parada da ordem ("controle passa verde") não ocorreu.
+- **Neutralizadas, sem relação com a T0:** `/usr/lib/gcc/.../stdbool.h:36:bool` e `/usr/include/fcntl.h:215:open` (guarda inativa por padrão). `open` é o nome já publicado da fachada, e não é causado por esta fatia.
+- **Rodada 2:** não houve, porque a rodada 1 foi limpa. Não houve correção de texto.
+- **Repetição com os nomes finais (D-W8-290, 291, 294, 295, 297 e `flip_both`, D-W8-303):** pendente. Roda no passo 0 da T1, antes de qualquer linha de código (D-W8-303).
+
+**Prova de sintaxe (sem execução de teste de produto):** `probe/base.cpp` usa todos os nomes novos e as chamadas previstas, com `-std=c++23 -fsyntax-only -Wall -Wextra -Werror`:
+- `g++` 16.2.1: rc=0. `clang++` 22.1.8: rc=0.
+- `fill_textured_triangles(tex, {})` compila nos dois: a função é única, não há ambiguidade como a da S0 (IMP-06 de lá).
+- Negativas, que têm de falhar: `gltfx_rect_world` atribuído a `gltfx_rect_texel` (rc=1 nos dois); cópia de `gltfx_texture_2d` (rc=1 nos dois). As duas afirmações dos comentários de `texture_region.hpp` e `texture_2d.hpp` estão provadas.
+
+**Limites declarados desta sonda:**
+1. Nomes de parâmetro não são varridos (`tests/tools/check_public_name_collision.py:37-38`). Os parâmetros novos são `pixels`, `width`, `layer`, `tint`, `region`, `rect`, `corners`, `vertices`, `indices`, `texture`, `image`, `desc`, `slot`, `x`, `y`, e nenhum é macro conhecida na sonda. A garantia é de revisão.
+2. O portão local roda no Linux. Os nomes do SDK do Windows (`near`, `far`, `min`, `max`) não são varridos aqui. A perna Windows do mesmo portão (`NAMES-PARITY-WIN`, pela variável `INCLUDE`) só roda na CI. Não rodei a perna Windows.
+3. A segunda metade de R6 (nome da biblioteca padrão) o portão não cobre: é revisão manual, com a lista da seção 3 (`format`, `data`, `stride`, `clamp`, `index`, `remove` evitados).
+4. O portão checa macros, não nomes de função da biblioteca padrão: `create_texture`, `draw_texture` e os demais passam por ausência de macro, não por checagem de `std::`.
+
+---
+
+## 7. Divergências e perguntas
+
+Quem decide é o CTO, e o líder onde o item diz. O revisor não decide nenhum deles. Cada item traz o que o plano diz, o que o texto diz e a recomendação, que é só recomendação.
+
+### 7.1 Divergências
+
+**DIV-T01 (CRI-T01 e IMP-T14). D-W8-12, parte "destruir envia o lote": a destruição e a atualização de textura são barreira?** **Decidido (D-W8-288): opção (b). Atualizar também não envia o lote.**
+- O plano diz: destruir textura com peça na fila envia o lote antes (D-W8-12, b). O plano não diz nada sobre atualizar.
+- O contrato publicado de `flush()` diz: a ordem de camadas não atravessa barreira.
+- Opções:
+  - (a) manter o envio: destruir ou atualizar vira barreira implícita, e a ordem de camadas muda sem que o consumidor chame nada. Contradiz o contrato publicado.
+  - (b) adiar a liberação: a textura sai do objeto do consumidor, e o desenhador guarda o objeto da placa numa fila que libera depois de `finish_frame()`. Não há barreira. Custo: a memória da textura fica até o fim do quadro, e o relatório pode contar as liberações adiadas.
+  - (c) recusar a destruição com peça na fila: o consumidor precisa esperar o fim do quadro para soltar um sprite. Quebra o uso comum.
+- Para a atualização (IMP-T14): a peça enfileirada mostra o pixel do momento do envio, sem barreira. O texto precisa dizer isso, ou então copiar o pixel antigo na atualização.
+- Recomendação: (b) para a destruição, e o contrato escrito para a atualização. Quem decide: CTO.
+
+**DIV-T02 (CRI-T02). A região guarda a textura por ponteiro, e a forma precisa mudar.** **Decidido (D-W8-289): opção (c).**
+- O plano diz: "região de origem como tipo próprio (textura mais retângulo em texels mais espelhamento nomeado)" (D-W8-13). Não diz se a região guarda a textura.
+- O texto guarda ponteiro. O defeito está em CRI-T02.
+- Opções:
+  - (a) identificador com geração, validado pelo desenhador a cada desenho. Sem UB, recusa região velha por nome. Custo: uma tabela no desenhador.
+  - (b) referência `const gltfx_texture_2d &`. Mesmo problema do ponteiro quando o objeto morre.
+  - (c) a região não guarda textura: `draw_texture` recebe a textura em cada chamada, como faz o `SDL_RenderTexture`. A região fica só com o retângulo em texels e o espelhamento, que são valores. Custo: o consumidor passa dois argumentos.
+- Recomendação: (c), porque a região fica um valor puro e a vida da textura não entra no tipo (L-19). Quem decide: CTO.
+
+### 7.2 Perguntas
+
+- **Q-T01 (IMP-T02, IMP-T08, IMP-T10, IMP-T11). Lista única de motivos de recusa para a onda inteira, antes da T2.** **Decidido (D-W8-290): opção (a), com a lista acrescentada depois dos motivos da S0.** A lista é `texture_not_open`, `texture_other_renderer`, `region_out_of_range`, `degenerate_quad` e `stale_region`. `not_a_number` já existe. O espelhamento fora da faixa usa `unknown_option` (D-W8-285), sem motivo próprio. `light_below_piece` sai (D-W8-334).
+  - Motivos que o desenho com textura precisa e o layout da S0 não tem: `texture_not_open` (textura liberada ou não aberta), `texture_other_renderer`, `region_out_of_range`, `invalid_mirror`, `degenerate_homography` (quad sem homografia), `stale_region` (região após liberação). `not_a_number` já existe.
+  - Opções: (a) acrescentar todos agora, em um lote, na mesma forma de D-W8-285 (`unknown_option`); (b) reusar motivos existentes (não serve: `not_a_number` não diz "textura liberada"); (c) não contar (viola D-W8-30).
+  - Recomendação: (a), em um lote, porque D-W8-30 diz que o layout é decidido uma vez.
+
+- **Q-T02 (IMP-T01). Código de erro para "atlas cheio".** **Decidido (D-W8-291): opção (b), com o nome `no_free_space`** (no fim de `gltfx_err_code`; diz o que falta, sem confundir com memória do processo).
+  - (a) `out_of_memory` com `rejected_value()` `"atlas_full"`: não cria código novo, mas quem trata `out_of_memory` lê que o processo ficou sem memória.
+  - (b) código novo no fim de `gltfx_err_code`, por exemplo `no_room`: acréscimo, nome por extenso (R7).
+  - Recomendação: (b).
+
+- **Q-T03 (IMP-T09). O que é uma troca de textura em `texture_switches`.** **Decidido (D-W8-292): opção (a).**
+  - Opções: (a) conta cada mudança da textura ligada, inclusive de e para "nenhuma" (uma peça sólida entre duas texturizadas custa duas trocas); (b) só conta de textura para textura, e a sólida não conta.
+  - Recomendação: (a), porque o contador mede custo de troca de ligação na placa.
+
+- **Q-T04 (IMP-T12). Forma do mipmap.** **Decidido (D-W8-294): opção (b).** `mipmap_levels` é contagem nos dois descritores; `gltfx_all_mipmap_levels` pede a cadeia inteira; contagem maior que a cadeia possível é recusada pelo nome.
+  - Opções: (a) bool no descritor e contagem no atlas (texto atual); (b) contagem nos dois (`mipmap_levels`, zero é sem mipmap, `k` é até `k` níveis, e o máximo dá a cadeia inteira); (c) enumeração.
+  - Recomendação: (b), porque um só conceito com um só nome (L-28).
+
+- **Q-T05 (IMP-T13). Padrões de `pixel_format` e de `filter`.** **Decidido (D-W8-295):** `pixel_format` ganha `unspecified = 0`, o padrão do campo, recusado pelo nome; os quatro formatos passam a 1, 2, 3 e 4. O filtro tem padrão `linear`, o mesmo do SDL 3.
+  - Recomendação: `pixel_format` sem padrão (o formato de cor é decisão do consumidor, D-W8-10). `filter`: padrão `linear` é escolha minha, e o plano não diz. O CTO escolhe `linear` ou `nearest`.
+
+- **Q-T06 (IMP-T05). Promessa do filtro sobre o driver.** **Resolvida (D-W8-304, opção d, decisão do CTO):** a promessa é pelo formato, e a célula de paridade reprova em cada sistema onde o driver converte depois de filtrar. A ordem do líder, transcrita de `plano-fechamento-w8-r4.md`, foi "pesquise as outras libs, comunidade e depois impremente [sic] e teste". O líder não escolheu entre as três opções do parecer; a escolha (d) está pendente de ratificação retroativa pelo líder (L-01). Texto público em `texture_2d_desc.hpp` (D-W8-308).
+  - (a) promessa pelo formato da especificação, com driver não conforme como defeito que a sonda prova; (b) promessa condicionada ao driver, como o plano escreve.
+  - Recomendação: (a), depois de ler a especificação do OpenGL 3.3 para o formato sRGB (ainda não lida).
+
+- **Q-T07. Lugar dos tipos de texel e do enum de formato.** **Decidido (D-W8-296): manter como está.**
+  - O texto põe `gltfx_vec2_texel` e `gltfx_rect_texel` em `draw2d/texture_region.hpp`, e o enum de formato em `core/image_view.hpp`. A alternativa é mover os tipos de texel para `core/`.
+  - Recomendação: manter como está. O alocador de `core/` trabalha em pixels inteiros e não precisa do tipo de texel. A pergunta só existe se o CTO quiser arquivo próprio para o enum de formato (L-17).
+
+- **Q-T08 (IMP-T15). Nomes do espelhamento.** **Decidido (D-W8-297): opção (b),** `flip_left_right` e `flip_top_bottom`, com a sonda de colisão de novo. O valor dos dois eixos recebe `flip_both` nesta cópia: o nome não foi fixado pela decisão e entra na mesma sonda.
+  - Opções: (a) manter `horizontal`, `vertical`; (b) `flip_left_right`, `flip_top_bottom`; (c) `mirror_x`, `mirror_y`.
+  - Recomendação: (b), porque "verboso vence curto" (L-28). Trocar o nome exige nova sonda de colisão.
+
+- **Q-T09 (IMP-T06). Alinhamento da célula do atlas com mipmap.** **Decidido (D-W8-298): opção (c),** com o teste na fronteira em célula desalinhada. Se reprovar com `2^k`, a regra vira `2^(k+1) - 1`, opção (b).
+  - (a) célula alinhada a `2^k`, com desperdício de espaço; (b) margem `2^k − 1` a mais na célula; (c) manter a regra `margem ≥ 2^k` e o teste de célula desalinhada, que mostra se falha.
+  - Recomendação: (c), com o teste na fronteira. Se o teste reprovar, (b). Quem decide: CTO.
+
+---
+
+## 8. FATO e INFERÊNCIA
+
+**FATO (medido ou lido, com fonte):**
+- md5 de `plano-fechamento-w8.md`: `647a3e354e4c3ca5f4ccc36f436b286c`; de `plano-fechamento-w8-r2.md`: `44a4d21abb45b6387e87b0411ddbddd9`; do parecer da S0: `2fb68acc39757cce3053f9f7e9c568e8`. Os três conferiram no início.
+- Disco, `btrfs filesystem usage /`: início com `Device unallocated` 21,23 GiB e `Free (estimated)` min 25,20 GiB; durante a sonda, min 25,00 GiB (negativa) e 24,94 GiB (controle). Acima do piso de 20 GiB.
+- Árvore: `bd179b077fbb4000cb8ae26148cb15fe1a266afd` (`git rev-parse HEAD` da cópia). A árvore real passou de `a2a63ea4` para `bd179b07` durante o trabalho, e `git diff a2a63ea4 bd179b07 -- include src` está vazio. As cópias foram refeitas no mesmo SHA.
+- Rcs da sonda (seção 6), lidos dos arquivos `rc_ctest` e `rc_configure` das duas pastas `out-col` e `out-col-pos`, e da linha `COLISAO` de `ctest.out` do controle.
+- Compilação só-sintaxe (`probe/base-g++.log`, `probe/base-clang++.log` e as negativas), com `-fsyntax-only`, sem executar binário.
+- `include/glintfx/core/rect.hpp:92`: `gltfx_rect_screen` é "SCREEN space (single precision)". `gltfx_rect_world` é de precisão dupla.
+- `include/glintfx/draw2d/renderer_2d.hpp`, texto de `flush()`: "Layer order does not cross a barrier".
+- `src/draw2d/embedded_program.hpp:49`: `k_program_rejected_event = "draw2d_program_rejected"`, constante de `src/`, não de cabeçalho público.
+- `include/glintfx/core/err.hpp:344`: `gltfx_rslt` é a classe de retorno único de R1.
+- `CONTRACT.md` §8.3 (linhas 524 a 527): "Heavy asset decode ... MUST be feasible fora do caminho quente do render" e "Avoid creating/destroying render objects em laço apertado".
+- SDL 3.4 (`wiki.libsdl.org/SDL3/SDL_ScaleMode`): `SDL_SCALEMODE_NEAREST`, `SDL_SCALEMODE_LINEAR` e `SDL_SCALEMODE_PIXELART`, este último "available since SDL 3.4.0". SDL 3 (`SDL_RenderTextureAffine`): transformação afim por três pontos (`origin`, `right`, `down`) do canto superior esquerdo do `srcrect`. Não li a página de `SDL_TextureAccess` (não estava na resposta).
+- WebRender (fontes: `doc.servo.org` do módulo `texture_pack` e do alias `ShelfAllocator`, do crate etagere): o alocador atual é de prateleiras com coalescência de prateleiras vazias, e o módulo guilhotina continua na árvore. Não encontrei registro da troca de algoritmo nem do motivo.
+- RmlUi: NÃO lido. A página de documentação da interface de renderização retornou 404, e a busca não trouxe a documentação primária. Não citei o formato de alfa do RmlUi como fato.
+- Os nomes de teste de `Proved by:` `texture_desc_validation_test`, `texture_region_mirror_test`, `atlas_allocator_test`, `atlas_extrude_test`, `projective_quad_test` e `texture_update_region_test` não aparecem em `tests/`, `CMakeLists.txt` nem `cmake/` da cópia. `renderer_2d_impl_test` e `draw2d_parity_test` existem.
+
+**INFERÊNCIA (não medida):**
+- Que a destruição de textura com barreira muda a ordem de camadas de peças não relacionadas (CRI-T01). Vem do texto de `flush()` e do plano, não de rodar o desenho.
+- Que o filtro bilinear no nível `k` lê até `2^k` pixels da base além da borda, e que a margem `2^k` só cobre célula alinhada (IMP-T06). Aritmética de footprint, não medida.
+- Que a especificação do OpenGL 3.3 core torna a decodificação sRGB obrigatória antes da filtragem (IMP-T05). Não li a especificação nesta sessão. A decisão D-W8-304 não depende desta inferência: a promessa é pelo formato, e a célula de paridade prova em cada sistema.
+- Que os 36 bytes do vértice interno (D-W8-23) custam +12,5% por vértice. É aritmética da largura do vértice, não medida na placa.
+- Que o portão de citação reprova o cabeçalho enquanto os testes citados não existirem (COS-T02). Não rodei o portão de citação.
+
+**NÃO executado, por ordem:** nenhum teste de produto compilado ou rodado; nenhum `preci`; nenhum commit, push, `TODO.md` ou `DECISOES_AUTONOMAS.md`; nenhum toque em `watchcode`; nada na árvore real. Os únicos processos foram `run_ctest.sh` (filtro `public_name_collision_test`, dentro da trava) e a compilação só-sintaxe. Ao fim, os clones `fixture` e `fixture-pos` foram apagados pelo caminho absoluto, conferido antes (L-53). Os logs, `out-col`, `out-col-pos`, `probe/` e `proposta/` ficam.
+
+
+md5 do corpo deste parecer, sem esta linha: `2e6c2e9be621144d285e5284391c864f` (corpo de origem, antes das errata; o texto desta cópia traz as errata e tem outro md5).
+Arquivo de origem: `/var/tmp/cto-w8/t0/auditoria-api-texture.md`, md5 `f8d6415d18fb06bb9707815ebafdc709`.

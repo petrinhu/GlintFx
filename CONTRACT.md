@@ -351,6 +351,10 @@ public:
 [ ] Handle ou subsistema com estado está atrás de superfície opaca (exceto value type do núcleo)?
 ```
 
+### 5.3 Ordem entre módulos do núcleo e do desenho
+
+A folha de estilo (`gfss`) e o desenho 2D (`draw2d`) não se conhecem. `draw2d` MUST NOT incluir nada de `glintfx/gfss/`, nem direta nem transitivamente (por um cabeçalho de `core` ou de qualquer outro módulo que `draw2d` inclua). Quem liga os dois é a ponte de pintura (`GFSS-OBJECT-FIT`, `R2D-NINEPATCH`), e ela é o único módulo que vê as duas camadas. Prova: `tests/tools/check_draw2d_include_direction.py`, que reprova se a lista de dependências que o compilador calcula para qualquer arquivo de `draw2d` contiver `glintfx/gfss/`. Origem: D-W8-24 e D-W8-332 (decisões autônomas do CTO, `DECISOES_AUTONOMAS.md`).
+
 ---
 
 ## 6. Clean Code Rules

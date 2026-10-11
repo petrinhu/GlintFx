@@ -1021,7 +1021,7 @@ add_test(
 )
 set_tests_properties(measured_leak_filter_test PROPERTIES LABELS consume)
 
-# The guard's own selftest (D-W8-201, L-36): thirteen controls over values and texts built in memory.
+# The guard's own selftest (D-W8-201, L-36): the controls over values and texts built in memory.
 # glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
 add_test(
     NAME measured_leak_filter_selftest

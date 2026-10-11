@@ -166,7 +166,7 @@ function(measured_leak_filter_registry_case case_name text want)
   endif()
 endfunction()
 
-# The thirteen controls, over values and texts built here (no file), each with its result fixed BEFORE the run.
+# The controls, over values and texts built here (no file), each with its result fixed BEFORE the run.
 function(measured_leak_filter_run_selftest)
   set(selftest_total 0)
   set(selftest_failures 0)

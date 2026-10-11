@@ -8800,3 +8800,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-312:** o B2 foi refundido no item `TESTS-REGISTRY-SPLIT` já existente (L-68), neste commit. Fica fora da W8.
   - **D-W8-313:** a DEMO-1 só vira ✅ depois da `D7-fix1`, de uma revisão curta e do CI da ponta com ela.
   - **`D7-fix1` despachada.** Agentes vivos: 4 (revisor do lote 8, R0, H0 e D7-fix1).
+- **11/10/26 13:12 (main).** A revisão do lote 8 (`/var/tmp/cto-w8/rev-lote8.md`) diz que as **duas fatias NÃO FECHAM**.
+  - **SG (ea410b00):**
+    - **SG-1:** o portão só varre `tree.body` e alvos `Name` diretos; `if True:` e a tupla `CHECKS, _u` passam verdes.
+    - **SG-2:** o vazio passa verde, e não há controle positivo nem vazio permanente.
+    - **SG-3:** o `python3 -I` das ordens é erro de ordem (23 pontos em 10 documentos).
+  - **D5b-fix6 (63cc4763):** o piso não tem caso permanente. MF1, TAUT, MSG e MF2 sobrevivem no `run`, e o MF1 é regra decidida (D-W8-242).
+  - **Reproduzido pelo revisor:** MS2b, MS-CHK e O2. O piso 510 foi aceito como constante decidida, e não como valor copiado.
+  - **É a quarta volta da trava D5b.** Mandei ao CTO pedir um desenho que feche a FAMÍLIA (caso permanente de varredura encurtada e oráculo trocado; `ast.walk` com todas as formas de alvo e controles permanentes), ou então um limite declarado com critério. Decisão em `plano-fechamento-w8-r6.md`.

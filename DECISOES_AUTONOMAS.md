@@ -8650,3 +8650,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - portões verdes e links 121/121.
   - **A medição derrubou um achado do revisor:** a marca v0.4.0.0 aponta para `14427bc6`, o mesmo commit do run 34975391524. O main conferiu com `rev-parse`.
   - A segunda rodada da revisão (commits 2, 3 e 4 e a wiki) foi despachada ao mesmo revisor.
+
+### 11/10/2026 09:50:21 - Corridas G e H disparadas; preparo da F despachado
+
+- **EXAMPLE-RUN-DIR:** a R2 em contêiner deu rc_ctest 0 (6/6) e a R5 rc 0. O ramo local `descartavel/d6-h` (`fd97d793`) tem como pai `03252d27` e remove a cópia das DLLs (11 deleções).
+- **Corrida G** (`descartavel/d6-g` = `03252d27`, a ponta com D6-green, D3-FIX3, PROBE-Y e RUN-DIR): CI 38140776246. Previsão: first_window Passed nos 4 Windows, com `probes=12 failed=0` nas duas capturas.
+- **Corrida H** (`d6-h`): CI 38140778624, com a V-12 refeita: os três trabalhos com DLL falham ao iniciar, e o estático passa.
+- O `ls-remote` confere os dois ramos. O preparo da **F** (V-3 sobre `03252d27`) foi despachado; ela sai quando G ou H fecharem (no máximo 2 por vez).

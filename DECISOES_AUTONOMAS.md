@@ -8689,3 +8689,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-196:** o QA visual da DEMO-1 foi despachado. O main congelou os md5 das 10 capturas da corrida G (2 Linux e 8 Windows) em `qa-demo1-md5-inicio.txt`, linhas 2 a 11, md5 do arquivo 03e3e3e1.
   - **Revisão do lote 6** (D5b-fix4 e o gêmeo do TEXT) despachada para um revisor distinto: `/var/tmp/cto-w8/rev-lote6.md`.
   - São 2 agentes vivos.
+- **11/10/26 10:51 (main).** O QA visual da DEMO-1 (D-W8-196) APROVOU: K1 a K10 e R1 a R2, com as 10 de 10 imagens medidas, e os md5 do início e do fim são iguais. Relatório: `/var/tmp/cto-w8/qa-demo1/observacao.md`.
+  - **Reconferência do main** (L-13; decodificador PNG próprio, só stdlib):
+    - os 10 md5 batem (`md5sum -c`);
+    - o quadrado verde tem 1024 pixels `00FF00` em y 400 a 431;
+    - no Linux plain, x vai de 78 a 109;
+    - no Windows estático, x vai de 29 a 60 no `printwindow` e de 33 a 64 no `bitblt`. São 4 px de deslocamento, o que dá 256 px de diferença, como o K9 descreve.
+  - **A D6-green está FECHADA:** V-3, V-5, V-13a, V-13b, M1g, a V-4 e a V-14 refeitas, as corridas F, G e H e o QA.
+  - **Próximo:** quando a revisão do lote 6 sair, empurrar `onda-w8` (D-W8-192), disparar o CI no ramo e partir para a D7.
+  - **Apelido `fedora:44`:** a remoção espera o revisor do lote 6, que pode estar usando as imagens locais. Aviso registrado: o `Containerfile` ainda diz `FROM fedora:44` (CONTAINERFILE-FEDORA-PIN), e sem o apelido uma montagem local nova exigiria `docker pull`, que está proibido. Isso vai ao CTO antes de remover.

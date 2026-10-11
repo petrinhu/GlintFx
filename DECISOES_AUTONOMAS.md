@@ -8520,3 +8520,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **CI 38108577899:** no "Windows - compartilhado", o exemplo rodou sem a cópia das DLLs: `first frame presented`, `frames_drawn=12`, `fixture exit=0` e veredito `motivo=PRONTA codigo=0`. O first_window reprovou só pelas sondas, porque a base é a D6-red.
 - A previsão (o processo não chega ao main, exit 3221225781) não bateu: o mutante V-12 sobreviveu.
 - Foi ao CTO pela emenda da L-34, com pesquisa (`decisao-corrida-d.md`): por onde as DLLs foram achadas, e se a cópia é código morto ou protege um caso que o CI não exerce.
+
+### 11/10/2026 01:01:45 - Erro do main: 5 agentes vivos, acima do teto de 4; corrigido
+
+- O main retomou o CTO das corridas para a questão da corrida D sem contar os vivos. Ficaram 5: D5b-fix3, a revisão da D6-green, o CTO das fatias de acompanhamento, o CTO da documentação e o CTO das corridas.
+- Isso viola a ordem do líder ("até 4 agentes paralelos sem corrida") e o teto da L-11 global.
+- **Corrigido em menos de um minuto:** o CTO das corridas foi parado com TaskStop, antes de qualquer escrita. A questão da corrida D volta a ele quando outro agente terminar.
+- **Lição:** contar os vivos ANTES de cada despacho ou retomada, inclusive na retomada por SendMessage.

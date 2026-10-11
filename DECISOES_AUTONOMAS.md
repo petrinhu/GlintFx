@@ -8493,3 +8493,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **V-4** (`(void)all_frames_drawn(); return true;`): o driver deu rc 3, com "FAIL exemplo nao terminou em 60 s", `exemplo_rc` 124 e 60,85 s, como previsto. O watchcode estava armado (`is-active`), e a imagem foi apagada pelo nome exato.
 - **A D6-green fecha localmente:** `9a733496`, todos os mutantes conforme a previsão. A revisão roda agora (`rev-d6green.md`). Faltam as corridas F (V-3) e G (o verde da D6-green no servidor), que saem depois de E, com no máximo 2 por vez.
 - **D5b-fix3** despachada a um haiku novo (`plano-d5bfix3.md`, md5 `e0d088f0`), antes da D7.
+
+### 11/10/2026 00:55:48 - Líder renova o modo autônomo
+
+- **Verbatim:** "ligue modo autonomo". O hook renovou o modo até 12/10/2026 00:55:40, com os escopos push e clean. O trabalho segue sem interrupção.
+- **Corrida C** (38108570269): igual à previsão. "context failed: platform_failure rejected_value=wgl_loader_extensions", "FIXTURE saiu antes de apresentar o primeiro quadro", codigo=1, só o first_window reprovado, e o capture_known_color_smoke passou.
+- **Corrida E** disparada (38109627748), ao lado da D. A D5b-fix3 foi commitada (`cf212666`) e roda os mutantes.

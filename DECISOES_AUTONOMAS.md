@@ -8486,3 +8486,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Corrida E:** liberada, porque a A confirmou o MSVC 19.51. Sai quando C ou D fecharem (no máximo 2 por vez).
 - A refação de V-4 e V-14 foi despachada ao implementador da D6-green.
 - Para o líder ratificar: D-W8-223 a 225.
+
+### 11/10/2026 00:44:15 - V-4 e V-14 da D6-green fechadas; D5b-fix3 despachada
+
+- **V-14:** o controle com `-DGLINTFX_WERROR=ON` deu rc_build 0, e a planta deu rc_build 1 (`unused variable` em `first_window.cpp:72`).
+- **V-4** (`(void)all_frames_drawn(); return true;`): o driver deu rc 3, com "FAIL exemplo nao terminou em 60 s", `exemplo_rc` 124 e 60,85 s, como previsto. O watchcode estava armado (`is-active`), e a imagem foi apagada pelo nome exato.
+- **A D6-green fecha localmente:** `9a733496`, todos os mutantes conforme a previsão. A revisão roda agora (`rev-d6green.md`). Faltam as corridas F (V-3) e G (o verde da D6-green no servidor), que saem depois de E, com no máximo 2 por vez.
+- **D5b-fix3** despachada a um haiku novo (`plano-d5bfix3.md`, md5 `e0d088f0`), antes da D7.

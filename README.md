@@ -66,6 +66,8 @@ There are three ways to bring glintfx into your own project, and they behave dif
 2. **Embed it by source**, with CMake's `add_subdirectory()` or `FetchContent`, without installing anything.
 3. **Package it**, as a distro package (RPM `.spec`, Debian `debian/rules`, an Arch `PKGBUILD`, and so on). `PACKAGING.md` is written for packagers specifically, and every layout claim it makes is backed by an automated test, not just prose.
 
+**A complete consumer program** lives in [`examples/first_window/`](examples/first_window/): it opens a window, its GL context and the 2D renderer, and runs the library's own loop, using only the public API. Its `CMakeLists.txt` is the one a consumer writes: configure `examples/` on its own with `CMAKE_PREFIX_PATH` pointing at an installed glintfx, and `find_package(glintfx)` does the rest. The test `examples_consume_installed_test` builds every example exactly that way, on every supported system. Inside the glintfx tree, the examples build by default when glintfx is the top-level project (`GLINTFX_BUILD_EXAMPLES`), and never when glintfx is embedded.
+
 ## Building from source and running the tests
 
 ```bash

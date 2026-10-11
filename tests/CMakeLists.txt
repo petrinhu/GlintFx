@@ -4263,6 +4263,39 @@ add_test(
 )
 set_tests_properties(examples_pass_test PROPERTIES LABELS consume)
 
+# DEMO-1 D7 (D-W8-76, D-W8-194): every example builds as a CONSUMER of the INSTALLED glintfx. Installs this build
+# into a private prefix, configures examples/ on its own (the find_package branch of examples/CMakeLists.txt) with
+# CMAKE_PREFIX_PATH only there and the same compiler, builds it, and never runs it. LABELS consume: a plain consumer
+# against a sanitized library fails by construction (the same reason as consume_test).
+# glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - MEDIDO 11/10/2026: `cmake --install` escreve install_manifest.txt no build dir (o unico arquivo novo no topo do build dir, medido com find -newer), gemeo do consume_test
+add_test(
+    NAME examples_consume_installed_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_examples_consume.py"
+        --cmake "${CMAKE_COMMAND}"
+        --generator "${CMAKE_GENERATOR}"
+        --compiler "${CMAKE_CXX_COMPILER}"
+        --build "${PROJECT_BINARY_DIR}"
+        --examples "${PROJECT_SOURCE_DIR}/examples"
+        --work "${CMAKE_CURRENT_BINARY_DIR}/examples_consume_check"
+        --config "$<CONFIG>"
+)
+set_tests_properties(examples_consume_installed_test PROPERTIES LABELS consume
+    RESOURCE_LOCK "glintfx_build_dir;glintfx_nested_build")
+
+# DEMO-1 D7: the selftest of check_examples_consume.py. Builds trees in a temp dir and answers the cmake steps with a
+# double; one subprocess (the script with no argument, exit 2). The executor requires exit 0 and the exact line with
+# the control count: dropping a control is a visible change, never a silent one.
+add_test(
+    NAME check_examples_consume_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 14 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_examples_consume.py" --selftest
+)
+set_tests_properties(check_examples_consume_selftest PROPERTIES LABELS selftest)
+
 # DEMO-1 D5b (D-W8-75, D-W8-125): the DRIVER of the Windows capture of the example first_window
 # (tests/tools/run_example_capture_win32.py). Its --selftest needs no Windows, no tool and no window:
 # a tool double writes the capture files and the REAL helpers (raw_to_png.py, image_probe.py) judge

@@ -8683,3 +8683,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Limpeza:** o ramo remoto `docs-0610` foi apagado, e também a cópia de trabalho local e o ramo local (eram ancestrais de `origin/main`).
   - **Ainda falta:** mesclar `origin/main` em `onda-w8`. Fica para depois do relatório da D5b-fix4, para não mexer na árvore com um agente ativo.
   - **Gêmeo do TEXT:** commit 5acba5a4, reverificado pelo main. Só comentário (o filtro não imprimiu nada), blob b3bb955c e `preci.rc` 0.
+- **11/10/26 10:49 (main).** Corrida F (V-3, CI 38142328351): a previsão foi confirmada exatamente nos 6 jobs que capturam o `first_window` (4 Windows mais o contêiner plain e o asan). Em todos, `image_probe.py: probes=12 failed=1`, e só a sonda (200,150) reprovou, lendo `(255, 0, 0, 255)` onde esperava `(0, 0, 255, 255)`. No contêiner, `sondas_frames30=0`, então o `frames30` passou. O ramo remoto `descartavel/d6-f` foi apagado; não sobra nenhum `descartavel/*` no servidor.
+  - **D5b-fix4:** commit 5bdb994a, reverificado pelo main: o blob `.cmake` tem md5 8c4f40e4 e o stat mostra só esse arquivo (38+/10-).
+  - **`origin/main` mesclado em `onda-w8`:** merge 256d717d (pais bb3e52cc e 680aa609), rc 0.
+  - **D-W8-196:** o QA visual da DEMO-1 foi despachado. O main congelou os md5 das 10 capturas da corrida G (2 Linux e 8 Windows) em `qa-demo1-md5-inicio.txt`, linhas 2 a 11, md5 do arquivo 03e3e3e1.
+  - **Revisão do lote 6** (D5b-fix4 e o gêmeo do TEXT) despachada para um revisor distinto: `/var/tmp/cto-w8/rev-lote6.md`.
+  - São 2 agentes vivos.

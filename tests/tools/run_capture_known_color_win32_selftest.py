@@ -662,23 +662,34 @@ def selftest_each_mode_uses_its_own_probe_file():
 
 CONTROL_NAME_PREFIX = "selftest_"
 
+# The binding constructs of the language, from The Python Language Reference, section 4.2.1 "Binding of names"
+# (https://docs.python.org/3/reference/executionmodel.html). Type parameter lists exist since Python 3.12; the
+# names are looked up so this module still imports on an older interpreter, where parsing the table's rows written
+# in that syntax raises SyntaxError and stops the selftest loudly (L-40).
+TYPE_PARAMETER_NODES = tuple(getattr(ast, name) for name in ("TypeVar", "ParamSpec", "TypeVarTuple")
+                             if hasattr(ast, name))
+
 
 def bound_names(node):
-    """The names one AST node binds, in every form Python has: a def or class, an assignment target of any shape
-    (a Name or an attribute in store context, so tuples, starred, augmented, annotated, for, with, walrus and
-    comprehensions all reach here through ast.walk), an import alias, a global or nonlocal, a match capture."""
+    """The names one AST node binds, for every construct of section 4.2.1: formal parameters, class and function
+    definitions, assignment targets (assignment, augmented and annotated assignment, assignment expression, for,
+    with, comprehension and type statement all reach here as a Name in store context through ast.walk), the except
+    and except* clause, the as-pattern and capture patterns, import, import *, type parameter lists and del; plus
+    two forms that bind outside the plain name: an attribute in store context, and global or nonlocal."""
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         return [node.name]
-    if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-        return [node.id]
-    if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Store):
-        return [node.attr]
+    if isinstance(node, (ast.Name, ast.Attribute)) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        return [node.id if isinstance(node, ast.Name) else node.attr]
+    if isinstance(node, ast.arg):
+        return [node.arg]
     if isinstance(node, (ast.Import, ast.ImportFrom)):
         return [alias.asname or alias.name.split(".")[0] for alias in node.names]
     if isinstance(node, (ast.Global, ast.Nonlocal)):
         return list(node.names)
-    if isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
+    if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar) + TYPE_PARAMETER_NODES) and node.name:
         return [node.name]
+    if isinstance(node, ast.MatchMapping) and node.rest:
+        return [node.rest]
     return []
 
 
@@ -688,43 +699,68 @@ def is_dispatch(node, sibling):
             and node.names[0].name == "selftest_main" and node.names[0].asname is None)
 
 
+def is_control_name(name):
+    """A control name (D-W8-137, D-W8-206): CHECKS, selftest_*, or `*`, which binds every name of a module."""
+    return name in ("CHECKS", "*") or name.startswith(CONTROL_NAME_PREFIX)
+
+
 def driver_control_bindings(source, sibling):
-    """(controls, dispatches) of a driver's source: every binding named CHECKS or selftest_*, anywhere in the tree
-    (ast.walk, so nesting hides nothing), apart from the sanctioned dispatch, which is counted on its own. The
-    rule (D-W8-137, D-W8-206): a driver's controls live beside it, never inside it. Not seen, declared: names made
-    at run time (setattr, globals(), exec), which no static reading can see."""
+    """(controls, dispatches) of a driver's source: every binding with a control name, anywhere in the tree
+    (ast.walk, so nesting hides nothing), apart from the sanctioned dispatch, which is counted on its own. Not seen,
+    declared: names made at run time (setattr, globals(), exec), which no static reading can see."""
     controls, dispatches = [], 0
     for node in ast.walk(ast.parse(source)):
         if is_dispatch(node, sibling):
             dispatches += 1
             continue
-        controls += [name for name in bound_names(node) if name == "CHECKS" or name.startswith(CONTROL_NAME_PREFIX)]
+        controls += [name for name in bound_names(node) if is_control_name(name)]
     return sorted(controls), dispatches
 
 
-# Every binding form, each with the result fixed before the run (D-W8-316): a closed enumeration, printed.
+# One row per construct of section 4.2.1, each naming the item it covers, with the result fixed before the run
+# (D-W8-346). A construct the reference lists and this table lacks is a defect; a binding the reference does not
+# list is outside the rule.
 BINDING_FORMS = [
-    ("def selftest_a(): pass", ["selftest_a"], 0),
-    ("if True:\n    def selftest_b(): pass", ["selftest_b"], 0),
-    ("CHECKS, _u = [], 0", ["CHECKS"], 0),
-    ("*CHECKS, = [1]", ["CHECKS"], 0),
-    ("CHECKS += []", ["CHECKS"], 0),
-    ("CHECKS: list = []", ["CHECKS"], 0),
-    ("for selftest_c in []: pass", ["selftest_c"], 0),
-    ("with open(__file__) as selftest_d: pass", ["selftest_d"], 0),
-    ("(selftest_e := 1)", ["selftest_e"], 0),
-    ("import os as selftest_f", ["selftest_f"], 0),
-    ("from os import path as CHECKS", ["CHECKS"], 0),
-    ("class selftest_g: pass", ["selftest_g"], 0),
-    ("def f():\n    global CHECKS\n    CHECKS = []", ["CHECKS", "CHECKS"], 0),
-    ("import sys\nsys.modules[__name__].CHECKS = []", ["CHECKS"], 0),
-    ("[0 for selftest_h in []]", ["selftest_h"], 0),
-    ("match 1:\n    case selftest_i:\n        pass", ["selftest_i"], 0),
-    ("from SIBLING import selftest_main", [], 1),
-    ("from SIBLING import selftest_main as selftest_main", ["selftest_main"], 0),
-    ("from OTHER import selftest_main", ["selftest_main"], 0),
-    ("", [], 0),
-    ("x = 1", [], 0),
+    ("def f(selftest_p): pass", ["selftest_p"], 0, "formal parameters"),
+    ("def f(*CHECKS): pass", ["CHECKS"], 0, "formal parameters"),
+    ("f = lambda selftest_q: 0", ["selftest_q"], 0, "formal parameters"),
+    ("class selftest_g: pass", ["selftest_g"], 0, "class definitions"),
+    ("def selftest_a(): pass", ["selftest_a"], 0, "function definitions"),
+    ("async def selftest_z(): pass", ["selftest_z"], 0, "function definitions"),
+    ("if True:\n    def selftest_b(): pass", ["selftest_b"], 0, "function definitions"),
+    ("(selftest_e := 1)", ["selftest_e"], 0, "assignment expressions"),
+    ("CHECKS = []", ["CHECKS"], 0, "targets: assignment"),
+    ("CHECKS, _u = [], 0", ["CHECKS"], 0, "targets: assignment"),
+    ("*CHECKS, = [1]", ["CHECKS"], 0, "targets: assignment"),
+    ("CHECKS += []", ["CHECKS"], 0, "targets: assignment"),
+    ("CHECKS: list = []", ["CHECKS"], 0, "targets: assignment"),
+    ("for selftest_c in []: pass", ["selftest_c"], 0, "targets: for loop header"),
+    ("[0 for selftest_h in []]", ["selftest_h"], 0, "targets: for loop header"),
+    ("with open(__file__) as selftest_d: pass", ["selftest_d"], 0, "targets: as in a with statement"),
+    ("try:\n    pass\nexcept Exception as selftest_j:\n    pass", ["selftest_j"], 0, "targets: except clause"),
+    ("try:\n    pass\nexcept* Exception as selftest_k:\n    pass", ["selftest_k"], 0, "targets: except* clause"),
+    ("match 1:\n    case 1 as selftest_l:\n        pass", ["selftest_l"], 0, "targets: as-pattern"),
+    ("match 1:\n    case selftest_i:\n        pass", ["selftest_i"], 0, "targets: capture pattern"),
+    ("match []:\n    case [*selftest_m]:\n        pass", ["selftest_m"], 0, "targets: capture pattern"),
+    ("match {}:\n    case {**selftest_n}:\n        pass", ["selftest_n"], 0, "targets: capture pattern"),
+    ("import os as selftest_f", ["selftest_f"], 0, "import statements"),
+    ("import selftest_r.sub", ["selftest_r"], 0, "import statements"),
+    ("from os import path as CHECKS", ["CHECKS"], 0, "import statements"),
+    ("from OTHER import selftest_main", ["selftest_main"], 0, "import statements"),
+    ("from SIBLING import selftest_main as selftest_main", ["selftest_main"], 0, "import statements"),
+    ("from SIBLING import selftest_main, CHECKS", ["CHECKS", "selftest_main"], 0, "import statements"),
+    ("from SIBLING import *", ["*"], 0, "import *"),
+    ("from OTHER import *", ["*"], 0, "import *"),
+    ("type CHECKS = int", ["CHECKS"], 0, "type statements"),
+    ("def f[selftest_t](): pass", ["selftest_t"], 0, "type parameter lists"),
+    ("class C[*selftest_u]: pass", ["selftest_u"], 0, "type parameter lists"),
+    ("def g[**selftest_v](): pass", ["selftest_v"], 0, "type parameter lists"),
+    ("CHECKS = 1\ndel CHECKS", ["CHECKS", "CHECKS"], 0, "del target"),
+    ("def f():\n    global CHECKS\n    CHECKS = []", ["CHECKS", "CHECKS"], 0, "global (outside the list)"),
+    ("import sys\nsys.modules[__name__].CHECKS = []", ["CHECKS"], 0, "attribute target (outside the list)"),
+    ("from SIBLING import selftest_main", [], 1, "the sanctioned dispatch"),
+    ("", [], 0, "empty source"),
+    ("x = 1", [], 0, "no control"),
 ]
 
 
@@ -740,12 +776,12 @@ LAYOUT_CASES = [(([], 1), True), (([], 0), False), ((["CHECKS"], 1), False), (([
 
 def selftest_driver_keeps_no_controls():
     sibling = Path(__file__).stem
-    forms_wrong = [source for source, controls, dispatches in BINDING_FORMS
+    forms_wrong = [f"{item}: {source}" for source, controls, dispatches, item in BINDING_FORMS
                    if driver_control_bindings(source.replace("SIBLING", sibling), sibling) != (controls, dispatches)]
     layout_wrong = [str(case) for case, want in LAYOUT_CASES if driver_layout_ok(*case) != want]
-    check(f"as formas de ligacao e o veredito: formas={len(BINDING_FORMS)} casos={len(LAYOUT_CASES)}, erradas: "
-          + (" | ".join(forms_wrong + layout_wrong) or "nenhuma"),
-          len(BINDING_FORMS) == 21 and len(LAYOUT_CASES) == 4 and not forms_wrong and not layout_wrong)
+    check(f"as formas de ligacao da secao 4.2.1 e o veredito: formas={len(BINDING_FORMS)} casos={len(LAYOUT_CASES)}, "
+          "erradas: " + (" | ".join(forms_wrong + layout_wrong) or "nenhuma"),
+          len(BINDING_FORMS) == 40 and len(LAYOUT_CASES) == 4 and not forms_wrong and not layout_wrong)
     controls, dispatches = driver_control_bindings(DRIVER_SCRIPT.read_text(encoding="utf-8"), sibling)
     check(f"o driver nao define controles e despacha uma vez (D-W8-137, D-W8-206): controles="
           f"{', '.join(controls) or 'nenhum'} despachos={dispatches}", driver_layout_ok(controls, dispatches))

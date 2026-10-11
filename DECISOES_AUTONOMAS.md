@@ -8827,3 +8827,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **CI da ponta ba8663dd (38157620306) VERMELHO, só nos 3 jobs Windows:** o `check_examples_consume_selftest`, no controle "a instalacao vai para o prefixo proprio" (`check_examples_consume.py:175-179`, literal `"/r/work/prefix"` contra `Path`). É defeito real da D7 (66a823e1), e o lado Windows nunca tinha rodado antes do push. **A DEMO-1 segue 🔄.** Vira a fatia D7-fix2.
   - **Canário (`SELFTEST-CHECK-CANARY`):** o implementador parou no passo 2, com razão. A ordem mandava plantar um `check` novo, que o `EXPECT_LINE` já pega; a mudez do SG6 é sabotar um controle EXISTENTE sem o `sys.exit`. Errata pedida ao CTO.
   - Pedidos à r10: as ordens da SG-fix2 e da D7-fix2 e a errata do canário (`plano-fechamento-w8-r10.md`).
+- **11/10/26 15:14 (main).** Décima rodada do CTO: `/var/tmp/cto-w8/plano-fechamento-w8-r10.md` (md5 b79cd13f), D-W8-346 a 350.
+  - **D-W8-346:** SG-fix2, com a tabela pela lista oficial do Python (§4.2.1): 40 linhas, 12 mutantes e critério de parada estrutural. Anexo `r10-anexos/sg2/trecho_sg2.py`, md5 76384f5f, conferido.
+  - **D-W8-347:** os 4 achados do lote 9 na D5b são limite DECLARADO, e **a D5b-fix7 fecha**.
+  - **D-W8-348:** errata do canário (`check("plantado", False); CHECKS.pop()`, com o `sys.exit` apagado).
+  - **D-W8-349:** D7-fix2 (três literais POSIX no controle; o esperado sai do mesmo `Path`). A prova no Windows é por ramo descartável no servidor, porque a VM não tem Python (inferência do CTO; instalar seria pacote).
+  - **D-W8-350:** lição para a receita comum; o main aplica quando os agentes que conferem o md5 dela terminarem.
+  - **Despachados juntos, em arquivos disjuntos:** D7-fix2, SG-fix2 e G1a (o primeiro da fila de `tests/CMakeLists.txt`). O canário com a errata sai depois da SG-fix2, porque toca os mesmos arquivos. Agentes vivos: 3.

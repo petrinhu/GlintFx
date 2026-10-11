@@ -366,6 +366,15 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **Aplicação:** verificação de entregável **visual ou renderizado** é do `qa-engineer`, independente do implementer, nunca do orquestrador inline e nunca do líder. Ao verificar trabalho de outro agente, leia o **blob commitado** (`git show <sha>:<arquivo>`), não a árvore de trabalho, que pode estar sob mutation testing.
 
+**Emenda de 11/10/2026: o rigor da revisão é por CAMADA.** O líder, ao ver dois dias sem código da biblioteca e cerca de 15 voltas de revisão sobre ferramentas que testam ferramentas de teste, disse, verbatim: *"Já sao mais de DOIS DIAS de teste! Isso definitivamente não é normal. Otimize isso! Descubra como!"* e *"Está incompatível o rigor dos testes com o código. Ou os códigos estão PÉSSIMOS ou o rigor dos testes está com OE"*. Perguntado por AskUserQuestion, escolheu **"Por camada (Recomendado)"**. Isso refina a ordem de 21/08 ("mantenha a verificação profunda", repetir até sair limpa), que continua valendo **inteira para o código da biblioteca**:
+
+- **N1, código público da biblioteca (`src/`, `include/`):** revisão adversarial que executa e muta, até sair limpa. A mutação mira **só as linhas que a fatia mudou**, no máximo 10 por revisão (padrão do Google: "State of Mutation Testing at Google", arxiv 2102.11378).
+- **N2, portão que protege a sessão do líder** (por exemplo, `tests/container/check_isolation.sh`): mutação mirada na exclusão que ele protege e **uma** rodada de conserto.
+- **N3, ferramenta de teste comum** (autotestes, travas de registro, scripts de CI): revisão de leitura pelas cinco perguntas da L-17 e **um** caso vermelho conferido. O revisor **não** procura mutantes próprios. Na segunda reprovação da mesma família, o que sobra vai à INBOX ou vira limite declarado, e a fatia fecha.
+- **N4, texto** (documento, comentário, diário): sem `preci` e sem revisor.
+
+Toda ordem de serviço declara a camada no cabeçalho, e o rigor e o orçamento de rodadas saem dela, e não do julgamento do revisor. O CTO roda os comandos de cada ordem antes do despacho e anexa a saída à ordem.
+
 ## L-13
 
 **Data:** regra permanente. **Verbatim:** *"você está esquecendo do timestamp nas suas mensagens. Formato [DD/MM/YY - HH:MM:SS]"*.
@@ -858,6 +867,10 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **O que continua exigindo o líder:** mover uma fatia que ele mesmo alocou a uma onda por decisão registrada é **reverter decisão dele**, e vai a ele — em modo autônomo, ao `fable`, com registro em `DECISOES_AUTONOMAS.md`. Mover fatia que nunca teve decisão dele é execução normal, e só precisa do motivo escrito.
 
 **Relação com a primeira metade desta lei:** o caminho principal continua andando sempre, e a trilha paralela continua sendo no máximo uma. Esta emenda diz o que fazer **dentro** de cada uma delas — em ordem, sem buraco.
+
+### Exceção do líder, 11/10/2026: o código das formas 2D começa antes da DEMO-1 em ✅
+
+O líder ordenou, verbatim: *"quero que volte a codar o framework 18:30 no máximo"*. Perguntado por AskUserQuestion, depois de o main nomear esta lei, citar o congelamento e dizer o que ela protege, escolheu **"S1 agora (Recomendado)"**: os tipos das formas 2D (`R2D-SHAPES`, fatia S1) começam em paralelo à última fatia da DEMO-1 (`WIN-DLL-COPY-RACE`), sem tocar os mesmos arquivos. **A exceção vale só para o bloco `R2D-SHAPES`.** O resto do congelamento continua até a DEMO-1 em ✅.
 
 ## L-33
 

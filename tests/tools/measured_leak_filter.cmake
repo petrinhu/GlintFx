@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # measured_leak_filter.cmake - the ONE value of the FAIL_REGULAR_EXPRESSION that keeps MEASURED and SCANCOUNT lines
 # out of a selftest's output, and the guard of that value and of its two owners (D-W8-176, D-W8-180, D-W8-181,
-# D-W8-200, D-W8-201).
+# D-W8-200, D-W8-201, D-W8-242).
 #
 # include()d by tests/CMakeLists.txt, it only sets GLINTFX_MEASURED_LEAK_FILTER, which the two owners use.
 # Run as a script: cmake -DREGISTRY=<absolute path to tests/CMakeLists.txt> -P measured_leak_filter.cmake
@@ -21,6 +21,10 @@ endif()
 # The two owners of the filter (D-W8-176). Each sets it through the variable, on the line right under its own
 # `set_tests_properties(<owner> PROPERTIES LABELS selftest`, and AFTER the include() that defines it (D-W8-201).
 set(MEASURED_LEAK_FILTER_OWNERS run_example_capture_win32_selftest run_capture_known_color_win32_selftest)
+
+# The size of the byte sweep below (D-W8-242): the bytes 1 to 255 after each of the two words. Every sweep case
+# of the selftest requires it, so a sweep that shrinks (a narrower range, a word dropped) fails there (L-40).
+set(MEASURED_LEAK_FILTER_SWEPT 510)
 
 # Puts in `out` the names of the decided leak samples (D-W8-200) that `filter` does NOT catch, joined by ','.
 function(measured_leak_filter_misses filter out)
@@ -73,6 +77,36 @@ function(measured_leak_filter_clean_hits filter out)
   endforeach()
   list(JOIN hits "," joined)
   set(${out} "${joined}" PARENT_SCOPE)
+endfunction()
+
+# Puts in `out_wrong` every <word>+<code> whose verdict under `filter` is not the decided one, joined by ',', and in
+# `out_swept` how many were judged (D-W8-242). The space is small and closed: the word followed by ONE byte, 1 to
+# 255 (a CMake string cannot hold byte 0), so it is swept whole instead of sampled by hand. The decided verdict
+# (D-W8-200) is written as code ranges, never as a regex, so it cannot copy the class it judges: '0'-'9' is 48-57,
+# 'A'-'Z' 65-90, '_' 95 and 'a'-'z' 97-122 (63 bytes) do NOT end the word; every other byte does, and must match.
+function(measured_leak_filter_byte_sweep filter out_wrong out_swept)
+  set(wrong "")
+  set(swept 0)
+  foreach(code RANGE 1 255)
+    set(ends_word TRUE)
+    if((code GREATER_EQUAL 48 AND code LESS_EQUAL 57) OR (code GREATER_EQUAL 65 AND code LESS_EQUAL 90)
+       OR code EQUAL 95 OR (code GREATER_EQUAL 97 AND code LESS_EQUAL 122))
+      set(ends_word FALSE)
+    endif()
+    string(ASCII ${code} byte)
+    foreach(word IN ITEMS MEASURED SCANCOUNT)
+      string(REGEX MATCH "${filter}" hit "${word}${byte}")
+      math(EXPR swept "${swept} + 1")
+      if(ends_word AND hit STREQUAL "")
+        list(APPEND wrong "${word}+${code}")
+      elseif(NOT ends_word AND NOT hit STREQUAL "")
+        list(APPEND wrong "${word}+${code}")
+      endif()
+    endforeach()
+  endforeach()
+  list(JOIN wrong "," joined)
+  set(${out_wrong} "${joined}" PARENT_SCOPE)
+  set(${out_swept} ${swept} PARENT_SCOPE)
 endfunction()
 
 # Puts in `out_owned` how many owners set the filter through the variable right under their LABELS line, after the
@@ -136,16 +170,17 @@ function(measured_leak_filter_run)
   endif()
   measured_leak_filter_misses("${GLINTFX_MEASURED_LEAK_FILTER}" missed)
   measured_leak_filter_clean_hits("${GLINTFX_MEASURED_LEAK_FILTER}" hits)
+  measured_leak_filter_byte_sweep("${GLINTFX_MEASURED_LEAK_FILTER}" wrong_bytes swept)
   file(READ "${REGISTRY}" registry_text)
   measured_leak_filter_count("${registry_text}" owned consumers literals)
   list(LENGTH MEASURED_LEAK_FILTER_OWNERS want)
   message("measured_leak_filter: perdidas=<${missed}> limpas_pegas=<${hits}> donos=${owned} consumidores=${consumers}"
-          " esperado=${want} literais=${literals}")
+          " esperado=${want} literais=${literals} bytes_errados=<${wrong_bytes}> varridos=${swept}")
   measured_leak_filter_registry_passes(${owned} ${consumers} ${literals} ok)
-  string(LENGTH "${missed}${hits}" wrong_samples)
+  string(LENGTH "${missed}${hits}${wrong_bytes}" wrong_samples)
   if(NOT ok OR wrong_samples GREATER 0)
-    message(FATAL_ERROR "measured_leak_filter: FALHOU - amostra perdida, linha limpa pega, dono sem ancora, uso"
-            " fora dos donos ou filtro escrito a mao (linha acima)")
+    message(FATAL_ERROR "measured_leak_filter: FALHOU - amostra perdida, linha limpa pega, byte com veredito errado,"
+            " dono sem ancora, uso fora dos donos ou filtro escrito a mao (linha acima)")
   endif()
 endfunction()
 
@@ -157,6 +192,20 @@ function(measured_leak_filter_filter_case case_name filter want_missed want_hits
   set(selftest_total ${total} PARENT_SCOPE)
   set(got "<${missed}>/<${hits}>")
   set(want "<${want_missed}>/<${want_hits}>")
+  if(NOT "${got}" STREQUAL "${want}")
+    math(EXPR failures "${selftest_failures} + 1")
+    set(selftest_failures ${failures} PARENT_SCOPE)
+    message("FALHOU caso ${case_name}: obtido=${got} esperado=${want}")
+  endif()
+endfunction()
+
+# One sweep case: the wrong <word>+<code> list of `filter` must be the expected text, over the whole sweep.
+function(measured_leak_filter_sweep_case case_name filter want_wrong)
+  measured_leak_filter_byte_sweep("${filter}" wrong swept)
+  math(EXPR total "${selftest_total} + 1")
+  set(selftest_total ${total} PARENT_SCOPE)
+  set(got "<${wrong}>/${swept}")
+  set(want "<${want_wrong}>/${MEASURED_LEAK_FILTER_SWEPT}")
   if(NOT "${got}" STREQUAL "${want}")
     math(EXPR failures "${selftest_failures} + 1")
     set(selftest_failures ${failures} PARENT_SCOPE)
@@ -231,7 +280,13 @@ function(measured_leak_filter_run_selftest)
                                      "${top}${inc}${both}${indirect}" "2/2/1/REPROVA")
   measured_leak_filter_registry_case("16 um filtro partido dentro de comentario nao conta"
                                      "${top}${inc}${both}${split_commented}" "2/2/0/APROVA")
-  if(NOT "${selftest_total}" EQUAL 16 OR selftest_failures GREATER 0)
+  measured_leak_filter_sweep_case("17 o filtro decidido acerta os 255 bytes depois das duas palavras"
+                                  "${GLINTFX_MEASURED_LEAK_FILTER}" "")
+  measured_leak_filter_sweep_case("18 uma classe que deixa de fora o ponto erra so o byte 46 (P-DOT)"
+                                  "(MEASURED|SCANCOUNT)[^A-Za-z0-9_.]" "MEASURED+46,SCANCOUNT+46")
+  measured_leak_filter_sweep_case("19 uma classe que perde o A erra so o byte 65 (P-CLEAN-A)"
+                                  "(MEASURED|SCANCOUNT)[^B-Za-z0-9_]" "MEASURED+65,SCANCOUNT+65")
+  if(NOT "${selftest_total}" EQUAL 19 OR selftest_failures GREATER 0)
     message(FATAL_ERROR "measured_leak_filter --selftest: FALHOU ${selftest_failures} de ${selftest_total} casos")
   endif()
   message("measured_leak_filter --selftest: os ${selftest_total} controles OK")

@@ -8459,3 +8459,19 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Corrida B:** `descartavel/d6-b` empurrado (o `ls-remote` confere), CI 38088288278.
 - **Onda 1 = A+B** (D-W8-220). C, D e E só saem depois de lida a corrida A.
 - **Corrida A em andamento:** o "Windows - Sanitizer (ASan)" já deu failure, o que é PREVISTO. O plano prevê failure nos 4 trabalhos Windows com SÓ o `first_window` reprovado, e o main vai conferir isso no log quando o run fechar.
+
+### 11/10/2026 00:30:28 - D6-green commitada; a imagem na tela do líder e no site; corridas A e B lidas; C e D disparadas
+
+- **D6-green** (`9a733496`, local):
+  - P5 verde, com 12 de 12 e 5 de 5 sondas aprovadas e frames_drawn 30; P6 MSVC com rc 0; preci com rc 0;
+  - V-3, V-5, V-13a, V-13b e M1g iguais à previsão;
+  - **V-4 e V-14 pararam** e foram ao CTO (`decisao-d6green-v4v14.md`);
+  - o md5 do Anexo A difere só pelas 5 linhas do lint da `bc0abe54`.
+- **Ordem do líder de 09/10 cumprida:**
+  - o main congelou o md5 do PNG da perna plain em `qa-demo1-md5-inicio.txt` (`ced46a04`), conferiu a imagem (a cena da D-W8-72: fundo cinza, vermelho, azul por cima, branco translúcido, quadrado verde) e abriu na tela do líder com `xdg-open`;
+  - o md5 foi reconferido depois e continua igual.
+- **Ordem nova do líder, verbatim:** "Envie essa imagem pro site" e "Explique a ele o que é".
+  - Mensagem com a imagem e a explicação no barramento, `inbox/site/20261011-0029-glintfx-primeira-imagem.{md,png}`, commit `fb73218` empurrado (local igual ao remoto).
+- **Corrida A** (38087850239): igual à previsão. Reprovaram os 6 trabalhos previstos, e no Windows só o first_window. MSVC 19.51, então a premissa da D-W8-217 vale.
+- **Corrida B** (38088288278): Linux medido em 12/12 e 5/5; Windows na "forma alternativa", mas com o código 10 (JANELAS) no lugar de 1. A confirmação foi ao CTO.
+- **Onda 2:** C (38108570269) e D (38108577899) disparadas.

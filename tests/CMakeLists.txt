@@ -6625,6 +6625,10 @@ endif()
 # (ci.yml). RUN_SERIAL: another window could cover this one and give a false OCLUIDA. TARGET first_window: a tree
 # configured with the examples OFF and the tests ON configures on Windows as it does on Linux (L-04); in the CI the
 # parity gate fails if the name is missing.
+# WORKING_DIRECTORY is the example's own folder (EXAMPLE-RUN-DIR, D-W8-226): the example runs from where a consumer
+# runs it. From tests/, Windows found glintfx.dll in the CURRENT folder (the copy put there for the tests, which the
+# DLL search order reaches after the system folders), so the example's own POST_BUILD copy of its runtime DLLs was
+# never exercised (the disposable V-12 run 38108577899 survived).
 if(WIN32 AND TARGET first_window)
     add_test(
         NAME first_window
@@ -6632,6 +6636,7 @@ if(WIN32 AND TARGET first_window)
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
             "$<TARGET_FILE:win32_window_capture>" "$<TARGET_FILE:first_window>"
             "${CMAKE_CURRENT_BINARY_DIR}/first_window_capture_out"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:first_window>"
     )
     # LABELS unit, not consume (D-W8-60, the same reason as capture_known_color_smoke): the example is built through
     # the root's options, sanitized in the sanitizer job, so the job's `ctest -L '^unit$'` reaches it.

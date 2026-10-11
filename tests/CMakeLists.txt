@@ -6278,7 +6278,7 @@ set_tests_properties(check_selftest_helper_test PROPERTIES LABELS consume)
 add_test(
     NAME check_selftest_helper_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 5 controles OK"
+        "-DEXPECT_LINE=selftest: 6 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_helper.py" --selftest

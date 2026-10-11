@@ -225,6 +225,15 @@ def verdict_names(report, needle):
     return report is not None and any(needle in problem for problem in report.problems)
 
 
+EARLIER_FOLDER_OWNER = "tests/tools/a/selftest_controls.py"
+
+
+def planted_owner_refused(planted_text):
+    """True when a copy of the owner planted in a folder that sorts BEFORE tests/tools/ is refused by path (D-W8-359)."""
+    report = analyse_tree({OWNER_REL: owner_text(), EARLIER_FOLDER_OWNER: planted_text})
+    return verdict_names(report, f"{EARLIER_FOLDER_OWNER}: define check() fora de")
+
+
 def control_verdicts():
     """Each control: (name, verdict). The expected outcome of each is written before its run (L-43)."""
     owner = owner_text()
@@ -241,6 +250,8 @@ def control_verdicts():
         ("c: o comum sem _canary() reprova", verdict_names(reports["c"], "_canary()")),
         ("d: nenhum .py reprova (varredura vazia)", verdict_names(reports["d"], "varredura vazia")),
         ("e: dois check no comum reprovam", verdict_names(reports["e"], "2 definicoes de check")),
+        ("f: dono copiado noutra pasta, antes na ordem, reprova pelo caminho: copia fiel e muda",
+         planted_owner_refused(owner_text()) and planted_owner_refused(LOCAL_CHECK_MODULE)),
     ]
 
 

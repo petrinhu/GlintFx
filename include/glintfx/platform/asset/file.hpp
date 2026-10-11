@@ -93,6 +93,12 @@
 // docs/api-conventions.md R3 itself documents as the general pattern,
 // applied here for the first time by a call site outside CORE-ERROR.
 
+// EXPERIMENTAL. This header is installed and usable, but it is outside
+// the compatibility contracts described in README.md ("Versioning and
+// compatibility"): its functions and types may change, or be removed,
+// in any later release, without a MAJOR version bump. See README.md,
+// "Status".
+
 namespace glintfx::asset {
 
 namespace detail {

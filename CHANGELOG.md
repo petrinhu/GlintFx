@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+### Changed
+
+- **`include/glintfx/platform/asset/file.hpp` and the headers under `include/glintfx/gfss/` are now marked experimental.** No function, type or layout in them changed. They are now documented as outside the compatibility contracts of the rest of the public API, so a later release may change or remove them without a `MAJOR` bump. One promise stays: a numeric property identity already published in `gfss/property.hpp` keeps its meaning. See "Status" in `README.md`.
+
 ## [0.6.1.0] - 2026-10-10
 
 This release is a `PATCH` bump: one fix, no new feature, no change to the API or the ABI. `find_package(glintfx 0.6)` keeps finding it, and `SOVERSION` stays 0.
@@ -20,11 +24,11 @@ This release is a `PATCH` bump: one fix, no new feature, no change to the API or
 
 This release is a `MINOR` bump while the project is pre-1.0 (`SOVERSION` stays 0): the 2D drawing surface is new, and the installed CMake package now refuses `find_package(glintfx 0.5)` against it (`SameMinorVersion`), so a consumer asks for `0.6`.
 
-**The changelog has no sections for `0.4.1.0` through `0.5.2.0`.** Those releases were published without an entry here; this section covers only what changed after `v0.5.2.0`, and does not reconstruct the missing ones.
+This section covers what changed after `v0.5.2.0`. The sections for `0.4.1.0` through `0.5.2.0` below were written afterwards, on 2026-10-11; those releases shipped without an entry.
 
 ### Added
 
-- **2D drawing: filled rectangles and quadrilaterals, drawn into a `gltfx_gl_context` (`R2D-BATCH`).** `include/glintfx/draw2d/renderer_2d.hpp` is the new public surface (six headers under `include/glintfx/draw2d/`). A frame is `begin_frame()`, any number of `fill_rect()` and `fill_quad()` calls, then `finish_frame()`. Pieces are gathered into as few draw calls as the order you asked for allows, and a draw layer lets you say which piece paints over which.
+- **2D drawing: filled rectangles and quadrilaterals, drawn into a `gltfx_gl_context` (`R2D-BATCH`).** `include/glintfx/draw2d/renderer_2d.hpp` is the new public surface (five headers under `include/glintfx/draw2d/`). A frame is `begin_frame()`, any number of `fill_rect()` and `fill_quad()` calls, then `finish_frame()`. Pieces are gathered into as few draw calls as the order you asked for allows, and a draw layer lets you say which piece paints over which.
 - **Positions are world positions with one transform per batch.** With no transform a world position is a physical pixel position (origin at the top left, y grows down); with `begin_batch(transform)` the transform applies to every piece until the next batch. Two rectangles that share an edge cover each pixel along it exactly once. The transform is applied in double precision, so a camera far from the origin does not make pieces shimmer.
 - **A problem is reported once, when the frame ends.** The drawing calls return nothing; `finish_frame()` hands back one report of what was refused or failed, so a single bad piece never stops the rest of the frame.
 - **A suggested graphics preset, handed over and never applied behind your back (`GFX-PRESET`).** Reading the new `suggested_preset` option tells you which of power saving, balanced or performance fits this machine right now; the new `auto_choice_reason` option says why (on battery, software renderer, shared GPU, dedicated GPU, unknown GPU), and the new `power_source` option reports mains, battery or unknown. Reading never changes anything. Setting `preset` applies every row of that preset at once, or none of them, and `automatic` is a shortcut for "apply the suggestion of this moment". `gltfx_gfx_preset_row_count()` and `gltfx_gfx_preset_row_at()` let you read the rows of a preset and decide on your own side what to apply. Named constants (`k_gltfx_preset_*`, `k_gltfx_vsync_*`, `k_gltfx_power_source_*`, `k_gltfx_auto_choice_reason_*`) mean no consumer has to write a bare number, and those numbers are part of the data contract: a number is never reused for another meaning.
@@ -46,6 +50,92 @@ This release is a `MINOR` bump while the project is pre-1.0 (`SOVERSION` stays 0
 - **A registry-order check at compile time** rejects a removed or out-of-order option row, and the 2D drawing code was split so no function is above the project's size limit.
 - **The local mirror of the CI (`tools/preci.sh`)** times every stage, compares each test against the last green run, and turns on `ccache` by itself with its state always printed. The CI itself is split per operating system.
 - **The adversarial reviews of the sRGB work, of the 2D drawing and of the preset** (each executing mutants against the tests) are versioned under `docs/`.
+
+## [0.5.2.0] - 2026-09-30
+
+*Written on 2026-10-11, after the release, from the tag's own message and the commits it marks.*
+
+This release is a `PATCH` bump: one fix you can observe, no new feature, no change to the API or the ABI.
+
+### Fixed
+
+- **On Linux (Wayland), a graphics context whose connection to the compositor has failed now refuses cleanly, every time (`EGL-DEAD-DISPLAY-GUARD`).** Once that connection has failed, `make_current()` and `swap_buffers()` return `platform_failure`, and keep returning the same error on every later call, without reaching the graphics driver. `os_error_code()` carries the system's error number. When the compositor raised a protocol error, `rejected_value()` names the protocol interface it rejected, such as `wl_surface`; otherwise it is empty. Destroying the context still works normally afterwards. Windows has no such connection and is not affected.
+
+### Infrastructure
+
+- The project's own test tooling now runs commands under a ceiling on how many processes they may create (`tools/contido.sh`), so a runaway test can no longer exhaust the machine.
+- A comment in a public header that claims a behaviour is the same on both systems, or was measured, must now name the test that shows it; a gate rejects a claim without one.
+
+## [0.5.1.0] - 2026-09-24
+
+*Written on 2026-10-11, after the release, from the tag's own message and the commits it marks.*
+
+This release is a `PATCH` bump: one fix, no new feature, no change to the API or the ABI.
+
+### Fixed
+
+- **On Linux (Wayland), the wait for the compositor now tells a closed connection apart from "nothing to read yet", so a compositor that goes away is reported as a connection failure when reading, not only when writing.** Before, the wait could take a closed connection for "nothing to read yet". The wait now checks the connection itself, not only that the process exists. Messages the compositor sent before closing are still delivered first, so the failure appears on a later call. This is proven by a unit test of that decision; a real compositor closing the connection does not reach that branch in the live test, so no end-to-end run shows it yet.
+
+### Infrastructure
+
+- When glintfx is cross-compiled (for example, built for Windows from Linux), the build-time OpenGL code generator is now built for the machine running the build, not for the target.
+- The gate that keeps the library's layers apart now also covers the style-sheet code.
+- Before a container test starts, the CI now waits until the compositor inside the container is ready, not only until its process exists.
+
+## [0.5.0.0] - 2026-09-22
+
+*Written on 2026-10-11, after the release, from the tag's own message and the commits it marks.*
+
+This release is a `MINOR` bump while the project is pre-1.0 (`SOVERSION` stays 0). The installed CMake package uses `SameMinorVersion`, so `find_package(glintfx 0.4)` does not find this release: ask for `0.5`. No public header changed.
+
+### Added
+
+- **A complete reader for gfss style sheets, inside the library (`GFSS-SHEET-PARSE`).** It reads a whole sheet, recovers rule by rule from a broken rule instead of giving up on the sheet, and dispatches at-rules. It is not reachable through the public API yet: no public function returns a parsed sheet.
+- A rule that uses the `:placeholder-shown` selector is now refused when a sheet is read, instead of being accepted with no way to ever match.
+
+### Fixed
+
+- **On Linux (Wayland), a slow write to the compositor no longer closes the connection (`WL-WRITE-TIMEOUT-NAO-FATAL`).** If the compositor was too busy to accept data within the time the library chose to wait, the library treated it as dead and closed the connection, which ended the window. It now keeps waiting, as the libwayland documentation asks and as GLFW and SDL do. Only a broken socket is still treated as fatal.
+
+## [0.4.2.1] - 2026-09-19
+
+*Written on 2026-10-11, after the release, from the tag's own message and the commits it marks.*
+
+This release is a `TWEAK` bump: no product code changed, and the library you build is the same, byte for byte, as `0.4.2.0`.
+
+### Infrastructure
+
+- The PowerShell syntax check of the Windows scripts now runs on the CI server; before, it existed but was never executed there.
+- A gate now watches the project's audit manual for stale statements, and another checks the README's Windows build instructions against the CI file they describe.
+
+## [0.4.2.0] - 2026-09-19
+
+*Written on 2026-10-11, after the release, from the tag's own message and the commits it marks.*
+
+This release is a `PATCH` bump: a fix in how errors are copied, no new feature.
+
+### Fixed
+
+- **When memory runs out, glintfx returns an error instead of ending your program (`ERR-COPY-FIX`).** Copying a `gltfx_err` that carried diagnostic details, such as a path or a rejected value, allocated memory. Inside functions that promise never to throw, a failed allocation ended the consumer's process, on every platform and in Release builds too. The diagnostic details are now shared between copies instead of duplicated, so copying an error no longer allocates, and copy and assignment are now `noexcept`. The size of `gltfx_err` stays two pointers, and on Windows no exported symbol was renamed (checked there with `dumpbin`).
+
+### Infrastructure
+
+- A gate now reads, from the header itself, whether copying `gltfx_err` is `noexcept`, and rejects code that allocates inside a `noexcept` function without protection.
+
+## [0.4.1.0] - 2026-09-18
+
+*Written on 2026-10-11, after the release, from the tag's own message and the commits it marks.*
+
+This release is a `PATCH` bump: behaviour fixes, no change to any public type, signature or layout.
+
+### Fixed
+
+- **Several public functions no longer end your program when memory runs out.** Among them: `gltfx_gl_context::open()`, `gltfx_gpu_enumeration::query()` on Windows, looking up an OpenGL function by name, and finding the graphics card's device on Linux. This affected every platform.
+
+### Infrastructure
+
+- The style engine's selector matching (specificity, all the combinators, and the shorthand properties of the first version) was completed inside the library. None of it is reachable through the public API yet.
+- A gate that finds memory allocation inside `noexcept` functions without protection now runs in CI.
 
 ## [0.4.0.0] - 2026-09-15
 
@@ -212,7 +302,15 @@ The first tagged version of glintfx. It marks the point where all five supported
 
 - glintfx is pre-1.0: the public surface can still change at any time, and any compatibility promise made today only holds within the same second version component.
 
-[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.4.0.0...HEAD
+[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.6.1.0...HEAD
+[0.6.1.0]: https://github.com/petrinhu/GlintFx/compare/v0.6.0.0...v0.6.1.0
+[0.6.0.0]: https://github.com/petrinhu/GlintFx/compare/v0.5.2.0...v0.6.0.0
+[0.5.2.0]: https://github.com/petrinhu/GlintFx/compare/v0.5.1.0...v0.5.2.0
+[0.5.1.0]: https://github.com/petrinhu/GlintFx/compare/v0.5.0.0...v0.5.1.0
+[0.5.0.0]: https://github.com/petrinhu/GlintFx/compare/v0.4.2.1...v0.5.0.0
+[0.4.2.1]: https://github.com/petrinhu/GlintFx/compare/v0.4.2.0...v0.4.2.1
+[0.4.2.0]: https://github.com/petrinhu/GlintFx/compare/v0.4.1.0...v0.4.2.0
+[0.4.1.0]: https://github.com/petrinhu/GlintFx/compare/v0.4.0.0...v0.4.1.0
 [0.4.0.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.8.0...v0.4.0.0
 [0.3.8.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.7.0...v0.3.8.0
 [0.3.7.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.6.0...v0.3.7.0
@@ -223,4 +321,4 @@ The first tagged version of glintfx. It marks the point where all five supported
 [0.3.2.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.1.0...v0.3.2.0
 [0.3.1.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.0.0...v0.3.1.0
 [0.3.0.0]: https://github.com/petrinhu/GlintFx/compare/v0.2.0.0...v0.3.0.0
-[0.2.0.0]: https://github.com/petrinhu/GlintFx/releases/tag/v0.2.0.0
+[0.2.0.0]: https://github.com/petrinhu/GlintFx/tree/v0.2.0.0

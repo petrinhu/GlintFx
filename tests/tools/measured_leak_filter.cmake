@@ -23,7 +23,8 @@ endif()
 set(MEASURED_LEAK_FILTER_OWNERS run_example_capture_win32_selftest run_capture_known_color_win32_selftest)
 
 # The size of the byte sweep below (D-W8-242): the bytes 1 to 255 after each of the two words. Every sweep case
-# of the selftest requires it, so a sweep that shrinks (a narrower range, a word dropped) fails there (L-40).
+# of the selftest and the run itself require it, so a sweep that shrinks (a narrower range, a word dropped)
+# fails there (L-40).
 set(MEASURED_LEAK_FILTER_SWEPT 510)
 
 # Puts in `out` the names of the decided leak samples (D-W8-200) that `filter` does NOT catch, joined by ','.
@@ -176,6 +177,10 @@ function(measured_leak_filter_run)
   list(LENGTH MEASURED_LEAK_FILTER_OWNERS want)
   message("measured_leak_filter: perdidas=<${missed}> limpas_pegas=<${hits}> donos=${owned} consumidores=${consumers}"
           " esperado=${want} literais=${literals} bytes_errados=<${wrong_bytes}> varridos=${swept}")
+  if(NOT "${swept}" EQUAL ${MEASURED_LEAK_FILTER_SWEPT})
+    message(FATAL_ERROR "measured_leak_filter: FALHOU - a varredura de bytes olhou ${swept} de"
+            " ${MEASURED_LEAK_FILTER_SWEPT} (L-40: o portao confere o que varreu antes do veredito)")
+  endif()
   measured_leak_filter_registry_passes(${owned} ${consumers} ${literals} ok)
   string(LENGTH "${missed}${hits}${wrong_bytes}" wrong_samples)
   if(NOT ok OR wrong_samples GREATER 0)

@@ -104,9 +104,7 @@ checked directly against the repository, there is no entry on the
 them, so a tag's own message on the commit it marks (`git show <tag>`)
 is part of the real description of what changed, together with
 [`CHANGELOG.md`](https://github.com/petrinhu/GlintFx/blob/main/CHANGELOG.md),
-which has one dated section per tag except `0.4.1.0` through `0.5.2.0`:
-those were published without an entry, as the note in its `[0.6.0.0]`
-section explains. glintfx's very first tag, `v0.2.0.0`, was pushed
+which has one dated section per tag. glintfx's very first tag, `v0.2.0.0`, was pushed
 05/09/2026 - the version-number table above tells you what each tag after
 it changed to earn its own bump. What has not changed since is the
 pre-1.0 caveat: until `MAJOR` reaches `1`, treat every tag, however

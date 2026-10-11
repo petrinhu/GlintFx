@@ -135,7 +135,7 @@ What every public function and type does, area by area, each page with a working
 
 ## Changes
 
-See [`CHANGELOG.md`](CHANGELOG.md): one dated section per tag, newest first, except `0.4.1.0` through `0.5.2.0`, which were published without an entry (the note in its `[0.6.0.0]` section says so). The compare links at the bottom of the file go up to the most recent tag.
+See [`CHANGELOG.md`](CHANGELOG.md): one dated section per tag, newest first; the sections for `0.4.1.0` through `0.5.2.0` were written after those releases shipped. The compare links at the bottom of the file go up to the most recent tag.
 
 ## License
 

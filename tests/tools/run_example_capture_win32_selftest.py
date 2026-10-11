@@ -5,6 +5,7 @@
 # names, the same count. Standard library only (L-07).
 
 from pathlib import Path
+import ast
 from run_example_capture_win32 import *  # the driver's names, unqualified, as before the move
 
 DRIVER_SCRIPT = Path(__file__).resolve().parent / "run_example_capture_win32.py"
@@ -282,6 +283,18 @@ def selftest_example_source_matches():
 
 
 
+def selftest_driver_keeps_no_controls():
+    tree = ast.parse(DRIVER_SCRIPT.read_text(encoding="utf-8"))
+    found = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("selftest_"):
+            found.append(node.name)
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        found += [t.id for t in targets if isinstance(t, ast.Name) and t.id == "CHECKS"]
+    check("o driver nao define controles no nivel de topo (D-W8-137, D-W8-206): " + (", ".join(found) or "nenhum"),
+          not found)
+
+
 def selftest_main():
     selftest_tool_command()
     selftest_grammar_text()
@@ -297,4 +310,5 @@ def selftest_main():
     selftest_process_level()
     selftest_decided_scene_constants()
     selftest_example_source_matches()
+    selftest_driver_keeps_no_controls()
     print(f"selftest: {len(CHECKS)} controles OK")

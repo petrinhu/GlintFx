@@ -8552,3 +8552,22 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - D-W8-229: o MC, o anexo defasado e a contagem da D3-fix2 ficam sem fatia.
 - **Ordem:** D3-FIX3, EXAMPLE-PROBE-Y, EXAMPLE-RUN-DIR; depois as corridas F e G juntas, e H. A D7 espera a EXAMPLE-RUN-DIR, porque as duas mexem em tests/CMakeLists.txt.
 - O CTO escreve as ordens de 8 itens. Para ratificar: D-W8-226 a 229.
+
+### 11/10/2026 08:37:21 - Corrida E igual à previsão; ramos A a E apagados; D5b-fix3 com preci vermelho de texto; plano da documentação; conflito de números de decisão
+
+- **Corrida E** (38109627748, a V-16 redesenhada): no Windows ASan, `AddressSanitizer: heap-buffer-overflow` em `first_window.cpp:248 in main`, codigo=1 e só o first_window reprovado; os demais com a assinatura de A. Igual à previsão.
+- **As corridas A a E da D6-red estão fechadas:** A, B (forma alternativa, D-W8-225), C e E bateram; a D foi diagnosticada (D-W8-226 a 229). Os ramos `descartavel/d6-a` a `d6-e` foram apagados no servidor e aqui; o `ls-remote` mostra só main e onda-w8.
+- **D5b-fix3** (`cf212666`):
+  - vermelho certo; verde com 13 controles; 9 mutantes mortos (o E2E-FF também morreu, o que confirma a D-W8-202);
+  - **R5 com rc 8**: o `docs_count_vocab_test` reprova a frase "thirteen controls" em `tests/CMakeLists.txt:1024` (texto do Anexo B). O gêmeo em `measured_leak_filter.cmake:169` passa só porque o portão não varre .cmake.
+  - Decisão do main (portão de texto, L-23; L-17 manda consertar o gêmeo): os dois textos são reescritos sem o número, num commit novo, com P1 e R5 refeitos. Os mutantes não se refazem, porque é mudança só de comentário (declarado).
+- **Plano da documentação** (`plano-docs-wiki.md`, D-DOC-1 a D-DOC-4, com SDL, GLFW, raylib e as docs do GitHub citados):
+  - `docs/wiki/` vira a fonte e a wiki vira cópia;
+  - o ramo `docs-0610` sai de origin/main, com PR para main só de documentação do que já saiu;
+  - o que é da DEMO-1 fica na onda;
+  - a wiki vai agora, copiada do docs-0610.
+  - A wiki tem um erro crítico (ensina `rslt.error()`, que não compila mais), e o README diz que "nada desenha".
+- **Conflito de números:** o plano `plano-wlframe-acomp.md` usou D-W8-226 a 230, que colidem com os da `decisao-corrida-d.md`. Os da acomp passam a valer como **D-W8-231 a 235**, na mesma ordem (226→231, 227→232, 228→233, 229→234, 230→235). Os arquivos de plano não são editados.
+- **TODO:** entram `WL-FRAME-ORDER-ARM-TEST`, `WL-FRAME-ORDER-TEXT` (absorve os TWINS), `MEASURED-EXC-POS-WLFRAME` e `WL-FRAME-ORDER-COMMIT-ID`.
+  - O item `SONDA-OCULTA-PUNE-JANELA-VISIVEL` foi reescrito por decisão do líder, verbatim: "Manter aberto e reescrito (Recomendado)".
+- **Correção da D6.2:** a causa escrita lá ("kwin_wayland --virtual nunca entrega o retorno de quadro") era defeito nosso: a biblioteca pedia o retorno depois do commit e desistia na primeira leva (WL-FRAME-ORDER, D-W8-208 e 212).

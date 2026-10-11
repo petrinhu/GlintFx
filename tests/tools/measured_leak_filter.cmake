@@ -25,19 +25,26 @@ set(MEASURED_LEAK_FILTER_OWNERS run_example_capture_win32_selftest run_capture_k
 # Puts in `out` the names of the decided leak samples (D-W8-200) that `filter` does NOT catch, joined by ','.
 function(measured_leak_filter_misses filter out)
   string(ASCII 9 tab)
+  string(ASCII 11 vertical_tab)
+  string(ASCII 12 form_feed)
   string(ASCII 194 160 nbsp)
   string(ASCII 226 128 131 em_space)
   string(ASCII 31 unit_sep)
   set(key "first_window.capture_alpha_compared=0")
   set(sample_tab "MEASURED${tab}${key}")
   set(sample_two_spaces "MEASURED  ${key}")
+  set(sample_form_feed "MEASURED${form_feed}${key}")
+  set(sample_vertical_tab "MEASURED${vertical_tab}${key}")
   set(sample_nbsp "MEASURED${nbsp}${key}")
   set(sample_em_space "MEASURED${em_space}${key}")
   set(sample_unit_sep "MEASURED${unit_sep}${key}")
+  set(sample_colon "MEASURED: nota")
+  set(sample_equals "MEASURED=${key}")
   set(sample_scancount_space "SCANCOUNT ${key}")
   set(sample_scancount_nbsp "SCANCOUNT${nbsp}${key}")
   set(missed "")
-  foreach(name IN ITEMS tab two_spaces nbsp em_space unit_sep scancount_space scancount_nbsp)
+  foreach(name IN ITEMS tab two_spaces form_feed vertical_tab nbsp em_space unit_sep colon equals scancount_space
+                        scancount_nbsp)
     string(REGEX MATCH "${filter}" hit "${sample_${name}}")
     if(hit STREQUAL "")
       list(APPEND missed ${name})
@@ -48,12 +55,17 @@ function(measured_leak_filter_misses filter out)
 endfunction()
 
 # Puts in `out` the names of the clean samples (lines a passing selftest prints) that `filter` catches, joined by
-# ','. Empty is right: a filter that catches them fails every green selftest.
+# ','. Empty is right: a filter that catches them fails every green selftest. The word followed by each kind of
+# character that does NOT end it (D-W8-200: '_', a digit, an upper-case and a lower-case letter) is one sample, so a
+# class that drops any kind catches a clean line.
 function(measured_leak_filter_clean_hits filter out)
   set(clean_count_line "selftest: 34 controles OK")
   set(clean_identifier "MEASURED_ALPHA_LINE = 1")
+  set(clean_digit "MEASURED2 = 1")
+  set(clean_upper "MEASUREDX = 1")
+  set(clean_lower "MEASUREDx = 1")
   set(hits "")
-  foreach(name IN ITEMS count_line identifier)
+  foreach(name IN ITEMS count_line identifier digit upper lower)
     string(REGEX MATCH "${filter}" hit "${clean_${name}}")
     if(NOT hit STREQUAL "")
       list(APPEND hits ${name})
@@ -65,8 +77,10 @@ endfunction()
 
 # Puts in `out_owned` how many owners set the filter through the variable right under their LABELS line, after the
 # include(); in `out_consumers` the non-comment lines that use the variable; in `out_literals` the non-comment lines
-# that write a MEASURED or SCANCOUNT FAIL_REGULAR_EXPRESSION by hand. The lines are split as in
-# check_no_pass_regex.cmake: '[' and ']' replaced first, or an open '[' in a comment swallows the lines after it.
+# that still name MEASURED or SCANCOUNT once the use of the variable is taken out of them (D-W8-201, D-W8-237). A
+# filter written by hand names the word wherever it lands: on the FAIL_REGULAR_EXPRESSION line, on the line under it,
+# or in a variable set elsewhere. The lines are split as in check_no_pass_regex.cmake: '[' and ']' replaced first, or
+# an open '[' in a comment swallows the lines after it.
 function(measured_leak_filter_count text out_owned out_consumers out_literals)
   set(use "FAIL_REGULAR_EXPRESSION \"\${GLINTFX_MEASURED_LEAK_FILTER}\"")
   string(FIND "${text}" "\ninclude(\"\${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake\")" include_at)
@@ -91,7 +105,9 @@ function(measured_leak_filter_count text out_owned out_consumers out_literals)
     string(FIND "${line}" "${use}" at)
     if(at GREATER -1)
       math(EXPR consumers "${consumers} + 1")
-    elseif(line MATCHES "FAIL_REGULAR_EXPRESSION.*(MEASURED|SCANCOUNT)")
+    endif()
+    string(REPLACE "${use}" "" rest "${line}")
+    if(rest MATCHES "MEASURED|SCANCOUNT")
       math(EXPR literals "${literals} + 1")
     endif()
   endforeach()
@@ -172,11 +188,13 @@ function(measured_leak_filter_run_selftest)
   set(selftest_failures 0)
   measured_leak_filter_filter_case("1 o filtro decidido pega toda amostra e nenhuma linha limpa"
                                    "${GLINTFX_MEASURED_LEAK_FILTER}" "" "")
-  measured_leak_filter_filter_case("2 o filtro antigo de espaco e tab perde os brancos Unicode"
-                                   "(MEASURED|SCANCOUNT)[ \t]" "nbsp,em_space,unit_sep,scancount_nbsp" "")
+  measured_leak_filter_filter_case("2 o filtro antigo de espaco e tab perde FF, VT, os brancos Unicode, ':' e '='"
+                                   "(MEASURED|SCANCOUNT)[ \t]"
+                                   "form_feed,vertical_tab,nbsp,em_space,unit_sep,colon,equals,scancount_nbsp" "")
   measured_leak_filter_filter_case("3 o filtro sem SCANCOUNT perde as linhas SCANCOUNT"
                                    "MEASURED[^A-Za-z0-9_]" "scancount_space,scancount_nbsp" "")
-  measured_leak_filter_filter_case("4 um filtro que casa tudo pega as linhas limpas" "." "" "count_line,identifier")
+  measured_leak_filter_filter_case("4 um filtro que casa tudo pega as linhas limpas" "." ""
+                                   "count_line,identifier,digit,upper,lower")
   set(top "# registro sintetico\n")
   set(inc "include(\"\${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake\")\n")
   set(head_a "set_tests_properties(run_example_capture_win32_selftest PROPERTIES LABELS selftest\n")
@@ -185,6 +203,10 @@ function(measured_leak_filter_run_selftest)
   set(use "    FAIL_REGULAR_EXPRESSION \"\${GLINTFX_MEASURED_LEAK_FILTER}\")\n")
   set(old "    FAIL_REGULAR_EXPRESSION \"(MEASURED|SCANCOUNT)< >\")\n")
   set(open_bracket "# nota [\n")
+  set(split "    FAIL_REGULAR_EXPRESSION\n    \"(MEASURED|SCANCOUNT)< >\")\n")
+  set(by_hand_variable "set(meu_filtro \"(MEASURED|SCANCOUNT)< >\")\n")
+  set(indirect "${by_hand_variable}${head_other}    FAIL_REGULAR_EXPRESSION \"\${meu_filtro}\")\n")
+  set(split_commented "# ${head_other}#     FAIL_REGULAR_EXPRESSION\n#     \"(MEASURED|SCANCOUNT)< >\")\n")
   set(both "${head_a}${use}${head_b}${use}")
   measured_leak_filter_registry_case("5 os dois donos pela variavel depois do include aprovam" "${top}${inc}${both}"
                                      "2/2/0/APROVA")
@@ -203,7 +225,13 @@ function(measured_leak_filter_run_selftest)
                                      "${top}${inc}${both}${head_other}${old}" "2/2/1/REPROVA")
   measured_leak_filter_registry_case("13 os donos antes do include reprovam: a variavel ainda nao existe"
                                      "${top}${both}${inc}" "0/2/0/REPROVA")
-  if(NOT "${selftest_total}" EQUAL 13 OR selftest_failures GREATER 0)
+  measured_leak_filter_registry_case("14 um filtro escrito a mao partido em duas linhas reprova (M-LITSPLIT)"
+                                     "${top}${inc}${both}${head_other}${split}" "2/2/1/REPROVA")
+  measured_leak_filter_registry_case("15 um filtro escrito a mao numa variavel reprova"
+                                     "${top}${inc}${both}${indirect}" "2/2/1/REPROVA")
+  measured_leak_filter_registry_case("16 um filtro partido dentro de comentario nao conta"
+                                     "${top}${inc}${both}${split_commented}" "2/2/0/APROVA")
+  if(NOT "${selftest_total}" EQUAL 16 OR selftest_failures GREATER 0)
     message(FATAL_ERROR "measured_leak_filter --selftest: FALHOU ${selftest_failures} de ${selftest_total} casos")
   endif()
   message("measured_leak_filter --selftest: os ${selftest_total} controles OK")

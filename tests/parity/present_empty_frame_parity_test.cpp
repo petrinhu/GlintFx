@@ -45,10 +45,12 @@
 //     no piece issues no draw command, so it may be an empty frame too. The expectation of the
 //     apparatus does NOT apply to it; the value is data for a later decision.
 //
-// WHY vsync IS TURNED OFF IN EVERY CONTEXT: the kwin --virtual of the container never returns the
-// EGL frame callback (tests/measured_exceptions.txt, loop_parity_test.cap30_wall_ms), so with vsync
-// on the second swap may become `skipped_hidden` and never reach the driver, and the cell would
-// measure nothing.
+// WHY vsync IS TURNED OFF IN EVERY CONTEXT: when this test was written, the EGL frame callback
+// never arrived in the container, so with vsync on the second swap could become `skipped_hidden`
+// and never reach the driver, and the cell would measure nothing. The defect was ours, not the
+// compositor's: the library asked for the frame callback AFTER the eglSwapBuffers commit
+// (WL-FRAME-ORDER, D-W8-208, 09/10/2026). vsync stays off here; whether it can be turned back on
+// is not measured yet (item MEASURED-EXC-POS-WLFRAME, TODO.md).
 //
 // GL FUNCTIONS: glClear/glClearColor are declared by hand and resolved through proc_address() of
 // the context of EACH cell (the table is per context on WGL), never linked (GODS_LAWS.md L-07).

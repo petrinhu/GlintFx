@@ -8704,3 +8704,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **É a terceira volta seguida da mesma trava** (fix3, fix4 e agora). Pela L-42, o CTO foi acionado com pesquisa na web obrigatória antes de uma nova tentativa, e com a hipótese de enumerar os 128 bytes ASCII em vez de amostras à mão (L-17 global). Decisão em `/var/tmp/cto-w8/decisao-lote6.md`.
   - O CTO também decide a correção de texto do item `SONDA-OCULTA-PUNE-JANELA-VISIVEL` (TODO.md:284), o destino do apelido `fedora:44` e se a D7 corre em paralelo.
   - **`onda-w8` empurrado**, com a D6-green fechada (D-W8-192): f2dbfafe..56892b46, 65 commits, e o `ls-remote` confere. O CI foi disparado no ramo: 38145668922.
+- **11/10/26 11:05 (main).** O CI de `main` depois do merge do PR #16 (38144086310, em 680aa609) ficou verde. A publicação da documentação está fechada.

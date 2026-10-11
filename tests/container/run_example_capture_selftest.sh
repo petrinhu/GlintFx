@@ -103,13 +103,14 @@ selftest_overrun_is_exit_3() {
 
 # 137 is timeout -k's KILL, a death by signal that exec_fixture.sh reports: exit 1, never 3 (plano-d3.md:28).
 # Only 124 is the overrun: its neighbours 123 and 125, timeout's own failures 125, 126 and 127, and SIGTERM's 143
-# all exit 1 (D-W8-81, D-W8-138 item 4, D-W8-203).
+# all exit 1 (D-W8-81, D-W8-138 item 4, D-W8-203). So does 255, what docker exec returns when the exec itself fails
+# (D-W8-228).
 selftest_exit_0_needs_every_part_clean() {
     [ "$(example_exit_code 0 0 0)" = 0 ] && [ "$(example_exit_code 1 0 0)" = 1 ] &&
         [ "$(example_exit_code 139 0 0)" = 1 ] && [ "$(example_exit_code 137 0 0)" = 1 ] &&
         [ "$(example_exit_code 123 0 0)" = 1 ] && [ "$(example_exit_code 125 0 0)" = 1 ] &&
         [ "$(example_exit_code 126 0 0)" = 1 ] && [ "$(example_exit_code 127 0 0)" = 1 ] &&
-        [ "$(example_exit_code 143 0 0)" = 1 ] &&
+        [ "$(example_exit_code 143 0 0)" = 1 ] && [ "$(example_exit_code 255 0 0)" = 1 ] &&
         [ "$(example_exit_code 0 1 0)" = 1 ] && [ "$(example_exit_code 0 0 1)" = 1 ]
 }
 

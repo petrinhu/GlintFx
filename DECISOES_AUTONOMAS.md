@@ -8600,3 +8600,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **Wiki local** (`78806dd`, master à frente 1): cópia de docs/wiki. O `API-Draw-2D.md` ficou NÃO rastreado no clone; a revisão confere se isso é omissão.
 - **Revisão §5.2** despachada a um qa-engineer haiku distinto do redator (`rev-docs.md`): inventário, gêmeos, compilação dos exemplos da wiki contra a v0.6.1.0 em contêiner e sabotagens.
 - **Push** do docs-0610, do PR e da wiki: só depois da revisão e do adendo (as 4 decisões do líder).
+
+### 11/10/2026 09:08:41 - Adendo da documentação (D-DOC-5 a 8): commits 2 e 3 despachados; workflow da wiki em PR próprio
+
+- **CTO** (`plano-docs-wiki-adendo.md`, fontes no §3.1):
+  - **commit 2:** as distros planejadas e não testadas no README, e a marca de experimental (asset e gfss) no README, na Home da wiki, no CHANGELOG [Unreleased] e em 6 headers, só em comentário. D-DOC-5 mantém a promessa já publicada do ID numérico de propriedade em gfss/property.hpp;
+  - **commit 3:** as 6 seções reconstruídas do CHANGELOG, cada uma dizendo que foi escrita depois.
+  - **Ordem B:** `.github/workflows/wiki.yml` sem nenhum `uses:`, com `permissions: {}` no topo e `contents: write` só no job de publicação (push em main, `needs: guard`), mais o verificador `tools/ci/check_wiki_workflow.py` (R1 a R5, autoteste e 8 sabotagens).
+  - D-DOC-8: o workflow vai num PR próprio (`ci-wiki-publish`).
+  - Sequência: commits 2 e 3 → revisão → push, PR e CI → merge → origin/main na onda → último push manual da wiki → Ordem B.
+- **Para ratificar:** D-DOC-5 e o desvio residual da D-DOC-7. O token `contents: write` alcança o repositório inteiro, não só a wiki, com 4 controles conferidos a cada execução.
+- A Ordem A foi despachada ao redator. O revisor segue sobre o `0380c5e9` e depois revisa os commits 2 e 3.

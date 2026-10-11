@@ -58,6 +58,12 @@
 // keyword_kind.cpp fails to COMPILE (that file's own static_assert),
 // never silently returns "unknown" at runtime for a real member.
 
+// EXPERIMENTAL. This header is installed and usable, but it is outside
+// the compatibility contracts described in README.md ("Versioning and
+// compatibility"): its functions and types may change, or be removed,
+// in any later release, without a MAJOR version bump. See README.md,
+// "Status".
+
 namespace glintfx::style {
 
 // GLINTFX_GFSS_KEYWORD_LIST(X) - the closed set of 56 SIMPLE value

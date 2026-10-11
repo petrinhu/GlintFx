@@ -93,6 +93,14 @@
 // fatia's own delivery report, not decided unilaterally as if it were
 // obvious.
 
+// EXPERIMENTAL. This header is installed and usable, but it is outside
+// the compatibility contracts described in README.md ("Versioning and
+// compatibility"): its functions and types may change, or be removed,
+// in any later release, without a MAJOR version bump. See README.md,
+// "Status".
+// One promise stays in force: a numeric property identity already
+// published here keeps its meaning (item 2 of the list above).
+
 namespace glintfx::style {
 
 // GLINTFX_GFSS_PROPERTY_LIST(X) - the 104 properties of the v1

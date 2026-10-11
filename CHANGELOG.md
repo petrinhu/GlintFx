@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+### Changed
+
+- **`include/glintfx/platform/asset/file.hpp` and the headers under `include/glintfx/gfss/` are now marked experimental.** No function, type or layout in them changed. They are now documented as outside the compatibility contracts of the rest of the public API, so a later release may change or remove them without a `MAJOR` bump. One promise stays: a numeric property identity already published in `gfss/property.hpp` keeps its meaning. See "Status" in `README.md`.
+
 ## [0.6.1.0] - 2026-10-10
 
 This release is a `PATCH` bump: one fix, no new feature, no change to the API or the ABI. `find_package(glintfx 0.6)` keeps finding it, and `SOVERSION` stays 0.

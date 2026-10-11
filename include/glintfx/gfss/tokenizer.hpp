@@ -66,6 +66,12 @@
 // identifier freezes together with the rest of the type at GFSS-API's
 // dedicated review (TODO.md, wave W10).
 
+// EXPERIMENTAL. This header is installed and usable, but it is outside
+// the compatibility contracts described in README.md ("Versioning and
+// compatibility"): its functions and types may change, or be removed,
+// in any later release, without a MAJOR version bump. See README.md,
+// "Status".
+
 namespace glintfx::style {
 
 // Scanning position, PUBLIC because gltfx_gfss_next_token() takes one

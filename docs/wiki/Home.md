@@ -75,6 +75,10 @@ section for what is still being built.
   the future style engine that is already public and stable: the table
   of callbacks your own UI tree implements so glintfx can inspect it.
 
+### Experimental parts
+
+Two parts of glintfx are installed with its headers but marked **experimental**: reading a whole file into memory (`glintfx/platform/asset/file.hpp`) and the pieces of the future style-sheet engine (`glintfx/gfss/`). "Experimental" means you can try them, but they may change or disappear in any later version, even one whose number suggests only a small change. Do not build something you ship on them yet. They get no page here until that label is removed; the main README's ["Status"](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction) section says what each one does.
+
 ## A word about the license, before you invest time
 
 glintfx is licensed under the **GNU Affero General Public License v3.0 or

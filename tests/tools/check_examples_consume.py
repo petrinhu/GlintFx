@@ -222,6 +222,10 @@ def selftest_whole_run():
         check("integracao: a construcao falha, reprova, e a linha diz construidos=0",
               not passed and "check_examples_consume: exemplos encontrados=1 construidos=0" in out.splitlines()
               and len(failed.calls) == 3)
+        silent = build_double([0, 0, 0], built=())
+        passed, out = consume_with(tmp, silent)
+        check("integracao: a construcao sai 0 sem gerar o executavel, reprova, e a linha diz construidos=0",
+              not passed and "check_examples_consume: exemplos encontrados=1 construidos=0" in out.splitlines())
     with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / "examples").mkdir()
         run = build_double([])

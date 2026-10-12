@@ -23,6 +23,7 @@ target_sources(glintfx_library PRIVATE
     piece_list.cpp
     gl_load_refusal.cpp
     srgb_encoding.cpp
+    pixel_premultiply.cpp
     frame_2d_report.cpp
     renderer_2d_impl.cpp
     renderer_2d_facade.cpp

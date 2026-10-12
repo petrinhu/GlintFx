@@ -1507,6 +1507,15 @@ target_sources(srgb_encoding_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
 )
 
+# R2D-TEXTURE T1: the image view's conversion into stored texels (sRGB encoded, straight alpha),
+# with the table of the T1 order checked by formula. Needs the encode curve of srgb_encoding.cpp.
+glintfx_add_test(pixel_premultiply_test)
+target_include_directories(pixel_premultiply_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(pixel_premultiply_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
 # R2D-BATCH B3b: the embedded drawing program against a table of FAKE GL functions. The test needs the
 # generated loader header (gl_functions.hpp, build tree) and the hand-written gl_abi.hpp (src/render), and
 # log_emit() from the library (exported, core/log/emit.hpp).

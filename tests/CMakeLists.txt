@@ -1530,6 +1530,16 @@ target_sources(triangle_list_check_test PRIVATE
     "${PROJECT_SOURCE_DIR}/tests/triangle_list_check_test.cpp"
 )
 
+# R2D-SHAPES S2b-fix1 (revisão N1 de 00cdbb4e, I-8): os vértices em pixel de uma chamada de triângulos, átomo
+# próprio fora de renderer_2d_impl.
+glintfx_add_test(triangle_pixel_vertices_test)
+target_include_directories(triangle_pixel_vertices_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(triangle_pixel_vertices_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_pixel_vertices.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+    "${PROJECT_SOURCE_DIR}/tests/triangle_pixel_vertices_test.cpp"
+)
+
 glintfx_add_test(gl_load_refusal_test)
 target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gl_load_refusal_test PRIVATE
@@ -1601,6 +1611,7 @@ target_include_directories(renderer_2d_impl_test PRIVATE
     "${PROJECT_BINARY_DIR}/generated/render"
 )
 target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_pixel_vertices.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_list_check.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl.cpp"

@@ -53,11 +53,20 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     count_not_multiple_of_three = 5,
     unknown_option = 6,
     too_many_vertices = 7,
+    // Appended by S2b-fix1: every value given was a finite number, but
+    // the batch transform made of a position a pixel coordinate larger
+    // in magnitude than the library's vertex program can scale without
+    // overflowing (about 1.7e38: half the largest 32-bit float, less 4
+    // units in the last place), or the transform itself holds a value
+    // that is not a finite number. A position outside the surface is NOT
+    // this: it is drawn, and simply covers no pixel.
+    pixel_position_out_of_range = 8,
 };
 
 // The token for `reason`: "none", "not_a_number", "infinite",
 // "negative_size", "index_out_of_range", "count_not_multiple_of_three",
-// "unknown_option" or "too_many_vertices". A value this build does not
+// "unknown_option", "too_many_vertices" or "pixel_position_out_of_range". A
+// value this build does not
 // know (a newer glintfx crossing the library boundary) reads "unknown"
 // (docs/api-conventions.md R4). The returned text lives as long as the
 // program.
@@ -73,9 +82,10 @@ struct gltfx_frame_2d_report {
     // Pieces refused, one count per refused call: a value that is not a
     // finite number, a rectangle with a negative width or height, an index
     // out of range, a count that is not a multiple of three, an unknown
-    // option, or too many vertices. The frame goes on without them; this is
-    // not an error of the frame. The seven counters at the end of this
-    // struct, one per reason, add up to this one.
+    // option, too many vertices, or a position whose pixel coordinate is
+    // out of the range the vertex program can scale. The frame goes on without them; this is not an
+    // error of the frame. The counters at the end of this struct, one per
+    // reason, add up to this one.
     std::uint64_t pieces_refused = 0;
     // Why the first of those was refused; `none` when pieces_refused is
     // zero.
@@ -115,6 +125,7 @@ struct gltfx_frame_2d_report {
     std::uint64_t pieces_refused_count_not_multiple_of_three = 0;
     std::uint64_t pieces_refused_unknown_option = 0;
     std::uint64_t pieces_refused_too_many_vertices = 0;
+    std::uint64_t pieces_refused_pixel_position_out_of_range = 0;
 };
 
 } // namespace glintfx

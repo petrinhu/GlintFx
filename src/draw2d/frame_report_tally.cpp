@@ -25,9 +25,9 @@ void frame_tally::piece_dropped_graphics_failure() noexcept {
 
 namespace {
 
-// The counter of ONE refusal reason (D-W8-30): the seven counters add up to pieces_refused, so each
-// refused call bumps exactly one of them. Null for `none` and for a reason this build does not
-// know.
+// The counter of ONE refusal reason (D-W8-30): the counters of all the reasons add up to
+// pieces_refused, so each refused call bumps exactly one of them. Null for `none` and for a reason
+// this build does not know.
 [[nodiscard]] std::uint64_t *counter_of(gltfx_frame_2d_report &report,
                                         gltfx_draw_2d_refusal reason) noexcept {
     switch (reason) {
@@ -45,6 +45,8 @@ namespace {
         return &report.pieces_refused_unknown_option;
     case gltfx_draw_2d_refusal::too_many_vertices:
         return &report.pieces_refused_too_many_vertices;
+    case gltfx_draw_2d_refusal::pixel_position_out_of_range:
+        return &report.pieces_refused_pixel_position_out_of_range;
     case gltfx_draw_2d_refusal::none:
         return nullptr;
     }

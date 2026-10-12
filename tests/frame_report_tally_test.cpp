@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <print>
 
@@ -277,4 +279,98 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
 
     GLINTFX_CHECK_EQ(analyzed, 13);
     std::println("frame_report_tally_test: {} celula(s) conferida(s) (quadro)", analyzed);
+}
+
+namespace {
+
+// The counter of `reason` in `report`, read by its PUBLIC field name (never through the code's own
+// switch), or null when the row names no reason.
+[[nodiscard]] const std::uint64_t *field_of(const glintfx::gltfx_frame_2d_report &report,
+                                            gltfx_draw_2d_refusal reason) {
+    switch (reason) {
+    case gltfx_draw_2d_refusal::not_a_number:
+        return &report.pieces_refused_not_a_number;
+    case gltfx_draw_2d_refusal::infinite:
+        return &report.pieces_refused_infinite;
+    case gltfx_draw_2d_refusal::negative_size:
+        return &report.pieces_refused_negative_size;
+    case gltfx_draw_2d_refusal::index_out_of_range:
+        return &report.pieces_refused_index_out_of_range;
+    case gltfx_draw_2d_refusal::count_not_multiple_of_three:
+        return &report.pieces_refused_count_not_multiple_of_three;
+    case gltfx_draw_2d_refusal::unknown_option:
+        return &report.pieces_refused_unknown_option;
+    case gltfx_draw_2d_refusal::too_many_vertices:
+        return &report.pieces_refused_too_many_vertices;
+    case gltfx_draw_2d_refusal::pixel_position_out_of_range:
+        return &report.pieces_refused_pixel_position_out_of_range;
+    default:
+        return nullptr;
+    }
+}
+
+// The sum of EVERY per-reason counter, written field by field.
+[[nodiscard]] std::uint64_t sum_of_reasons(const glintfx::gltfx_frame_2d_report &r) {
+    return r.pieces_refused_not_a_number + r.pieces_refused_infinite +
+           r.pieces_refused_negative_size + r.pieces_refused_index_out_of_range +
+           r.pieces_refused_count_not_multiple_of_three + r.pieces_refused_unknown_option +
+           r.pieces_refused_too_many_vertices + r.pieces_refused_pixel_position_out_of_range;
+}
+
+} // namespace
+
+// S2b-fix1 (M8 of the N1 review survived the unit suite): every refusal reason, the closed list of
+// the public enum, bumps its OWN counter and no other, and the counters add up to pieces_refused
+// (D-W8-30). The k-th reason of the list (counting from 1) is refused k times, so a swap of two
+// counters shows.
+GLINTFX_TEST(frame_report_tally_each_reason_has_its_own_counter) {
+    const std::array<gltfx_draw_2d_refusal, 8> reasons{
+        gltfx_draw_2d_refusal::not_a_number,
+        gltfx_draw_2d_refusal::infinite,
+        gltfx_draw_2d_refusal::negative_size,
+        gltfx_draw_2d_refusal::index_out_of_range,
+        gltfx_draw_2d_refusal::count_not_multiple_of_three,
+        gltfx_draw_2d_refusal::unknown_option,
+        gltfx_draw_2d_refusal::too_many_vertices,
+        gltfx_draw_2d_refusal::pixel_position_out_of_range,
+    };
+    frame_tally tally;
+    tally.begin_frame();
+    std::uint64_t refused = 0;
+    for (std::size_t k = 0; k < reasons.size(); ++k) {
+        for (std::size_t times = 0; times <= k; ++times) {
+            tally.piece_refused(reasons[k]);
+            ++refused;
+        }
+    }
+    GLINTFX_CHECK(tally.finish() == finish_status::ok);
+    const auto r = tally.last_report();
+    std::size_t looked = 0;
+    for (std::size_t k = 0; k < reasons.size(); ++k) {
+        const std::uint64_t *field = field_of(r, reasons[k]);
+        GLINTFX_CHECK(field != nullptr);
+        if (field != nullptr) {
+            GLINTFX_CHECK_EQ(*field, std::uint64_t{k + 1});
+        }
+        ++looked;
+    }
+    GLINTFX_CHECK_EQ(r.pieces_refused, refused);
+    GLINTFX_CHECK_EQ(sum_of_reasons(r), r.pieces_refused);
+    std::println("frame_report_tally_test: motivos={}", looked);
+    GLINTFX_CHECK_EQ(looked, reasons.size());
+}
+
+// S2b-fix1 (I-7 of the N1 review): the eighth reason, appended (value 8, never renumbered), and its
+// public token, written here as literals (never through the code's own constants).
+GLINTFX_TEST(frame_report_tally_the_pixel_position_reason_is_eight_with_its_token) {
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::pixel_position_out_of_range), 8);
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::pixel_position_out_of_range) ==
+                  "pixel_position_out_of_range");
+    frame_tally tally;
+    tally.begin_frame();
+    tally.piece_refused(gltfx_draw_2d_refusal::pixel_position_out_of_range);
+    GLINTFX_CHECK(tally.finish() == finish_status::ok); // a refusal is not an error of the frame
+    const auto r = tally.last_report();
+    GLINTFX_CHECK_EQ(r.pieces_refused_pixel_position_out_of_range, std::uint64_t{1});
+    GLINTFX_CHECK(r.first_refusal == gltfx_draw_2d_refusal::pixel_position_out_of_range);
 }

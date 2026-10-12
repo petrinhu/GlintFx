@@ -216,8 +216,8 @@ void cell_refusals(const session &s) {
         report.pieces_refused_not_a_number + report.pieces_refused_infinite +
         report.pieces_refused_negative_size + report.pieces_refused_index_out_of_range +
         report.pieces_refused_count_not_multiple_of_three + report.pieces_refused_unknown_option +
-        report.pieces_refused_too_many_vertices;
-    cell(reasons == report.pieces_refused, "C3 a soma dos sete motivos e igual a pieces_refused");
+        report.pieces_refused_too_many_vertices + report.pieces_refused_pixel_position_out_of_range;
+    cell(reasons == report.pieces_refused, "C3 a soma dos oito motivos e igual a pieces_refused");
 }
 
 // C4: a call with no frame open is counted in the next report; an empty call is not counted at all.

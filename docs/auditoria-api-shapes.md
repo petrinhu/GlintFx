@@ -17,6 +17,7 @@
 - **D-W8-287 (IMP-03, IMP-04):** uma chamada é uma peça; casos de borda escritos nos cabeçalhos; novo motivo `too_many_vertices`.
 - **D-W8-334 (errata do layout):** saem `image_without_owner` e `pieces_refused_image_without_owner`; `shadow_groups` vira `shadow_segments` (D-W8-322); `light_below_piece` não entra (D-W8-320). O motivo `image_without_owner` nasce com a primeira ponte de pintura (D-W8-336, R0).
 - **D-W8-353 a 356 (r13):** nomes finais e assinaturas com quatro parâmetros ou menos. `stroke_line` e `stroke_rect` recebem `gltfx_segment_world`, `gltfx_line_style` e `gltfx_rect_outline_style` (D-W8-354), e a nova cerca `core/segment.hpp` entra na seção 2. Ver a nota D-W8-354 ao lado de cada assinatura trocada. As seções 3 a 7 são análise e citam, onde indicam, as assinaturas anteriores; o texto vigente é o da seção 2.
+- **S2b-fix1 (CTO, revisão N1 de `00cdbb4e`):** (1) a cerca de `fill_triangles` trazia o texto da proposta ("a vertex whose position is not a finite number: not_a_number") e contradizia a decisão IMP-04 (c) desta mesma página; vale a decisão: NaN é `not_a_number` e infinito é `infinite`, em posição e em cor, na ordem do vocabulário, como o quadrado (`piece_refusal.hpp`). (2) O limite de vértices fica escrito por extenso: 2^32 vértices são aceitos (o índice de 32 bits endereça 0 a 2^32 - 1) e 2^32 + 1 são recusados. (3) Motivo novo `pixel_position_out_of_range = 8`, com o contador `pieces_refused_pixel_position_out_of_range` acrescentado logo depois de `pieces_refused_too_many_vertices` e antes de `texture_switches`: posição finita que a transformação do lote leva para fora da faixa que o programa de vértice escala sem estourar (achado I-7). A borda é `FLT_MAX / 2` menos 4 unidades na última casa, derivada da linha `a_position.x / u_viewport_pixels.x * 2.0 - 1.0` de `src/draw2d/embedded_program.cpp` (o `* 2.0` numa superfície de 1 pixel, com a divisão até 2,5 unidades fora, pelo GL_ARB_shader_precision); a derivação está em `src/draw2d/quad_vertices.cpp`. As regras da cerca passam a vir numeradas, na ordem em que se aplicam. A cerca e `include/glintfx/draw2d/renderer_2d.hpp` continuam iguais byte a byte.
 - **Achados de texto:** IMP-08 (`measured` sai de `fill_ellipse`) e COS-01 (`planned for fatia S3` sai de `stroke.hpp`) aplicados no texto da seção 2. IMP-02 (quatro sítios de contrato desatualizados) não está nos trechos da seção 2: é corrigido nos commits da S2b e da S5, como manda a r2 §12.
 
 ---
@@ -212,12 +213,18 @@ struct gltfx_ellipse_world {
     // One call is one piece, whatever the method (D-W8-287). A refused call is
     // refused WHOLE and counted once, never triangle by triangle. An empty
     // call (no vertices, or no indices) does nothing and is not a piece.
-    // Refused, counted in the report, never an exception:
-    //   - a vertex count (no indices) or an index count that is not a
-    //     multiple of three: count_not_multiple_of_three;
-    //   - an index that is not a vertex of this span: index_out_of_range;
-    //   - more vertices than a 32-bit index can address: too_many_vertices;
-    //   - a vertex whose position is not a finite number: not_a_number.
+    // Refused, counted in the report, never an exception. The first rule
+    // that applies names the reason:
+    //   1. more than 2^32 vertices, which a 32-bit index cannot address:
+    //      too_many_vertices;
+    //   2. a vertex count (no indices) or an index count that is not a
+    //      multiple of three: count_not_multiple_of_three;
+    //   3. an index that is not a vertex of this span: index_out_of_range;
+    //   4. a NaN in any position or colour: not_a_number; then an
+    //      infinity in any of them: infinite;
+    //   5. a position that the batch transform turns into a pixel
+    //      coordinate larger in magnitude than about 1.7e38, where the
+    //      vertex program would overflow: pixel_position_out_of_range.
     GLINTFX_API void fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
                                     gltfx_draw_layer layer = {}) noexcept;
     GLINTFX_API void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
@@ -286,6 +293,7 @@ struct gltfx_ellipse_world {
     count_not_multiple_of_three = 5,
     unknown_option = 6,
     too_many_vertices = 7,
+    pixel_position_out_of_range = 8, // errata S2b-fix1
 // ... e ao fim de gltfx_frame_2d_report:
     // ---- W8 (D-W8-30): appended, never inserted. Each refusal reason has
     // its own counter; the counters of ALL reasons add up to pieces_refused.
@@ -296,6 +304,7 @@ struct gltfx_ellipse_world {
     std::uint64_t pieces_refused_count_not_multiple_of_three = 0;
     std::uint64_t pieces_refused_unknown_option = 0;
     std::uint64_t pieces_refused_too_many_vertices = 0;
+    std::uint64_t pieces_refused_pixel_position_out_of_range = 0; // errata S2b-fix1
     // Times the bound texture changed between two draw calls (a cost, not a
     // refusal). Zero until the texture fatia (R2D-TEXTURE) starts counting.
     std::uint64_t texture_switches = 0;
@@ -349,7 +358,7 @@ Cada regra: **confirmada** (o desenho proposto cumpre), **confirmada com condiç
 
 **Errata D-W8-334 (CTO):** o motivo `image_without_owner` e o contador `pieces_refused_image_without_owner` SAEM deste layout. O motivo nasce com a primeira ponte de pintura, e não aqui (D-W8-336, R0). Os motivos `unknown_option` (D-W8-285) e `too_many_vertices` (D-W8-287) entram no fim do enum, contíguos, porque a lista ainda não foi commitada.
 
-Layout final de `gltfx_frame_2d_report` (todos acrescentados ao fim, nenhum reordenado): `pieces_refused_not_a_number`, `pieces_refused_infinite`, `pieces_refused_negative_size`, `pieces_refused_index_out_of_range`, `pieces_refused_count_not_multiple_of_three`, `pieces_refused_unknown_option`, `pieces_refused_too_many_vertices`, `texture_switches`, `shadow_segments`.
+Layout final de `gltfx_frame_2d_report` (todos acrescentados ao fim, nenhum reordenado): `pieces_refused_not_a_number`, `pieces_refused_infinite`, `pieces_refused_negative_size`, `pieces_refused_index_out_of_range`, `pieces_refused_count_not_multiple_of_three`, `pieces_refused_unknown_option`, `pieces_refused_too_many_vertices`, `pieces_refused_pixel_position_out_of_range` (errata S2b-fix1), `texture_switches`, `shadow_segments`.
 
 ---
 

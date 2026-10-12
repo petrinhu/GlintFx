@@ -28,9 +28,11 @@
 // TRANSLATION; the same convention as gltfx_mat3_from_transform (x' = cos*sx*x - sin*sy*y + tx,
 // y' = sin*sx*x + cos*sy*y + ty).
 //
-// NOTHING IS VALIDATED HERE: a corner that is not a finite number comes out as not finite, and a
-// quad with zero area comes out as four (equal) vertices. Refusing a piece by value, and counting
-// it, belongs to the frame report (a later unit); this atom never hides the value it was given.
+// NOTHING IS REFUSED HERE: a corner that is not a finite number comes out as not finite, and a
+// quad with zero area comes out as four (equal) vertices. pixel_position_in_range() and
+// quad_in_pixel_range() only ANSWER whether a position is in the range the vertex program can scale
+// (S2b-fix1); refusing a piece, and counting it, belongs to the renderer, which asks before it
+// narrows. This atom never hides the value it was given.
 namespace glintfx::draw2d {
 
 // The four corners of a piece, in WORLD position, by ROLE: [0] top_left, [1] top_right,
@@ -53,6 +55,31 @@ struct pixel_affine {
 };
 
 [[nodiscard]] pixel_affine pixel_affine_from_transform(gltfx_transform transform) noexcept;
+
+// One world position as a pixel position, still in DOUBLE: the arithmetic of the map, nothing
+// narrowed yet. Every corner of quad_vertices() and every triangle vertex goes through this one
+// function, so a triangle vertex and a quad corner at the same world position land on the same
+// pixel (S2b-fix1: the arithmetic used to be written twice).
+struct pixel_position_wide {
+    double x = 0.0;
+    double y = 0.0;
+};
+
+[[nodiscard]] pixel_position_wide pixel_position_of(const gltfx_vec2_world &world,
+                                                    const pixel_affine &affine) noexcept;
+
+// The one narrowing: the float pixel position the graphics card reads.
+[[nodiscard]] gltfx_vec2_screen narrowed_to_pixel(const pixel_position_wide &position) noexcept;
+
+// True when both coordinates lie in the pixel range the library's vertex program can scale without
+// overflowing: no larger in magnitude than the bound derived next to it in quad_vertices.cpp (about
+// 1.7e38, half the largest float less 4 units in the last place). A NaN or an infinity is never in
+// range (S2b-fix1, I-7).
+[[nodiscard]] bool pixel_position_in_range(const pixel_position_wide &position) noexcept;
+
+// True when the four corners of a quad, turned by `affine`, are all in the pixel range.
+[[nodiscard]] bool quad_in_pixel_range(const quad_corners_world &corners,
+                                       const pixel_affine &affine) noexcept;
 
 // The four corners of a piece in pixel position. World in, double arithmetic, float out.
 [[nodiscard]] quad_corners_pixel quad_vertices(const quad_corners_world &corners,

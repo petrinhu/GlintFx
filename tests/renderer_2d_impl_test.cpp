@@ -7,6 +7,7 @@
 #include <limits>
 #include <print>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -331,6 +332,21 @@ void *denying_reallocate(void *block, std::size_t bytes) noexcept {
     return deny_growth ? nullptr : std::realloc(block, bytes);
 }
 void plain_release(void *block) noexcept { std::free(block); }
+
+// Counts every growth the renderer asks for (S2b-fix1, M9): a call that must store nothing is
+// proved by this count staying where it was.
+std::size_t reallocations = 0;
+void *counting_reallocate(void *block, std::size_t bytes) noexcept {
+    ++reallocations;
+    return std::realloc(block, bytes);
+}
+
+// The k-th vertex sent, field f of {x, y, u, v, r, g, b, a}: a triangle piece has no fixed four.
+float sent_vertex(std::size_t vertex, std::size_t field) { return sent(0, vertex * 8 + field); }
+
+glintfx::gltfx_vertex_2d_world corner_at(double x, double y) {
+    return glintfx::gltfx_vertex_2d_world{{x, y}, k_red};
+}
 
 } // namespace
 
@@ -841,5 +857,215 @@ GLINTFX_TEST(renderer_2d_impl_flush_makes_the_context_current_again) {
     GLINTFX_CHECK_EQ(context.current_calls, after_begin + 1);
     GLINTFX_CHECK(renderer->finish_frame().has_value());
     GLINTFX_CHECK_EQ(context.current_calls, after_begin + 2);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// S2b-fix1: the triangle path, against the fake card (the N1 review found it covered only by the
+// container cell). The vertices are turned by the batch transform when the call is made, and the
+// card gets one piece of three indices.
+GLINTFX_TEST(renderer_2d_impl_a_triangle_call_reaches_the_card_at_its_pixel_positions) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->begin_batch(glintfx::gltfx_transform{
+        .translation = {.x = 10.0, .y = 20.0},
+        .rotation = {.radians = 0.0},
+        .scale = {.x = 2.0, .y = 2.0},
+    });
+    const std::array<glintfx::gltfx_vertex_2d_world, 3> triangle{
+        corner_at(1.0, 2.0), corner_at(3.0, 4.0), corner_at(5.0, 6.0)};
+    renderer->fill_triangles(triangle, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{1});
+    }
+    GLINTFX_CHECK_EQ(first_draw_count(), 3);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 12.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 24.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 0), 16.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 1), 28.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 0), 20.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 1), 32.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_an_indexed_triangle_call_is_one_piece_of_all_its_indices) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const std::array<glintfx::gltfx_vertex_2d_world, 4> quad{
+        corner_at(0.0, 0.0), corner_at(8.0, 0.0), corner_at(8.0, 8.0), corner_at(0.0, 8.0)};
+    const std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 0U, 2U, 3U};
+    renderer->fill_indexed_triangles(quad, indices, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{1});
+    }
+    GLINTFX_CHECK_EQ(first_draw_count(), 6);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 0), 8.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(3, 1), 8.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// M9 of the N1 review. A call with no frame open is dropped and counted BEFORE anything is
+// converted or kept: it never asks for memory. (What it would store is thrown away by the next
+// begin_frame() anyway - renderer_2d_impl.cpp, begin_frame() clears the pieces - so the memory it
+// asks for is the one thing that tells the two apart.)
+GLINTFX_TEST(renderer_2d_impl_a_triangle_call_with_no_frame_open_asks_for_no_memory) {
+    reset();
+    const gl_function_table table = fake_table();
+    auto created = renderer_2d_impl::create(
+        fake_host(), table,
+        renderer_2d_options{
+            true, 16, glintfx::draw2d::batch_allocator{&counting_reallocate, &plain_release}});
+    GLINTFX_CHECK(created.has_value());
+    renderer_2d_impl *renderer = created.value();
+    reallocations = 0;
+    const std::array<glintfx::gltfx_vertex_2d_world, 3> triangle{
+        corner_at(0.0, 0.0), corner_at(4.0, 0.0), corner_at(0.0, 4.0)};
+    renderer->fill_triangles(triangle, k_layer_0);
+    GLINTFX_CHECK_EQ(reallocations, std::size_t{0});
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_dropped_outside_frame, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{0});
+    }
+    renderer_2d_impl::destroy(renderer);
+}
+
+// M10 of the N1 review. The pixel vertices of a triangle call need memory of their own; when it
+// cannot grow, the call is counted as dropped for lack of memory, and that is the frame's error.
+GLINTFX_TEST(renderer_2d_impl_a_triangle_call_that_finds_no_memory_is_counted_and_is_the_error) {
+    reset();
+    deny_growth = false;
+    const gl_function_table table = fake_table();
+    auto created = renderer_2d_impl::create(
+        fake_host(), table,
+        renderer_2d_options{true, 16,
+                            glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release}});
+    GLINTFX_CHECK(created.has_value());
+    renderer_2d_impl *renderer = created.value();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    deny_growth = true;
+    const std::array<glintfx::gltfx_vertex_2d_world, 3> triangle{
+        corner_at(0.0, 0.0), corner_at(4.0, 0.0), corner_at(0.0, 4.0)};
+    renderer->fill_triangles(triangle, k_layer_0);
+    const auto report = renderer->finish_frame();
+    deny_growth = false;
+    GLINTFX_CHECK(report.has_error());
+    if (report.has_error()) {
+        GLINTFX_CHECK(report.err().code() == gltfx_err_code::out_of_memory);
+    }
+    const auto last = renderer->last_frame_report();
+    GLINTFX_CHECK_EQ(last.pieces_submitted, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(last.pieces_dropped_out_of_memory, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(last.pieces_drawn, std::uint64_t{0});
+    GLINTFX_CHECK(ends_add_up(last));
+    renderer_2d_impl::destroy(renderer);
+}
+
+// S2b-fix1 (I-7 of the N1 review): a piece whose pixel position is out of the range the vertex
+// program can scale is REFUSED and counted as pixel_position_out_of_range, never sent to the card
+// to become an infinity there. The triangle path
+// and the quad path both; a refusal is not an error of the frame.
+GLINTFX_TEST(renderer_2d_impl_a_pixel_position_out_of_range_is_refused_on_both_paths) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const std::array<glintfx::gltfx_vertex_2d_world, 3> far{
+        corner_at(0.0, 0.0), corner_at(1.0e39, 0.0), corner_at(0.0, 4.0)};
+    renderer->fill_triangles(far, k_layer_0);
+    renderer->fill_rect(rect(1.0e39, 0, 1, 1), k_red, k_layer_0);
+    renderer->begin_batch(glintfx::gltfx_transform{
+        .translation = {.x = 0.0, .y = 0.0},
+        .rotation = {.radians = 0.0},
+        .scale = {.x = 1.0e300, .y = 1.0e300},
+    });
+    renderer->fill_quad(glintfx::gltfx_quad_world{{0, 0}, {1.0e10, 0}, {1, 1}, {0, 1}}, k_red,
+                        k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{3});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused, std::uint64_t{3});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused_pixel_position_out_of_range,
+                         std::uint64_t{3});
+        GLINTFX_CHECK(report.value().first_refusal ==
+                      glintfx::gltfx_draw_2d_refusal::pixel_position_out_of_range);
+        GLINTFX_CHECK(ends_add_up(report.value()));
+    }
+    GLINTFX_CHECK(card.draw_counts.empty());
+    renderer_2d_impl::destroy(renderer);
+}
+
+// The value refusals come first: a NaN corner is not_a_number even where the transform would also
+// carry it past the float range.
+GLINTFX_TEST(renderer_2d_impl_a_value_refusal_comes_before_the_pixel_position) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const std::array<glintfx::gltfx_vertex_2d_world, 3> both{
+        corner_at(std::numeric_limits<double>::quiet_NaN(), 0.0), corner_at(1.0e39, 0.0),
+        corner_at(0.0, 4.0)};
+    renderer->fill_triangles(both, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK(report.value().first_refusal == glintfx::gltfx_draw_2d_refusal::not_a_number);
+        GLINTFX_CHECK_EQ(report.value().pieces_refused_pixel_position_out_of_range,
+                         std::uint64_t{0});
+    }
+    renderer_2d_impl::destroy(renderer);
+}
+
+// S2b-fix1 (I-7): the edge of the pixel range, on a surface 1 pixel wide and 1 high (the worst case
+// of the derivation in quad_vertices.cpp). A vertex at the edge is drawn, and the two lines of the
+// vertex program, run on the vertex the card receives with the viewport it receives, stay finite;
+// one double past the edge, the call is refused by name. The two lines are checked word for word,
+// so a change to them breaks this test before it silently breaks the bound.
+GLINTFX_TEST(renderer_2d_impl_the_edge_of_the_pixel_range_keeps_the_vertex_program_finite) {
+    const std::string_view program = glintfx::draw2d::embedded_vertex_shader_source();
+    GLINTFX_CHECK(program.find("a_position.x / u_viewport_pixels.x * 2.0 - 1.0") !=
+                  std::string_view::npos);
+    GLINTFX_CHECK(program.find("1.0 - a_position.y / u_viewport_pixels.y * 2.0") !=
+                  std::string_view::npos);
+    reset();
+    context.width = 1;
+    context.height = 1;
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const double edge = 0.5 * static_cast<double>(std::numeric_limits<float>::max()) *
+                        (1.0 - std::ldexp(1.0, -21)); // written from the derivation, not the code
+    const double past = std::nextafter(edge, std::numeric_limits<double>::infinity());
+    const std::array<glintfx::gltfx_vertex_2d_world, 3> at_the_edge{
+        corner_at(0.0, 0.0), corner_at(edge, 0.0), corner_at(0.0, edge)};
+    const std::array<glintfx::gltfx_vertex_2d_world, 3> past_the_edge{
+        corner_at(0.0, 0.0), corner_at(past, 0.0), corner_at(0.0, 1.0)};
+    renderer->fill_triangles(at_the_edge, k_layer_0);
+    renderer->fill_triangles(past_the_edge, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused_pixel_position_out_of_range,
+                         std::uint64_t{1});
+        GLINTFX_CHECK(report.value().first_refusal ==
+                      glintfx::gltfx_draw_2d_refusal::pixel_position_out_of_range);
+    }
+    const float width = card.viewport_uniform.first;
+    const float height = card.viewport_uniform.second;
+    GLINTFX_CHECK_EQ(width, 1.0F);
+    GLINTFX_CHECK_EQ(height, 1.0F);
+    const float x = sent_vertex(1, 0);
+    const float y = sent_vertex(2, 1);
+    GLINTFX_CHECK(std::isfinite(x) && x > 1.0e38F);
+    GLINTFX_CHECK(std::isfinite(y) && y > 1.0e38F);
+    GLINTFX_CHECK(std::isfinite(x / width * 2.0F - 1.0F));
+    GLINTFX_CHECK(std::isfinite(1.0F - y / height * 2.0F));
     renderer_2d_impl::destroy(renderer);
 }

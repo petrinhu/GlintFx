@@ -16,13 +16,16 @@
 // THE RULES, in the order they are applied (D-W8-278, D-W8-287):
 //   1. an empty call (no vertices, or, indexed, no indices) is NOTHING: it is not a piece, and it
 //      is not counted anywhere;
-//   2. the counts: more vertices than a 32-bit index can address is too_many_vertices, then a
-//      vertex count (or an index count, indexed) that is not a multiple of three is
-//      count_not_multiple_of_three;
+//   2. the counts: more than 2^32 vertices, which a 32-bit index cannot address, is
+//      too_many_vertices (2^32 itself is accepted), then a vertex count (or an index count,
+//      indexed) that is not a multiple of three is count_not_multiple_of_three;
 //   3. the index range (indexed only): an index that is not a vertex of the span is
 //      index_out_of_range;
-//   4. the values: a vertex whose position is not a finite number is not_a_number; then a colour
-//      component that is NaN is not_a_number, and one that is infinite is infinite.
+//   4. the values, in the order of the vocabulary (the same as a quad's, piece_refusal.hpp): a NaN
+//      in any position or colour of the call is not_a_number; then an infinity in any of them is
+//      infinite (D-W8-287 (c); S2b-fix1).
+// Whether a position is in the pixel range once the batch transform turns it is not
+// asked here (it needs the transform): triangle_pixel_vertices.hpp asks it.
 // A refusal refuses the WHOLE call, once (D-W8-287).
 namespace glintfx::draw2d {
 

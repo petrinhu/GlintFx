@@ -21,6 +21,8 @@ std::string_view gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal reason) noexce
         return "unknown_option";
     case gltfx_draw_2d_refusal::too_many_vertices:
         return "too_many_vertices";
+    case gltfx_draw_2d_refusal::pixel_position_out_of_range:
+        return "pixel_position_out_of_range";
     }
     return "unknown"; // a value a NEWER glintfx produced (docs/api-conventions.md R4)
 }

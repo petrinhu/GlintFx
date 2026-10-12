@@ -2,46 +2,39 @@
 #include "draw2d/triangle_list_check.hpp"
 
 #include <cmath>
-#include <limits>
 
 namespace glintfx::draw2d {
 
 namespace {
 
-// The largest vertex count a 32-bit index names (D-W8-287): one more is refused.
-constexpr std::uint64_t k_largest_vertex_count = std::numeric_limits<std::uint32_t>::max();
+// The largest vertex count a 32-bit index can address: the indices 0 to 2^32 - 1 name 2^32
+// vertices, so 2^32 is accepted and one more is refused (D-W8-287 (d); S2b-fix1, I-2).
+constexpr std::uint64_t k_largest_vertex_count = std::uint64_t{1} << 32U;
 
 // The number that the call's counts are about: indices for an indexed call, vertices otherwise.
 [[nodiscard]] std::uint64_t counted_items(const triangle_call_counts &counts) noexcept {
     return counts.indexed ? counts.index_count : counts.vertex_count;
 }
 
-[[nodiscard]] bool
-any_position_not_finite(std::span<const gltfx_vertex_2d_world> vertices) noexcept {
-    for (const gltfx_vertex_2d_world &vertex : vertices) {
-        if (!std::isfinite(vertex.position.x) || !std::isfinite(vertex.position.y)) {
-            return true;
-        }
-    }
-    return false;
+// The six values of a vertex: its position and its four colour channels.
+[[nodiscard]] bool vertex_holds_nan(const gltfx_vertex_2d_world &vertex) noexcept {
+    const gltfx_rgba &colour = vertex.color;
+    return std::isnan(vertex.position.x) || std::isnan(vertex.position.y) ||
+           std::isnan(colour.red) || std::isnan(colour.green) || std::isnan(colour.blue) ||
+           std::isnan(colour.alpha);
 }
 
-[[nodiscard]] bool any_colour_nan(std::span<const gltfx_vertex_2d_world> vertices) noexcept {
-    for (const gltfx_vertex_2d_world &vertex : vertices) {
-        const gltfx_rgba &colour = vertex.color;
-        if (std::isnan(colour.red) || std::isnan(colour.green) || std::isnan(colour.blue) ||
-            std::isnan(colour.alpha)) {
-            return true;
-        }
-    }
-    return false;
+[[nodiscard]] bool vertex_holds_infinity(const gltfx_vertex_2d_world &vertex) noexcept {
+    const gltfx_rgba &colour = vertex.color;
+    return std::isinf(vertex.position.x) || std::isinf(vertex.position.y) ||
+           std::isinf(colour.red) || std::isinf(colour.green) || std::isinf(colour.blue) ||
+           std::isinf(colour.alpha);
 }
 
-[[nodiscard]] bool any_colour_infinite(std::span<const gltfx_vertex_2d_world> vertices) noexcept {
+[[nodiscard]] bool any_vertex(std::span<const gltfx_vertex_2d_world> vertices,
+                              bool (*holds)(const gltfx_vertex_2d_world &) noexcept) noexcept {
     for (const gltfx_vertex_2d_world &vertex : vertices) {
-        const gltfx_rgba &colour = vertex.color;
-        if (std::isinf(colour.red) || std::isinf(colour.green) || std::isinf(colour.blue) ||
-            std::isinf(colour.alpha)) {
+        if (holds(vertex)) {
             return true;
         }
     }
@@ -76,13 +69,12 @@ gltfx_draw_2d_refusal refusal_of_triangle_indices(std::span<const std::uint32_t>
 
 gltfx_draw_2d_refusal
 refusal_of_triangle_values(std::span<const gltfx_vertex_2d_world> vertices) noexcept {
-    if (any_position_not_finite(vertices)) {
+    // The order of the vocabulary, the same as a quad's (piece_refusal.hpp): a NaN anywhere in the
+    // call first, then an infinity anywhere (D-W8-287 (c); S2b-fix1, I-3).
+    if (any_vertex(vertices, &vertex_holds_nan)) {
         return gltfx_draw_2d_refusal::not_a_number;
     }
-    if (any_colour_nan(vertices)) {
-        return gltfx_draw_2d_refusal::not_a_number;
-    }
-    if (any_colour_infinite(vertices)) {
+    if (any_vertex(vertices, &vertex_holds_infinity)) {
         return gltfx_draw_2d_refusal::infinite;
     }
     return gltfx_draw_2d_refusal::none;

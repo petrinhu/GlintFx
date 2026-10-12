@@ -274,12 +274,18 @@ class gltfx_renderer_2d {
     // One call is one piece, whatever the method (D-W8-287). A refused call is
     // refused WHOLE and counted once, never triangle by triangle. An empty
     // call (no vertices, or no indices) does nothing and is not a piece.
-    // Refused, counted in the report, never an exception:
-    //   - a vertex count (no indices) or an index count that is not a
-    //     multiple of three: count_not_multiple_of_three;
-    //   - an index that is not a vertex of this span: index_out_of_range;
-    //   - more vertices than a 32-bit index can address: too_many_vertices;
-    //   - a vertex whose position is not a finite number: not_a_number.
+    // Refused, counted in the report, never an exception. The first rule
+    // that applies names the reason:
+    //   1. more than 2^32 vertices, which a 32-bit index cannot address:
+    //      too_many_vertices;
+    //   2. a vertex count (no indices) or an index count that is not a
+    //      multiple of three: count_not_multiple_of_three;
+    //   3. an index that is not a vertex of this span: index_out_of_range;
+    //   4. a NaN in any position or colour: not_a_number; then an
+    //      infinity in any of them: infinite;
+    //   5. a position that the batch transform turns into a pixel
+    //      coordinate larger in magnitude than about 1.7e38, where the
+    //      vertex program would overflow: pixel_position_out_of_range.
     GLINTFX_API void fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
                                     gltfx_draw_layer layer = {}) noexcept;
     GLINTFX_API void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,

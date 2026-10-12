@@ -22,6 +22,7 @@
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
 #include "draw2d/triangle_batch.hpp"
+#include "draw2d/triangle_pixel_vertices.hpp"
 #include "draw2d/vertex_stream.hpp"
 #include "gl_functions.hpp"
 
@@ -94,8 +95,6 @@ struct renderer_2d_impl {
   private:
     renderer_2d_impl(const renderer_2d_host &host_in, const render::gl_function_table &gl_in,
                      bool srgb, draw2d::batch_allocator allocator) noexcept;
-    // Releases the pixel scratch of the triangle calls (the other buffers release themselves).
-    ~renderer_2d_impl();
 
     void submit(const draw2d::quad_corners_world &corners, gltfx_rgba color, gltfx_draw_layer layer,
                 gltfx_draw_2d_refusal refusal) noexcept;
@@ -104,11 +103,11 @@ struct renderer_2d_impl {
     void submit_triangles(std::span<const gltfx_vertex_2d_world> vertices,
                           std::span<const std::uint32_t> indices, bool indexed,
                           gltfx_draw_layer layer) noexcept;
-    // Converts the vertices to pixels in the scratch, and keeps them as one piece. False when
-    // memory ran out (nothing kept).
-    [[nodiscard]] bool keep_triangle_piece(std::span<const gltfx_vertex_2d_world> vertices,
-                                           std::span<const std::uint32_t> indices,
-                                           gltfx_draw_layer layer) noexcept;
+    // One accepted triangle call kept as one piece: its pixel vertices (triangle_pixel_vertices)
+    // go into the piece list; what could not be kept is counted (S2b-fix1, I-8).
+    void keep_triangle_call(std::span<const gltfx_vertex_2d_world> vertices,
+                            std::span<const std::uint32_t> indices,
+                            gltfx_draw_layer layer) noexcept;
     // Sends the pending pieces to the card, in paint order, and leaves GL as the closed list says.
     // `explicit_barrier` is true for flush(), false for the implicit one of finish_frame().
     void send_pending(bool explicit_barrier) noexcept;
@@ -141,10 +140,9 @@ struct renderer_2d_impl {
     bool frame_open = false;
     bool gl_ready = false; // the context was made current for this frame
     std::optional<gltfx_err> frame_error;
-    // The pixel vertices of the triangle call being kept (S2b): the piece list copies them, so this
-    // buffer is reused by every call, and grows through the same allocator as the rest.
-    draw2d::batch_allocator scratch_allocator;
-    draw2d::pod_buffer<draw2d::colored_pixel_vertex> pixel_scratch;
+    // The pixel vertices of the triangle call being kept: the piece list copies them, so they are
+    // reused by every call, and grow through the same allocator as the rest (S2b-fix1, I-8).
+    draw2d::triangle_pixel_vertices triangle_pixels;
 };
 
 } // namespace glintfx

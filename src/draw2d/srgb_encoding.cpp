@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/srgb_encoding.hpp"
 
-#include <cmath>
+#include "core/srgb_transfer.hpp"
 
 namespace glintfx::draw2d {
 
@@ -10,10 +10,7 @@ float srgb_encode(float linear) noexcept {
         return 0.0F; // zero, negative (and a NaN, which this never sees: the frame descriptor is
                      // checked)
     }
-    if (linear < 0.0031308F) {
-        return linear * 12.92F;
-    }
-    return 1.055F * std::pow(linear, 1.0F / 2.4F) - 0.055F;
+    return glintfx::linear_channel_to_srgb_unclamped(linear);
 }
 
 glintfx::gltfx_rgba srgb_encode(glintfx::gltfx_rgba linear) noexcept {

@@ -23,10 +23,10 @@
 // sRGB, and is multiplied by alpha again in linear light. An alpha of zero gives a zero color, so
 // there is no division by zero.
 //
-// THE CURVE: the encode is srgb_encode() of draw2d/srgb_encoding.hpp, reused as it is (IEC
-// 61966-2-1). The decode is the inverse of that curve and lives in pixel_premultiply.cpp:
-// srgb_encoding has only the encode, and core/color.cpp decodes whole bytes only
-// (gltfx_rgba_from_srgb8), while premultiplied input needs the decode of a fractional value.
+// THE CURVE (IEC 61966-2-1), reused and never copied: the encode is srgb_encode() of
+// draw2d/srgb_encoding.hpp, and the decode is srgb_channel_to_linear() of core/srgb_transfer.hpp,
+// the same one core/color.cpp applies. The decode takes a FRACTIONAL encoded value, because
+// premultiplied input is undone in its own encoding before it goes to linear light.
 //
 // NO ALLOCATION (docs/api-conventions.md R3, rung 1): the caller provides the texel storage, so the
 // function never allocates and its noexcept is kept by construction, not by a try block.

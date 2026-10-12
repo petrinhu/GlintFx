@@ -4,12 +4,14 @@
 #include <algorithm>
 #include <cmath>
 
+#include "core/srgb_transfer.hpp"
+
 // color.cpp - CORE-COLOR (TODO.md, GODS_LAWS.md L-17: one table/one
 // function per concern, no switch growing a case per feature): the
-// sRGB transfer function pair (IEC 61966-2-1 - public, standard math,
-// read under GODS_LAWS.md L-29, never a line of RmlUi/SDL3 code) that
-// gltfx_rgba_from_srgb8()/gltfx_rgba_to_srgb8() apply per COLOR
-// channel. Alpha never goes through either function here - see
+// byte conversions gltfx_rgba_from_srgb8()/gltfx_rgba_to_srgb8(),
+// which apply the sRGB transfer curve of core/srgb_transfer.hpp
+// (IEC 61966-2-1, shared with draw2d since R2D-TEXTURE T1-fix1) per
+// COLOR channel. Alpha never goes through either function here - see
 // color.hpp's own header comment for why.
 //
 // color_test.cpp is the TDD red/green witness for every function in
@@ -21,35 +23,13 @@ namespace glintfx {
 
 namespace {
 
-// The IEC 61966-2-1 piecewise split point, in each direction. Encoded
-// and linear space use DIFFERENT threshold constants because the
-// curve is not a single power function - a straight power curve alone
-// diverges from the standard's own shape near black, which is why the
-// standard defines a short LINEAR segment there instead of forcing a
-// single formula through zero.
-constexpr float k_srgb_encoded_threshold = 0.04045F;
-constexpr float k_srgb_linear_threshold = 0.0031308F;
 constexpr float k_byte_max = 255.0F;
 
-// Display-encoded -> linear light, ONE channel.
-float srgb_channel_to_linear(float encoded) {
-    if (encoded <= k_srgb_encoded_threshold) {
-        return encoded / 12.92F;
-    }
-    return std::pow((encoded + 0.055F) / 1.055F, 2.4F);
-}
-
-// Linear light -> display-encoded, ONE channel - the inverse of the
-// function above. Clamps FIRST: this is the one lossy step decision 6
-// accepts for values outside what the display's 8-bit format can
-// represent at all (see this function's call sites in
-// gltfx_rgba_to_srgb8() below).
+// Linear light -> display-encoded, ONE channel, under this file's range policy: clamp to [0, 1]
+// FIRST. This is the one lossy step decision 6 accepts for values outside what the display's 8-bit
+// format can represent at all (see this function's call sites in gltfx_rgba_to_srgb8() below).
 float linear_channel_to_srgb(float linear) {
-    const float clamped = std::clamp(linear, 0.0F, 1.0F);
-    if (clamped <= k_srgb_linear_threshold) {
-        return clamped * 12.92F;
-    }
-    return 1.055F * std::pow(clamped, 1.0F / 2.4F) - 0.055F;
+    return linear_channel_to_srgb_unclamped(std::clamp(linear, 0.0F, 1.0F));
 }
 
 // 0..1 -> 0..255, rounded to the nearest byte - shared by every

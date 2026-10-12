@@ -23,7 +23,8 @@
 // written here as a literal taken from the formula of IEC 61966-2-1 in double precision (the table
 // of the T1 order, checked by an independent script before it was typed in). Never read back from
 // the code under test. A stored channel is accepted within one level (the reference is a real
-// number, the texel an integer).
+// number, the texel an integer), except in the two exact cases at the end of this file, which check
+// the rounding the header promises.
 
 using glintfx::gltfx_err_code;
 using glintfx::gltfx_image_view;
@@ -197,4 +198,30 @@ GLINTFX_TEST(texel_storage_of_the_wrong_size_is_refused_by_name) {
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::invalid_argument);
     GLINTFX_CHECK(result.err().rejected_value() == "texels");
+}
+
+// The two EXACT cases (T1-fix1). The header promises that a stored channel is ROUNDED, and the
+// one-level tolerance of the table above cannot see the difference between rounding and truncating
+// (nor a decode threshold moved inside the linear toe). Both expected bytes come from the formula
+// in double precision, never from the code under test: (1,0,0,255) lies on the linear toe of the
+// curve and stores 1.000; (255,0,0,128) stores 187.845, which is 0.345 above the rounding boundary
+// of 187.5, far beyond any float error, so the exact byte is the same on every compiler.
+GLINTFX_TEST(linear_toe_of_the_curve_stores_the_exact_byte) {
+    const std::vector<std::byte> pixels = to_bytes({1, 0, 0, 255});
+    const auto result =
+        convert_all(view_over(pixels, 1, 1, 4, gltfx_pixel_format::rgba8_srgb_straight));
+    GLINTFX_CHECK(result.has_value());
+    const gltfx_rgba8 texel = result.value().front();
+    GLINTFX_CHECK(texel.red == 1);
+    GLINTFX_CHECK(texel.green == 0 && texel.blue == 0 && texel.alpha == 255);
+}
+
+GLINTFX_TEST(stored_channel_is_rounded_to_the_nearest_byte) {
+    const std::vector<std::byte> pixels = to_bytes({255, 0, 0, 128});
+    const auto result =
+        convert_all(view_over(pixels, 1, 1, 4, gltfx_pixel_format::rgba8_srgb_straight));
+    GLINTFX_CHECK(result.has_value());
+    const gltfx_rgba8 texel = result.value().front();
+    GLINTFX_CHECK(texel.red == 188);
+    GLINTFX_CHECK(texel.green == 0 && texel.blue == 0 && texel.alpha == 128);
 }

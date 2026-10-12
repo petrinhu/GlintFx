@@ -11,6 +11,7 @@
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/image_view.hpp>
 
+#include "core/srgb_transfer.hpp"
 #include "draw2d/srgb_encoding.hpp"
 
 namespace glintfx::draw2d {
@@ -26,14 +27,6 @@ using glintfx::gltfx_rslt;
 
 constexpr std::size_t k_bytes_per_pixel = 4;
 constexpr float k_byte_max = 255.0F;
-
-// The inverse of srgb_encode() (IEC 61966-2-1): the linear light of an encoded value in [0, 1].
-[[nodiscard]] float srgb_decode(float encoded) noexcept {
-    if (encoded <= 0.04045F) {
-        return encoded / 12.92F;
-    }
-    return std::pow((encoded + 0.055F) / 1.055F, 2.4F);
-}
 
 [[nodiscard]] bool is_known_format(gltfx_pixel_format format) noexcept {
     switch (format) {
@@ -139,7 +132,7 @@ constexpr float k_byte_max = 255.0F;
 [[nodiscard]] std::uint8_t stored_channel(std::uint8_t channel, std::uint8_t alpha,
                                           gltfx_pixel_format format) noexcept {
     const float straight = straight_in_input_encoding(channel, alpha, is_premultiplied(format));
-    const float linear = is_srgb(format) ? srgb_decode(straight) : straight;
+    const float linear = is_srgb(format) ? glintfx::srgb_channel_to_linear(straight) : straight;
     const float premultiplied_linear = linear * (static_cast<float>(alpha) / k_byte_max);
     return to_byte(srgb_encode(premultiplied_linear) * k_byte_max);
 }

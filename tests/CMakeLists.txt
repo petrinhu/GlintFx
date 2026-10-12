@@ -1502,8 +1502,17 @@ target_compile_definitions(piece_refusal_test PRIVATE GLINTFX_LIBRARY_STATIC_DEF
 glintfx_add_test(piece_list_test)
 target_include_directories(piece_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(piece_list_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+)
+
+# R2D-SHAPES S2b-0 (D-W8-367): o depósito de triângulos é um átomo próprio; a lista de peças guarda só a ordem.
+glintfx_add_test(triangle_store_test)
+target_include_directories(triangle_store_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(triangle_store_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
+    "${PROJECT_SOURCE_DIR}/tests/triangle_store_test.cpp"
 )
 
 glintfx_add_test(gl_load_refusal_test)
@@ -1577,6 +1586,7 @@ target_include_directories(renderer_2d_impl_test PRIVATE
     "${PROJECT_BINARY_DIR}/generated/render"
 )
 target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"

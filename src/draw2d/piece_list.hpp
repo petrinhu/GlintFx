@@ -13,6 +13,7 @@
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
 #include "draw2d/triangle_batch.hpp"
+#include "draw2d/triangle_store.hpp"
 
 // draw2d/piece_list.hpp - R2D-BATCH, fatia B4 (docs/plano-w7d.md sec. 4.3, D-W7D-11,
 // docs/auditoria-api- draw2d.md B0 "THE ORDER, frozen"): the PENDING pieces of the frame - each one
@@ -97,7 +98,8 @@ class piece_list {
   private:
     // Keeps `one_layer` true only while every piece is on the layer of the first one.
     void note_layer(std::int32_t layer) noexcept;
-    // Room in one go for a piece with these counts, in the three stores; false when refused.
+    // Room in one go for a triangle piece with these counts, in the piece store and in the triangle
+    // store; false when refused, nothing written.
     [[nodiscard]] bool room_for_triangle_piece(std::size_t vertex_count,
                                                std::size_t index_count) noexcept;
 
@@ -105,8 +107,9 @@ class piece_list {
     std::size_t bound;
     pod_buffer<pending_piece> piece_store;
     bool one_layer = true;
-    pod_buffer<colored_pixel_vertex> triangle_vertex_store;
-    pod_buffer<std::uint32_t> triangle_index_store;
+    // The vertices and the local indices of the triangle pieces (S2b-0, D-W8-367): the list keeps
+    // the order, the store keeps the data.
+    triangle_store triangles;
 };
 
 } // namespace glintfx::draw2d

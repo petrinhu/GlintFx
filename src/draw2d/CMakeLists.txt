@@ -21,6 +21,7 @@ target_sources(glintfx_library PRIVATE
     gl_state_contract.cpp
     vertex_stream.cpp
     piece_list.cpp
+    triangle_store.cpp
     gl_load_refusal.cpp
     srgb_encoding.cpp
     pixel_premultiply.cpp

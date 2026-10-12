@@ -43,10 +43,11 @@ def selftest_directions():
     check("interno: src/gfss no fecho reprova", rc == 1 and "VIOLACAO (CONTRACT.md 5.3): src/draw2d/a.cpp" in err)
     windows_dep = normalize_path(r"D:\A\Include\GlintFX\GFSS\token.hpp", "/")
     table, problems = parse_ninja_deps(r"src\CMakeFiles\glintfx.dir\draw2d\a.cpp.obj: #deps 0, deps mtime 1 (VALID)"
-                                       "\n\n", "D:/A/build")
+                                       "\n\n", r"D:\A\build")
     key = normalize_path("src/CMakeFiles/glintfx.dir/draw2d/a.cpp.obj", "D:/A/build")
-    check("windows: barra invertida, letra de unidade e caixa alta reprovam",
-          is_forbidden(windows_dep, "D:/A") and key in table and not problems)
+    same_source = normalize_path("src/draw2d/a.cpp", r"D:\A") == normalize_path(r"D:\A\src\draw2d\a.cpp", "/")
+    check("windows: barra invertida no caminho e na base, letra de unidade e caixa alta",
+          is_forbidden(windows_dep, r"D:\A") and key in table and not problems and same_source)
     check("vizinho: glintfx/gfss_extra e glintfx/gfssx nao sao gfss",
           not is_forbidden("/x/include/glintfx/gfss_extra/token.hpp", "/x")
           and not is_forbidden("/x/include/glintfx/gfssx/token.hpp", "/x"))

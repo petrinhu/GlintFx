@@ -17,7 +17,7 @@ def normalize_path(path, base):
     """The comparable form of a path: forward slashes, joined to base when relative, normalized, casefolded."""
     unified = path.replace("\\", "/")
     if not unified.startswith("/") and not DRIVE_PREFIX.match(unified):
-        unified = posixpath.join(base, unified)
+        unified = posixpath.join(base.replace("\\", "/"), unified)
     return posixpath.normpath(unified).casefold()
 
 

@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cstddef>
+#include <cstdint>
+#include <string>
 #include <vector>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/core/log/event.hpp>
+#include <glintfx/core/log/sink.hpp>
 
 #include "draw2d/texture_2d_impl.hpp"
 #include "draw2d/texture_release.hpp"
@@ -29,6 +34,9 @@ using glintfx::render::GLuint;
 
 namespace {
 
+// EGL_BAD_ACCESS: any nonzero value the code under test does not invent.
+constexpr std::int64_t k_context_os_error = 0x3002;
+
 struct fake_state {
     bool fail_current = false;
     int current_calls = 0;
@@ -44,8 +52,9 @@ gltfx_rslt<void> fake_make_current(void *) noexcept {
         state.gl_calls_at_first_current = state.gl_calls;
     }
     if (state.fail_current) {
-        return gltfx_rslt<void>::err(
-            glintfx::gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("context"));
+        glintfx::gltfx_err error(gltfx_err_code::platform_failure);
+        error.with_rejected_value("context").with_os_error_code(k_context_os_error);
+        return gltfx_rslt<void>::err(error);
     }
     return gltfx_rslt<void>::ok();
 }
@@ -82,26 +91,83 @@ int owner_token = 0;
     };
 }
 
+// The log sink of the test: every event, its text copied out (an event is valid only during the
+// call), with the first two fields as integers.
+struct captured_event {
+    std::string name;
+    std::string category;
+    glintfx::gltfx_log_severity severity = glintfx::gltfx_log_severity::unknown;
+    std::size_t field_count = 0;
+    std::string first_field;
+    std::uint64_t first_value = 0;
+    std::string second_field;
+    std::int64_t second_value = 0;
+};
+std::vector<captured_event> captured;
+
+void capture_sink(void *, const glintfx::gltfx_log_event &event) noexcept {
+    captured_event entry;
+    entry.name = std::string(event.name());
+    entry.category = std::string(event.category());
+    entry.severity = event.severity();
+    entry.field_count = event.fields().size();
+    if (event.fields().size() >= 2) {
+        entry.first_field = std::string(event.fields()[0].name);
+        entry.first_value = event.fields()[0].value.unsigned_integer();
+        entry.second_field = std::string(event.fields()[1].name);
+        entry.second_value = event.fields()[1].value.signed_integer();
+    }
+    captured.push_back(entry);
+}
+
+// Arms the capture for one case and disarms it at the end, even when a check fails.
+struct armed_log {
+    armed_log() {
+        captured.clear();
+        glintfx::gltfx_log_set_sink(
+            glintfx::gltfx_log_sink{&capture_sink, nullptr, glintfx::gltfx_log_severity::trace});
+    }
+    ~armed_log() { glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{}); }
+    armed_log(const armed_log &) = delete;
+    armed_log &operator=(const armed_log &) = delete;
+};
+
 } // namespace
 
 GLINTFX_TEST(the_release_makes_the_context_current_then_deletes_the_texture) {
     state = fake_state{};
+    const armed_log log;
     release_texture_object(record());
     GLINTFX_CHECK(state.current_calls >= 1);
     GLINTFX_CHECK_EQ(state.gl_calls_at_first_current, 0);
     GLINTFX_CHECK_EQ(state.deleted.size(), 1U);
     GLINTFX_CHECK(!state.deleted.empty() && state.deleted.at(0) == 40U);
+    GLINTFX_CHECK(captured.empty()); // a release that worked says nothing
 }
 
 // If the context cannot be made current, the graphics object goes with the context: nothing is
-// deleted through a context that is not current, and the record is still freed (the sanitizer run
-// would see it leak).
+// deleted through a context that is not current, the record is still freed (the sanitizer run
+// would see it leak), and the loss is never silent (CONTRACT.md §6.4): ONE event
+// texture_release_failed, category draw2d, severity err, with the context's error code and its
+// system code as typed integers.
 GLINTFX_TEST(a_release_whose_context_cannot_be_made_current_deletes_nothing) {
     state = fake_state{};
     state.fail_current = true;
+    const armed_log log;
     release_texture_object(record());
     GLINTFX_CHECK(state.current_calls >= 1);
     GLINTFX_CHECK(state.deleted.empty());
+    GLINTFX_CHECK_EQ(captured.size(), 1U);
+    const captured_event event = captured.empty() ? captured_event{} : captured.front();
+    GLINTFX_CHECK(event.name == "texture_release_failed");
+    GLINTFX_CHECK(event.category == "draw2d");
+    GLINTFX_CHECK(event.severity == glintfx::gltfx_log_severity::err);
+    GLINTFX_CHECK_EQ(event.field_count, 2U);
+    GLINTFX_CHECK(event.first_field == "error_code");
+    GLINTFX_CHECK_EQ(event.first_value,
+                     static_cast<std::uint64_t>(gltfx_err_code::platform_failure));
+    GLINTFX_CHECK(event.second_field == "os_error_code");
+    GLINTFX_CHECK_EQ(event.second_value, k_context_os_error);
 }
 
 GLINTFX_TEST(releasing_nothing_touches_nothing) {

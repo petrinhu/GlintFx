@@ -8,6 +8,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -27,6 +28,12 @@
 // A DECLARED DOWNGRADE (GODS_LAWS.md L-09): no window, no driver. The real open() (which builds the
 // host from a gltfx_gl_context) and what a real card does with the frame are the live cell of the
 // parity test (B5). The literal GL enumerators are the registry's, never the constants of the code.
+
+// S2b-fix2 (F-1 of the N1 re-review): the destructor is private, so only
+// renderer_2d_impl::destroy() deletes the interior; destroy() makes the context current and deletes
+// the GL objects first.
+static_assert(!std::is_destructible_v<glintfx::renderer_2d_impl>,
+              "renderer_2d_impl is deleted only by renderer_2d_impl::destroy()");
 
 using glintfx::gltfx_err_code;
 using glintfx::gltfx_frame_2d_desc;
@@ -1039,8 +1046,9 @@ GLINTFX_TEST(renderer_2d_impl_the_edge_of_the_pixel_range_keeps_the_vertex_progr
     context.height = 1;
     renderer_2d_impl *renderer = make(true);
     renderer->begin_frame(gltfx_frame_2d_desc{});
-    const double edge = 0.5 * static_cast<double>(std::numeric_limits<float>::max()) *
-                        (1.0 - std::ldexp(1.0, -21)); // written from the derivation, not the code
+    // Written from the derivation, not the code: 3 ULP of 2^103 below FLT_MAX / 2 (S2b-fix2, F-3).
+    const double edge =
+        0.5 * static_cast<double>(std::numeric_limits<float>::max()) - 3.0 * std::ldexp(1.0, 103);
     const double past = std::nextafter(edge, std::numeric_limits<double>::infinity());
     const std::array<glintfx::gltfx_vertex_2d_world, 3> at_the_edge{
         corner_at(0.0, 0.0), corner_at(edge, 0.0), corner_at(0.0, edge)};

@@ -46,14 +46,17 @@ namespace {
 // The operation that overflows is the `* 2.0` after the division. The divisor is the surface size
 // in pixels, at least 1 for a surface that has pixels, so the worst case is a surface 1 pixel wide,
 // where the division hands the coordinate back: twice it must stay within FLT_MAX, so the
-// coordinate within FLT_MAX / 2. The division is not exact on the card (GL_ARB_shader_precision:
-// a / b within 2.5 units in the last place; a * b and a - b correctly rounded), and narrowing the
-// double to float adds half a unit, so the bound is FLT_MAX / 2 less 4 units: a relative 2^-21.
+// coordinate within FLT_MAX / 2. Half the largest float lies in [2^126, 2^127), where one unit in
+// the last place (ULP) of a float is 2^103. The division is not exact on the card
+// (GL_ARB_shader_precision: a / b within 2.5 ULP; a * b and a - b correctly rounded), so the
+// coordinate must stay 2.5 ULP below FLT_MAX / 2, which on the float grid is 3 ULP: the bound is
+// FLT_MAX / 2 less 3 * 2^103. The bound is itself a float, so narrowing a coordinate within it
+// never carries the coordinate past it.
 // The `- 1.0` cannot overflow a value within FLT_MAX. The GLSL cannot read this constant:
 // renderer_2d_impl_test checks the two lines word for word and runs them on the vertex the card
 // receives at this edge, and quad_vertices_test checks both sides of it.
 constexpr double k_largest_pixel_coordinate =
-    0.5 * static_cast<double>(std::numeric_limits<float>::max()) * (1.0 - 0x1p-21);
+    0.5 * static_cast<double>(std::numeric_limits<float>::max()) - 3.0 * 0x1p103;
 } // namespace
 
 bool pixel_position_in_range(const pixel_position_wide &position) noexcept {

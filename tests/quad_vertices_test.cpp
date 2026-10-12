@@ -196,11 +196,14 @@ GLINTFX_TEST(quad_vertices_precision_and_transform_cells) {
 }
 
 namespace {
-// The edge, written from its derivation and not read from the code: the vertex program multiplies
-// by 2.0 after a division that may be off by 2.5 units in the last place (GL_ARB_shader_precision),
-// and the narrowing to float adds half a unit; so FLT_MAX / 2 less a relative 2^-21 (4 units).
+// The edge, written from its derivation and not read from the code (S2b-fix2, F-3). Half the
+// largest float lies in [2^126, 2^127), where one unit in the last place (ULP) of a float is 2^103.
+// The vertex program multiplies by 2.0 after a division whose float result may be 2.5 ULP away
+// from the exact one (GL_ARB_shader_precision), so the coordinate stays 2.5 ULP below FLT_MAX / 2,
+// which on the float grid is 3 ULP. The edge is a float itself, so narrowing adds nothing.
+const double k_ulp_near_the_edge = std::ldexp(1.0, 103);
 const double k_shader_edge =
-    0.5 * static_cast<double>(std::numeric_limits<float>::max()) * (1.0 - std::ldexp(1.0, -21));
+    0.5 * static_cast<double>(std::numeric_limits<float>::max()) - 3.0 * k_ulp_near_the_edge;
 } // namespace
 
 // S2b-fix1 (I-7 of the N1 review): a pixel position is in range only up to the edge where the
@@ -222,10 +225,15 @@ GLINTFX_TEST(quad_vertices_pixel_position_in_range_stops_where_the_shader_would_
     GLINTFX_CHECK(!pixel_position_in_range(
         pixel_position_wide{std::numeric_limits<double>::quiet_NaN(), 0.0}));
     GLINTFX_CHECK(!pixel_position_in_range(pixel_position_wide{0.0, infinity}));
-    // Why the edge is there: at it, the program's line stays finite even with the worst division
-    // the card may do; just past half the largest float, it overflows even with an exact division.
-    const double worst = static_cast<double>(static_cast<float>(k_shader_edge)) *
-                         (1.0 + 2.5 * std::ldexp(1.0, -23)) * 2.0;
+    // Why the edge is there: it is a float, the ULP there is 2^103, and with the worst division the
+    // card may do (2.5 ULP above) the program's line stays finite; just past half the largest
+    // float, it overflows even with an exact division.
+    const float edge_as_float = static_cast<float>(k_shader_edge);
+    GLINTFX_CHECK(static_cast<double>(edge_as_float) == k_shader_edge);
+    GLINTFX_CHECK(static_cast<double>(std::nextafter(edge_as_float, largest_float)) -
+                      k_shader_edge ==
+                  k_ulp_near_the_edge);
+    const double worst = (k_shader_edge + 2.5 * k_ulp_near_the_edge) * 2.0;
     GLINTFX_CHECK(worst <= static_cast<double>(largest_float));
     const float past = std::nextafter(0.5F * largest_float, std::numeric_limits<float>::infinity());
     GLINTFX_CHECK(std::isinf(past / 1.0F * 2.0F - 1.0F));

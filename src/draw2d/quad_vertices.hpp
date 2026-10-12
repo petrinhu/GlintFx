@@ -73,7 +73,7 @@ struct pixel_position_wide {
 
 // True when both coordinates lie in the pixel range the library's vertex program can scale without
 // overflowing: no larger in magnitude than the bound derived next to it in quad_vertices.cpp (about
-// 1.7e38, half the largest float less 4 units in the last place). A NaN or an infinity is never in
+// 1.7e38, half the largest float less 3 units in the last place). A NaN or an infinity is never in
 // range (S2b-fix1, I-7).
 [[nodiscard]] bool pixel_position_in_range(const pixel_position_wide &position) noexcept;
 

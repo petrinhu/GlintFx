@@ -56,7 +56,7 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     // Appended by S2b-fix1: every value given was a finite number, but
     // the batch transform made of a position a pixel coordinate larger
     // in magnitude than the library's vertex program can scale without
-    // overflowing (about 1.7e38: half the largest 32-bit float, less 4
+    // overflowing (about 1.7e38: half the largest 32-bit float, less 3
     // units in the last place), or the transform itself holds a value
     // that is not a finite number. A position outside the surface is NOT
     // this: it is drawn, and simply covers no pixel.

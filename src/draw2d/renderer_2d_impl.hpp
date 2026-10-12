@@ -100,6 +100,9 @@ struct renderer_2d_impl {
   private:
     renderer_2d_impl(const renderer_2d_host &host_in, const render::gl_function_table &gl_in,
                      bool srgb, draw2d::batch_allocator allocator) noexcept;
+    // Only destroy() deletes the interior: it makes the context current and deletes the GL objects
+    // first. Private, as since B4 (renderer_2d_impl_test asserts it).
+    ~renderer_2d_impl() = default;
 
     void submit(const draw2d::quad_corners_world &corners, gltfx_rgba color, gltfx_draw_layer layer,
                 gltfx_draw_2d_refusal refusal) noexcept;

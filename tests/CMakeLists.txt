@@ -1546,6 +1546,24 @@ target_sources(gl_load_refusal_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_load_refusal.cpp"
 )
 
+# R2D-TEXTURE T2a, etapa A: the pure check of a texture request (every refusal by name and in the published
+# order), and one reduced mipmap level made on the CPU in linear light. No GL.
+glintfx_add_test(texture_desc_validation_test)
+target_include_directories(texture_desc_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_desc_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+glintfx_add_test(mipmap_reduce_test)
+target_include_directories(mipmap_reduce_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(mipmap_reduce_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
 glintfx_add_test(srgb_encoding_test)
 target_include_directories(srgb_encoding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(srgb_encoding_test PRIVATE

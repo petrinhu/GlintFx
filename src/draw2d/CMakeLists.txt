@@ -25,6 +25,8 @@ target_sources(glintfx_library PRIVATE
     gl_load_refusal.cpp
     srgb_encoding.cpp
     pixel_premultiply.cpp
+    texture_request_check.cpp
+    mipmap_reduce.cpp
     frame_2d_report.cpp
     renderer_2d_impl.cpp
     renderer_2d_facade.cpp

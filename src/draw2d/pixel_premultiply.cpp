@@ -89,23 +89,6 @@ constexpr float k_byte_max = 255.0F;
     return gltfx_rslt<void>::ok();
 }
 
-[[nodiscard]] gltfx_rslt<void> validate(const gltfx_image_view &view,
-                                        std::size_t texel_count) noexcept {
-    gltfx_rslt<void> format = check_format(view.pixel_format);
-    if (format.has_error()) {
-        return format;
-    }
-    gltfx_rslt<void> stride = check_stride(view);
-    if (stride.has_error()) {
-        return stride;
-    }
-    gltfx_rslt<void> extent = check_extent(view);
-    if (extent.has_error()) {
-        return extent;
-    }
-    return check_texel_count(view, texel_count);
-}
-
 // The straight value of one channel in the encoding the caller wrote it in, in [0, 1].
 // Premultiplied input is undone here, in that same encoding: channel / alpha, limited to 1.
 [[nodiscard]] float straight_in_input_encoding(std::uint8_t channel, std::uint8_t alpha,
@@ -134,7 +117,7 @@ constexpr float k_byte_max = 255.0F;
     const float straight = straight_in_input_encoding(channel, alpha, is_premultiplied(format));
     const float linear = is_srgb(format) ? glintfx::srgb_channel_to_linear(straight) : straight;
     const float premultiplied_linear = linear * (static_cast<float>(alpha) / k_byte_max);
-    return to_byte(srgb_encode(premultiplied_linear) * k_byte_max);
+    return stored_channel_byte(premultiplied_linear);
 }
 
 [[nodiscard]] gltfx_rgba8 stored_texel(const std::byte *pixel, gltfx_pixel_format format) noexcept {
@@ -168,12 +151,32 @@ void convert_rows(const gltfx_image_view &view, std::span<gltfx_rgba8> texels) n
 
 gltfx_rslt<void> to_stored_texels(const gltfx_image_view &view,
                                   std::span<gltfx_rgba8> texels) noexcept {
-    gltfx_rslt<void> checked = validate(view, texels.size());
+    gltfx_rslt<void> checked = check_image_view(view);
     if (checked.has_error()) {
         return checked;
     }
+    gltfx_rslt<void> counted = check_texel_count(view, texels.size());
+    if (counted.has_error()) {
+        return counted;
+    }
     convert_rows(view, texels);
     return gltfx_rslt<void>::ok();
+}
+
+gltfx_rslt<void> check_image_view(const gltfx_image_view &view) noexcept {
+    gltfx_rslt<void> format = check_format(view.pixel_format);
+    if (format.has_error()) {
+        return format;
+    }
+    gltfx_rslt<void> stride = check_stride(view);
+    if (stride.has_error()) {
+        return stride;
+    }
+    return check_extent(view);
+}
+
+std::uint8_t stored_channel_byte(float premultiplied_linear) noexcept {
+    return to_byte(srgb_encode(premultiplied_linear) * k_byte_max);
 }
 
 } // namespace glintfx::draw2d

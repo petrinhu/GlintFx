@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
 #include <span>
 
 #include <glintfx/core/color.hpp>
@@ -42,5 +43,17 @@ namespace glintfx::draw2d {
 [[nodiscard]] glintfx::gltfx_rslt<void>
 to_stored_texels(const glintfx::gltfx_image_view &view,
                  std::span<glintfx::gltfx_rgba8> texels) noexcept;
+
+// The checks of the view alone, the first three to_stored_texels() makes and in the same order:
+// "pixel_format", then "bytes_per_row", then "pixels" (the texel storage is not looked at). The
+// texture call makes them BEFORE it reserves the texel storage, so a view that cannot hold its
+// image is refused by name, never as a lack of memory (R2D-TEXTURE, fatia T2a).
+[[nodiscard]] glintfx::gltfx_rslt<void>
+check_image_view(const glintfx::gltfx_image_view &view) noexcept;
+
+// One stored colour channel from premultiplied linear light: encode(value) * 255, rounded, the
+// same byte to_stored_texels() writes. The reduced mipmap levels are stored through it
+// (mipmap_reduce.hpp), so a stored texel has one definition.
+[[nodiscard]] std::uint8_t stored_channel_byte(float premultiplied_linear) noexcept;
 
 } // namespace glintfx::draw2d

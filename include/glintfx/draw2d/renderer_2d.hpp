@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
+#include <span>
+
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/quad.hpp>
@@ -10,6 +13,7 @@
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/renderer_2d_desc.hpp>
+#include <glintfx/draw2d/vertex_2d.hpp>
 #include <glintfx/export.hpp>
 #include <glintfx/platform/gl/context.hpp>
 
@@ -259,6 +263,28 @@ class gltfx_renderer_2d {
     // returned on success, and still readable when it returned an
     // error. All counters zero before the first frame.
     [[nodiscard]] GLINTFX_API gltfx_frame_2d_report last_frame_report() const noexcept;
+
+    // Filled triangles, each corner with its own colour. `vertices` is read
+    // only during this call (docs/api-conventions.md R5); the library copies
+    // what it needs. `fill_triangles` reads the vertices in order, three at a
+    // time. `fill_indexed_triangles` reads each three indices as three
+    // vertices of the span. Two names, not one overload with an empty span:
+    // `fill_triangles(v, {})` is ambiguous in g++ and clang++ (D-W8-282).
+    //
+    // One call is one piece, whatever the method (D-W8-287). A refused call is
+    // refused WHOLE and counted once, never triangle by triangle. An empty
+    // call (no vertices, or no indices) does nothing and is not a piece.
+    // Refused, counted in the report, never an exception:
+    //   - a vertex count (no indices) or an index count that is not a
+    //     multiple of three: count_not_multiple_of_three;
+    //   - an index that is not a vertex of this span: index_out_of_range;
+    //   - more vertices than a 32-bit index can address: too_many_vertices;
+    //   - a vertex whose position is not a finite number: not_a_number.
+    GLINTFX_API void fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                                    gltfx_draw_layer layer = {}) noexcept;
+    GLINTFX_API void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                                            std::span<const std::uint32_t> indices,
+                                            gltfx_draw_layer layer = {}) noexcept;
 
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}

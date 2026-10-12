@@ -13,6 +13,14 @@ std::string_view gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal reason) noexce
         return "infinite";
     case gltfx_draw_2d_refusal::negative_size:
         return "negative_size";
+    case gltfx_draw_2d_refusal::index_out_of_range:
+        return "index_out_of_range";
+    case gltfx_draw_2d_refusal::count_not_multiple_of_three:
+        return "count_not_multiple_of_three";
+    case gltfx_draw_2d_refusal::unknown_option:
+        return "unknown_option";
+    case gltfx_draw_2d_refusal::too_many_vertices:
+        return "too_many_vertices";
     }
     return "unknown"; // a value a NEWER glintfx produced (docs/api-conventions.md R4)
 }

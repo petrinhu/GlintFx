@@ -15,8 +15,12 @@
 // gltfx_renderer_2d_desc (see that header). New counters are appended
 // at the end, never inserted, never reordered.
 //
-// WHAT A "PIECE" IS: one call of fill_rect() or fill_quad(). Every piece
-// submitted while a frame is open ends in exactly one of four places:
+// WHAT A "PIECE" IS: one call of a drawing method (fill_rect(), fill_quad(),
+// fill_triangles() or fill_indexed_triangles()), whatever the method: a
+// triangle call with a hundred triangles is one piece, and a refusal refuses
+// the whole call, once. A call that does nothing (no vertices, or no indices
+// for the indexed one) is not a piece at all. Every piece submitted while a
+// frame is open ends in exactly one of four places:
 //
 //   pieces_submitted == pieces_drawn + pieces_refused
 //                       + pieces_dropped_out_of_memory
@@ -42,12 +46,21 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     not_a_number = 1,
     infinite = 2,
     negative_size = 3,
+    // Appended in W8 (D-W8-30, D-W8-285, D-W8-287): the triangle refusals
+    // and the option refusal share this one enum, so first_refusal names
+    // any of them.
+    index_out_of_range = 4,
+    count_not_multiple_of_three = 5,
+    unknown_option = 6,
+    too_many_vertices = 7,
 };
 
 // The token for `reason`: "none", "not_a_number", "infinite",
-// "negative_size". A value this build does not know (a newer glintfx
-// crossing the library boundary) reads "unknown" (docs/api-
-// conventions.md R4). The returned text lives as long as the program.
+// "negative_size", "index_out_of_range", "count_not_multiple_of_three",
+// "unknown_option" or "too_many_vertices". A value this build does not
+// know (a newer glintfx crossing the library boundary) reads "unknown"
+// (docs/api-conventions.md R4). The returned text lives as long as the
+// program.
 [[nodiscard]] GLINTFX_API std::string_view
 gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal reason) noexcept;
 
@@ -57,9 +70,12 @@ struct gltfx_frame_2d_report {
     // Pieces that reached the graphics card. A piece whose area is zero
     // is drawn: it simply covers no pixel.
     std::uint64_t pieces_drawn = 0;
-    // Pieces refused because a value was not a finite number, or a
-    // rectangle had a negative width or height. The frame goes on
-    // without them; this is not an error of the frame.
+    // Pieces refused, one count per refused call: a value that is not a
+    // finite number, a rectangle with a negative width or height, an index
+    // out of range, a count that is not a multiple of three, an unknown
+    // option, or too many vertices. The frame goes on without them; this is
+    // not an error of the frame. The seven counters at the end of this
+    // struct, one per reason, add up to this one.
     std::uint64_t pieces_refused = 0;
     // Why the first of those was refused; `none` when pieces_refused is
     // zero.
@@ -90,6 +106,15 @@ struct gltfx_frame_2d_report {
     // How many draw calls reached the graphics card. Printed for you to
     // measure, never promised as a number.
     std::uint64_t draw_calls = 0;
+    // Appended in W8 (D-W8-30): one counter per refusal reason. Their sum is
+    // pieces_refused, always.
+    std::uint64_t pieces_refused_not_a_number = 0;
+    std::uint64_t pieces_refused_infinite = 0;
+    std::uint64_t pieces_refused_negative_size = 0;
+    std::uint64_t pieces_refused_index_out_of_range = 0;
+    std::uint64_t pieces_refused_count_not_multiple_of_three = 0;
+    std::uint64_t pieces_refused_unknown_option = 0;
+    std::uint64_t pieces_refused_too_many_vertices = 0;
 };
 
 } // namespace glintfx

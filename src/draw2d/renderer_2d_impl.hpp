@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <utility>
 
 #include <glintfx/core/err.hpp>
@@ -13,6 +14,7 @@
 #include <glintfx/draw2d/draw_layer.hpp>
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
+#include <glintfx/draw2d/vertex_2d.hpp>
 
 #include "draw2d/embedded_program.hpp"
 #include "draw2d/frame_report_tally.hpp"
@@ -75,6 +77,13 @@ struct renderer_2d_impl {
     void fill_rect(const gltfx_rect_world &rect, gltfx_rgba color, gltfx_draw_layer layer) noexcept;
     void fill_quad(const gltfx_quad_world &corners, gltfx_rgba color,
                    gltfx_draw_layer layer) noexcept;
+    // The triangle methods (S2b): an empty call is nothing; the rest is checked, and refused whole
+    // or kept as one piece (triangle_list_check.hpp).
+    void fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                        gltfx_draw_layer layer) noexcept;
+    void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                                std::span<const std::uint32_t> indices,
+                                gltfx_draw_layer layer) noexcept;
     void flush() noexcept;
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
     [[nodiscard]] gltfx_frame_2d_report last_frame_report() const noexcept;
@@ -85,10 +94,21 @@ struct renderer_2d_impl {
   private:
     renderer_2d_impl(const renderer_2d_host &host_in, const render::gl_function_table &gl_in,
                      bool srgb, draw2d::batch_allocator allocator) noexcept;
-    ~renderer_2d_impl() = default;
+    // Releases the pixel scratch of the triangle calls (the other buffers release themselves).
+    ~renderer_2d_impl();
 
     void submit(const draw2d::quad_corners_world &corners, gltfx_rgba color, gltfx_draw_layer layer,
                 gltfx_draw_2d_refusal refusal) noexcept;
+    // The one path of both triangle methods: an empty call is nothing; the rest is checked, refused
+    // whole and counted once, or kept as one piece in the paint order (S2b).
+    void submit_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                          std::span<const std::uint32_t> indices, bool indexed,
+                          gltfx_draw_layer layer) noexcept;
+    // Converts the vertices to pixels in the scratch, and keeps them as one piece. False when
+    // memory ran out (nothing kept).
+    [[nodiscard]] bool keep_triangle_piece(std::span<const gltfx_vertex_2d_world> vertices,
+                                           std::span<const std::uint32_t> indices,
+                                           gltfx_draw_layer layer) noexcept;
     // Sends the pending pieces to the card, in paint order, and leaves GL as the closed list says.
     // `explicit_barrier` is true for flush(), false for the implicit one of finish_frame().
     void send_pending(bool explicit_barrier) noexcept;
@@ -121,6 +141,10 @@ struct renderer_2d_impl {
     bool frame_open = false;
     bool gl_ready = false; // the context was made current for this frame
     std::optional<gltfx_err> frame_error;
+    // The pixel vertices of the triangle call being kept (S2b): the piece list copies them, so this
+    // buffer is reused by every call, and grows through the same allocator as the rest.
+    draw2d::batch_allocator scratch_allocator;
+    draw2d::pod_buffer<draw2d::colored_pixel_vertex> pixel_scratch;
 };
 
 } // namespace glintfx

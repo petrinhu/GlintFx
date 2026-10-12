@@ -28,6 +28,8 @@ target_sources(glintfx_library PRIVATE
     frame_2d_report.cpp
     renderer_2d_impl.cpp
     renderer_2d_facade.cpp
+    triangle_list_check.cpp
+    renderer_2d_facade_shapes.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

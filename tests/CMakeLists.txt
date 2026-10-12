@@ -1515,6 +1515,17 @@ target_sources(triangle_store_test PRIVATE
     "${PROJECT_SOURCE_DIR}/tests/triangle_store_test.cpp"
 )
 
+# R2D-SHAPES S2b (docs/plano-fechamento-w8-r19.md, §3 S2b): a validação pura de uma chamada de triângulos.
+glintfx_add_test(triangle_list_check_test)
+target_include_directories(triangle_list_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol: the standalone build of this target needs the static define (as frame_report_tally_test does).
+target_compile_definitions(triangle_list_check_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+target_sources(triangle_list_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_list_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
+    "${PROJECT_SOURCE_DIR}/tests/triangle_list_check_test.cpp"
+)
+
 glintfx_add_test(gl_load_refusal_test)
 target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gl_load_refusal_test PRIVATE
@@ -1586,6 +1597,7 @@ target_include_directories(renderer_2d_impl_test PRIVATE
     "${PROJECT_BINARY_DIR}/generated/render"
 )
 target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_list_check.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
@@ -2779,6 +2791,19 @@ if(WIN32)
     glintfx_copy_runtime_dlls_after_build(present_empty_frame_parity_test)
     add_test(NAME present_empty_frame_parity_test COMMAND present_empty_frame_parity_test)
     set_tests_properties(present_empty_frame_parity_test PROPERTIES LABELS consume RUN_SERIAL TRUE)
+endif()
+
+# R2D-SHAPES S2b (docs/plano-fechamento-w8-r19.md, §3 S2b): draw2d_shapes_parity_test.cpp (tests/parity/) is the
+# triangle cell of the shape family, the same family as draw2d_parity_test: ONE file, only the public API, no #if.
+# The Linux side is the container fixture of this exact name (tests/container/Containerfile, ci.yml); this block
+# is the Windows side only.
+if(WIN32)
+    add_executable(draw2d_shapes_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_shapes_parity_test.cpp")
+    target_link_libraries(draw2d_shapes_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_shapes_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_shapes_parity_test)
+    add_test(NAME draw2d_shapes_parity_test COMMAND draw2d_shapes_parity_test)
+    set_tests_properties(draw2d_shapes_parity_test PROPERTIES LABELS consume)
 endif()
 
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_hidden_

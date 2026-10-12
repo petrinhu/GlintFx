@@ -8,6 +8,7 @@
 #include "draw2d/gl_state_contract.hpp"
 #include "draw2d/piece_refusal.hpp"
 #include "draw2d/srgb_encoding.hpp"
+#include "draw2d/triangle_list_check.hpp"
 
 namespace glintfx {
 
@@ -40,12 +41,25 @@ constexpr std::size_t k_default_reserve_pieces = 1024;
                                       quad.bottom_left};
 }
 
+// One world position into a pixel position: the arithmetic of quad_vertices.cpp (double, narrowed
+// once, at the end), so a triangle corner and a quad corner at the same place land on the same
+// pixel.
+[[nodiscard]] gltfx_vec2_screen pixel_of_vertex(const gltfx_vec2_world &world,
+                                                const draw2d::pixel_affine &affine) noexcept {
+    const double x = affine.column0_x * world.x + affine.column1_x * world.y + affine.translation_x;
+    const double y = affine.column0_y * world.x + affine.column1_y * world.y + affine.translation_y;
+    return gltfx_vec2_screen{static_cast<float>(x), static_cast<float>(y)};
+}
+
 } // namespace
 
 renderer_2d_impl::renderer_2d_impl(const renderer_2d_host &host_in,
                                    const render::gl_function_table &gl_in, bool srgb,
                                    draw2d::batch_allocator allocator) noexcept
-    : host(host_in), gl(gl_in), batch(allocator), pieces(allocator), srgb_framebuffer(srgb) {}
+    : host(host_in), gl(gl_in), batch(allocator), pieces(allocator), srgb_framebuffer(srgb),
+      scratch_allocator(allocator) {}
+
+renderer_2d_impl::~renderer_2d_impl() { scratch_allocator.release(pixel_scratch.data); }
 
 gltfx_rslt<renderer_2d_impl *>
 renderer_2d_impl::create(const renderer_2d_host &host, const render::gl_function_table &gl,
@@ -177,6 +191,61 @@ void renderer_2d_impl::fill_quad(const gltfx_quad_world &corners, gltfx_rgba col
                                  gltfx_draw_layer layer) noexcept {
     const draw2d::quad_corners_world world = corners_of(corners);
     submit(world, color, layer, draw2d::refusal_of_quad(world, color));
+}
+
+void renderer_2d_impl::fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                                      gltfx_draw_layer layer) noexcept {
+    submit_triangles(vertices, {}, false, layer);
+}
+
+void renderer_2d_impl::fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                                              std::span<const std::uint32_t> indices,
+                                              gltfx_draw_layer layer) noexcept {
+    submit_triangles(vertices, indices, true, layer);
+}
+
+void renderer_2d_impl::submit_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                                        std::span<const std::uint32_t> indices, bool indexed,
+                                        gltfx_draw_layer layer) noexcept {
+    const draw2d::triangle_call_counts counts{vertices.size(),
+                                              indexed ? indices.size() : std::size_t{0}, indexed};
+    if (draw2d::is_empty_triangle_call(counts)) {
+        return; // nothing to draw, and not a piece: it is counted nowhere (D-W8-287)
+    }
+    if (!frame_open) {
+        tally.piece_outside_frame();
+        return;
+    }
+    const gltfx_draw_2d_refusal refusal =
+        draw2d::refusal_of_triangle_call(vertices, indices, indexed);
+    if (refusal != gltfx_draw_2d_refusal::none) {
+        tally.piece_refused(refusal); // the whole call, once
+        return;
+    }
+    const std::span<const std::uint32_t> local =
+        indexed ? indices : std::span<const std::uint32_t>{};
+    if (!keep_triangle_piece(vertices, local, layer)) {
+        tally.piece_dropped_out_of_memory();
+    }
+}
+
+bool renderer_2d_impl::keep_triangle_piece(std::span<const gltfx_vertex_2d_world> vertices,
+                                           std::span<const std::uint32_t> indices,
+                                           gltfx_draw_layer layer) noexcept {
+    // The scratch holds the pixel vertices of THIS call only, so its room is asked for from zero.
+    pixel_scratch.size = 0;
+    if (!draw2d::ensure_room<draw2d::colored_pixel_vertex>(scratch_allocator, pixel_scratch,
+                                                           vertices.size())) {
+        return false;
+    }
+    for (std::size_t i = 0; i < vertices.size(); ++i) {
+        pixel_scratch.data[i] = draw2d::colored_pixel_vertex{
+            pixel_of_vertex(vertices[i].position, affine), vertices[i].color};
+    }
+    pixel_scratch.size = vertices.size();
+    const std::span<const draw2d::colored_pixel_vertex> pixels(pixel_scratch.data,
+                                                               pixel_scratch.size);
+    return pieces.add_triangles(pixels, indices, layer.value);
 }
 
 // The phases of a flush, each with a name of its own (D-B7-1, Extract Function): send_pending()

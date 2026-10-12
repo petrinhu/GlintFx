@@ -8,6 +8,7 @@
 #include "draw2d/gl_state_contract.hpp"
 #include "draw2d/piece_refusal.hpp"
 #include "draw2d/srgb_encoding.hpp"
+#include "draw2d/stroke_line_check.hpp"
 #include "draw2d/triangle_list_check.hpp"
 
 namespace glintfx {
@@ -194,6 +195,28 @@ void renderer_2d_impl::fill_indexed_triangles(std::span<const gltfx_vertex_2d_wo
                                               std::span<const std::uint32_t> indices,
                                               gltfx_draw_layer layer) noexcept {
     submit_triangles(vertices, indices, true, layer);
+}
+
+void renderer_2d_impl::stroke_line(const gltfx_segment_world &segment,
+                                   const gltfx_line_style &style, gltfx_rgba color,
+                                   gltfx_draw_layer layer) noexcept {
+    if (!frame_open) {
+        tally.piece_outside_frame();
+        return;
+    }
+    const gltfx_draw_2d_refusal refusal = draw2d::refusal_of_stroke_line(segment, style, color);
+    if (refusal != gltfx_draw_2d_refusal::none) {
+        tally.piece_refused(refusal); // the whole line, once
+        return;
+    }
+    if (stroke_pixels.build(segment, style, color, affine) ==
+        draw2d::stroke_pixels_outcome::pixel_position_out_of_range) {
+        tally.piece_refused(gltfx_draw_2d_refusal::pixel_position_out_of_range); // S3, the outline
+        return;
+    }
+    if (!pieces.add_triangles(stroke_pixels.vertices(), stroke_pixels.indices(), layer.value)) {
+        tally.piece_dropped_out_of_memory();
+    }
 }
 
 void renderer_2d_impl::submit_triangles(std::span<const gltfx_vertex_2d_world> vertices,

@@ -9,11 +9,13 @@
 #include <glintfx/core/image_view.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
+#include <glintfx/core/segment.hpp>
 #include <glintfx/core/transform.hpp>
 #include <glintfx/draw2d/draw_layer.hpp>
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/renderer_2d_desc.hpp>
+#include <glintfx/draw2d/stroke.hpp>
 #include <glintfx/draw2d/texture_2d.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
@@ -294,6 +296,32 @@ class gltfx_renderer_2d {
     GLINTFX_API void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
                                             std::span<const std::uint32_t> indices,
                                             gltfx_draw_layer layer = {}) noexcept;
+
+    // A straight line from `segment.start` to `segment.end`, `style.stroke.thickness`
+    // wide, with the end caps `style.cap`. The thickness is in the unit
+    // `style.stroke.unit` (stroke.hpp): world by default, pixel on request. A
+    // zero-length line (start equals end) draws the cap alone: nothing for `flat`,
+    // a square for `square`, a disc for `rounded`, as SVG 2 defines it (D-W8-270).
+    // D-W8-354: segment, style and colour are grouped; four parameters at most.
+    //
+    // One call is one piece. A line of zero thickness, or of zero length with
+    // `flat`, is a piece of zero area: drawn, covering no pixel. The square of
+    // a zero-length line is aligned with the axes of the space of its unit: the
+    // world's (turned and scaled with the batch) or the screen's. A rounded cap
+    // is made of straight segments at most 0.25 pixel away from the true half
+    // circle on the screen. Refused, counted in the report, never an exception.
+    // The first rule that applies names the reason:
+    //   1. a NaN in the start, the end, the thickness or the colour:
+    //      not_a_number; then an infinity in any of them: infinite;
+    //   2. a negative thickness: negative_size;
+    //   3. a thickness unit or a cap outside its enumeration: unknown_option;
+    //   4. a point of the outline that the batch transform turns into a pixel
+    //      coordinate larger in magnitude than about 1.7e38, where the vertex
+    //      program would overflow: pixel_position_out_of_range.
+    // Proved by: stroke_geometry_test (the outline of each cap and unit).
+    // Proved by: stroke_line_check_test (the order of the refusals).
+    GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
+                                 gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 
     // Makes a texture from `image`, on this renderer's context. The pixels
     // are read only during this call (docs/api-conventions.md R5): the

@@ -10,10 +10,12 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
+#include <glintfx/core/segment.hpp>
 #include <glintfx/core/transform.hpp>
 #include <glintfx/draw2d/draw_layer.hpp>
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
+#include <glintfx/draw2d/stroke.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 
 #include "draw2d/embedded_program.hpp"
@@ -21,6 +23,7 @@
 #include "draw2d/piece_list.hpp"
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
+#include "draw2d/stroke_line_pixels.hpp"
 #include "draw2d/triangle_batch.hpp"
 #include "draw2d/triangle_pixel_vertices.hpp"
 #include "draw2d/vertex_stream.hpp"
@@ -85,6 +88,11 @@ struct renderer_2d_impl {
     void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
                                 std::span<const std::uint32_t> indices,
                                 gltfx_draw_layer layer) noexcept;
+    // A straight line (S3): checked (stroke_line_check.hpp), turned into pixel triangles by the
+    // batch transform in force (stroke_line_pixels.hpp) and kept as one piece; refused whole and
+    // counted once otherwise.
+    void stroke_line(const gltfx_segment_world &segment, const gltfx_line_style &style,
+                     gltfx_rgba color, gltfx_draw_layer layer) noexcept;
     void flush() noexcept;
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
     [[nodiscard]] gltfx_frame_2d_report last_frame_report() const noexcept;
@@ -151,6 +159,9 @@ struct renderer_2d_impl {
     // The pixel vertices of the triangle call being kept: the piece list copies them, so they are
     // reused by every call, and grow through the same allocator as the rest (S2b-fix1, I-8).
     draw2d::triangle_pixel_vertices triangle_pixels;
+    // The pixel triangles of the line being kept (S3): fixed storage, reused by every call; the
+    // piece list copies them.
+    draw2d::stroke_line_pixels stroke_pixels;
 };
 
 } // namespace glintfx

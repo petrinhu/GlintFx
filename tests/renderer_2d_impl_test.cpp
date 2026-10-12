@@ -14,6 +14,8 @@
 
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/core/segment.hpp>
+#include <glintfx/draw2d/stroke.hpp>
 
 #include "draw2d/renderer_2d_impl.hpp"
 
@@ -1075,5 +1077,107 @@ GLINTFX_TEST(renderer_2d_impl_the_edge_of_the_pixel_range_keeps_the_vertex_progr
     GLINTFX_CHECK(std::isfinite(y) && y > 1.0e38F);
     GLINTFX_CHECK(std::isfinite(x / width * 2.0F - 1.0F));
     GLINTFX_CHECK(std::isfinite(1.0F - y / height * 2.0F));
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-SHAPES, fatia S3: stroke_line() in the frame machine. One call is one piece: its outline, a
+// fan of triangles, reaches the card at its pixel positions; a refusal is counted once with its
+// reason, in the order of the vocabulary; with no frame open, it is counted outside the frame; a
+// line of zero thickness is a piece of zero area, drawn. Expected values by hand (axis-aligned).
+namespace {
+
+[[nodiscard]] glintfx::gltfx_line_style line_style(double thickness, glintfx::gltfx_line_cap cap) {
+    glintfx::gltfx_line_style style;
+    style.stroke.thickness = thickness;
+    style.cap = cap;
+    return style;
+}
+
+constexpr glintfx::gltfx_segment_world k_line{{10.0, 10.0}, {50.0, 10.0}};
+
+[[nodiscard]] glintfx::gltfx_line_cap unknown_line_cap() {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    return static_cast<glintfx::gltfx_line_cap>(9);
+}
+
+} // namespace
+
+GLINTFX_TEST(renderer_2d_impl_a_line_reaches_the_card_as_its_outline) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_line(k_line, line_style(4.0, glintfx::gltfx_line_cap::flat), k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{1});
+        GLINTFX_CHECK(ends_add_up(report.value()));
+    }
+    GLINTFX_CHECK_EQ(first_draw_count(), 6);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 10.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 12.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 0), 50.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 1), 8.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_line_refusal_is_counted_once_with_its_reason) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const double not_a_number = std::numeric_limits<double>::quiet_NaN();
+    renderer->stroke_line(k_line, line_style(not_a_number, glintfx::gltfx_line_cap::flat), k_red,
+                          k_layer_0);
+    renderer->stroke_line(k_line, line_style(4.0, unknown_line_cap()), k_red, k_layer_0);
+    renderer->stroke_line(k_line, line_style(-1.0, glintfx::gltfx_line_cap::flat), k_red,
+                          k_layer_0);
+    const glintfx::gltfx_segment_world far{{1.0e39, 0.0}, {2.0e39, 0.0}};
+    renderer->stroke_line(far, line_style(4.0, glintfx::gltfx_line_cap::rounded), k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        const glintfx::gltfx_frame_2d_report &r = report.value();
+        GLINTFX_CHECK_EQ(r.pieces_submitted, std::uint64_t{4});
+        GLINTFX_CHECK_EQ(r.pieces_refused, std::uint64_t{4});
+        GLINTFX_CHECK_EQ(r.pieces_refused_not_a_number, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(r.pieces_refused_unknown_option, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(r.pieces_refused_negative_size, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(r.pieces_refused_pixel_position_out_of_range, std::uint64_t{1});
+        GLINTFX_CHECK(r.first_refusal == glintfx::gltfx_draw_2d_refusal::not_a_number);
+        GLINTFX_CHECK(ends_add_up(r));
+    }
+    GLINTFX_CHECK(card.draw_counts.empty());
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_line_with_no_frame_open_is_counted_outside_the_frame) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->stroke_line(k_line, line_style(4.0, glintfx::gltfx_line_cap::flat), k_red, k_layer_0);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_dropped_outside_frame, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{0});
+    }
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_line_of_zero_thickness_is_a_drawn_piece_of_zero_area) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_line(k_line, line_style(0.0, glintfx::gltfx_line_cap::flat), k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused, std::uint64_t{0});
+    }
+    GLINTFX_CHECK_EQ(first_draw_count(), 6);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 10.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 1), 10.0F);
     renderer_2d_impl::destroy(renderer);
 }

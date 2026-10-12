@@ -9,9 +9,12 @@
 
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
+#include <glintfx/core/segment.hpp>
+#include <glintfx/core/transform.hpp>
 #include <glintfx/core/vec2.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/renderer_2d.hpp>
+#include <glintfx/draw2d/stroke.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/window/display.hpp>
@@ -38,7 +41,15 @@
 //     5 refused, first_refusal count_not_multiple_of_three, the counter of each reason, and the sum
 //     of the seven per-reason counters equals pieces_refused;
 //   - a call with no frame open is counted as dropped outside the frame in the NEXT report, and an
-//     empty call outside the frame is not counted at all.
+//     empty call outside the frame is not counted at all;
+//   - stroke_line() (fatia S3), white on black: a horizontal line 4 pixels thick in PIXEL unit,
+//     under a zoom of 3, covers exactly 4 rows of a column (rows 58 to 61), never 12 nor 2; the
+//     same line in WORLD unit covers 12 (rows 54 to 65); at the end of a line 10 pixels thick, the
+//     pixel 3 past the end is black with `flat` and white with `square` and `rounded`, the pixel 6
+//     past it is black with `square` and `rounded`, and the pixel (4, 4) past the end corner is
+//     white with `square` and black with `rounded` (outside the half disc of radius 5);
+//   - a line of zero thickness is a drawn piece that covers no pixel, and a NaN thickness and an
+//     unknown cap are refused, one count each.
 // Geometry assumes a scale factor of 1: pixels are the numbers written below (as in
 // draw2d_parity_test.cpp). The surface is 320 by 240.
 
@@ -231,6 +242,111 @@ void cell_outside_frame(const session &s) {
          "C4 a chamada sem quadro aberto conta 1 fora do quadro, e a vazia nao conta");
 }
 
+// The white pixels of column `x` from row `first` to row `last`, both included.
+int white_rows(const session &s, int x, int first, int last) {
+    int count = 0;
+    for (int y = first; y <= last; ++y) {
+        if (is_exact(read_at(s, x, y), 255, 255, 255)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+constexpr glintfx::gltfx_rgba k_white{1.0F, 1.0F, 1.0F, 1.0F};
+
+glintfx::gltfx_line_style line_style(double thickness, glintfx::gltfx_stroke_unit unit,
+                                     glintfx::gltfx_line_cap cap) {
+    glintfx::gltfx_line_style style;
+    style.stroke.thickness = thickness;
+    style.stroke.unit = unit;
+    style.cap = cap;
+    return style;
+}
+
+// The line of C5 and C6, from world (10,20) to (40,20), under a zoom of 3: pixels (30,60) to
+// (120,60).
+void draw_zoomed_line(const session &s, glintfx::gltfx_stroke_unit unit) {
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.begin_batch(glintfx::gltfx_transform{
+        .translation = {0.0, 0.0}, .rotation = {0.0}, .scale = {3.0, 3.0}});
+    s.renderer.stroke_line(glintfx::gltfx_segment_world{{10.0, 20.0}, {40.0, 20.0}},
+                           line_style(4.0, unit, glintfx::gltfx_line_cap::flat), k_white);
+}
+
+// C5: pixel unit, thickness 4, zoom 3: 4 rows (58 to 61), whatever the zoom.
+void cell_line_pixel_unit(const session &s) {
+    draw_zoomed_line(s, glintfx::gltfx_stroke_unit::pixel);
+    const auto finished = s.renderer.finish_frame();
+    cell(finished.has_value(), "C5 finish_frame() com a linha em pixel tem valor");
+    cell(white_rows(s, 75, 50, 70) == 4, "C5 a coluna 75 tem 4 linhas brancas, nem 12 nem 2");
+    cell(is_exact(read_at(s, 75, 58), 255, 255, 255) &&
+             is_exact(read_at(s, 75, 61), 255, 255, 255) && is_exact(read_at(s, 75, 57), 0, 0, 0) &&
+             is_exact(read_at(s, 75, 62), 0, 0, 0),
+         "C5 as linhas brancas sao 58 a 61, e 57 e 62 sao pretas");
+}
+
+// C6: world unit, thickness 4, zoom 3: 12 rows (54 to 65).
+void cell_line_world_unit(const session &s) {
+    draw_zoomed_line(s, glintfx::gltfx_stroke_unit::world);
+    const auto finished = s.renderer.finish_frame();
+    cell(finished.has_value() && white_rows(s, 75, 40, 80) == 12,
+         "C6 em mundo, a coluna 75 tem 12 linhas brancas (4 vezes o zoom 3)");
+    cell(is_exact(read_at(s, 75, 54), 255, 255, 255) &&
+             is_exact(read_at(s, 75, 65), 255, 255, 255) && is_exact(read_at(s, 75, 53), 0, 0, 0) &&
+             is_exact(read_at(s, 75, 66), 0, 0, 0),
+         "C6 as linhas brancas sao 54 a 65, e 53 e 66 sao pretas");
+}
+
+// The line of C7: pixels (100,150) to (140,150), 10 pixels thick, no transform.
+void draw_capped_line(const session &s, glintfx::gltfx_line_cap cap) {
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.stroke_line(glintfx::gltfx_segment_world{{100.0, 150.0}, {140.0, 150.0}},
+                           line_style(10.0, glintfx::gltfx_stroke_unit::pixel, cap), k_white);
+    (void)s.renderer.finish_frame();
+}
+
+// C7: the three caps at the end of the line.
+void cell_line_caps(const session &s) {
+    const auto white = [&s](int x, int y) { return is_exact(read_at(s, x, y), 255, 255, 255); };
+    const auto black = [&s](int x, int y) { return is_exact(read_at(s, x, y), 0, 0, 0); };
+    draw_capped_line(s, glintfx::gltfx_line_cap::flat);
+    cell(white(138, 150) && black(143, 150), "C7 flat: (138,150) branco, (143,150) preto");
+    draw_capped_line(s, glintfx::gltfx_line_cap::square);
+    cell(white(143, 150) && black(146, 150) && white(144, 154),
+         "C7 square: (143,150) e (144,154) brancos, (146,150) preto");
+    draw_capped_line(s, glintfx::gltfx_line_cap::rounded);
+    cell(white(143, 150) && black(146, 150) && black(144, 154),
+         "C7 rounded: (143,150) branco, (146,150) e (144,154) pretos");
+}
+
+// C8: a line of zero thickness is drawn and covers nothing; two refusals, one count each.
+void cell_line_report(const session &s) {
+    glintfx::gltfx_line_style unknown =
+        line_style(4.0, glintfx::gltfx_stroke_unit::pixel, glintfx::gltfx_line_cap::flat);
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    unknown.cap = static_cast<glintfx::gltfx_line_cap>(9);
+    const glintfx::gltfx_segment_world line{{60.0, 100.0}, {90.0, 100.0}};
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.stroke_line(
+        line, line_style(0.0, glintfx::gltfx_stroke_unit::pixel, glintfx::gltfx_line_cap::flat),
+        k_white);
+    s.renderer.stroke_line(line,
+                           line_style(std::numeric_limits<double>::quiet_NaN(),
+                                      glintfx::gltfx_stroke_unit::pixel,
+                                      glintfx::gltfx_line_cap::flat),
+                           k_white);
+    s.renderer.stroke_line(line, unknown, k_white);
+    const auto finished = s.renderer.finish_frame();
+    cell(finished.has_value() && finished.value().pieces_submitted == 3 &&
+             finished.value().pieces_drawn == 1 && finished.value().pieces_refused == 2 &&
+             finished.value().pieces_refused_not_a_number == 1 &&
+             finished.value().pieces_refused_unknown_option == 1,
+         "C8 3 linhas: 1 desenhada (espessura zero), 1 NaN e 1 ponta desconhecida recusadas");
+    cell(is_exact(read_at(s, 75, 100), 0, 0, 0) && is_exact(read_at(s, 75, 99), 0, 0, 0),
+         "C8 a linha de espessura zero nao cobre pixel nenhum");
+}
+
 } // namespace
 
 int main() {
@@ -292,11 +408,15 @@ int main() {
     cell_triangle_alone(s);
     cell_refusals(s);
     cell_outside_frame(s);
+    cell_line_pixel_unit(s);
+    cell_line_world_unit(s);
+    cell_line_caps(s);
+    cell_line_report(s);
 
     // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
     std::fprintf(stdout, "draw2d_shapes_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
                  g_cells, g_failures);
-    if (g_cells < 10) {
+    if (g_cells < 22) {
         std::fprintf(stderr, "draw2d_shapes_parity_test: menos celulas do que o piso\n");
         return EXIT_FAILURE;
     }

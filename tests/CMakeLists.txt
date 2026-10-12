@@ -1730,6 +1730,13 @@ target_sources(renderer_2d_impl_test PRIVATE
 # both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
 # win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
 target_compile_definitions(renderer_2d_impl_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+# R2D-SHAPES S3, etapa B: stroke_line() reaches the frame machine, so this target compiles the atoms of the line.
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+)
 
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

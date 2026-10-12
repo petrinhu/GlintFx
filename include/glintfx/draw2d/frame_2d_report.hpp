@@ -16,11 +16,11 @@
 // at the end, never inserted, never reordered.
 //
 // WHAT A "PIECE" IS: one call of a drawing method (fill_rect(), fill_quad(),
-// fill_triangles() or fill_indexed_triangles()), whatever the method: a
-// triangle call with a hundred triangles is one piece, and a refusal refuses
-// the whole call, once. A call that does nothing (no vertices, or no indices
-// for the indexed one) is not a piece at all. Every piece submitted while a
-// frame is open ends in exactly one of four places:
+// fill_triangles(), fill_indexed_triangles() or stroke_line()), whatever the
+// method: a triangle call with a hundred triangles is one piece, and a
+// refusal refuses the whole call, once. A call that does nothing (no
+// vertices, or no indices for the indexed one) is not a piece at all. Every
+// piece submitted while a frame is open ends in exactly one of four places:
 //
 //   pieces_submitted == pieces_drawn + pieces_refused
 //                       + pieces_dropped_out_of_memory
@@ -80,12 +80,13 @@ struct gltfx_frame_2d_report {
     // is drawn: it simply covers no pixel.
     std::uint64_t pieces_drawn = 0;
     // Pieces refused, one count per refused call: a value that is not a
-    // finite number, a rectangle with a negative width or height, an index
-    // out of range, a count that is not a multiple of three, an unknown
-    // option, too many vertices, or a position whose pixel coordinate is
-    // out of the range the vertex program can scale. The frame goes on without them; this is not an
-    // error of the frame. The counters at the end of this struct, one per
-    // reason, add up to this one.
+    // finite number, a rectangle with a negative width or height, a line with
+    // a negative thickness, an index out of range, a count that is not a
+    // multiple of three, an unknown option, too many vertices, or a position
+    // whose pixel coordinate is out of the range the vertex program can
+    // scale. The frame goes on without them; this is not an error of the
+    // frame. The counters at the end of this struct, one per reason, add up
+    // to this one.
     std::uint64_t pieces_refused = 0;
     // Why the first of those was refused; `none` when pieces_refused is
     // zero.

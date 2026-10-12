@@ -18,6 +18,7 @@
 - **D-W8-334 (errata do layout):** saem `image_without_owner` e `pieces_refused_image_without_owner`; `shadow_groups` vira `shadow_segments` (D-W8-322); `light_below_piece` não entra (D-W8-320). O motivo `image_without_owner` nasce com a primeira ponte de pintura (D-W8-336, R0).
 - **D-W8-353 a 356 (r13):** nomes finais e assinaturas com quatro parâmetros ou menos. `stroke_line` e `stroke_rect` recebem `gltfx_segment_world`, `gltfx_line_style` e `gltfx_rect_outline_style` (D-W8-354), e a nova cerca `core/segment.hpp` entra na seção 2. Ver a nota D-W8-354 ao lado de cada assinatura trocada. As seções 3 a 7 são análise e citam, onde indicam, as assinaturas anteriores; o texto vigente é o da seção 2.
 - **S2b-fix1 (CTO, revisão N1 de `00cdbb4e`):** (1) a cerca de `fill_triangles` trazia o texto da proposta ("a vertex whose position is not a finite number: not_a_number") e contradizia a decisão IMP-04 (c) desta mesma página; vale a decisão: NaN é `not_a_number` e infinito é `infinite`, em posição e em cor, na ordem do vocabulário, como o quadrado (`piece_refusal.hpp`). (2) O limite de vértices fica escrito por extenso: 2^32 vértices são aceitos (o índice de 32 bits endereça 0 a 2^32 - 1) e 2^32 + 1 são recusados. (3) Motivo novo `pixel_position_out_of_range = 8`, com o contador `pieces_refused_pixel_position_out_of_range` acrescentado logo depois de `pieces_refused_too_many_vertices` e antes de `texture_switches`: posição finita que a transformação do lote leva para fora da faixa que o programa de vértice escala sem estourar (achado I-7). A borda é `FLT_MAX / 2` menos 3 unidades na última casa (3 × 2^103; errata S2b-fix2: o texto dizia 4, e a constante dava 8), derivada da linha `a_position.x / u_viewport_pixels.x * 2.0 - 1.0` de `src/draw2d/embedded_program.cpp` (o `* 2.0` numa superfície de 1 pixel, com a divisão até 2,5 unidades fora, pelo GL_ARB_shader_precision); a derivação está em `src/draw2d/quad_vertices.cpp`. As regras da cerca passam a vir numeradas, na ordem em que se aplicam. A cerca e `include/glintfx/draw2d/renderer_2d.hpp` continuam iguais byte a byte.
+- **Errata da S3 (CTO, 12/10/2026; uma cerca e uma fonte):** a cerca de `stroke_line` passa a ser o texto que a S3 publica: o parágrafo da cerca, sem mudar uma linha, mais o que a D-W8-270, a D-W8-285, a D-W8-287 e a S2b-fix1 já tinham decidido e o cabeçalho tem de dizer (uma chamada é uma peça; espessura zero, ou comprimento zero com `flat`, é peça de área zero, desenhada, como o quadrilátero de área zero; o quadrado do comprimento zero alinhado aos eixos do espaço da unidade; a ponta redonda a no máximo 0,25 pixel do meio círculo verdadeiro; as quatro regras de recusa, na ordem do vocabulário) e os dois `Proved by`; a assinatura em duas linhas, como o `clang-format` do projeto a escreve. A cerca nova `core/segment.hpp` entra na S3 como está. A ponta redonda usa o erro padrão de 0,25 pixel (D-W8-07) como constante interna; se ela passa a ler `ellipse_max_error_pixels` é decisão da S5, que cria o campo.
 - **Achados de texto:** IMP-08 (`measured` sai de `fill_ellipse`) e COS-01 (`planned for fatia S3` sai de `stroke.hpp`) aplicados no texto da seção 2. IMP-02 (quatro sítios de contrato desatualizados) não está nos trechos da seção 2: é corrigido nos commits da S2b e da S5, como manda a r2 §12.
 
 ---
@@ -237,9 +238,25 @@ struct gltfx_ellipse_world {
     // zero-length line (start equals end) draws the cap alone: nothing for `flat`,
     // a square for `square`, a disc for `rounded`, as SVG 2 defines it (D-W8-270).
     // D-W8-354: segment, style and colour are grouped; four parameters at most.
+    //
+    // One call is one piece. A line of zero thickness, or of zero length with
+    // `flat`, is a piece of zero area: drawn, covering no pixel. The square of
+    // a zero-length line is aligned with the axes of the space of its unit: the
+    // world's (turned and scaled with the batch) or the screen's. A rounded cap
+    // is made of straight segments at most 0.25 pixel away from the true half
+    // circle on the screen. Refused, counted in the report, never an exception.
+    // The first rule that applies names the reason:
+    //   1. a NaN in the start, the end, the thickness or the colour:
+    //      not_a_number; then an infinity in any of them: infinite;
+    //   2. a negative thickness: negative_size;
+    //   3. a thickness unit or a cap outside its enumeration: unknown_option;
+    //   4. a point of the outline that the batch transform turns into a pixel
+    //      coordinate larger in magnitude than about 1.7e38, where the vertex
+    //      program would overflow: pixel_position_out_of_range.
+    // Proved by: stroke_geometry_test (the outline of each cap and unit).
+    // Proved by: stroke_line_check_test (the order of the refusals).
     GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
-                                 gltfx_rgba color,
-                                 gltfx_draw_layer layer = {}) noexcept;
+                                 gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 
     // The outline of an axis-aligned rectangle, grown by `style.align`: centered
     // on the edge (the default), inside the rectangle, or outside it. The

@@ -188,3 +188,44 @@ GLINTFX_TEST(image_value_plain_identifier_other_than_none_is_error) {
     GLINTFX_CHECK(result.diagnostic.expected == "component_value");
     GLINTFX_CHECK(result.diagnostic.column == 1);
 }
+
+GLINTFX_TEST(image_value_url_function_name_is_ascii_case_insensitive) {
+    // CSS function names compare ASCII case-insensitively: `URL(` is `url(` (M7).
+    const std::string_view source = R"gfss(URL("a.png"))gfss";
+    const auto tokens = gltfx_gfss_tokenize(source);
+    const auto result = read_image_value(tokens);
+    GLINTFX_CHECK(result.kind == image_value_kind::url);
+    GLINTFX_CHECK(result.text == "a.png");
+}
+
+GLINTFX_TEST(image_value_gradient_function_name_is_ascii_case_insensitive) {
+    // `LINEAR-GRADIENT(` is `linear-gradient(` (M7, the gradient prefix).
+    const std::string_view source = "LINEAR-GRADIENT(red, blue)";
+    const auto tokens = gltfx_gfss_tokenize(source);
+    const auto result = read_image_value(tokens);
+    GLINTFX_CHECK(result.kind == image_value_kind::gradient_not_yet_supported);
+    GLINTFX_CHECK(result.text.empty());
+}
+
+GLINTFX_TEST(image_value_quoted_url_accepts_single_quotes) {
+    const std::string_view source = "url('a.png')";
+    const auto tokens = gltfx_gfss_tokenize(source);
+    const auto result = read_image_value(tokens);
+    GLINTFX_CHECK(result.kind == image_value_kind::url);
+    GLINTFX_CHECK(result.text == "a.png");
+}
+
+GLINTFX_TEST(image_value_gradient_with_a_nested_function_is_one_gradient) {
+    // The nested `rgb(` is one level deeper: its `)` must not close the gradient (M9).
+    const std::string_view source = "linear-gradient(rgb(1, 2, 3), blue)";
+    const auto tokens = gltfx_gfss_tokenize(source);
+    const auto result = read_image_value(tokens);
+    GLINTFX_CHECK(result.kind == image_value_kind::gradient_not_yet_supported);
+}
+
+GLINTFX_TEST(image_value_gradient_with_a_nested_url_is_one_gradient) {
+    const std::string_view source = "linear-gradient(url(a.png), red)";
+    const auto tokens = gltfx_gfss_tokenize(source);
+    const auto result = read_image_value(tokens);
+    GLINTFX_CHECK(result.kind == image_value_kind::gradient_not_yet_supported);
+}

@@ -8,10 +8,10 @@
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/texture_2d_impl.hpp"
 
-// draw2d/texture_upload.hpp - R2D-TEXTURE, fatia T2a: the making and the release of the GL texture
-// object of one texture, over an already loaded gl_function_table (no window, no operating system),
-// so it runs on all five systems against a fake context and a fake table
-// (tests/texture_upload_test.cpp).
+// draw2d/texture_upload.hpp - R2D-TEXTURE, fatia T2a: the making of the GL texture object of one
+// texture (its release is texture_release.hpp), over an already loaded gl_function_table (no
+// window, no operating system), so it runs on all five systems against a fake context and a fake
+// table (tests/texture_upload_test.cpp).
 //
 // MAKING, in this order (each refusal leaves no GL object alive and nothing bound):
 //   1. the request (texture_request_check.hpp): refused before the context is touched;
@@ -35,10 +35,5 @@ namespace glintfx::draw2d {
 create_texture_object(const texture_gl_access &access, const glintfx::gltfx_image_view &image,
                       const glintfx::gltfx_texture_2d_desc &desc,
                       const batch_allocator &allocator) noexcept;
-
-// Makes the texture's context current and deletes its GL object, then deletes the record. Never
-// refused: if the context cannot be made current, the GL object goes with the context. Null is
-// harmless.
-void release_texture_object(glintfx::texture_2d_impl *texture) noexcept;
 
 } // namespace glintfx::draw2d

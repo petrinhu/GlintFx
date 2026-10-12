@@ -28,6 +28,18 @@
 // encoded bytes instead would darken every edge between two colours.
 namespace glintfx::draw2d {
 
+// The source texels, along one axis, that destination texel `target` covers at all, both ends
+// included: with n the source length and m the target length, source texel s spans
+// [s * m, (s + 1) * m) and target texel t spans [t * n, (t + 1) * n) in units of 1 / (n * m), so
+// first = t * n / m and last = ((t + 1) * n - 1) / m, in integers. A texel past `last` would be
+// read with weight zero, past the end of the row on the last texel: the bound is exact.
+struct covered_range {
+    std::uint32_t first = 0U;
+    std::uint32_t last = 0U;
+};
+[[nodiscard]] covered_range covered_texels(std::uint32_t target, std::uint32_t source_length,
+                                           std::uint32_t target_length) noexcept;
+
 // The length of reduced level `level` of a side of `side` texels: max(1, side >> level).
 [[nodiscard]] std::uint32_t reduced_side(std::uint32_t side, std::uint32_t level) noexcept;
 

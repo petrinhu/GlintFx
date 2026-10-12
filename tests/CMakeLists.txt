@@ -1566,6 +1566,19 @@ target_sources(mipmap_reduce_test PRIVATE
 
 # R2D-TEXTURE T2a, etapa B: the making and the release of the GL texture object against a FAKE context and a
 # table of FAKE GL functions (the generated loader header and gl_abi.hpp, as renderer_2d_impl_test).
+# R2D-TEXTURE T2a-fix1: the release of the GL texture object, apart from its making, against a FAKE context
+# and two FAKE GL functions (the generated loader header and gl_abi.hpp, as texture_upload_test).
+glintfx_add_test(texture_release_test)
+add_dependencies(texture_release_test glintfx_gl_functions_generated)
+target_include_directories(texture_release_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_release_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
+)
+
 glintfx_add_test(texture_upload_test)
 add_dependencies(texture_upload_test glintfx_gl_functions_generated)
 target_include_directories(texture_upload_test PRIVATE

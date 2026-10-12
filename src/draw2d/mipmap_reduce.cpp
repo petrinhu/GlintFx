@@ -34,12 +34,6 @@ struct reduction {
     plane to;
 };
 
-// The source texels of one axis that one destination texel covers at all, inclusive at both ends.
-struct axis_span {
-    std::uint32_t first;
-    std::uint32_t last;
-};
-
 // The premultiplied linear sums of one destination texel, before they are stored as bytes.
 struct texel_sum {
     float red = 0.0F;
@@ -54,21 +48,6 @@ struct texel_sum {
 
 [[nodiscard]] std::size_t texel_index(plane level, std::uint32_t x, std::uint32_t y) noexcept {
     return static_cast<std::size_t>(y) * level.width + x;
-}
-
-// The source texels that destination texel `target` touches, in integers. With n the source length
-// and m the target length, source texel s spans [s * m, (s + 1) * m) in scaled units, and
-// destination texel t spans [t * n, (t + 1) * n). The two overlap exactly when
-// s * m < (t + 1) * n and (s + 1) * m > t * n, which gives the first and last index below.
-[[nodiscard]] axis_span covered_span(std::uint32_t target, std::uint32_t source_length,
-                                     std::uint32_t target_length) noexcept {
-    const auto n = static_cast<std::uint64_t>(source_length);
-    const auto m = static_cast<std::uint64_t>(target_length);
-    const auto t = static_cast<std::uint64_t>(target);
-    const std::uint64_t first = t * n / m;
-    const std::uint64_t last = ((t + 1U) * n - 1U) / m;
-    return axis_span{.first = static_cast<std::uint32_t>(first),
-                     .last = static_cast<std::uint32_t>(last)};
 }
 
 // The share of source texel `from` that destination texel `target` takes along one axis: the
@@ -111,8 +90,8 @@ void add_weighted(texel_sum &sum, gltfx_rgba8 texel, float weight) noexcept {
 // The texel of the level below at (x, y): the weighted sum of the source texels it covers.
 [[nodiscard]] gltfx_rgba8 average_block(const reduction &job, std::uint32_t x,
                                         std::uint32_t y) noexcept {
-    const axis_span columns = covered_span(x, job.from.width, job.to.width);
-    const axis_span rows = covered_span(y, job.from.height, job.to.height);
+    const covered_range columns = covered_texels(x, job.from.width, job.to.width);
+    const covered_range rows = covered_texels(y, job.from.height, job.to.height);
     texel_sum sum;
     for (std::uint32_t row = rows.first; row <= rows.last; ++row) {
         const float row_weight = axis_weight(row, y, job.from.height, job.to.height);
@@ -158,6 +137,21 @@ bool reduce_to_next_level(std::span<const gltfx_rgba8> source, std::uint32_t wid
         }
     }
     return true;
+}
+
+// The source texels that destination texel `target` touches, in integers. With n the source length
+// and m the target length, source texel s spans [s * m, (s + 1) * m) in scaled units, and
+// destination texel t spans [t * n, (t + 1) * n). The two overlap exactly when
+// s * m < (t + 1) * n and (s + 1) * m > t * n, which gives the first and last index below.
+covered_range covered_texels(std::uint32_t target, std::uint32_t source_length,
+                             std::uint32_t target_length) noexcept {
+    const auto n = static_cast<std::uint64_t>(source_length);
+    const auto m = static_cast<std::uint64_t>(target_length);
+    const auto t = static_cast<std::uint64_t>(target);
+    const std::uint64_t first = t * n / m;
+    const std::uint64_t last = ((t + 1U) * n - 1U) / m;
+    return covered_range{.first = static_cast<std::uint32_t>(first),
+                         .last = static_cast<std::uint32_t>(last)};
 }
 
 } // namespace glintfx::draw2d

@@ -123,7 +123,7 @@ void drain_gl_errors(const gl_function_table &gl) noexcept {
 }
 
 // Makes room for `count` texels in `buffer` and sets its size to them. False when the allocator
-// refused; the buffer is then as it was.
+// refused; the buffer then holds no texels, and its old block (if any) is untouched.
 [[nodiscard]] bool take_texels(const batch_allocator &allocator, pod_buffer<gltfx_rgba8> &buffer,
                                std::size_t count) noexcept {
     buffer.size = 0;
@@ -197,11 +197,19 @@ void prepare_gl_texture(const gl_function_table &gl, texture_2d_impl &record) no
                        static_cast<GLint>(record.reduced_levels));
 }
 
-void upload_level(const gl_function_table &gl, std::uint32_t level, std::uint32_t width,
-                  std::uint32_t height, std::span<const gltfx_rgba8> texels) noexcept {
-    gl.glTexImage2D(k_gl_texture_2d, static_cast<GLint>(level),
-                    static_cast<GLint>(k_gl_srgb8_alpha8), static_cast<GLsizei>(width),
-                    static_cast<GLsizei>(height), 0, k_gl_rgba, k_gl_unsigned_byte, texels.data());
+// One level as it goes to the card: its number, its size in texels, and its stored texels.
+struct level_image {
+    std::uint32_t level = 0U;
+    std::uint32_t width = 0U;
+    std::uint32_t height = 0U;
+    std::span<const gltfx_rgba8> texels;
+};
+
+void upload_level(const gl_function_table &gl, const level_image &image) noexcept {
+    gl.glTexImage2D(k_gl_texture_2d, static_cast<GLint>(image.level),
+                    static_cast<GLint>(k_gl_srgb8_alpha8), static_cast<GLsizei>(image.width),
+                    static_cast<GLsizei>(image.height), 0, k_gl_rgba, k_gl_unsigned_byte,
+                    image.texels.data());
 }
 
 // Computes reduced level `level` from `source` (the level above) into `target`. False when the
@@ -220,17 +228,25 @@ void upload_level(const gl_function_table &gl, std::uint32_t level, std::uint32_
 // Uploads level 0, then each reduced level right after it is computed, from the level above.
 [[nodiscard]] bool upload_levels(const gl_function_table &gl, const texture_2d_impl &record,
                                  texel_levels &texels) noexcept {
-    upload_level(gl, 0, record.width, record.height,
-                 std::span<const gltfx_rgba8>(texels.first.data, texels.first.size));
+    upload_level(gl,
+                 level_image{
+                     .level = 0U,
+                     .width = record.width,
+                     .height = record.height,
+                     .texels = std::span<const gltfx_rgba8>(texels.first.data, texels.first.size),
+                 });
     pod_buffer<gltfx_rgba8> *source = &texels.first;
     pod_buffer<gltfx_rgba8> *target = &texels.second;
     for (std::uint32_t level = 1; level <= record.reduced_levels; ++level) {
         if (!reduce_one_level(record, level, *source, *target)) {
             return false;
         }
-        upload_level(gl, level, reduced_side(record.width, level),
-                     reduced_side(record.height, level),
-                     std::span<const gltfx_rgba8>(target->data, target->size));
+        upload_level(gl, level_image{
+                             .level = level,
+                             .width = reduced_side(record.width, level),
+                             .height = reduced_side(record.height, level),
+                             .texels = std::span<const gltfx_rgba8>(target->data, target->size),
+                         });
         std::swap(source, target);
     }
     return true;
@@ -311,19 +327,6 @@ gltfx_rslt<texture_2d_impl *> create_texture_object(const texture_gl_access &acc
         .levels = levels.value(),
         .allocator = allocator,
     });
-}
-
-// Null is harmless. The context is made current first; if that fails, the GL object goes with the
-// context and nothing is deleted through it. The record is freed in every case.
-void release_texture_object(texture_2d_impl *texture) noexcept {
-    if (texture == nullptr) {
-        return;
-    }
-    const gltfx_rslt<void> current = texture->access.make_current(texture->access.context);
-    if (current.has_value()) {
-        delete_gl_texture(*texture->access.gl, *texture);
-    }
-    delete texture;
 }
 
 } // namespace glintfx::draw2d

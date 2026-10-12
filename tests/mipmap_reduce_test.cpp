@@ -19,6 +19,7 @@
 // Each case says what the wrong reductions would give, so a reader sees what it tells apart.
 
 using glintfx::gltfx_rgba8;
+using glintfx::draw2d::covered_texels;
 using glintfx::draw2d::reduce_to_next_level;
 using glintfx::draw2d::reduced_side;
 
@@ -118,4 +119,35 @@ GLINTFX_TEST(a_storage_of_the_wrong_size_is_not_written) {
     std::vector<gltfx_rgba8> right(1, k_sentinel);
     GLINTFX_CHECK(!reduce_to_next_level(source, 3, 1, right));
     GLINTFX_CHECK(same(right.at(0), k_sentinel));
+}
+
+// The covered source texels, both ends included, in integers (mipmap_reduce.hpp). The last texel of
+// a row covers up to the last source texel and NEVER one past it: the texel past it has weight
+// zero, so a value can not show the difference, and only the bound itself proves it.
+GLINTFX_TEST(each_texel_covers_exactly_the_source_texels_it_overlaps) {
+    struct row {
+        std::uint32_t target, source_length, target_length, first, last;
+    };
+    const std::array<row, 7> table{{
+        {0, 1, 1, 0, 0}, // a side of one stays one
+        {0, 2, 1, 0, 1}, // even: two texels
+        {3, 8, 4, 6, 7}, // even, the last texel of the row
+        {0, 3, 1, 0, 2}, // odd: all three
+        {0, 5, 2, 0, 2}, // odd: texels 0, 1 and half of 2
+        {1, 5, 2, 2, 4}, // odd, the last texel: half of 2, then 3 and 4
+        {2, 7, 3, 4, 6}, // odd, the last texel of 7 into 3
+    }};
+    for (const row &r : table) {
+        const auto range = covered_texels(r.target, r.source_length, r.target_length);
+        GLINTFX_CHECK_EQ(range.first, r.first);
+        GLINTFX_CHECK_EQ(range.last, r.last);
+    }
+}
+
+// The alpha is rounded to the nearest byte, not cut: two opaque texels, one of alpha 1 and one
+// clear average to 511 / 4 = 127.75, stored as 128 (cutting gives 127). The colour stays black.
+GLINTFX_TEST(the_alpha_is_rounded_to_the_nearest_byte) {
+    const std::vector<gltfx_rgba8> level =
+        reduced({k_black, k_black, gltfx_rgba8{0, 0, 0, 1}, k_clear}, 2, 2);
+    GLINTFX_CHECK(same(level.at(0), gltfx_rgba8{0, 0, 0, 128}));
 }

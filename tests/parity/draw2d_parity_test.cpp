@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -9,7 +10,10 @@
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/core/image_view.hpp>
 #include <glintfx/draw2d/renderer_2d.hpp>
+#include <glintfx/draw2d/texture_2d.hpp>
+#include <glintfx/draw2d/texture_2d_desc.hpp>
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
 #include <glintfx/platform/window/display.hpp>
@@ -109,6 +113,13 @@ constexpr gl_enum k_gl_vertex_shader = 0x8B31;
 constexpr gl_enum k_gl_fragment_shader = 0x8B30;
 constexpr gl_enum k_gl_rgba = 0x1908;
 constexpr gl_enum k_gl_unsigned_byte = 0x1401;
+// R2D-TEXTURE T2a-fix1, the unpack state create_texture sets and leaves (gl.xml).
+constexpr gl_enum k_gl_unpack_row_length = 0x0CF2;
+constexpr gl_enum k_gl_unpack_skip_rows = 0x0CF3;
+constexpr gl_enum k_gl_unpack_skip_pixels = 0x0CF4;
+constexpr gl_enum k_gl_unpack_alignment = 0x0CF5;
+constexpr gl_enum k_gl_pixel_unpack_buffer = 0x88EC;
+constexpr gl_enum k_gl_pixel_unpack_buffer_binding = 0x88EF;
 
 // The GL entry points the test needs, resolved through the PUBLIC gltfx_gl_context::proc_address().
 struct gl_api {
@@ -130,6 +141,10 @@ struct gl_api {
     void (*bind_texture)(gl_enum, gl_uint) = nullptr;
     void (*delete_textures)(gl_sizei, const gl_uint *) = nullptr;
     void (*active_texture)(gl_enum) = nullptr;
+    void (*pixel_storei)(gl_enum, gl_int) = nullptr;
+    void (*gen_buffers)(gl_sizei, gl_uint *) = nullptr;
+    void (*bind_buffer)(gl_enum, gl_uint) = nullptr;
+    void (*delete_buffers)(gl_sizei, const gl_uint *) = nullptr;
     gl_uint (*create_shader)(gl_enum) = nullptr;
     void (*shader_source)(gl_uint, gl_sizei, const char *const *, const gl_int *) = nullptr;
     void (*compile_shader)(gl_uint) = nullptr;
@@ -179,6 +194,10 @@ bool load_gl(glintfx::gltfx_gl_context &context, gl_api &gl) {
            resolve(context, "glBindTexture", gl.bind_texture) &&
            resolve(context, "glDeleteTextures", gl.delete_textures) &&
            resolve(context, "glActiveTexture", gl.active_texture) &&
+           resolve(context, "glPixelStorei", gl.pixel_storei) &&
+           resolve(context, "glGenBuffers", gl.gen_buffers) &&
+           resolve(context, "glBindBuffer", gl.bind_buffer) &&
+           resolve(context, "glDeleteBuffers", gl.delete_buffers) &&
            resolve(context, "glCreateShader", gl.create_shader) &&
            resolve(context, "glShaderSource", gl.shader_source) &&
            resolve(context, "glCompileShader", gl.compile_shader) &&
@@ -566,6 +585,89 @@ std::string code_name(const glintfx::gltfx_err &error) {
     return std::string(glintfx::gltfx_err_code_name(error.code()));
 }
 
+gl_int integer_of(const gl_api &gl, gl_enum name) {
+    gl_int value = -1;
+    gl.get_integerv(name, &value);
+    return value;
+}
+
+// Leaves what a careless consumer could have left before create_texture(): a pixel-unpack buffer
+// bound (with no data store: an upload from it is a GL error), odd unpack state, unit 3 active.
+gl_uint plant_hostile_unpack_state(const gl_api &gl) {
+    gl_uint buffer = 0;
+    gl.gen_buffers(1, &buffer);
+    gl.bind_buffer(k_gl_pixel_unpack_buffer, buffer);
+    gl.pixel_storei(k_gl_unpack_alignment, 8);
+    gl.pixel_storei(k_gl_unpack_row_length, 3);
+    gl.pixel_storei(k_gl_unpack_skip_rows, 2);
+    gl.pixel_storei(k_gl_unpack_skip_pixels, 1);
+    gl.active_texture(k_gl_texture3);
+    return buffer;
+}
+
+// The state renderer_2d.hpp says create_texture() leaves, read back from the driver: no unpack
+// buffer, alignment 1, row length and skips 0, no texture bound, unit 0 active, no GL error.
+void check_state_left_by_create_texture(const cells_context &c) {
+    const gl_api &gl = c.gl;
+    report(c, "T2 nenhum buffer de desempacotamento ligado",
+           integer_of(gl, k_gl_pixel_unpack_buffer_binding) == 0);
+    report(c, "T3 alinhamento de desempacotamento 1", integer_of(gl, k_gl_unpack_alignment) == 1);
+    report(c, "T4 comprimento de linha e saltos 0",
+           integer_of(gl, k_gl_unpack_row_length) == 0 &&
+               integer_of(gl, k_gl_unpack_skip_rows) == 0 &&
+               integer_of(gl, k_gl_unpack_skip_pixels) == 0);
+    report(c, "T5 nenhuma textura ligada, unidade 0 ativa",
+           integer_of(gl, k_gl_texture_binding_2d) == 0 &&
+               integer_of(gl, k_gl_active_texture) == static_cast<gl_int>(k_gl_texture0));
+    report(c, "T6 nenhum erro GL depois de create_texture", gl.get_error() == 0);
+}
+
+// The handle: its size, a move that carries the texture, and a destruction that leaves no GL error.
+void check_texture_handle(const cells_context &c, glintfx::gltfx_texture_2d texture) {
+    report(c, "T7 a alca aberta diz o tamanho",
+           texture.is_open() && texture.width() == 3 && texture.height() == 2);
+    glintfx::gltfx_texture_2d moved = std::move(texture);
+    // renderer_2d.hpp, texture_2d.hpp: is_open() is the one call allowed on a moved-from handle.
+    report(c, "T8 mover leva a textura",
+           !texture.is_open() && moved.is_open() && moved.width() == 3);
+    {
+        const glintfx::gltfx_texture_2d gone = std::move(moved);
+    }
+    report(c, "T9 destruir a alca nao deixa erro GL", c.gl.get_error() == 0);
+}
+
+// Cell T (R2D-TEXTURE T2a-fix1): create_texture() through the PUBLIC handle on a real context, on
+// both systems, over hostile unpack state; then a zero width refused by name through the same call.
+void cell_texture_creation(const cells_context &c) {
+    drain_gl_errors(c.gl);
+    const gl_uint buffer = plant_hostile_unpack_state(c.gl);
+    const std::vector<std::byte> pixels(static_cast<std::size_t>(3) * 2 * 4, std::byte{0x80});
+    const glintfx::gltfx_image_view image{.pixels = pixels,
+                                          .width = 3,
+                                          .height = 2,
+                                          .bytes_per_row = 12,
+                                          .pixel_format =
+                                              glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+    glintfx::gltfx_texture_2d_desc desc;
+    desc.mipmap_levels = glintfx::gltfx_all_mipmap_levels;
+    glintfx::gltfx_rslt<glintfx::gltfx_texture_2d> made = c.renderer.create_texture(image, desc);
+    report(c, "T1 create_texture abre a textura", made.has_value(),
+           made.has_error() ? code_name(made.err()).c_str() : "");
+    check_state_left_by_create_texture(c);
+    c.gl.delete_buffers(1, &buffer);
+    if (made.has_value()) {
+        check_texture_handle(c, std::move(made.value()));
+    }
+    glintfx::gltfx_image_view no_width = image;
+    no_width.width = 0;
+    const glintfx::gltfx_rslt<glintfx::gltfx_texture_2d> refused =
+        c.renderer.create_texture(no_width, {});
+    report(c, "T10 largura zero recusada pelo nome",
+           refused.has_error() &&
+               refused.err().code() == glintfx::gltfx_err_code::invalid_argument &&
+               refused.err().rejected_value() == "width");
+}
+
 // Opens a context with the surface encoding `srgb`, runs every cell over it, and destroys it.
 // Returns false when the driver does not support the mode (a DECLARED absence, counted), true
 // otherwise; a failed cell is counted in g_failures, and a failure to open anything at all ends the
@@ -740,6 +842,7 @@ mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
     cell_empty_frame(cells);
     cell_shared_edge(cells);
     cell_draw_calls(cells);
+    cell_texture_creation(cells);
     return mode_result::ran;
 }
 

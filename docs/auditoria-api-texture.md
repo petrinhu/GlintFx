@@ -25,6 +25,7 @@
 - **D-W8-301 e D-W8-302:** a T2 se parte em T2a (handle, subida e descritor) e T2b (amostragem e texto do filtro). A T1 entra na fila logo depois da S1.
 - **D-W8-353 a 356 (r13):** nomes finais: `flip_left_right_and_top_bottom`, `release_slot`, `gltfx_all_mipmap_levels = 0xFFFFFFFFU` (com a regra reescrita), `draw_atlas_image` e `gltfx_light_tint` (no parecer H0). Os desenhos com textura passam a ter quatro parâmetros ou menos, por `gltfx_texture_paint` e `gltfx_atlas_paint` (D-W8-354). Ver a nota D-W8-354 ao lado de cada assinatura trocada. As seções 3 a 7 são análise e citam, onde indicam, os nomes anteriores; o texto vigente é o da seção 2.
 - **Errata da T2a-B (CTO, 12/10/2026; uma cerca e uma fonte):** a cerca vira o texto que a T2a publica, para que nenhuma fatia seguinte reescreva o que já saiu. `texture_2d_desc.hpp`: o comentário de `linear`, o de `mipmap_levels` (a contagem dos níveis REDUZIDOS, com o exemplo 256 x 1) e o de `gltfx_all_mipmap_levels` passam a ser os da T2a-A; o parágrafo FILTERING AND COLOUR continua aqui e entra na T2b, como bloco, sem mudar uma linha do resto. `renderer_2d.hpp`: o comentário de `create_texture` passa a ser o da T2a-B (a ordem das recusas, o erro do contexto, `platform_failure` com o código GL e o estado de desempacotamento). `texture_2d.hpp`: sem mudança de texto; a T2a publica a cerca SEM as linhas 18 a 36 do bloco (os três itens de LIFETIME depois do primeiro, a linha `//` e o `Proved by` de `renderer_2d_impl_test`), e a T3 as acrescenta como estão, depois de `//     rule as the window and the context).`, junto com o teste que as prova. Os `#include` de `texture_region.hpp` e `texture_atlas.hpp` e os blocos de `update_texture` e dos desenhos entram nas fatias deles, como estão.
+- **Errata da T2a-fix1 (CTO, 12/10/2026):** os `Proved by` de `create_texture` passam a citar o que cada teste exercita de fato: `texture_upload_test` prova a criação para a qual o método encaminha, sobre GL falso; `draw2d_parity_test` prova o próprio método e a alça sobre um contexto real (revisão N1 da T2a, achados 5 e 6).
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -570,10 +571,15 @@ class gltfx_texture_atlas {
     // unpack buffer, alignment 1, row length and skips zero) and leaves it
     // so, with no texture bound and texture unit 0 active.
     // Proved by: texture_desc_validation_test (each invalid_argument, by
-    // name and in this order).
-    // Proved by: texture_upload_test (the context first, the card's limit,
-    // the two memory failures, the unpack state, the stored texels uploaded
-    // as sRGB, every reduced level).
+    // name and in this order, in the check this call makes first).
+    // Proved by: texture_upload_test (the creation this call forwards to,
+    // over a fake GL: the context first, the card's limit, the two memory
+    // failures, the unpack state set and left so, the stored texels
+    // uploaded as sRGB, every reduced level).
+    // Proved by: draw2d_parity_test (this call on a real context, over a
+    // pixel-unpack buffer and unpack state left by the caller: the texture
+    // opens with its size, the unpack state, the binding and the unit read
+    // back as said above, and a zero width is refused by name).
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_texture_2d>
     create_texture(gltfx_image_view image, gltfx_texture_2d_desc desc = {}) noexcept;
 

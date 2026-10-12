@@ -5,11 +5,11 @@
 #include <utility>
 
 #include "draw2d/texture_2d_impl.hpp"
-#include "draw2d/texture_upload.hpp"
+#include "draw2d/texture_release.hpp"
 
 // draw2d/texture_2d_facade.cpp - R2D-TEXTURE, fatia T2a: the public handle gltfx_texture_2d. Each
-// member is a forward: the making and the release live in texture_upload.hpp, the record in
-// texture_2d_impl.hpp. A moved-from handle owns nothing and releases nothing.
+// member is a forward: the making lives in texture_upload.hpp, the release in texture_release.hpp,
+// the record in texture_2d_impl.hpp. A moved-from handle owns nothing and releases nothing.
 namespace glintfx {
 
 gltfx_texture_2d::gltfx_texture_2d(gltfx_texture_2d &&other) noexcept

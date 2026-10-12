@@ -31,6 +31,7 @@ target_sources(glintfx_library PRIVATE
     renderer_2d_impl.cpp
     renderer_2d_facade.cpp
     texture_upload.cpp
+    texture_release.cpp
     texture_2d_facade.cpp
     renderer_2d_facade_textures.cpp
     triangle_list_check.cpp

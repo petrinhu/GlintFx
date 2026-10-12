@@ -32,7 +32,7 @@ using glintfx::gltfx_texture_filter;
 
 // "width", then "height": a zero side is refused by name before anything else is read.
 [[nodiscard]] gltfx_rslt<void> check_sides(const gltfx_image_view &image) noexcept {
-    if (image.width == 0) {
+    if (image.width == 0U) {
         return gltfx_rslt<void>::err(refusal("width"));
     }
     if (image.height == 0U) {

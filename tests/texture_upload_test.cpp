@@ -20,10 +20,11 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// texture_upload_test.cpp - R2D-TEXTURE, fatia T2a: the making and the release of the GL texture
-// object (draw2d/texture_upload.hpp), against a FAKE context and a table of FAKE GL functions that
-// keep what the code asked of the card: the order against the context, the unpack state at each
-// upload, every glTexImage2D with its bytes, the texture parameters, the deletions.
+// texture_upload_test.cpp - R2D-TEXTURE, fatia T2a: the making of the GL texture object
+// (draw2d/texture_upload.hpp; its release is texture_release_test.cpp), against a FAKE context and
+// a table of FAKE GL functions that keep what the code asked of the card: the order against the
+// context, the unpack state at each upload, every glTexImage2D with its bytes, the texture
+// parameters, the deletions.
 //
 // A DECLARED DOWNGRADE (GODS_LAWS.md L-09): no window, no driver. What a real card does with the
 // texture is the live cell of the texture parity test (fatia T4b). The literal GL enumerators are
@@ -41,7 +42,6 @@ using glintfx::texture_2d_impl;
 using glintfx::draw2d::batch_allocator;
 using glintfx::draw2d::create_texture_object;
 using glintfx::draw2d::default_batch_allocator;
-using glintfx::draw2d::release_texture_object;
 using glintfx::draw2d::texture_gl_access;
 using glintfx::render::gl_function_table;
 using glintfx::render::GLenum;
@@ -286,10 +286,11 @@ std::vector<std::byte> pixels;
            result.err().rejected_value() == field;
 }
 
-// Releases what a successful make() returned, so no case leaks.
+// Frees the record a successful make() returned, so no case leaks. The fake card keeps no object
+// alive, so nothing is released through GL here (that is texture_release_test's subject).
 void release(const gltfx_rslt<texture_2d_impl *> &made) {
     if (made.has_value()) {
-        release_texture_object(made.value());
+        delete made.value();
     }
 }
 
@@ -489,33 +490,20 @@ GLINTFX_TEST(the_record_names_the_texture_its_size_and_its_owner) {
     release(made);
 }
 
-// The public text: if the context cannot be made current, the graphics object goes with the
-// context. Nothing is deleted through a context that is not current, and the record is still freed
-// (the sanitizer run would see it leak).
-GLINTFX_TEST(a_release_whose_context_cannot_be_made_current_deletes_nothing) {
+// renderer_2d.hpp: create_texture "sets the pixel-unpack state it reads with ... and leaves it so,
+// with no texture bound and texture unit 0 active". Read AFTER the call returns, from state the
+// consumer had left otherwise (reset() plants alignment 8, row length 3, skips 2 and 1, unpack
+// buffer 77 and unit 3).
+GLINTFX_TEST(the_unpack_state_is_left_as_set_after_the_creation) {
     reset();
-    const auto made = make(white(2, 2));
+    const auto made = make(white(3, 3), levels(gltfx_all_mipmap_levels));
     GLINTFX_CHECK(made.has_value());
-    context = fake_context{};
-    context.fail = true;
-    card.deleted.clear();
+    GLINTFX_CHECK_EQ(card.unpack_buffer, 0U);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_alignment), 1);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_row_length), 0);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_skip_rows), 0);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_skip_pixels), 0);
+    GLINTFX_CHECK_EQ(card.active_unit, k_texture0);
+    GLINTFX_CHECK_EQ(card.bound_texture, 0U);
     release(made);
-    GLINTFX_CHECK(context.current_calls >= 1);
-    GLINTFX_CHECK(card.deleted.empty());
-}
-
-GLINTFX_TEST(the_release_makes_the_context_current_then_deletes_the_texture) {
-    reset();
-    const auto made = make(white(2, 2));
-    GLINTFX_CHECK(made.has_value());
-    const GLuint name = card.generated.empty() ? 0U : card.generated.at(0);
-    context = fake_context{};
-    card.deleted.clear();
-    card.gl_calls = 0;
-    release(made);
-    GLINTFX_CHECK(context.current_calls >= 1);
-    GLINTFX_CHECK_EQ(context.gl_calls_at_first_current, 0);
-    GLINTFX_CHECK_EQ(card.deleted.size(), 1U);
-    GLINTFX_CHECK(!card.deleted.empty() && card.deleted.at(0) == name);
-    release_texture_object(nullptr);
 }

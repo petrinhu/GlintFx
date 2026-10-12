@@ -135,6 +135,15 @@ GLINTFX_TEST(all_mipmap_levels_asks_for_the_whole_chain) {
         accepted_with(check_texture_request(view(1, 1), levels(gltfx_all_mipmap_levels)), 0));
 }
 
+// bytes_per_row comes before pixels (the published order): a view whose row is short AND whose
+// pixels are short is refused as "bytes_per_row".
+GLINTFX_TEST(a_short_row_is_named_before_short_pixels) {
+    gltfx_image_view image = view(2, 2);
+    image.bytes_per_row = 7;
+    image.pixels = std::span<const std::byte>(k_bytes).first(3);
+    GLINTFX_CHECK(refused_as(check_texture_request(image, {}), "bytes_per_row"));
+}
+
 // The order of the public text: size, then the view, then the filter, then the levels.
 GLINTFX_TEST(the_first_refusal_in_the_published_order_wins) {
     gltfx_image_view no_width = view(0, 0);

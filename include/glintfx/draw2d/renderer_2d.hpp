@@ -320,10 +320,15 @@ class gltfx_renderer_2d {
     // unpack buffer, alignment 1, row length and skips zero) and leaves it
     // so, with no texture bound and texture unit 0 active.
     // Proved by: texture_desc_validation_test (each invalid_argument, by
-    // name and in this order).
-    // Proved by: texture_upload_test (the context first, the card's limit,
-    // the two memory failures, the unpack state, the stored texels uploaded
-    // as sRGB, every reduced level).
+    // name and in this order, in the check this call makes first).
+    // Proved by: texture_upload_test (the creation this call forwards to,
+    // over a fake GL: the context first, the card's limit, the two memory
+    // failures, the unpack state set and left so, the stored texels
+    // uploaded as sRGB, every reduced level).
+    // Proved by: draw2d_parity_test (this call on a real context, over a
+    // pixel-unpack buffer and unpack state left by the caller: the texture
+    // opens with its size, the unpack state, the binding and the unit read
+    // back as said above, and a zero width is refused by name).
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_texture_2d>
     create_texture(gltfx_image_view image, gltfx_texture_2d_desc desc = {}) noexcept;
 

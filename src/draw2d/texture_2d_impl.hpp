@@ -18,7 +18,8 @@ namespace draw2d {
 
 // What making or releasing a texture needs of its renderer: the context to make current before
 // GL (the rule begin_frame() follows), and the renderer's own GL function table. `owner` names the
-// renderer the texture belongs to; it is compared, never read through.
+// renderer the texture belongs to; nothing reads through it, and nothing in this fatia compares it
+// yet (the refusal of a texture of another renderer comes with the drawing calls).
 struct texture_gl_access {
     void *context = nullptr;
     gltfx_rslt<void> (*make_current)(void *context) noexcept = nullptr;

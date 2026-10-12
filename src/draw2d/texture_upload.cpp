@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -18,6 +19,7 @@
 #include "draw2d/pixel_premultiply.hpp"
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/texture_request_check.hpp"
+#include "draw2d/texture_sampling.hpp"
 #include "gl_functions.hpp"
 
 // draw2d/texture_upload.cpp - R2D-TEXTURE, fatia T2a: the making and the release of one GL texture
@@ -48,6 +50,10 @@ constexpr GLenum k_gl_rgba = 0x1908;
 constexpr GLenum k_gl_unsigned_byte = 0x1401;
 constexpr GLenum k_gl_texture_base_level = 0x813C;
 constexpr GLenum k_gl_texture_max_level = 0x813D;
+constexpr GLenum k_gl_texture_mag_filter = 0x2800;
+constexpr GLenum k_gl_texture_min_filter = 0x2801;
+constexpr GLenum k_gl_texture_wrap_s = 0x2802;
+constexpr GLenum k_gl_texture_wrap_t = 0x2803;
 constexpr GLenum k_gl_unpack_alignment = 0x0CF5;
 constexpr GLenum k_gl_unpack_row_length = 0x0CF2;
 constexpr GLenum k_gl_unpack_skip_rows = 0x0CF3;
@@ -74,6 +80,7 @@ struct creation {
     gltfx_texture_2d_desc desc;
     std::uint32_t levels = 0U;
     batch_allocator allocator = default_batch_allocator();
+    texture_sampling_parameters sampling{};
 };
 
 [[nodiscard]] gltfx_err texture_refusal(gltfx_err_code code, std::string_view field,
@@ -186,7 +193,17 @@ void set_unpack_state(const gl_function_table &gl) noexcept {
 }
 
 // One new texture object on unit 0, complete with the levels the record says exist.
-void prepare_gl_texture(const gl_function_table &gl, texture_2d_impl &record) noexcept {
+// The four sampling parameters of the new texture, set while it is bound.
+void apply_sampling(const gl_function_table &gl,
+                    const texture_sampling_parameters &sampling) noexcept {
+    gl.glTexParameteri(k_gl_texture_2d, k_gl_texture_mag_filter, sampling.magnification);
+    gl.glTexParameteri(k_gl_texture_2d, k_gl_texture_min_filter, sampling.minification);
+    gl.glTexParameteri(k_gl_texture_2d, k_gl_texture_wrap_s, sampling.wrap_s);
+    gl.glTexParameteri(k_gl_texture_2d, k_gl_texture_wrap_t, sampling.wrap_t);
+}
+
+void prepare_gl_texture(const gl_function_table &gl, texture_2d_impl &record,
+                        const texture_sampling_parameters &sampling) noexcept {
     gl.glActiveTexture(k_gl_texture0);
     GLuint name = 0;
     gl.glGenTextures(1, &name);
@@ -195,6 +212,7 @@ void prepare_gl_texture(const gl_function_table &gl, texture_2d_impl &record) no
     gl.glTexParameteri(k_gl_texture_2d, k_gl_texture_base_level, 0);
     gl.glTexParameteri(k_gl_texture_2d, k_gl_texture_max_level,
                        static_cast<GLint>(record.reduced_levels));
+    apply_sampling(gl, sampling);
 }
 
 // One level as it goes to the card: its number, its size in texels, and its stored texels.
@@ -263,7 +281,7 @@ void delete_gl_texture(const gl_function_table &gl, const texture_2d_impl &recor
 create_gl_texture(const creation &plan, texture_2d_impl &record, texel_levels &texels) noexcept {
     const gl_function_table &gl = *plan.access.gl;
     set_unpack_state(gl);
-    prepare_gl_texture(gl, record);
+    prepare_gl_texture(gl, record, plan.sampling);
     const bool uploaded = upload_levels(gl, record, texels);
     const GLenum error = gl.glGetError();
     gl.glBindTexture(k_gl_texture_2d, 0);
@@ -310,6 +328,12 @@ gltfx_rslt<texture_2d_impl *> create_texture_object(const texture_gl_access &acc
     if (levels.has_error()) {
         return gltfx_rslt<texture_2d_impl *>::err(levels.err());
     }
+    const std::optional<texture_sampling_parameters> sampling =
+        sampling_parameters_of(desc.filter, levels.value());
+    if (!sampling.has_value()) {
+        return gltfx_rslt<texture_2d_impl *>::err(
+            texture_refusal(gltfx_err_code::invalid_argument, "filter", 0));
+    }
     const gltfx_rslt<void> current = access.make_current(access.context);
     if (current.has_error()) {
         return gltfx_rslt<texture_2d_impl *>::err(current.err());
@@ -326,6 +350,7 @@ gltfx_rslt<texture_2d_impl *> create_texture_object(const texture_gl_access &acc
         .desc = desc,
         .levels = levels.value(),
         .allocator = allocator,
+        .sampling = *sampling,
     });
 }
 

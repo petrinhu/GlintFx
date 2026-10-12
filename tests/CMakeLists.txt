@@ -1629,6 +1629,21 @@ target_sources(texture_upload_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
 )
 
+# R2D-TEXTURE T2b: the pure translation of a texture's filter and number of reduced levels into the four GL
+# sampling parameters (texture_sampling.hpp), as a closed table. No GL; gl_abi.hpp gives the GL types.
+# texture_upload_test (above) applies the table to the texture it makes, so it compiles the translation too.
+glintfx_add_test(texture_sampling_test)
+target_include_directories(texture_sampling_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+)
+target_sources(texture_sampling_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+)
+target_sources(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+)
+
 glintfx_add_test(srgb_encoding_test)
 target_include_directories(srgb_encoding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(srgb_encoding_test PRIVATE

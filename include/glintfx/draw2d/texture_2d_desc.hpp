@@ -22,7 +22,8 @@ enum class gltfx_texture_filter : std::uint8_t {
     // Each screen pixel takes the colour of the nearest texel: sharp
     // edges, the right choice for pixel art drawn at its own size.
     nearest = 0,
-    // Each screen pixel blends the four nearest texels.
+    // Each screen pixel blends between the four nearest texels of a level,
+    // and between the two nearest levels when reduced levels exist.
     linear = 1,
 };
 

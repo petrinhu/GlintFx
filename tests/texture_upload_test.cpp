@@ -99,6 +99,8 @@ struct fake_card {
     GLuint bound_texture = 0;
     GLenum active_unit = 0;
     std::map<GLenum, GLint> parameters; // glTexParameteri on GL_TEXTURE_2D
+    // The texture bound when each parameter was set (fatia T2b).
+    std::map<GLenum, GLuint> parameter_texture;
     std::vector<upload> uploads;
     int mipmap_generations = 0;
     int gl_calls_at_delete = -1;
@@ -189,6 +191,7 @@ void GLINTFX_GL_APIENTRY f_tex_parameter(GLenum target, GLenum pname, GLint valu
     ++card.gl_calls;
     if (target == k_texture_2d) {
         card.parameters[pname] = value;
+        card.parameter_texture[pname] = card.bound_texture;
     }
 }
 void GLINTFX_GL_APIENTRY f_tex_image(GLenum target, GLint level, GLint internal_format,
@@ -393,6 +396,93 @@ GLINTFX_TEST(the_unpack_state_is_set_before_the_upload) {
     GLINTFX_CHECK_EQ(sent.bound_texture, card.generated.at(0));
     GLINTFX_CHECK_EQ(card.bound_texture, 0U);
     release(made);
+}
+
+// R2D-TEXTURE, fatia T2b: the sampling parameters (draw2d/texture_sampling.hpp) are set on the NEW
+// texture, while it is bound, for every filter, with and without reduced levels. The table itself
+// is proved in texture_sampling_test; here, that the upload applies it. Literals of gl.xml.
+namespace {
+
+constexpr GLenum k_mag_filter = 0x2800;
+constexpr GLenum k_min_filter = 0x2801;
+constexpr GLenum k_wrap_s = 0x2802;
+constexpr GLenum k_wrap_t = 0x2803;
+constexpr GLint k_nearest = 0x2600;
+constexpr GLint k_linear = 0x2601;
+constexpr GLint k_nearest_mipmap_nearest = 0x2700;
+constexpr GLint k_linear_mipmap_linear = 0x2703;
+constexpr GLint k_clamp_to_edge = 0x812F;
+
+[[nodiscard]] gltfx_texture_2d_desc sampled(gltfx_texture_filter filter, std::uint32_t count) {
+    gltfx_texture_2d_desc desc;
+    desc.filter = filter;
+    desc.mipmap_levels = count;
+    return desc;
+}
+
+// True when each of the four sampling parameters was set while the ONE texture this creation
+// generated was bound (not before the bind, not after the unbind).
+[[nodiscard]] bool set_on_the_new_texture() {
+    if (card.generated.size() != 1U) {
+        return false;
+    }
+    const GLuint name = card.generated.front();
+    for (const GLenum pname : {k_mag_filter, k_min_filter, k_wrap_s, k_wrap_t}) {
+        const auto found = card.parameter_texture.find(pname);
+        if (found == card.parameter_texture.end() || found->second != name) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+GLINTFX_TEST(the_nearest_filter_without_reduced_levels_reads_one_texel_and_clamps_the_edges) {
+    reset();
+    const auto made = make(white(2, 1), sampled(gltfx_texture_filter::nearest, 0U));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_nearest);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_nearest);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_s), k_clamp_to_edge);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_t), k_clamp_to_edge);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(made);
+}
+
+GLINTFX_TEST(the_default_request_is_linear_without_reduced_levels_and_clamps_the_edges) {
+    reset();
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_linear);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_linear);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_s), k_clamp_to_edge);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_t), k_clamp_to_edge);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(made);
+}
+
+// A 4 x 4 texture with every reduced level has two (4 x 4, 2 x 2, 1 x 1): minification uses them.
+GLINTFX_TEST(with_reduced_levels_nearest_keeps_one_level_and_linear_blends_two) {
+    reset();
+    const auto near =
+        make(white(4, 4), sampled(gltfx_texture_filter::nearest, gltfx_all_mipmap_levels));
+    GLINTFX_CHECK(near.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_max_level), 2);
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_nearest);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_nearest_mipmap_nearest);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(near);
+    reset();
+    const auto blended = make(white(4, 4), sampled(gltfx_texture_filter::linear, 1U));
+    GLINTFX_CHECK(blended.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_max_level), 1);
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_linear);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_linear_mipmap_linear);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_s), k_clamp_to_edge);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_t), k_clamp_to_edge);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(blended);
 }
 
 // Without mipmaps the texture is complete with level 0 alone: GL_TEXTURE_MAX_LEVEL 0.

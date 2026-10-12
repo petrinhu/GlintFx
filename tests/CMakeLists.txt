@@ -52,6 +52,10 @@ glintfx_add_test(color_test)
 glintfx_add_test(vertex_2d_layout_test)
 glintfx_add_test(ellipse_test)
 
+# R2D-SPRITE-SHADE, H1 (docs/auditoria-api-sprite-shade.md, section 2): the projection of an upright
+# piece's shadow, directional and point - see projected_shadow_test.cpp's own header comment.
+glintfx_add_test(projected_shadow_test)
+
 # R2D-SHAPES, S1-fix1 (review N1 of S1, achado A1): the public defaults and the enumerator values of
 # draw2d/stroke.hpp, each as the parecer fixes them - see stroke_test.cpp's own header comment.
 glintfx_add_test(stroke_test)

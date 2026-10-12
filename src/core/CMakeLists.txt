@@ -21,3 +21,8 @@ target_sources(glintfx_library PRIVATE version.cpp err_code.cpp err.cpp color.cp
 # a handful of files, same shape err_code.cpp/err.cpp already share
 # with the files right above), never its own top-level layer.
 target_sources(glintfx_library PRIVATE log/severity.cpp log/event.cpp log/sink.cpp)
+
+# R2D-SPRITE-SHADE, H1 (docs/auditoria-api-sprite-shade.md, section 2): the shadow of an upright
+# piece, by a directional and by a point light, as a quadrilateral (projected_shadow.hpp); the
+# refusals by name live in their own atom, projected_shadow_validation.cpp (GODS_LAWS.md L-17).
+target_sources(glintfx_library PRIVATE projected_shadow.cpp projected_shadow_validation.cpp)

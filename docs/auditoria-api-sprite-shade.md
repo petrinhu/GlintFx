@@ -17,6 +17,7 @@
 - **D-W8-325 (Q-H03, IMP-H06):** a luz sobre a peça é função pura do núcleo, com a lei de queda como escolha obrigatória do consumidor. Ver a seção 2.1.
 - **D-W8-326:** IMP-H04 (base `(0,0)-(0,10)`), IMP-H05 (ordem dos papéis), IMP-H08 (textura por referência, região como valor) e COS-H01 (`Proved by:` só com o teste existindo).
 - **D-W8-353 a 356 (r13):** `gltfx_light_tint` tem cabeçalho próprio em `core/light_tint.hpp` (seção 2.1, D-W8-355), com o tipo de luz `gltfx_light_source_2d`. `draw_shadow_texture` recebe `gltfx_texture_paint` (D-W8-354), e o `tint` é a cor da sombra. As seções 3 a 7 são análise e citam, onde indicam, os nomes anteriores; o texto vigente é o da seção 2.
+- **H1-fix (CTO, 11/10/2026, registrada em `DECISOES_AUTONOMAS.md`):** a cerca de `projected_shadow.hpp` passa à forma que o clang-format exige (a declaração de `gltfx_project_point_shadow` numa linha só, coluna 100 da L-24) e ganha a recusa `"shadow_extent"`: um resultado aceito nunca tem canto infinito nem NaN (elevação rasante, ou valores perto do maior double). A cerca continua sendo o texto que o cabeçalho copia byte a byte.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta.
 
@@ -163,7 +164,13 @@ struct gltfx_standing_piece_2d {
 //                    than piece.height;
 //   "piece_height" : the piece's height is not finite or is negative;
 //   "position"     : a base coordinate or a light position is not finite;
-//   "azimuth"      : the azimuth of a directional light is not finite.
+//   "azimuth"      : the azimuth of a directional light is not finite;
+//   "shadow_extent": every input above is accepted, but a corner of the
+//                    shadow would not be a finite number: an elevation so
+//                    close to 0 that the shadow is longer than a double can
+//                    hold (even for a piece of height zero), or coordinates
+//                    and heights near the largest double. An accepted result
+//                    never holds an infinite or NaN corner.
 // A zero-length base is NOT refused: the quadrilateral degenerates to a
 // segment and covers no pixel.
 //
@@ -176,8 +183,7 @@ gltfx_project_directional_shadow(gltfx_directional_light_2d light,
                                  gltfx_standing_piece_2d piece) noexcept;
 
 [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_quad_world>
-gltfx_project_point_shadow(gltfx_point_light_2d light,
-                           gltfx_standing_piece_2d piece) noexcept;
+gltfx_project_point_shadow(gltfx_point_light_2d light, gltfx_standing_piece_2d piece) noexcept;
 
 } // namespace glintfx
 ```

@@ -131,12 +131,14 @@
 #include <glintfx/core/fixed_step.hpp>
 #include <glintfx/core/image_view.hpp>
 #include <glintfx/core/interpolate.hpp>
+#include <glintfx/core/light_2d.hpp>
 #include <glintfx/core/log/event.hpp>
 #include <glintfx/core/log/field.hpp>
 #include <glintfx/core/log/severity.hpp>
 #include <glintfx/core/log/sink.hpp>
 #include <glintfx/core/log/value.hpp>
 #include <glintfx/core/mat3.hpp>
+#include <glintfx/core/projected_shadow.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/core/time.hpp>

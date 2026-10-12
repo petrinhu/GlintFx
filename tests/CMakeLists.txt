@@ -366,6 +366,17 @@ target_sources(gfss_value_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
 )
 
+# GFSS-IMAGE-VALUE (R2D-IMAGE-RESOLVER, fatia R1; docs/auditoria-api-image-resolver.md):
+# the reader of an image-bearing value (none / url(...) / a gradient out of
+# this slice), internal in this slice (GODS_LAWS.md L-19). It compiles its own
+# .cpp a second time, the SAME reason gfss_value_test above does: the reader is
+# not GLINTFX_API, so the library's hidden copy cannot be linked from here.
+glintfx_add_test(gfss_image_value_test)
+target_include_directories(gfss_image_value_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_image_value_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/image_value_read.cpp"
+)
+
 # GFSS-PROP-REGISTRY (TODO.md wave W4, GODS_LAWS.md L-17/L-19/L-20/
 # L-26/L-27/L-40, docs/gfss-property-registry-v1.md - 340 lines,
 # twenty-two decisions, CTO, ratified in the project leader's own

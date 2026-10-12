@@ -868,6 +868,10 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Relação com a primeira metade desta lei:** o caminho principal continua andando sempre, e a trilha paralela continua sendo no máximo uma. Esta emenda diz o que fazer **dentro** de cada uma delas — em ordem, sem buraco.
 
+### Emenda do líder, 12/10/2026: nada entra numa onda já fechada
+
+O líder ordenou, verbatim: *"nao coloque nada em onda que ja foi fechada"* (dita durante o dreno da INBOX e o planejamento do catálogo de molduras e efeitos). **A regra:** item novo da tabela do `TODO.md`, venha da INBOX, de catálogo, de achado de revisão ou de qualquer outra fonte, nunca recebe na coluna `Onda` uma onda que já fechou (marcada, mesclada e com a tag publicada; hoje, W1 a W7-D, conferido pelas tags `v0.*`). Ele entra na onda aberta, se couber no escopo dela, ou numa onda futura. **Como se confere:** antes de gravar, quem planeja lista as ondas fechadas pelas tags (`git tag -l 'v*'` e o `CHANGELOG.md`) e o main reconfere cada linha nova contra essa lista antes de aplicar. Uma linha antiga que já está numa onda fechada e não foi concluída também não fica lá: ela muda para uma onda aberta ou futura na mesma passada.
+
 ### Exceção do líder, 11/10/2026: o código das formas 2D começa antes da DEMO-1 em ✅
 
 O líder ordenou, verbatim: *"quero que volte a codar o framework 18:30 no máximo"*. Perguntado por AskUserQuestion, depois de o main nomear esta lei, citar o congelamento e dizer o que ela protege, escolheu **"S1 agora (Recomendado)"**: os tipos das formas 2D (`R2D-SHAPES`, fatia S1) começam em paralelo à última fatia da DEMO-1 (`WIN-DLL-COPY-RACE`), sem tocar os mesmos arquivos. **A exceção vale só para o bloco `R2D-SHAPES`.** O resto do congelamento continua até a DEMO-1 em ✅.

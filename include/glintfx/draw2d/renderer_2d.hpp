@@ -6,6 +6,7 @@
 
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
+#include <glintfx/core/image_view.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/core/transform.hpp>
@@ -13,6 +14,8 @@
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/renderer_2d_desc.hpp>
+#include <glintfx/draw2d/texture_2d.hpp>
+#include <glintfx/draw2d/texture_2d_desc.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 #include <glintfx/export.hpp>
 #include <glintfx/platform/gl/context.hpp>
@@ -291,6 +294,38 @@ class gltfx_renderer_2d {
     GLINTFX_API void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
                                             std::span<const std::uint32_t> indices,
                                             gltfx_draw_layer layer = {}) noexcept;
+
+    // Makes a texture from `image`, on this renderer's context. The pixels
+    // are read only during this call (docs/api-conventions.md R5): the
+    // library converts them (core/image_view.hpp says to what) and keeps
+    // its own copy on the graphics card. Refused as gltfx_err, never an
+    // exception (R1, R3), and the first refusal of this list wins:
+    //   - invalid_argument: "width" or "height" is zero; "pixel_format" is
+    //     `unspecified` or a value this build does not know; "bytes_per_row"
+    //     or "pixels" does not hold the image (see image_view.hpp); "filter"
+    //     is not a value of gltfx_texture_filter; "mipmap_levels" is more
+    //     reduced levels than this size allows (texture_2d_desc.hpp).
+    //   - the error of this renderer's context, as it came, when the
+    //     context cannot be made current (nothing was touched).
+    //   - unsupported, rejected_value() "width" or "height": larger than
+    //     the card allows (the limit is read from the card, never assumed).
+    //   - out_of_memory, rejected_value() "texture_create": the library ran
+    //     out of memory (os_error_code() zero), or the card did
+    //     (os_error_code() the GL code).
+    //   - platform_failure, rejected_value() "texture_create": the card
+    //     refused the texture for another reason (os_error_code() the GL
+    //     code).
+    // Like begin_frame(), this call makes this renderer's context current
+    // before it touches GL. It sets the pixel-unpack state it reads with (no
+    // unpack buffer, alignment 1, row length and skips zero) and leaves it
+    // so, with no texture bound and texture unit 0 active.
+    // Proved by: texture_desc_validation_test (each invalid_argument, by
+    // name and in this order).
+    // Proved by: texture_upload_test (the context first, the card's limit,
+    // the two memory failures, the unpack state, the stored texels uploaded
+    // as sRGB, every reduced level).
+    [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_texture_2d>
+    create_texture(gltfx_image_view image, gltfx_texture_2d_desc desc = {}) noexcept;
 
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}

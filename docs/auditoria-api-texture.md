@@ -24,6 +24,7 @@
 - **D-W8-300 (IMP-T03, IMP-T04, IMP-T10, IMP-T11, COS-T01 a COS-T03):** regras e textos que entram nas fatias indicadas; marcadores de planejamento saem do texto público.
 - **D-W8-301 e D-W8-302:** a T2 se parte em T2a (handle, subida e descritor) e T2b (amostragem e texto do filtro). A T1 entra na fila logo depois da S1.
 - **D-W8-353 a 356 (r13):** nomes finais: `flip_left_right_and_top_bottom`, `release_slot`, `gltfx_all_mipmap_levels = 0xFFFFFFFFU` (com a regra reescrita), `draw_atlas_image` e `gltfx_light_tint` (no parecer H0). Os desenhos com textura passam a ter quatro parâmetros ou menos, por `gltfx_texture_paint` e `gltfx_atlas_paint` (D-W8-354). Ver a nota D-W8-354 ao lado de cada assinatura trocada. As seções 3 a 7 são análise e citam, onde indicam, os nomes anteriores; o texto vigente é o da seção 2.
+- **Errata da T2a-B (CTO, 12/10/2026; uma cerca e uma fonte):** a cerca vira o texto que a T2a publica, para que nenhuma fatia seguinte reescreva o que já saiu. `texture_2d_desc.hpp`: o comentário de `linear`, o de `mipmap_levels` (a contagem dos níveis REDUZIDOS, com o exemplo 256 x 1) e o de `gltfx_all_mipmap_levels` passam a ser os da T2a-A; o parágrafo FILTERING AND COLOUR continua aqui e entra na T2b, como bloco, sem mudar uma linha do resto. `renderer_2d.hpp`: o comentário de `create_texture` passa a ser o da T2a-B (a ordem das recusas, o erro do contexto, `platform_failure` com o código GL e o estado de desempacotamento). `texture_2d.hpp`: sem mudança de texto; a T2a publica a cerca SEM as linhas 18 a 36 do bloco (os três itens de LIFETIME depois do primeiro, a linha `//` e o `Proved by` de `renderer_2d_impl_test`), e a T3 as acrescenta como estão, depois de `//     rule as the window and the context).`, junto com o teste que as prova. Os `#include` de `texture_region.hpp` e `texture_atlas.hpp` e os blocos de `update_texture` e dos desenhos entram nas fatias deles, como estão.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -145,8 +146,7 @@ enum class gltfx_texture_filter : std::uint8_t {
     // Each screen pixel takes the colour of the nearest texel: sharp
     // edges, the right choice for pixel art drawn at its own size.
     nearest = 0,
-    // Each screen pixel blends the four nearest texels, weighted in
-    // linear light (the sampling of the sRGB format).
+    // Each screen pixel blends the four nearest texels.
     linear = 1,
 };
 
@@ -162,17 +162,26 @@ enum class gltfx_texture_filter : std::uint8_t {
 
 struct gltfx_texture_2d_desc {
     gltfx_texture_filter filter = gltfx_texture_filter::linear;
-    // Number of mipmap levels, the same count the atlas uses.
-    // Zero: no mipmap. k: exactly k levels. gltfx_all_mipmap_levels (below)
-    // asks for the whole chain. ANY OTHER count larger than the chain the
-    // texture size allows is refused by name (invalid_argument,
-    // rejected_value() "mipmap_levels").
+    // Number of REDUCED levels (mipmaps) below the full-size image, the
+    // same count the atlas uses. Zero: no mipmap. k: levels 1 to k, each
+    // half the size of the one above it, rounded down and never below one
+    // texel. A texture of width w and height h allows at most
+    // floor(log2(max(w, h))) of them (a 256 x 1 texture allows 8, a 1 x 1
+    // texture none). gltfx_all_mipmap_levels (below) asks for all of them;
+    // ANY OTHER count larger than that is refused by name
+    // (invalid_argument, rejected_value() "mipmap_levels").
+    // The reduced levels are computed by the library, not by the graphics
+    // driver: each texel is the area average of the texels it covers in
+    // the level above, in linear light, with the colour multiplied by
+    // alpha.
+    // Proved by: texture_desc_validation_test (the limit, at the boundary).
+    // Proved by: mipmap_reduce_test (the average in linear light, and on
+    // a side of odd length).
     std::uint32_t mipmap_levels = 0;
 };
 
-// D-W8-353: the value that asks for the whole mipmap chain. It is the largest
-// uint32, which is never a real count. This value asks for the whole chain;
-// ANY OTHER count larger than the chain is refused by name.
+// The value that asks for every reduced level the texture size allows. It
+// is the largest uint32, which is never a real count.
 inline constexpr std::uint32_t gltfx_all_mipmap_levels = 0xFFFFFFFFU;
 
 } // namespace glintfx
@@ -537,19 +546,34 @@ class gltfx_texture_atlas {
 // Dentro da classe gltfx_renderer_2d, antes de "private:":
 
     // Makes a texture from `image`, on this renderer's context. The pixels
-    // are read only during this call (docs/api-conventions.md R5). Refused
-    // as gltfx_err, never an exception (R1, R3):
+    // are read only during this call (docs/api-conventions.md R5): the
+    // library converts them (core/image_view.hpp says to what) and keeps
+    // its own copy on the graphics card. Refused as gltfx_err, never an
+    // exception (R1, R3), and the first refusal of this list wins:
     //   - invalid_argument: "width" or "height" is zero; "pixel_format" is
     //     `unspecified` or a value this build does not know; "bytes_per_row"
     //     or "pixels" does not hold the image (see image_view.hpp); "filter"
     //     is not a value of gltfx_texture_filter; "mipmap_levels" is more
-    //     levels than the chain of this size allows.
+    //     reduced levels than this size allows (texture_2d_desc.hpp).
+    //   - the error of this renderer's context, as it came, when the
+    //     context cannot be made current (nothing was touched).
     //   - unsupported, rejected_value() "width" or "height": larger than
     //     the card allows (the limit is read from the card, never assumed).
-    //   - out_of_memory: the card or the library ran out of memory
-    //     (rejected_value() "texture_create", os_error_code() the GL code).
-    // The texture is made current by this call before it touches GL, as
-    // begin_frame() does (D-API-07).
+    //   - out_of_memory, rejected_value() "texture_create": the library ran
+    //     out of memory (os_error_code() zero), or the card did
+    //     (os_error_code() the GL code).
+    //   - platform_failure, rejected_value() "texture_create": the card
+    //     refused the texture for another reason (os_error_code() the GL
+    //     code).
+    // Like begin_frame(), this call makes this renderer's context current
+    // before it touches GL. It sets the pixel-unpack state it reads with (no
+    // unpack buffer, alignment 1, row length and skips zero) and leaves it
+    // so, with no texture bound and texture unit 0 active.
+    // Proved by: texture_desc_validation_test (each invalid_argument, by
+    // name and in this order).
+    // Proved by: texture_upload_test (the context first, the card's limit,
+    // the two memory failures, the unpack state, the stored texels uploaded
+    // as sRGB, every reduced level).
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_texture_2d>
     create_texture(gltfx_image_view image, gltfx_texture_2d_desc desc = {}) noexcept;
 

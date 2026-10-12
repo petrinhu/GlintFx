@@ -30,6 +30,9 @@ target_sources(glintfx_library PRIVATE
     frame_2d_report.cpp
     renderer_2d_impl.cpp
     renderer_2d_facade.cpp
+    texture_upload.cpp
+    texture_2d_facade.cpp
+    renderer_2d_facade_textures.cpp
     triangle_list_check.cpp
     renderer_2d_facade_shapes.cpp
     triangle_pixel_vertices.cpp

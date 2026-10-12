@@ -1564,6 +1564,23 @@ target_sources(mipmap_reduce_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
 )
 
+# R2D-TEXTURE T2a, etapa B: the making and the release of the GL texture object against a FAKE context and a
+# table of FAKE GL functions (the generated loader header and gl_abi.hpp, as renderer_2d_impl_test).
+glintfx_add_test(texture_upload_test)
+add_dependencies(texture_upload_test glintfx_gl_functions_generated)
+target_include_directories(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
 glintfx_add_test(srgb_encoding_test)
 target_include_directories(srgb_encoding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(srgb_encoding_test PRIVATE

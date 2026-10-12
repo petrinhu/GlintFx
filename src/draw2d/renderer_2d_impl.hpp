@@ -89,6 +89,11 @@ struct renderer_2d_impl {
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
     [[nodiscard]] gltfx_frame_2d_report last_frame_report() const noexcept;
 
+    // This renderer's context access and GL function table, read by the atoms that make GL objects
+    // in its context (texture_upload.hpp). Read-only views of members, no state of their own.
+    [[nodiscard]] const renderer_2d_host &context_host() const noexcept { return host; }
+    [[nodiscard]] const render::gl_function_table &gl_functions() const noexcept { return gl; }
+
     renderer_2d_impl(const renderer_2d_impl &) = delete;
     renderer_2d_impl &operator=(const renderer_2d_impl &) = delete;
 

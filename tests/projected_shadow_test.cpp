@@ -311,6 +311,19 @@ GLINTFX_TEST(directional_grazing_elevation_is_refused_as_shadow_extent) {
         "shadow_extent");
 }
 
+// H1-fix2 (review IMPORTANT-1). The public contract says a grazing elevation is refused
+// "even for a piece of height zero". With height 0 the far corners are 0 * inf, which is NaN, so
+// this refusal comes from the result check and not from the input check. This case proves that
+// promise on its own: a shortcut that accepts a zero height cannot pass the suite.
+GLINTFX_TEST(directional_grazing_elevation_is_refused_even_for_a_piece_of_height_zero) {
+    const gltfx_directional_light_2d grazing{
+        .azimuth = gltfx_angle_from_degrees(0.0),
+        .elevation = glintfx::gltfx_angle{.radians = std::numeric_limits<double>::denorm_min()},
+    };
+    expect_refused(glintfx::gltfx_project_directional_shadow(grazing, upright_piece_on_y_axis(0.0)),
+                   "shadow_extent");
+}
+
 // H1-fix, point 4. Every input is finite and accepted, but the piece is as tall as the largest
 // doubles, and base_end sits at -1e308: its top moves another 1e308 towards -x and overflows. Only
 // top_right overflows (top_left lands on -1e308), so this case alone proves top_right is checked.

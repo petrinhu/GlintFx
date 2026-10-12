@@ -43,10 +43,10 @@ const std::vector<std::byte> k_bytes(256, std::byte{0x40});
                             .pixel_format = gltfx_pixel_format::rgba8_srgb_straight};
 }
 
+// A prvalue, never a named local: MSVC /O2 /fsanitize=address copied the padding of a named local
+// after the end of its scope, a stack-use-after-scope that no line of this file commits (T2a-win).
 [[nodiscard]] gltfx_texture_2d_desc levels(std::uint32_t count) {
-    gltfx_texture_2d_desc desc;
-    desc.mipmap_levels = count;
-    return desc;
+    return gltfx_texture_2d_desc{.mipmap_levels = count};
 }
 
 // A value of each enumeration that this build does not know: the cast is the case (R4).

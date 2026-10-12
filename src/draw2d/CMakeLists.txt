@@ -37,6 +37,10 @@ target_sources(glintfx_library PRIVATE
     triangle_list_check.cpp
     renderer_2d_facade_shapes.cpp
     triangle_pixel_vertices.cpp
+    arc_segments.cpp
+    stroke_line_check.cpp
+    stroke_geometry.cpp
+    stroke_line_pixels.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

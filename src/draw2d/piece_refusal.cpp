@@ -1,24 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/piece_refusal.hpp"
 
-#include <cmath>
-
 namespace glintfx::draw2d {
-
-namespace {
-// The reason a set of numbers is refused, in the order of the vocabulary: any NaN first, then any
-// infinity. `negative_size` is the caller's own test (only a rectangle has a size).
-template <typename... Values>
-[[nodiscard]] gltfx_draw_2d_refusal refusal_of_values(Values... values) noexcept {
-    if ((std::isnan(values) || ...)) {
-        return gltfx_draw_2d_refusal::not_a_number;
-    }
-    if ((std::isinf(values) || ...)) {
-        return gltfx_draw_2d_refusal::infinite;
-    }
-    return gltfx_draw_2d_refusal::none;
-}
-} // namespace
 
 gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,
                                       glintfx::gltfx_rgba color) noexcept {

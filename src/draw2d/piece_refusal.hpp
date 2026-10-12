@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cmath>
+
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
@@ -17,6 +19,21 @@
 // not_a_number, then infinite, then negative_size. A quad with zero area is DRAWN (it covers no
 // pixel) - a shape, not a bad value. The report keeps the reason of the FIRST refused piece only.
 namespace glintfx::draw2d {
+
+// The reason a set of numbers is refused, in the order of the vocabulary: any NaN first, then any
+// infinity; `none` when every one is finite. `negative_size` is the caller's own test. Shared by
+// every piece that is a list of numbers: the quad, the rectangle and the line
+// (stroke_line_check.hpp; extracted at its third use, CONTRACT.md section 6).
+template <typename... Values>
+[[nodiscard]] gltfx_draw_2d_refusal refusal_of_values(Values... values) noexcept {
+    if ((std::isnan(values) || ...)) {
+        return gltfx_draw_2d_refusal::not_a_number;
+    }
+    if ((std::isinf(values) || ...)) {
+        return gltfx_draw_2d_refusal::infinite;
+    }
+    return gltfx_draw_2d_refusal::none;
+}
 
 // Why a quad in world position, with this color, is refused (`none` when it is not).
 [[nodiscard]] gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,

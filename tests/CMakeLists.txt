@@ -1540,6 +1540,41 @@ target_sources(triangle_pixel_vertices_test PRIVATE
     "${PROJECT_SOURCE_DIR}/tests/triangle_pixel_vertices_test.cpp"
 )
 
+# R2D-SHAPES S3, etapa A: the layout of core/segment.hpp, and the pure atoms of stroke_line(): the count of
+# arc segments on the screen, the check of one call, the frame and the outline of the line, and the line as
+# pixel triangles. No GL, no window.
+glintfx_add_test(segment_test)
+
+glintfx_add_test(arc_segments_test)
+target_include_directories(arc_segments_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(arc_segments_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(stroke_line_check_test)
+target_include_directories(stroke_line_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_line_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_check.cpp"
+)
+
+glintfx_add_test(stroke_geometry_test)
+target_include_directories(stroke_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_geometry_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(stroke_line_pixels_test)
+target_include_directories(stroke_line_pixels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_line_pixels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(gl_load_refusal_test)
 target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gl_load_refusal_test PRIVATE

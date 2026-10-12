@@ -141,6 +141,7 @@
 #include <glintfx/core/projected_shadow.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
+#include <glintfx/core/segment.hpp>
 #include <glintfx/core/time.hpp>
 #include <glintfx/core/transform.hpp>
 #include <glintfx/core/vec2.hpp>

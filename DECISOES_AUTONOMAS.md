@@ -9183,3 +9183,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **IMPORTANTE-3:** o mutante M-H sobrevive, porque nenhum caso usa camada diferente de 0.
   - **Mutação:** 8 de 10 mortos. A geometria (480/416/544), a tabela do furo, as repetições e os prvalues conferem.
   - O CTO escreve a S4-fix1.
+- **17:21, três resultados e um bloqueio.**
+  - **T3-B commitada (67537d6a, 15 arquivos, 960+).** Vermelho por asserção, verde 5/5, 7 linhas ditadas, os 4 mutantes mortos. O preci deu 355 e o sanitizer 168, no HEAD combinado. Não tocou em `renderer_2d_impl.cpp`.
+  - **G2, a foto oficial na Intel, PASSA (eb45e032, 5 caminhos).**
+    - O isolamento foi provado antes de qualquer interação. Só a Intel (`renderD128`, 0x8086).
+    - Composição OpenGL na Iris Xe, captura 640x480 e 12/12 sondas.
+    - A foto está em `/var/tmp/cto-w8/g2/foto/png/conn1_surface1.png`, md5 6aef691c, conferido nas duas pontas.
+    - O preci no SHA deu rc 0, e o disco foi a 26,88 no pior momento.
+    - QA-COMPOSED-PATH passa a 🔍. A revisão N3 e o QA visual (L-13) vão a um qa-engineer independente.
+  - **S4-fix1 conferida** (`ordem-s4-fix1.md`, md5 68ae9a69; anexos 717f44ca, rc 0). São 6 arquivos, só texto e testes. A cerca nova diz:
+    > "When the part of the outline that grows inward reaches the middle of the rectangle's shorter side [...], there is no hole [...]. Centered, that is a thickness of the whole shorter side or more; inside, of half of it or more; outside, never."
+    - Os casos novos matam o M-C e o M-H. Despachada ao implementador da S4; a T3-C vem depois dela.
+    - Desvio do CTO, registrado contra a L-25: ele usou `--no-verify` num commit de cópia de simulação, que era scratch, sem efeito na árvore real.
+    - O texto novo vai à ratificação do líder como errata.
+  - **Bloqueio dos alertas:** o controle de permissão negou o preci ao implementador uma segunda vez ("Auto-Mode Bypass"), mesmo com a autorização do líder. O líder escolheu, verbatim: *"Eu libero a regra"*. O main sugeriu uma regra estreita, para o comando exato, a ser tirada depois da fatia (L-02).

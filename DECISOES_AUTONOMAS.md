@@ -9166,3 +9166,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Desvio declarado:** uma rodada do CTO seguiu com o disco a 19,15 GiB; a ordem agora confere o disco antes de cada passo pesado.
   - **Decisão do main:** o portão fica na suíte de todo dia, que é a opção implementada (cerca de 6 s). Portão só sob demanda não morde (L-36).
   - Despachada a um implementador.
+- **15:40, o líder escolheu avisar a sessão do al_maarif** (AskUserQuestion, resposta verbatim: *"Avisar aquela sessão (Recomendado)"*). Mensagem enviada à sessão Al_Maarif com a causa medida e a sugestão: imagem própria, sem montar /usr nem ~/.local, Python com `-I`, e nunca exceção no SELinux. Nada daquele projeto foi tocado.

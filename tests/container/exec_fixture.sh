@@ -301,11 +301,20 @@ selftest_positive_control() {
 # diferente, reprova qualquer mapeamento que nao seja a conversao de
 # verdade (GODS_LAWS.md L-40: cobertura estreita e' a mesma familia
 # de portao que nao olha).
+#
+# TEST-CRASH-QUIET (13/10/2026): o processo que morre pelo sinal e o
+# tests/tools/die_quietly.py, NAO-DUMPABLE (prctl PR_SET_DUMPABLE 0), e nao
+# mais `sh -c 'kill -SINAL $$'`. Com o core_pattern em pipe desta maquina, o
+# `kill` de um processo dumpable mandava um core ao systemd-coredump do
+# hospedeiro e um alerta "programa travou" do DrKonqi a mesa do lider, a cada
+# rodada da suite (230 pares medidos de 11/10 a 13/10). RLIMIT_CORE=0 nao
+# basta: com pipe o kernel o ignora (ver o cabecalho de die_quietly.py). O
+# sinal e o codigo de saida que o controle confere nao mudam.
 selftest_check_one_signal() {
     sig_name="$1"
     expected_rc="$2"
 
-    if output="$(real_main --runner 'sh -c' x "kill -${sig_name} \$\$" 2>&1)"; then
+    if output="$(real_main --runner "${GLINTFX_PYTHON3} -I" x "$selftest_die_quietly" "$sig_name" 2>&1)"; then
         echo "selftest: controle NEGATIVO (sinal ${sig_name}) FALHOU (deveria ter reprovado, saiu 0)" >&2
         printf '%s\n' "$output" >&2
         return 1
@@ -370,6 +379,18 @@ selftest_main() {
     # experimento controlado (apagar o arquivo, rodar o selftest,
     # reaparece). GODS_LAWS.md L-53: sem lixeira, entao a limpeza no
     # `trap EXIT` abaixo e' obrigatoria, nao so' desejavel.
+    # TEST-CRASH-QUIET: o interpretador vem do CMake (GLINTFX_PYTHON3 =
+    # GLINTFX_PYTHON3_EXECUTABLE, ENVIRONMENT do container_exec_fixture_selftest),
+    # nunca presumido: vazio, o selftest recusa ANTES de matar qualquer processo.
+    if [ -z "${GLINTFX_PYTHON3:-}" ]; then
+        echo "exec_fixture.sh --selftest: RECUSA, GLINTFX_PYTHON3 vazio (rode pelo ctest, ou exporte o python3 de tests/CMakeLists.txt)" >&2
+        exit 1
+    fi
+    selftest_die_quietly="$(cd "$(dirname "$0")/../tools" && pwd)/die_quietly.py"
+    if [ ! -f "$selftest_die_quietly" ]; then
+        echo "exec_fixture.sh --selftest: RECUSA, ausente: $selftest_die_quietly" >&2
+        exit 1
+    fi
     selftest_log_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-exec-fixture-selftest-XXXXXX")"
     trap 'rm -rf "$selftest_log_dir"' EXIT
     GLINTFX_MEASURED_LOG="${selftest_log_dir}/container_measured_raw.log"

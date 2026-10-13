@@ -5984,7 +5984,11 @@ if(UNIX)
         NAME container_exec_fixture_selftest
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/exec_fixture.sh" --selftest
     )
-    set_tests_properties(container_exec_fixture_selftest PROPERTIES LABELS selftest)
+    # TEST-CRASH-QUIET (13/10/2026): os controles de sinal do selftest morrem
+    # por tests/tools/die_quietly.py, NAO-DUMPABLE, rodado por este python3;
+    # sem a variavel, o selftest recusa em vez de presumir um interpretador.
+    set_tests_properties(container_exec_fixture_selftest PROPERTIES LABELS selftest
+        ENVIRONMENT "GLINTFX_PYTHON3=${GLINTFX_PYTHON3_EXECUTABLE}")
 endif()
 
 # CONTAINER-LEAK-COUNTER sub-fatia S3 (/var/tmp/glintfx-plan/leak-

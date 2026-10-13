@@ -1590,6 +1590,29 @@ target_sources(stroke_line_pixels_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-SHAPES S4, etapa A: the pure atoms of stroke_rect(): the check of one call, the two polygons of the
+# outline and its triangles, and the outline as pixel triangles. No GL, no window.
+glintfx_add_test(stroke_rect_check_test)
+target_include_directories(stroke_rect_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_rect_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_check.cpp"
+)
+
+glintfx_add_test(stroke_rect_geometry_test)
+target_include_directories(stroke_rect_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_rect_geometry_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(stroke_rect_pixels_test)
+target_include_directories(stroke_rect_pixels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_rect_pixels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(gl_load_refusal_test)
 target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gl_load_refusal_test PRIVATE

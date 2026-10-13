@@ -42,6 +42,9 @@ target_sources(glintfx_library PRIVATE
     stroke_line_check.cpp
     stroke_geometry.cpp
     stroke_line_pixels.cpp
+    stroke_rect_check.cpp
+    stroke_rect_geometry.cpp
+    stroke_rect_pixels.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

@@ -9167,3 +9167,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Decisão do main:** o portão fica na suíte de todo dia, que é a opção implementada (cerca de 6 s). Portão só sob demanda não morde (L-36).
   - Despachada a um implementador.
 - **15:40, o líder escolheu avisar a sessão do al_maarif** (AskUserQuestion, resposta verbatim: *"Avisar aquela sessão (Recomendado)"*). Mensagem enviada à sessão Al_Maarif com a causa medida e a sugestão: imagem própria, sem montar /usr nem ~/.local, Python com `-I`, e nunca exceção no SELinux. Nada daquele projeto foi tocado.
+- **16:04, ordem da G2, a foto oficial na Intel, conferida** (`ordem-g2.md`, md5 02577ee3; anexos rc 0; decisões D-W8-F14 a F16, `decisoes-cto-fechamento-w8.md` md5 7337ca84).
+  - **Pré-execução:** 8 de 8 mutantes do juiz morrem, e o autoteste dá 19 controles; preci 352/352.
+  - **A imagem** é construída e apagada pelos scripts. O disco foi a 27,50 no pior momento.
+  - **D-W8-F15, disco:** não constrói abaixo de 26 GiB, mata a construção abaixo de 21 e constrói uma imagem por ordem.
+  - **Juízes com dado real:** passam na Intel e reprovam quando se espera `nvidia`.
+  - **G3:** os exemplos `shapes` (S6), `textures` (T7) e `sprite_shadows` (H5) ganharam o aceite na própria linha, para a foto composta poder fotografá-los.
+  - **D-W8-F16, desenho da G4:** a lista de montagens vem do `/run/cdi/nvidia.yaml` gerado no boot, sem usar o caminho direto do kit nem mudar o `daemon.json`. Os dispositivos são explícitos (`renderD129`, `nvidia0`, `nvidiactl`, `nvidia-modeset`), com `label=disable` só no contêiner, pela escolha do líder. A variante de isolamento `gpu_geforce` vira uma fatia N2 dentro da G4a.
+  - **Para o líder:** o `/etc/cdi/nvidia.yaml` está velho (driver 610.43.03) e só sai com sudo. Nenhum agente toca nele.
+  - **Despacho:** a G2 foi a um implementador, com o aviso ao líder dado (só a Intel).

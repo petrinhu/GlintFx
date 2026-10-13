@@ -9119,3 +9119,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - as conferências miradas das duas fix1 vão aos MESMOS revisores. No caso da FDPASS, o revisor refaz o próprio cenário A1 e confere que o caminho da "dúvida impressa" é afirmado por teste, e não só impresso;
     - a S4-B e a T3-B são despachadas avisando que a ARM-TEST-fix1 pode entrar antes no `tests/CMakeLists.txt`, e uma âncora diferente de 1 é PARE;
     - o resumo final do vigia já é VERMELHO pela regra (vram suspeito ×9, pids warn ×3). As falhas de memória da GeForce, que não são nossas, vão ao líder em linha própria, com a ligação dita como só de horário.
+- **13:01, ratificação e ordens do líder** (resposta verbatim à lista das decisões pendentes):
+  - **1, as promessas públicas:** *"aceito tudo. Quero possibilidade de polígonos com cantos arredondados (um, mais de um ou todos)"*.
+    - Ficam ratificados: a ponta redonda de 0,25 px até o raio de 13280 na tela; os cantos retos e o retângulo degenerado por alinhamento da S4; a atualização vazia da T3; a contagem de `mipmap_levels` sem o nível base; o filtro linear trilinear; a linha de espessura zero como peça de área zero; e o aviso de quadro por sequência de falhas.
+    - O pedido novo entrou na linha `R2D-CORNER-SHAPE` (W9-B), refundida pela L-68: polígono com arredondamento escolhido por vértice (um, vários ou todos), com raio por vértice.
+  - **2, as decisões dos CTOs em modo autônomo:** *"aceito"*. Ficam ratificadas em bloco.
+  - **3a, GeForce:** *"Geforce: autorizado"*. A autorização vale para a G4. Mesmo assim, pela L-09 global, na hora de rodar o main toca o alerta 5x, diz o que vai rodar e espera o início, porque a G4 depende da G3 e esta ainda não rodou.
+  - **3b, IDrive:** *"Idrive: autorizo excluir pastas de build locais; quais caminhos?"*.
+    - Apagados, por caminho literal (L-53), `tests/container/_arch_ports_lib`, `tests/container/_arch_ports_src` (cópias de preparação do `prepare_arch_ports_fixture.sh`), os dois `__pycache__`, o `.ruff_cache` e o `.cache`. Não havia `build*/` na raiz.
+    - Fora: `worktrees/infra-preci` (worktree registrado, não é build) e dois logs avulsos.
+  - **3c, ferramentas:** *"use as mais atuais disponíveis no repo fedora. Autorizo baixar e instalar mais se precisar."* É a autorização da L-14 para buildx, compose, CMake, ccache e gh, pelo dnf, sob a trava pesada.
+  - **3d, skills e plugins:** *"Autorizo ver skills/plugins atuais oficiais autorizados na página do clade/anthropic e instalar o que precisar para otimizar, mas sem ligar a outras libs. Cuidado para nao conflitar com o que tem instalado."* Uma pesquisa vai a um agente, com conferência de conflito (L-59, L-62).

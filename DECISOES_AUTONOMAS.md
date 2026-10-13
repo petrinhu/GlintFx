@@ -9030,3 +9030,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - D-W8-F08: uma mensagem que o relé conhece continua levando a contagem exata de descritores.
   - Lacuna declarada: os jobs de contêiner do CI não exercem ao vivo descritor que não seja de `wl_shm`. Vira a linha CI-CONTAINER-SEM-FD-NAO-SHM.
   - Despacho depois da ARM-TEST, porque as duas são donas de `tests/CMakeLists.txt`.
+- **07:33, três ordens do CTO conferidas e despachadas pela fila do `tests/CMakeLists.txt`.**
+  - **T2b-win** (`ordem-t2b-win.md`, md5 b844c258; anexos rc 0).
+    - A régua do assembly do `cl.exe` real contou 4 cópias de preenchimento depois do fim do escopo, todas de `sampled()`. Com o prvalue, caiu para 0. A régua foi calibrada contra o vermelho conhecido da T2a-win.
+    - Varredura L-17 em 163 de 186 unidades de teste: nenhum outro caso. As 23 que não compilam pela linha simples são lacuna declarada. Os rascunhos da T3 deram 0 cópias.
+    - Portão D-W8-F09 anotado na linha MSVC-ASAN-PADDING-RETURN: a régua em `tools/`, um estágio do `preci` e o `/FAs` no job Windows ASan.
+    - Despachada a um implementador novo. A prova de execução é o job Windows ASan do próximo CI.
+  - **ARM-TEST emendada** (md5 16749ad7). O passo 5 faz `git add` dos 8 caminhos. O implementador retoma do passo 11 no mesmo snapshot: o CTO mediu `git diff --quiet` = 0 e o `commit_armtest.sh` com rc 0 contra o HEAD.
+  - **FDPASS emendada** (md5 c738d23b), com a mesma falha do passo 5 corrigida. Ela entra depois do commit da ARM-TEST.
+  - **A fila foi simulada no HEAD `8c21b632`:** os três commits em sequência deram rc 0. As ordens agora dizem "grave o relatório em `$F/relatorio.md`".
+  - **Linha nova:** `CI-CONTAINER-SEM-FD-NAO-SHM` (W9-B), a lacuna que a ordem da FDPASS declarou.

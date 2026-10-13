@@ -9210,3 +9210,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os agentes em voo terminam: o conserto dos alertas (com o preci na fila), a S4-fix1 e o CTO que escreve a G2-fix1.
   - Nenhum trabalho novo é despachado: a T3-C e a implementação da G2-fix1 ficam paradas.
   - Depois das entregas, o main commita, empurra o ramo e PAUSA, até nova ordem do líder.
+- **18:34, a ordem da G2-fix1 está pronta e GUARDADA, sem despacho, pela pausa do líder** (`ordem-g2-fix1.md`, md5 41efc6b8; anexos rc 0; D-W8-F17, md5 bab0d687).
+  - **Pré-execução:** 11 mutantes do juiz morrem, inclusive o M09 do revisor (I-2) e os do tamanho (I-1); 4 do condutor, inclusive o D3, isolamento provado noutro contêiner (I-3); ensaio a seco 7/7; preci 356/356.
+  - **I-3:** a foto passa a usar UM contêiner, na receita do CI, com o `check_isolation` nele antes do exec, e o ambiente é conferido (rc 33 se divergir).
+  - **Ponto a rever na retomada, antes do despacho:** a F17 tira o `--pids-limit 512` do contêiner da foto, porque o portão compara o HostConfig com a linha de base do CI. Isso tira uma proteção contra esgotamento de processos (a memória "dublê recursivo trava a máquina", 29/09, e o teto de 4000 processos da L-11). Vai à consulta do advisor ou ao líder antes de rodar.
+  - O disco (`min` 25,41) também está abaixo do piso de entrada da ordem, 26 GiB.

@@ -9176,3 +9176,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-F16, desenho da G4:** a lista de montagens vem do `/run/cdi/nvidia.yaml` gerado no boot, sem usar o caminho direto do kit nem mudar o `daemon.json`. Os dispositivos são explícitos (`renderD129`, `nvidia0`, `nvidiactl`, `nvidia-modeset`), com `label=disable` só no contêiner, pela escolha do líder. A variante de isolamento `gpu_geforce` vira uma fatia N2 dentro da G4a.
   - **Para o líder:** o `/etc/cdi/nvidia.yaml` está velho (driver 610.43.03) e só sai com sudo. Nenhum agente toca nele.
   - **Despacho:** a G2 foi a um implementador, com o aviso ao líder dado (só a Intel).
+- **16:29, preci no hospedeiro, autorizado pelo líder para a fatia dos alertas.** O controle de permissão do Claude Code negou ao implementador o `preci --fast` no hospedeiro, classificando-o como "enfraquecimento de segurança". O implementador parou sem contornar, e o main não rodou o comando no lugar dele. Perguntado (AskUserQuestion), o líder respondeu, verbatim: *"Autorizo o portal no hospedeiro (Recomendado)"*. O implementador repete o comando exato da ordem; se for negado de novo, PARA.
+- **16:29, revisão N1 da S4: NÃO LIMPA, sem CRÍTICO** (`/var/tmp/cto-w8/rev-s4.txt`).
+  - **IMPORTANTE-1:** o texto público diz que não há furo quando a espessura alcança o meio, mas no alinhamento centrado (o padrão) e no de fora o furo persiste. A conta do revisor: 40x20 com espessura 10, centrado, ainda tem furo. A correção vai à ratificação do líder como errata.
+  - **IMPORTANTE-2:** o mutante M-C sobrevive, porque falta um caso de escala não uniforme com furo na unidade pixel.
+  - **IMPORTANTE-3:** o mutante M-H sobrevive, porque nenhum caso usa camada diferente de 0.
+  - **Mutação:** 8 de 10 mortos. A geometria (480/416/544), a tabela do furo, as repetições e os prvalues conferem.
+  - O CTO escreve a S4-fix1.

@@ -66,8 +66,13 @@ known_interface interface_from_name(std::string_view name) {
     return known_interface::unknown;
 }
 
-std::size_t fd_argument_count(known_interface interface, std::uint16_t opcode) {
-    if (interface == known_interface::wl_shm && opcode == 0) {
+std::optional<std::size_t> fd_argument_count(known_interface interface, std::uint16_t opcode,
+                                             wire_direction direction) {
+    if (interface == known_interface::unknown) {
+        return std::nullopt;
+    }
+    if (interface == known_interface::wl_shm && opcode == 0 &&
+        direction == wire_direction::from_client) {
         return 1; // wl_shm.create_pool(new_id, fd, int32 size)
     }
     return 0;

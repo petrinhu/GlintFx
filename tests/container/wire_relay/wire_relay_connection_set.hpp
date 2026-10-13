@@ -44,6 +44,9 @@ class pending_fds {
     ~pending_fds();
     void push(const std::vector<int> &fds);
     [[nodiscard]] std::vector<int> take(std::size_t count);
+    // Every descriptor still queued, in arrival order (for a message of an interface the relay
+    // does not model).
+    [[nodiscard]] std::vector<int> take_all();
 
   private:
     std::deque<int> m_queue;

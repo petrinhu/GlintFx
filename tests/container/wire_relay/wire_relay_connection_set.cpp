@@ -32,6 +32,8 @@ pending_fds::~pending_fds() {
     }
 }
 
+std::vector<int> pending_fds::take_all() { return take(m_queue.size()); }
+
 std::vector<int> pending_fds::take(std::size_t count) {
     std::vector<int> out;
     while (count > 0 && !m_queue.empty()) {
@@ -44,12 +46,16 @@ std::vector<int> pending_fds::take(std::size_t count) {
 
 namespace {
 
-// Consumes exactly the fds `message` needs (wire_object_table's own
-// fixed table) from `fds`.
+// The descriptors `message` takes from `fds`: exactly the count of a modelled interface (so the
+// snapshot still gets create_pool's own descriptor), and everything still pending for an interface
+// the relay does not model, so none arrives later than the message that needs it
+// (WIRE-RELAY-FD-PASSTHROUGH, D-W8-F07).
 std::vector<int> take_message_fds(const wire_relay_pipeline &pipe, const decoded_message &message,
-                                  pending_fds &fds) {
+                                  pending_fds &fds, wire_direction direction) {
     const known_interface interface = pipe.table.interface_of(message.header.object_id);
-    return fds.take(fd_argument_count(interface, message.header.opcode));
+    const std::optional<std::size_t> count =
+        fd_argument_count(interface, message.header.opcode, direction);
+    return count.has_value() ? fds.take(*count) : fds.take_all();
 }
 
 void close_all(const std::vector<int> &fds) {
@@ -78,8 +84,8 @@ bool forward_client_message(active_connection &conn, const decoded_message &mess
     // Descriptors first, then the snapshot copies what a commit
     // presents - BEFORE anything is forwarded: once the compositor can
     // read the commit, the client may reuse the buffer.
-    const std::vector<int> message_fds =
-        take_message_fds(session.pipe, message, session.client_state.fds);
+    const std::vector<int> message_fds = take_message_fds(
+        session.pipe, message, session.client_state.fds, wire_direction::from_client);
     session.pipe.snapshot.observe(
         message, session.pipe.table.interface_of(message.header.object_id), message_fds);
     const std::optional<rule_violation> violation =
@@ -285,9 +291,10 @@ void pump_upstream_direction(active_connection &conn) {
         ++conn.session.stats.messages_from_upstream;
         (void)observe_and_evaluate(conn.session.pipe, *message,
                                    false); // never violates this direction
-        forward_message(
-            client, *message,
-            take_message_fds(conn.session.pipe, *message, conn.session.upstream_state.fds));
+        forward_message(client, *message,
+                        take_message_fds(conn.session.pipe, *message,
+                                         conn.session.upstream_state.fds,
+                                         wire_direction::from_compositor));
     }
 }
 

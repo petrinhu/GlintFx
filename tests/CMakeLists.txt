@@ -7235,6 +7235,9 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_shm_snapshot_selftest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_shm_writer_selftest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_shm_capture_selftest.cpp"
+        # WIRE-RELAY-FD-PASSTHROUGH (D-W8-F07): a message with a descriptor reaches the other
+        # side with it, in both directions, even on an interface the relay does not model.
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_fd_passthrough_selftest.cpp"
     )
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)

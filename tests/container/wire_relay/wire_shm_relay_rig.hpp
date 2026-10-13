@@ -68,6 +68,14 @@ struct relay_rig {
         run_relay_cycle(endpoints, connections);
     }
 
+    // The fake compositor sends an event (WIRE-RELAY-FD-PASSTHROUGH): the relay pumps it to the
+    // client.
+    void send_from_compositor(const std::vector<std::uint8_t> &bytes,
+                              const std::vector<int> &fds = {}) {
+        wire_transport(compositor_side.get()).write_once(bytes.data(), bytes.size(), fds);
+        run_relay_cycle(endpoints, connections);
+    }
+
     // The client leaves, then the compositor side closes: only now is
     // the connection finished, and only now are the files written.
     void finish() {

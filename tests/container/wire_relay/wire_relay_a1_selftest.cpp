@@ -95,8 +95,8 @@ GLINTFX_TEST(wire_relay_a1_descriptor_with_correct_message) {
     GLINTFX_CHECK_EQ(pool_chunk.fds.size(), std::size_t{1});
     GLINTFX_CHECK(pool_decoder.poll() == decode_outcome::message_ready);
     const decoded_message pool_message = expect_message(pool_decoder);
-    GLINTFX_CHECK_EQ(fd_argument_count(known_interface::wl_shm, pool_message.header.opcode),
-                     std::size_t{1});
+    GLINTFX_CHECK(fd_argument_count(known_interface::wl_shm, pool_message.header.opcode,
+                                    wire_direction::from_client) == std::optional<std::size_t>{1});
     GLINTFX_CHECK(table.observe(pool_message, true).has_value());
     GLINTFX_CHECK(table.interface_of(4) == known_interface::wl_shm_pool);
 

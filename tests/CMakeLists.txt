@@ -6947,6 +6947,20 @@ add_test(
 )
 set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
 
+# QA-COMPOSED-PATH G2 (plano-fechamento-w8-r2.md sec. 5.4, D-W8-254/267): composed_photo_facts.py judges one
+# composed photo taken by tests/container/composed_photo.sh: which card composed (OpenGL, the expected maker,
+# never llvmpipe or softpipe) and what ScreenShot2 handed over (QImage format 6 or 4, mapped to wl_shm). The
+# selftest is the criterion table written before the data (L-43); the count is exact, so a dropped control fails.
+add_test(
+    NAME composed_photo_facts_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 19 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/composed_photo_facts.py" --selftest
+)
+set_tests_properties(composed_photo_facts_selftest PROPERTIES LABELS selftest)
+
 # QA-SCREEN-CAPTURE P3 (D-W8-33): capture_vs_readback.py compares the relay's
 # capture of a frame against the client's own glReadPixels of the same frame,
 # pixel by pixel, alpha included. Its --selftest runs on a 2x2 image

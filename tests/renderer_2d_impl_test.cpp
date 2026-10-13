@@ -1165,6 +1165,33 @@ GLINTFX_TEST(renderer_2d_impl_a_line_with_no_frame_open_is_counted_outside_the_f
     renderer_2d_impl::destroy(renderer);
 }
 
+// S3-fix1 (I-2 of the N1 review): the line is placed by the batch transform in force. Expected
+// values by the geometry, not read from the code: the world line runs at y = 10 from x = 10 to
+// x = 50; the batch scales by 2, so its ends land at (20, 20) and (100, 20); in pixel unit the
+// thickness 4 stays 4 on the screen, half of it (2 px) on each side of y = 20, so the flat outline
+// starts at (20, 22) and its third point is (100, 18).
+GLINTFX_TEST(renderer_2d_impl_a_line_is_placed_by_the_batch_transform_in_force) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->begin_batch(glintfx::gltfx_transform{
+        .translation = {.x = 0.0, .y = 0.0},
+        .rotation = {.radians = 0.0},
+        .scale = {.x = 2.0, .y = 2.0},
+    });
+    glintfx::gltfx_line_style style = line_style(4.0, glintfx::gltfx_line_cap::flat);
+    style.stroke.unit = glintfx::gltfx_stroke_unit::pixel;
+    renderer->stroke_line(k_line, style, k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(first_draw_count(), 6);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 20.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 22.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 0), 100.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 1), 18.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
 GLINTFX_TEST(renderer_2d_impl_a_line_of_zero_thickness_is_a_drawn_piece_of_zero_area) {
     reset();
     renderer_2d_impl *renderer = make(true);

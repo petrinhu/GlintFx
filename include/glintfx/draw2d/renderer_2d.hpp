@@ -309,7 +309,9 @@ class gltfx_renderer_2d {
     // a zero-length line is aligned with the axes of the space of its unit: the
     // world's (turned and scaled with the batch) or the screen's. A rounded cap
     // is made of straight segments at most 0.25 pixel away from the true half
-    // circle on the screen. Refused, counted in the report, never an exception.
+    // circle on the screen while its radius there is at most 13280 pixels;
+    // above that, the distance is not guaranteed. Refused, counted in the
+    // report, never an exception.
     // The first rule that applies names the reason:
     //   1. a NaN in the start, the end, the thickness or the colour:
     //      not_a_number; then an infinity in any of them: infinite;

@@ -26,6 +26,13 @@
 //
 // THE CAP TOLERANCE is the default largest error of a curve on the screen, 0.25 pixel (D-W8-07):
 // the rounded cap is tessellated by arc_segments.hpp with it, from the cap radius on the screen.
+// THE LIMIT OF THE GUARANTEE (renderer_2d.hpp tells the consumer "at most 13280 pixels"): the
+// largest radius whose whole circle stays within the tolerance with k_max_arc_segments (512)
+// segments is k_cap_max_error_pixels / (1 - cos(pi / 512)) = 13280.41 pixels; above it the limit
+// of 512 (256 per half) wins and the error grows (0.94 pixel at a radius of 50000). The public
+// 13280 is that number rounded down; stroke_line_pixels_test reads the two constants and checks it,
+// and arc_segments_test fixes the same boundary (13280 needs 512 segments, 13300 is held by the
+// limit).
 namespace glintfx::draw2d {
 
 inline constexpr double k_cap_max_error_pixels = 0.25;

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <numbers>
 
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/segment.hpp>
@@ -117,6 +119,18 @@ GLINTFX_TEST(stroke_line_pixels_rounded_cap_is_counted_from_the_radius_on_the_sc
 }
 
 // The largest outline the arc count allows (two half discs of 256 segments) fits the storage.
+// S3-fix1: the 13280 pixels that renderer_2d.hpp publishes as the limit of the 0.25 pixel guarantee
+// of the rounded cap is the largest radius whose whole circle stays within k_cap_max_error_pixels
+// with k_max_arc_segments segments: the sagitta r (1 - cos(pi / n)) <= e gives
+// r <= e / (1 - cos(pi / n)). Computed here from the code's own two constants, so changing either
+// one fails this case until the public number is changed with it.
+GLINTFX_TEST(stroke_line_pixels_the_published_limit_of_the_cap_guarantee_follows_the_constants) {
+    const double limit = glintfx::draw2d::k_cap_max_error_pixels /
+                         (1.0 - std::cos(std::numbers::pi /
+                                         static_cast<double>(glintfx::draw2d::k_max_arc_segments)));
+    GLINTFX_CHECK_EQ(std::floor(limit), 13280.0);
+}
+
 GLINTFX_TEST(stroke_line_pixels_the_largest_rounded_line_fits) {
     const auto pixels = fresh();
     GLINTFX_CHECK(pixels->build(k_line,

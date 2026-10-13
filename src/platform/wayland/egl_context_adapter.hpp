@@ -76,9 +76,10 @@ class wayland_window_adapter;
 // header's own top comment already cites), which is unrelated to
 // negotiating a GL version.
 //
-// attach_frame_listener() arms the FIRST wl_surface.frame callback
-// (frame_callback_sequence.hpp, this fatia) - swap_buffers() below is
-// what re-arms it after every subsequent presented frame.
+// egl_wire_present_ports::request_frame() (egl_present_wire.hpp,
+// D-W8-F11) asks for the wl_surface.frame callback right before every
+// eglSwapBuffers(), the first one included; frame_callback_sequence.hpp
+// decides when the wait for it is armed.
 //
 // close() TEARS DOWN IN REVERSE ORDER (this fatia's own read of tests/
 // container/egl_probe_smoke.cpp's own header comment, the fatia-1
@@ -101,7 +102,7 @@ class wayland_egl_context_adapter {
     // EGL display/context/surface and a wl_egl_window, same reasoning
     // as before. Moving used to be allowed via std::exchange() on every
     // pointer, INCLUDING m_pending_frame_callback - safe ONLY because
-    // attach_frame_listener() (registers `this` with wl_callback_add_
+    // egl_wire_present_ports::request_frame() (registers `this` with wl_callback_add_
     // listener) is called exclusively from swap_buffers(), always AFTER
     // gl_context_facade.cpp's own move into the heap, never from
     // open(). That safety was an accident of call order, not of
@@ -198,7 +199,7 @@ class wayland_egl_context_adapter {
     // project already has, added ONLY so that fixture can read the
     // pending frame callback back after swap_buffers(); nothing inside
     // this class needs it exposed for its own sake. Null until the first
-    // present requests a frame callback (attach_frame_listener(), right
+    // present requests a frame callback (egl_wire_present_ports::request_frame(), right
     // before eglSwapBuffers(), whether the swap then succeeds or not),
     // null again once the compositor answers it (frame_callback_done()),
     // and null when wl_surface_frame() could not allocate one.
@@ -283,9 +284,6 @@ class wayland_egl_context_adapter {
     // GL_RENDERER for gpu_kind_state's own "minimo honesto" (sec.
     // 10.3, D-W6b-13).
     [[nodiscard]] gltfx_rslt<void> create_context(void *config) noexcept;
-    // True when wl_surface_frame() gave a callback; false only when libwayland-client could not
-    // allocate one (frame_request_present.hpp says what the caller does then).
-    [[nodiscard]] bool attach_frame_listener() noexcept;
     void resize_surface_if_due() noexcept;
 
     // EGL-DEAD-DISPLAY-GUARD S2 (docs/plano-egl-dead-display-guard.md
@@ -326,6 +324,9 @@ class wayland_egl_context_adapter {
     // every frame - this pointer is that somewhere.
     wayland_window_adapter *m_window = nullptr;
     wl_callback *m_pending_frame_callback = nullptr;
+    // D-W8-F12: whether frame_callback_request_failed was already reported for the current run of
+    // failures on this surface (egl_wire_present_ports reports on the edge, never per frame).
+    bool m_frame_request_failure_reported = false;
 
     frame_callback_sequence m_frame_sequence;
     gpu_kind_state m_gpu;

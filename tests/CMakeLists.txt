@@ -2313,6 +2313,19 @@ if(UNIX)
     # o resto), porque o segundo caso deste alvo escreve um evento
     # wl_display.error de verdade e despacha por ela antes de conferir
     # connection_failure_if_dead().
+    # egl_present_wiring_test - WL-FRAME-ORDER-ARM-TEST-fix1 (D-W8-F11): the binding of the
+    # presentation ports to the wire (egl_present_wire.hpp), with every system call scripted.
+    # The SAME source tree as incoming_poll_wiring_test above (the real_* calls live in
+    # egl_context_adapter.cpp, which drags the rest), read from that target instead of copied a
+    # fourth time (GODS_LAWS.md L-33): its own test file is filtered out.
+    glintfx_add_test(egl_present_wiring_test)
+    target_include_directories(egl_present_wiring_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    get_target_property(_glintfx_egl_wire_sources incoming_poll_wiring_test SOURCES)
+    list(FILTER _glintfx_egl_wire_sources EXCLUDE REGEX "incoming_poll_wiring_test\\.cpp$")
+    target_sources(egl_present_wiring_test PRIVATE ${_glintfx_egl_wire_sources})
+    glintfx_add_wayland_xdg_shell_binding(egl_present_wiring_test)
+    glintfx_add_egl(egl_present_wiring_test)
+
     glintfx_add_test(connection_failure_test)
     target_include_directories(connection_failure_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(connection_failure_test PRIVATE

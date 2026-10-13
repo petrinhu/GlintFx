@@ -99,14 +99,20 @@ src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|poll_impl(&incoming, 1, wait_ms)|teto-nosso
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|classify_incoming_poll(poll_result, incoming.revents)|nao-espera
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_read_events(display)|nao-espera
+# WL-FRAME-ORDER-ARM-TEST-fix1 (D-W8-F11): a porta poll_for() de egl_present_wire.hpp chama, por
+# ponteiro injetavel, real_poll_for(), isto e' poll_and_dispatch_with_budget() logo acima - a
+# MESMA espera com o orcamento que a propria porta recebe (teto-nosso).
+src/platform/wayland/egl_context_adapter.cpp|egl_wire_wait_ports::poll_for()|poll(display, budget_ms)|teto-nosso
 # A unica chamada abaixo serve aos dois ramos de swap_buffers() (vsync=off
 # e o ramo pos-espera de vsync=on): os dois chamam present_through_egl(),
-# que a faz dentro da porta swap() (WL-FRAME-ORDER-ARM-TEST, D-W8-226). A
+# que a faz pela porta swap() de egl_present_wire.hpp, cuja chamada real e'
+# real_egl_swap_buffers() (WL-FRAME-ORDER-ARM-TEST, D-W8-226, e a fix1,
+# D-W8-F11). A
 # classe (egl_context_adapter.hpp's own swap_interval_honored(),
 # GODS_LAWS.md L-04/CLAUDE.md "paridade acha o que leitura nao acha"):
 # so' teto-nosso de verdade quando m_swap_interval_honored e' true -
 # medido e declarado, nunca assumido.
-src/platform/wayland/egl_context_adapter.cpp|present_through_egl(), porta swap()|eglSwapBuffers(self.m_egl_display, self.m_egl_surface)|sem-teto-declarado
+src/platform/wayland/egl_context_adapter.cpp|real_egl_swap_buffers(), a porta swap() de egl_present_wire.hpp|eglSwapBuffers(egl_display, egl_surface)|sem-teto-declarado
 
 src/platform/wayland/bounded_output_wait.cpp|wait_for_writable_until()|poll(&pending_write, 1, static_cast<int>(remaining_ms))|teto-nosso
 

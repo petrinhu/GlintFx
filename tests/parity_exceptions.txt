@@ -321,6 +321,15 @@ incoming_poll_reaction_test|windows|nenhum|SEM-PENDENCIA
 # acima, agora no nivel de integracao.
 incoming_poll_wiring_test|windows|nenhum|SEM-PENDENCIA
 
+# egl_present_wiring_test (tests/egl_present_wiring_test.cpp, WL-FRAME-ORDER-ARM-TEST-fix1,
+# D-W8-F11) prova a LIGACAO das portas da apresentacao Wayland EGL (src/platform/wayland/
+# egl_present_wire.hpp) as chamadas de sistema, com cada chamada roteirizada. O lado Windows
+# apresenta por SwapBuffers() do WGL, sem aviso de quadro nem portas de apresentacao (src/
+# platform/win32/wgl_context_adapter.cpp): nao ha ligacao equivalente a provar. A ausencia e'
+# consequencia direta e permanente da ausencia de wl_surface.frame naquela API, o mesmo
+# raciocinio da entrada de incoming_poll_wiring_test logo acima.
+egl_present_wiring_test|windows|nenhum|SEM-PENDENCIA
+
 # connection_failure_test (tests/connection_failure_test.cpp, tests/
 # CMakeLists.txt:1803, dentro do MESMO bloco if(UNIX) de incoming_poll_
 # wiring_test logo acima) - EGL-DEAD-DISPLAY-GUARD S1 (docs/plano-egl-

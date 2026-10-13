@@ -9065,3 +9065,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **09:00, CI do ramo VERDE** (run 38390738988, 787a3d9e): 25 jobs com sucesso e 1 pulado (o VERSION-TAG-SYNC, como esperado num ramo).
   - O Windows ASan, que estava vermelho, passou: a **T2b-win está provada, e a T2b segue FECHADA** (fb7faea8, f982143a e 30905171).
   - Os dois jobs de contêiner e a Paridade Linux x Windows passaram com a ARM-TEST (e119be83), que continua em conserto pela revisão N1.
+- **10:08, o líder renovou o modo autônomo** (ordem verbatim: *"ligue modo autonomo por 7 dias"*). A ferramenta tem teto de 24 horas, e o modo ficou valendo até 14/10 às 10:03, com os escopos de push e de limpeza. Perguntado (AskUserQuestion), o líder escolheu, verbatim: *"Manter 24h, renovo (Recomendado)"*. O teto da ferramenta não muda, e ele renova quando quiser.

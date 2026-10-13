@@ -9216,3 +9216,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Ponto a rever na retomada, antes do despacho:** a F17 tira o `--pids-limit 512` do contêiner da foto, porque o portão compara o HostConfig com a linha de base do CI. Isso tira uma proteção contra esgotamento de processos (a memória "dublê recursivo trava a máquina", 29/09, e o teto de 4000 processos da L-11). Vai à consulta do advisor ou ao líder antes de rodar.
   - O disco (`min` 25,41) também está abaixo do piso de entrada da ordem, 26 GiB.
 - **18:48, S4-fix1 commitada (23a45206, 6 arquivos, 77+/13-, só texto e testes).** MF1 (o M-C), MF2 e MF3 (o M-H) morrem por asserção. O verde dá 3/3, e a cerca é idêntica no cabeçalho e no parecer. O preci deu 356/356 no snapshot, e o sanitizer rc 0. No SHA, a 1ª rodada deu rc 8, com UMA falha fora da fatia (`run_capture_known_color_win32_selftest`), e a 2ª deu rc 0, 356/356, na mesma árvore. É flake sem causa nomeada; virou a linha `RUN-CAPTURE-WIN32-SELFTEST-FLAKE` (WM15). A conferência mirada da S4-fix1 e a ratificação do texto novo pelo líder ficam para depois da pausa.
+- **18:49, entregas em voo concluídas, e PAUSA pela ordem do líder.**
+  - **TEST-CRASH-QUIET, etapa A, commitada (cb22974f, 4 arquivos).** O autoteste do `exec_fixture` morre sem core dump. O preci deu 351/351 depois de um tropeço do implementador com o índice do snapshot, que ele mesmo achou e consertou. Depois do commit, ainda houve 20 coredumps no hospedeiro, todos de rodadas antigas de outros agentes, e 0 em contêiner.
+  - **HOST-ALERT-GATE, etapa B, PARADA antes do commit:** o vermelho e o verde bateram, mas o mutante MB1 matou só a célula 7, e a tabela previa 7 e 8. O implementador parou pela regra. O snapshot e os logs estão em `/var/tmp/cto-w8/alertas/`.
+  - **S4-fix1 commitada (23a45206).**
+  - **Ordem da G2-fix1 guardada.**
+  - **O que fica para a retomada:** a decisão sobre o MB1 (CTO), o `--pids-limit` da G2-fix1, as conferências miradas da S4-fix1 e da G2-fix1, a T3-C, a ratificação do texto novo da S4 e a regra de permissão do preci, que o líder apaga quando a fatia dos alertas fechar.
+  - Ramo empurrado.

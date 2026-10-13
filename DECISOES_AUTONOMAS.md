@@ -9049,3 +9049,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A varredura com o cppcheck do hospedeiro na FDPASS, na T2b-win e nos rascunhos da S4 e da T3 deu rc 0, sem o achado.
   - As três ordens agora pedem `relatorio.txt`: FDPASS com md5 dfbd954d e T2b-win com md5 5876d87f, mudando só o caminho do relatório.
   - A T2b-win já está commitada (30905171).
+- **08:02, T2b-win commitada (30905171, 1 arquivo, 4+/4-).** O main conferiu o diff: `sampled()` devolve o prvalue `gltfx_texture_2d_desc{.filter = filter, .mipmap_levels = count}`, com o comentário do motivo. A régua deu 4 cópias de preenchimento fora do escopo antes e 0 depois. O verde no Linux, em contêiner, deu 1/1. O preci --fast e o sanitizer deram rc 0 no snapshot, e o preci rc 0 no SHA. A prova de execução é o job Windows ASan do próximo CI, disparado junto com o commit da ARM-TEST, para uma rodada só cobrir as duas.

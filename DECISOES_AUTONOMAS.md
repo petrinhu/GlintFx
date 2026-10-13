@@ -9147,3 +9147,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A exceção de paridade nova foi conferida verdadeira. Não houve achado CRÍTICO.
   - **A WL-FRAME-ORDER-ARM-TEST está FECHADA** (e119be83 e aaa51036), e a linha passa a ✅.
 - **15:01, FDPASS-fix1 commitada (7fb56c0d, 4 arquivos, 267+/39-).** O A1 cai por asserção no relé de hoje. O verde dá 7/7, e os 4 mutantes morrem. A prova viva da G2-s, refeita inteira depois da liberação de disco, dá base e verde com 28/28 e o VEREDITO PASSA (só a Intel, `renderD128`). O preci dá rc 0 no snapshot e no SHA, e o cppcheck 748/0. A conferência mirada vai ao revisor da FDPASS, que refaz o próprio cenário A1 e confere que o caminho da "dúvida impressa" é afirmado por teste, e não só impresso (décima primeira consulta).
+- **15:12, conferência mirada da FDPASS-fix1** (`/var/tmp/cto-w8/rev-fdpass-fix1.txt`).
+  - **A1 FECHADO:** a captura recebe o pool, e o fio continua certo.
+  - O caminho da dúvida é afirmado por teste (descritores == 2, quadros == 0), e a recusa está FECHADA.
+  - **Cosméticos abertos**, somados à linha `CI-CONTAINER-SEM-FD-NAO-SHM`: o C2 (os outros argumentos `fd` sem teste real) e o C4 (a linha impressa da dúvida, que nenhum teste lê).
+  - Os testes do relé deram rc 0 em contêiner. Não houve achado CRÍTICO.
+  - **A WIRE-RELAY-FD-PASSTHROUGH está FECHADA** (d0291f99 e 7fb56c0d), e a linha passa a ✅.
+  - Com a sonda G2-s provada, o CTO da trilha escreve a ordem da G2, a foto oficial na Intel.

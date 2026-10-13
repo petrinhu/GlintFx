@@ -101,6 +101,8 @@ struct fake_card {
     std::map<GLenum, GLint> parameters; // glTexParameteri on GL_TEXTURE_2D
     // The texture bound when each parameter was set (fatia T2b).
     std::map<GLenum, GLuint> parameter_texture;
+    // How many levels were already uploaded when each parameter was set (fatia T2b-fix1).
+    std::map<GLenum, std::size_t> parameter_uploads_before;
     std::vector<upload> uploads;
     int mipmap_generations = 0;
     int gl_calls_at_delete = -1;
@@ -192,6 +194,7 @@ void GLINTFX_GL_APIENTRY f_tex_parameter(GLenum target, GLenum pname, GLint valu
     if (target == k_texture_2d) {
         card.parameters[pname] = value;
         card.parameter_texture[pname] = card.bound_texture;
+        card.parameter_uploads_before[pname] = card.uploads.size();
     }
 }
 void GLINTFX_GL_APIENTRY f_tex_image(GLenum target, GLint level, GLint internal_format,
@@ -483,6 +486,25 @@ GLINTFX_TEST(with_reduced_levels_nearest_keeps_one_level_and_linear_blends_two) 
     GLINTFX_CHECK_EQ(parameter(k_wrap_t), k_clamp_to_edge);
     GLINTFX_CHECK(set_on_the_new_texture());
     release(blended);
+}
+
+// R2D-TEXTURE, fatia T2b-fix1 (F-2 of the N1 review): the four sampling parameters are set BEFORE
+// the first level is uploaded (texture_upload.hpp, step 7), not merely while the texture is bound.
+GLINTFX_TEST(the_sampling_parameters_are_set_before_the_first_level_is_uploaded) {
+    reset();
+    const auto made =
+        make(white(4, 4), sampled(gltfx_texture_filter::linear, gltfx_all_mipmap_levels));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(card.uploads.size(), std::size_t{3});
+    std::size_t checked = 0;
+    for (const GLenum pname : {k_mag_filter, k_min_filter, k_wrap_s, k_wrap_t}) {
+        const auto found = card.parameter_uploads_before.find(pname);
+        GLINTFX_CHECK(found != card.parameter_uploads_before.end());
+        GLINTFX_CHECK_EQ(found->second, std::size_t{0});
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, std::size_t{4});
+    release(made);
 }
 
 // Without mipmaps the texture is complete with level 0 alone: GL_TEXTURE_MAX_LEVEL 0.

@@ -19,11 +19,16 @@
 namespace glintfx {
 
 enum class gltfx_texture_filter : std::uint8_t {
-    // Each screen pixel takes the colour of the nearest texel: sharp
-    // edges, the right choice for pixel art drawn at its own size.
+    // Each screen pixel takes the colour of ONE texel, never a blend. Drawn
+    // at its size or larger, or smaller without reduced levels: the nearest
+    // texel of the full-size level; drawn smaller with reduced levels: the
+    // nearest texel of the nearest level. Sharp edges: the right choice for
+    // pixel art drawn at its own size.
     nearest = 0,
-    // Each screen pixel blends between the four nearest texels of a level,
-    // and between the two nearest levels when reduced levels exist.
+    // Each screen pixel blends texels. Drawn at its size or larger: the four
+    // nearest texels of the full-size level. Drawn smaller: the same without
+    // reduced levels; with them, the four nearest texels of each of the two
+    // nearest levels, and then those two results.
     linear = 1,
 };
 

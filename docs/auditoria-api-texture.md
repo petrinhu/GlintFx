@@ -27,7 +27,9 @@
 - **Errata da T2a-B (CTO, 12/10/2026; uma cerca e uma fonte):** a cerca vira o texto que a T2a publica, para que nenhuma fatia seguinte reescreva o que já saiu. `texture_2d_desc.hpp`: o comentário de `linear`, o de `mipmap_levels` (a contagem dos níveis REDUZIDOS, com o exemplo 256 x 1) e o de `gltfx_all_mipmap_levels` passam a ser os da T2a-A; o parágrafo FILTERING AND COLOUR continua aqui e entra na T2b, como bloco, sem mudar uma linha do resto. `renderer_2d.hpp`: o comentário de `create_texture` passa a ser o da T2a-B (a ordem das recusas, o erro do contexto, `platform_failure` com o código GL e o estado de desempacotamento). `texture_2d.hpp`: sem mudança de texto; a T2a publica a cerca SEM as linhas 18 a 36 do bloco (os três itens de LIFETIME depois do primeiro, a linha `//` e o `Proved by` de `renderer_2d_impl_test`), e a T3 as acrescenta como estão, depois de `//     rule as the window and the context).`, junto com o teste que as prova. Os `#include` de `texture_region.hpp` e `texture_atlas.hpp` e os blocos de `update_texture` e dos desenhos entram nas fatias deles, como estão.
 - **Errata da T2a-fix1 (CTO, 12/10/2026):** os `Proved by` de `create_texture` passam a citar o que cada teste exercita de fato: `texture_upload_test` prova a criação para a qual o método encaminha, sobre GL falso; `draw2d_parity_test` prova o próprio método e a alça sobre um contexto real (revisão N1 da T2a, achados 5 e 6).
 
-- **Errata da T2b (CTO, 12/10/2026; D-W8-372 e D-W8-374):** o parágrafo FILTERING AND COLOUR de `texture_2d_desc.hpp` NÃO entra na T2b. Ele termina em `Proved by: draw2d_texture_parity_test`, e esse teste (as células de filtro da D-W8-305, que desenham com textura) nasce na T4b; citar teste que ainda não existe reprova pela D-W8-374. O parágrafo entra na T4b, como bloco, junto com o teste que ele cita. A T2b publica só o comportamento interno (a tabela de `src/draw2d/texture_sampling.hpp`: filtro de ampliação e de redução, com e sem níveis reduzidos, e as bordas presas ao texel da borda, `GL_CLAMP_TO_EDGE`); o único texto público que muda nela é o comentário de `linear`, porque o filtro com níveis reduzidos é o trilinear (`GL_LINEAR_MIPMAP_LINEAR`, decisão D-T2b-3 da ordem T2b, registrada pelo main em `DECISOES_AUTONOMAS.md` em 12/10): a linha "Each screen pixel blends the four nearest texels." passa a ser "Each screen pixel blends between the four nearest texels of a level, / and between the two nearest levels when reduced levels exist." (duas linhas), no cabeçalho `texture_2d_desc.hpp` e na cerca desta página, trocada uma vez, no commit da T2b. Porta de mão única: vai à ratificação do líder.
+- **Errata da T2b (CTO, 12/10/2026; D-W8-372 e D-W8-374):** o parágrafo FILTERING AND COLOUR de `texture_2d_desc.hpp` NÃO entra na T2b. Ele termina em `Proved by: draw2d_texture_parity_test`, e esse teste (as células de filtro da D-W8-305, que desenham com textura) nasce na T4b; citar teste que ainda não existe reprova pela D-W8-374. O parágrafo entra na T4b, como bloco, junto com o teste que ele cita. A T2b publica só o comportamento interno (a tabela de `src/draw2d/texture_sampling.hpp`: filtro de ampliação e de redução, com e sem níveis reduzidos, e as bordas presas ao texel da borda, `GL_CLAMP_TO_EDGE`); o único texto público que muda nela é o comentário de `linear` (e, na T2b-fix1, também o de `nearest`), porque o filtro com níveis reduzidos é o trilinear (`GL_LINEAR_MIPMAP_LINEAR`, decisão D-T2b-3 da ordem T2b, registrada pelo main em `DECISOES_AUTONOMAS.md` em 12/10). O texto vigente é o da errata da T2b-fix1, logo abaixo. Porta de mão única: vai à ratificação do líder.
+
+- **Errata da T2b-fix1 (CTO, 12/10/2026; achado F-1 da revisão N1 da T2b):** a frase da T2b sobre `linear` dizia que o pixel mistura os dois níveis mais próximos sempre que há níveis reduzidos; na AMPLIAÇÃO isso é falso (o GL só usa o nível de tamanho cheio e não aceita filtro de níveis na ampliação). Os comentários de `nearest` e de `linear`, no cabeçalho `texture_2d_desc.hpp` e na cerca desta página, passam a dizer o que acontece em cada caso: desenhado no tamanho ou maior, desenhado menor sem níveis reduzidos, e desenhado menor com eles. Linha a linha, trocadas uma vez e conferidas iguais nos dois lugares. Porta de mão única: vai à ratificação do líder.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -146,11 +148,16 @@ struct gltfx_image_view {
 namespace glintfx {
 
 enum class gltfx_texture_filter : std::uint8_t {
-    // Each screen pixel takes the colour of the nearest texel: sharp
-    // edges, the right choice for pixel art drawn at its own size.
+    // Each screen pixel takes the colour of ONE texel, never a blend. Drawn
+    // at its size or larger, or smaller without reduced levels: the nearest
+    // texel of the full-size level; drawn smaller with reduced levels: the
+    // nearest texel of the nearest level. Sharp edges: the right choice for
+    // pixel art drawn at its own size.
     nearest = 0,
-    // Each screen pixel blends between the four nearest texels of a level,
-    // and between the two nearest levels when reduced levels exist.
+    // Each screen pixel blends texels. Drawn at its size or larger: the four
+    // nearest texels of the full-size level. Drawn smaller: the same without
+    // reduced levels; with them, the four nearest texels of each of the two
+    // nearest levels, and then those two results.
     linear = 1,
 };
 

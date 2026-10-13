@@ -21,12 +21,15 @@
 //   linear    0                GL_LINEAR       GL_LINEAR
 //   linear    1 or more        GL_LINEAR       GL_LINEAR_MIPMAP_LINEAR
 // `nearest` keeps the colour of ONE texel of ONE level, so a reduced level is chosen, never blended
-// with the next one. `linear` blends the four nearest texels and, with reduced levels, the two
-// nearest levels (the trilinear filter), as the public comment of `linear` says
-// (texture_2d_desc.hpp, amended in the same fatia T2b).
+// with the next one. `linear` blends the four nearest texels; drawn smaller with reduced levels,
+// it blends them in each of the two nearest levels and then the two (the trilinear filter).
+// Magnification never uses a reduced level (GL accepts no mipmap filter there). The public comment
+// of `linear` says the same
+// (texture_2d_desc.hpp, amended in fatias T2b and T2b-fix1).
 //
 // THE EDGES: both directions clamp to the edge texel (GL_CLAMP_TO_EDGE), whatever the filter. A
-// drawn region never leaves the texture (it is refused before), so the only sample that reaches an
+// region drawn from the texture stays inside it (docs/auditoria-api-texture.md: the drawing calls
+// refuse a region outside the texture), so the only sample that reaches an
 // edge is the linear filter's neighbour of an edge texel, and it must read the edge texel itself,
 // never the opposite side of the texture (GL_REPEAT, the GL default). Repetition (tiling) is not a
 // sampling mode of this fatia (D-W8-11).

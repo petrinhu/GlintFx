@@ -9154,3 +9154,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os testes do relé deram rc 0 em contêiner. Não houve achado CRÍTICO.
   - **A WIRE-RELAY-FD-PASSTHROUGH está FECHADA** (d0291f99 e 7fb56c0d), e a linha passa a ✅.
   - Com a sonda G2-s provada, o CTO da trilha escreve a ordem da G2, a foto oficial na Intel.
+- **15:13, S4-B commitada (33fc983b, 9 arquivos, 359+/6-): `stroke_rect` no desenhador.** As 18 âncoras deram n=1 sobre a base que andou (T3-A e ARM-TEST-fix1). O vermelho dá rc 8 nos 5 casos de contorno; o verde 3/3, com as 3 linhas ditadas; o M9 e o M10 morrem. O preci --fast dá 350 e o sanitizer rc 0, no snapshot de base 04d029ae, que é o pai do commit, ou seja, o mesmo conteúdo. **A S4 inteira** (eb23058f e 33fc983b) vai à revisão N1, com o revisor da S3.

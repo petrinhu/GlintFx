@@ -9099,3 +9099,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O preci --fast dá rc 0 (349) e o sanitizer rc 0.
   - O contador `encontrados=0` impresso no commit é o do portão de PowerShell do hook local, num lote sem `.ps1`, e o portão o declara. É o mesmo que aparece nos commits de docs.
   - A S4-B espera o commit da T3-A, porque as duas são donas de `renderer_2d_impl.cpp`.
+- **12:32, as duas mini-ordens de conserto conferidas e despachadas em paralelo** (os arquivos não se cruzam).
+  - **ARM-TEST-fix1** (`ordem-armtest-fix1.md`, md5 a3faa065; manifesto 318a4761, rc 0).
+    - **D-W8-F11:** as portas da apresentação viram tipos nomeados (`egl_present_wire.hpp`), com cada chamada de sistema injetável e a real como padrão. É a costura que o projeto já usa no `incoming_poll_wiring_test`. Um teste novo mata os 6 mutantes da revisão e mais 4.
+    - **D-W8-F12:** o aviso sai uma vez por sequência de falhas, por relato de borda (D-W8-24). A SDL e o EFL não limitam.
+    - O comentário da D-W6b-46 volta.
+    - Pré-execução: verde 7/7, 10 mutantes mortos, prova de fiação 28/28 nas duas imagens, cppcheck 739/0, preci rc 0.
+  - **FDPASS-fix1** (`ordem-fdpass-fix1.md`, md5 82602c20; manifesto 5474ba9f, rc 0).
+    - **D-W8-F13:** o relé planeja os descritores de cada leva. A mensagem de interface modelada leva a própria contagem. O excedente vai com a primeira mensagem não modelada, ou espera a leva seguinte. Uma modelada que vem depois de um excedente vai ao fio mas não à captura, e a dúvida é impressa.
+    - O A1 cai por asserção no relé de hoje.
+    - Pré-execução: verde 7/7; 4 mutantes mortos (o F4 exigiu um caso a mais); a G2-s refeita PASSA com 12/12.
+  - **Resíduo declarado pelo CTO:** os corpos `real_*` das portas, uma chamada de sistema cada, só são exercitados pela suíte de contêiner. A forma completa, um servidor Wayland falso em processo, dependeria da `libwayland-server` (L-07, decisão do líder). A pergunta vai ao advisor.

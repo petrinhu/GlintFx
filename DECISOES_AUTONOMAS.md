@@ -9093,3 +9093,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Decisão do líder** (AskUserQuestion, opção 1, com a pergunta dele verbatim: *"O que fazer com a necessidade de leitura da pasta local? Copiar o necessário ao container? Abrir excessão?"*): os testes seguem, e o conserto entra como fatia urgente, antes das próximas.
   - **A resposta à pergunta dele** fica para depois da medição. A hipótese, que é INFERÊNCIA, é que nada precisa da pasta pessoal: o Python a procura sozinho, e o conserto é não procurar e não montar a home. Exceção no SELinux é proibida pela L-02 e pela L-60.
   - O CTO da S4 e da T3 recebeu a fatia urgente: achar todos os pontos, provar a necessidade, consertar as duas causas, criar um portão que reprove AVC ou coredump novo do host e investigar um terceiro AVC (`ThreadPoolSingl` sobre `locale_t`).
+- **12:18, S4-A commitada (eb23058f, 11 arquivos, 1217+).**
+  - O vermelho dá rc 8 por asserção e bate com a tabela da ordem: verificação 18 células, buraco 12/12, áreas 4/4.
+  - O verde dá 3/3, com as 8 linhas ditadas e o fmt em rc 0. Os 8 mutantes morrem.
+  - O preci --fast dá rc 0 (349) e o sanitizer rc 0.
+  - O contador `encontrados=0` impresso no commit é o do portão de PowerShell do hook local, num lote sem `.ps1`, e o portão o declara. É o mesmo que aparece nos commits de docs.
+  - A S4-B espera o commit da T3-A, porque as duas são donas de `renderer_2d_impl.cpp`.

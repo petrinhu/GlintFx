@@ -9087,3 +9087,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - S4-A (só cria arquivos e blocos de CMake) e T3-A juntas;
     - depois S4-B e T3-B (átomos puros);
     - por fim T3-C, depois da S4-B.
+- **11:52, o líder relatou alertas no desktop** (verbatim: *"varios alertas se linux"*). O main mediu duas causas, as duas dos testes em contêiner.
+  - **(1) SELinux.** Às 11:01, o seapplet ficou bloqueado por excesso: *"Created too many similar notifications in quick succession (36)"*. O Python dentro do contêiner tenta ler `/home/petrus/.local/lib/python3.14/site-packages` (`gconf_home_t`) e uma pasta `ferramentas` (`unlabeled_t`), e é barrado.
+  - **(2) DrKonqi.** As quedas propositais dos testes (`kill -ABRT` dentro de `docker-*.scope`, 217 pares desde 11/10) chegam ao systemd-coredump do host.
+  - **Decisão do líder** (AskUserQuestion, opção 1, com a pergunta dele verbatim: *"O que fazer com a necessidade de leitura da pasta local? Copiar o necessário ao container? Abrir excessão?"*): os testes seguem, e o conserto entra como fatia urgente, antes das próximas.
+  - **A resposta à pergunta dele** fica para depois da medição. A hipótese, que é INFERÊNCIA, é que nada precisa da pasta pessoal: o Python a procura sozinho, e o conserto é não procurar e não montar a home. Exceção no SELinux é proibida pela L-02 e pela L-60.
+  - O CTO da S4 e da T3 recebeu a fatia urgente: achar todos os pontos, provar a necessidade, consertar as duas causas, criar um portão que reprove AVC ou coredump novo do host e investigar um terceiro AVC (`ThreadPoolSingl` sobre `locale_t`).

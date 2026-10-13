@@ -416,11 +416,11 @@ constexpr GLint k_nearest_mipmap_nearest = 0x2700;
 constexpr GLint k_linear_mipmap_linear = 0x2703;
 constexpr GLint k_clamp_to_edge = 0x812F;
 
+// A prvalue, never a named local, like levels() above (T2a-win): MSVC /O2 /fsanitize=address
+// copied the 3 padding bytes of the named local after the end of its scope, a
+// stack-use-after-scope that no line of this file commits (CI run 38340544829, T2b-win).
 [[nodiscard]] gltfx_texture_2d_desc sampled(gltfx_texture_filter filter, std::uint32_t count) {
-    gltfx_texture_2d_desc desc;
-    desc.filter = filter;
-    desc.mipmap_levels = count;
-    return desc;
+    return gltfx_texture_2d_desc{.filter = filter, .mipmap_levels = count};
 }
 
 // True when each of the four sampling parameters was set while the ONE texture this creation

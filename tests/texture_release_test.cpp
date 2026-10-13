@@ -170,6 +170,48 @@ GLINTFX_TEST(a_release_whose_context_cannot_be_made_current_deletes_nothing) {
     GLINTFX_CHECK_EQ(event.second_value, k_context_os_error);
 }
 
+// T3 (D-W8-288): a record whose renderer HOLDS it (a frame is open) is handed over and released
+// later, by the renderer; one whose renderer does not hold it (no frame open) is released at once.
+namespace {
+
+glintfx::texture_2d_impl *handed_over = nullptr;
+
+bool fake_hold_taking(void *, glintfx::texture_2d_impl *texture) noexcept {
+    handed_over = texture;
+    return true;
+}
+
+bool fake_hold_refusing(void *, glintfx::texture_2d_impl *) noexcept { return false; }
+
+[[nodiscard]] texture_2d_impl *record_held_by(bool (*hold)(void *, texture_2d_impl *) noexcept) {
+    texture_2d_impl *made = record();
+    made->access.hold = hold;
+    return made;
+}
+
+} // namespace
+
+GLINTFX_TEST(a_texture_its_renderer_holds_is_handed_over_and_not_released_now) {
+    state = fake_state{};
+    handed_over = nullptr;
+    texture_2d_impl *made = record_held_by(&fake_hold_taking);
+    release_texture_object(made);
+    GLINTFX_CHECK(handed_over == made);
+    GLINTFX_CHECK_EQ(state.current_calls, 0);
+    GLINTFX_CHECK(state.deleted.empty());
+    // What the renderer does when the frame ends (texture_release_queue.hpp).
+    glintfx::draw2d::release_texture_now(handed_over);
+    GLINTFX_CHECK_EQ(state.deleted.size(), 1U);
+}
+
+GLINTFX_TEST(a_texture_its_renderer_does_not_hold_is_released_at_once) {
+    state = fake_state{};
+    release_texture_object(record_held_by(&fake_hold_refusing));
+    GLINTFX_CHECK(state.current_calls >= 1);
+    GLINTFX_CHECK_EQ(state.gl_calls_at_first_current, 0);
+    GLINTFX_CHECK_EQ(state.deleted.size(), 1U);
+}
+
 GLINTFX_TEST(releasing_nothing_touches_nothing) {
     state = fake_state{};
     release_texture_object(nullptr);

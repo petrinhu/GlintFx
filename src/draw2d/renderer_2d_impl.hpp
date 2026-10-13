@@ -24,6 +24,8 @@
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
 #include "draw2d/stroke_line_pixels.hpp"
+#include "draw2d/texture_2d_impl.hpp"
+#include "draw2d/texture_release_queue.hpp"
 #include "draw2d/triangle_batch.hpp"
 #include "draw2d/triangle_pixel_vertices.hpp"
 #include "draw2d/vertex_stream.hpp"
@@ -97,10 +99,10 @@ struct renderer_2d_impl {
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
     [[nodiscard]] gltfx_frame_2d_report last_frame_report() const noexcept;
 
-    // This renderer's context access and GL function table, read by the atoms that make GL objects
-    // in its context (texture_upload.hpp). Read-only views of members, no state of their own.
-    [[nodiscard]] const renderer_2d_host &context_host() const noexcept { return host; }
-    [[nodiscard]] const render::gl_function_table &gl_functions() const noexcept { return gl; }
+    // What a texture of this renderer needs of it (texture_2d_impl.hpp): the context and the GL
+    // table, read by the atoms that make GL objects in its context (texture_upload.hpp), this
+    // renderer as the owner, and the door of its release queue (T3, D-W8-288).
+    [[nodiscard]] draw2d::texture_gl_access texture_access() noexcept;
 
     renderer_2d_impl(const renderer_2d_impl &) = delete;
     renderer_2d_impl &operator=(const renderer_2d_impl &) = delete;
@@ -141,6 +143,9 @@ struct renderer_2d_impl {
     void settle_piece_counts(std::size_t added, bool drawn) noexcept;
     void remember_error(const gltfx_err &error) noexcept;
     [[nodiscard]] bool context_current() noexcept;
+    // The door of the release queue (texture_gl_access::hold): takes the record of a texture of
+    // this renderer while a frame is open (T3, D-W8-288); false otherwise.
+    static bool hold_texture_release(void *renderer, texture_2d_impl *texture) noexcept;
 
     renderer_2d_host host;
     render::gl_function_table gl;
@@ -156,6 +161,8 @@ struct renderer_2d_impl {
     bool frame_open = false;
     bool gl_ready = false; // the context was made current for this frame
     std::optional<gltfx_err> frame_error;
+    // The textures destroyed while a frame is open, released when it ends (T3, D-W8-288).
+    draw2d::texture_release_queue held_textures;
     // The pixel vertices of the triangle call being kept: the piece list copies them, so they are
     // reused by every call, and grow through the same allocator as the rest (S2b-fix1, I-8).
     draw2d::triangle_pixel_vertices triangle_pixels;

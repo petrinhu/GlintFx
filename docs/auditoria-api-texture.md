@@ -31,6 +31,8 @@
 
 - **Errata da T2b-fix1 (CTO, 12/10/2026; achado F-1 da revisão N1 da T2b):** a frase da T2b sobre `linear` dizia que o pixel mistura os dois níveis mais próximos sempre que há níveis reduzidos; na AMPLIAÇÃO isso é falso (o GL só usa o nível de tamanho cheio e não aceita filtro de níveis na ampliação). Os comentários de `nearest` e de `linear`, no cabeçalho `texture_2d_desc.hpp` e na cerca desta página, passam a dizer o que acontece em cada caso: desenhado no tamanho ou maior, desenhado menor sem níveis reduzidos, e desenhado menor com eles. Linha a linha, trocadas uma vez e conferidas iguais nos dois lugares. Porta de mão única: vai à ratificação do líder.
 
+- **Errata da T3, etapa A (CTO, 12/10/2026; D-W8-288):** o bloco de liberação de `texture_2d.hpp` entra como está na cerca (as linhas que a errata da T2a-B reservou à T3), junto com o teste que o prova (`renderer_2d_impl_test`). A fila que segura a textura destruída com o quadro aberto mora em `src/draw2d/texture_release_queue.hpp` e corre pelos próprios registros: segurar não pede memória e não falha. O relatório do quadro NÃO ganha contador de liberações adiadas: o layout da D-W8-30 é fechado para a onda, a DIV-T01 diz que o relatório "pode" contar (não que deve), e a liberação que falha já é dita pelo evento `texture_release_failed`. O último item do bloco cita `update_texture` em `renderer_2d.hpp`; o método nasce na etapa C desta mesma fatia.
+
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
 ---

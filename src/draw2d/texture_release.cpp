@@ -11,11 +11,12 @@
 #include "core/log/emit.hpp"
 #include "gl_functions.hpp"
 
-// draw2d/texture_release.cpp - R2D-TEXTURE, fatia T2a-fix1 and T2a-fix2: the release of one
-// texture's GL object and its record. The release makes the texture's context current before it
-// deletes the GL object. If that context cannot be made current, nothing is deleted through it (the
-// object goes with the context), and the loss is reported, never silent (CONTRACT.md §6.4). The
-// record is freed in every case.
+// draw2d/texture_release.cpp - R2D-TEXTURE, fatias T2a-fix1, T2a-fix2 and T3: the release of one
+// texture's GL object and its record. release_texture_now() makes the texture's context current
+// before it deletes the GL object. If that context cannot be made current, nothing is deleted
+// through it (the object goes with the context), and the loss is reported, never silent
+// (CONTRACT.md §6.4). The record is freed in every case. release_texture_object() gives the record
+// to its renderer's queue while a frame is open (T3, D-W8-288).
 namespace glintfx::draw2d {
 
 namespace {
@@ -39,6 +40,16 @@ void report_release_failure(const glintfx::gltfx_err &error) noexcept {
 } // namespace
 
 void release_texture_object(glintfx::texture_2d_impl *texture) noexcept {
+    if (texture == nullptr) {
+        return;
+    }
+    if (texture->access.hold != nullptr && texture->access.hold(texture->access.queue, texture)) {
+        return;
+    }
+    release_texture_now(texture);
+}
+
+void release_texture_now(glintfx::texture_2d_impl *texture) noexcept {
     if (texture == nullptr) {
         return;
     }

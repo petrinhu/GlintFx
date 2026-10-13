@@ -52,6 +52,9 @@
 //   equal (a gap
 //     would show zero, an overlap a brighter value), the pixels outside untouched;
 //   - ONE draw call for N pieces of equal state (and 0 for none).
+//   - a TEXTURE destroyed while the frame is open is not a barrier (T3, D-W8-288): a red piece in
+//     layer 1 submitted before the destruction stays over a blue piece in layer 0 submitted after
+//     it, at the pixel (210,160); the frame ends with a value, no GL error and no texture bound.
 // The surface encoding is read in BOTH modes: two contexts opened in sequence, because
 // srgb_framebuffer is open_only. A driver that does not support the option is a DECLARED and
 // COUNTED absence (printed, and a MEASURED key, listed per platform in
@@ -668,6 +671,36 @@ void cell_texture_creation(const cells_context &c) {
                refused.err().rejected_value() == "width");
 }
 
+// Cell TD (R2D-TEXTURE T3, D-W8-288): a texture destroyed while the frame is open, between a red
+// piece of layer 1 and a blue piece of layer 0 over the same pixel. Destruction is not a barrier:
+// one batch, painted in layer order, so the pixel stays red; the deferred release leaves no GL
+// error and no texture bound.
+void cell_texture_destruction_in_frame(const cells_context &c) {
+    drain_gl_errors(c.gl);
+    const std::vector<std::byte> pixels(4, std::byte{0xFF});
+    const glintfx::gltfx_image_view image{.pixels = pixels,
+                                          .width = 1,
+                                          .height = 1,
+                                          .bytes_per_row = 4,
+                                          .pixel_format =
+                                              glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+    c.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    c.renderer.fill_rect(rect(200.0, 150.0, 20.0, 20.0), k_red, glintfx::gltfx_draw_layer{1});
+    {
+        const glintfx::gltfx_rslt<glintfx::gltfx_texture_2d> made =
+            c.renderer.create_texture(image, {});
+        report(c, "TD1 create_texture com o quadro aberto abre a textura", made.has_value());
+    } // the texture is destroyed here, with the frame open
+    c.renderer.fill_rect(rect(205.0, 155.0, 20.0, 20.0), k_blue, glintfx::gltfx_draw_layer{0});
+    const auto finished = c.renderer.finish_frame();
+    report(c, "TD2 o quadro termina com valor e sem erro GL depois da liberacao adiada",
+           finished.has_value() && c.gl.get_error() == 0);
+    report(c, "TD3 destruir nao enviou o lote: o vermelho da camada 1 fica sobre o azul",
+           is_exact(read_at(c, 210, 160), 255, 0, 0));
+    report(c, "TD4 nenhuma textura ligada depois do quadro",
+           integer_of(c.gl, k_gl_texture_binding_2d) == 0);
+}
+
 // Opens a context with the surface encoding `srgb`, runs every cell over it, and destroys it.
 // Returns false when the driver does not support the mode (a DECLARED absence, counted), true
 // otherwise; a failed cell is counted in g_failures, and a failure to open anything at all ends the
@@ -843,6 +876,7 @@ mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
     cell_shared_edge(cells);
     cell_draw_calls(cells);
     cell_texture_creation(cells);
+    cell_texture_destruction_in_frame(cells);
     return mode_result::ran;
 }
 

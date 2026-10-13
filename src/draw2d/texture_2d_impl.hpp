@@ -14,6 +14,8 @@
 // releases them.
 namespace glintfx {
 
+struct texture_2d_impl;
+
 namespace draw2d {
 
 // What making or releasing a texture needs of its renderer: the context to make current before
@@ -25,6 +27,12 @@ struct texture_gl_access {
     gltfx_rslt<void> (*make_current)(void *context) noexcept = nullptr;
     const render::gl_function_table *gl = nullptr;
     const void *owner = nullptr;
+    // The door of the renderer's release queue (T3, D-W8-288): `hold` takes the record of a texture
+    // destroyed while that renderer has a frame open, and the renderer releases it when the frame
+    // ends (texture_release_queue.hpp); it answers false when no frame is open, and the caller
+    // releases at once. Null in a record made without a renderer (a test's).
+    bool (*hold)(void *queue, texture_2d_impl *texture) noexcept = nullptr;
+    void *queue = nullptr;
 };
 
 } // namespace draw2d
@@ -36,6 +44,8 @@ struct texture_2d_impl {
     std::uint32_t height = 0;
     gltfx_texture_filter filter = gltfx_texture_filter::linear;
     std::uint32_t reduced_levels = 0; // levels 1 to reduced_levels exist on the card
+    // The next record held by its renderer for release (T3, texture_release_queue.hpp).
+    texture_2d_impl *next_held = nullptr;
 };
 
 } // namespace glintfx

@@ -1652,6 +1652,20 @@ target_sources(texture_release_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
 )
 
+# R2D-TEXTURE T3, etapa A: the queue of the textures a renderer holds for release (D-W8-288), against a FAKE
+# context and a FAKE glDeleteTextures; the release itself is texture_release.cpp's.
+glintfx_add_test(texture_release_queue_test)
+add_dependencies(texture_release_queue_test glintfx_gl_functions_generated)
+target_include_directories(texture_release_queue_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_release_queue_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release_queue.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
+)
+
 glintfx_add_test(texture_upload_test)
 add_dependencies(texture_upload_test glintfx_gl_functions_generated)
 target_include_directories(texture_upload_test PRIVATE
@@ -1774,6 +1788,13 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_pixels.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+)
+
+# R2D-TEXTURE T3, etapa A: the frame machine holds the textures destroyed while a frame is open and releases
+# them when it ends (D-W8-288), so this target compiles the queue and the release.
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release_queue.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
 )
 
 glintfx_add_test(memory_separation_kind_test)

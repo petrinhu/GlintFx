@@ -86,6 +86,7 @@ void renderer_2d_impl::destroy(renderer_2d_impl *impl) noexcept {
     if (impl == nullptr) {
         return;
     }
+    impl->held_textures.release_held(); // D-W8-288: before the renderer goes
     // "Releases the renderer's GPU objects in ITS context": make it current first; if that fails
     // there is nothing more to do about it (never refused), the objects go with the context.
     if (impl->host.make_current(impl->host.context).has_value()) {
@@ -93,6 +94,20 @@ void renderer_2d_impl::destroy(renderer_2d_impl *impl) noexcept {
         draw2d::destroy_embedded_program(impl->gl, impl->program);
     }
     delete impl;
+}
+
+draw2d::texture_gl_access renderer_2d_impl::texture_access() noexcept {
+    return draw2d::texture_gl_access{
+        host.context, host.make_current, &gl, this, &renderer_2d_impl::hold_texture_release, this};
+}
+
+bool renderer_2d_impl::hold_texture_release(void *renderer, texture_2d_impl *texture) noexcept {
+    auto *self = static_cast<renderer_2d_impl *>(renderer);
+    if (!self->frame_open) {
+        return false;
+    }
+    self->held_textures.hold(texture);
+    return true;
 }
 
 bool renderer_2d_impl::context_current() noexcept {
@@ -112,6 +127,7 @@ void renderer_2d_impl::remember_error(const gltfx_err &error) noexcept {
 }
 
 void renderer_2d_impl::begin_frame(const gltfx_frame_2d_desc &desc) noexcept {
+    held_textures.release_held(); // D-W8-288: the textures of an abandoned frame
     // A frame already open is thrown away, undrawn (frame_tally counts it as abandoned).
     batch.clear();
     pieces.clear();
@@ -359,6 +375,7 @@ gltfx_rslt<gltfx_frame_2d_report> renderer_2d_impl::finish_frame() noexcept {
     }
     gl_ready = context_current() && gl_ready;
     send_pending(false);
+    held_textures.release_held(); // D-W8-288: after the last draw of the frame
     const draw2d::finish_status status = tally.finish();
     frame_open = false;
     const gltfx_frame_2d_report report = tally.last_report();

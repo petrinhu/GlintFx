@@ -14,10 +14,14 @@
 
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/core/log/event.hpp>
+#include <glintfx/core/log/sink.hpp>
 #include <glintfx/core/segment.hpp>
 #include <glintfx/draw2d/stroke.hpp>
 
 #include "draw2d/renderer_2d_impl.hpp"
+#include "draw2d/texture_2d_impl.hpp"
+#include "draw2d/texture_release.hpp"
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
@@ -1077,6 +1081,165 @@ GLINTFX_TEST(renderer_2d_impl_the_edge_of_the_pixel_range_keeps_the_vertex_progr
     GLINTFX_CHECK(std::isfinite(y) && y > 1.0e38F);
     GLINTFX_CHECK(std::isfinite(x / width * 2.0F - 1.0F));
     GLINTFX_CHECK(std::isfinite(1.0F - y / height * 2.0F));
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-TEXTURE, fatia T3 (D-W8-288, texture_2d.hpp LIFETIME): a texture destroyed while its renderer
+// has a frame open is released when the frame ends, AFTER its last draw, and its destruction sends
+// nothing (it is not a barrier: a piece of a lower layer submitted after it is still painted under
+// the piece submitted before it). An abandoned frame releases at the next begin_frame(), a
+// destroyed renderer before it goes; outside a frame the release is at once, after the context. A
+// release whose context fails deletes nothing and says so (texture_release_failed). The records are
+// built by hand: the release does not depend on how a texture was made (texture_upload_test).
+namespace {
+
+std::vector<GLuint> deleted_textures;
+
+void GLINTFX_GL_APIENTRY f_delete_textures(GLsizei n, const GLuint *names) {
+    GLINTFX_COUNT();
+    for (GLsizei i = 0; i < n; ++i) {
+        card.calls.emplace_back("delete_texture");
+        deleted_textures.push_back(names[i]);
+    }
+}
+
+renderer_2d_impl *make_with_textures() {
+    gl_function_table table = fake_table();
+    table.glDeleteTextures = &f_delete_textures;
+    auto created = renderer_2d_impl::create(fake_host(), table, renderer_2d_options{true, 16});
+    GLINTFX_CHECK(created.has_value());
+    return created.has_value() ? created.value() : nullptr;
+}
+
+// A texture of `renderer`, GL name `name`, as the making leaves it (texture_upload.hpp).
+[[nodiscard]] glintfx::texture_2d_impl *texture_of(renderer_2d_impl *renderer, GLuint name) {
+    return new glintfx::texture_2d_impl{
+        .access = renderer->texture_access(),
+        .gl_name = name,
+        .width = 2U,
+        .height = 2U,
+        .filter = glintfx::gltfx_texture_filter::linear,
+        .reduced_levels = 0U,
+    };
+}
+
+// Where `name` sits in the order of the calls the card saw; -1 when it is not there.
+[[nodiscard]] int position_of(const std::string &name, bool last) {
+    int found = -1;
+    for (std::size_t i = 0; i < card.calls.size(); ++i) {
+        if (card.calls[i] == name) {
+            found = static_cast<int>(i);
+            if (!last) {
+                return found;
+            }
+        }
+    }
+    return found;
+}
+
+std::vector<std::string> release_events;
+
+void capture_release_event(void *, const glintfx::gltfx_log_event &event) noexcept {
+    release_events.emplace_back(event.name());
+}
+
+// Arms the capture for one case and disarms it at the end, even when a check fails.
+struct armed_release_log {
+    armed_release_log() {
+        release_events.clear();
+        glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{&capture_release_event, nullptr,
+                                                            glintfx::gltfx_log_severity::trace});
+    }
+    ~armed_release_log() { glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{}); }
+    armed_release_log(const armed_release_log &) = delete;
+    armed_release_log &operator=(const armed_release_log &) = delete;
+};
+
+constexpr glintfx::gltfx_draw_layer k_layer_1{1};
+
+} // namespace
+
+GLINTFX_TEST(renderer_2d_impl_a_texture_destroyed_in_a_frame_is_released_after_the_last_draw) {
+    reset();
+    deleted_textures.clear();
+    renderer_2d_impl *renderer = make_with_textures();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_rect(rect(10.0, 10.0, 10.0, 10.0), k_red, k_layer_1);
+    glintfx::draw2d::release_texture_object(texture_of(renderer, 77U));
+    GLINTFX_CHECK(card.calls.empty() || position_of("draw", false) < 0);
+    GLINTFX_CHECK(deleted_textures.empty());
+    // Submitted AFTER the destruction, in a LOWER layer: with no barrier, it is painted first.
+    renderer->fill_rect(rect(12.0, 12.0, 10.0, 10.0), k_blue, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(card.draw_counts.size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(sent(0, 6), 1.0F); // the blue piece (layer 0) first
+    GLINTFX_CHECK_EQ(sent(1, 4), 1.0F); // the red piece (layer 1) over it
+    GLINTFX_CHECK_EQ(deleted_textures.size(), std::size_t{1});
+    GLINTFX_CHECK(!deleted_textures.empty() && deleted_textures.front() == 77U);
+    GLINTFX_CHECK(position_of("delete_texture", false) > position_of("draw", true));
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_texture_held_by_an_abandoned_frame_is_released_at_the_next_one) {
+    reset();
+    deleted_textures.clear();
+    renderer_2d_impl *renderer = make_with_textures();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    glintfx::draw2d::release_texture_object(texture_of(renderer, 78U));
+    GLINTFX_CHECK(deleted_textures.empty());
+    const int current_before = context.current_calls;
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    GLINTFX_CHECK_EQ(deleted_textures.size(), std::size_t{1});
+    GLINTFX_CHECK(context.current_calls > current_before);
+    (void)renderer->finish_frame();
+    GLINTFX_CHECK_EQ(deleted_textures.size(), std::size_t{1}); // released once, not twice
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_destroying_the_renderer_releases_the_textures_it_holds) {
+    reset();
+    deleted_textures.clear();
+    renderer_2d_impl *renderer = make_with_textures();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    glintfx::draw2d::release_texture_object(texture_of(renderer, 79U));
+    GLINTFX_CHECK(deleted_textures.empty());
+    renderer_2d_impl::destroy(renderer);
+    GLINTFX_CHECK_EQ(deleted_textures.size(), std::size_t{1});
+    GLINTFX_CHECK(!deleted_textures.empty() && deleted_textures.front() == 79U);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_texture_destroyed_outside_a_frame_is_released_at_once) {
+    reset();
+    deleted_textures.clear();
+    renderer_2d_impl *renderer = make_with_textures();
+    const int current_before = context.current_calls;
+    glintfx::draw2d::release_texture_object(texture_of(renderer, 80U));
+    GLINTFX_CHECK_EQ(deleted_textures.size(), std::size_t{1});
+    GLINTFX_CHECK(context.current_calls > current_before);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_release_whose_context_fails_deletes_nothing_and_says_so) {
+    reset();
+    deleted_textures.clear();
+    const armed_release_log log;
+    renderer_2d_impl *renderer = make_with_textures();
+    // Outside a frame: at once, after the context, which fails.
+    context.fail_current = true;
+    glintfx::draw2d::release_texture_object(texture_of(renderer, 81U));
+    GLINTFX_CHECK(deleted_textures.empty());
+    GLINTFX_CHECK_EQ(release_events.size(), std::size_t{1});
+    // In a frame: held, and released at the end of the frame, whose context fails as well.
+    context.fail_current = false;
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    glintfx::draw2d::release_texture_object(texture_of(renderer, 82U));
+    context.fail_current = true;
+    (void)renderer->finish_frame();
+    GLINTFX_CHECK(deleted_textures.empty());
+    GLINTFX_CHECK_EQ(release_events.size(), std::size_t{2});
+    GLINTFX_CHECK(!release_events.empty() && release_events.back() == "texture_release_failed");
+    context.fail_current = false;
     renderer_2d_impl::destroy(renderer);
 }
 

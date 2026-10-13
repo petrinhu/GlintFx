@@ -22,9 +22,7 @@ gltfx_renderer_2d::create_texture(gltfx_image_view image, gltfx_texture_2d_desc 
     assert(impl != nullptr &&
            "gltfx_renderer_2d::create_texture() called on a moved-from renderer - the object no "
            "longer owns its drawing state");
-    const renderer_2d_host &host = impl->context_host();
-    const draw2d::texture_gl_access access{host.context, host.make_current, &impl->gl_functions(),
-                                           impl};
+    const draw2d::texture_gl_access access = impl->texture_access();
     gltfx_rslt<texture_2d_impl *> made =
         draw2d::create_texture_object(access, image, desc, draw2d::default_batch_allocator());
     if (made.has_error()) {

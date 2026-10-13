@@ -58,7 +58,8 @@
 //   - the same rectangle in world unit from (20,40) to (50,60), 3 thick, under a zoom of 2: on row
 //     100, centered covers columns 37 to 42, inside 40 to 45 and outside 34 to 39, and the column
 //     past each end is black; in pixel unit, 4 thick, centered covers 38 to 41;
-//   - an outline whose thickness reaches the middle of the rectangle fills it (no hole), one of
+//   - an inside outline whose thickness reaches the middle of the rectangle fills it (no hole),
+//     one of
 //     zero thickness covers no pixel, and a negative width and an unknown alignment are refused,
 //     one count each.
 // Geometry assumes a scale factor of 1: pixels are the numbers written below (as in
@@ -426,7 +427,8 @@ void cell_rect_pixel_unit(const session &s) {
     cell(row_100_white_from(s, 38, 41), "C11 pixel 4 sob zoom 2: colunas 38 a 41, nem 8 nem 2");
 }
 
-// C12: no hole when the thickness reaches the middle, zero thickness covers nothing, two refusals.
+// C12: no hole when an inside outline reaches the middle, zero thickness covers nothing, two
+// refusals.
 void cell_rect_report(const session &s) {
     const auto pixel_unit = glintfx::gltfx_stroke_unit::pixel;
     glintfx::gltfx_rect_outline_style unknown =
@@ -454,7 +456,8 @@ void cell_rect_report(const session &s) {
     cell(is_exact(read_at(s, 152, 35), 255, 255, 255) &&
              is_exact(read_at(s, 153, 35), 255, 255, 255) &&
              is_exact(read_at(s, 200, 100), 0, 0, 0) && is_exact(read_at(s, 215, 100), 0, 0, 0),
-         "C12 o contorno que alcanca o meio enche o retangulo; o de espessura zero nao cobre nada");
+         "C12 o contorno de dentro que alcanca o meio enche o retangulo; o de espessura zero nao "
+         "cobre nada");
 }
 
 } // namespace

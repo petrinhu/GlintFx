@@ -334,8 +334,11 @@ class gltfx_renderer_2d {
     // at a right angle. The thickness is in the unit `style.stroke.unit`
     // (stroke.hpp): in world unit the outline is the world outline carried by
     // the batch transform; in pixel unit it keeps its thickness on the screen
-    // at every zoom. When the thickness reaches the middle of the rectangle,
-    // there is no hole: the outline fills its outer rectangle. A rectangle
+    // at every zoom. When the part of the outline that grows inward reaches
+    // the middle of the rectangle's shorter side (the sides measured in the
+    // unit of the thickness), there is no hole: the outline fills its outer
+    // rectangle. Centered, that is a thickness of the whole shorter side or
+    // more; inside, of half of it or more; outside, never. A rectangle
     // with no width or no height has no hole either, and the outline is, by
     // alignment: centered, the bar of the thickness around the segment;
     // inside, a piece of zero area, drawn, covering no pixel; outside, the

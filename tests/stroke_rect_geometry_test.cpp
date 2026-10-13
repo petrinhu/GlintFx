@@ -124,14 +124,16 @@ GLINTFX_TEST(stroke_rect_outline_of_each_alignment_on_the_identity) {
     GLINTFX_CHECK_EQ(failures_of(rows, "alinhamentos"), std::size_t{0});
 }
 
-// The hole, as a closed table of its borders (D-W8-271, D-S4-2, D-S4-3): a thickness that reaches
-// the middle of the rectangle, or a rectangle with no width or no height, has no hole, and the
-// outline is the outer polygon alone. No width and no height are each swept in the three
+// The hole, as a closed table of its borders (D-W8-271, D-S4-2, D-S4-3): the part of the outline
+// that grows inward reaching the middle of a side (centered, a thickness of the whole side; inside,
+// half of it; outside, never), or a rectangle with no width or no height, leaves no hole, and the
+// outline is the outer polygon alone. Each threshold has a cell on each side of it (S4-fix1, the
+// revisao N1 da S4). No width and no height are each swept in the three
 // alignments: centered, the bar around the segment; inside, a piece of zero area; outside, the
 // grown rectangle, filled.
 GLINTFX_TEST(stroke_rect_hole_closed_table_of_its_borders) {
     const auto world = gltfx_stroke_unit::world;
-    const std::array<expected_outline, 12> rows{{
+    const std::array<expected_outline, 15> rows{{
         {"dentro, largura 6 e espessura 4: sem buraco",
          {{10.0, 10.0}, {6.0, 20.0}},
          style_of(4.0, world, gltfx_stroke_align::inside),
@@ -209,6 +211,17 @@ GLINTFX_TEST(stroke_rect_hole_closed_table_of_its_borders) {
          corners{{{6.0, 6.0}, {14.0, 6.0}, {14.0, 14.0}, {6.0, 14.0}}},
          corners{},
          false},
+        {"centrado, espessura 10 na altura 20: ainda ha buraco, de altura 10", k_rect,
+         style_of(10.0, world, gltfx_stroke_align::centered), identity(),
+         corners{{{5.0, 5.0}, {55.0, 5.0}, {55.0, 35.0}, {5.0, 35.0}}},
+         corners{{{15.0, 15.0}, {45.0, 15.0}, {45.0, 25.0}, {15.0, 25.0}}}, true},
+        {"centrado, espessura 20, a altura inteira: sem buraco", k_rect,
+         style_of(20.0, world, gltfx_stroke_align::centered), identity(),
+         corners{{{0.0, 0.0}, {60.0, 0.0}, {60.0, 40.0}, {0.0, 40.0}}}, corners{}, false},
+        {"fora, espessura 10: o buraco e o proprio retangulo", k_rect,
+         style_of(10.0, world, gltfx_stroke_align::outside), identity(),
+         corners{{{0.0, 0.0}, {60.0, 0.0}, {60.0, 40.0}, {0.0, 40.0}}},
+         corners{{{10.0, 10.0}, {50.0, 10.0}, {50.0, 30.0}, {10.0, 30.0}}}, true},
         {"espessura zero: buraco igual ao retangulo, faixa de area zero", k_rect,
          style_of(0.0, world, gltfx_stroke_align::centered), identity(),
          corners{{{10.0, 10.0}, {50.0, 10.0}, {50.0, 30.0}, {10.0, 30.0}}},
@@ -293,6 +306,28 @@ GLINTFX_TEST(stroke_rect_pixel_unit_under_a_mirror_and_flattened_sides) {
 
 // The points and the triangles of an outline: the outer four then the inner four, and the four
 // trapezoids split from outer k (D-W8-271); without a hole, the outer quad.
+// S4-fix1 (revisao N1 da S4, IMPORTANTE-2): in pixel unit each side is measured ON THE SCREEN, by
+// its own column of the transform. Under a scale of (1, 0.1) the height is 2 pixels and a centered
+// outline 4 pixels thick leaves no hole, though the world height is 20; under (0.1, 1) the width
+// is 4 pixels, the twin; under (1, 0.5) the height is 10 pixels and the hole stays.
+GLINTFX_TEST(stroke_rect_pixel_unit_measures_each_side_on_the_screen) {
+    const auto pixel = gltfx_stroke_unit::pixel;
+    const auto centered = gltfx_stroke_align::centered;
+    const std::array<expected_outline, 3> rows{{
+        {"escala (1, 0,1): altura de 2 pixels, sem buraco", k_rect, style_of(4.0, pixel, centered),
+         affine_of(0.0, 0.0, 0.0, 1.0, 0.1),
+         corners{{{8.0, -1.0}, {52.0, -1.0}, {52.0, 5.0}, {8.0, 5.0}}}, corners{}, false},
+        {"escala (0,1, 1): largura de 4 pixels, sem buraco", k_rect, style_of(4.0, pixel, centered),
+         affine_of(0.0, 0.0, 0.0, 0.1, 1.0),
+         corners{{{-1.0, 8.0}, {7.0, 8.0}, {7.0, 32.0}, {-1.0, 32.0}}}, corners{}, false},
+        {"escala (1, 0,5): altura de 10 pixels, ha buraco", k_rect, style_of(4.0, pixel, centered),
+         affine_of(0.0, 0.0, 0.0, 1.0, 0.5),
+         corners{{{8.0, 3.0}, {52.0, 3.0}, {52.0, 17.0}, {8.0, 17.0}}},
+         corners{{{12.0, 7.0}, {48.0, 7.0}, {48.0, 13.0}, {12.0, 13.0}}}, true},
+    }};
+    GLINTFX_CHECK_EQ(failures_of(rows, "escala nao uniforme"), std::size_t{0});
+}
+
 GLINTFX_TEST(stroke_rect_points_and_triangles_with_and_without_a_hole) {
     const rect_outline holed = rect_outline_of(
         k_rect, style_of(4.0, gltfx_stroke_unit::world, gltfx_stroke_align::centered), identity());

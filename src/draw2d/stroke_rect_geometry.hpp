@@ -36,7 +36,8 @@
 //     scaled by their larger one, so they neither overflow nor vanish for any finite transform.
 //
 // THE HOLE. When the inner polygon has no area (its width or its height, measured in the space of
-// the unit, is zero or less: the thickness reaches the middle of the rectangle, or the rectangle
+// the unit, is zero or less: the part that grows inward reaches the middle of that side, which
+// centered is a thickness of the whole side, inside half of it, outside never; or the rectangle
 // has no width or no height), there is no hole and the outline is the outer polygon alone, filled;
 // as Skia's strokeRect draws it, and as the union a path stroke paints in the canvas and in Cairo
 // (D-W8-271, D-S4-2, D-S4-3).

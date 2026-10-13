@@ -1471,6 +1471,24 @@ GLINTFX_TEST(renderer_2d_impl_a_rect_outline_refusal_is_counted_once_with_its_re
     renderer_2d_impl::destroy(renderer);
 }
 
+// S4-fix1 (revisao N1 da S4, IMPORTANTE-3): the outline is painted in ITS layer. A red outline in
+// layer 1, then a blue square in layer 0 submitted after it: the square is painted first (its
+// first vertex is the first sent), and the outline's first vertex comes after its four.
+GLINTFX_TEST(renderer_2d_impl_a_rect_outline_is_painted_in_its_layer) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_rect(rect(10.0, 10.0, 40.0, 20.0),
+                          outline_style(4.0, glintfx::gltfx_stroke_align::centered), k_red,
+                          glintfx::gltfx_draw_layer{1});
+    renderer->fill_rect(rect(12.0, 12.0, 10.0, 10.0), k_blue, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK_EQ(sent_vertex(0, 6), 1.0F); // the blue square (layer 0) first
+    GLINTFX_CHECK_EQ(sent_vertex(4, 4), 1.0F); // then the red outline (layer 1), over it
+    GLINTFX_CHECK_EQ(sent_vertex(4, 6), 0.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
 GLINTFX_TEST(renderer_2d_impl_a_rect_outline_with_no_frame_open_is_counted_outside_the_frame) {
     reset();
     renderer_2d_impl *renderer = make(true);

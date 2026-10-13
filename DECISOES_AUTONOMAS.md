@@ -9066,3 +9066,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O Windows ASan, que estava vermelho, passou: a **T2b-win está provada, e a T2b segue FECHADA** (fb7faea8, f982143a e 30905171).
   - Os dois jobs de contêiner e a Paridade Linux x Windows passaram com a ARM-TEST (e119be83), que continua em conserto pela revisão N1.
 - **10:08, o líder renovou o modo autônomo** (ordem verbatim: *"ligue modo autonomo por 7 dias"*). A ferramenta tem teto de 24 horas, e o modo ficou valendo até 14/10 às 10:03, com os escopos de push e de limpeza. Perguntado (AskUserQuestion), o líder escolheu, verbatim: *"Manter 24h, renovo (Recomendado)"*. O teto da ferramenta não muda, e ele renova quando quiser.
+- **10:35, WIRE-RELAY-FD-PASSTHROUGH commitada (d0291f99, 8 arquivos, 162+/19-).**
+  - O vermelho dá rc 8 por asserção nos 2 casos novos. O verde dá 7/7, com o `wire_relay_selftest` em 35 casos. Os 2 mutantes morrem.
+  - As duas imagens dão 28/28 nos passos do `ci.yml`. O preci dá rc 0 no snapshot e no SHA.
+  - **A prova viva da G2-s PASSA:** só a Intel (`renderD128`), isolamento 0, primeiro quadro em 1 s, nenhum descritor perdido e 12 de 12 sondas. Com isso, a sonda G2-s de `QA-COMPOSED-PATH` está provada, e a ordem da G2 (a foto) pode ser escrita.
+  - Status na tabela: 🔍. A revisão N3 (leitura e um vermelho) vai a um revisor distinto.

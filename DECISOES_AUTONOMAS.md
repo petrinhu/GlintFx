@@ -9050,3 +9050,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - As três ordens agora pedem `relatorio.txt`: FDPASS com md5 dfbd954d e T2b-win com md5 5876d87f, mudando só o caminho do relatório.
   - A T2b-win já está commitada (30905171).
 - **08:02, T2b-win commitada (30905171, 1 arquivo, 4+/4-).** O main conferiu o diff: `sampled()` devolve o prvalue `gltfx_texture_2d_desc{.filter = filter, .mipmap_levels = count}`, com o comentário do motivo. A régua deu 4 cópias de preenchimento fora do escopo antes e 0 depois. O verde no Linux, em contêiner, deu 1/1. O preci --fast e o sanitizer deram rc 0 no snapshot, e o preci rc 0 no SHA. A prova de execução é o job Windows ASan do próximo CI, disparado junto com o commit da ARM-TEST, para uma rodada só cobrir as duas.
+- **08:30, ARM-TEST commitada (e119be83, 8 arquivos, 573+/99-).**
+  - O preci deu rc 0 no snapshot e no clone do SHA. O main conferiu os 8 caminhos e as duas inicializações `display = nullptr` no blob.
+  - Continuam valendo o vermelho, o verde 6/6, os 11 de 11 mutantes, o MSVC e a prova de fiação local (28/28 nas duas imagens, `rendered_frames=30`, imagens apagadas).
+  - Status na tabela: 🔍. A revisão N1 vai a um revisor distinto.
+  - Push e CI disparados para provar a ARM-TEST e a T2b-win juntas.
+  - A FDPASS foi despachada, porque a ARM-TEST, que vinha antes na fila do `tests/CMakeLists.txt`, já foi commitada.

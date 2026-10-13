@@ -9072,3 +9072,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **A prova viva da G2-s PASSA:** só a Intel (`renderD128`), isolamento 0, primeiro quadro em 1 s, nenhum descritor perdido e 12 de 12 sondas. Com isso, a sonda G2-s de `QA-COMPOSED-PATH` está provada, e a ordem da G2 (a foto) pode ser escrita.
   - Status na tabela: 🔍. A revisão N3 (leitura e um vermelho) vai a um revisor distinto.
 - **10:52, revisão N3 da FDPASS: NÃO LIMPA, com um IMPORTANTE** (`/var/tmp/cto-w8/rev-fdpass.txt`). A1, achado por leitura: a regra que dá todos os descritores pendentes a uma mensagem de interface não modelada (`wire_relay_connection_set.cpp:58` e `:250-251`) rouba o descritor do `wl_shm.create_pool` que vem depois na mesma leva, e a captura perde o pool em silêncio. É regressão, e contradiz a razão da D-W8-F08. O vermelho do revisor (tirar o `close_all` da recusa) morreu por asserção num caso que já existia. O CTO escreve a FDPASS-fix1, a rodada única da N3: primeiro um caso que reproduz o A1, depois o conserto pela semântica completa, com a prova viva da G2-s refeita.
+- **10:52, S4 e T3 reemitidas e conferidas.**
+  - **S4** (`ordem-s4.md`, md5 4365693c; 58 anexos, rc 0).
+    - A cerca diz os cantos retos como comportamento, e o retângulo sem largura ou sem altura POR ALINHAMENTO: centrado, a barra em volta do segmento; dentro, uma peça de área zero; fora, o retângulo crescido cheio.
+    - As 4 células que faltavam foram feitas por conta independente, e a tabela do furo passou a 12 casos.
+    - Os 10 mutantes e a sonda X1 morrem.
+  - **T3** (`ordem-t3.md`, md5 1a36eaad; 128 anexos, rc 0).
+    - O campo público `updatable` vem desligado por padrão e governa `update_texture` para toda textura. Os texels só ficam guardados quando a textura é atualizável e tem níveis reduzidos.
+    - Uma atualização de largura ou altura zero dá sucesso sem chamada GL, depois das outras verificações.
+    - A sonda de colisão do campo novo foi feita. A ordem não toca mais `texture_upload_test.cpp`.
+  - **Pré-execução sobre a S4 e a T3 combinadas:** preci --fast INTEIRO verde (353 testes), sanitizer 166, MSVC 29/0, paridade ao vivo com shapes 31/0 e draw2d 106/0, e os 10 mutantes da T3 mortos.
+  - Nenhum helper que devolve struct com preenchimento usa local nomeado (a regra do prvalue).
+  - **Despacho em etapas, porque as duas fatias são donas de `renderer_2d_impl.cpp`:**
+    - S4-A (só cria arquivos e blocos de CMake) e T3-A juntas;
+    - depois S4-B e T3-B (átomos puros);
+    - por fim T3-C, depois da S4-B.

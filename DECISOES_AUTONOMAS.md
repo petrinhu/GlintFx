@@ -9146,3 +9146,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **COSMÉTICOS:** o 1 e o 2 estão FECHADOS, com caso de rearme. O 3 (o relógio lido antes do laço) fica aberto por decisão do CTO, porque não muda comportamento.
   - A exceção de paridade nova foi conferida verdadeira. Não houve achado CRÍTICO.
   - **A WL-FRAME-ORDER-ARM-TEST está FECHADA** (e119be83 e aaa51036), e a linha passa a ✅.
+- **15:01, FDPASS-fix1 commitada (7fb56c0d, 4 arquivos, 267+/39-).** O A1 cai por asserção no relé de hoje. O verde dá 7/7, e os 4 mutantes morrem. A prova viva da G2-s, refeita inteira depois da liberação de disco, dá base e verde com 28/28 e o VEREDITO PASSA (só a Intel, `renderD128`). O preci dá rc 0 no snapshot e no SHA, e o cppcheck 748/0. A conferência mirada vai ao revisor da FDPASS, que refaz o próprio cenário A1 e confere que o caminho da "dúvida impressa" é afirmado por teste, e não só impresso (décima primeira consulta).

@@ -9206,3 +9206,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - **I-3:** o isolamento é provado no contêiner A, mas a interação acontece no B, que tem configuração diferente, sem inspeção. É a L-09.
     - **C-1:** o autoteste não roda com `python3 -I`.
   - O CTO da trilha escreve a G2-fix1.
+- **17:38, ordem do líder, verbatim:** *"quano estes agentes atuais entregarem, commit, push e pause"*.
+  - Os agentes em voo terminam: o conserto dos alertas (com o preci na fila), a S4-fix1 e o CTO que escreve a G2-fix1.
+  - Nenhum trabalho novo é despachado: a T3-C e a implementação da G2-fix1 ficam paradas.
+  - Depois das entregas, o main commita, empurra o ramo e PAUSA, até nova ordem do líder.

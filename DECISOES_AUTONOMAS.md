@@ -8997,3 +8997,36 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - A fiação do 3º argumento rodou ao vivo nas duas direções.
     - O relatório da sonda tinha dito o contrário porque confundiu a lacuna com a captura.
 - **00:11, conferência mirada da S3-fix1: I-1 FECHADO e I-2 FECHADO, sem achado novo CRÍTICO** (`/var/tmp/cto-w8/rev-s3-fix1.md`). O texto e a cerca dizem a garantia, idênticos por `cmp`; o 13280 foi refeito por conta independente; o caso do I-2 roda em contêiner 2/2; os mutantes R10 e R11 morrem nos casos certos. **A S3 está FECHADA** (531dbc2f, 3e2f5f73 e 3d7dff15). Para a ratificação retroativa do líder: o texto público da ponta redonda (porta de mão única). Push do ramo depois do fechamento.
+- **07:14, décima consulta ao advisor (S4 e T3) e uma decisão do líder.**
+  - **Contexto.** O CTO entregou a ordem da S4 (`ordem-s4.md`, md5 8d52c928; anexos rc 0; pré-execução com o vermelho por asserção em A e B, os 10 mutantes mortos, o preci 347 e o MSVC 27/0). A T3 ainda não foi entregue: falta um preci inteiro verde. Ficaram quatro dúvidas.
+  - **Dúvida S4-1, junção configurável.**
+    - Resposta: (a), cantos retos agora.
+    - Motivo: nas cinco fontes (Canvas, Skia, Cairo, NanoVG e SVG), a junção é propriedade do ESTILO DO TRAÇO e vale para toda forma. O lugar completo é `gltfx_stroke`, ao lado da ponta, e não `gltfx_rect_outline_style`.
+    - Ação: a linha R2D-STROKE-PATH ganha a nota. Para a ratificação do líder: a garantia dos cantos retos no texto público.
+  - **Dúvida S4-2, retângulo sem largura ou sem altura.**
+    - Resposta: (a), a regra única, sem caso especial (zero é domínio, como decidido na S3).
+    - O main conferiu a área de fora por conta própria: o retângulo (10,10)-(50,30) com espessura 4 cresce para fora até (6,6)-(54,34). Isso dá 48 × 28 = 1344, e 1344 − 800 = 544. Também conferiu o centrado (480) e o de dentro (416).
+    - **Lacuna achada (L-17, gêmeo):** a tabela tem largura zero para centrado e fora, mas falta a de dentro, e falta altura zero nos três alinhamentos. A cerca diz o caso degenerado só em geral.
+    - Ação: o CTO emenda a S4 com as células e a cerca dizendo o resultado por alinhamento.
+  - **Dúvida T3-1, quem guarda os texels de textura com mipmap.** Foi ao líder (campo público novo, porta de mão única). Resposta verbatim: *"Só quem declarar (Recomendado)"*.
+    - A textura ganha uma opção de ser atualizável, desligada por padrão, como no sokol, no bgfx, no WebGPU, no Vulkan, no Direct3D e no Metal.
+    - Refinamento do advisor: a opção governa `update_texture` para TODA textura, e não só as com mipmap. Os texels só são guardados quando a textura é atualizável E tem níveis reduzidos. Atualizar uma textura que não declarou é recusado por nome.
+  - **Dúvida T3-2, atualização de largura ou altura zero.**
+    - Resposta: (b), sucesso sem fazer nada, e dito no texto público. Zero é recusado para OBJETOS que não podem existir (textura vazia) e aceito para OPERAÇÕES vazias.
+    - As outras verificações rodam antes. A célula do teste prova que nenhum texel é escrito e nenhuma chamada GL é feita.
+  - **Para a ratificação do líder:** S4-1, S4-2 e T3-2.
+- **07:14, CI do ramo VERMELHO** (run 38340544829, 6184f6fd).
+  - Só o Windows ASan falhou, com 1 de 158 testes: `texture_upload_test` dá `stack-use-after-scope`, *"READ of size 3"*, em `:446`.
+  - Causa: o helper `sampled()` da T2b devolve um local nomeado de `gltfx_texture_2d_desc`. É o MESMO defeito que a T2a-win consertou em `levels()`: o MSVC copia os 3 bytes de preenchimento depois de marcar a variável como fora de escopo.
+  - A lição estava nas ordens, e a T2b a deixou passar. O conserto vira a mini-fatia T2b-win.
+  - O padrão foi achado de novo (L-17), então a varredura dos helpers de teste que devolvem uma struct com preenchimento por local nomeado entra na mesma fatia. A linha MSVC-ASAN-PADDING-RETURN passa a pedir um portão.
+  - A W8 não fecha com o CI vermelho (L-15).
+- **07:14, ARM-TEST PAROU no preci** (rc 1, estágio 2b: *"algum CMakeLists.txt tem mudanca fora do indice"*).
+  - O vermelho, o verde, os 11 mutantes, o MSVC e a prova de fiação local passaram (28/28 nas duas imagens, `rendered_frames=30`, imagens apagadas).
+  - Defeito da ORDEM: o passo 5 só faz `git add` dos 4 arquivos novos, e não dos 4 modificados pela fiação. O implementador parou sem contornar. O CTO emenda o passo.
+- **07:14, ordem da WIRE-RELAY-FD-PASSTHROUGH pronta** (`ordem-fdpass.md`, md5 504b1171; manifesto bb530e11, rc 0).
+  - Pré-execução: o vermelho dá rc 8 em 2 dos 34 casos; o verde dá 7/7; os 2 mutantes morrem; as duas imagens dão 28/28.
+  - **A etapa b da G2-s passa com o relé consertado:** composição OpenGL na Intel, captura 640x480, 12 de 12 sondas.
+  - D-W8-F08: uma mensagem que o relé conhece continua levando a contagem exata de descritores.
+  - Lacuna declarada: os jobs de contêiner do CI não exercem ao vivo descritor que não seja de `wl_shm`. Vira a linha CI-CONTAINER-SEM-FD-NAO-SHM.
+  - Despacho depois da ARM-TEST, porque as duas são donas de `tests/CMakeLists.txt`.

@@ -9131,3 +9131,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **3c, ferramentas:** *"use as mais atuais disponíveis no repo fedora. Autorizo baixar e instalar mais se precisar."* É a autorização da L-14 para buildx, compose, CMake, ccache e gh, pelo dnf, sob a trava pesada.
   - **3d, skills e plugins:** *"Autorizo ver skills/plugins atuais oficiais autorizados na página do clade/anthropic e instalar o que precisar para otimizar, mas sem ligar a outras libs. Cuidado para nao conflitar com o que tem instalado."* Uma pesquisa vai a um agente, com conferência de conflito (L-59, L-62).
 - **13:02, ferramentas atualizadas (L-14, com a autorização do líder):** `docker-compose` foi de 5.5.1 para 5.6.0, pelo dnf, só dos repositórios fedora e updates, rc 0. CMake, ccache, gh e buildx já eram as versões mais novas do Fedora. TOOLCHAIN-UPDATES-PENDENTES passa a ✅. Achado para a G4: o `nvidia-container-toolkit` 1.20.1 JÁ está instalado nesta máquina, com repositório próprio. O plano da G4 dizia que instalá-lo seria pedir pacote novo; o CTO da G4 precisa levar isso em conta, sem mudar a escolha do líder (SELinux desligado só no contêiner).
+- **13:43, T3-A commitada (4a79c9a5, 16 arquivos, 536+/13-).** Vermelho por asserção, com 4 [FAIL] nomeados; verde 3/3, com as 7 linhas ditadas; os 4 mutantes mortos; o preci --fast deu 347/347 e o sanitizer 160/160 no snapshot. Desvios relatados:
+  - o commit caiu sobre a S4-A, e o HEAD combinado passou só no ctest da etapa A. O preci do HEAD combinado fica para a próxima etapa;
+  - `texture_release.cpp` e `renderer_2d_impl.cpp` (397 linhas) são monólito em formação (L-17), registrado para a revisão N1;
+  - ponteiros dentro da textura ficam mortos se a textura sobreviver ao desenhador (já existia na T2a). Isso vai para a revisão N1.
+- **13:43, a FDPASS-fix1 parou pelo piso do disco** (`min` 18,24 GiB na construção da imagem verde). O vermelho do A1, o verde 7/7 e os 4 mutantes passaram. Limpeza pela regra da L-11:
+  - **imagens:** as 3 sem nome, os 2 contêineres parados de 2 dias atrás e a imagem `glintfx-wltest:s3b-live` (a sonda G2-s já está provada, e a FDPASS constrói a própria);
+  - **pastas de fatias fechadas:** t2bwin, g1b, probey, rundir, r2a-fix1, t2b-cto, armtest-cto3 e as revisões antigas, mais as cópias de build da ARM-TEST e da FDPASS (os relatórios ficam);
+  - **cache de build sem uso:** 15,95 GB, que se reconstrói.
+  - O disco `min` foi de 19,14 para 30,67 GiB. A FDPASS-fix1 retoma, e a S4-B foi despachada. A T3-B espera um lugar livre, pelo teto de 4 agentes.

@@ -36,6 +36,9 @@ target_sources(glintfx_library PRIVATE
     texture_2d_facade.cpp
     renderer_2d_facade_textures.cpp
     texture_sampling.cpp
+    mipmap_chain.cpp
+    kept_texels.cpp
+    texture_update_check.cpp
     triangle_list_check.cpp
     renderer_2d_facade_shapes.cpp
     triangle_pixel_vertices.cpp

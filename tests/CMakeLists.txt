@@ -1666,6 +1666,45 @@ target_sources(texture_release_queue_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
 )
 
+# R2D-TEXTURE T3, etapa B: the pure atoms of update_texture(): where each level lies in the one block of kept
+# texels, the reduced texels a change touches and their recomputation alone, the ownership of the kept texels,
+# and the check of one call. No GL.
+glintfx_add_test(mipmap_chain_test)
+target_include_directories(mipmap_chain_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(mipmap_chain_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+glintfx_add_test(mipmap_region_test)
+target_include_directories(mipmap_region_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(mipmap_region_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+glintfx_add_test(kept_texels_test)
+target_include_directories(kept_texels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(kept_texels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+
+glintfx_add_test(texture_update_region_test)
+add_dependencies(texture_update_region_test glintfx_gl_functions_generated)
+target_include_directories(texture_update_region_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_update_region_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
 glintfx_add_test(texture_upload_test)
 add_dependencies(texture_upload_test glintfx_gl_functions_generated)
 target_include_directories(texture_upload_test PRIVATE

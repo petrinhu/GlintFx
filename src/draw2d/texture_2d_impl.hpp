@@ -46,6 +46,10 @@ struct texture_2d_impl {
     std::uint32_t reduced_levels = 0; // levels 1 to reduced_levels exist on the card
     // The next record held by its renderer for release (T3, texture_release_queue.hpp).
     texture_2d_impl *next_held = nullptr;
+    // Whether update_texture() may change the texture: gltfx_texture_2d_desc::updatable, copied
+    // by create_texture_object() (T3-C). False in a record that did not declare it, and the update
+    // is refused by name (texture_update_check.hpp).
+    bool updatable = false;
 };
 
 } // namespace glintfx

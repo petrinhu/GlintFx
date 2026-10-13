@@ -51,4 +51,34 @@ struct covered_range {
                                         std::uint32_t width, std::uint32_t height,
                                         std::span<glintfx::gltfx_rgba8> destination) noexcept;
 
+// The texels of the level below, along one axis, whose covered source texels (covered_texels()
+// above) meet the source texels `sources`: every texel a change of `sources` changes. With n the
+// source length and m the target length, target texel t meets source texel s exactly when
+// s * m < (t + 1) * n and t * n < (s + 1) * m, which gives first = sources.first * m / n and
+// last = ((sources.last + 1) * m - 1) / n, in integers.
+[[nodiscard]] covered_range targets_touching(covered_range sources, std::uint32_t source_length,
+                                             std::uint32_t target_length) noexcept;
+
+// One level as reduce_region_to_next_level() reads it: its texels, row by row, and its size.
+struct source_level {
+    std::span<const glintfx::gltfx_rgba8> texels;
+    std::uint32_t width = 0U;
+    std::uint32_t height = 0U;
+};
+
+// A rectangle of texels: the columns and the rows it covers, both ends included.
+struct texel_rect {
+    covered_range columns;
+    covered_range rows;
+};
+
+// Writes into `destination` (the level below `source`, of exactly the size reduce_to_next_level()
+// requires) ONLY the texels of `targets`, each one exactly as reduce_to_next_level() computes it;
+// every other texel of `destination` is left as it was (R2D-TEXTURE, fatia T3: update_texture()
+// recomputes only the reduced texels a change touches). False, and nothing written, when the sizes
+// disagree or `targets` is empty or reaches past the level below.
+[[nodiscard]] bool reduce_region_to_next_level(const source_level &source,
+                                               std::span<glintfx::gltfx_rgba8> destination,
+                                               const texel_rect &targets) noexcept;
+
 } // namespace glintfx::draw2d

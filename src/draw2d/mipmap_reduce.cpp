@@ -154,4 +154,43 @@ covered_range covered_texels(std::uint32_t target, std::uint32_t source_length,
                          .last = static_cast<std::uint32_t>(last)};
 }
 
+namespace {
+
+// The rectangle of the level below lies inside that level and is not empty.
+[[nodiscard]] bool lies_inside(const texel_rect &targets, plane level) noexcept {
+    return targets.columns.first <= targets.columns.last &&
+           targets.rows.first <= targets.rows.last && targets.columns.last < level.width &&
+           targets.rows.last < level.height;
+}
+
+} // namespace
+
+covered_range targets_touching(covered_range sources, std::uint32_t source_length,
+                               std::uint32_t target_length) noexcept {
+    const auto n = static_cast<std::uint64_t>(source_length);
+    const auto m = static_cast<std::uint64_t>(target_length);
+    const std::uint64_t first = static_cast<std::uint64_t>(sources.first) * m / n;
+    const std::uint64_t last = (((static_cast<std::uint64_t>(sources.last) + 1U) * m) - 1U) / n;
+    return covered_range{.first = static_cast<std::uint32_t>(first),
+                         .last = static_cast<std::uint32_t>(last)};
+}
+
+bool reduce_region_to_next_level(const source_level &source,
+                                 std::span<glintfx::gltfx_rgba8> destination,
+                                 const texel_rect &targets) noexcept {
+    const plane from{.width = source.width, .height = source.height};
+    const plane to{.width = reduced_side(source.width, 1U),
+                   .height = reduced_side(source.height, 1U)};
+    if (!sizes_agree(source.texels, destination, from, to) || !lies_inside(targets, to)) {
+        return false;
+    }
+    const reduction job{.source = source.texels, .from = from, .to = to};
+    for (std::uint32_t y = targets.rows.first; y <= targets.rows.last; ++y) {
+        for (std::uint32_t x = targets.columns.first; x <= targets.columns.last; ++x) {
+            destination[texel_index(to, x, y)] = average_block(job, x, y);
+        }
+    }
+    return true;
+}
+
 } // namespace glintfx::draw2d

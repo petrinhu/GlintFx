@@ -9,6 +9,7 @@
 #include "draw2d/piece_refusal.hpp"
 #include "draw2d/srgb_encoding.hpp"
 #include "draw2d/stroke_line_check.hpp"
+#include "draw2d/stroke_rect_check.hpp"
 #include "draw2d/triangle_list_check.hpp"
 
 namespace glintfx {
@@ -231,6 +232,28 @@ void renderer_2d_impl::stroke_line(const gltfx_segment_world &segment,
         return;
     }
     if (!pieces.add_triangles(stroke_pixels.vertices(), stroke_pixels.indices(), layer.value)) {
+        tally.piece_dropped_out_of_memory();
+    }
+}
+
+void renderer_2d_impl::stroke_rect(const gltfx_rect_world &rect,
+                                   const gltfx_rect_outline_style &style, gltfx_rgba color,
+                                   gltfx_draw_layer layer) noexcept {
+    if (!frame_open) {
+        tally.piece_outside_frame();
+        return;
+    }
+    const gltfx_draw_2d_refusal refusal = draw2d::refusal_of_stroke_rect(rect, style, color);
+    if (refusal != gltfx_draw_2d_refusal::none) {
+        tally.piece_refused(refusal); // the whole outline, once
+        return;
+    }
+    if (rect_pixels.build(rect, style, color, affine) ==
+        draw2d::stroke_rect_pixels_outcome::pixel_position_out_of_range) {
+        tally.piece_refused(gltfx_draw_2d_refusal::pixel_position_out_of_range); // S4, the outline
+        return;
+    }
+    if (!pieces.add_triangles(rect_pixels.vertices(), rect_pixels.indices(), layer.value)) {
         tally.piece_dropped_out_of_memory();
     }
 }

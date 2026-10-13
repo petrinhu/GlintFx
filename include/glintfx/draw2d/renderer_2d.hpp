@@ -325,6 +325,37 @@ class gltfx_renderer_2d {
     GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
                                  gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 
+    // The outline of an axis-aligned rectangle, grown by `style.align`: centered
+    // on the edge (the default), inside the rectangle, or outside it. The
+    // four sides do not overlap at the corners, so a half-transparent
+    // outline has no darker corner. D-W8-354: four parameters at most.
+    //
+    // One call is one piece. The corners are square: each side meets the next
+    // at a right angle. The thickness is in the unit `style.stroke.unit`
+    // (stroke.hpp): in world unit the outline is the world outline carried by
+    // the batch transform; in pixel unit it keeps its thickness on the screen
+    // at every zoom. When the thickness reaches the middle of the rectangle,
+    // there is no hole: the outline fills its outer rectangle. A rectangle
+    // with no width or no height has no hole either, and the outline is, by
+    // alignment: centered, the bar of the thickness around the segment;
+    // inside, a piece of zero area, drawn, covering no pixel; outside, the
+    // rectangle grown by the thickness, filled. A thickness of zero is a piece
+    // of zero area: drawn, covering no pixel. Refused, counted in the report,
+    // never an exception. The first rule that applies names the reason:
+    //   1. a NaN in the corner, the size, the thickness or the colour:
+    //      not_a_number; then an infinity in any of them: infinite;
+    //   2. a negative width, height or thickness: negative_size;
+    //   3. a thickness unit or an alignment outside its enumeration:
+    //      unknown_option;
+    //   4. a point of the outline that the batch transform turns into a pixel
+    //      coordinate larger in magnitude than about 1.7e38, where the vertex
+    //      program would overflow: pixel_position_out_of_range.
+    // Proved by: stroke_rect_geometry_test (the outline of each alignment and unit).
+    // Proved by: stroke_rect_check_test (the order of the refusals).
+    // Proved by: draw2d_shapes_parity_test (the half-transparent corner).
+    GLINTFX_API void stroke_rect(gltfx_rect_world rect, gltfx_rect_outline_style style,
+                                 gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
+
     // Makes a texture from `image`, on this renderer's context. The pixels
     // are read only during this call (docs/api-conventions.md R5): the
     // library converts them (core/image_view.hpp says to what) and keeps

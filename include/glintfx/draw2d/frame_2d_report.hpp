@@ -16,7 +16,8 @@
 // at the end, never inserted, never reordered.
 //
 // WHAT A "PIECE" IS: one call of a drawing method (fill_rect(), fill_quad(),
-// fill_triangles(), fill_indexed_triangles() or stroke_line()), whatever the
+// fill_triangles(), fill_indexed_triangles(), stroke_line() or
+// stroke_rect()), whatever the
 // method: a triangle call with a hundred triangles is one piece, and a
 // refusal refuses the whole call, once. A call that does nothing (no
 // vertices, or no indices for the indexed one) is not a piece at all. Every
@@ -81,7 +82,8 @@ struct gltfx_frame_2d_report {
     std::uint64_t pieces_drawn = 0;
     // Pieces refused, one count per refused call: a value that is not a
     // finite number, a rectangle with a negative width or height, a line with
-    // a negative thickness, an index out of range, a count that is not a
+    // a negative thickness, a rectangle outline with a negative thickness, an
+    // index out of range, a count that is not a
     // multiple of three, an unknown option, too many vertices, or a position
     // whose pixel coordinate is out of the range the vertex program can
     // scale. The frame goes on without them; this is not an error of the

@@ -1355,6 +1355,138 @@ GLINTFX_TEST(renderer_2d_impl_a_line_is_placed_by_the_batch_transform_in_force) 
     renderer_2d_impl::destroy(renderer);
 }
 
+// R2D-SHAPES S4: stroke_rect() through the frame machine. One call is one piece of the triangles of
+// its outline (24 indices with a hole, 6 without), refused whole and counted once with its reason,
+// in the order of the vocabulary; with no frame open, it is counted outside the frame. Expected
+// values by hand (the outline of stroke_rect_geometry_test: x = 10, y = 10, width 40, height 20,
+// thickness 4, centered: outer (8,8) to (52,32), inner (12,12) to (48,28)).
+namespace {
+
+[[nodiscard]] glintfx::gltfx_rect_outline_style outline_style(double thickness,
+                                                              glintfx::gltfx_stroke_align align) {
+    return glintfx::gltfx_rect_outline_style{
+        glintfx::gltfx_stroke{thickness, glintfx::gltfx_stroke_unit::world}, align};
+}
+
+[[nodiscard]] glintfx::gltfx_stroke_align unknown_stroke_align() {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    return static_cast<glintfx::gltfx_stroke_align>(9);
+}
+
+} // namespace
+
+GLINTFX_TEST(renderer_2d_impl_a_rect_outline_reaches_the_card_as_four_trapezoids) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_rect(rect(10.0, 10.0, 40.0, 20.0),
+                          outline_style(4.0, glintfx::gltfx_stroke_align::centered), k_red,
+                          k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{1});
+        GLINTFX_CHECK(ends_add_up(report.value()));
+    }
+    GLINTFX_CHECK_EQ(first_draw_count(), 24);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 8.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 8.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 0), 52.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 1), 32.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(4, 0), 12.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(6, 1), 28.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// The batch transform in force carries the outline (world unit): zoom 2, moved by (100, 50), so the
+// outer top-left corner (8, 8) lands on (116, 66) and the inner one (12, 12) on (124, 74).
+GLINTFX_TEST(renderer_2d_impl_a_rect_outline_is_carried_by_the_batch_transform) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->begin_batch(glintfx::gltfx_transform{
+        .translation = {.x = 100.0, .y = 50.0},
+        .rotation = {.radians = 0.0},
+        .scale = {.x = 2.0, .y = 2.0},
+    });
+    renderer->stroke_rect(rect(10.0, 10.0, 40.0, 20.0),
+                          outline_style(4.0, glintfx::gltfx_stroke_align::centered), k_red,
+                          k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(first_draw_count(), 24);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 116.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 66.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(4, 0), 124.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(4, 1), 74.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_rect_outline_without_a_hole_is_one_quad) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_rect(rect(10.0, 10.0, 6.0, 20.0),
+                          outline_style(4.0, glintfx::gltfx_stroke_align::inside), k_red,
+                          k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(first_draw_count(), 6);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 0), 16.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(2, 1), 30.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_rect_outline_refusal_is_counted_once_with_its_reason) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const double not_a_number = std::numeric_limits<double>::quiet_NaN();
+    renderer->stroke_rect(rect(10.0, 10.0, 40.0, 20.0),
+                          outline_style(not_a_number, glintfx::gltfx_stroke_align::centered), k_red,
+                          k_layer_0);
+    renderer->stroke_rect(rect(10.0, 10.0, 40.0, 20.0), outline_style(4.0, unknown_stroke_align()),
+                          k_red, k_layer_0);
+    renderer->stroke_rect(rect(10.0, 10.0, -1.0, 20.0),
+                          outline_style(4.0, glintfx::gltfx_stroke_align::centered), k_red,
+                          k_layer_0);
+    renderer->stroke_rect(rect(1.0e39, 0.0, 40.0, 20.0),
+                          outline_style(4.0, glintfx::gltfx_stroke_align::centered), k_red,
+                          k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        const glintfx::gltfx_frame_2d_report &r = report.value();
+        GLINTFX_CHECK_EQ(r.pieces_submitted, std::uint64_t{4});
+        GLINTFX_CHECK_EQ(r.pieces_refused, std::uint64_t{4});
+        GLINTFX_CHECK_EQ(r.pieces_refused_not_a_number, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(r.pieces_refused_unknown_option, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(r.pieces_refused_negative_size, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(r.pieces_refused_pixel_position_out_of_range, std::uint64_t{1});
+        GLINTFX_CHECK(r.first_refusal == glintfx::gltfx_draw_2d_refusal::not_a_number);
+        GLINTFX_CHECK(ends_add_up(r));
+    }
+    GLINTFX_CHECK(card.draw_counts.empty());
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_rect_outline_with_no_frame_open_is_counted_outside_the_frame) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->stroke_rect(rect(10.0, 10.0, 40.0, 20.0),
+                          outline_style(4.0, glintfx::gltfx_stroke_align::centered), k_red,
+                          k_layer_0);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_dropped_outside_frame, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{0});
+    }
+    renderer_2d_impl::destroy(renderer);
+}
+
 GLINTFX_TEST(renderer_2d_impl_a_line_of_zero_thickness_is_a_drawn_piece_of_zero_area) {
     reset();
     renderer_2d_impl *renderer = make(true);

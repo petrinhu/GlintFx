@@ -50,6 +50,17 @@
 //     white with `square` and black with `rounded` (outside the half disc of radius 5);
 //   - a line of zero thickness is a drawn piece that covers no pixel, and a NaN thickness and an
 //     unknown cap are refused, one count each.
+//   - stroke_rect() (fatia S4), on black: an outline white with alpha 0.5, 4 pixels thick,
+//     centered on the rectangle from (10,10) to (50,30), has the SAME value at the four corner
+//     pixels (9,9), (50,9), (9,30) and (50,30) as at the middle of a side (30,9), within one level
+//     per channel, and that value is neither black nor white: no corner pixel is covered twice; the
+//     hole and the outside stay black;
+//   - the same rectangle in world unit from (20,40) to (50,60), 3 thick, under a zoom of 2: on row
+//     100, centered covers columns 37 to 42, inside 40 to 45 and outside 34 to 39, and the column
+//     past each end is black; in pixel unit, 4 thick, centered covers 38 to 41;
+//   - an outline whose thickness reaches the middle of the rectangle fills it (no hole), one of
+//     zero thickness covers no pixel, and a negative width and an unknown alignment are refused,
+//     one count each.
 // Geometry assumes a scale factor of 1: pixels are the numbers written below (as in
 // draw2d_parity_test.cpp). The surface is 320 by 240.
 
@@ -347,6 +358,105 @@ void cell_line_report(const session &s) {
          "C8 a linha de espessura zero nao cobre pixel nenhum");
 }
 
+// Within one level per channel: the same coverage, read through the driver's rounding.
+bool within_one_level(const pixel &got, const pixel &want) {
+    const auto close = [](int a, int b) { return a - b <= 1 && b - a <= 1; };
+    return close(got.red, want.red) && close(got.green, want.green) && close(got.blue, want.blue);
+}
+
+glintfx::gltfx_rect_outline_style outline_style(double thickness, glintfx::gltfx_stroke_unit unit,
+                                                glintfx::gltfx_stroke_align align) {
+    return glintfx::gltfx_rect_outline_style{glintfx::gltfx_stroke{thickness, unit}, align};
+}
+
+// C9: the half-transparent corner (D-W8-06, D-W8-271).
+void cell_rect_corner(const session &s) {
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.stroke_rect(glintfx::gltfx_rect_world{{10.0, 10.0}, {40.0, 20.0}},
+                           outline_style(4.0, glintfx::gltfx_stroke_unit::pixel,
+                                         glintfx::gltfx_stroke_align::centered),
+                           glintfx::gltfx_rgba{1.0F, 1.0F, 1.0F, 0.5F});
+    const auto finished = s.renderer.finish_frame();
+    const pixel side = read_at(s, 30, 9);
+    cell(finished.has_value() && side.red > 0 && side.red < 255,
+         "C9 o meio do lado (30,9) e o branco meio transparente sobre preto, nem preto nem branco");
+    cell(within_one_level(read_at(s, 9, 9), side) && within_one_level(read_at(s, 50, 9), side) &&
+             within_one_level(read_at(s, 9, 30), side) &&
+             within_one_level(read_at(s, 50, 30), side),
+         "C9 os quatro cantos tem o valor do meio do lado: nenhum canto coberto duas vezes");
+    cell(is_exact(read_at(s, 30, 20), 0, 0, 0) && is_exact(read_at(s, 30, 5), 0, 0, 0),
+         "C9 o buraco (30,20) e o lado de fora (30,5) continuam pretos");
+}
+
+// The rectangle of C10 and C11, from world (20,40) to (50,60), under a zoom of 2: pixels (40,80) to
+// (100,120). True when row 100 is white from column `first` to column `last` and black just past
+// both.
+bool row_100_white_from(const session &s, int first, int last) {
+    return is_exact(read_at(s, first - 1, 100), 0, 0, 0) &&
+           is_exact(read_at(s, first, 100), 255, 255, 255) &&
+           is_exact(read_at(s, last, 100), 255, 255, 255) &&
+           is_exact(read_at(s, last + 1, 100), 0, 0, 0);
+}
+
+void draw_zoomed_outline(const session &s, double thickness, glintfx::gltfx_stroke_unit unit,
+                         glintfx::gltfx_stroke_align align) {
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.begin_batch(glintfx::gltfx_transform{
+        .translation = {0.0, 0.0}, .rotation = {0.0}, .scale = {2.0, 2.0}});
+    s.renderer.stroke_rect(glintfx::gltfx_rect_world{{20.0, 40.0}, {30.0, 20.0}},
+                           outline_style(thickness, unit, align), k_white);
+    (void)s.renderer.finish_frame();
+}
+
+// C10: the three alignments in world unit, 3 thick under a zoom of 2: 6 columns each.
+void cell_rect_alignments(const session &s) {
+    const auto world = glintfx::gltfx_stroke_unit::world;
+    draw_zoomed_outline(s, 3.0, world, glintfx::gltfx_stroke_align::centered);
+    cell(row_100_white_from(s, 37, 42), "C10 centrado, mundo 3 sob zoom 2: colunas 37 a 42");
+    draw_zoomed_outline(s, 3.0, world, glintfx::gltfx_stroke_align::inside);
+    cell(row_100_white_from(s, 40, 45), "C10 dentro, mundo 3 sob zoom 2: colunas 40 a 45");
+    draw_zoomed_outline(s, 3.0, world, glintfx::gltfx_stroke_align::outside);
+    cell(row_100_white_from(s, 34, 39), "C10 fora, mundo 3 sob zoom 2: colunas 34 a 39");
+}
+
+// C11: pixel unit, 4 thick under a zoom of 2: 4 columns, whatever the zoom.
+void cell_rect_pixel_unit(const session &s) {
+    draw_zoomed_outline(s, 4.0, glintfx::gltfx_stroke_unit::pixel,
+                        glintfx::gltfx_stroke_align::centered);
+    cell(row_100_white_from(s, 38, 41), "C11 pixel 4 sob zoom 2: colunas 38 a 41, nem 8 nem 2");
+}
+
+// C12: no hole when the thickness reaches the middle, zero thickness covers nothing, two refusals.
+void cell_rect_report(const session &s) {
+    const auto pixel_unit = glintfx::gltfx_stroke_unit::pixel;
+    glintfx::gltfx_rect_outline_style unknown =
+        outline_style(4.0, pixel_unit, glintfx::gltfx_stroke_align::centered);
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    unknown.align = static_cast<glintfx::gltfx_stroke_align>(9);
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.stroke_rect(glintfx::gltfx_rect_world{{150.0, 20.0}, {6.0, 30.0}},
+                           outline_style(4.0, pixel_unit, glintfx::gltfx_stroke_align::inside),
+                           k_white);
+    s.renderer.stroke_rect(glintfx::gltfx_rect_world{{200.0, 100.0}, {30.0, 20.0}},
+                           outline_style(0.0, pixel_unit, glintfx::gltfx_stroke_align::centered),
+                           k_white);
+    s.renderer.stroke_rect(glintfx::gltfx_rect_world{{200.0, 100.0}, {-1.0, 20.0}},
+                           outline_style(4.0, pixel_unit, glintfx::gltfx_stroke_align::centered),
+                           k_white);
+    s.renderer.stroke_rect(glintfx::gltfx_rect_world{{200.0, 100.0}, {30.0, 20.0}}, unknown,
+                           k_white);
+    const auto finished = s.renderer.finish_frame();
+    cell(finished.has_value() && finished.value().pieces_submitted == 4 &&
+             finished.value().pieces_drawn == 2 && finished.value().pieces_refused == 2 &&
+             finished.value().pieces_refused_negative_size == 1 &&
+             finished.value().pieces_refused_unknown_option == 1,
+         "C12 4 contornos: 2 desenhados (cheio e espessura zero), 1 negativo e 1 desconhecido");
+    cell(is_exact(read_at(s, 152, 35), 255, 255, 255) &&
+             is_exact(read_at(s, 153, 35), 255, 255, 255) &&
+             is_exact(read_at(s, 200, 100), 0, 0, 0) && is_exact(read_at(s, 215, 100), 0, 0, 0),
+         "C12 o contorno que alcanca o meio enche o retangulo; o de espessura zero nao cobre nada");
+}
+
 } // namespace
 
 int main() {
@@ -412,11 +522,15 @@ int main() {
     cell_line_world_unit(s);
     cell_line_caps(s);
     cell_line_report(s);
+    cell_rect_corner(s);
+    cell_rect_alignments(s);
+    cell_rect_pixel_unit(s);
+    cell_rect_report(s);
 
     // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
     std::fprintf(stdout, "draw2d_shapes_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
                  g_cells, g_failures);
-    if (g_cells < 22) {
+    if (g_cells < 31) {
         std::fprintf(stderr, "draw2d_shapes_parity_test: menos celulas do que o piso\n");
         return EXIT_FAILURE;
     }

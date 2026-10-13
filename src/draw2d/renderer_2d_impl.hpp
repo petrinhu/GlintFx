@@ -24,6 +24,7 @@
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
 #include "draw2d/stroke_line_pixels.hpp"
+#include "draw2d/stroke_rect_pixels.hpp"
 #include "draw2d/texture_2d_impl.hpp"
 #include "draw2d/texture_release_queue.hpp"
 #include "draw2d/triangle_batch.hpp"
@@ -94,6 +95,11 @@ struct renderer_2d_impl {
     // batch transform in force (stroke_line_pixels.hpp) and kept as one piece; refused whole and
     // counted once otherwise.
     void stroke_line(const gltfx_segment_world &segment, const gltfx_line_style &style,
+                     gltfx_rgba color, gltfx_draw_layer layer) noexcept;
+    // A rectangle outline (S4): checked (stroke_rect_check.hpp), turned into pixel triangles by
+    // the batch transform in force (stroke_rect_pixels.hpp) and kept as one piece; refused whole
+    // and counted once otherwise.
+    void stroke_rect(const gltfx_rect_world &rect, const gltfx_rect_outline_style &style,
                      gltfx_rgba color, gltfx_draw_layer layer) noexcept;
     void flush() noexcept;
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
@@ -169,6 +175,9 @@ struct renderer_2d_impl {
     // The pixel triangles of the line being kept (S3): fixed storage, reused by every call; the
     // piece list copies them.
     draw2d::stroke_line_pixels stroke_pixels;
+    // The pixel triangles of the rectangle outline being kept (S4): fixed storage, reused by every
+    // call; the piece list copies them.
+    draw2d::stroke_rect_pixels rect_pixels;
 };
 
 } // namespace glintfx

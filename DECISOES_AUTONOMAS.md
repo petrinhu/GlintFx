@@ -9155,3 +9155,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **A WIRE-RELAY-FD-PASSTHROUGH está FECHADA** (d0291f99 e 7fb56c0d), e a linha passa a ✅.
   - Com a sonda G2-s provada, o CTO da trilha escreve a ordem da G2, a foto oficial na Intel.
 - **15:13, S4-B commitada (33fc983b, 9 arquivos, 359+/6-): `stroke_rect` no desenhador.** As 18 âncoras deram n=1 sobre a base que andou (T3-A e ARM-TEST-fix1). O vermelho dá rc 8 nos 5 casos de contorno; o verde 3/3, com as 3 linhas ditadas; o M9 e o M10 morrem. O preci --fast dá 350 e o sanitizer rc 0, no snapshot de base 04d029ae, que é o pai do commit, ou seja, o mesmo conteúdo. **A S4 inteira** (eb23058f e 33fc983b) vai à revisão N1, com o revisor da S3.
+- **15:37, causa dos alertas medida pelo CTO, e CORREÇÃO de uma inferência do main** (`/var/tmp/cto-w8/ordem-alertas.md`, md5 d9c81f83; anexos 65cabb24, rc 0).
+  - **Correção (L-44):** os alertas do SELinux NÃO são do GlintFx, ao contrário do que o main inferiu às 11:52. Vêm da sessão do projeto al_maarif_pt, que roda `docker run -v /usr:/usr:ro -v ~/.local/lib/python3.14/site-packages:/opt/site:ro ... -w /repo/ferramentas fedora:44 python3 -m pytest`. Os horários batem segundo a segundo, e `ferramentas` é a pasta daquele projeto. O `ThreadPoolSingl` é o Chromium com o /usr do hospedeiro montado; o CTO marcou a origem, o mesmo projeto, como INFERÊNCIA. Nenhum script do GlintFx monta a home, o `~/.local` ou o /usr.
+  - **Os alertas de travamento SÃO nossos:** 230 pares, do `exec_fixture.sh --selftest`, que roda `kill -SEGV` e `kill -ABRT` a cada suíte. É o gêmeo que ficou de fora quando os fixtures de pré-condição ganharam `PR_SET_DUMPABLE 0`. O `--ulimit core=0` não resolve: com o core_pattern em pipe, o kernel ignora o limite, e o DrKonqi avisa mesmo assim. O core_pattern é global, não existe por contêiner.
+  - **Conserto, ordem N3 com dois commits:**
+    - TEST-CRASH-QUIET: um processo não-dumpable, com o mesmo sinal e o mesmo rc;
+    - HOST-ALERT-GATE: reprova AVC ou coredump atribuído a teste nosso, e o vermelho é provado só com registros de exemplo;
+    - `PYTHONNOUSERSITE=1` nos 348 testes. A suíte passa inteira assim, e nenhum teste precisa da pasta local.
+  - **Pré-execução:** preci 348/348, sanitizer 0, 5 mutantes mortos, nenhum coredump e nenhum AVC gerados.
+  - **Desvio declarado:** uma rodada do CTO seguiu com o disco a 19,15 GiB; a ordem agora confere o disco antes de cada passo pesado.
+  - **Decisão do main:** o portão fica na suíte de todo dia, que é a opção implementada (cerca de 6 s). Portão só sob demanda não morde (L-36).
+  - Despachada a um implementador.

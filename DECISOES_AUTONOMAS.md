@@ -9110,3 +9110,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - O A1 cai por asserção no relé de hoje.
     - Pré-execução: verde 7/7; 4 mutantes mortos (o F4 exigiu um caso a mais); a G2-s refeita PASSA com 12/12.
   - **Resíduo declarado pelo CTO:** os corpos `real_*` das portas, uma chamada de sistema cada, só são exercitados pela suíte de contêiner. A forma completa, um servidor Wayland falso em processo, dependeria da `libwayland-server` (L-07, decisão do líder). A pergunta vai ao advisor.
+- **12:33, décima primeira consulta ao advisor: o resíduo das portas reais da ARM-TEST.**
+  - **Pergunta:** o resíduo (os corpos `real_*` provados só pela suíte de contêiner) e a `libwayland-server` vão ao líder agora?
+  - **Resposta:** não. A resposta dele não muda o próximo passo da W8: a fiação já está provada ao vivo, e a costura é a mesma do `incoming_poll_wiring_test`. Por isso vira linha da tabela e item da ratificação.
+  - **Correção ao CTO:** são três caminhos, e não dois. Há também um servidor falso sobre o `wire_relay` da casa, que fica dentro da L-07.
+  - **Ação:** a linha `WL-REAL-PORTS-UNIT-PROOF` (W9-B, 🎨) entra com as três opções. A busca por linha gêmea deu zero.
+  - **Ainda pelo advisor:**
+    - as conferências miradas das duas fix1 vão aos MESMOS revisores. No caso da FDPASS, o revisor refaz o próprio cenário A1 e confere que o caminho da "dúvida impressa" é afirmado por teste, e não só impresso;
+    - a S4-B e a T3-B são despachadas avisando que a ARM-TEST-fix1 pode entrar antes no `tests/CMakeLists.txt`, e uma âncora diferente de 1 é PARE;
+    - o resumo final do vigia já é VERMELHO pela regra (vram suspeito ×9, pids warn ×3). As falhas de memória da GeForce, que não são nossas, vão ao líder em linha própria, com a ligação dita como só de horário.

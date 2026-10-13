@@ -9141,3 +9141,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **cache de build sem uso:** 15,95 GB, que se reconstrói.
   - O disco `min` foi de 19,14 para 30,67 GiB. A FDPASS-fix1 retoma, e a S4-B foi despachada. A T3-B espera um lugar livre, pelo teto de 4 agentes.
 - **14:32, ARM-TEST-fix1 commitada (aaa51036, 7 arquivos, 509+/59-).** Os 10 mutantes da fiação (W05 a W14) morrem por asserção. O verde dá 7/7, com o `egl_present_wiring_test` em 9 casos. A prova de fiação local deu 28/28 nas duas imagens, `rendered_frames=30`, e as imagens foram apagadas. O cppcheck do hospedeiro deu 749/0, e o preci rc 0 no snapshot e no SHA. O disco ficou perto do piso durante a prova (20,15 GiB). A conferência mirada vai ao revisor da ARM-TEST: ler e rodar os casos novos, sem terceira rodada de mutação.
+- **14:51, conferência mirada da ARM-TEST-fix1** (`/var/tmp/cto-w8/rev-armtest-fix1.txt`). Os testes da fatia passaram 3/3 em contêiner.
+  - **IMPORTANTE (fiação): PARCIAL.** Os mutantes M05 a M10 morrem agora por asserção. O que falta são a montagem de `present_through_egl` e os corpos `real_*`. É exatamente o resíduo já declarado na linha `WL-REAL-PORTS-UNIT-PROOF` (W9-B, três caminhos), agora nomeado por linha.
+  - **COSMÉTICOS:** o 1 e o 2 estão FECHADOS, com caso de rearme. O 3 (o relógio lido antes do laço) fica aberto por decisão do CTO, porque não muda comportamento.
+  - A exceção de paridade nova foi conferida verdadeira. Não houve achado CRÍTICO.
+  - **A WL-FRAME-ORDER-ARM-TEST está FECHADA** (e119be83 e aaa51036), e a linha passa a ✅.

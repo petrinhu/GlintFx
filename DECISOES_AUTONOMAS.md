@@ -9056,3 +9056,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Status na tabela: 🔍. A revisão N1 vai a um revisor distinto.
   - Push e CI disparados para provar a ARM-TEST e a T2b-win juntas.
   - A FDPASS foi despachada, porque a ARM-TEST, que vinha antes na fila do `tests/CMakeLists.txt`, já foi commitada.
+- **08:57, revisão N1 da ARM-TEST: NÃO LIMPA, com um IMPORTANTE e sem CRÍTICO** (`/var/tmp/cto-w8/rev-armtest.txt`).
+  - **Conferido:** a ordem do modelo, o teto da espera e os pontos de espera (`check_wait_points` rc 0).
+  - **Mutantes do modelo:** M01 a M04 mortos por asserção.
+  - **IMPORTANTE:** a fiação do adaptador (`egl_context_adapter.cpp:1100-1112` e `:555-562`) não tem prova de unidade. Os mutantes M05 a M10 sobrevivem; pela leitura do revisor, alguns nem o CI de contêiner pega.
+  - **COSMÉTICOS:** a justificativa da D-W6b-46 sumiu do comentário; o aviso sai por quadro, sem limite de frequência; o relógio é lido antes do laço.
+  - **Próximo passo:** o CTO escreve a ARM-TEST-fix1, a rodada única de conserto, com pesquisa de como SDL, GLFW e Chromium testam a fiação.

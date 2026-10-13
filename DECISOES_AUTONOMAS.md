@@ -9041,3 +9041,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **A fila foi simulada no HEAD `8c21b632`:** os três commits em sequência deram rc 0. As ordens agora dizem "grave o relatório em `$F/relatorio.md`".
   - **Linha nova:** `CI-CONTAINER-SEM-FD-NAO-SHM` (W9-B), a lacuna que a ordem da FDPASS declarou.
 - **07:43, ARM-TEST parou de novo no passo 11, agora no cppcheck** (estágio 5 do preci; o 2b passou, então a emenda do passo 5 funcionou). Achado no código NOVO da fatia: *"Member variable 'wire_present_ports::display' has no initializer [uninitMemberVarNoCtor]"* (`egl_context_adapter.cpp:1103`, Cppcheck 2.22.0 do hospedeiro). A pré-execução do CTO em contêiner não acusou nada, o que é a divergência entre hospedeiro e contêiner da PRECI-IN-CONTAINER, no sentido oposto ao de 12/10. O implementador parou sem corrigir. O CTO decide a correção e quanto do ciclo ela reabre, pré-executa com o mesmo cppcheck e varre as ordens pendentes. Os relatórios das ordens futuras passam a ser `.txt`, porque o implementador haiku se recusa a gravar `.md`.
+- **07:52, D-W8-F10, a correção do achado do cppcheck na ARM-TEST.**
+  - A correção é `wl_display *display = nullptr;` em `wire_present_ports` e no gêmeo `wire_wait_ports` (L-17). As duas structs continuam agregadas.
+  - O cppcheck 2.22.0 do hospedeiro dá rc 1 antes e rc 0 depois. O estágio 5 inteiro, com 737 arquivos, dá rc 0.
+  - O código de máquina de `egl_context_adapter.cpp.o` em Release fica idêntico. Por isso só o preci reabre; o vermelho, o verde, os 11 mutantes, o MSVC e a prova de fiação continuam valendo.
+  - A ordem foi emendada (md5 ae30b8e1, manifesto d208d20d), e o implementador retoma pela "Retomada 2".
+  - A varredura com o cppcheck do hospedeiro na FDPASS, na T2b-win e nos rascunhos da S4 e da T3 deu rc 0, sem o achado.
+  - As três ordens agora pedem `relatorio.txt`: FDPASS com md5 dfbd954d e T2b-win com md5 5876d87f, mudando só o caminho do relatório.
+  - A T2b-win já está commitada (30905171).

@@ -9198,3 +9198,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - O texto novo vai à ratificação do líder como errata.
   - **Bloqueio dos alertas:** o controle de permissão negou o preci ao implementador uma segunda vez ("Auto-Mode Bypass"), mesmo com a autorização do líder. O líder escolheu, verbatim: *"Eu libero a regra"*. O main sugeriu uma regra estreita, para o comando exato, a ser tirada depois da fatia (L-02).
 - **17:26, o líder criou a regra de permissão estreita** (`/permissions`, Allow): `Bash(TMPDIR=/var/tmp flock -w 7200 -E 99 /var/tmp/cto-w8/heavy.lock tools/preci.sh --fast:*)`. Ela vale só para o preci sob a trava pesada. Pela L-02, deve ser retirada depois da fatia dos alertas; o main lembra o líder no fechamento dela. O implementador retoma com uma única tentativa e, se for negado, PARA.
+- **17:27, revisão N3 e QA visual da G2** (`/var/tmp/cto-w8/rev-g2.txt`).
+  - **QA visual LIMPO:** é a cena do first_window, com as caixas nas posições e cores exatas, sem dado pessoal, e o md5 6aef691c igual antes e depois (L-13).
+  - **Revisão NÃO LIMPA:**
+    - **I-1:** o juiz não confere 640x480 nem a escala; aceita 1280x960.
+    - **I-2:** o mutante M09 do revisor sobrevive, porque falta o controle de OpenGL sem a linha do renderer.
+    - **I-3:** o isolamento é provado no contêiner A, mas a interação acontece no B, que tem configuração diferente, sem inspeção. É a L-09.
+    - **C-1:** o autoteste não roda com `python3 -I`.
+  - O CTO da trilha escreve a G2-fix1.

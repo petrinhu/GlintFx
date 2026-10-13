@@ -9062,3 +9062,6 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **IMPORTANTE:** a fiação do adaptador (`egl_context_adapter.cpp:1100-1112` e `:555-562`) não tem prova de unidade. Os mutantes M05 a M10 sobrevivem; pela leitura do revisor, alguns nem o CI de contêiner pega.
   - **COSMÉTICOS:** a justificativa da D-W6b-46 sumiu do comentário; o aviso sai por quadro, sem limite de frequência; o relógio é lido antes do laço.
   - **Próximo passo:** o CTO escreve a ARM-TEST-fix1, a rodada única de conserto, com pesquisa de como SDL, GLFW e Chromium testam a fiação.
+- **09:00, CI do ramo VERDE** (run 38390738988, 787a3d9e): 25 jobs com sucesso e 1 pulado (o VERSION-TAG-SYNC, como esperado num ramo).
+  - O Windows ASan, que estava vermelho, passou: a **T2b-win está provada, e a T2b segue FECHADA** (fb7faea8, f982143a e 30905171).
+  - Os dois jobs de contêiner e a Paridade Linux x Windows passaram com a ARM-TEST (e119be83), que continua em conserto pela revisão N1.

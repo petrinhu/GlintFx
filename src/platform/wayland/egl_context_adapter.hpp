@@ -197,9 +197,11 @@ class wayland_egl_context_adapter {
     // installed" visibility every other adapter accessor in this
     // project already has, added ONLY so that fixture can read the
     // pending frame callback back after swap_buffers(); nothing inside
-    // this class needs it exposed for its own sake. Null before the
-    // first successful swap_buffers() (attach_frame_listener() is the
-    // only writer).
+    // this class needs it exposed for its own sake. Null until the first
+    // present requests a frame callback (attach_frame_listener(), right
+    // before eglSwapBuffers(), whether the swap then succeeds or not),
+    // null again once the compositor answers it (frame_callback_done()),
+    // and null when wl_surface_frame() could not allocate one.
     [[nodiscard]] wl_callback *pending_frame_callback() const noexcept {
         return m_pending_frame_callback;
     }
@@ -281,20 +283,24 @@ class wayland_egl_context_adapter {
     // GL_RENDERER for gpu_kind_state's own "minimo honesto" (sec.
     // 10.3, D-W6b-13).
     [[nodiscard]] gltfx_rslt<void> create_context(void *config) noexcept;
-    void attach_frame_listener() noexcept;
+    // True when wl_surface_frame() gave a callback; false only when libwayland-client could not
+    // allocate one (frame_request_present.hpp says what the caller does then).
+    [[nodiscard]] bool attach_frame_listener() noexcept;
     void resize_surface_if_due() noexcept;
 
     // EGL-DEAD-DISPLAY-GUARD S2 (docs/plano-egl-dead-display-guard.md
-    // sec. 3, D-S2): o átomo único que os dois ramos de swap_buffers()
-    // (vsync=on e vsync=off) chamavam duplicado antes desta fatia -
-    // eglSwapBuffers(), a checagem POSTERIOR via connection_failure_
-    // if_dead() (S1) SEJA QUAL FOR o retorno do EGL (nunca só quando
-    // ele falha - o defeito que esta fatia fecha, plano sec. 1.1:
-    // llvmpipe/swrast devolve EGL_TRUE incondicionalmente mesmo sobre
-    // conexão já morta), o contador de trocas bem-sucedidas, o
-    // reenganche do wl_surface.frame e o armar de m_frame_sequence.
-    // `display` é sempre o mesmo wl_proxy_get_display(m_surface) que
-    // swap_buffers() já resolve uma vez no topo.
+    // sec. 3, D-S2): the one presentation both branches of swap_buffers()
+    // (vsync=on and vsync=off) call. It binds the five ports of
+    // present_after_frame_request() (frame_request_present.hpp, D-W8-226),
+    // which fixes the order: the wl_surface.frame request BEFORE
+    // eglSwapBuffers(); connection_failure_if_dead() (S1) asked AFTER it,
+    // whatever EGL answered (llvmpipe/swrast returns EGL_TRUE even over a
+    // dead connection); and m_frame_sequence armed only after a swap that
+    // succeeded, for a callback that exists; a callback that could not be
+    // allocated is reported (frame_callback_request_failed, D-W8-F01), never
+    // silent. The count of successful swaps stays here. `display` is always
+    // the same wl_proxy_get_display(m_surface) that swap_buffers() already
+    // resolves once at the top.
     [[nodiscard]] gltfx_rslt<gltfx_present_outcome>
     present_through_egl(wl_display *display) noexcept;
 

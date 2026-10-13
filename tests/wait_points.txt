@@ -99,14 +99,14 @@ src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|poll_impl(&incoming, 1, wait_ms)|teto-nosso
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|classify_incoming_poll(poll_result, incoming.revents)|nao-espera
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_read_events(display)|nao-espera
-# As duas chamadas abaixo sao o MESMO texto, uma em cada ramo de
-# swap_buffers() (vsync=off e o ramo pos-espera de vsync=on) - as duas
-# ocorrencias na arvore casam com esta UNICA linha, e as duas carregam
-# a MESMA classe (egl_context_adapter.hpp's own swap_interval_honored(),
-# GODS_LAWS.md L-04/CLAUDE.md "paridade acha o que leitura nao acha":
+# A unica chamada abaixo serve aos dois ramos de swap_buffers() (vsync=off
+# e o ramo pos-espera de vsync=on): os dois chamam present_through_egl(),
+# que a faz dentro da porta swap() (WL-FRAME-ORDER-ARM-TEST, D-W8-226). A
+# classe (egl_context_adapter.hpp's own swap_interval_honored(),
+# GODS_LAWS.md L-04/CLAUDE.md "paridade acha o que leitura nao acha"):
 # so' teto-nosso de verdade quando m_swap_interval_honored e' true -
-# medido e declarado, nunca assumido).
-src/platform/wayland/egl_context_adapter.cpp|swap_buffers() (vsync=off e vsync=on)|eglSwapBuffers(m_egl_display, m_egl_surface)|sem-teto-declarado
+# medido e declarado, nunca assumido.
+src/platform/wayland/egl_context_adapter.cpp|present_through_egl(), porta swap()|eglSwapBuffers(self.m_egl_display, self.m_egl_surface)|sem-teto-declarado
 
 src/platform/wayland/bounded_output_wait.cpp|wait_for_writable_until()|poll(&pending_write, 1, static_cast<int>(remaining_ms))|teto-nosso
 

@@ -44,6 +44,8 @@
 #include "platform/wayland/egl_device_enumeration.hpp"
 #include "platform/wayland/egl_incoming_poll_step.hpp"
 #include "platform/wayland/egl_srgb_surface.hpp"
+#include "platform/wayland/frame_callback_wait.hpp"
+#include "platform/wayland/frame_request_present.hpp"
 #include "platform/wayland/incoming_poll_outcome.hpp"
 #include "platform/wayland/incoming_poll_reaction.hpp"
 #include "platform/wayland/window_adapter.hpp"
@@ -547,30 +549,17 @@ classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcep
         .count();
 }
 
-// WL-FRAME-WAIT (D-W8-213): waits for THIS surface's frame callback, never for "any event".
-// One poll_and_dispatch_with_budget() returns after the first batch of events read from the
-// socket, and that batch is often not ours: Mesa's wl_buffer.release lands on Mesa's private
-// queue but wakes the same fd, and the callback was still pending - every other frame became
-// skipped_hidden (loop_parity_test measured rendered_frames=15 of 30). So it polls again, with
-// what is left of the ONE budget, until `sequence` says the callback arrived or the budget
-// ends. Returns false only when a poll found the connection unusable.
-[[nodiscard]] bool wait_for_frame_callback(wl_display *display,
-                                           const frame_callback_sequence &sequence,
-                                           std::uint32_t budget_ms) noexcept {
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
-    while (sequence.decide_after_wait() == gltfx_present_outcome::skipped_hidden) {
-        const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                      deadline - std::chrono::steady_clock::now())
-                                      .count();
-        if (remaining_ms <= 0) {
-            return true;
-        }
-        if (!poll_and_dispatch_with_budget(display, static_cast<std::uint32_t>(remaining_ms))) {
-            return false;
-        }
+// WL-FRAME-WAIT (D-W8-213, D-W8-227): binds the two ports of wait_for_frame_callback()
+// (frame_callback_wait.hpp, where tests/frame_callback_wait_test.cpp proves the ceiling) to the
+// wire: steady_clock, and one poll_and_dispatch_with_budget() of the default queue.
+struct wire_wait_ports {
+    wl_display *display = nullptr;
+
+    std::int64_t now_ns() noexcept { return steady_now_ns(); }
+    bool poll_for(std::uint32_t budget_ms) noexcept {
+        return poll_and_dispatch_with_budget(display, budget_ms);
     }
-    return true;
-}
+};
 
 } // namespace
 
@@ -833,23 +822,25 @@ gltfx_rslt<void> wayland_egl_context_adapter::create_context(void *config) noexc
     return gltfx_rslt<void>::ok();
 }
 
-void wayland_egl_context_adapter::attach_frame_listener() noexcept {
+bool wayland_egl_context_adapter::attach_frame_listener() noexcept {
     if (m_pending_frame_callback != nullptr) {
         wl_callback_destroy(m_pending_frame_callback);
         m_pending_frame_callback = nullptr;
     }
-    // wl_surface_frame() failing (allocation failure inside libwayland-
-    // client) is not treated as a fatal open()/swap_buffers() error:
-    // frame_callback_sequence's own arm_pending() still marks the next
-    // swap as "waiting", and it will degrade to skipped_hidden once the
-    // budget runs out on a callback that was never actually requested -
-    // an honest degrade, never a crash, for a condition this project
-    // has never measured happening.
+    // WL-FRAME-ORDER-ARM-TEST (D-W8-226): wl_surface_frame() returns null only when
+    // proxy_create() fails inside libwayland-client (wayland-client.c,
+    // wl_proxy_marshal_array_flags(): that path returns null WITHOUT display_fatal_error(), so
+    // the connection stays alive and connection_failure_if_dead() cannot see it). The caller then
+    // reports it (the frame_callback_request_failed event, D-W8-F01) and arms nothing
+    // (frame_request_present.hpp), so the frame is paced like vsync=off instead of waiting forever
+    // for a callback that was never requested.
     wl_callback *callback = wl_surface_frame(m_surface);
-    if (callback != nullptr) {
-        wl_callback_add_listener(callback, &k_frame_callback_listener, this);
-        m_pending_frame_callback = callback;
+    if (callback == nullptr) {
+        return false;
     }
+    wl_callback_add_listener(callback, &k_frame_callback_listener, this);
+    m_pending_frame_callback = callback;
+    return true;
 }
 
 void wayland_egl_context_adapter::resize_surface_if_due() noexcept {
@@ -1076,7 +1067,8 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     }
 
     if (plan == frame_wait_plan::poll_then_decide) {
-        if (!wait_for_frame_callback(display, m_frame_sequence, k_frame_callback_budget_ms)) {
+        wire_wait_ports ports{display};
+        if (!wait_for_frame_callback(ports, m_frame_sequence, k_frame_callback_budget_ms)) {
             // D-W6b-28: poll_and_dispatch_with_budget() only ever
             // returns false when the wl_display connection itself is
             // now unusable (this file's own comment on that function) -
@@ -1092,52 +1084,41 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     return present_through_egl(display);
 }
 
+// The order of one presentation, and when its wait is armed, live in present_after_frame_request()
+// (frame_request_present.hpp, WL-FRAME-ORDER D-W8-208, WL-FRAME-ORDER-ARM-TEST D-W8-226), where
+// tests/frame_request_present_test.cpp makes the swap fail; this binds its five ports to the
+// wire. The connection is asked whatever the swap answered (EGL-DEAD-DISPLAY-GUARD S2): llvmpipe's
+// dri2_wl_swrast_swap_buffers_with_damage() returns EGL_TRUE even over a dead connection.
+// Arming after the swap cannot miss the done event. This is DOCUMENTED, not measured in the test
+// image (its Mesa version was not checked): wl_display_dispatch_queue() dispatches only the queue
+// it is given (wl_display(3)); Mesa keeps its swap events on a per-surface queue (mesa commit
+// 03dd9a88, "egl/wayland: Use per-surface event queues") and, with swap interval 0, installs no
+// frame callback of its own (mesa commit 992a2dbb). Our callback lives on the default queue,
+// which only poll_and_dispatch_with_budget() and the loop's pump dispatch. Were a future Mesa to
+// break this, loop_parity_test (at least 27 of 30 frames) would fail on every Linux runner.
 gltfx_rslt<gltfx_present_outcome>
 wayland_egl_context_adapter::present_through_egl(wl_display *display) noexcept {
-    // WL-FRAME-ORDER (D-W8-208): the frame request goes out BEFORE eglSwapBuffers(), never
-    // after it. wayland.xml, wl_surface.frame: "The frame request will take effect on the next
-    // wl_surface.commit", and eglSwapBuffers() IS that commit. Requested after it, the callback
-    // belonged to a commit this adapter never sent, because the next swap waited for that very
-    // callback: one frame, then skipped_hidden forever, on any compositor (loop_parity_test
-    // measured rendered_frames=1 in the Linux container from 13/09 to 09/10/2026).
-    attach_frame_listener();
-    const EGLBoolean swapped = eglSwapBuffers(m_egl_display, m_egl_surface);
+    struct wire_present_ports {
+        wayland_egl_context_adapter &self;
+        wl_display *display = nullptr;
 
-    // EGL-DEAD-DISPLAY-GUARD S2 (D-S2): checado SEJA QUAL FOR o retorno
-    // do EGL acima, nunca só quando ele falha - a correção do defeito
-    // que motivou esta fatia inteira. O comentário antigo deste sítio
-    // dizia que a mutação D-W6b-12 (ack_configure() removido) "aparece
-    // aqui porque o EGL falha" - FALSO no llvmpipe/swrast (o backend
-    // que este container e todo consumidor sem GPU dedicada usam,
-    // plano sec. 1.1): dri2_wl_swrast_swap_buffers_with_damage()
-    // devolve EGL_TRUE incondicionalmente, erro de protocolo ou não. A
-    // única forma confiável de saber que a conexão morreu é perguntar
-    // a ELA (connection_failure_if_dead(), S1), nunca ao valor de
-    // retorno do EGL.
-    if (const std::optional<gltfx_err> dead_after = connection_failure_if_dead(display);
-        dead_after.has_value()) {
-        return gltfx_rslt<gltfx_present_outcome>::err(*dead_after);
+        bool request_frame() noexcept { return self.attach_frame_listener(); }
+        void report_frame_request_failed() noexcept { report_frame_callback_request_failed(); }
+        bool swap() noexcept {
+            return eglSwapBuffers(self.m_egl_display, self.m_egl_surface) == EGL_TRUE;
+        }
+        std::optional<gltfx_err> dead_after_swap() noexcept {
+            return connection_failure_if_dead(display);
+        }
+        std::int64_t now_ns() noexcept { return steady_now_ns(); }
+    };
+    wire_present_ports ports{*this, display};
+    gltfx_rslt<gltfx_present_outcome> outcome =
+        present_after_frame_request(ports, m_frame_sequence);
+    if (!outcome.has_error()) {
+        ++m_swap_calls_issued;
     }
-
-    if (swapped != EGL_TRUE) {
-        return gltfx_rslt<gltfx_present_outcome>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_swap_buffers"));
-    }
-
-    ++m_swap_calls_issued;
-    // D-W6b-46: a frame callback is requested for EVERY presentation (at the top of this
-    // function, before the swap), in BOTH branches - the vsync=off branch never WAITS on it (its
-    // own present_would_skip() already decided the frame without touching the wire), but
-    // present_would_skip()'s own second criterion needs a callback outstanding to age in the
-    // first place, or a compositor that stops repainting this surface without ever affirming
-    // `suspended` would never be detected at all.
-    // D-W8-208: the age starts only after a swap that succeeded. A failed swap returns above
-    // without arming, so the next present plans present_immediately and attach_frame_listener()
-    // destroys the orphan proxy. Arming after the swap cannot miss the done event:
-    // eglSwapBuffers() dispatches only Mesa's own private queue, and this callback lives on the
-    // default queue, which only poll_and_dispatch_with_budget() and the loop's pump dispatch.
-    m_frame_sequence.arm_pending(steady_now_ns());
-    return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);
+    return outcome;
 }
 
 void *wayland_egl_context_adapter::proc_address(std::string_view name) const noexcept {

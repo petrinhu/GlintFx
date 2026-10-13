@@ -1338,6 +1338,21 @@ target_sources(frame_callback_sequence_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
 )
 
+# frame_request_present.hpp and frame_callback_wait.hpp (WL-FRAME-ORDER-ARM-TEST, D-W8-226 and
+# D-W8-227) are the same "Wayland-DOMAIN, not Wayland-ONLY" shape as frame_callback_sequence just
+# above: templates over ports, with no wl_callback, no EGLDisplay and no socket, so both register
+# unguarded and run on all systems.
+glintfx_add_test(frame_request_present_test)
+target_include_directories(frame_request_present_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_request_present_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+)
+glintfx_add_test(frame_callback_wait_test)
+target_include_directories(frame_callback_wait_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_callback_wait_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+)
+
 # GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.4; docs/plano-w6b-
 # fatias-5b-revisao.md sec. 4.3, D-W6b-30/33/38): the SAME "domain, not
 # only" shape as window_configure_sequence_test/frame_callback_

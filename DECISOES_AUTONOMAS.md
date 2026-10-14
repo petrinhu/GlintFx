@@ -9392,3 +9392,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - D-W8-425 e 426: o vermelho é o conjunto dos 8 mutantes do revisor.
   - Pré-execução: os 8 mutantes morrem; preci 362; sanitizer 172; MSVC 1/0.
   - Na sequência, o mesmo CTO escreve a rodada 21 (T4a e S5-B, D-W8-405 a 420).
+- **05:41, H4-fix1 commitada (b2ebcd0f, 1 caminho, 167+/80-).**
+  - O main conferiu que o bloco ditado (453 linhas) entrou inteiro no commit.
+  - Os 8 mutantes R1-R4 e V1/V2/V3/V7 morrem no teste comum. Verde 1/1, preci 362/362, sanitizer 0.
+  - A cópia `h4fix1/snap` foi apagada.
+  - A conferência mirada foi despachada ao revisor da N1 (a48aa90d), com veredito em `rev-h4-fix1.txt`.

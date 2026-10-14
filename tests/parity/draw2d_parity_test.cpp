@@ -55,6 +55,11 @@
 //   - a TEXTURE destroyed while the frame is open is not a barrier (T3, D-W8-288): a red piece in
 //     layer 1 submitted before the destruction stays over a blue piece in layer 0 submitted after
 //     it, at the pixel (210,160); the frame ends with a value, no GL error and no texture bound.
+//   - update_texture() (T3) over a hostile unpack state, on an updatable 8 x 8 texture with every
+//     reduced level: the call has a value and leaves no unpack buffer, alignment 1, row length and
+//     skips 0, no texture bound, unit 0 active and no GL error; an empty update has a value and
+//     leaves no GL error; a rectangle past the texture is refused as "rect", a texture made without
+//     updatable as "updatable" and a moved-from handle as "texture".
 // The surface encoding is read in BOTH modes: two contexts opened in sequence, because
 // srgb_framebuffer is open_only. A driver that does not support the option is a DECLARED and
 // COUNTED absence (printed, and a MEASURED key, listed per platform in
@@ -701,6 +706,85 @@ void cell_texture_destruction_in_frame(const cells_context &c) {
            integer_of(c.gl, k_gl_texture_binding_2d) == 0);
 }
 
+// The state update_texture() leaves, read back from the driver: the same as create_texture()'s (no
+// unpack buffer, alignment 1, row length and skips 0, no texture bound, unit 0 active, no GL
+// error).
+void check_state_left_by_update_texture(const cells_context &c) {
+    const gl_api &gl = c.gl;
+    report(c, "TU3 sem buffer de desempacotamento, alinhamento 1, linha e saltos 0",
+           integer_of(gl, k_gl_pixel_unpack_buffer_binding) == 0 &&
+               integer_of(gl, k_gl_unpack_alignment) == 1 &&
+               integer_of(gl, k_gl_unpack_row_length) == 0 &&
+               integer_of(gl, k_gl_unpack_skip_rows) == 0 &&
+               integer_of(gl, k_gl_unpack_skip_pixels) == 0);
+    report(c, "TU4 nenhuma textura ligada, unidade 0 ativa, nenhum erro GL",
+           integer_of(gl, k_gl_texture_binding_2d) == 0 &&
+               integer_of(gl, k_gl_active_texture) == static_cast<gl_int>(k_gl_texture0) &&
+               gl.get_error() == 0);
+}
+
+// Cell TU (R2D-TEXTURE T3): update_texture() through the PUBLIC handle on a real context, over a
+// hostile unpack state, on an updatable texture with every reduced level: the call has a value and
+// leaves the state create_texture() leaves; an empty update has a value and leaves no GL error; a
+// rectangle past the texture, a texture made without updatable and a moved-from handle are refused
+// by name.
+void cell_texture_update(const cells_context &c) {
+    drain_gl_errors(c.gl);
+    const std::vector<std::byte> pixels(static_cast<std::size_t>(8) * 8 * 4, std::byte{0x80});
+    const std::vector<std::byte> patch(static_cast<std::size_t>(3) * 2 * 4, std::byte{0xFF});
+    const auto view = [](const std::vector<std::byte> &bytes, std::uint32_t width,
+                         std::uint32_t height) {
+        return glintfx::gltfx_image_view{.pixels = bytes,
+                                         .width = width,
+                                         .height = height,
+                                         .bytes_per_row = static_cast<std::size_t>(width) * 4,
+                                         .pixel_format =
+                                             glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+    };
+    glintfx::gltfx_texture_2d_desc desc;
+    desc.mipmap_levels = glintfx::gltfx_all_mipmap_levels;
+    desc.updatable = true;
+    glintfx::gltfx_rslt<glintfx::gltfx_texture_2d> made =
+        c.renderer.create_texture(view(pixels, 8, 8), desc);
+    report(c, "TU1 a textura 8 x 8 com todos os niveis reduzidos abre", made.has_value());
+    if (!made.has_value()) {
+        return;
+    }
+    const gl_uint buffer = plant_hostile_unpack_state(c.gl);
+    const glintfx::gltfx_rslt<void> updated =
+        c.renderer.update_texture(made.value(), 2, 3, view(patch, 3, 2));
+    report(c, "TU2 update_texture escreve o retangulo 3 x 2 em (2, 3)", updated.has_value(),
+           updated.has_error() ? code_name(updated.err()).c_str() : "");
+    check_state_left_by_update_texture(c);
+    c.gl.delete_buffers(1, &buffer);
+    const glintfx::gltfx_rslt<void> past =
+        c.renderer.update_texture(made.value(), 6, 7, view(patch, 3, 2));
+    report(c, "TU5 retangulo alem da textura recusado pelo nome",
+           past.has_error() && past.err().code() == glintfx::gltfx_err_code::invalid_argument &&
+               past.err().rejected_value() == "rect");
+    const glintfx::gltfx_rslt<void> empty =
+        c.renderer.update_texture(made.value(), 8, 0, view(patch, 0, 2));
+    report(c, "TU7 atualizacao vazia na borda tem valor e nenhum erro GL",
+           empty.has_value() && c.gl.get_error() == 0);
+    desc.updatable = false;
+    glintfx::gltfx_rslt<glintfx::gltfx_texture_2d> fixed =
+        c.renderer.create_texture(view(pixels, 8, 8), desc);
+    const glintfx::gltfx_rslt<void> refused =
+        fixed.has_value() ? c.renderer.update_texture(fixed.value(), 0, 0, view(patch, 3, 2))
+                          : glintfx::gltfx_rslt<void>::ok();
+    report(c, "TU8 textura feita sem updatable recusada pelo nome",
+           fixed.has_value() && refused.has_error() &&
+               refused.err().code() == glintfx::gltfx_err_code::invalid_argument &&
+               refused.err().rejected_value() == "updatable");
+    const glintfx::gltfx_texture_2d kept = std::move(made.value());
+    const glintfx::gltfx_rslt<void> gone =
+        c.renderer.update_texture(made.value(), 0, 0, view(patch, 3, 2));
+    report(c, "TU6 alca movida recusada pelo nome",
+           kept.is_open() && gone.has_error() &&
+               gone.err().code() == glintfx::gltfx_err_code::invalid_argument &&
+               gone.err().rejected_value() == "texture");
+}
+
 // Opens a context with the surface encoding `srgb`, runs every cell over it, and destroys it.
 // Returns false when the driver does not support the mode (a DECLARED absence, counted), true
 // otherwise; a failed cell is counted in g_failures, and a failure to open anything at all ends the
@@ -877,6 +961,7 @@ mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
     cell_draw_calls(cells);
     cell_texture_creation(cells);
     cell_texture_destruction_in_frame(cells);
+    cell_texture_update(cells);
     return mode_result::ran;
 }
 

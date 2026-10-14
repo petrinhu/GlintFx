@@ -35,6 +35,10 @@
 //   8. the first GL error after the upload: GL_OUT_OF_MEMORY is out_of_memory "texture_create",
 //      any other is platform_failure "texture_create", os_error_code() the GL code, and the texture
 //      is deleted. The texture binding of unit 0 is left at zero in every case.
+// THE TEXELS OF EVERY LEVEL (fatia T3): they are made in ONE block laid out as mipmap_chain.hpp
+// says. With reduced levels, the record keeps the block afterwards (texture_2d_impl::kept,
+// kept_texels.hpp), so update_texture() can recompute the reduced texels a change touches; without
+// them, the block is freed before this call returns.
 namespace glintfx::draw2d {
 
 [[nodiscard]] glintfx::gltfx_rslt<glintfx::texture_2d_impl *>

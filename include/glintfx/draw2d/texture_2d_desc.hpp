@@ -50,6 +50,19 @@ struct gltfx_texture_2d_desc {
     // Proved by: mipmap_reduce_test (the average in linear light, and on
     // a side of odd length).
     std::uint32_t mipmap_levels = 0;
+    // Whether update_texture() may change this texture. False, the
+    // default: the texture is fixed, and update_texture() refuses it by
+    // name (invalid_argument, rejected_value() "updatable"). True: the
+    // texture can be updated and, with reduced levels, keeps the texels of
+    // every level in the library's memory, about 4/3 of width x height x 4
+    // bytes, so that an update recomputes the reduced texels it touches
+    // (renderer_2d.hpp, update_texture()). A texture without reduced levels
+    // keeps nothing either way.
+    // Proved by: texture_update_test (the texels kept only by an updatable
+    // texture with reduced levels).
+    // Proved by: texture_update_region_test (a texture made without it,
+    // refused by name).
+    bool updatable = false;
 };
 
 // The value that asks for every reduced level the texture size allows. It

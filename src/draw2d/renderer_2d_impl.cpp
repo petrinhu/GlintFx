@@ -10,6 +10,8 @@
 #include "draw2d/srgb_encoding.hpp"
 #include "draw2d/stroke_line_check.hpp"
 #include "draw2d/stroke_rect_check.hpp"
+#include "draw2d/texture_update.hpp"
+#include "draw2d/texture_update_check.hpp"
 #include "draw2d/triangle_list_check.hpp"
 
 namespace glintfx {
@@ -109,6 +111,21 @@ bool renderer_2d_impl::hold_texture_release(void *renderer, texture_2d_impl *tex
     }
     self->held_textures.hold(texture);
     return true;
+}
+
+gltfx_rslt<void> renderer_2d_impl::update_texture(texture_2d_impl *texture, std::uint32_t x,
+                                                  std::uint32_t y,
+                                                  const gltfx_image_view &image) noexcept {
+    const gltfx_rslt<std::optional<draw2d::texel_rect>> rect =
+        draw2d::check_texture_update(draw2d::texture_update_request{texture, this, x, y, image});
+    if (rect.has_error()) {
+        return gltfx_rslt<void>::err(rect.err());
+    }
+    if (!rect.value().has_value()) {
+        return gltfx_rslt<void>::ok(); // T3: an update with no width or no height writes nothing
+    }
+    return draw2d::update_texture_object(*texture, *rect.value(), image,
+                                         draw2d::default_batch_allocator());
 }
 
 bool renderer_2d_impl::context_current() noexcept {

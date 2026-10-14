@@ -6,12 +6,13 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
 
+#include "draw2d/kept_texels.hpp"
 #include "gl_functions.hpp"
 
 // draw2d/texture_2d_impl.hpp - R2D-TEXTURE, fatia T2a: what a texture IS inside the library - the
 // interior of the public handle gltfx_texture_2d (texture_2d.hpp declares it, opaque) - and what it
-// needs of the renderer it belongs to. Plain records, no behaviour: texture_upload.hpp makes and
-// releases them.
+// needs of the renderer it belongs to. Records with no behaviour of their own (the kept texels free
+// themselves, kept_texels.hpp): texture_upload.hpp makes them, texture_release.hpp releases them.
 namespace glintfx {
 
 struct texture_2d_impl;
@@ -20,8 +21,8 @@ namespace draw2d {
 
 // What making or releasing a texture needs of its renderer: the context to make current before
 // GL (the rule begin_frame() follows), and the renderer's own GL function table. `owner` names the
-// renderer the texture belongs to; nothing reads through it, and nothing in this fatia compares it
-// yet (the refusal of a texture of another renderer comes with the drawing calls).
+// renderer the texture belongs to; nothing reads through it, and update_texture() compares it
+// (texture_update_check.hpp: a texture of another renderer is refused by name).
 struct texture_gl_access {
     void *context = nullptr;
     gltfx_rslt<void> (*make_current)(void *context) noexcept = nullptr;
@@ -46,6 +47,9 @@ struct texture_2d_impl {
     std::uint32_t reduced_levels = 0; // levels 1 to reduced_levels exist on the card
     // The next record held by its renderer for release (T3, texture_release_queue.hpp).
     texture_2d_impl *next_held = nullptr;
+    // The texels of every level, kept in the library's memory when the texture is updatable and has
+    // reduced levels (kept_texels.hpp; empty otherwise), freed with the record (T3).
+    draw2d::kept_texels kept{};
     // Whether update_texture() may change the texture: gltfx_texture_2d_desc::updatable, copied
     // by create_texture_object() (T3-C). False in a record that did not declare it, and the update
     // is refused by name (texture_update_check.hpp).

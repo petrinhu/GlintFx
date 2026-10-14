@@ -1842,6 +1842,45 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
 )
 
+# R2D-TEXTURE T3, etapa C: the writing of update_texture() against a FAKE context and FAKE GL, over textures
+# made by the making on the same fake card.
+glintfx_add_test(texture_update_test)
+add_dependencies(texture_update_test glintfx_gl_functions_generated)
+target_include_directories(texture_update_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_update_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+# R2D-TEXTURE T3, etapa C: a texture record now owns its kept texels (kept_texels.hpp), so every target that makes
+# or frees a record compiles their ownership; the making keeps them in one block (mipmap_chain.hpp); and the
+# frame machine forwards update_texture() to its check and its writing.
+target_sources(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+target_sources(texture_release_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp")
+target_sources(texture_release_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp")
+target_sources(texture_update_region_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp")
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

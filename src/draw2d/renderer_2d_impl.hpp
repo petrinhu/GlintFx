@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <glintfx/core/err.hpp>
+#include <glintfx/core/image_view.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/core/segment.hpp>
@@ -109,6 +110,12 @@ struct renderer_2d_impl {
     // table, read by the atoms that make GL objects in its context (texture_upload.hpp), this
     // renderer as the owner, and the door of its release queue (T3, D-W8-288).
     [[nodiscard]] draw2d::texture_gl_access texture_access() noexcept;
+    // Overwrites a rectangle of `texture` with `image` (texture_update_check.hpp checks it, then
+    // texture_update.hpp writes it; T3). It sends nothing: a texture is read when the batch is
+    // sent.
+    [[nodiscard]] gltfx_rslt<void> update_texture(texture_2d_impl *texture, std::uint32_t x,
+                                                  std::uint32_t y,
+                                                  const gltfx_image_view &image) noexcept;
 
     renderer_2d_impl(const renderer_2d_impl &) = delete;
     renderer_2d_impl &operator=(const renderer_2d_impl &) = delete;

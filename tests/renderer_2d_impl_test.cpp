@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <print>
+#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -1243,6 +1245,122 @@ GLINTFX_TEST(renderer_2d_impl_a_release_whose_context_fails_deletes_nothing_and_
     renderer_2d_impl::destroy(renderer);
 }
 
+// R2D-TEXTURE, fatia T3, etapa C: update_texture() in an open frame writes the texture and sends
+// nothing (the piece queued before it is drawn at finish_frame(), after the writing); a texture of
+// another renderer, and one made without updatable, are refused by name, before any GL call; and
+// an empty update succeeds with no GL call at all.
+namespace {
+
+void GLINTFX_GL_APIENTRY f_tex_sub_image(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum,
+                                         GLenum, const void *) {
+    GLINTFX_COUNT();
+    card.calls.emplace_back("tex_sub_image");
+}
+
+renderer_2d_impl *make_with_updates() {
+    gl_function_table table = fake_table();
+    table.glDeleteTextures = &f_delete_textures;
+    table.glTexSubImage2D = &f_tex_sub_image;
+    auto created = renderer_2d_impl::create(fake_host(), table, renderer_2d_options{true, 16});
+    GLINTFX_CHECK(created.has_value());
+    return created.has_value() ? created.value() : nullptr;
+}
+
+// A record like texture_of()'s, made with gltfx_texture_2d_desc::updatable.
+[[nodiscard]] glintfx::texture_2d_impl *updatable_texture_of(renderer_2d_impl *renderer,
+                                                             GLuint name) {
+    return new glintfx::texture_2d_impl{
+        .access = renderer->texture_access(),
+        .gl_name = name,
+        .width = 2U,
+        .height = 2U,
+        .filter = glintfx::gltfx_texture_filter::linear,
+        .reduced_levels = 0U,
+        .updatable = true,
+    };
+}
+
+const std::array<std::byte, 4> k_one_red_texel{std::byte{255}, std::byte{0}, std::byte{0},
+                                               std::byte{255}};
+
+[[nodiscard]] glintfx::gltfx_image_view one_texel() {
+    return glintfx::gltfx_image_view{
+        .pixels = std::span<const std::byte>(k_one_red_texel.data(), k_one_red_texel.size()),
+        .width = 1,
+        .height = 1,
+        .bytes_per_row = 4,
+        .pixel_format = glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+}
+
+// The same texel, as an image with no width: an empty update.
+[[nodiscard]] glintfx::gltfx_image_view no_width() {
+    return glintfx::gltfx_image_view{
+        .pixels = std::span<const std::byte>(k_one_red_texel.data(), k_one_red_texel.size()),
+        .width = 0,
+        .height = 1,
+        .bytes_per_row = 4,
+        .pixel_format = glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+}
+
+} // namespace
+
+GLINTFX_TEST(renderer_2d_impl_an_update_in_an_open_frame_sends_nothing) {
+    reset();
+    renderer_2d_impl *renderer = make_with_updates();
+    glintfx::texture_2d_impl *texture = updatable_texture_of(renderer, 91U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_rect(rect(10.0, 10.0, 10.0, 10.0), k_red, k_layer_0);
+    GLINTFX_CHECK(renderer->update_texture(texture, 0U, 0U, one_texel()).has_value());
+    GLINTFX_CHECK(position_of("tex_sub_image", false) >= 0);
+    GLINTFX_CHECK(position_of("draw", false) < 0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(position_of("draw", false) > position_of("tex_sub_image", false));
+    glintfx::draw2d::release_texture_object(texture); // no frame open: released at once
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_an_update_of_a_texture_of_another_renderer_is_refused) {
+    reset();
+    renderer_2d_impl *mine = make_with_updates();
+    renderer_2d_impl *other = make_with_updates();
+    glintfx::texture_2d_impl *texture = updatable_texture_of(other, 92U);
+    const int calls_before = card.gl_calls;
+    const glintfx::gltfx_rslt<void> refused = mine->update_texture(texture, 0U, 0U, one_texel());
+    GLINTFX_CHECK(refused.has_error() && refused.err().code() == gltfx_err_code::invalid_argument &&
+                  refused.err().rejected_value() == "texture");
+    GLINTFX_CHECK_EQ(card.gl_calls, calls_before);
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(other);
+    renderer_2d_impl::destroy(mine);
+}
+
+GLINTFX_TEST(renderer_2d_impl_an_update_of_a_texture_made_without_updatable_is_refused) {
+    reset();
+    renderer_2d_impl *renderer = make_with_updates();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 93U);
+    const int calls_before = card.gl_calls;
+    const glintfx::gltfx_rslt<void> refused =
+        renderer->update_texture(texture, 0U, 0U, one_texel());
+    GLINTFX_CHECK(refused.has_error() && refused.err().code() == gltfx_err_code::invalid_argument &&
+                  refused.err().rejected_value() == "updatable");
+    GLINTFX_CHECK_EQ(card.gl_calls, calls_before);
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// Decided in the tenth consultation: an empty update succeeds and does nothing, so no GL call is
+// made (no texel written, the context not made current).
+GLINTFX_TEST(renderer_2d_impl_an_empty_update_succeeds_with_no_gl_call) {
+    reset();
+    renderer_2d_impl *renderer = make_with_updates();
+    glintfx::texture_2d_impl *texture = updatable_texture_of(renderer, 94U);
+    const int calls_before = card.gl_calls;
+    GLINTFX_CHECK(renderer->update_texture(texture, 2U, 0U, no_width()).has_value());
+    GLINTFX_CHECK_EQ(card.gl_calls, calls_before);
+    GLINTFX_CHECK(position_of("tex_sub_image", false) < 0);
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
 // R2D-SHAPES, fatia S3: stroke_line() in the frame machine. One call is one piece: its outline, a
 // fan of triangles, reaches the card at its pixel positions; a refusal is counted once with its
 // reason, in the order of the vocabulary; with no frame open, it is counted outside the frame; a

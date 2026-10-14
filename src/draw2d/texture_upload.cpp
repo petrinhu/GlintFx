@@ -8,13 +8,13 @@
 #include <optional>
 #include <span>
 #include <string_view>
-#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/image_view.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
 
+#include "draw2d/mipmap_chain.hpp"
 #include "draw2d/mipmap_reduce.hpp"
 #include "draw2d/pixel_premultiply.hpp"
 #include "draw2d/pod_buffer.hpp"
@@ -64,13 +64,6 @@ constexpr GLenum k_gl_texture0 = 0x84C0;
 constexpr GLenum k_gl_no_error = 0;
 constexpr GLenum k_gl_out_of_memory = 0x0505;
 constexpr std::uint32_t k_max_error_drain = 32U;
-
-// The two texel levels that take turns: level k is computed into the buffer that held level k - 2.
-// Both are sized before the first GL call, for level 0 and for level 1, the largest reduced level.
-struct texel_levels {
-    pod_buffer<gltfx_rgba8> first;
-    pod_buffer<gltfx_rgba8> second;
-};
 
 // What one creation needs, gathered once: the request, its checked number of reduced levels, and
 // the allocator of the texel storage.
@@ -141,35 +134,30 @@ void drain_gl_errors(const gl_function_table &gl) noexcept {
     return true;
 }
 
-[[nodiscard]] gltfx_rslt<void> reserve_levels(const creation &plan, texel_levels &texels) noexcept {
-    const std::size_t level_zero = level_texel_count(plan.image.width, plan.image.height, 0U);
-    if (!take_texels(plan.allocator, texels.first, level_zero)) {
-        return gltfx_rslt<void>::err(memory_refusal());
-    }
-    if (plan.levels == 0U) {
-        return gltfx_rslt<void>::ok();
-    }
-    const std::size_t level_one = level_texel_count(plan.image.width, plan.image.height, 1U);
-    if (!take_texels(plan.allocator, texels.second, level_one)) {
+// Makes room for the block of every level (chain_texel_count), and sets its size to it.
+[[nodiscard]] gltfx_rslt<void> reserve_levels(const creation &plan,
+                                              pod_buffer<gltfx_rgba8> &chain) noexcept {
+    const std::size_t texels = chain_texel_count(plan.image.width, plan.image.height, plan.levels);
+    if (!take_texels(plan.allocator, chain, texels)) {
         return gltfx_rslt<void>::err(memory_refusal());
     }
     return gltfx_rslt<void>::ok();
 }
 
-// Reserves the storage, then stores level 0 in its stored form (pixel_premultiply.hpp).
-[[nodiscard]] gltfx_rslt<void> prepare_texels(const creation &plan, texel_levels &texels) noexcept {
-    const gltfx_rslt<void> reserved = reserve_levels(plan, texels);
+// Reserves the block, then stores level 0 at its start in the stored form (pixel_premultiply.hpp).
+[[nodiscard]] gltfx_rslt<void> prepare_texels(const creation &plan,
+                                              pod_buffer<gltfx_rgba8> &chain) noexcept {
+    const gltfx_rslt<void> reserved = reserve_levels(plan, chain);
     if (reserved.has_error()) {
         return gltfx_rslt<void>::err(reserved.err());
     }
-    return to_stored_texels(plan.image,
-                            std::span<gltfx_rgba8>(texels.first.data, texels.first.size));
+    const std::size_t level_zero = level_texel_count(plan.image.width, plan.image.height, 0U);
+    return to_stored_texels(plan.image, std::span<gltfx_rgba8>(chain.data, level_zero));
 }
 
-void release_levels(const batch_allocator &allocator, texel_levels &texels) noexcept {
-    allocator.release(texels.first.data);
-    allocator.release(texels.second.data);
-    texels = texel_levels{};
+void release_chain(const batch_allocator &allocator, pod_buffer<gltfx_rgba8> &chain) noexcept {
+    allocator.release(chain.data);
+    chain = pod_buffer<gltfx_rgba8>{};
 }
 
 [[nodiscard]] texture_2d_impl *new_record(const creation &plan) noexcept {
@@ -180,6 +168,7 @@ void release_levels(const batch_allocator &allocator, texel_levels &texels) noex
         .height = plan.image.height,
         .filter = plan.desc.filter,
         .reduced_levels = plan.levels,
+        .updatable = plan.desc.updatable,
     };
 }
 
@@ -233,39 +222,38 @@ void upload_level(const gl_function_table &gl, const level_image &image) noexcep
 // Computes reduced level `level` from `source` (the level above) into `target`. False when the
 // storage does not fit the level, which the reservation makes impossible.
 [[nodiscard]] bool reduce_one_level(const texture_2d_impl &record, std::uint32_t level,
-                                    const pod_buffer<gltfx_rgba8> &source,
-                                    pod_buffer<gltfx_rgba8> &target) noexcept {
-    const std::uint32_t source_width = reduced_side(record.width, level - 1U);
-    const std::uint32_t source_height = reduced_side(record.height, level - 1U);
-    target.size = level_texel_count(record.width, record.height, level);
-    return reduce_to_next_level(std::span<const gltfx_rgba8>(source.data, source.size),
-                                source_width, source_height,
-                                std::span<gltfx_rgba8>(target.data, target.size));
+                                    std::span<const gltfx_rgba8> source,
+                                    std::span<gltfx_rgba8> target) noexcept {
+    return reduce_to_next_level(source, reduced_side(record.width, level - 1U),
+                                reduced_side(record.height, level - 1U), target);
 }
 
-// Uploads level 0, then each reduced level right after it is computed, from the level above.
+// Uploads level 0 from the start of the block, then each reduced level, computed from the level
+// above it into its own place of the same block (level_offset) and uploaded from there.
 [[nodiscard]] bool upload_levels(const gl_function_table &gl, const texture_2d_impl &record,
-                                 texel_levels &texels) noexcept {
-    upload_level(gl,
-                 level_image{
-                     .level = 0U,
-                     .width = record.width,
-                     .height = record.height,
-                     .texels = std::span<const gltfx_rgba8>(texels.first.data, texels.first.size),
-                 });
-    pod_buffer<gltfx_rgba8> *source = &texels.first;
-    pod_buffer<gltfx_rgba8> *target = &texels.second;
+                                 std::span<gltfx_rgba8> chain) noexcept {
+    const std::size_t zero_count = level_texel_count(record.width, record.height, 0U);
+    upload_level(gl, level_image{
+                         .level = 0U,
+                         .width = record.width,
+                         .height = record.height,
+                         .texels = chain.first(zero_count),
+                     });
     for (std::uint32_t level = 1; level <= record.reduced_levels; ++level) {
-        if (!reduce_one_level(record, level, *source, *target)) {
+        const std::size_t above = level_offset(record.width, record.height, level - 1U);
+        const std::size_t here = level_offset(record.width, record.height, level);
+        const std::size_t above_count = level_texel_count(record.width, record.height, level - 1U);
+        const std::size_t here_count = level_texel_count(record.width, record.height, level);
+        if (!reduce_one_level(record, level, chain.subspan(above, above_count),
+                              chain.subspan(here, here_count))) {
             return false;
         }
         upload_level(gl, level_image{
                              .level = level,
                              .width = reduced_side(record.width, level),
                              .height = reduced_side(record.height, level),
-                             .texels = std::span<const gltfx_rgba8>(target->data, target->size),
+                             .texels = chain.subspan(here, here_count),
                          });
-        std::swap(source, target);
     }
     return true;
 }
@@ -278,11 +266,12 @@ void delete_gl_texture(const gl_function_table &gl, const texture_2d_impl &recor
 // The GL object: unpack state, the texture, every level, then the first error after the upload.
 // The binding of unit 0 is cleared in every case, and a failed texture is deleted.
 [[nodiscard]] gltfx_rslt<texture_2d_impl *>
-create_gl_texture(const creation &plan, texture_2d_impl &record, texel_levels &texels) noexcept {
+create_gl_texture(const creation &plan, texture_2d_impl &record,
+                  pod_buffer<gltfx_rgba8> &chain) noexcept {
     const gl_function_table &gl = *plan.access.gl;
     set_unpack_state(gl);
     prepare_gl_texture(gl, record, plan.sampling);
-    const bool uploaded = upload_levels(gl, record, texels);
+    const bool uploaded = upload_levels(gl, record, std::span<gltfx_rgba8>(chain.data, chain.size));
     const GLenum error = gl.glGetError();
     gl.glBindTexture(k_gl_texture_2d, 0);
     if (!uploaded) {
@@ -297,24 +286,37 @@ create_gl_texture(const creation &plan, texture_2d_impl &record, texel_levels &t
     return gltfx_rslt<texture_2d_impl *>::ok(&record);
 }
 
+// The block of levels goes to the record when the texture is updatable and has reduced levels: the
+// texels update_texture() recomputes from (texture_2d_impl::kept). Otherwise it is freed here.
+void settle_chain(texture_2d_impl &record, const creation &plan,
+                  pod_buffer<gltfx_rgba8> &chain) noexcept {
+    if (plan.desc.updatable && plan.levels > 0U) {
+        record.kept.adopt(chain, plan.allocator);
+    } else {
+        release_chain(plan.allocator, chain);
+    }
+    chain = pod_buffer<gltfx_rgba8>{};
+}
+
 [[nodiscard]] gltfx_rslt<texture_2d_impl *> build_texture(const creation &plan) noexcept {
-    texel_levels texels;
-    const gltfx_rslt<void> prepared = prepare_texels(plan, texels);
+    pod_buffer<gltfx_rgba8> chain{};
+    const gltfx_rslt<void> prepared = prepare_texels(plan, chain);
     if (prepared.has_error()) {
-        release_levels(plan.allocator, texels);
+        release_chain(plan.allocator, chain);
         return gltfx_rslt<texture_2d_impl *>::err(prepared.err());
     }
     texture_2d_impl *record = new_record(plan);
     if (record == nullptr) {
-        release_levels(plan.allocator, texels);
+        release_chain(plan.allocator, chain);
         return gltfx_rslt<texture_2d_impl *>::err(memory_refusal());
     }
-    const gltfx_rslt<texture_2d_impl *> made = create_gl_texture(plan, *record, texels);
-    release_levels(plan.allocator, texels);
+    const gltfx_rslt<texture_2d_impl *> made = create_gl_texture(plan, *record, chain);
     if (made.has_error()) {
+        release_chain(plan.allocator, chain);
         delete record;
         return gltfx_rslt<texture_2d_impl *>::err(made.err());
     }
+    settle_chain(*record, plan, chain);
     return gltfx_rslt<texture_2d_impl *>::ok(record);
 }
 

@@ -177,6 +177,8 @@ class gltfx_renderer_2d {
     // context current on the calling thread before they touch GL, so a
     // program with two windows never draws into the wrong one. A
     // failure to make it current is reported by finish_frame().
+    // create_texture() and update_texture() make it current too, before
+    // they touch GL, and return the failure (see each one).
     // Proved by: draw2d_parity_test (two windows, each with its own
     // context, and the other window's context made current before every
     // begin_frame(), flush() and finish_frame(): each window's clear and
@@ -362,7 +364,9 @@ class gltfx_renderer_2d {
     // Makes a texture from `image`, on this renderer's context. The pixels
     // are read only during this call (docs/api-conventions.md R5): the
     // library converts them (core/image_view.hpp says to what) and keeps
-    // its own copy on the graphics card. Refused as gltfx_err, never an
+    // its own copy on the graphics card (made updatable and with reduced
+    // levels, one in the library's memory as well: see update_texture()).
+    // Refused as gltfx_err, never an
     // exception (R1, R3), and the first refusal of this list wins:
     //   - invalid_argument: "width" or "height" is zero; "pixel_format" is
     //     `unspecified` or a value this build does not know; "bytes_per_row"
@@ -395,6 +399,63 @@ class gltfx_renderer_2d {
     // back as said above, and a zero width is refused by name).
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_texture_2d>
     create_texture(gltfx_image_view image, gltfx_texture_2d_desc desc = {}) noexcept;
+
+    // Overwrites the part of `texture` that starts at texel (x, y) with
+    // `image`, on this renderer's context. The pixels are read only during
+    // this call, as create_texture() reads them. Only a texture made with
+    // gltfx_texture_2d_desc::updatable can be changed. Refused as gltfx_err,
+    // never an exception, and the first refusal of this list wins:
+    //   - invalid_argument, rejected_value() "texture": the texture is not
+    //     open, or belongs to another renderer;
+    //   - invalid_argument, rejected_value() "updatable": the texture was
+    //     made without gltfx_texture_2d_desc::updatable;
+    //   - invalid_argument: "pixel_format", "bytes_per_row" or "pixels" as
+    //     for create_texture(); "rect": the rectangle from (x, y), of the
+    //     image's size, reaches past the texture (an image with no width may
+    //     start at x equal to the texture's width, and likewise for y);
+    //   - the error of this renderer's context, as it came, when the
+    //     context cannot be made current (nothing was touched);
+    //   - out_of_memory, rejected_value() "texture_update": the library ran
+    //     out of memory (os_error_code() zero), or the card did
+    //     (os_error_code() the GL code);
+    //   - platform_failure, rejected_value() "texture_update": the card
+    //     refused the writing for another reason (os_error_code() the GL
+    //     code).
+    //
+    // An image with no width or no height is an empty update: once the
+    // checks above pass, the call succeeds and does nothing (no texel
+    // written, no GL call, the context not made current).
+    //
+    // The texture is READ at the send: updating it changes what the pieces
+    // not yet sent show. This call does NOT send the batch. To keep the
+    // previous content in those pieces, call flush() before it. The barrier
+    // belongs to the consumer and is explicit.
+    //
+    // A texture with reduced levels has the reduced texels the change
+    // touches recomputed, exactly as create_texture() computes them. For
+    // that, an updatable texture with reduced levels keeps the texels of
+    // every level in the library's memory too, about 4/3 of width x height
+    // x 4 bytes, from its creation to its destruction; any other texture
+    // keeps none.
+    // Like create_texture(), this call makes this renderer's context current
+    // before it touches GL, sets the pixel-unpack state it reads with (no
+    // unpack buffer, alignment 1, row length and skips zero) and leaves it
+    // so, with no texture bound and texture unit 0 active.
+    // Proved by: texture_update_region_test (each invalid_argument, by name
+    // and in this order, and the empty update).
+    // Proved by: texture_update_test (the writing, over a fake GL: the
+    // context first, the memory, the rectangle of each level, the reduced
+    // texels equal to those of a texture made from the whole new image, the
+    // unpack state set and left so).
+    // Proved by: renderer_2d_impl_test (an update in an open frame sends
+    // nothing; an empty update makes no GL call).
+    // Proved by: draw2d_parity_test (this call on a real context, over a
+    // hostile unpack state: the state read back as said above; a rectangle
+    // past the texture and a texture made without updatable refused by
+    // name; an empty update succeeds).
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void> update_texture(gltfx_texture_2d &texture,
+                                                              std::uint32_t x, std::uint32_t y,
+                                                              gltfx_image_view image) noexcept;
 
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}

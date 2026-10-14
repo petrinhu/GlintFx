@@ -25,10 +25,13 @@ std::uint32_t half_arc_segment_count(double radius_pixels, double max_error_pixe
     return (arc_segment_count(radius_pixels, max_error_pixels) + 1U) / 2U;
 }
 
+namespace {
+
 // The largest singular value of the 2x2 linear part. With `squares` the sum of the four squared
 // entries and `determinant` the determinant, s1^2 = (squares + spread) / 2 where spread is
 // sqrt(squares^2 - 4 determinant^2); a negative under the root (rounding) is clamped to zero.
-double screen_radius(double world_radius, const pixel_affine &affine) noexcept {
+// Entries past about 1e77 overflow the squares, and then the answer is not finite.
+double largest_stretch(const pixel_affine &affine) noexcept {
     const double squares =
         (affine.column0_x * affine.column0_x) + (affine.column0_y * affine.column0_y) +
         (affine.column1_x * affine.column1_x) + (affine.column1_y * affine.column1_y);
@@ -36,7 +39,35 @@ double screen_radius(double world_radius, const pixel_affine &affine) noexcept {
         (affine.column0_x * affine.column1_y) - (affine.column1_x * affine.column0_y);
     const double spread =
         std::sqrt(std::max(0.0, (squares * squares) - (4.0 * determinant * determinant)));
-    return world_radius * std::sqrt((squares + spread) / 2.0);
+    return std::sqrt((squares + spread) / 2.0);
+}
+
+// The same stretch with the four entries divided by the largest of their sizes first, and the
+// answer multiplied back (D-W8-399): no square overflows, so every stretch up to the largest double
+// comes out finite. Only for when the direct one overflows, so the common case keeps its bits.
+double largest_stretch_scaled(const pixel_affine &affine) noexcept {
+    const double largest = std::max({std::fabs(affine.column0_x), std::fabs(affine.column0_y),
+                                     std::fabs(affine.column1_x), std::fabs(affine.column1_y)});
+    if (!(largest > 0.0)) {
+        return largest_stretch(affine);
+    }
+    const pixel_affine scaled{affine.column0_x / largest,
+                              affine.column0_y / largest,
+                              affine.column1_x / largest,
+                              affine.column1_y / largest,
+                              0.0,
+                              0.0};
+    return largest * largest_stretch(scaled);
+}
+
+} // namespace
+
+double screen_radius(double world_radius, const pixel_affine &affine) noexcept {
+    const double direct = largest_stretch(affine);
+    if (std::isfinite(direct)) {
+        return world_radius * direct;
+    }
+    return world_radius * largest_stretch_scaled(affine);
 }
 
 } // namespace glintfx::draw2d

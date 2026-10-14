@@ -39,13 +39,16 @@
 //     radius r. Every parameter of this regime is t = (pi/2) * (N / 2^level), N an integer: the
 //     division is exact, and there is one rounding.
 //
-// THE LIMITS, both declared, never silent: at most min(out.size(), k_max_arc_parameters) parameters
-// (1024 segments) per call. When the level e asks for would give more, the call takes the deepest
-// level, down to 7, that fits, and the error on the surface can then pass e: a tolerance far below
-// what a screen needs, or a surface much larger than 16384 pixels on a side (the sweep of
-// arc_parameters_test, at the default 0.25 pixel and up to that size, never needs it). Above a
-// radius on the screen of k_largest_exact_arc_radius_pixels (2^40, D-W8-378), the rounding of the
-// double arithmetic, and not the count, sets the error.
+// THE GUARANTEE HAS TWO CONDITIONS, both declared (D-W8-398): where the curve is on the surface, it
+// is at most e from its segments (1) while the level e asks for fits the room, and (2) while r is
+// at most k_largest_exact_arc_radius_pixels (2^40, D-W8-378).
+//   (1) The room is at most min(out.size(), k_max_arc_parameters) parameters (1024 segments) per
+//       call. When the level e asks for would give more, the call takes the deepest level, down to
+//       7, that fits, and the error on the surface then passes e: with e = 1e-9 and r = 1e6 it is
+//       about 1100 times e. A tolerance far below what a screen needs, or a surface much larger
+//       than 16384 pixels on a side, comes to that; the sweep of arc_parameters_test, at the
+//       default 0.25 pixel and up to that size, never does.
+//   (2) Above 2^40, the rounding of the double arithmetic, and not the count, sets the error.
 namespace glintfx::draw2d {
 
 inline constexpr std::size_t k_max_arc_parameters = 1025U;
@@ -95,7 +98,8 @@ struct pixel_box {
 // m + 1. Answers 0, writing nothing, when out holds fewer than fewest_arc_parameters(extent), when
 // the extent is not one of the two, when a value of the request or of the surface is not finite,
 // when max_error_pixels is not greater than zero, when reach_pixels is negative, or when r is not
-// finite.
+// finite. r is computed without overflow on the way (D-W8-399): every finite radius up to the
+// largest double is cut, and only a stretch past the largest double answers 0.
 [[nodiscard]] std::size_t arc_parameters(const arc_request &request, const pixel_box &surface,
                                          std::span<double> out) noexcept;
 

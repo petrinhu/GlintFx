@@ -102,3 +102,18 @@ GLINTFX_TEST(arc_segments_the_screen_radius_follows_the_largest_stretch) {
     const pixel_affine collapsed{0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     GLINTFX_CHECK_EQ(screen_radius(3.0, collapsed), 0.0);
 }
+
+// A stretch whose squares overflow is still the largest stretch (S5-A-fix1, D-W8-399): the entries
+// are scaled first, and the common case above keeps its bits. 1e200 on the diagonal, or only in
+// the last entry, is a stretch of 1e200; the shear of 1e200 is the golden ratio times 1e200; one
+// column of (1.7e308, 1.7e308) is a stretch past the largest double.
+GLINTFX_TEST(arc_segments_the_screen_radius_does_not_overflow_on_the_way) {
+    const pixel_affine diagonal{1.0e200, 0.0, 0.0, 1.0e200, 0.0, 0.0};
+    GLINTFX_CHECK(near(screen_radius(1.0, diagonal), 1.0e200));
+    const pixel_affine last_entry{1.0, 0.0, 0.0, 1.0e200, 0.0, 0.0};
+    GLINTFX_CHECK(near(screen_radius(1.0, last_entry), 1.0e200));
+    const pixel_affine sheared{1.0e200, 0.0, 1.0e200, 1.0e200, 0.0, 0.0};
+    GLINTFX_CHECK(near(screen_radius(1.0, sheared), 1.6180339887498949e200));
+    const pixel_affine past{1.7e308, 1.7e308, 0.0, 0.0, 0.0, 0.0};
+    GLINTFX_CHECK(!std::isfinite(screen_radius(1.0, past)));
+}

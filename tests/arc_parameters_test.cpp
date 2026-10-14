@@ -15,7 +15,8 @@
 #include "harness/test_registry.hpp"
 
 // arc_parameters_test.cpp - R2D-SHAPES, fatia S5-A (TODO.md ARC-VIEWPORT-TESSELLATION; decisions
-// D-W8-269, D-W8-377 and D-W8-378; GODS_LAWS.md L-17, L-20, L-40).
+// D-W8-269, D-W8-377, D-W8-378, and the fix1 decisions D-W8-398 to D-W8-404; GODS_LAWS.md L-17,
+// L-20, L-40).
 //
 // The expected numbers are FIXED here, written before the implementation existed, from
 // /var/tmp/cto-w8/r20/s5a/contas/modelo_arco2.py, an independent model outside the library (never
@@ -24,13 +25,19 @@
 // system cannot change a count (GODS_LAWS.md L-04).
 //
 // The sweep at the end does not fix counts: it checks the contract itself on 400 curves made by a
-// fixed integer generator (the same numbers on every system), and prints how many it checked.
+// fixed integer generator (the same numbers on every system), and prints how many it checked. Its
+// error oracle is GEOMETRIC (fix1, I-6): the largest distance from points of the true curve to the
+// chord, in long double, never the sagitta formula the implementation uses to choose a level.
+//
+// Every call runs in a buffer larger than the room it is given, and the slot right after the room
+// must stay untouched (fix1, I-3): a write past the room fails here, not only under a sanitizer.
 
 namespace {
 
 using glintfx::draw2d::arc_extent;
 using glintfx::draw2d::arc_parameters;
 using glintfx::draw2d::arc_request;
+using glintfx::draw2d::k_largest_exact_arc_radius_pixels;
 using glintfx::draw2d::k_max_arc_parameters;
 using glintfx::draw2d::pixel_box;
 using glintfx::draw2d::pixel_ellipse;
@@ -71,10 +78,15 @@ bool strictly_increasing(std::span<const double> t) {
     return true;
 }
 
+// The call, with the room smaller than the buffer by at least one slot: the slot right after the
+// room is checked untouched after the call (fix1, I-3).
 std::size_t run(const arc_request &request, const pixel_box &surface, parameters &out,
                 std::size_t room) {
     out.fill(k_untouched);
-    return arc_parameters(request, surface, std::span<double>(out).first(room));
+    const std::size_t n = arc_parameters(request, surface, std::span<double>(out).first(room));
+    GLINTFX_CHECK(room < out.size());
+    GLINTFX_CHECK(room >= out.size() || out[room] == k_untouched);
+    return n;
 }
 
 } // namespace
@@ -151,8 +163,8 @@ GLINTFX_TEST(arc_parameters_cut_counts_of_the_closed_cases) {
                    with_error(circle(960.0, 540.0 + 1.0e6 - 300.0, 1.0e6), 1.0e-9), 1025U, 679U},
         count_case{"error 1e-9: the deepest level that fits 600",
                    with_error(circle(960.0, 540.0 + 1.0e6 - 300.0, 1.0e6), 1.0e-9), 600U, 357U},
-        count_case{"error 1e-9: room of 2048 still holds 1025 at most",
-                   with_error(circle(960.0, 540.0 + 1.0e6 - 300.0, 1.0e6), 1.0e-9), 2048U, 679U},
+        count_case{"error 1e-9: room of 2000 still holds 1025 at most",
+                   with_error(circle(960.0, 540.0 + 1.0e6 - 300.0, 1.0e6), 1.0e-9), 2000U, 679U},
         count_case{"curve 30 pixels off the screen, reach 0",
                    circle(960.0, -30.0 - 20000.0, 20000.0), 1025U, 5U},
         count_case{"curve 30 pixels off the screen, reach 50",
@@ -162,7 +174,9 @@ GLINTFX_TEST(arc_parameters_cut_counts_of_the_closed_cases) {
         count_case{"curve 1.5 pixels off the screen (beyond the margin)",
                    circle(960.0, -1.5 - 20000.0, 20000.0), 1025U, 5U},
         count_case{"radius 2^40 crossing the screen",
-                   circle(960.0, 540.0 + 1099511627776.0 - 300.0, 1099511627776.0), 1025U, 47U},
+                   circle(960.0, 540.0 + k_largest_exact_arc_radius_pixels - 300.0,
+                          k_largest_exact_arc_radius_pixels),
+                   1025U, 47U},
     };
     int failures = 0;
     parameters t{};
@@ -213,58 +227,142 @@ struct refusal_cell {
     arc_request request{};
     pixel_box surface{};
     std::size_t room = 0U;
+    bool cut = false; // the curve would be in the cut regime if it were accepted
 };
 
-arc_request with_center_x(double x) {
-    arc_request r = circle(960.0, 540.0, 20000.0);
-    r.ellipse.center.x = x;
-    return r;
+// The two curves the finiteness cells break: one in the uniform regime, one in the cut regime.
+arc_request curve_of_regime(bool cut) {
+    return cut ? circle(960.0, 540.0 + 20000.0 - 300.0, 20000.0) : circle(960.0, 540.0, 10.0);
+}
+
+constexpr std::array<const char *, 12> k_value_names{
+    "centre x",      "centre y",      "axis_u x",      "axis_u y",      "axis_v x", "axis_v y",
+    "surface min_x", "surface min_y", "surface max_x", "surface max_y", "error",    "reach"};
+
+// One of the 12 values the request and the surface hold, made not finite: NaN in the uniform
+// regime, +infinity in the cut regime (fix1, I-1).
+refusal_cell with_value_not_finite(std::size_t value, bool cut) {
+    refusal_cell c{k_value_names.at(value), curve_of_regime(cut), k_screen, 1025U, cut};
+    const std::array<double *, 12> slots{&c.request.ellipse.center.x,
+                                         &c.request.ellipse.center.y,
+                                         &c.request.ellipse.axis_u.x,
+                                         &c.request.ellipse.axis_u.y,
+                                         &c.request.ellipse.axis_v.x,
+                                         &c.request.ellipse.axis_v.y,
+                                         &c.surface.min_x,
+                                         &c.surface.min_y,
+                                         &c.surface.max_x,
+                                         &c.surface.max_y,
+                                         &c.request.max_error_pixels,
+                                         &c.request.reach_pixels};
+    *slots.at(value) = cut ? k_inf : k_nan;
+    return c;
+}
+
+bool cell_holds(const refusal_cell &c, parameters &t) {
+    const std::size_t n = run(c.request, c.surface, t, c.room);
+    const bool untouched =
+        std::all_of(t.begin(), t.end(), [](double v) { return v == k_untouched; });
+    if (n != 0U || !untouched) {
+        std::printf("[FAIL CELL] %s%s: n=%zu\n", c.label, c.cut ? " (cut regime)" : "", n);
+        return false;
+    }
+    return true;
 }
 
 } // namespace
 
-// What the function cannot cut answers 0 and writes nothing.
+// What the function cannot cut answers 0 and writes nothing: each of the 12 values not finite in
+// each regime (24 cells), and the 7 other refusals.
 GLINTFX_TEST(arc_parameters_answers_zero_for_what_it_cannot_cut) {
     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
     const auto unknown_extent = static_cast<arc_extent>(7);
     arc_request unknown = circle(960.0, 540.0, 10.0);
     unknown.extent = unknown_extent;
-    arc_request infinite_axis = circle(960.0, 540.0, 10.0);
-    infinite_axis.ellipse.axis_u.x = k_inf;
     const arc_request half = curve({960.0, 540.0}, {10.0, 0.0}, {0.0, 10.0}, arc_extent::half);
-    const std::array<refusal_cell, 13> cells{
+    // The largest stretch of this axis is about 2.4e308: past the largest double.
+    const arc_request endless =
+        curve({960.0, 540.0}, {1.7e308, 1.7e308}, {0.0, 0.0}, arc_extent::whole);
+    const std::array<refusal_cell, 7> others{
         refusal_cell{"whole curve, room 512", circle(960.0, 540.0, 10.0), k_screen, 512U},
         refusal_cell{"half curve, room 256", half, k_screen, 256U},
-        refusal_cell{"centre x NaN", with_center_x(k_nan), k_screen, 1025U},
-        refusal_cell{"axis infinite", infinite_axis, k_screen, 1025U},
         refusal_cell{"error zero", with_error(circle(960.0, 540.0, 10.0), 0.0), k_screen, 1025U},
         refusal_cell{"error negative", with_error(circle(960.0, 540.0, 10.0), -1.0), k_screen,
                      1025U},
-        refusal_cell{"error NaN", with_error(circle(960.0, 540.0, 10.0), k_nan), k_screen, 1025U},
-        refusal_cell{"error infinite", with_error(circle(960.0, 540.0, 10.0), k_inf), k_screen,
-                     1025U},
         refusal_cell{"reach negative", with_reach(circle(960.0, 540.0, 10.0), -1.0), k_screen,
                      1025U},
-        refusal_cell{"reach NaN", with_reach(circle(960.0, 540.0, 10.0), k_nan), k_screen, 1025U},
-        refusal_cell{"surface not finite", circle(960.0, 540.0, 10.0),
-                     pixel_box{0.0, 0.0, k_inf, 1080.0}, 1025U},
         refusal_cell{"extent out of the enumeration", unknown, k_screen, 1025U},
-        refusal_cell{"radius too large for a double", circle(960.0, 540.0, 1.0e200), k_screen,
-                     1025U},
+        refusal_cell{"radius not finite", endless, k_screen, 1025U},
     };
+    int checked = 0;
     int failures = 0;
     parameters t{};
-    for (const refusal_cell &c : cells) {
-        const std::size_t n = run(c.request, c.surface, t, c.room);
-        const bool untouched =
-            std::all_of(t.begin(), t.end(), [](double v) { return v == k_untouched; });
-        if (n != 0U || !untouched) {
-            ++failures;
-            std::printf("[FAIL CELL] %s: n=%zu\n", c.label, n);
+    for (std::size_t value = 0U; value < k_value_names.size(); ++value) {
+        for (const bool cut : {false, true}) {
+            ++checked;
+            failures += cell_holds(with_value_not_finite(value, cut), t) ? 0 : 1;
         }
     }
-    std::printf("celulas=%zu falhas=%d\n", cells.size(), failures);
+    for (const refusal_cell &c : others) {
+        ++checked;
+        failures += cell_holds(c, t) ? 0 : 1;
+    }
+    std::printf("celulas=%d falhas=%d\n", checked, failures);
+    GLINTFX_CHECK(checked == 31);
     GLINTFX_CHECK(failures == 0);
+}
+
+// A radius that does not exceed the error is the uniform minimum, 4 segments, even at radius 0
+// (fix1, mutant M10 of the review).
+GLINTFX_TEST(arc_parameters_radius_not_above_the_error_is_four_segments) {
+    parameters t{};
+    for (const double radius : {0.0, 0.1, 0.25}) {
+        const std::size_t n = run(circle(960.0, 540.0, radius), k_screen, t, 1025U);
+        GLINTFX_CHECK(n == 5U);
+        GLINTFX_CHECK(within_four_ulps(t[1], k_pi / 2.0, 2.0 * k_pi));
+    }
+}
+
+// When the level the error asks for does not fit the room, the deepest level down to 8 that fits;
+// when none fits, level 7 (fix1, I-2). A circle of radius 13281 wholly inside a surface of 30000
+// asks for level 8: 1025 parameters in a room of 1025, and level 7, 513 parameters, in a room of
+// 600 or of 513. Every parameter of level 7 is a step of pi / 256.
+GLINTFX_TEST(arc_parameters_falls_back_to_level_seven_when_nothing_finer_fits) {
+    constexpr pixel_box k_wide{0.0, 0.0, 30000.0, 30000.0};
+    const arc_request inside = circle(15000.0, 15000.0, 13281.0);
+    parameters t{};
+    GLINTFX_CHECK(run(inside, k_wide, t, 1025U) == 1025U);
+    for (const std::size_t room : {std::size_t{600U}, std::size_t{513U}}) {
+        const std::size_t n = run(inside, k_wide, t, room);
+        GLINTFX_CHECK(n == 513U);
+        int off_grid = 0;
+        for (std::size_t k = 0U; k < n; ++k) {
+            const double steps = t[k] * 256.0 / k_pi;
+            off_grid += std::fabs(steps - std::round(steps)) > 1.0e-9 ? 1 : 0;
+        }
+        GLINTFX_CHECK(off_grid == 0);
+        GLINTFX_CHECK(within_four_ulps(t[n - 1U], 2.0 * k_pi, 2.0 * k_pi));
+    }
+}
+
+// A finite radius is cut, however large (fix1, I-5): the largest stretch no longer overflows on the
+// way. The counts are not fixed (above 2^40 the rounding sets the error, D-W8-378); the ends, the
+// order and the room are.
+GLINTFX_TEST(arc_parameters_cuts_every_finite_radius) {
+    const std::array<arc_request, 3> huge{
+        curve({960.0, 540.0}, {1.0e78, 0.0}, {0.0, 1.0}, arc_extent::whole),
+        circle(960.0, 540.0, 1.0e154),
+        circle(960.0, 540.0, 1.0e300),
+    };
+    parameters t{};
+    for (const arc_request &request : huge) {
+        const std::size_t n = run(request, k_screen, t, 1025U);
+        GLINTFX_CHECK(n >= 2U);
+        GLINTFX_CHECK(n <= k_max_arc_parameters);
+        GLINTFX_CHECK(t[0] == 0.0);
+        GLINTFX_CHECK(n >= 2U && within_four_ulps(t[n - 1U], 2.0 * k_pi, 2.0 * k_pi));
+        GLINTFX_CHECK(strictly_increasing(std::span<const double>(t).first(n)));
+    }
 }
 
 // THE SWEEP. A fixed integer generator (the same numbers on every system) draws 200 curves on each
@@ -287,16 +385,34 @@ pixel_position_wide point_on(const pixel_ellipse &e, double t) {
                                    (e.axis_v.y * std::sin(t))};
 }
 
-// The largest singular value of the two axes, written here from the 2x2 formula.
-double largest_radius_of(const pixel_ellipse &e) {
-    const double a = e.axis_u.x;
-    const double b = e.axis_v.x;
-    const double c = e.axis_u.y;
-    const double d = e.axis_v.y;
-    const double squares = (a * a) + (b * b) + (c * c) + (d * d);
-    const double det = (a * d) - (b * c);
-    const double spread = std::sqrt(std::max(0.0, (squares * squares) - (4.0 * det * det)));
-    return std::sqrt((squares + spread) / 2.0);
+// The largest distance, in long double, from 15 points of the true curve inside the piece (the
+// middle among them) to the line of its chord: the geometric error of the piece (fix1, I-6). The
+// centre cancels out, so the offsets from it are used.
+double largest_distance_to_chord(const pixel_ellipse &e, double from, double to) {
+    const auto offset = [&e](long double t) {
+        return std::array<long double, 2>{(static_cast<long double>(e.axis_u.x) * std::cos(t)) +
+                                              (static_cast<long double>(e.axis_v.x) * std::sin(t)),
+                                          (static_cast<long double>(e.axis_u.y) * std::cos(t)) +
+                                              (static_cast<long double>(e.axis_v.y) * std::sin(t))};
+    };
+    const std::array<long double, 2> a = offset(from);
+    const std::array<long double, 2> b = offset(to);
+    const long double cx = b[0] - a[0];
+    const long double cy = b[1] - a[1];
+    const long double length = std::hypot(cx, cy);
+    long double largest = 0.0L;
+    for (int i = 1; i < 16; ++i) {
+        const long double t = static_cast<long double>(from) +
+                              ((static_cast<long double>(to) - static_cast<long double>(from)) *
+                               static_cast<long double>(i) / 16.0L);
+        const std::array<long double, 2> p = offset(t);
+        const long double px = p[0] - a[0];
+        const long double py = p[1] - a[1];
+        const long double d =
+            length > 0.0L ? std::fabs((cx * py) - (cy * px)) / length : std::hypot(px, py);
+        largest = std::max(largest, d);
+    }
+    return static_cast<double>(largest);
 }
 
 bool piece_holds(const arc_request &request, const pixel_box &surface, double from, double to) {
@@ -312,8 +428,10 @@ bool piece_holds(const arc_request &request, const pixel_box &surface, double fr
     const auto [low_y, high_y] = std::minmax({a.y, b.y, apex.y});
     const bool misses = high_x < surface.min_x - grow || low_x > surface.max_x + grow ||
                         high_y < surface.min_y - grow || low_y > surface.max_y + grow;
-    const double sagitta = largest_radius_of(e) * (1.0 - std::cos(0.5 * (to - from)));
-    return misses || sagitta <= request.max_error_pixels + 1.0e-9;
+    // A thousandth of the error covers the rounding of the double evaluation of curves up to
+    // 1.3e12 pixels of radius on a system whose long double is a double.
+    return misses ||
+           largest_distance_to_chord(e, from, to) <= request.max_error_pixels * (1.0 + 1.0e-3);
 }
 
 bool answer_holds(const arc_request &request, const pixel_box &surface, std::span<const double> t) {

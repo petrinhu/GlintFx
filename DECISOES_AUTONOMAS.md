@@ -9559,3 +9559,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A tinta padrão branca está no blob (`texture_region.hpp:69`), e tests/CMakeLists.txt não perdeu linha nenhuma: as 7 linhas de fix4 e de fp_contract continuam presentes.
   - preci 373 e sanitizer 183. A conta fecha: 181 mais os 2 add_test da fix4. O main tinha estimado +3, e o certo é +2.
   - Revisão N1, com revisão de API dedicada (as sete regras de `docs/api-conventions.md`), despachada a um revisor novo.
+- **18:31, conferência da S5-A-fix4 NÃO LIMPA** (`rev-s5a-fix4.txt`, revisor ae67cde1).
+  - Medido: o piso rejeita 1929 e aceita 1930, 1944 e 1951; o configure real com GCC 16 e com Clang 22 dá rc 0. O cl 19.51 real rodou o fp_contract_test e o controle AVX2+fast morde.
+  - Mutantes: X1, X6, X7 e X8 mortos. X3 e X5 sobrevivem no Linux porque a chamada fica sob if(MSVC); limite declarado, registrado como I-3.
+  - IMPORTANTE I-2: o ramo não numérico do piso não tem teste.
+  - Cosméticos C-4, C-7 e C-8: inferências escritas como fato.
+  - Pedida ao CTO af139138 a ordem S5-A-fix5 (D-W8-481 a 484).

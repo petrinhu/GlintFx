@@ -9234,3 +9234,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - **T3-C:** despachada.
     - **Disco:** limpeza das pastas de fatias fechadas antes da G2-fix1.
 - **23:39, duas ordens do líder, verbatim:** *"autorizo merge/tag/push"* e *"duvidas com clevel na ordem estabelecida"*. Merge, tag e push ficam autorizados com os portões da L-24 fechados, ou seja, o critério de fechamento da W8 e o CI verde. As dúvidas seguem o caminho da L-34: o C-level pesquisa em bibliotecas e na comunidade, escolhe o mais completo, e o advisor entra quando a dúvida continua.
+- **23:42, a causa do MB1 da etapa B dos alertas, medida pelo CTO: a célula 8 era um controle fraco, e a tabela da ordem estava errada.**
+  - A célula 8 passava a lista inteira de AVCs, os nossos e os alheios, e só conferia o retorno 1. Com o MB1, o AVC alheio passa a contar como nosso e o retorno continua 1. A própria pré-execução do CTO já matava o MB1 só na célula 7.
+  - **Conserto:** a célula 8 passa a usar só o AVC nosso, e a célula nova 13 confere a atribuição exata pelas linhas impressas. Agora o MB1 morre em 3 células, o MB2 em 2 e o MB3 em 1.
+  - Ordem emendada (`ordem-alertas.md`, md5 ca04a4c4; anexos d6b0c8f8, rc 0). A tabela agora manda PARAR se um mutante matar menos células que o previsto, e nunca ajustar a tabela.
+  - O implementador retoma a etapa B num snapshot novo, reaproveitando o corpo que já escreveu.

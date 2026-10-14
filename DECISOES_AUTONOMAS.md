@@ -9384,3 +9384,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **preci e sanitizer:** preci 362; sanitizer 172. O 172 não bate com os 171 da pré-execução; o implementador não investigou. A diferença provável é a H4, que entrou na base entre a pré-execução e o commit.
   - **Revisão e limpeza:** conferência mirada despachada ao revisor da N1 (a77283fd), veredito em `rev-s5a-fix1.txt`. A cópia `s5afix1/snap` (1,8 GB) foi apagada pelo main.
 - **05:15, conferência mirada da T3-fix1 LIMPA** (`rev-t3-fix1.txt`, revisor abd30072). 17 mutantes (os 10 originais reaplicados mais 7 novos em `swap_update` e na escrita do nível 0), 17 mortos por asserção nomeada. Memória por força bruta em 358.801 pares: máximo de 1,998. Os IMPORTANTE 1 a 5 fecharam. Resta o COSMÉTICO-1: a docstring de `swap_update` (`texture_update_kept.cpp:114-121`) deveria dizer que a falha depois de trocar o nível 0 não é alcançável; vai como nota na ordem da T4a. **A fatia T3 (R2D-TEXTURE) está fechada:** A 4a79c9a5, B 67537d6a, C 048e9c81, fix1 e79b1d36.
+- **05:25, H4-fix1 recebida do CTO a92de40e e despachada ao implementador da H4** (`ordem-h4-fix1.md` md5 3de017f9; anexos 706d2419, `md5sum -c` verde). Só muda teste: `tests/light_tint_test.cpp` é trocado inteiro.
+  - D-W8-421: as 8 sondas do revisor viram casos.
+  - D-W8-422: a tabela foi partida; a maior função agora tem 22 linhas.
+  - D-W8-423: o `[[nodiscard]]` foi para a INBOX (lançado neste commit).
+  - D-W8-424: o Status fica com o main.
+  - D-W8-425 e 426: o vermelho é o conjunto dos 8 mutantes do revisor.
+  - Pré-execução: os 8 mutantes morrem; preci 362; sanitizer 172; MSVC 1/0.
+  - Na sequência, o mesmo CTO escreve a rodada 21 (T4a e S5-B, D-W8-405 a 420).

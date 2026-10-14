@@ -1613,6 +1613,16 @@ target_sources(stroke_rect_pixels_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-SHAPES S5, etapa A (TODO.md ARC-VIEWPORT-TESSELLATION): where the segments of an arc on the screen begin and
+# end, uniform up to 512 segments and cut by the surface above that. No GL, no window.
+glintfx_add_test(arc_parameters_test)
+target_include_directories(arc_parameters_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(arc_parameters_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(gl_load_refusal_test)
 target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gl_load_refusal_test PRIVATE

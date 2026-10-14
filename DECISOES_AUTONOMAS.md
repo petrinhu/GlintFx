@@ -9464,4 +9464,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **09:26, conferência N3 do redesenho dos alertas NÃO LIMPA** (`rev-alertas-redesign.txt`, revisor a03238e1, SHA eab820af).
   - MZ1 a MZ3, a falta de programas e o namespace (D-W8-433) fechados: 10 mutantes, 8 mortos.
   - Dois IMPORTANTE de teste, sem mudança de regra. M10: falta de registro do kernel sem a guarda do contêiner, em `check_host_alerts.py:320-321`; sem a célula, um hospedeiro sem docker que deveria passar reprova. M6: a impressão do LIMITE em `:429-430` não é conferida pela célula 60.
-  - Pedida ao CTO a997f43f a ordem alertas-fix3 (D-W8-450 a 454). Conserto mecânico, sem pesquisa de queixas. Mesmo implementador (a4e46777) e mesma conferência (a03238e1).
+  - O CTO a997f43f não estava mais alcançável. A ordem alertas-fix3 (D-W8-450 a 454) foi para um CTO novo (af139138). É conserto mecânico, sem pesquisa de queixas. O implementador será novo (o a4e46777 também caiu) e a conferência fica com o a03238e1, se ele ainda responder; senão, com um revisor novo que lê o veredito pelo caminho.

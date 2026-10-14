@@ -9460,3 +9460,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - IMPORTANTE-1: o mutante R6 (o shader passa 1.0 no lugar de `a_texcoord_q`) sobrevive; a promessa "o programa entrega q ao fragmento" fica sem prova. Conserto de uma linha no teste de fonte.
   - Três cosméticos (função de 39 linhas, comentário no presente, nome de teste em cabeçalho público) vão junto.
   - Pedida ao CTO a92de40e a ordem T4a-fix1 (D-W8-445 a 449), depois da S5-A-fix3. Conserto mecânico, sem pesquisa de queixas (alcance confirmado da regra das 10 queixas).
+- **08:48, CI 38556511988 sobre eab820af VERDE**: 26 jobs, 25 sucesso e 1 pulado (VERSION-TAG-SYNC, que só roda em etiqueta). A paridade e os portões de alerta nos contêineres do CI, que derrubaram os dois CIs anteriores, passaram. É verde parcial da W8: as fatias que faltam ainda vão mudar a árvore, e o CI-VERDE-W8 só fecha no último envio.

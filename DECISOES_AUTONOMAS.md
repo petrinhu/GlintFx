@@ -9355,3 +9355,14 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Pedidos ao CTO a92de40e:** a mini-ordem S5-A-fix1 (D-W8-398 a 404) e, em seguida, a rodada 21 (T4a e S5-B; D-W8-405 a 420).
   - **Lição repassada ao CTO:** ditar também as linhas que o lint costuma pegar.
 - **04:36, H4 commitada (30f3867d, 9 caminhos, 663+/15-).** Rodada 2, com o desvio de lint autorizado: a forma `if (auto input_ok = ...)` da referência, conferida pelo main no blob, em `light_tint.cpp:55`. Vermelho 16/15 com 21 de 29 células. Verde 2/2. M1-M10 mortos. 15/15 linhas ditadas. preci 361/361. Sanitizer 0. O cabeçalho público declara a tinta com alfa 1 (`light_tint.hpp:43`, D-W8-397). Revisão N1 despachada a um revisor novo (qa-engineer haiku), com veredito em `rev-h4.txt`; o implementador não respondeu as cinco perguntas da L-17, e o revisor responde.
+- **04:54, S5-A-fix1 recebida do CTO a92de40e e despachada ao implementador da S5-A** (`ordem-s5a-fix1.md` md5 41ae9b3b; anexos 8a91dc68, `md5sum -c` verde). As decisões são da faixa D-W8-398 a 404.
+  - **D-W8-398 (I-4):** só muda o texto. A garantia passa a ter duas condições: o nível cabe no teto de 1025 e r ≤ 2^40. O teto fica, porque é a D-W8-377, e não há escolha nova. **A D-W8-378 e a linha ARC-VIEWPORT-TESSELLATION do TODO foram corrigidas pelo main com a mesma condição.**
+  - **D-W8-399 (I-5):** `screen_radius` refaz o estiramento com as entradas escaladas só quando o cálculo direto estoura. Assim o código cumpre o contrato já escrito ("0 só para r não finito"). O caso comum guarda os mesmos bits, e o gêmeo na ponta redonda também fica consertado.
+  - **D-W8-400 (testes):**
+    - 31 recusas;
+    - recuo ao nível 7;
+    - a casa depois do room conferida;
+    - erro pela distância geométrica em long double, o que tira o teste copiado da implementação.
+  - **D-W8-401 e 402:** M3 equivalente; os cosméticos ficam declarados.
+  - **Pré-execução:** vermelho só nos casos do I-5; verde 2/2; 8/8 mutantes mortos; preci 361; sanitizer 171; MSVC 3/0.
+  - **Pendente:** a rodada 21 (T4a e S5-B) fica com o mesmo CTO, quando abrir lugar de agente. Entram nela a D-W8-403 (ditar as linhas que o lint pega) e a D-W8-404.

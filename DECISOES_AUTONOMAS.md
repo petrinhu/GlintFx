@@ -9494,3 +9494,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - `restorecon` não resolve, porque o caminho não tem etiqueta padrão. Não mexi nas 475 mil entradas com agentes em voo.
   - Vai à INBOX como TMP-LABEL-PRIVATE, para achar a montagem `:Z` culpada. Classe do vigia: AMARELO (sistema, não bloqueia o build).
 - **10:34, ordem do líder sobre TMP-LABEL-PRIVATE**, verbatim: "Autorizo retirar a exclusividade depois". Execução: numa janela sem agente nem contêiner em voo (ao fechar a W8, antes da limpeza final), devolver `/var/tmp/builds` e `/var/tmp/preci` à etiqueta de uma pasta nova em `/var/tmp`, medida na hora. Achar a montagem `:Z` culpada continua no item da INBOX.
+- **10:36, T4a-fix1 commitada: d2aba197** (implementador a62b9096; 4 arquivos; +20 −9).
+  - Vermelho com o R6 em embedded_program_test.cpp:416 e verde com 5 de 5.
+  - 3 de 3 mutantes mortos; preci --fast rc 0 (362) e sanitizer rc 0 (172).
+  - Desvios: o laço da ordem com `|| break` mascarava falha, e o implementador conferiu arquivo por arquivo. O MSVC /W4 /WX do Anexo P não rodou e passa ao revisor.
+  - Conferência mirada despachada ao revisor abd30072, retomado.

@@ -9565,3 +9565,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - IMPORTANTE I-2: o ramo não numérico do piso não tem teste.
   - Cosméticos C-4, C-7 e C-8: inferências escritas como fato.
   - Pedida ao CTO af139138 a ordem S5-A-fix5 (D-W8-481 a 484).
+- **18:31, revisão N1 da S5-B NÃO LIMPA** (`rev-s5b.txt`, revisor a5020879).
+  - O comportamento está certo: 2,07 milhões de checagens com 0 erros de cobertura; borda de 0,2436 px contra o limite de 0,25; raio zero conforme a D-W8-414.
+  - Três mutantes sobrevivem à suíte e só a sonda do revisor os mata: MA (erro no arco), MB (recorte; a borda chega a 6,86 px em r=20000) e MC (determinante ingênuo).
+  - L-17: `build_stroke` faz duas coisas.
+  - Pedida ao CTO af139138 a ordem S5-B-fix1 (D-W8-485 a 492), depois da fix5.
+  - As pastas `out-*` do root da revisão foram apagadas por contêiner (`rm` dentro do glintfx-devbuild:verify com a pasta montada).

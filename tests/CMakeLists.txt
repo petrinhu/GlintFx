@@ -56,6 +56,10 @@ glintfx_add_test(ellipse_test)
 # piece's shadow, directional and point - see projected_shadow_test.cpp's own header comment.
 glintfx_add_test(projected_shadow_test)
 
+# R2D-SPRITE-SHADE, H4 (docs/auditoria-api-sprite-shade.md, section 2.1): the light that point lights
+# put on ground vertices, a pure function of the core - see light_tint_test.cpp's own header comment.
+glintfx_add_test(light_tint_test)
+
 # R2D-SHAPES, S1-fix1 (review N1 of S1, achado A1): the public defaults and the enumerator values of
 # draw2d/stroke.hpp, each as the parecer fixes them - see stroke_test.cpp's own header comment.
 glintfx_add_test(stroke_test)

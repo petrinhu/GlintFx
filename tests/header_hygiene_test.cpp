@@ -132,6 +132,7 @@
 #include <glintfx/core/image_view.hpp>
 #include <glintfx/core/interpolate.hpp>
 #include <glintfx/core/light_2d.hpp>
+#include <glintfx/core/light_tint.hpp>
 #include <glintfx/core/log/event.hpp>
 #include <glintfx/core/log/field.hpp>
 #include <glintfx/core/log/severity.hpp>

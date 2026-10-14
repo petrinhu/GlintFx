@@ -18,6 +18,7 @@
 - **D-W8-326:** IMP-H04 (base `(0,0)-(0,10)`), IMP-H05 (ordem dos papéis), IMP-H08 (textura por referência, região como valor) e COS-H01 (`Proved by:` só com o teste existindo).
 - **D-W8-353 a 356 (r13):** `gltfx_light_tint` tem cabeçalho próprio em `core/light_tint.hpp` (seção 2.1, D-W8-355), com o tipo de luz `gltfx_light_source_2d`. `draw_shadow_texture` recebe `gltfx_texture_paint` (D-W8-354), e o `tint` é a cor da sombra. As seções 3 a 7 são análise e citam, onde indicam, os nomes anteriores; o texto vigente é o da seção 2.
 - **H1-fix (CTO, 11/10/2026, registrada em `DECISOES_AUTONOMAS.md`):** a cerca de `projected_shadow.hpp` passa à forma que o clang-format exige (a declaração de `gltfx_project_point_shadow` numa linha só, coluna 100 da L-24) e ganha a recusa `"shadow_extent"`: um resultado aceito nunca tem canto infinito nem NaN (elevação rasante, ou valores perto do maior double). A cerca continua sendo o texto que o cabeçalho copia byte a byte.
+- **Errata da H4 (CTO, 14/10/2026, D-W8-380; registrada em `DECISOES_AUTONOMAS.md` pelo main):** a cerca de `light_tint.hpp` passa à forma do clang-format (coluna 100 da L-24) e fecha três buracos do texto de 13/10, pela regra da casa de que nenhum número não finito passa calado (D-W8-325 para os vértices; S2b-fix1, I-7; a recusa `"shadow_extent"` da H1-fix): (1) o ambiente e a cor da luz são recusados pelo nome (`"ambient"`, `"color"`) quando um canal não é finito ou é negativo (luz linear não é negativa; acima de 1 continua aceito); (2) a conta é `cor · (intensidade · f(d))`, nessa ordem, para que cor muito grande vezes intensidade muito grande fora do alcance dê 0 e nunca infinito vezes zero; (3) nada é escrito numa recusa, e a ordem em que os campos são conferidos não faz parte do contrato (como a pergunta aberta `SHADOW-REFUSAL-ORDER`). **Errata do alfa (CTO, 14/10/2026, D-W8-397, depois da consulta ao advisor):** a luz não tem opacidade. A tinta sai com alfa 1, e o alfa do ambiente e da cor da luz NÃO é lido (nem conferido): a tinta multiplica a cor ou a textura da peça, e um multiplicador que muda a opacidade faria o chão sumir no escuro com o ambiente de três valores `gltfx_rgba{0.2F, 0.2F, 0.2F}` (alfa 0, `core/color.hpp` não tem valor padrão). É o que o Godot 4 faz (`servers/rendering/renderer_rd/shaders/canvas.glsl`, `light_blend_compute`, só `color.rgb` muda) e o box2dlights (`RayHandler.setAmbientLight`, o alfa do ambiente é brilho). A cerca continua sendo o texto que o cabeçalho copia byte a byte.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta.
 
@@ -245,13 +246,13 @@ gltfx_project_point_shadow(gltfx_point_light_2d light, gltfx_standing_piece_2d p
 
 A luz sobre a peça é uma função PURA do núcleo, `gltfx_light_tint`, em `core/light_tint.hpp` (D-W8-353). Ela recebe os vértices, as luzes pontuais e a luz ambiente, e escreve a tinta de cada vértice num `span` de saída, sem alocar. O consumidor passa a tinta ao desenho com cor por vértice (`fill_triangles` ou `fill_indexed_triangles`, do R2D-SHAPES). O desenhador não ganha estado novo.
 
-- Cada luz pontual tem `position`, `range` (finito e maior que zero), `color` (luz linear), `intensity` (zero ou maior) e `falloff`. É um tipo PRÓPRIO, `gltfx_light_source_2d`, e não o `gltfx_point_light_2d` da sombra: aquele tem altura, que a tinta não usa.
+- Cada luz pontual tem `position`, `range` (finito e maior que zero), `color` (luz linear; vermelho, verde e azul finitos, zero ou maiores; o alfa não é lido), `intensity` (finita, zero ou maior) e `falloff`. É um tipo PRÓPRIO, `gltfx_light_source_2d`, e não o `gltfx_point_light_2d` da sombra: aquele tem altura, que a tinta não usa.
 - `falloff` é um enum SEM padrão: o valor `unspecified` é recusado pelo nome. A lei de queda é escolha obrigatória do consumidor, entre:
   - `linear`: `f = clamp(1 - d/range, 0, 1)`;
   - `smooth`: `f = clamp(1 - (d/range)^2, 0, 1)^2`.
   - A queda pelo inverso do quadrado não entra: em 2D ela depende da escala da unidade de mundo.
-- A conta: `tinta = clamp(ambiente + soma(cor · intensidade · f(d)), 0, 1)`, canal a canal. `d` é a distância NO PLANO, da luz ao vértice. A altura da luz serve à sombra, não à tinta.
-- Recusa, com `invalid_argument` e o nome do campo: `out_tints` com tamanho diferente de `vertices`; um vértice que não é número finito (`vertices`); e os campos da luz fora da faixa (`range`, `intensity`, `falloff`, `position`).
+- A conta: `tinta = clamp(ambiente + soma(cor · (intensidade · f(d))), 0, 1)`, para vermelho, verde e azul; a tinta sai com alfa 1, e o alfa do ambiente e da cor não é lido (D-W8-397). `d` é a distância NO PLANO, da luz ao vértice. A altura da luz serve à sombra, não à tinta.
+- Recusa, com `invalid_argument` e o nome do campo: `out_tints` com tamanho diferente de `vertices`; um vértice que não é número finito (`vertices`); vermelho, verde ou azul do ambiente não finito ou negativo (`ambient`); e os campos da luz fora da faixa (`position`, `range`, `intensity`, `color`, `falloff`). Numa recusa nada é escrito, e o campo nomeado quando há mais de um fora da faixa não faz parte do contrato.
 
 Valores fixados (luz em `(0,0)`, `r = 10`, branca, intensidade 1):
 
@@ -292,26 +293,38 @@ Cabeçalho (D-W8-355, texto vigente):
 namespace glintfx {
 
 enum class gltfx_light_falloff : std::uint8_t {
-    unspecified = 0,  // the default of the field; refused by name: the law of fall-off is the consumer's choice
-    linear = 1,       // f = clamp(1 - d / range, 0, 1)
-    smooth = 2,       // f = clamp(1 - (d / range)^2, 0, 1)^2
+    // The default of the field; refused by name: the law of fall-off is the
+    // consumer's choice.
+    unspecified = 0,
+    linear = 1, // f = clamp(1 - d / range, 0, 1)
+    smooth = 2, // f = clamp(1 - (d / range)^2, 0, 1)^2
 };
 
 struct gltfx_light_source_2d {
     gltfx_vec2_world position{};
-    double range = 0.0;        // finite and greater than zero
-    gltfx_rgba color{};        // linear light
-    double intensity = 0.0;    // finite, zero or more
+    double range = 0.0;     // finite and greater than zero
+    gltfx_rgba color{};     // linear light; red, green, blue finite, zero or more
+    double intensity = 0.0; // finite, zero or more
     gltfx_light_falloff falloff = gltfx_light_falloff::unspecified;
 };
 
-// Writes in out_tints[i] the light that reaches vertices[i]: ambient plus, for each light, color * intensity *
-// f(d), with d the distance ON THE PLANE, clamped to [0, 1] per channel. Refused with invalid_argument and the
-// field's name: out_tints.size() != vertices.size() ("out_tints"), a vertex not finite ("vertices"), and each
-// light field out of range ("range", "intensity", "falloff", "position").
+// Writes in out_tints[i] the light that reaches vertices[i]: for red, green and
+// blue, ambient plus, for each light, color * (intensity * f(d)), with d the
+// distance ON THE PLANE, clamped to [0, 1]. Values above 1 in ambient and color
+// are light brighter than white, and are allowed. Light has no opacity: the
+// alpha of ambient and of each color is not read, and every tint has alpha 1, so
+// a tint multiplied into a colour or a texture never changes its opacity.
+//
+// Refused with invalid_argument and the field's name: out_tints.size() !=
+// vertices.size() ("out_tints"), a vertex not finite ("vertices"), an ambient
+// red, green or blue not finite or negative ("ambient"), and each light field out of range
+// ("position", "range", "intensity", "color", "falloff"). On a refusal nothing
+// is written. Which field is named when several are out of range is not part
+// of this contract.
 [[nodiscard]] GLINTFX_API gltfx_rslt<void>
-gltfx_light_tint(std::span<const gltfx_vec2_world> vertices, std::span<const gltfx_light_source_2d> lights,
-                 gltfx_rgba ambient, std::span<gltfx_rgba> out_tints) noexcept;
+gltfx_light_tint(std::span<const gltfx_vec2_world> vertices,
+                 std::span<const gltfx_light_source_2d> lights, gltfx_rgba ambient,
+                 std::span<gltfx_rgba> out_tints) noexcept;
 
 } // namespace glintfx
 ```

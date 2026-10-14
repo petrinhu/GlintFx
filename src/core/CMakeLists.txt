@@ -26,3 +26,8 @@ target_sources(glintfx_library PRIVATE log/severity.cpp log/event.cpp log/sink.c
 # piece, by a directional and by a point light, as a quadrilateral (projected_shadow.hpp); the
 # refusals by name live in their own atom, projected_shadow_validation.cpp (GODS_LAWS.md L-17).
 target_sources(glintfx_library PRIVATE projected_shadow.cpp projected_shadow_validation.cpp)
+
+# R2D-SPRITE-SHADE, H4 (docs/auditoria-api-sprite-shade.md, section 2.1): the light that point lights
+# put on ground vertices (light_tint.hpp); the refusals by name live in their own atom,
+# light_tint_validation.cpp (GODS_LAWS.md L-17).
+target_sources(glintfx_library PRIVATE light_tint.cpp light_tint_validation.cpp)

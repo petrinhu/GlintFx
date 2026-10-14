@@ -9510,3 +9510,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - COSMÉTICO-1, opcional: provar o piso com um mutante que remove a célula 62. Vai junto com o HOST-ALERT-JSON da INBOX.
   - **HOST-ALERT-GATE fechado do lado local.** O ✅ espera o CI 38575186902 sobre 33d69d62.
 - **10:50, push de 33d69d62** (alertas-fix3, T4a-fix1 e S5-A-fix3) e CI 38575186902 disparado. Conferência da S5-A-fix3 despachada a um revisor novo, com o furo do advisor sobre o MSVC.
+- **11:04, conferência da T4a-fix1 NÃO LIMPA** (`rev-t4a-fix1.txt`, revisor abd30072). O IMPORTANTE-1 foi reaberto, mais estreito.
+  - O teste prova o texto do shader, não o comportamento. O R6 morre, mas as trapaças S3 (frase num comentário) e S4 (frase seguida de `v_texcoord.z = 1.0`) sobrevivem com rc 0.
+  - Os cosméticos e a recusa do cosmético 3 estão fechados. Os 211 erros do clang-tidy no preci do revisor reprovam igual no pai: é o ambiente da cópia dele.
+  - É a segunda volta pelo mesmo motivo. Pela L-42, busca na web antes da terceira tentativa.
+  - Pedido ao CTO a92de40e: decidir entre uma T4a-fix2 e uma célula de pixel na T4b que mate S3 e S4. Inferência do main a conferir: o efeito de q só fica observável quando o fragmento divide por q, ou seja, na T4b.

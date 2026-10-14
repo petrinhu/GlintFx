@@ -9499,3 +9499,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - 3 de 3 mutantes mortos; preci --fast rc 0 (362) e sanitizer rc 0 (172).
   - Desvios: o laço da ordem com `|| break` mascarava falha, e o implementador conferiu arquivo por arquivo. O MSVC /W4 /WX do Anexo P não rodou e passa ao revisor.
   - Conferência mirada despachada ao revisor abd30072, retomado.
+- **10:50, S5-A-fix3 commitada: 5e9a1409** (implementador aae2a372; 4 arquivos; +80 −7).
+  - Vermelho com `-march=x86-64-v3` e verde com e sem a flag; 3 de 3 mutantes mortos.
+  - Bloco GL refeito depois do "locked": draw2d 106 e shapes 31, zero reprovadas.
+  - preci rc 0 (363, sobre a base 9b0875c9), sanitizer rc 0 (173), MSVC com 2 compilados e 0 falhas.
+  - S5-B despachada a um implementador novo, porque a fix3 já está no HEAD.
+  - A conferência da fix3 espera vaga no teto de 4 agentes e leva o furo do advisor (o fp_contract_test tem de RODAR no Windows do CI).

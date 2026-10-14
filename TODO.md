@@ -1,6 +1,4 @@
 > **ESTRUTURA CANÔNICA DO ARQUIVO — NÃO QUEBRAR A TABELA:** título → preâmbulo (bullets) → `## INBOX` → `## TABELA UNIFICADA` (uma tabela só, 10 colunas com `WSJF` como primeira coluna, zero linha em branco dentro dela) → **EOF logo após a última linha da tabela**. Legenda, decisões pendentes e a fórmula do WSJF vivem em bullets no preâmbulo, nunca em tabela auxiliar (o detalhamento por item do WSJF vive na fonte, `lente-produto.md`, não neste arquivo). **Proibido:** segunda tabela; linha em branco dentro da tabela.
-- [triage CTO-T3fix1 14/10] `R2D-TEXTURE-CARD-STATE`: estado da textura na placa consultável e ressincronizar depois de recusa (símbolo público novo, exige revisão de API dedicada; origem D-W8-383, `ordem-t3-fix1.md`).
-- [triage CTO-T3fix1 14/10] `R2D-TEXTURE-KEPT-BYTES`: função pública que devolve os bytes guardados pela biblioteca para uma textura atualizável (símbolo público novo, exige revisão de API dedicada; origem D-W8-384).
 
 # TODO.md — GlintFx
 
@@ -153,6 +151,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - **Régua de porte de onda (medida em 09/09/2026, registrada aqui para ser cobrada no PLANEJAMENTO de cada onda, nunca por contagem a frio):** o que condena uma onda é a MISTURA DE ASSUNTOS, não só a contagem (L-34 global, "arquivo que reúne assuntos sem relação"). Toda onda tem de caber numa frase sem "e" (L-17, pergunta 2 do revisor), escrita no plano dela. Referência: a maior onda já fechada foi a W3 (19 itens); as seis ondas seguintes têm ≤ 9. Hoje acima da régua: **W9 (16 itens em 6 grupos - o caso grave, nenhuma leitura de "entrega uma coisa"), W10 (14 em 3 grupos), W11a (13, um grupo só - coerente, risco só de tamanho)**. A divisão de cada uma acontece no passo 2 da L-34 da própria onda (o `fable` planeja), com o plano na mão; dividir antes seria inventar fronteira por contagem. Ondas de manutenção usam a série `WM1, WM2, …`, fora da numeração de produto.
 
 ## INBOX (descobertas não priorizadas)
+- [triage CTO-T3fix1 14/10] `R2D-TEXTURE-CARD-STATE`: estado da textura na placa consultável e ressincronizar depois de recusa (símbolo público novo, exige revisão de API dedicada; origem D-W8-383, `ordem-t3-fix1.md`).
+- [triage CTO-T3fix1 14/10] `R2D-TEXTURE-KEPT-BYTES`: função pública que devolve os bytes guardados pela biblioteca para uma textura atualizável (símbolo público novo, exige revisão de API dedicada; origem D-W8-384).
 
 
 

@@ -27,47 +27,50 @@ std::uint32_t half_arc_segment_count(double radius_pixels, double max_error_pixe
 
 namespace {
 
-// The largest singular value of the 2x2 linear part. With `squares` the sum of the four squared
-// entries and `determinant` the determinant, s1^2 = (squares + spread) / 2 where spread is
-// sqrt(squares^2 - 4 determinant^2); a negative under the root (rounding) is clamped to zero.
-// Entries past about 1e77 overflow the squares, and then the answer is not finite.
+// The largest singular value of the 2x2 linear part, the largest stretch (S5-A-fix2, D-W8-434).
+// The four entries are first divided by the power of two 2^e just above the largest of their sizes
+// (only the exponent changes; an entry rounds only if it falls below the normal range on the way,
+// and then it is under 2^-1021 of the largest and cannot change the answer), so the largest is in
+// [0.5, 1) and no square below can overflow, nor lose the answer to underflow. Then the closed form
+// of the 2x2 singular values: with the matrix [[a, b], [c, d]] (a = column0_x, b = column1_x, c =
+// column0_y, d = column1_y), e = (a + d) / 2, f = (a - d) / 2, g = (c + b) / 2 and h = (c - b) / 2,
+// the largest is sqrt(e^2 + h^2) + sqrt(f^2 + g^2): a sum of two sizes, with no subtraction that
+// could cancel, multiplied back by 2^e. Only IEEE operations that round once (the square root
+// included), so every system gives the same bits (GODS_LAWS.md L-04); std::hypot is not one of
+// them. One of e, f, g, h is at least 0.25, so a square that underflows below changes nothing. An
+// entry that is not finite gives the sum of the sizes: infinite, or NaN when one of them is a NaN.
 double largest_stretch(const pixel_affine &affine) noexcept {
-    const double squares =
-        (affine.column0_x * affine.column0_x) + (affine.column0_y * affine.column0_y) +
-        (affine.column1_x * affine.column1_x) + (affine.column1_y * affine.column1_y);
-    const double determinant =
-        (affine.column0_x * affine.column1_y) - (affine.column1_x * affine.column0_y);
-    const double spread =
-        std::sqrt(std::max(0.0, (squares * squares) - (4.0 * determinant * determinant)));
-    return std::sqrt((squares + spread) / 2.0);
-}
-
-// The same stretch with the four entries divided by the largest of their sizes first, and the
-// answer multiplied back (D-W8-399): no square overflows, so every stretch up to the largest double
-// comes out finite. Only for when the direct one overflows, so the common case keeps its bits.
-double largest_stretch_scaled(const pixel_affine &affine) noexcept {
-    const double largest = std::max({std::fabs(affine.column0_x), std::fabs(affine.column0_y),
-                                     std::fabs(affine.column1_x), std::fabs(affine.column1_y)});
-    if (!(largest > 0.0)) {
-        return largest_stretch(affine);
+    const double a = affine.column0_x;
+    const double b = affine.column1_x;
+    const double c = affine.column0_y;
+    const double d = affine.column1_y;
+    if (!std::isfinite(a) || !std::isfinite(b) || !std::isfinite(c) || !std::isfinite(d)) {
+        return std::fabs(a) + std::fabs(b) + std::fabs(c) + std::fabs(d);
     }
-    const pixel_affine scaled{affine.column0_x / largest,
-                              affine.column0_y / largest,
-                              affine.column1_x / largest,
-                              affine.column1_y / largest,
-                              0.0,
-                              0.0};
-    return largest * largest_stretch(scaled);
+    const double largest = std::max({std::fabs(a), std::fabs(b), std::fabs(c), std::fabs(d)});
+    if (largest == 0.0) {
+        return 0.0;
+    }
+    int exponent = 0;
+    static_cast<void>(std::frexp(largest, &exponent));
+    const double sa = std::ldexp(a, -exponent);
+    const double sb = std::ldexp(b, -exponent);
+    const double sc = std::ldexp(c, -exponent);
+    const double sd = std::ldexp(d, -exponent);
+    const double e = 0.5 * (sa + sd);
+    const double f = 0.5 * (sa - sd);
+    const double g = 0.5 * (sc + sb);
+    const double h = 0.5 * (sc - sb);
+    const double stretch = std::sqrt((e * e) + (h * h)) + std::sqrt((f * f) + (g * g));
+    return std::ldexp(stretch, exponent);
 }
 
 } // namespace
 
+// One path for every affine (D-W8-434): the stretch is right, or not finite, and never finite and
+// wrong.
 double screen_radius(double world_radius, const pixel_affine &affine) noexcept {
-    const double direct = largest_stretch(affine);
-    if (std::isfinite(direct)) {
-        return world_radius * direct;
-    }
-    return world_radius * largest_stretch_scaled(affine);
+    return world_radius * largest_stretch(affine);
 }
 
 } // namespace glintfx::draw2d

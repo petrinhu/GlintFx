@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -40,6 +41,21 @@ struct count_row {
 [[nodiscard]] bool near(double got, double want) {
     return std::abs(got - want) <= 1e-12 * std::max(1.0, std::abs(want));
 }
+
+// Relative to the answer at EVERY size (S5-A-fix2): near() above is absolute below 1, and would
+// take 0 for 1e-100.
+[[nodiscard]] bool relatively_near(double got, double want, double tolerance) {
+    return std::abs(got - want) <= tolerance * std::abs(want);
+}
+
+// A linear congruential generator with a fixed seed, so every system draws the same affines.
+struct affine_draw {
+    std::uint64_t state = 20261014U;
+    [[nodiscard]] double next_unit() {
+        state = (state * 6364136223846793005ULL) + 1442695040888963407ULL;
+        return static_cast<double>(state >> 11U) * 0x1.0p-53;
+    }
+};
 
 } // namespace
 
@@ -116,4 +132,92 @@ GLINTFX_TEST(arc_segments_the_screen_radius_does_not_overflow_on_the_way) {
     GLINTFX_CHECK(near(screen_radius(1.0, sheared), 1.6180339887498949e200));
     const pixel_affine past{1.7e308, 1.7e308, 0.0, 0.0, 0.0, 0.0};
     GLINTFX_CHECK(!std::isfinite(screen_radius(1.0, past)));
+}
+
+// The radius on the screen is right at every size, or not finite (S5-A-fix2, D-W8-434 and
+// D-W8-436): never a finite number that is wrong. The two answers the review measured wrong
+// (1e78 by 1e76 gave 7.07e77, 1e-100 by 1e-120 gave 7.07e-101), squares that underflow, entries
+// with a sign (a turn of 180 degrees, and the largest entry alone and negative), a world radius
+// other than 1 at both ends, and a stretch almost the same along both axes, where a subtraction of
+// the squares would cancel (the formula before this fix answered 1 + 7.45e-9 for 1 - 1e-15 by 1,
+// turned by 30 degrees).
+GLINTFX_TEST(arc_segments_the_screen_radius_is_right_or_not_finite_at_every_size) {
+    const pixel_affine thin_huge{1.0e78, 0.0, 0.0, 1.0e76, 0.0, 0.0};
+    GLINTFX_CHECK(relatively_near(screen_radius(1.0, thin_huge), 1.0e78, 1e-15));
+    const pixel_affine thin_tiny{1.0e-100, 0.0, 0.0, 1.0e-120, 0.0, 0.0};
+    GLINTFX_CHECK(relatively_near(screen_radius(1.0, thin_tiny), 1.0e-100, 1e-15));
+    const pixel_affine both_tiny{1.0e-200, 0.0, 0.0, 1.0e-200, 0.0, 0.0};
+    GLINTFX_CHECK(relatively_near(screen_radius(1.0, both_tiny), 1.0e-200, 1e-15));
+    const pixel_affine half_turn{-1.0e200, 0.0, 0.0, -1.0e200, 0.0, 0.0};
+    GLINTFX_CHECK(relatively_near(screen_radius(1.0, half_turn), 1.0e200, 1e-15));
+    const pixel_affine negative_shear{-1.0e200, 0.0, 1.0e200, -1.0e200, 0.0, 0.0};
+    GLINTFX_CHECK(
+        relatively_near(screen_radius(1.0, negative_shear), 1.6180339887498949e200, 1e-15));
+    // The largest entry alone and negative, in each of the four places: the scale must come from
+    // its size, never from its signed value.
+    const std::array<pixel_affine, 4> lone_negative{{
+        {-1.0e200, 0.0, 0.0, 1.0, 0.0, 0.0},
+        {1.0, -1.0e200, 0.0, 0.0, 0.0, 0.0},
+        {0.0, 0.0, -1.0e200, 1.0, 0.0, 0.0},
+        {1.0, 0.0, 0.0, -1.0e200, 0.0, 0.0},
+    }};
+    for (const pixel_affine &affine : lone_negative) {
+        GLINTFX_CHECK(relatively_near(screen_radius(1.0, affine), 1.0e200, 1e-15));
+    }
+    const pixel_affine huge{1.0e200, 0.0, 0.0, 1.0e200, 0.0, 0.0};
+    GLINTFX_CHECK(relatively_near(screen_radius(3.0, huge), 3.0e200, 1e-15));
+    const pixel_affine tiny{1.0e-300, 0.0, 0.0, 1.0e-300, 0.0, 0.0};
+    GLINTFX_CHECK(relatively_near(screen_radius(0.5, tiny), 5.0e-301, 1e-15));
+    const pixel_affine almost_round =
+        pixel_affine_from_transform(gltfx_transform{.translation = {0.0, 0.0},
+                                                    .rotation = {0.5235987755982988},
+                                                    .scale = {1.0, 1.0 - 1.0e-15}});
+    GLINTFX_CHECK(relatively_near(screen_radius(1.0, almost_round), 1.0, 1e-15));
+    const double smallest = std::numeric_limits<double>::denorm_min();
+    const pixel_affine subnormal{smallest, 0.0, 0.0, 0.0, 0.0, 0.0};
+    GLINTFX_CHECK_EQ(screen_radius(1.0, subnormal), smallest);
+    const double infinity = std::numeric_limits<double>::infinity();
+    const pixel_affine infinite_entry{1.0, 0.0, 0.0, -infinity, 0.0, 0.0};
+    GLINTFX_CHECK(std::isinf(screen_radius(1.0, infinite_entry)));
+    const pixel_affine nan_entry{1.0, std::numeric_limits<double>::quiet_NaN(), 0.0, 1.0, 0.0, 0.0};
+    GLINTFX_CHECK(std::isnan(screen_radius(1.0, nan_entry)));
+}
+
+// A sweep (D-W8-436): 4000 turned non-uniform scales R(theta) diag(sx, sy), sx and sy drawn from
+// 1e-300 to 1e300 by their exponent, so the two axes differ by up to 600 orders of size. The
+// largest stretch is max(sx, sy) by construction, known without the code; every answer is within
+// 1e-13 of it (the entries themselves are rounded products of a sine or a cosine). The formula
+// before this fix was finite and wrong in about one sweep case in six (the review's long double
+// reference: 34043 of 200000).
+GLINTFX_TEST(arc_segments_the_screen_radius_sweep_of_sizes_and_turns) {
+    affine_draw draw;
+    std::size_t counted = 0;
+    std::size_t wrong = 0;
+    for (std::size_t i = 0; i < 4000U; ++i) {
+        const double exponent_x = -300.0 + (600.0 * draw.next_unit());
+        const double exponent_y = -300.0 + (600.0 * draw.next_unit());
+        const double turn = 6.283185307179586 * draw.next_unit();
+        const double sx = std::pow(10.0, exponent_x);
+        const double sy = std::pow(10.0, exponent_y);
+        const pixel_affine affine{sx * std::cos(turn),
+                                  sx * std::sin(turn),
+                                  -sy * std::sin(turn),
+                                  sy * std::cos(turn),
+                                  0.0,
+                                  0.0};
+        const double want = std::max(sx, sy);
+        const double got = screen_radius(1.0, affine);
+        ++counted;
+        if (!relatively_near(got, want, 1e-13)) {
+            ++wrong;
+            if (wrong <= 4U) {
+                std::println("arc_segments_test: FALHOU varredura i={} sx={} sy={} giro={} "
+                             "resposta={} esperado={}",
+                             i, sx, sy, turn, got, want);
+            }
+        }
+    }
+    std::println("arc_segments_test: varredura casos={} erradas={}", counted, wrong);
+    GLINTFX_CHECK_EQ(counted, std::size_t{4000});
+    GLINTFX_CHECK_EQ(wrong, std::size_t{0});
 }

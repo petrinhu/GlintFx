@@ -18,7 +18,11 @@
 //
 // THE RADIUS ON THE SCREEN of a radius in the world is the world radius times the largest stretch
 // of the linear part of the batch transform (its largest singular value): under a non-uniform scale
-// the circle becomes an ellipse, and the count follows its longer axis.
+// the circle becomes an ellipse, and the count follows its longer axis. It is computed for every
+// finite transform without an overflow or an underflow on the way, and without a subtraction that
+// cancels (D-W8-434): the answer is the largest stretch within a few roundings, or infinite when
+// that stretch itself passes the largest double; a NaN in the transform gives a NaN. It is never a
+// finite number that is wrong.
 namespace glintfx::draw2d {
 
 inline constexpr std::uint32_t k_min_arc_segments = 4U;

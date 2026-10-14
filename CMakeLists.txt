@@ -74,6 +74,11 @@ set(GLINTFX_GENERATED_INCLUDE_DIR "${PROJECT_BINARY_DIR}/generated/include")
 
 include(GlintfxOptions)
 include(GlintfxCompileOptions)
+include(GlintfxToolchainFloor)
+# S5-A-fix4 (D-W8-465): MSVC older than Visual Studio 2022 does not build glintfx.
+if(MSVC)
+    glintfx_require_msvc_floor("${MSVC_VERSION}")
+endif()
 include(GlintfxLibrary)
 include(GlintfxInstall)
 include(GlintfxExamples)

@@ -4,8 +4,9 @@
 #
 # Single subject: the C++23 language standard, the warning flags, the
 # floating-point contraction rule and the sanitizer flags applied to a
-# glintfx target (library, test harness or test executable). No user option and no install property belongs here;
-# that is GlintfxOptions.cmake and GlintfxLibrary.cmake.
+# glintfx target (library, test harness or test executable). No user option
+# and no install property belongs here; that is GlintfxOptions.cmake and
+# GlintfxLibrary.cmake.
 
 function(glintfx_apply_cxx_standard target)
     set_target_properties(${target} PROPERTIES
@@ -44,9 +45,12 @@ endfunction()
 # MSVC needs nothing: from Visual Studio 2022 on, /fp:precise (its default)
 # generates no contraction unless /fp:contract is asked for
 # (learn.microsoft.com/cpp/build/reference/fp-specify-floating-point-
-# behavior), and C++23 already requires Visual Studio 2022.
-# fp_contract_test proves the rule on the binary: it fails when a * b + c
-# is fused.
+# behavior; measured on cl 19.51 with /arch:AVX2 by the S5-A-fix3 review),
+# and the build refuses an older MSVC at configure time
+# (GlintfxToolchainFloor.cmake, S5-A-fix4, D-W8-465).
+# fp_contract_test proves that the compiler honours the rule on the one
+# expression it computes; that the library's own results keep their bits
+# was measured by the S5-A-fix3 probe of screen_radius, not by a test.
 function(glintfx_apply_floating_point_flags target)
     target_compile_options(${target} PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-ffp-contract=off>

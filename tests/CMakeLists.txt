@@ -1564,9 +1564,28 @@ target_sources(triangle_pixel_vertices_test PRIVATE
 # pixel triangles. No GL, no window.
 glintfx_add_test(segment_test)
 
-# S5-A-fix3 (D-W8-441, D-W8-443): the build rounds each floating-point operation as written; the test fails
-# when a * b + c is fused into one multiply-add (cmake/GlintfxCompileOptions.cmake).
+# S5-A-fix3 (D-W8-441, D-W8-443): the build rounds each floating-point operation as written;
+# the test fails when a * b + c is fused into one multiply-add
+# (cmake/GlintfxCompileOptions.cmake).
 glintfx_add_test(fp_contract_test)
+
+# S5-A-fix4 (D-W8-465, D-W8-466): the build refuses an MSVC older than Visual Studio 2022
+# (cmake/GlintfxToolchainFloor.cmake). The same function the top CMakeLists.txt calls, run by
+# script on both sides of the floor: 1929 (the last of Visual Studio 2019) must stop the configure,
+# 1930 (the first of Visual Studio 2022) must not. WILL_FAIL alone would also pass on a broken
+# script; the twin that must SUCCEED through the same script and module is what rules that out.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refuses_visual_studio_2019
+    COMMAND "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+            "-DMSVC_VERSION_UNDER_TEST=1929"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refuses_visual_studio_2019 PROPERTIES LABELS unit WILL_FAIL TRUE)
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_accepts_visual_studio_2022
+    COMMAND "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+            "-DMSVC_VERSION_UNDER_TEST=1930"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_accepts_visual_studio_2022 PROPERTIES LABELS unit)
 
 glintfx_add_test(arc_segments_test)
 target_include_directories(arc_segments_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

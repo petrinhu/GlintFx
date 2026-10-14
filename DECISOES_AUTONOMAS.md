@@ -9485,3 +9485,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Desvio D1: o trailer diz Haiku, que é o modelo de fato do implementador. Aceito, porque a autoria fica correta e não se faz commit novo só por isso.
   - Desvio D2: a limpeza ficou para depois da conferência. Aceito.
   - Conferência mirada despachada ao revisor a03238e1, retomado.
+- **10:20, S5-A-fix3 parou no bloco de GL sem commitar** (implementador aae2a372, relatório em `/var/tmp/cto-w8/s5afix3/relatorio.txt`).
+  - Já provado: vermelho com `-march=x86-64-v3` (fp_contract_test.cpp:38), verde com e sem a flag, e os 3 mutantes mortos.
+  - A causa, medida pelo main no build.log, é o containerd na exportação da imagem ("ref ... locked for 1m12s"), não o código. Não achei build concorrente na janela.
+  - Ordem: refazer só o bloco gl. Se o erro voltar, uma nova tentativa depois de 60 s; se repetir, parar. Depois seguem preci, sanitizer, MSVC e o commit.

@@ -9408,3 +9408,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os valores esperados são literais decididos, não calculados pela mesma fórmula do código.
   - COSMÉTICO: comentários do teste citam IDs de revisão (`light_tint_test.cpp:215,224,232,247,265,377,387`), quando deveriam descrever o comportamento provado. Vai como nota na próxima ordem que tocar esse arquivo (H5).
   - **A fatia H4 (R2D-SPRITE-SHADE) está fechada: 30f3867d e b2ebcd0f.**
+- **05:49, CI 38533813188 (33e769bd) VERMELHO.**
+  - **(1) Jobs Linux:** todos (Fedora, Ubuntu, Arch, CachyOS, Clang, Debug) caem no `host_alert_gate_test` com "REPROVADO: fonte de medida ausente". Dentro do contêiner do CI, o `core_pattern` do hospedeiro aponta para o systemd-coredump, mas não há journalctl nem systemd-run. É regressão da alertas-fix1/fix2: o último verde, 38390738988, era anterior a elas. Foi mandado ao CTO a997f43f como primeira prioridade do redesenho, que deve dar 77 por fato medido.
+  - **(2) Paridade:** a paridade cai numa linha "Could not find executable .../segment_test" no inventário Linux. O diagnóstico, só leitura, foi despachado a um devops-sre haiku.
+  - **(3) Windows:** os 5 jobs Windows passaram.
+  - **CI-VERDE-W8 bloqueado até os dois consertos.**

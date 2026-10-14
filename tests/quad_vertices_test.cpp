@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <print>
+#include <span>
 
 #include <glintfx/core/angle.hpp>
 #include <glintfx/core/transform.hpp>
@@ -33,7 +35,9 @@
 using glintfx::gltfx_angle;
 using glintfx::gltfx_transform;
 using glintfx::gltfx_vec2_world;
+using glintfx::draw2d::all_pixel_positions_in_range;
 using glintfx::draw2d::pixel_affine_from_transform;
+using glintfx::draw2d::pixel_position_wide;
 using glintfx::draw2d::quad_corners_pixel;
 using glintfx::draw2d::quad_corners_world;
 using glintfx::draw2d::quad_vertices;
@@ -257,4 +261,23 @@ GLINTFX_TEST(quad_vertices_a_quad_is_in_range_only_when_all_four_turned_corners_
     pixel_affine not_a_number{};
     not_a_number.translation_x = std::numeric_limits<double>::quiet_NaN();
     GLINTFX_CHECK(!quad_in_pixel_range(at(1.0, 1.0), not_a_number));
+}
+
+// The check of a whole outline at once (S5-B, D-W8-410, extracted at its third use): true for no
+// position, true when every one is in range, false when one is a NaN, an infinity or past the
+// range, wherever it sits in the list.
+GLINTFX_TEST(quad_vertices_all_positions_in_range_asks_every_one) {
+    GLINTFX_CHECK(all_pixel_positions_in_range(std::span<const pixel_position_wide>{}));
+    const std::array<pixel_position_wide, 3> inside{{{0.0, 0.0}, {-1.0e38, 1.0e38}, {5.0, 6.0}}};
+    GLINTFX_CHECK(all_pixel_positions_in_range(inside));
+    std::size_t refused = 0;
+    for (std::size_t at = 0; at < 3U; ++at) {
+        for (const double bad : {std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::infinity(), 1.0e39, -1.0e39}) {
+            std::array<pixel_position_wide, 3> one_out = inside;
+            one_out[at].y = bad;
+            refused += all_pixel_positions_in_range(one_out) ? 0U : 1U;
+        }
+    }
+    GLINTFX_CHECK_EQ(refused, std::size_t{12});
 }

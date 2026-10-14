@@ -10,21 +10,6 @@
 // draw2d/stroke_rect_pixels.cpp - R2D-SHAPES, fatia S4: the build of stroke_rect_pixels.hpp.
 namespace glintfx::draw2d {
 
-namespace {
-
-// Every point of the outline must be in the pixel range; one that is not refuses the whole outline
-// (I-7, S2b-fix1). A NaN is in no range, so it is refused too.
-[[nodiscard]] bool all_in_pixel_range(std::span<const pixel_position_wide> points) noexcept {
-    for (const pixel_position_wide &point : points) {
-        if (!pixel_position_in_range(point)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-} // namespace
-
 stroke_rect_pixels_outcome stroke_rect_pixels::build(const glintfx::gltfx_rect_world &rect,
                                                      const glintfx::gltfx_rect_outline_style &style,
                                                      glintfx::gltfx_rgba color,
@@ -35,7 +20,9 @@ stroke_rect_pixels_outcome stroke_rect_pixels::build(const glintfx::gltfx_rect_w
     const rect_outline shape = rect_outline_of(rect, style, affine);
     const std::size_t count = write_rect_outline_points(shape, outline);
     const std::span<const pixel_position_wide> points(outline.data(), count);
-    if (!all_in_pixel_range(points)) {
+    // Every point must be in the pixel range; one that is not refuses the whole outline (I-7,
+    // S2b-fix1). A NaN is in no range, so it is refused too.
+    if (!all_pixel_positions_in_range(points)) {
         return stroke_rect_pixels_outcome::pixel_position_out_of_range;
     }
     for (std::size_t i = 0U; i < count; ++i) {

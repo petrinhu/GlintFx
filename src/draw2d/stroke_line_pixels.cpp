@@ -9,21 +9,6 @@
 // draw2d/stroke_line_pixels.cpp - R2D-SHAPES, fatia S3: the build of stroke_line_pixels.hpp.
 namespace glintfx::draw2d {
 
-namespace {
-
-// Every point of the outline must be in the pixel range; one that is not refuses the whole line
-// (I-7, S2b-fix1). A NaN is in no range, so it is refused too.
-[[nodiscard]] bool all_in_pixel_range(std::span<const pixel_position_wide> points) noexcept {
-    for (const pixel_position_wide &point : points) {
-        if (!pixel_position_in_range(point)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-} // namespace
-
 stroke_pixels_outcome stroke_line_pixels::build(const glintfx::gltfx_segment_world &segment,
                                                 const glintfx::gltfx_line_style &style,
                                                 glintfx::gltfx_rgba color,
@@ -37,7 +22,9 @@ stroke_pixels_outcome stroke_line_pixels::build(const glintfx::gltfx_segment_wor
     const stroke_frame frame = stroke_frame_of(segment, style.stroke, affine);
     const std::span<pixel_position_wide> points(outline.data(), count);
     write_stroke_outline(frame, style.cap, cap_segments, points);
-    if (!all_in_pixel_range(points)) {
+    // Every point must be in the pixel range; one that is not refuses the whole line (I-7,
+    // S2b-fix1). A NaN is in no range, so it is refused too.
+    if (!all_pixel_positions_in_range(points)) {
         return stroke_pixels_outcome::pixel_position_out_of_range;
     }
     for (std::size_t i = 0U; i < count; ++i) {

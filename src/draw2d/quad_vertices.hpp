@@ -2,6 +2,7 @@
 #pragma once
 
 #include <array>
+#include <span>
 
 #include <glintfx/core/transform.hpp>
 #include <glintfx/core/vec2.hpp>
@@ -76,6 +77,12 @@ struct pixel_position_wide {
 // 1.7e38, half the largest float less 3 units in the last place). A NaN or an infinity is never in
 // range (S2b-fix1, I-7).
 [[nodiscard]] bool pixel_position_in_range(const pixel_position_wide &position) noexcept;
+
+// True when every position of `positions` is in the pixel range; true for none. The outlines of
+// the line, of the rectangle and of the ellipse ask it of all their points at once (extracted at
+// its third use, CONTRACT.md section 6, D-S4-10).
+[[nodiscard]] bool
+all_pixel_positions_in_range(std::span<const pixel_position_wide> positions) noexcept;
 
 // True when the four corners of a quad, turned by `affine`, are all in the pixel range.
 [[nodiscard]] bool quad_in_pixel_range(const quad_corners_world &corners,

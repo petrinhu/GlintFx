@@ -52,6 +52,11 @@ target_sources(glintfx_library PRIVATE
     stroke_rect_geometry.cpp
     stroke_rect_pixels.cpp
     arc_parameters.cpp
+    ellipse_check.cpp
+    ellipse_frame.cpp
+    ellipse_triangles.cpp
+    ellipse_outline.cpp
+    ellipse_pixels.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

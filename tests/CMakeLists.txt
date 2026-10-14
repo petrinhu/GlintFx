@@ -1631,6 +1631,50 @@ target_sources(arc_parameters_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-SHAPES S5, etapa B: the pure atoms of the ellipse: the check of one call, the two forms of an ellipse and the
+# points of its curve by the angle of their normal, the triangles of a fan and of a ring, the band of a thick
+# outline, and one call as pixel triangles. No GL, no window.
+glintfx_add_test(ellipse_check_test)
+target_include_directories(ellipse_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_check.cpp"
+)
+
+glintfx_add_test(ellipse_frame_test)
+target_include_directories(ellipse_frame_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_frame_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(ellipse_triangles_test)
+target_include_directories(ellipse_triangles_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_triangles_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+)
+
+glintfx_add_test(ellipse_outline_test)
+target_include_directories(ellipse_outline_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_outline_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_outline.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(ellipse_pixels_test)
+target_include_directories(ellipse_pixels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_pixels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_outline.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(gl_load_refusal_test)
 target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gl_load_refusal_test PRIVATE

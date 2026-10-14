@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <limits>
+#include <span>
 
 namespace glintfx::draw2d {
 
@@ -63,6 +64,15 @@ bool pixel_position_in_range(const pixel_position_wide &position) noexcept {
     // A NaN fails both comparisons, and so does an infinity.
     return std::fabs(position.x) <= k_largest_pixel_coordinate &&
            std::fabs(position.y) <= k_largest_pixel_coordinate;
+}
+
+bool all_pixel_positions_in_range(std::span<const pixel_position_wide> positions) noexcept {
+    for (const pixel_position_wide &position : positions) {
+        if (!pixel_position_in_range(position)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool quad_in_pixel_range(const quad_corners_world &corners, const pixel_affine &affine) noexcept {

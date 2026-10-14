@@ -9579,3 +9579,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Seção 9 reforçada: mutante que remove o reset de `u_textured`, mais uma célula com lote sem textura depois de lote com textura.
   - **LISTA DE RATIFICAÇÃO**, acrescentar: D-W8-471 (`texture_switches` no relatório público do quadro) e D-W8-473 (amostra antes da conversão sRGB, irmã da D-W8-304).
   - INBOX: TEX-UNTEXTURED-IN-BATCH e NOEXCEPT-GAUGE-NAME-PREFIX.
+- **19:18, T4b-B1 com os três ajustes recebida** (ordem md5 8b1b990c; anexos da1b476c; plano d07c1de1).
+  - O cabeçalho do arquivo de exceções foi reescrito.
+  - A régua sem a linha dá exatamente um achado, em `frame_report_tally.cpp:90-91`.
+  - O mutante do reset (BM6) morre nas duas células.
+  - Despachada a um implementador novo (ab6e61e4). O CTO a92de40e segue para a T4b-B2 (D-W8-475 a 480).

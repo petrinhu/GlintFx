@@ -21,8 +21,9 @@
 //
 // THE VERTEX (36 bytes, R2D-TEXTURE T4a, D-W8-23 and D-W8-406): position float2 in PIXELS, texture
 // coordinate float2, color float4 LINEAR and PREMULTIPLIED (the straight color of core/color.hpp
-// times its alpha, alpha kept), and LAST the homogeneous coordinate q, so the texture coordinate
-// stored is (u q, v q) and the program divides by q (the projective drawing of T4b; 1 until then).
+// times its alpha, alpha kept), and LAST the homogeneous coordinate q. The projective drawing of
+// T4b will store the texture coordinate as (u q, v q) and the program will divide by q; until then
+// q is 1 and u, v are stored as they are (T4a-fix1, D-W8-446).
 // The premultiplication happens HERE, once per piece, so a half-transparent edge never grows a
 // dark fringe; the shader does not repeat it. The texture coordinate is by ROLE, as core/quad.hpp
 // names the corners: top_left (0, 0), top_right (1, 0), bottom_right (1, 1), bottom_left (0, 1);

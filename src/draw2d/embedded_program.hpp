@@ -22,7 +22,7 @@
 // THE PROGRAM draws the batch of triangle_batch.hpp: position float2 in PIXELS (attribute 0),
 // texture coordinate float2 (attribute 1, inert until R2D-TEXTURE), color float4 linear and
 // PREMULTIPLIED (attribute 2), and the homogeneous coordinate q float (attribute 3, T4a), which the
-// vertex shader hands to the fragment stage with the texture coordinate as one vec3 (u q, v q, q),
+// vertex shader hands to the fragment stage with the texture coordinate as one vec3 (u, v, q),
 // read by the textured drawing of T4b. The vertex shader turns pixels into clip space with the one
 // uniform `u_viewport_pixels` (top-left origin, y down, as the corner roles of core/quad.hpp); the
 // fragment shader writes the color as it is when the surface encodes for us (the premultiplication

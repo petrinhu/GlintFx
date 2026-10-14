@@ -407,10 +407,14 @@ GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interfac
     GLINTFX_CHECK(vertex.find("layout(location = 1) in vec2 a_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("layout(location = 2) in vec4 a_color") != std::string_view::npos);
     // T4a (D-W8-406): the homogeneous coordinate q, its own location, carried to the fragment
-    // stage with the texture coordinate as one vec3 (u q, v q, q) for the textured drawing of T4b.
+    // stage with the texture coordinate as one vec3 (u, v, q) for the textured drawing of T4b.
     GLINTFX_CHECK(vertex.find("layout(location = 3) in float a_texcoord_q") !=
                   std::string_view::npos);
     GLINTFX_CHECK(vertex.find("out vec3 v_texcoord") != std::string_view::npos);
+    // ...and the assignment itself (T4a-fix1, D-W8-445): with 1.0 written in place of a_texcoord_q,
+    // every test stayed green and q never reached the fragment stage (the N1 review's R6).
+    GLINTFX_CHECK(vertex.find("v_texcoord = vec3(a_texcoord, a_texcoord_q);") !=
+                  std::string_view::npos);
     GLINTFX_CHECK(fragment.find("in vec3 v_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("uniform vec2 u_viewport_pixels") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("out vec4 frag_color") != std::string_view::npos);

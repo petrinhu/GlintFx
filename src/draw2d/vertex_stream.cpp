@@ -34,7 +34,7 @@ constexpr GLenum k_gl_out_of_memory = 0x0505;
 constexpr GLbitfield k_gl_map_write_bit = 0x0002;
 constexpr GLbitfield k_gl_map_invalidate_buffer_bit = 0x0008;
 
-// The layout of batch_vertex (triangle_batch.hpp): position, texture coordinate, color.
+// The layout of batch_vertex (triangle_batch.hpp): position, texture coordinate, color, q.
 constexpr GLsizei k_stride = static_cast<GLsizei>(sizeof(batch_vertex));
 constexpr std::uintptr_t k_texcoord_offset = 2 * sizeof(float);
 constexpr std::uintptr_t k_color_offset = 4 * sizeof(float);
@@ -62,6 +62,15 @@ void describe_attribute(const render::gl_function_table &gl, GLuint index, int c
                         std::uintptr_t offset) noexcept {
     gl.glEnableVertexAttribArray(index);
     gl.glVertexAttribPointer(index, components, k_gl_float, 0, k_stride, buffer_offset(offset));
+}
+
+// The four attributes of batch_vertex on the bound array buffer (T4a-fix1, D-W8-447: taken out of
+// create_vertex_stream(), which had reached 39 of the 40 lines GODS_LAWS.md L-17 allows).
+void describe_vertex_layout(const render::gl_function_table &gl) noexcept {
+    describe_attribute(gl, 0, 2, 0);
+    describe_attribute(gl, 1, 2, k_texcoord_offset);
+    describe_attribute(gl, 2, 4, k_color_offset);
+    describe_attribute(gl, 3, 1, k_texcoord_q_offset);
 }
 
 // One buffer of the stream and what goes into it (D-B7-1, Introduce Parameter Object): the GL
@@ -182,10 +191,7 @@ gltfx_rslt<vertex_stream> create_vertex_stream(const render::gl_function_table &
 
     gl.glBindVertexArray(vertex_array);
     gl.glBindBuffer(k_gl_array_buffer, buffers[0]);
-    describe_attribute(gl, 0, 2, 0);
-    describe_attribute(gl, 1, 2, k_texcoord_offset);
-    describe_attribute(gl, 2, 4, k_color_offset);
-    describe_attribute(gl, 3, 1, k_texcoord_q_offset);
+    describe_vertex_layout(gl);
     // The element-array binding is state OF the vertex array: binding it here ties the index buffer
     // to this array.
     gl.glBindBuffer(k_gl_element_array_buffer, buffers[1]);

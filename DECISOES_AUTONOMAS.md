@@ -9233,3 +9233,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - **S4-fix1:** conferência mirada.
     - **T3-C:** despachada.
     - **Disco:** limpeza das pastas de fatias fechadas antes da G2-fix1.
+- **23:39, duas ordens do líder, verbatim:** *"autorizo merge/tag/push"* e *"duvidas com clevel na ordem estabelecida"*. Merge, tag e push ficam autorizados com os portões da L-24 fechados, ou seja, o critério de fechamento da W8 e o CI verde. As dúvidas seguem o caminho da L-34: o C-level pesquisa em bibliotecas e na comunidade, escolhe o mais completo, e o advisor entra quando a dúvida continua.

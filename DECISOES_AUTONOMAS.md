@@ -9434,3 +9434,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - preci 362. Sanitizer 172.
   - Saíram as cópias de `s5afix2/snap` e das rodadas do CTO em `r21/s5afix2`.
   - A conferência mirada foi despachada ao revisor da linha (a77283fd), veredito em `rev-s5a-fix2.txt`.
+- **08:11, T4a commitada (88a25412, 13 caminhos, 112+/54-).**
+  - O vértice passa de 8 para 9 floats (D-W8-23), e a docstring de `swap_update` foi incluída.
+  - Vermelho: 2 falhas previstas. Verde: 5/5.
+  - Mutantes: C1-C8 mortos.
+  - Paridade de GL em contêiner: 106 e 31 conferidas, 0 reprovadas.
+  - preci 362, sanitizer 172.
+  - Cópia apagada.
+  - A revisão N1 foi despachada ao revisor da T3 (abd30072), com a instrução de só usar a trava pesada depois do commit do redesenho dos alertas. O CTO da r21 recebeu o mesmo pedido de ceder a fila: o redesenho é o caminho crítico do CI.

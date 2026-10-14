@@ -9461,3 +9461,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Três cosméticos (função de 39 linhas, comentário no presente, nome de teste em cabeçalho público) vão junto.
   - Pedida ao CTO a92de40e a ordem T4a-fix1 (D-W8-445 a 449), depois da S5-A-fix3. Conserto mecânico, sem pesquisa de queixas (alcance confirmado da regra das 10 queixas).
 - **08:48, CI 38556511988 sobre eab820af VERDE**: 26 jobs, 25 sucesso e 1 pulado (VERSION-TAG-SYNC, que só roda em etiqueta). A paridade e os portões de alerta nos contêineres do CI, que derrubaram os dois CIs anteriores, passaram. É verde parcial da W8: as fatias que faltam ainda vão mudar a árvore, e o CI-VERDE-W8 só fecha no último envio.
+- **09:26, conferência N3 do redesenho dos alertas NÃO LIMPA** (`rev-alertas-redesign.txt`, revisor a03238e1, SHA eab820af).
+  - MZ1 a MZ3, a falta de programas e o namespace (D-W8-433) fechados: 10 mutantes, 8 mortos.
+  - Dois IMPORTANTE de teste, sem mudança de regra. M10: falta de registro do kernel sem a guarda do contêiner, em `check_host_alerts.py:320-321`; sem a célula, um hospedeiro sem docker que deveria passar reprova. M6: a impressão do LIMITE em `:429-430` não é conferida pela célula 60.
+  - Pedida ao CTO a997f43f a ordem alertas-fix3 (D-W8-450 a 454). Conserto mecânico, sem pesquisa de queixas. Mesmo implementador (a4e46777) e mesma conferência (a03238e1).

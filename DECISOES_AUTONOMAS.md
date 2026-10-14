@@ -9397,3 +9397,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os 8 mutantes R1-R4 e V1/V2/V3/V7 morrem no teste comum. Verde 1/1, preci 362/362, sanitizer 0.
   - A cópia `h4fix1/snap` foi apagada.
   - A conferência mirada foi despachada ao revisor da N1 (a48aa90d), com veredito em `rev-h4-fix1.txt`.
+- **05:43, conferência da S5-A-fix1 NÃO LIMPA** (`rev-s5a-fix1.txt`, revisor a77283fd). Os 6 IMPORTANTES da N1 fecharam: I-4 por texto, I-5 com 1e78 aceito e zero diferenças em 85618 casos antigos, e o oráculo geométrico é exato. Há dois IMPORTANTES novos:
+  - **I-7**, que já existia antes desta fatia: `screen_radius` (`arc_segments.cpp:39-43`) devolve valor finito e ERRADO sem recusar. Com u=(1e78,0) e v=(0,1e76), devolve 7,07e77 no lugar de 1e78. Com u=(1e-100,0) e v=(0,1e-120), devolve 7,07e-101 no lugar de 1e-100. O spread zera quando S² ou 4D² estoura ou some, e o erro aparece em 34043 de 200000 afins.
+  - **I-8:** o caminho escalado só é testado com entradas positivas; X2 e X5 sobrevivem.
+  **A S5-A-fix2 foi pedida ao CTO a92de40e (D-W8-434 a 440), antes da rodada 21.**

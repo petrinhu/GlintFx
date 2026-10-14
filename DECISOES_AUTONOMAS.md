@@ -9555,3 +9555,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Medido às 18:29: a conexão TLS com a API está normal (emissor Google Trust Services, verify 0).
   - Os 4 foram retomados por SendMessage, com ordem de conferir o disco antes de repetir qualquer coisa.
   - A conferência da S5-A-fix4 já tinha um IMPORTANTE provisório (I-2): o ramo não numérico do piso não tem teste. Isso gera uma fix5 quando o veredito sair.
+- **18:30, T4b-A commitada: 7560b9d4** (implementador a189e00e; snapshot novo; 18 arquivos, +1070 −8).
+  - A tinta padrão branca está no blob (`texture_region.hpp:69`), e tests/CMakeLists.txt não perdeu linha nenhuma: as 7 linhas de fix4 e de fp_contract continuam presentes.
+  - preci 373 e sanitizer 183. A conta fecha: 181 mais os 2 add_test da fix4. O main tinha estimado +3, e o certo é +2.
+  - Revisão N1, com revisão de API dedicada (as sete regras de `docs/api-conventions.md`), despachada a um revisor novo.

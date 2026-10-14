@@ -21,8 +21,10 @@
 #include <poll.h>
 #include <unistd.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <vector>
 
@@ -36,10 +38,13 @@ constexpr std::uint32_t k_feedback_id = 13; // a zwp_linux_dmabuf_feedback_v1
 
 // zwp_linux_buffer_params_v1.add (request 1): fd out of band, then plane_idx, offset, stride,
 // modifier_hi, modifier_lo (linux-dmabuf-v1.xml).
+// The body is sized once, up front: no resize() inside a loop. GCC 14 (Ubuntu) reports a false
+// -Warray-bounds on the five growing resize() calls this loop used to make (CI-VERDE-W8).
 std::vector<std::uint8_t> encode_params_add() {
-    std::vector<std::uint8_t> body;
-    for (const std::uint32_t value : {0U, 0U, 2560U, 0U, 0U}) {
-        append_u32(body, value);
+    constexpr std::array<std::uint32_t, 5> values{0U, 0U, 2560U, 0U, 0U};
+    std::vector<std::uint8_t> body(values.size() * sizeof(std::uint32_t));
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        std::memcpy(body.data() + i * sizeof(std::uint32_t), &values[i], sizeof(std::uint32_t));
     }
     return encode_message(k_params_id, 1, body);
 }

@@ -10,7 +10,10 @@
 # FECHADA de celulas, cada veredito escrito da regra do cabecalho do portao,
 # nunca lido da saida dele. Imprime celulas e falhas, sempre (L-40).
 import io
+import shutil
 import sys
+import tempfile
+import types
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -51,8 +54,8 @@ def quiet(call):
         return call()
 
 
-def facts(selinux, core, docker, audit, system, scope):
-    return gate.HostFacts(selinux_enforcing=selinux, core_pipe_to_systemd=core,
+def facts(selinux, core, docker, audit, system, scope, cli=True):
+    return gate.HostFacts(selinux_enabled=selinux, core_pipe_to_systemd=core, docker_cli=cli,
                           docker_image=docker, audit_readable=audit,
                           system_journal_readable=system, user_scope=scope)
 
@@ -102,6 +105,97 @@ def fix1_cells():
     ]
 
 
+class FakeRun:
+    """Um subprocess.run de mentira: por programa (argv[0]), o rc e a saida, ou a excecao."""
+
+    def __init__(self, table):
+        self.table = table
+
+    def __call__(self, argv, **_):
+        rc, out = self.table.get(argv[0], (0, ""))
+        if isinstance(rc, Exception):
+            raise rc
+        return types.SimpleNamespace(returncode=rc, stdout=out, stderr="")
+
+
+ONE = '{"MESSAGE": "um registro"}\n'
+READABLE = FakeRun({"journalctl": (0, ONE), "docker": (0, ""), "systemd-run": (0, "")})
+
+
+def fake_root(enforce, pattern):
+    """Um /sys e um /proc de mentira, so com os dois arquivos que host_facts le."""
+    root = Path(tempfile.mkdtemp(prefix="glintfx-hostfacts-"))
+    if enforce is not None:
+        (root / "sys/fs/selinux").mkdir(parents=True)
+        (root / "sys/fs/selinux/enforce").write_text(enforce)
+    (root / "proc/sys/kernel").mkdir(parents=True)
+    (root / "proc/sys/kernel/core_pattern").write_text(pattern)
+    return root
+
+
+PIPE = "|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h %d %F\n"
+
+
+def facts_of(enforce, pattern, run=READABLE):
+    root = fake_root(enforce, pattern)
+    try:
+        return quiet(lambda: gate.host_facts(root, run))
+    finally:
+        shutil.rmtree(root)
+
+
+def fix2_cells():
+    """alertas-fix2 (conferencia da fix1): o que a fix1 criou e nenhuma celula guardava."""
+    def on():
+        return facts(True, True, True, True, True, True)
+
+    return [
+        ("29 categoria que so comeca igual (c7,c80) e alheia", safe(
+            lambda: gate.avc_class(gate.Avc("x", "s0:c7,c80"), OURS) == "alheio")),
+        ("30 escopo como sufixo de outro componente nao e nosso", safe(lambda: not gate.ours_coredump(
+            gate.Coredump(APP + "xxx-" + GATE_SCOPE, "", ""), GATE_SCOPE, ""))),
+        ("31 journalctl que sai 1: None, nunca lista vazia", safe(
+            lambda: quiet(lambda: gate.journal(["x"], FakeRun({"journalctl": (1, "")}))) is None)),
+        ("32 journalctl que falta: None, sem traceback", safe(lambda: quiet(lambda: gate.journal(
+            ["x"], FakeRun({"journalctl": (FileNotFoundError(2, "journalctl"), "")}))) is None)),
+        ("33 journalctl 0 e vazio: ilegivel", safe(
+            lambda: gate.has_records(["x"], FakeRun({"journalctl": (0, "")})) is False)),
+        ("34 journalctl com um registro: legivel", safe(
+            lambda: gate.has_records(["x"], FakeRun({"journalctl": (0, ONE)})) is True)),
+        ("35 enforcing e pipe do systemd-coredump", safe(
+            lambda: facts_of("1", PIPE) == on())),
+        ("36 permissive tambem tem AVC (setroubleshoot avisa)", safe(
+            lambda: facts_of("0", PIPE).selinux_enabled is True)),
+        ("37 SELinux desligado e core para arquivo: pula", safe(
+            lambda: gate.plan(facts_of(None, "core\n"))[0] == "pular")),
+        ("38 sem o CLI do docker e sem o systemd-run: fatos ausentes, sem traceback", safe(
+            lambda: facts_of("1", PIPE, FakeRun({
+                "journalctl": (0, ONE), "docker": (FileNotFoundError(2, "docker"), ""),
+                "systemd-run": (FileNotFoundError(2, "systemd-run"), "")})) == facts(
+                True, True, False, True, True, False, cli=False))),
+        ("39 nenhum registro de auditoria na janela: falta", safe(lambda: quiet(
+            lambda: gate.window_gaps(on(), True, [], [{}], READABLE)) == [
+            "nenhum registro de auditoria na janela, nem os da partida do conteiner"])),
+        ("40 tudo lido na janela e legivel depois: nada falta", safe(lambda: quiet(
+            lambda: gate.window_gaps(on(), True, [{}], [{}], READABLE)) == [])),
+        ("41 ilegivel DEPOIS da leitura: falta", safe(lambda: quiet(
+            lambda: gate.window_gaps(facts(True, False, True, True, True, True), True, [{}], [],
+                                     FakeRun({"journalctl": (0, "")}))) == [
+            "o diario de auditoria ficou ilegivel depois da leitura"])),
+        ("42 nenhum registro do kernel na janela: falta", safe(lambda: quiet(
+            lambda: gate.window_gaps(on(), True, [{}], [], READABLE)) == [
+            "nenhum registro do kernel na janela, nem os da rede do conteiner"])),
+        # D-W8-394 (o advisor, 14/10): sem o CLI do docker nao ha conteiner nosso, e nenhum AVC e
+        # atribuivel a nos (ours_avc exige a categoria MCS do conteiner da casa): o AVC nao se aplica.
+        ("43 SELinux ligado sem o CLI do docker, sem core dump: pula e diz por que", safe(
+            lambda: (lambda d: d[0] == "pular" and any("sem o CLI do docker" in r for r in d[1]))(
+                gate.plan(facts(True, False, False, True, True, True, cli=False))))),
+        ("44 SELinux ligado sem o CLI do docker, com core dump: mede e declara o limite", safe(
+            lambda: (lambda d: d[0] == "medir" and any(r.startswith("LIMITE DECLARADO") for r in d[1]))(
+                gate.plan(facts(True, True, False, False, True, True, cli=False))))),
+    ]
+
+
 def cells():
     avcs = gate.avcs_from(gate.read_jsonl(HERE / "audit.jsonl"))
     dumps = gate.coredumps_from(gate.read_jsonl(HERE / "coredump.jsonl"))
@@ -135,7 +229,7 @@ def cells():
          printed_counts(avcs, dumps, OURS, OWN_SCOPE, "abc") == [
              "avc: lidos=3 nossos=1 alheios=1 nao_atribuiveis=1",
              "coredump: lidos=3 nossos=1 alheios=2"]),
-    ] + fix1_cells()
+    ] + fix1_cells() + fix2_cells()
 
 
 def main(argv: list[str]) -> int:
@@ -147,7 +241,7 @@ def main(argv: list[str]) -> int:
     for name in failed:
         print(f"check_host_alerts_selftest: FALHOU a celula {name}")
     print(f"check_host_alerts_selftest: celulas={len(table)} falhas={len(failed)}")
-    if len(table) < 28:
+    if len(table) < 44:
         print("check_host_alerts_selftest: menos celulas que o piso (varredura quebrada)")
         return 1
     return 1 if failed else 0

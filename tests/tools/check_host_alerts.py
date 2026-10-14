@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# check_host_alerts.py - HOST-ALERT-GATE (13/10/2026; alertas-fix1, 14/10/2026):
+# check_host_alerts.py - HOST-ALERT-GATE (13/10/2026; alertas-fix1 e alertas-fix2, 14/10/2026):
 # portao que REPROVA quando um teste da casa gera, no hospedeiro, um alerta que
 # chega a mesa do lider: uma negacao do SELinux (AVC) de um conteiner nosso, ou
 # um core dump que o systemd-coredump recebe de um processo nosso (cada um vira
@@ -28,10 +28,23 @@
 # Automake e do Meson: 77 e "nao se aplica aqui", 99 e "deveria medir e nao
 # conseguiu", erro duro, nunca confundido com pulo):
 #   - cada fonte de alerta se aplica ou nao a este hospedeiro: o AVC, se o
-#     SELinux esta em enforcing; o core dump, se o kernel.core_pattern e um
-#     pipe para o systemd-coredump;
+#     SELinux esta LIGADO, em enforcing OU em permissive (alertas-fix2: em
+#     permissive o kernel registra o AVC com permissive=1 e o setroubleshoot
+#     avisa do mesmo jeito, com o texto "SELinux is in permissive mode. This
+#     access was not denied."; so o SELinux desligado, sem o selinuxfs, nao
+#     tem AVC); o core dump, se o kernel.core_pattern e um pipe para o
+#     systemd-coredump;
 #   - nenhuma se aplica: pulo DECLARADO (rc 77, "Skipped" no ctest), com a
 #     razao; nesse hospedeiro, alerta nenhum chega a mesa nenhuma;
+#   - um programa que falta (o CLI do docker, o systemd-run, o journalctl) e
+#     uma fonte ausente como as outras, nunca um traceback (alertas-fix2): ou
+#     o pulo, se nada se aplica, ou a reprovacao com o que falta;
+#   - SEM O CLI DO DOCKER, o AVC nao se aplica (D-W8-394): sem conteiner da
+#     casa nao ha categoria MCS nossa, `ours_avc` nunca casa, e o AVC do
+#     selftest do hospedeiro (unconfined) nao e atribuivel; o portao diz isso na
+#     saida e segue so com o core dump, ou pula. Com o CLI e sem a IMAGEM da
+#     casa, os conteineres dos outros testes ainda rodam e o portao nao os
+#     amostra: fonte ausente, reprova;
 #   - alguma se aplica e falta o que a mede (docker e a imagem da casa e o
 #     diario de auditoria legivel, para o AVC; o diario do sistema legivel e o
 #     escopo do systemd-run, para o core dump): REPROVA (rc 1), com o que falta.
@@ -40,7 +53,13 @@
 #     um registro de auditoria (o AVC), ao menos um registro do kernel (o
 #     diario do sistema). Sem permissao, o journalctl sai 0 e nao mostra nada;
 #   - durante a medicao, uma leitura que falha depois do sentinela REPROVA
-#     (achado CRITICO-1 da revisao N3: antes, virava lista vazia e passava).
+#     (achado CRITICO-1 da revisao N3: antes, virava lista vazia e passava);
+#   - a legibilidade vale para a JANELA, nao so para antes dela (alertas-fix2):
+#     a partida do conteiner da casa deixa no diario registros de auditoria
+#     (BPF, NETFILTER_CFG) e do kernel (veth, docker0), medido em 14/10/2026;
+#     nenhum deles lido na janela, ou o diario ilegivel de novo DEPOIS da
+#     leitura, REPROVA. LIMITE DECLARADO: com o core dump aplicavel e SEM docker,
+#     nao ha registro do kernel nosso na janela; valem o antes e o depois.
 #
 # MODOS:
 #   --selftest   (check_host_alerts_selftest.py) so registros de exemplo e
@@ -78,8 +97,9 @@ class Coredump:
 @dataclass(frozen=True)
 class HostFacts:
     """O que este hospedeiro tem: o que faz um alerta possivel, e o que o mede."""
-    selinux_enforcing: bool
+    selinux_enabled: bool  # ligado: enforcing ou permissive
     core_pipe_to_systemd: bool
+    docker_cli: bool  # o programa docker existe (sem ele, conteiner nosso nenhum)
     docker_image: bool
     audit_readable: bool
     system_journal_readable: bool
@@ -144,21 +164,36 @@ def verdict(avcs: list[Avc], dumps: list[Coredump], mcs: str, scope: str,
     return 1 if "nosso" in classes or our_dumps else 0
 
 
+def avc_applies(facts: HostFacts) -> bool:
+    """O AVC so e atribuivel a nos com o SELinux ligado E um conteiner da casa possivel."""
+    return facts.selinux_enabled and facts.docker_cli
+
+
 def plan(facts: HostFacts) -> tuple[str, list[str]]:
-    """'pular' (nenhum alerta possivel), 'reprovar' (fonte ausente) ou 'medir'; e as razoes."""
-    if not facts.selinux_enforcing and not facts.core_pipe_to_systemd:
-        return "pular", ["nenhum alerta possivel: SELinux fora de enforcing e "
-                         "kernel.core_pattern sem systemd-coredump"]
+    """'pular' (nenhum alerta nosso possivel), 'reprovar' (fonte ausente) ou 'medir'; e as razoes,
+    impressas na saida em toda decisao (os limites declarados tambem)."""
+    notes = []
+    if facts.selinux_enabled and not facts.docker_cli:
+        notes.append("AVC nao se aplica: sem o CLI do docker nao ha conteiner nosso, e um AVC do "
+                     "hospedeiro (unconfined, sem categoria MCS) nao e atribuivel")
+    if not avc_applies(facts) and not facts.core_pipe_to_systemd:
+        return "pular", notes + ["nenhum alerta nosso possivel: sem AVC atribuivel e "
+                                 "kernel.core_pattern sem systemd-coredump"]
     missing = []
-    if facts.selinux_enforcing and not facts.docker_image:
-        missing.append(f"AVC: docker ou a imagem {HOUSE_IMAGE} ausente")
-    if facts.selinux_enforcing and not facts.audit_readable:
+    if avc_applies(facts) and not facts.docker_image:
+        missing.append(f"AVC: a imagem {HOUSE_IMAGE} ausente")
+    if avc_applies(facts) and not facts.audit_readable:
         missing.append("AVC: diario de auditoria ilegivel (nenhum registro lido)")
     if facts.core_pipe_to_systemd and not facts.system_journal_readable:
         missing.append("core dump: diario do sistema ilegivel (nenhum registro do kernel lido)")
     if facts.core_pipe_to_systemd and not facts.user_scope:
         missing.append("core dump: systemd-run --user --scope indisponivel (sem escopo proprio)")
-    return ("reprovar", missing) if missing else ("medir", [])
+    if missing:
+        return "reprovar", notes + missing
+    if facts.core_pipe_to_systemd and not facts.docker_cli:
+        notes.append("LIMITE DECLARADO: sem docker, nao ha registro do kernel nosso na janela; "
+                     "valem a leitura antes e a de depois")
+    return "medir", notes
 
 
 def judge(avc_records: list[dict] | None, dump_records: list[dict] | None, mcs: str,
@@ -183,10 +218,14 @@ HOUSE_IMAGE = "glintfx-devbuild:verify"
 SENTINEL_TAG = "glintfx-host-alert-gate"
 
 
-def journal(filters: list[str]) -> list[dict] | None:
-    """Registros do diario pelos filtros dados, ou None se o journalctl falhar."""
-    done = subprocess.run(["journalctl", "-o", "json", "--no-pager", *filters],
-                          capture_output=True, text=True)
+def journal(filters: list[str], run=subprocess.run) -> list[dict] | None:
+    """Registros do diario pelos filtros dados, ou None se o journalctl falhar ou faltar."""
+    try:
+        done = run(["journalctl", "-o", "json", "--no-pager", *filters],
+                   capture_output=True, text=True)
+    except OSError as error:
+        print(f"journalctl indisponivel: {error}")
+        return None
     if done.returncode != 0:
         print(f"journalctl {' '.join(filters)} saiu {done.returncode}: {done.stderr.strip()}")
         return None
@@ -197,23 +236,49 @@ def journal_since(since: float, filters: list[str]) -> list[dict] | None:
     return journal(["--since", f"@{since:.6f}", *filters])
 
 
-def has_records(filters: list[str]) -> bool:
+def has_records(filters: list[str], run=subprocess.run) -> bool:
     """Legivel por CONTEUDO: ao menos um registro (sem permissao, o journalctl sai 0 vazio)."""
-    return bool(journal([*filters, "-n", "1"]))
+    return bool(journal([*filters, "-n", "1"], run))
 
 
-def host_facts() -> HostFacts:
-    enforce = Path("/sys/fs/selinux/enforce")
-    pattern = Path("/proc/sys/kernel/core_pattern").read_text().strip()
+def runs_ok(command: list[str], run=subprocess.run) -> bool:
+    """O comando roda e sai 0; o programa que falta (OSError) e False, nunca um traceback."""
+    try:
+        return run(command, capture_output=True).returncode == 0
+    except OSError:
+        return False
+
+
+def host_facts(root: Path = Path("/"), run=subprocess.run) -> HostFacts:
+    """Os fatos deste hospedeiro; `root` e `run` existem para o selftest dar /sys, /proc e os
+    programas de mentira (alertas-fix2: host_facts nao tinha celula nenhuma)."""
+    enforce = root / "sys/fs/selinux/enforce"
+    pattern_file = root / "proc/sys/kernel/core_pattern"
+    pattern = pattern_file.read_text().strip() if pattern_file.exists() else ""
     return HostFacts(
-        selinux_enforcing=enforce.exists() and enforce.read_text().strip() == "1",
+        selinux_enabled=enforce.exists(),
         core_pipe_to_systemd=pattern.startswith("|") and "systemd-coredump" in pattern,
-        docker_image=subprocess.run(["docker", "image", "inspect", HOUSE_IMAGE],
-                                    capture_output=True).returncode == 0,
-        audit_readable=has_records(["_TRANSPORT=audit"]),
-        system_journal_readable=has_records(["_TRANSPORT=kernel"]),
-        user_scope=subprocess.run(["systemd-run", "--user", "--scope", "--quiet", "true"],
-                                  capture_output=True).returncode == 0)
+        docker_cli=runs_ok(["docker", "--version"], run),
+        docker_image=runs_ok(["docker", "image", "inspect", HOUSE_IMAGE], run),
+        audit_readable=has_records(["_TRANSPORT=audit"], run),
+        system_journal_readable=has_records(["_TRANSPORT=kernel"], run),
+        user_scope=runs_ok(["systemd-run", "--user", "--scope", "--quiet", "true"], run))
+
+
+def window_gaps(facts: HostFacts, container_ran: bool, audit_records: list[dict],
+                kernel_records: list[dict], run=subprocess.run) -> list[str]:
+    """O que falta para a leitura valer na JANELA: os registros que a partida do conteiner da casa
+    deixa (auditoria e kernel), e o diario ainda legivel DEPOIS da leitura (alertas-fix2)."""
+    gaps = []
+    if avc_applies(facts) and container_ran and not audit_records:
+        gaps.append("nenhum registro de auditoria na janela, nem os da partida do conteiner")
+    if facts.core_pipe_to_systemd and container_ran and not kernel_records:
+        gaps.append("nenhum registro do kernel na janela, nem os da rede do conteiner")
+    if avc_applies(facts) and not has_records(["_TRANSPORT=audit"], run):
+        gaps.append("o diario de auditoria ficou ilegivel depois da leitura")
+    if facts.core_pipe_to_systemd and not has_records(["_TRANSPORT=kernel"], run):
+        gaps.append("o diario do sistema ficou ilegivel depois da leitura")
+    return gaps
 
 
 def run_house_container(repo: Path) -> tuple[str, str, list[str]]:
@@ -263,17 +328,26 @@ def measure(repo: Path, python: str, facts: HostFacts) -> int:
     since = time.time()
     scope = f"glintfx-host-alert-gate-{os.getpid()}"
     host_rc = run_host_selftest(repo, python, scope, facts.core_pipe_to_systemd)
-    cid, mcs, sources = run_house_container(repo) if facts.docker_image else ("", "", [])
+    try:
+        cid, mcs, sources = run_house_container(repo) if facts.docker_image else ("", "", [])
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f"REPROVADO: o conteiner da casa nao subiu (fonte ausente): {error}")
+        return 1
     foreign = [s for s in sources if Path(s).resolve() != repo.resolve()]
     print(f"montagens: {len(sources)}, fora do repositorio: {foreign}")
-    if (facts.selinux_enforcing and not mcs) or not wait_for_sentinel(
+    if (avc_applies(facts) and not mcs) or not wait_for_sentinel(
             since, f"marca-{os.getpid()}-{since:.0f}"):
         print("REPROVADO: sem categoria MCS do conteiner ou sem ler o diario na janela")
         return 1
-    avc_records = journal_since(since, ["_TRANSPORT=audit"]) if facts.selinux_enforcing else []
+    avc_records = journal_since(since, ["_TRANSPORT=audit"]) if avc_applies(facts) else []
     dump_records = (journal_since(since, [f"MESSAGE_ID={COREDUMP_MESSAGE_ID}"])
                     if facts.core_pipe_to_systemd else [])
-    result = judge(avc_records, dump_records, mcs, f"{scope}.scope", cid)
+    kernel_records = (journal_since(since, ["_TRANSPORT=kernel"])
+                      if facts.core_pipe_to_systemd and cid else [])
+    gaps = window_gaps(facts, bool(cid), avc_records or [], kernel_records or [])
+    for gap in gaps:
+        print(f"REPROVADO: fonte ausente na janela: {gap}")
+    result = 1 if gaps else judge(avc_records, dump_records, mcs, f"{scope}.scope", cid)
     if host_rc != 0 or foreign:
         print("REPROVADO: o selftest do hospedeiro falhou, ou o conteiner montou algo fora do repo")
         return 1

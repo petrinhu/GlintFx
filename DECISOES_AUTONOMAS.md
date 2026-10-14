@@ -9515,3 +9515,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os cosméticos e a recusa do cosmético 3 estão fechados. Os 211 erros do clang-tidy no preci do revisor reprovam igual no pai: é o ambiente da cópia dele.
   - É a segunda volta pelo mesmo motivo. Pela L-42, busca na web antes da terceira tentativa.
   - Pedido ao CTO a92de40e: decidir entre uma T4a-fix2 e uma célula de pixel na T4b que mate S3 e S4. Inferência do main a conferir: o efeito de q só fica observável quando o fragmento divide por q, ou seja, na T4b.
+- **11:19, CI 38575186902 sobre 33d69d62 VERDE** (26 jobs, zero falhas): alertas-fix3, T4a-fix1 e S5-A-fix3 juntas. **HOST-ALERT-GATE fechado**: conferência limpa e CI verde. Ele não tem linha na tabela do TODO.md (só ID de commit), então não há Status a tocar. Se o fp_contract_test roda de fato no Windows, quem confere é o revisor da fix3.

@@ -47,6 +47,14 @@ namespace {
         return &report.pieces_refused_too_many_vertices;
     case gltfx_draw_2d_refusal::pixel_position_out_of_range:
         return &report.pieces_refused_pixel_position_out_of_range;
+    case gltfx_draw_2d_refusal::texture_not_open:
+        return &report.pieces_refused_texture_not_open;
+    case gltfx_draw_2d_refusal::texture_other_renderer:
+        return &report.pieces_refused_texture_other_renderer;
+    case gltfx_draw_2d_refusal::region_out_of_range:
+        return &report.pieces_refused_region_out_of_range;
+    case gltfx_draw_2d_refusal::degenerate_quad:
+        return &report.pieces_refused_degenerate_quad;
     case gltfx_draw_2d_refusal::none:
         return nullptr;
     }

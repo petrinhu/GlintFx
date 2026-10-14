@@ -62,12 +62,23 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     // that is not a finite number. A position outside the surface is NOT
     // this: it is drawn, and simply covers no pixel.
     pixel_position_out_of_range = 8,
+    // Appended by R2D-TEXTURE T4b-A (D-W8-290, the one list of the texture
+    // reasons): the texture of a drawing call is released or was never
+    // opened; it belongs to another renderer; the source region reaches
+    // outside the texture; or the four corners of a textured quadrilateral
+    // define no projective mapping (three on one line, edges that cross, or
+    // a corner pointing inward).
+    texture_not_open = 9,
+    texture_other_renderer = 10,
+    region_out_of_range = 11,
+    degenerate_quad = 12,
 };
 
 // The token for `reason`: "none", "not_a_number", "infinite",
 // "negative_size", "index_out_of_range", "count_not_multiple_of_three",
-// "unknown_option", "too_many_vertices" or "pixel_position_out_of_range". A
-// value this build does not
+// "unknown_option", "too_many_vertices", "pixel_position_out_of_range",
+// "texture_not_open", "texture_other_renderer", "region_out_of_range" or
+// "degenerate_quad". A value this build does not
 // know (a newer glintfx crossing the library boundary) reads "unknown"
 // (docs/api-conventions.md R4). The returned text lives as long as the
 // program.
@@ -84,9 +95,11 @@ struct gltfx_frame_2d_report {
     // finite number, a rectangle with a negative width or height, a line with
     // a negative thickness, a rectangle outline with a negative thickness, an
     // index out of range, a count that is not a
-    // multiple of three, an unknown option, too many vertices, or a position
+    // multiple of three, an unknown option, too many vertices, a position
     // whose pixel coordinate is out of the range the vertex program can
-    // scale. The frame goes on without them; this is not an error of the
+    // scale, a texture that is not open or belongs to another renderer, a
+    // source region outside its texture, or a textured quadrilateral with no
+    // projective mapping. The frame goes on without them; this is not an error of the
     // frame. The counters at the end of this struct, one per reason, add up
     // to this one.
     std::uint64_t pieces_refused = 0;
@@ -129,6 +142,11 @@ struct gltfx_frame_2d_report {
     std::uint64_t pieces_refused_unknown_option = 0;
     std::uint64_t pieces_refused_too_many_vertices = 0;
     std::uint64_t pieces_refused_pixel_position_out_of_range = 0;
+    // Appended by R2D-TEXTURE T4b-A, one per texture reason.
+    std::uint64_t pieces_refused_texture_not_open = 0;
+    std::uint64_t pieces_refused_texture_other_renderer = 0;
+    std::uint64_t pieces_refused_region_out_of_range = 0;
+    std::uint64_t pieces_refused_degenerate_quad = 0;
 };
 
 } // namespace glintfx

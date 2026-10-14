@@ -304,6 +304,14 @@ namespace {
         return &report.pieces_refused_too_many_vertices;
     case gltfx_draw_2d_refusal::pixel_position_out_of_range:
         return &report.pieces_refused_pixel_position_out_of_range;
+    case gltfx_draw_2d_refusal::texture_not_open:
+        return &report.pieces_refused_texture_not_open;
+    case gltfx_draw_2d_refusal::texture_other_renderer:
+        return &report.pieces_refused_texture_other_renderer;
+    case gltfx_draw_2d_refusal::region_out_of_range:
+        return &report.pieces_refused_region_out_of_range;
+    case gltfx_draw_2d_refusal::degenerate_quad:
+        return &report.pieces_refused_degenerate_quad;
     default:
         return nullptr;
     }
@@ -314,7 +322,9 @@ namespace {
     return r.pieces_refused_not_a_number + r.pieces_refused_infinite +
            r.pieces_refused_negative_size + r.pieces_refused_index_out_of_range +
            r.pieces_refused_count_not_multiple_of_three + r.pieces_refused_unknown_option +
-           r.pieces_refused_too_many_vertices + r.pieces_refused_pixel_position_out_of_range;
+           r.pieces_refused_too_many_vertices + r.pieces_refused_pixel_position_out_of_range +
+           r.pieces_refused_texture_not_open + r.pieces_refused_texture_other_renderer +
+           r.pieces_refused_region_out_of_range + r.pieces_refused_degenerate_quad;
 }
 
 } // namespace
@@ -324,7 +334,7 @@ namespace {
 // (D-W8-30). The k-th reason of the list (counting from 1) is refused k times, so a swap of two
 // counters shows.
 GLINTFX_TEST(frame_report_tally_each_reason_has_its_own_counter) {
-    const std::array<gltfx_draw_2d_refusal, 8> reasons{
+    const std::array<gltfx_draw_2d_refusal, 12> reasons{
         gltfx_draw_2d_refusal::not_a_number,
         gltfx_draw_2d_refusal::infinite,
         gltfx_draw_2d_refusal::negative_size,
@@ -333,6 +343,10 @@ GLINTFX_TEST(frame_report_tally_each_reason_has_its_own_counter) {
         gltfx_draw_2d_refusal::unknown_option,
         gltfx_draw_2d_refusal::too_many_vertices,
         gltfx_draw_2d_refusal::pixel_position_out_of_range,
+        gltfx_draw_2d_refusal::texture_not_open,
+        gltfx_draw_2d_refusal::texture_other_renderer,
+        gltfx_draw_2d_refusal::region_out_of_range,
+        gltfx_draw_2d_refusal::degenerate_quad,
     };
     frame_tally tally;
     tally.begin_frame();
@@ -373,4 +387,24 @@ GLINTFX_TEST(frame_report_tally_the_pixel_position_reason_is_eight_with_its_toke
     const auto r = tally.last_report();
     GLINTFX_CHECK_EQ(r.pieces_refused_pixel_position_out_of_range, std::uint64_t{1});
     GLINTFX_CHECK(r.first_refusal == gltfx_draw_2d_refusal::pixel_position_out_of_range);
+}
+
+// R2D-TEXTURE T4b-A (D-W8-290): the four texture reasons, appended after the eighth (values 9 to
+// 12, never renumbered), and their public tokens, written here as literals.
+GLINTFX_TEST(frame_report_tally_the_texture_reasons_are_nine_to_twelve_with_their_tokens) {
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::texture_not_open), 9);
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::texture_other_renderer), 10);
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::region_out_of_range), 11);
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::degenerate_quad), 12);
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::texture_not_open) ==
+                  "texture_not_open");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::texture_other_renderer) ==
+                  "texture_other_renderer");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::region_out_of_range) ==
+                  "region_out_of_range");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::degenerate_quad) ==
+                  "degenerate_quad");
+    // The next value is still unknown to this build (R4).
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(static_cast<gltfx_draw_2d_refusal>(13)) == "unknown");
 }

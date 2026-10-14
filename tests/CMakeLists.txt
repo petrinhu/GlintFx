@@ -1694,6 +1694,26 @@ target_sources(ellipse_pixels_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-TEXTURE T4b, etapa A: the pure atoms of the textured drawing: the weights that make a quadrilateral projective,
+# where the corners read the texture (with the mirroring), and the checks of one call. No GL, no window.
+glintfx_add_test(projective_quad_test)
+target_include_directories(projective_quad_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(projective_quad_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+)
+
+glintfx_add_test(texture_region_uv_test)
+target_include_directories(texture_region_uv_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_region_uv_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
+)
+
+glintfx_add_test(texture_region_check_test)
+target_include_directories(texture_region_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_region_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_check.cpp"
+)
+
 glintfx_add_test(gl_load_refusal_test)
 target_include_directories(gl_load_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gl_load_refusal_test PRIVATE

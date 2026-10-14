@@ -23,6 +23,14 @@ std::string_view gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal reason) noexce
         return "too_many_vertices";
     case gltfx_draw_2d_refusal::pixel_position_out_of_range:
         return "pixel_position_out_of_range";
+    case gltfx_draw_2d_refusal::texture_not_open:
+        return "texture_not_open";
+    case gltfx_draw_2d_refusal::texture_other_renderer:
+        return "texture_other_renderer";
+    case gltfx_draw_2d_refusal::region_out_of_range:
+        return "region_out_of_range";
+    case gltfx_draw_2d_refusal::degenerate_quad:
+        return "degenerate_quad";
     }
     return "unknown"; // a value a NEWER glintfx produced (docs/api-conventions.md R4)
 }

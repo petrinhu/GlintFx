@@ -35,6 +35,9 @@ target_sources(glintfx_library PRIVATE
     texture_release_queue.cpp
     texture_2d_facade.cpp
     renderer_2d_facade_textures.cpp
+    projective_quad.cpp
+    texture_region_uv.cpp
+    texture_region_check.cpp
     texture_sampling.cpp
     mipmap_chain.cpp
     kept_texels.cpp

@@ -37,6 +37,8 @@
 
 - **Errata da T3-fix1 (CTO, 14/10/2026; D-W8-383 e D-W8-384; achados IMPORTANTE-1 e IMPORTANTE-2 da revisão N1 da T3):** (1) O custo de memória: a cerca de `updatable` e a de `update_texture` diziam "about 4/3 of width x height x 4 bytes", que só vale para textura quadrada com todos os níveis; a conta da revisão dá 1,999 para 1024 × 1 com 10 níveis reduzidos. As duas passam a dar a regra exata (4 bytes por texel dos níveis 0 a k, o nível i com max(1, largura >> i) × max(1, altura >> i) texels), o intervalo (pelo menos largura × altura × 4 bytes, sempre menos que o dobro), um exemplo de cada extremo e um do meio, e que é memória da biblioteca na CPU, além do que o driver guardar. (2) A recusa da placa: o bloco guardado mudava antes da escrita e ficava com os texels recusados, que um update posterior mandava à placa. A cerca de `update_texture` passa a dizer o estado depois de cada recusa: sem memória na biblioteca, nada tocado; recusa da placa, a memória da biblioteca volta exatamente ao que era, e os texels recusados nunca chegam à placa depois; na placa, o retângulo e os texels reduzidos que ele toca ficam indeterminados até um update que o cubra dar certo; com out_of_memory da placa, o OpenGL deixa o estado inteiro indefinido, e o caminho de volta é refazer a textura. Todo erro GL que a escrita levantou é lido pela chamada, e nenhum fica para uma chamada seguinte. Promessa pública: vai à ratificação do líder como errata.
 
+- **Errata da T4b-A (CTO, 14/10/2026; D-W8-455 a 462 e D-W8-464):** (1) a tinta que o consumidor não escolhe é BRANCO OPACO, `{1, 1, 1, 1}`, em `gltfx_texture_paint::tint` e em `gltfx_textured_vertex_2d::tint`: decisão do líder via AskUserQuestion, 14/10/2026 (D-W8-464); a cerca abaixo já mostra o valor novo. (2) A cerca de `texture_region.hpp` entra com o `Proved by:` de `texture_region_uv_test` (a leitura em pixels de cada espelho, `texture_region_mirror_test`, entra na T4b-B junto com o teste, D-W8-374); sem a frase de `draw_shadow_texture`, método da H3 que ainda não existe; e com as cinco recusas que tocam a região (D-W8-461). (3) `degenerate_quad` inclui o quadrilátero côncavo: o critério da cerca é "não define mapeamento projetivo", e o côncavo não define (D-W8-460). A tinta de `gltfx_atlas_paint`, mais abaixo, continua `tint{}` até decisão própria.
+
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
 ---
@@ -293,7 +295,7 @@ struct gltfx_texture_region {
 // shadow. Grouping keeps each drawing call within four parameters.
 struct gltfx_texture_paint {
     gltfx_texture_region region{};
-    gltfx_rgba tint{};
+    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F}; // D-W8-464
 };
 
 // The vertex of the textured triangles. Position in WORLD space, like
@@ -305,7 +307,7 @@ struct gltfx_texture_paint {
 // `texel` is in texel units of the texture being drawn.
 struct gltfx_textured_vertex_2d {
     gltfx_vec2_world position{};
-    gltfx_rgba tint{};
+    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F}; // D-W8-464
     gltfx_vec2_texel texel{};
 };
 

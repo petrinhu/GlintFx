@@ -9571,3 +9571,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - L-17: `build_stroke` faz duas coisas.
   - Pedida ao CTO af139138 a ordem S5-B-fix1 (D-W8-485 a 492), depois da fix5.
   - As pastas `out-*` do root da revisão foram apagadas por contêiner (`rm` dentro do glintfx-devbuild:verify com a pasta montada).
+- **19:15, T4b-B1 recebida do CTO a92de40e** (ordem md5 a1fd7e41; 26 arquivos; os existentes entram por trecho trocado).
+  - Pré-execução: vermelho em 21 casos, verde, 10 de 10 mutantes, GL 106 e 31, preci 373, sanitizer 183, MSVC 14 de 14.
+  - D-W8-468: a T4b-B se divide em B1 (liga ao desenhador, prova por GL falso) e B2 (prova por pixel, D-W8-475 a 480).
+  - **D-W8-469, desempatada pelo advisor a favor do uniforme `u_textured`.** Teve 5 fontes, abaixo do piso. A textura branca de 1×1 inflaria `texture_switches`, que é público, e criaria um objeto GL que o consumidor nunca criou.
+  - A linha FALSO-POSITIVO-DA-REGUA foi ratificada sob condições: o cabeçalho do arquivo de exceções explica o marcador na própria B1; a INBOX ganha NOEXCEPT-GAUGE-NAME-PREFIX; o revisor roda a régua sem a linha e confirma um achado só.
+  - Seção 9 reforçada: mutante que remove o reset de `u_textured`, mais uma célula com lote sem textura depois de lote com textura.
+  - **LISTA DE RATIFICAÇÃO**, acrescentar: D-W8-471 (`texture_switches` no relatório público do quadro) e D-W8-473 (amostra antes da conversão sRGB, irmã da D-W8-304).
+  - INBOX: TEX-UNTEXTURED-IN-BATCH e NOEXCEPT-GAUGE-NAME-PREFIX.

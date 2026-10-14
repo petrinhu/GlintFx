@@ -9401,3 +9401,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **I-7**, que já existia antes desta fatia: `screen_radius` (`arc_segments.cpp:39-43`) devolve valor finito e ERRADO sem recusar. Com u=(1e78,0) e v=(0,1e76), devolve 7,07e77 no lugar de 1e78. Com u=(1e-100,0) e v=(0,1e-120), devolve 7,07e-101 no lugar de 1e-100. O spread zera quando S² ou 4D² estoura ou some, e o erro aparece em 34043 de 200000 afins.
   - **I-8:** o caminho escalado só é testado com entradas positivas; X2 e X5 sobrevivem.
   **A S5-A-fix2 foi pedida ao CTO a92de40e (D-W8-434 a 440), antes da rodada 21.**
+- **05:46, conferência mirada da H4-fix1 LIMPA** (`rev-h4-fix1.txt`, revisor a48aa90d).
+  - Os 8 sobreviventes morrem no teste comum, cada um num caso nomeado.
+  - As regressões novas N1 (escrita antes da recusa) e N3 (último vértice ignorado) também morrem.
+  - A maior função do teste tem 22 linhas.
+  - Os valores esperados são literais decididos, não calculados pela mesma fórmula do código.
+  - COSMÉTICO: comentários do teste citam IDs de revisão (`light_tint_test.cpp:215,224,232,247,265,377,387`), quando deveriam descrever o comportamento provado. Vai como nota na próxima ordem que tocar esse arquivo (H5).
+  - **A fatia H4 (R2D-SPRITE-SHADE) está fechada: 30f3867d e b2ebcd0f.**

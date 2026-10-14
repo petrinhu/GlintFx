@@ -9259,3 +9259,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Pré-execução:** todos os mutantes morrem (juiz 11/11, condutor 6/6, portão 2/2); o ensaio a seco dá 7/7; o autoteste do portão foi de 23 para 30 controles; preci 356/356.
   - **Acréscimo do CTO:** a linha de acerto do portão mostra a versão do Docker que a linha de base declara.
   - **Disco:** liberado pela regra da L-11, apagando as cópias de build da S4, da S4-fix1 e da fatia dos alertas, com os relatórios mantidos e os arquivos de root apagados por contêiner sem rede. O `min` foi de 23,49 para 26,10 GiB.
+- **00:07, revisão N3 do conserto dos alertas: NÃO LIMPA, com um CRÍTICO** (`/var/tmp/cto-w8/rev-alertas.txt`).
+  - **CRÍTICO-1:** quando o journalctl falha, a leitura vira lista vazia (`or []`) e o portão passa com 0 lidos, o que contraria a L-40. O revisor provou com um probe.
+  - **IMPORTANTE-3:** o mutante MR1 (o escopo comparado só pelo prefixo) sobrevive.
+  - **IMPORTANTE-2:** a fonte ausente devolve SKIP, e não reprovação. É escolha de desenho, decidida pelo CTO com a pesquisa das 10 queixas.
+  - **IMPORTANTE-4:** o AVC do autoteste cai em "alheios" sem limite.
+  - **Verificado:** o die_quietly não-dumpable e o PYTHONNOUSERSITE em todos os testes.
+  - O CTO escreve a alertas-fix1.

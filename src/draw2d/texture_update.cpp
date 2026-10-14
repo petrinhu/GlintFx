@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/texture_update.hpp"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -16,12 +15,14 @@
 #include "draw2d/mipmap_reduce.hpp"
 #include "draw2d/pixel_premultiply.hpp"
 #include "draw2d/pod_buffer.hpp"
+#include "draw2d/texture_update_kept.hpp"
 #include "gl_functions.hpp"
 
-// draw2d/texture_update.cpp - R2D-TEXTURE, fatia T3: the writing of texture_update.hpp, in its
-// order. Every GL enumerator below is the value of third_party/khronos/gl.xml, as in
-// texture_upload.cpp. The reduced texels are recomputed here from the kept texels, and only the
-// rectangle each level touches is written to the card.
+// draw2d/texture_update.cpp - R2D-TEXTURE, fatia T3 (T3-fix1: the kept texels left to
+// texture_update_kept.cpp, and given back when the card refuses): the writing of
+// texture_update.hpp, in its order. Every GL enumerator below is the value of
+// third_party/khronos/gl.xml, as in texture_upload.cpp. Only the rectangle each level touches is
+// written to the card.
 namespace glintfx::draw2d {
 
 namespace {
@@ -36,7 +37,6 @@ using render::gl_function_table;
 using render::GLenum;
 using render::GLint;
 using render::GLsizei;
-using render::GLuint;
 
 constexpr GLenum k_gl_texture_2d = 0x0DE1;
 constexpr GLenum k_gl_rgba = 0x1908;
@@ -50,13 +50,6 @@ constexpr GLenum k_gl_texture0 = 0x84C0;
 constexpr GLenum k_gl_no_error = 0;
 constexpr GLenum k_gl_out_of_memory = 0x0505;
 constexpr std::uint32_t k_max_error_drain = 32U;
-
-// Where one level lies in the kept block, and its size.
-struct level_plane {
-    std::size_t offset = 0U;
-    std::uint32_t width = 0U;
-    std::uint32_t height = 0U;
-};
 
 // One level as it goes to the card: its number, the rectangle written, the row length of the
 // texels read (0 for tightly packed rows) and the texels the rectangle is read from.
@@ -83,70 +76,6 @@ void drain_gl_errors(const gl_function_table &gl) noexcept {
 
 [[nodiscard]] std::uint32_t side_of(const covered_range &range) noexcept {
     return range.last - range.first + 1U;
-}
-
-[[nodiscard]] std::size_t texels_of(const level_plane &plane) noexcept {
-    return static_cast<std::size_t>(plane.width) * plane.height;
-}
-
-[[nodiscard]] level_plane plane_of(const texture_2d_impl &texture, std::uint32_t level) noexcept {
-    return level_plane{
-        .offset = level_offset(texture.width, texture.height, level),
-        .width = reduced_side(texture.width, level),
-        .height = reduced_side(texture.height, level),
-    };
-}
-
-// The texels of one level of the kept block, read-only.
-[[nodiscard]] std::span<const gltfx_rgba8> kept_level(texture_2d_impl &texture,
-                                                      const level_plane &plane) noexcept {
-    return std::span<const gltfx_rgba8>(texture.kept.texels())
-        .subspan(plane.offset, texels_of(plane));
-}
-
-// True when the kept block holds exactly the texels of every level of the texture.
-[[nodiscard]] bool kept_is_whole(texture_2d_impl &texture) noexcept {
-    const std::size_t texels =
-        chain_texel_count(texture.width, texture.height, texture.reduced_levels);
-    return texture.kept.texels().size() == texels;
-}
-
-// Level 0 of the kept block takes the stored texels of the rectangle, row by row. False when the
-// block does not hold the whole texture (never, by construction; never ignored).
-[[nodiscard]] bool keep_level_zero(texture_2d_impl &texture, const texel_rect &rect,
-                                   std::span<const gltfx_rgba8> stored) noexcept {
-    if (!kept_is_whole(texture)) {
-        return false;
-    }
-    const std::span<gltfx_rgba8> kept = texture.kept.texels();
-    const std::size_t width = side_of(rect.columns);
-    for (std::uint32_t row = rect.rows.first; row <= rect.rows.last; ++row) {
-        const std::size_t from = static_cast<std::size_t>(row - rect.rows.first) * width;
-        const std::size_t to = static_cast<std::size_t>(row) * texture.width + rect.columns.first;
-        std::copy_n(stored.begin() + static_cast<std::ptrdiff_t>(from), width,
-                    kept.begin() + static_cast<std::ptrdiff_t>(to));
-    }
-    return true;
-}
-
-// The rectangle of level `level` that the rectangle of the level above touches turns `rect` into
-// that rectangle (targets_touching(), both axes), and the texels in it are recomputed in the kept
-// block from the level above (reduce_region_to_next_level()). False when the block does not fit.
-[[nodiscard]] bool reduce_touched(texture_2d_impl &texture, std::uint32_t level,
-                                  texel_rect &rect) noexcept {
-    const level_plane above = plane_of(texture, level - 1U);
-    const level_plane here = plane_of(texture, level);
-    rect = texel_rect{
-        .columns = targets_touching(rect.columns, above.width, here.width),
-        .rows = targets_touching(rect.rows, above.height, here.height),
-    };
-    const std::span<gltfx_rgba8> kept = texture.kept.texels();
-    const source_level source{
-        .texels = kept_level(texture, above),
-        .width = above.width,
-        .height = above.height,
-    };
-    return reduce_region_to_next_level(source, kept.subspan(here.offset, texels_of(here)), rect);
 }
 
 // One level as the card receives it: the unpack state of its rectangle, then glTexSubImage2D.
@@ -181,44 +110,84 @@ void reset_unpack(const gl_function_table &gl) noexcept {
     gl.glPixelStorei(k_gl_unpack_skip_pixels, 0);
 }
 
-// The reduced levels, from the first to the last: each one recomputed where the change touches it,
-// then written to the card at that rectangle, from the kept block, with the row length of the
-// level.
-[[nodiscard]] bool write_reduced_levels(const gl_function_table &gl, texture_2d_impl &texture,
-                                        texel_rect rect) noexcept {
-    for (std::uint32_t level = 1U; level <= texture.reduced_levels; ++level) {
-        if (!reduce_touched(texture, level, rect)) {
-            return false;
-        }
-        const level_plane plane = plane_of(texture, level);
-        write_level(gl, level_write{.level = level,
-                                    .rect = rect,
-                                    .row_length = plane.width,
-                                    .texels = kept_level(texture, plane)});
-    }
-    return true;
-}
-
-// The GL writes of an accepted update: the state prepared, level 0 from the stored texels, the
-// reduced levels, the state left as it was, and the first error after the writes.
-[[nodiscard]] gltfx_rslt<void> write_to_card(const gl_function_table &gl, texture_2d_impl &texture,
-                                             const texel_rect &rect,
-                                             std::span<const gltfx_rgba8> stored) noexcept {
-    prepare_writes(gl, texture);
-    write_level(gl, level_write{.level = 0U, .rect = rect, .row_length = 0U, .texels = stored});
-    const bool reduced = texture.reduced_levels == 0U || write_reduced_levels(gl, texture, rect);
+// After the writes: the state left as it was, the binding at zero, and the first GL error named:
+// GL_OUT_OF_MEMORY is out_of_memory, any other is platform_failure, with the GL code. The errors
+// after the first are drained too (OpenGL keeps one flag per kind), so none is left to be blamed on
+// a later call of the consumer.
+[[nodiscard]] gltfx_rslt<void> finish_writes(const gl_function_table &gl) noexcept {
     reset_unpack(gl);
     const GLenum error = gl.glGetError();
+    drain_gl_errors(gl); // the flags after the first: none is blamed on a later call
     gl.glBindTexture(k_gl_texture_2d, 0);
-    if (!reduced) {
-        return gltfx_rslt<void>::err(update_refusal(gltfx_err_code::unknown, 0));
-    }
     if (error == k_gl_no_error) {
         return gltfx_rslt<void>::ok();
     }
     const gltfx_err_code code = error == k_gl_out_of_memory ? gltfx_err_code::out_of_memory
                                                             : gltfx_err_code::platform_failure;
     return gltfx_rslt<void>::err(update_refusal(code, static_cast<std::int64_t>(error)));
+}
+
+// A texture that keeps nothing: level 0 written at the rectangle from the stored texels, tightly
+// packed.
+[[nodiscard]] gltfx_rslt<void> write_stored(const gl_function_table &gl,
+                                            const texture_2d_impl &texture, const texel_rect &rect,
+                                            std::span<const gltfx_rgba8> stored) noexcept {
+    prepare_writes(gl, texture);
+    write_level(gl, level_write{.level = 0U, .rect = rect, .row_length = 0U, .texels = stored});
+    return finish_writes(gl);
+}
+
+// The kept block of the texture, as texture_update_kept.hpp reads it.
+[[nodiscard]] kept_chain chain_of(texture_2d_impl &texture) noexcept {
+    return kept_chain{.texels = texture.kept.texels(),
+                      .width = texture.width,
+                      .height = texture.height,
+                      .reduced_levels = texture.reduced_levels};
+}
+
+// Level `level` of the kept block as the card reads it: its touched rectangle, rows of the width
+// of that level, from the start of that level.
+[[nodiscard]] level_write kept_level_write(const kept_chain &chain, std::uint32_t level,
+                                           const texel_rect &rect) noexcept {
+    const std::uint32_t width = reduced_side(chain.width, level);
+    const std::size_t texels = static_cast<std::size_t>(width) * reduced_side(chain.height, level);
+    return level_write{.level = level,
+                       .rect = rect,
+                       .row_length = width,
+                       .texels =
+                           std::span<const gltfx_rgba8>(chain.texels)
+                               .subspan(level_offset(chain.width, chain.height, level), texels)};
+}
+
+// A texture with kept texels: every level, level 0 included, written at its touched rectangle from
+// the kept block.
+[[nodiscard]] gltfx_rslt<void> write_kept(const gl_function_table &gl,
+                                          const texture_2d_impl &texture, const kept_chain &chain,
+                                          const touched_levels &touched) noexcept {
+    prepare_writes(gl, texture);
+    for (std::uint32_t level = 0U; level < touched.count; ++level) {
+        write_level(gl, kept_level_write(chain, level, touched.rects[level]));
+    }
+    return finish_writes(gl);
+}
+
+// The update of a texture with kept texels: swapped into the kept block, written to the card from
+// it, and swapped back out when the card refuses, so the block is again what it was and no refused
+// texel can reach the card later (texture_update_kept.hpp). The second swap cannot fail where the
+// first passed (same block, same rectangle, same buffer); if it ever did, the refusal says so.
+[[nodiscard]] gltfx_rslt<void> update_kept(const gl_function_table &gl, texture_2d_impl &texture,
+                                           const texel_rect &rect,
+                                           std::span<gltfx_rgba8> stored) noexcept {
+    const kept_chain chain = chain_of(texture);
+    touched_levels touched{};
+    if (!swap_update(chain, rect, stored, touched)) {
+        return gltfx_rslt<void>::err(update_refusal(gltfx_err_code::unknown, 0));
+    }
+    gltfx_rslt<void> written = write_kept(gl, texture, chain, touched); // not const: moved out
+    if (written.has_error() && !swap_update(chain, rect, stored, touched)) {
+        return gltfx_rslt<void>::err(update_refusal(gltfx_err_code::unknown, 0));
+    }
+    return written;
 }
 
 // The stored texels of the image, in the library's memory: the view is converted as the making
@@ -252,14 +221,10 @@ gltfx_rslt<void> update_texture_object(texture_2d_impl &texture, const texel_rec
         allocator.release(stored.data);
         return gltfx_rslt<void>::err(converted.err());
     }
-    const std::span<const gltfx_rgba8> texels(stored.data, stored.size);
-    if (texture.reduced_levels > 0U) {
-        if (!keep_level_zero(texture, rect, texels)) {
-            allocator.release(stored.data);
-            return gltfx_rslt<void>::err(update_refusal(gltfx_err_code::unknown, 0));
-        }
-    }
-    const gltfx_rslt<void> written = write_to_card(gl, texture, rect, texels);
+    const std::span<gltfx_rgba8> texels(stored.data, stored.size);
+    const gltfx_rslt<void> written = texture.reduced_levels > 0U
+                                         ? update_kept(gl, texture, rect, texels)
+                                         : write_stored(gl, texture, rect, texels);
     allocator.release(stored.data);
     return written;
 }

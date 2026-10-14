@@ -421,6 +421,17 @@ class gltfx_renderer_2d {
     //   - platform_failure, rejected_value() "texture_update": the card
     //     refused the writing for another reason (os_error_code() the GL
     //     code).
+    // Every GL error the writing raised is read by this call, so none is
+    // left for a later call to report. When the library runs out of
+    // memory, nothing was touched. When the card refuses (out_of_memory or
+    // platform_failure with a GL code), the library's memory is given back
+    // exactly as it was before the call, so no refused texel reaches the
+    // card through a later update; on the card, what the rectangle and the
+    // reduced texels it touches hold is unspecified until an update that
+    // covers the rectangle succeeds (OpenGL ignores the write it refuses,
+    // not the writes before it). After out_of_memory from the card, OpenGL
+    // leaves its whole state undefined: the texture's content on the card
+    // is unspecified, and the way back is to make the texture again.
     //
     // An image with no width or no height is an empty update: once the
     // checks above pass, the call succeeds and does nothing (no texel
@@ -434,9 +445,10 @@ class gltfx_renderer_2d {
     // A texture with reduced levels has the reduced texels the change
     // touches recomputed, exactly as create_texture() computes them. For
     // that, an updatable texture with reduced levels keeps the texels of
-    // every level in the library's memory too, about 4/3 of width x height
-    // x 4 bytes, from its creation to its destruction; any other texture
-    // keeps none.
+    // every level in the library's memory too, from its creation to its
+    // destruction: at least width x height x 4 bytes and less than twice
+    // that (gltfx_texture_2d_desc::updatable gives the exact count); any
+    // other texture keeps none.
     // Like create_texture(), this call makes this renderer's context current
     // before it touches GL, sets the pixel-unpack state it reads with (no
     // unpack buffer, alignment 1, row length and skips zero) and leaves it
@@ -446,7 +458,12 @@ class gltfx_renderer_2d {
     // Proved by: texture_update_test (the writing, over a fake GL: the
     // context first, the memory, the rectangle of each level, the reduced
     // texels equal to those of a texture made from the whole new image, the
-    // unpack state set and left so).
+    // unpack state set and left so; a writing the card refuses gives the
+    // library's memory back, leaves no GL error behind, and never reaches
+    // the card through a later update; the texels kept, counted).
+    // Proved by: texture_update_kept_test (the rectangle each level
+    // touches; the same swap twice gives the kept texels back, byte for
+    // byte).
     // Proved by: renderer_2d_impl_test (an update in an open frame sends
     // nothing; an empty update makes no GL call).
     // Proved by: draw2d_parity_test (this call on a real context, over a

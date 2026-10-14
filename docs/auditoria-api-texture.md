@@ -33,7 +33,9 @@
 
 - **Errata da T3, etapa A (CTO, 12/10/2026; D-W8-288):** o bloco de liberação de `texture_2d.hpp` entra como está na cerca (as linhas que a errata da T2a-B reservou à T3), junto com o teste que o prova (`renderer_2d_impl_test`). A fila que segura a textura destruída com o quadro aberto mora em `src/draw2d/texture_release_queue.hpp` e corre pelos próprios registros: segurar não pede memória e não falha. O relatório do quadro NÃO ganha contador de liberações adiadas: o layout da D-W8-30 é fechado para a onda, a DIV-T01 diz que o relatório "pode" contar (não que deve), e a liberação que falha já é dita pelo evento `texture_release_failed`. O último item do bloco cita `update_texture` em `renderer_2d.hpp`; o método nasce na etapa C desta mesma fatia.
 
-- **Errata da T3, etapa C (CTO, 12/10/2026; D-W8-288):** a cerca de `update_texture` passa a ser o texto que a T3 publica. (1) "A texture of another renderer is refused and counted as `texture_other_renderer`" era falso para este método: `update_texture` devolve `gltfx_rslt<void>`, e o relatório conta peças, não chamadas de textura (`frame_2d_report.hpp`, "WHAT A PIECE IS"); a textura de outro desenhador, e a alça que não está aberta, são recusadas como `invalid_argument`, `rejected_value()` "texture", sem contar. O motivo `texture_other_renderer` continua sendo dos métodos de desenho (T4). (2) A lista de recusas entra na ordem em que se aplicam, a mesma de `create_texture` para a vista e o contexto, mais "rect", e as falhas de memória e da placa com o token "texture_update". (3) Textura com níveis reduzidos: a mudança recalcula os texels reduzidos que ela toca, exatamente como a criação os calcula; para isso, a textura ATUALIZÁVEL com níveis reduzidos guarda os texels de todos os níveis na memória da biblioteca, cerca de 4/3 de largura × altura × 4 bytes. (3a) Campo público novo `gltfx_texture_2d_desc::updatable`, desligado por padrão (decisão do líder, verbatim: "Só quem declarar (Recomendado)"; como o sokol, o bgfx, o WebGPU, o Vulkan, o Direct3D e o Metal): ele governa `update_texture` para TODA textura, e não só as com níveis reduzidos (refinamento do advisor); atualizar uma textura que não o declarou é recusado como `invalid_argument`, `rejected_value()` "updatable", logo depois de "texture"; os texels só ficam guardados quando a textura é atualizável E tem níveis reduzidos. A cerca de `create_texture` e a do campo novo dizem isso; a sonda de colisão de nome público roda com ele. (3b) Imagem sem largura ou sem altura é atualização vazia: depois das outras verificações (a vista e o retângulo), a chamada dá sucesso e não faz nada, sem texel escrito, sem chamada GL e sem tornar o contexto corrente (décima consulta ao advisor: zero é recusado para OBJETOS que não podem existir e aceito para OPERAÇÕES vazias); o relatório do quadro não conta atualizações de textura, então não há contador a dizer zero. (4) O estado de desempacotamento e a ligação deixados são os de `create_texture`. (5) Os `Proved by` citam os testes que existem no commit.
+- **Errata da T3, etapa C (CTO, 12/10/2026; D-W8-288):** a cerca de `update_texture` passa a ser o texto que a T3 publica. (1) "A texture of another renderer is refused and counted as `texture_other_renderer`" era falso para este método: `update_texture` devolve `gltfx_rslt<void>`, e o relatório conta peças, não chamadas de textura (`frame_2d_report.hpp`, "WHAT A PIECE IS"); a textura de outro desenhador, e a alça que não está aberta, são recusadas como `invalid_argument`, `rejected_value()` "texture", sem contar. O motivo `texture_other_renderer` continua sendo dos métodos de desenho (T4). (2) A lista de recusas entra na ordem em que se aplicam, a mesma de `create_texture` para a vista e o contexto, mais "rect", e as falhas de memória e da placa com o token "texture_update". (3) Textura com níveis reduzidos: a mudança recalcula os texels reduzidos que ela toca, exatamente como a criação os calcula; para isso, a textura ATUALIZÁVEL com níveis reduzidos guarda os texels de todos os níveis na memória da biblioteca, com o custo corrigido na T3-fix1 (errata abaixo). (3a) Campo público novo `gltfx_texture_2d_desc::updatable`, desligado por padrão (decisão do líder, verbatim: "Só quem declarar (Recomendado)"; como o sokol, o bgfx, o WebGPU, o Vulkan, o Direct3D e o Metal): ele governa `update_texture` para TODA textura, e não só as com níveis reduzidos (refinamento do advisor); atualizar uma textura que não o declarou é recusado como `invalid_argument`, `rejected_value()` "updatable", logo depois de "texture"; os texels só ficam guardados quando a textura é atualizável E tem níveis reduzidos. A cerca de `create_texture` e a do campo novo dizem isso; a sonda de colisão de nome público roda com ele. (3b) Imagem sem largura ou sem altura é atualização vazia: depois das outras verificações (a vista e o retângulo), a chamada dá sucesso e não faz nada, sem texel escrito, sem chamada GL e sem tornar o contexto corrente (décima consulta ao advisor: zero é recusado para OBJETOS que não podem existir e aceito para OPERAÇÕES vazias); o relatório do quadro não conta atualizações de textura, então não há contador a dizer zero. (4) O estado de desempacotamento e a ligação deixados são os de `create_texture`. (5) Os `Proved by` citam os testes que existem no commit.
+
+- **Errata da T3-fix1 (CTO, 14/10/2026; D-W8-383 e D-W8-384; achados IMPORTANTE-1 e IMPORTANTE-2 da revisão N1 da T3):** (1) O custo de memória: a cerca de `updatable` e a de `update_texture` diziam "about 4/3 of width x height x 4 bytes", que só vale para textura quadrada com todos os níveis; a conta da revisão dá 1,999 para 1024 × 1 com 10 níveis reduzidos. As duas passam a dar a regra exata (4 bytes por texel dos níveis 0 a k, o nível i com max(1, largura >> i) × max(1, altura >> i) texels), o intervalo (pelo menos largura × altura × 4 bytes, sempre menos que o dobro), um exemplo de cada extremo e um do meio, e que é memória da biblioteca na CPU, além do que o driver guardar. (2) A recusa da placa: o bloco guardado mudava antes da escrita e ficava com os texels recusados, que um update posterior mandava à placa. A cerca de `update_texture` passa a dizer o estado depois de cada recusa: sem memória na biblioteca, nada tocado; recusa da placa, a memória da biblioteca volta exatamente ao que era, e os texels recusados nunca chegam à placa depois; na placa, o retângulo e os texels reduzidos que ele toca ficam indeterminados até um update que o cubra dar certo; com out_of_memory da placa, o OpenGL deixa o estado inteiro indefinido, e o caminho de volta é refazer a textura. Todo erro GL que a escrita levantou é lido pela chamada, e nenhum fica para uma chamada seguinte. Promessa pública: vai à ratificação do líder como errata.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -197,12 +199,20 @@ struct gltfx_texture_2d_desc {
     // default: the texture is fixed, and update_texture() refuses it by
     // name (invalid_argument, rejected_value() "updatable"). True: the
     // texture can be updated and, with reduced levels, keeps the texels of
-    // every level in the library's memory, about 4/3 of width x height x 4
-    // bytes, so that an update recomputes the reduced texels it touches
-    // (renderer_2d.hpp, update_texture()). A texture without reduced levels
+    // every level in the library's memory (on the CPU, besides whatever the
+    // graphics driver holds), from its creation to its destruction, so
+    // that an update recomputes the reduced texels it touches
+    // (renderer_2d.hpp, update_texture()). That is 4 bytes for each texel
+    // of levels 0 to k, k the reduced levels the texture has, level i
+    // having max(1, width >> i) x max(1, height >> i) texels: at least
+    // width x height x 4 bytes, and always less than twice that. It is
+    // about 4/3 of it for a square texture with every level (1024 x 1024:
+    // 1.333), nearly twice for a texture one texel high (256 x 1 with 8
+    // levels: 511 texels, 2044 bytes, 1.996), and in between otherwise
+    // (4096 x 2 with 12 levels: 1.5). A texture without reduced levels
     // keeps nothing either way.
     // Proved by: texture_update_test (the texels kept only by an updatable
-    // texture with reduced levels).
+    // texture with reduced levels, and how many a row and a square keep).
     // Proved by: texture_update_region_test (a texture made without it,
     // refused by name).
     bool updatable = false;
@@ -633,6 +643,17 @@ class gltfx_texture_atlas {
     //   - platform_failure, rejected_value() "texture_update": the card
     //     refused the writing for another reason (os_error_code() the GL
     //     code).
+    // Every GL error the writing raised is read by this call, so none is
+    // left for a later call to report. When the library runs out of
+    // memory, nothing was touched. When the card refuses (out_of_memory or
+    // platform_failure with a GL code), the library's memory is given back
+    // exactly as it was before the call, so no refused texel reaches the
+    // card through a later update; on the card, what the rectangle and the
+    // reduced texels it touches hold is unspecified until an update that
+    // covers the rectangle succeeds (OpenGL ignores the write it refuses,
+    // not the writes before it). After out_of_memory from the card, OpenGL
+    // leaves its whole state undefined: the texture's content on the card
+    // is unspecified, and the way back is to make the texture again.
     //
     // An image with no width or no height is an empty update: once the
     // checks above pass, the call succeeds and does nothing (no texel
@@ -646,9 +667,10 @@ class gltfx_texture_atlas {
     // A texture with reduced levels has the reduced texels the change
     // touches recomputed, exactly as create_texture() computes them. For
     // that, an updatable texture with reduced levels keeps the texels of
-    // every level in the library's memory too, about 4/3 of width x height
-    // x 4 bytes, from its creation to its destruction; any other texture
-    // keeps none.
+    // every level in the library's memory too, from its creation to its
+    // destruction: at least width x height x 4 bytes and less than twice
+    // that (gltfx_texture_2d_desc::updatable gives the exact count); any
+    // other texture keeps none.
     // Like create_texture(), this call makes this renderer's context current
     // before it touches GL, sets the pixel-unpack state it reads with (no
     // unpack buffer, alignment 1, row length and skips zero) and leaves it
@@ -658,7 +680,12 @@ class gltfx_texture_atlas {
     // Proved by: texture_update_test (the writing, over a fake GL: the
     // context first, the memory, the rectangle of each level, the reduced
     // texels equal to those of a texture made from the whole new image, the
-    // unpack state set and left so).
+    // unpack state set and left so; a writing the card refuses gives the
+    // library's memory back, leaves no GL error behind, and never reaches
+    // the card through a later update; the texels kept, counted).
+    // Proved by: texture_update_kept_test (the rectangle each level
+    // touches; the same swap twice gives the kept texels back, byte for
+    // byte).
     // Proved by: renderer_2d_impl_test (an update in an open frame sends
     // nothing; an empty update makes no GL call).
     // Proved by: draw2d_parity_test (this call on a real context, over a

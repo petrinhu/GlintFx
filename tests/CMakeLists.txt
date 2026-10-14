@@ -1863,6 +1863,7 @@ target_include_directories(texture_update_test PRIVATE
 )
 target_sources(texture_update_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
@@ -1872,6 +1873,18 @@ target_sources(texture_update_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
 )
+# R2D-TEXTURE T3-fix1: the kept texels of an updatable texture with reduced levels taking an update and giving it
+# back (texture_update_kept.hpp). Pure: no GL, no texture record.
+glintfx_add_test(texture_update_kept_test)
+target_include_directories(texture_update_kept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_update_kept_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
 # R2D-TEXTURE T3, etapa C: a texture record now owns its kept texels (kept_texels.hpp), so every target that makes
 # or frees a record compiles their ownership; the making keeps them in one block (mipmap_chain.hpp); and the
 # frame machine forwards update_texture() to its check and its writing.
@@ -1884,6 +1897,7 @@ target_sources(texture_release_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/src/dra
 target_sources(texture_update_region_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp")
 target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_check.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"

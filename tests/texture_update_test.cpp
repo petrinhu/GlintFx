@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <initializer_list>
 #include <map>
 #include <span>
@@ -33,6 +34,11 @@
 // rectangle pasted in), which the making computes level by level (mipmap_reduce_test). The touched
 // rectangles of each level are the brute-force values of contas_t3b.py (ordem T3, Anexo C), and the
 // stored bytes the literals of texture_upload_test (255, 0, 0, 128 is stored as 188, 0, 0, 128).
+//
+// T3-FIX1 (the N1 review of T3): a rectangle taller than wide (the touched rectangles of
+// contas_t3fix1.py, ordem T3-fix1, Anexo C); a writing the card refuses gives the kept texels back,
+// and the refused texels never reach the card through a later update (the reviewer's scenario);
+// and the converted texels are freed on every path, counted here by a counting allocator.
 //
 // A DECLARED DOWNGRADE (GODS_LAWS.md L-09): no window, no driver; the call on a real context is the
 // cell TU of draw2d_parity_test.
@@ -576,4 +582,162 @@ GLINTFX_TEST(the_library_running_out_of_memory_is_out_of_memory_with_no_write) {
     GLINTFX_CHECK(card.sub_uploads.empty());
     GLINTFX_CHECK(same_texels(texture->kept.texels(), kept_before));
     delete texture;
+}
+
+namespace {
+
+// The blocks the counting allocator made, and those it made and did not free yet (T3-fix1, MU8 of
+// the N1 review): the suite itself sees a converted block left behind, not only the leak sanitizer.
+int g_made_blocks = 0;
+int g_live_blocks = 0;
+
+void *counting_reallocate(void *block, std::size_t bytes) noexcept {
+    void *grown = std::realloc(block, bytes);
+    if (block == nullptr && grown != nullptr) {
+        ++g_made_blocks;
+        ++g_live_blocks;
+    }
+    return grown;
+}
+
+void counting_release(void *block) noexcept {
+    if (block != nullptr) {
+        --g_live_blocks;
+    }
+    std::free(block);
+}
+
+constexpr batch_allocator k_counting{&counting_reallocate, &counting_release};
+
+constexpr gltfx_rgba8 k_white{255, 255, 255, 255};
+
+} // namespace
+
+// contas_t3fix1.py: an 8 x 8 texture with 3 reduced levels and a 1 x 4 rectangle at (2, 0): level
+// 1 touches column 1, rows 0 to 1 (taller than wide), levels 2 and 3 their texel (0, 0). Every
+// level, level 0 too, is read from the kept texels with the row length of its level and the corner
+// of its rectangle, and the texture keeps the texels of one made from the whole new image.
+GLINTFX_TEST(a_rectangle_taller_than_wide_is_written_at_its_columns_and_rows) {
+    reset();
+    const std::vector<gltfx_rgba8> before = varied(8U, 8U, 1U);
+    const std::vector<gltfx_rgba8> patch_texels = varied(1U, 4U, 9U);
+    const texel_rect at{{2U, 2U}, {0U, 3U}};
+    texture_2d_impl *updated = made(image_of(before, 8U, 8U), 3U);
+    texture_2d_impl *whole = made(image_of(pasted(before, 8U, patch_texels, at), 8U, 8U), 3U);
+    card.sub_uploads.clear();
+    GLINTFX_CHECK(update_texture_object(*updated, at, view_of(image_of(patch_texels, 1U, 4U)),
+                                        default_batch_allocator())
+                      .has_value());
+    GLINTFX_CHECK(same_texels(updated->kept.texels(), whole->kept.texels()));
+    GLINTFX_CHECK_EQ(card.sub_uploads.size(), std::size_t{4});
+    if (card.sub_uploads.size() == 4U) {
+        GLINTFX_CHECK(same_rect(card.sub_uploads[0], 0, 2, 0, 1, 4));
+        GLINTFX_CHECK(same_rect(card.sub_uploads[1], 1, 1, 0, 1, 2));
+        GLINTFX_CHECK(same_rect(card.sub_uploads[2], 2, 0, 0, 1, 1));
+        GLINTFX_CHECK(same_rect(card.sub_uploads[3], 3, 0, 0, 1, 1));
+        GLINTFX_CHECK_EQ(card.sub_uploads[0].unpack.at(k_unpack_row_length), 8);
+        GLINTFX_CHECK_EQ(card.sub_uploads[0].unpack.at(k_unpack_skip_pixels), 2);
+        GLINTFX_CHECK(card.sub_uploads[0].bytes == rect_bytes(whole->kept.texels(), 0U, 8U, at));
+        GLINTFX_CHECK(card.sub_uploads[1].bytes ==
+                      rect_bytes(whole->kept.texels(), 64U, 4U, texel_rect{{1U, 1U}, {0U, 1U}}));
+    }
+    delete updated;
+    delete whole;
+}
+
+// IMPORTANTE-2 of the N1 review: the card refusing the writing, by GL_INVALID_OPERATION and by
+// GL_OUT_OF_MEMORY, leaves the kept texels exactly as they were before the call, and leaves no GL
+// error behind (each of the 4 writes raised one here) to be blamed on a later call.
+GLINTFX_TEST(a_writing_the_card_refuses_gives_the_kept_texels_back) {
+    reset();
+    texture_2d_impl *texture = made(image_of(varied(8U, 8U, 1U), 8U, 8U), 3U);
+    const std::vector<gltfx_rgba8> kept_before(texture->kept.texels().begin(),
+                                               texture->kept.texels().end());
+    const owned_image patch = image_of(varied(3U, 2U, 9U), 3U, 2U);
+    for (const GLenum refusal : {k_invalid_operation, k_out_of_memory}) {
+        card.error_queue.clear();
+        card.error_after_sub_upload = refusal;
+        const gltfx_rslt<void> result = update_texture_object(
+            *texture, texel_rect{{2U, 4U}, {3U, 4U}}, view_of(patch), default_batch_allocator());
+        GLINTFX_CHECK(result.has_error() &&
+                      result.err().os_error_code() == static_cast<std::int64_t>(refusal));
+        GLINTFX_CHECK(same_texels(texture->kept.texels(), kept_before));
+        GLINTFX_CHECK(card.error_queue.empty()); // no flag left for a later call
+    }
+    delete texture;
+}
+
+// The reviewer's scenario (N1 of T3): a 4 x 4 black texture with 2 reduced levels. Update A, red
+// 2 x 2 at (0, 0), is refused by the card; update B, white 1 x 1 at (1, 1), is accepted. B
+// recomputes texel (0, 0) of levels 1 and 2 from the kept texels: what it sends, and what the
+// texture keeps, are those of a texture made from the black image with ONLY the white texel. The
+// red of A never reaches the card.
+GLINTFX_TEST(a_refused_update_never_reaches_the_card_later) {
+    reset();
+    const std::vector<gltfx_rgba8> before(16U, gltfx_rgba8{0, 0, 0, 255});
+    const texel_rect b_at{{1U, 1U}, {1U, 1U}};
+    texture_2d_impl *texture = made(image_of(before, 4U, 4U), 2U);
+    texture_2d_impl *only_b = made(image_of(pasted(before, 4U, {k_white}, b_at), 4U, 4U), 2U);
+    const owned_image red =
+        image_of(std::vector<gltfx_rgba8>(4U, gltfx_rgba8{255, 0, 0, 255}), 2U, 2U);
+    card.error_after_sub_upload = k_invalid_operation;
+    GLINTFX_CHECK(refused_as(update_texture_object(*texture, texel_rect{{0U, 1U}, {0U, 1U}},
+                                                   view_of(red), default_batch_allocator()),
+                             gltfx_err_code::platform_failure, "texture_update",
+                             k_invalid_operation));
+    card.error_queue.clear();
+    card.error_after_sub_upload = 0;
+    card.sub_uploads.clear();
+    GLINTFX_CHECK(update_texture_object(*texture, b_at, view_of(image_of({k_white}, 1U, 1U)),
+                                        default_batch_allocator())
+                      .has_value());
+    GLINTFX_CHECK(same_texels(texture->kept.texels(), only_b->kept.texels()));
+    GLINTFX_CHECK_EQ(card.sub_uploads.size(), std::size_t{3});
+    if (card.sub_uploads.size() == 3U) {
+        GLINTFX_CHECK(card.sub_uploads[1].bytes ==
+                      rect_bytes(only_b->kept.texels(), 16U, 2U, texel_rect{{0U, 0U}, {0U, 0U}}));
+        GLINTFX_CHECK(card.sub_uploads[2].bytes ==
+                      rect_bytes(only_b->kept.texels(), 20U, 1U, texel_rect{{0U, 0U}, {0U, 0U}}));
+    }
+    delete texture;
+    delete only_b;
+}
+
+// MU8 of the N1 review: the converted texels are freed on every path, counted by the suite itself:
+// accepted and refused by the card, with and without reduced levels (4 blocks made, none left).
+GLINTFX_TEST(the_converted_texels_are_freed_on_every_path) {
+    reset();
+    g_made_blocks = 0;
+    g_live_blocks = 0;
+    texture_2d_impl *plain = made(image_of(varied(4U, 4U, 1U), 4U, 4U), 0U);
+    texture_2d_impl *reduced = made(image_of(varied(8U, 8U, 1U), 8U, 8U), 3U);
+    const owned_image patch = image_of(varied(3U, 2U, 9U), 3U, 2U);
+    for (const GLenum error : {GLenum{0}, k_invalid_operation}) {
+        card.error_queue.clear();
+        card.error_after_sub_upload = error;
+        for (texture_2d_impl *texture : {plain, reduced}) {
+            const gltfx_rslt<void> result = update_texture_object(
+                *texture, texel_rect{{1U, 3U}, {1U, 2U}}, view_of(patch), k_counting);
+            GLINTFX_CHECK_EQ(result.has_value(), error == 0U);
+            GLINTFX_CHECK_EQ(g_live_blocks, 0);
+        }
+    }
+    GLINTFX_CHECK_EQ(g_made_blocks, 4);
+    delete plain;
+    delete reduced;
+}
+
+// IMPORTANTE-1 of the N1 review: the memory an updatable texture with reduced levels keeps is 4
+// bytes for each texel of levels 0 to k (contas_t3fix1.py, section 2), about 4/3 of width x height
+// for a square texture with every level, and nearly twice for a texture one texel high, never
+// twice.
+GLINTFX_TEST(the_kept_texels_are_nearly_twice_a_row_and_about_four_thirds_a_square) {
+    reset();
+    texture_2d_impl *row = made(image_of(varied(256U, 1U, 1U), 256U, 1U), 8U);
+    texture_2d_impl *square = made(image_of(varied(16U, 16U, 1U), 16U, 16U), 4U);
+    GLINTFX_CHECK_EQ(row->kept.texels().size(), std::size_t{511}); // 256 + 128 + ... + 1
+    GLINTFX_CHECK(row->kept.texels().size() < std::size_t{2} * 256U);
+    GLINTFX_CHECK_EQ(square->kept.texels().size(), std::size_t{341}); // 256 + 64 + 16 + 4 + 1
+    delete row;
+    delete square;
 }

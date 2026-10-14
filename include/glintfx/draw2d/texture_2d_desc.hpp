@@ -54,12 +54,20 @@ struct gltfx_texture_2d_desc {
     // default: the texture is fixed, and update_texture() refuses it by
     // name (invalid_argument, rejected_value() "updatable"). True: the
     // texture can be updated and, with reduced levels, keeps the texels of
-    // every level in the library's memory, about 4/3 of width x height x 4
-    // bytes, so that an update recomputes the reduced texels it touches
-    // (renderer_2d.hpp, update_texture()). A texture without reduced levels
+    // every level in the library's memory (on the CPU, besides whatever the
+    // graphics driver holds), from its creation to its destruction, so
+    // that an update recomputes the reduced texels it touches
+    // (renderer_2d.hpp, update_texture()). That is 4 bytes for each texel
+    // of levels 0 to k, k the reduced levels the texture has, level i
+    // having max(1, width >> i) x max(1, height >> i) texels: at least
+    // width x height x 4 bytes, and always less than twice that. It is
+    // about 4/3 of it for a square texture with every level (1024 x 1024:
+    // 1.333), nearly twice for a texture one texel high (256 x 1 with 8
+    // levels: 511 texels, 2044 bytes, 1.996), and in between otherwise
+    // (4096 x 2 with 12 levels: 1.5). A texture without reduced levels
     // keeps nothing either way.
     // Proved by: texture_update_test (the texels kept only by an updatable
-    // texture with reduced levels).
+    // texture with reduced levels, and how many a row and a square keep).
     // Proved by: texture_update_region_test (a texture made without it,
     // refused by name).
     bool updatable = false;

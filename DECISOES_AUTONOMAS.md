@@ -9455,3 +9455,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - I-7 e I-8 fechados: zero erradas em 196000 afins, os 10 mutantes morrem e a escala é bit a bit igual em 14670 casos.
   - I-9 em aberto: o comentário em `arc_segments.cpp:36-40` promete os mesmos bits em todo sistema, mas `-ffp-contract=fast` muda 12082 de 196000 resultados em 1 ulp.
   - Pedida ao CTO a92de40e a decisão entre corrigir o texto e fixar `-ffp-contract=off`, como S5-A-fix3 (D-W8-441 a 444).
+- **08:46, revisão N1 da T4a NÃO LIMPA** (`rev-t4a.txt`, revisor abd30072, SHA 88a25412).
+  - Base 5 de 5 verde; layout de 9 floats coerente; 10 mutantes, 9 mortos.
+  - IMPORTANTE-1: o mutante R6 (o shader passa 1.0 no lugar de `a_texcoord_q`) sobrevive; a promessa "o programa entrega q ao fragmento" fica sem prova. Conserto de uma linha no teste de fonte.
+  - Três cosméticos (função de 39 linhas, comentário no presente, nome de teste em cabeçalho público) vão junto.
+  - Pedida ao CTO a92de40e a ordem T4a-fix1 (D-W8-445 a 449), depois da S5-A-fix3. Conserto mecânico, sem pesquisa de queixas (alcance confirmado da regra das 10 queixas).

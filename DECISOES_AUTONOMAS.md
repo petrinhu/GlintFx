@@ -9341,3 +9341,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - sanitizer 0;
   - portão ao vivo com 0 coredump e 0 AVC.
   Conferência mirada despachada ao revisor das duas rodadas (a03238e1). Se sair não limpa pela terceira vez, a próxima rodada é um redesenho do selftest (o oráculo), não uma fix3, conforme o advisor.
+- **04:26, revisão N1 da S5-A NÃO LIMPA** (`rev-s5a.txt`, revisor a77283fd): 6 IMPORTANTE, 0 CRÍTICO e 6 COSMÉTICO.
+  - **Mutantes:** M1, M2, M5 e M10 sobrevivem por lacuna de teste. M3 foi declarado equivalente em pixels. M4 só morre no ASan.
+  - **Teste:**
+    - I-1: a finitude fica sem caso em 7 das 12 coordenadas.
+    - I-2: o fallback do nível 7 não tem caso.
+    - I-3: o buffer de 2048 esconde a escrita além do room.
+    - I-6: a suíte mede a sagita pela própria fórmula. É teste copiado da implementação.
+  - **Contrato:**
+    - I-4: a garantia de 2^40 não traz a condição do teto de 1025 segmentos. Com r=1e6 e e=1e-9, o erro chega a 1122 vezes a tolerância.
+    - I-5: um raio finito de 1e78 é recusado com 0, coisa que o contrato não diz.
+  - **Sondas do revisor:** erro/e = 0,31 em 2^40 e 0,62 em 2^41 e 2^45; o limite de 2^40 é conservador.
+  - **Pedidos ao CTO a92de40e:** a mini-ordem S5-A-fix1 (D-W8-398 a 404) e, em seguida, a rodada 21 (T4a e S5-B; D-W8-405 a 420).
+  - **Lição repassada ao CTO:** ditar também as linhas que o lint costuma pegar.

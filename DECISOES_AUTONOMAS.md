@@ -9427,3 +9427,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Emenda pedida ao CTO antes do despacho: as duas exceções de paridade entram como 4º caminho do mesmo commit. O gêmeo Windows do portão foi para a INBOX.
 - **07:32, despachos:** S5-A-fix2 (`ordem-s5a-fix2.md` 92014e2a; D-W8-434: SVD 2x2 fechada com escala por potência de dois e caminho único; 12 queixas lidas; zero erradas em 200000 afins contra 34043 antes) ao implementador da S5-A. T4a (`ordem-t4a.md` 634d60cf; 8/8 mutantes; preci 362) ao implementador da T3. Saíram 81 cópias órfãs `/var/tmp/glintfx-blob-*` com mais de 30 minutos.
 - **07:44, emenda do redesenho dos alertas recebida e despachada ao implementador a4e46777** (`ordem-alertas-redesign.md` md5 676d6b88; anexos a3fd6281, com 29 linhas e `md5sum -c` verde). O 4º caminho é `tests/parity_exceptions.txt`, com `host_alert_gate_selftest` e `host_alert_gate_test` registrados como Linux por natureza, sem pendência. Pré-execução do CTO com os inventários do CI 38543250846: `--compare` e `--per-system` saem 1 sem os registros e 0 com eles; `--selftest` 73 controles. Depois do commit e do push, o CI deve mostrar os jobs Linux verdes (portão Skipped no contêiner) e a paridade verde.
+- **07:51, S5-A-fix2 commitada (b5a73c29, 3 caminhos, 146+/35-).**
+  - O main conferiu que os 3 blocos ditados (76, 43 e 223 linhas) estão inteiros no commit.
+  - Vermelho: a varredura deu 657 erradas em 4000.
+  - Verde: 4000/0. Os mutantes Q1 a Q10 morreram.
+  - preci 362. Sanitizer 172.
+  - Saíram as cópias de `s5afix2/snap` e das rodadas do CTO em `r21/s5afix2`.
+  - A conferência mirada foi despachada ao revisor da linha (a77283fd), veredito em `rev-s5a-fix2.txt`.

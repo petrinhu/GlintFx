@@ -1,4 +1,6 @@
 > **ESTRUTURA CANÔNICA DO ARQUIVO — NÃO QUEBRAR A TABELA:** título → preâmbulo (bullets) → `## INBOX` → `## TABELA UNIFICADA` (uma tabela só, 10 colunas com `WSJF` como primeira coluna, zero linha em branco dentro dela) → **EOF logo após a última linha da tabela**. Legenda, decisões pendentes e a fórmula do WSJF vivem em bullets no preâmbulo, nunca em tabela auxiliar (o detalhamento por item do WSJF vive na fonte, `lente-produto.md`, não neste arquivo). **Proibido:** segunda tabela; linha em branco dentro da tabela.
+- [triage CTO-T3fix1 14/10] `R2D-TEXTURE-CARD-STATE`: estado da textura na placa consultável e ressincronizar depois de recusa (símbolo público novo, exige revisão de API dedicada; origem D-W8-383, `ordem-t3-fix1.md`).
+- [triage CTO-T3fix1 14/10] `R2D-TEXTURE-KEPT-BYTES`: função pública que devolve os bytes guardados pela biblioteca para uma textura atualizável (símbolo público novo, exige revisão de API dedicada; origem D-W8-384).
 
 # TODO.md — GlintFx
 

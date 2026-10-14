@@ -9354,3 +9354,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Sondas do revisor:** erro/e = 0,31 em 2^40 e 0,62 em 2^41 e 2^45; o limite de 2^40 é conservador.
   - **Pedidos ao CTO a92de40e:** a mini-ordem S5-A-fix1 (D-W8-398 a 404) e, em seguida, a rodada 21 (T4a e S5-B; D-W8-405 a 420).
   - **Lição repassada ao CTO:** ditar também as linhas que o lint costuma pegar.
+- **04:36, H4 commitada (30f3867d, 9 caminhos, 663+/15-).** Rodada 2, com o desvio de lint autorizado: a forma `if (auto input_ok = ...)` da referência, conferida pelo main no blob, em `light_tint.cpp:55`. Vermelho 16/15 com 21 de 29 células. Verde 2/2. M1-M10 mortos. 15/15 linhas ditadas. preci 361/361. Sanitizer 0. O cabeçalho público declara a tinta com alfa 1 (`light_tint.hpp:43`, D-W8-397). Revisão N1 despachada a um revisor novo (qa-engineer haiku), com veredito em `rev-h4.txt`; o implementador não respondeu as cinco perguntas da L-17, e o revisor responde.

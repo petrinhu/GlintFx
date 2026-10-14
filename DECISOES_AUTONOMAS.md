@@ -9266,3 +9266,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **IMPORTANTE-4:** o AVC do autoteste cai em "alheios" sem limite.
   - **Verificado:** o die_quietly não-dumpable e o PYTHONNOUSERSITE em todos os testes.
   - O CTO escreve a alertas-fix1.
+- **00:10, a G2-fix1 parou no P0 por disco** (`min` 25,94, abaixo do piso de entrada de 26). O vermelho e o verde passaram, e nenhum contêiner de foto foi criado.
+  - **Limpeza pela L-11:** apagada `/var/tmp/cto-review-cisplit`, cópias do GlintFx de 29/09, de onda fechada e sem uso. Ela devolveu só 0,15 GiB, porque os dados eram divididos (reflink do btrfs). As outras pastas grandes de `/var/tmp` são de outros projetos ou do laboratório Windows, e não foram tocadas.
+  - **Retomada:** o implementador mede o `min` com a trava pesada na mão, quando a T3-C não constrói, e só constrói com 26 ou mais, como a ordem manda.
+  - **Atenção registrada:** no comando de limpeza, um caminho alternativo montava `/var/tmp` inteiro num contêiner com reetiquetagem `:z`. Ele NÃO rodou, porque a condição falhou. Esse padrão é proibido (memória "container rouba etiqueta de segurança"), e o main não o usa de novo.

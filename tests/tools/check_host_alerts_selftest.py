@@ -10,14 +10,18 @@
 # FECHADA de celulas, cada veredito escrito da regra do cabecalho do portao,
 # nunca lido da saida dele. Imprime celulas e falhas, sempre (L-40).
 #
-# REDESENHO (14/10/2026, D-W8-427 a D-W8-432): as celulas 45 a 57 e a 60 rodam
-# a MEDICAO inteira, measure() e live(), contra um hospedeiro de mentira
+# REDESENHO (14/10/2026, D-W8-427 a D-W8-432): as celulas 45 a 57, a 60 e a 62
+# rodam a MEDICAO inteira, measure() e live(), contra um hospedeiro de mentira
 # (FakeHost) passado pela costura `run`/`sleep` do portao. Um tropeco
 # (`no_real_process`) troca o subprocess.run de verdade por um erro durante essas
 # celulas: um caminho que escape da costura reprova a celula, em vez de rodar um
 # programa de verdade.
 # As celulas 58 a 61 (D-W8-433) sao o caso do CI de 14/10/2026: num conteiner,
 # fora do namespace de PID inicial, o core dump nao e mensuravel daqui.
+# alertas-fix3 (conferencia do redesenho, D-W8-450 a D-W8-454): a celula 62 e o
+# hospedeiro sem o CLI do docker com o core dump aplicavel (mede, passa e declara
+# o limite; o sobrevivente M10), e a 60 confere tambem a linha do LIMITE na saida
+# de live() (o sobrevivente M6).
 import io
 import json
 import os
@@ -313,13 +317,13 @@ def measured(**scene):
 
 
 def lived(enforce, pattern, pidns=None, **scene):
-    """(rc, programas chamados) de live() com raiz e hospedeiro de mentira."""
+    """(rc, programas chamados, saida) de live() com raiz e hospedeiro de mentira."""
     repo, root = fake_repo(), fake_root(enforce, pattern, pidns)
-    host = FakeHost(repo, **scene)
+    host, out = FakeHost(repo, **scene), io.StringIO()
     try:
-        with no_real_process(), redirect_stdout(io.StringIO()):
+        with no_real_process(), redirect_stdout(out):
             rc = gate.live(repo, "python3", host, lambda _seconds: None, root)
-        return rc, host.calls
+        return rc, host.calls, out.getvalue()
     finally:
         shutil.rmtree(repo)
         shutil.rmtree(root)
@@ -364,6 +368,13 @@ def live_cells():
             lambda: lived(None, "core\n")[0] == gate.SKIP)),
         ("57 live() com SELinux e systemd-coredump: mede ate o fim e passa", safe(
             lambda: (lambda r: r[0] == 0 and "logger" in r[1])(lived("1", PIPE)))),
+        # alertas-fix3 (M10): sem o CLI do docker nao ha conteiner nem registro do kernel nosso
+        # na janela; a falta do kernel so conta com o conteiner rodado (o LIMITE DECLARADO).
+        ("62 live() sem o CLI do docker, com core dump: mede, passa e declara o limite", safe(
+            lambda: (lambda r: r[0] == 0 and "logger" in r[1]
+                     and "host_alert_gate: LIMITE DECLARADO: sem docker" in r[2])(
+                lived(None, PIPE, INITIAL,
+                      **{"raise": {"docker": FileNotFoundError(2, "docker")}})))),
     ]
 
 
@@ -384,8 +395,11 @@ def container_cells():
         ("59 host_facts le o namespace de PID: o inicial sim, o do conteiner nao", safe(
             lambda: facts_of("1", PIPE, pidns=INITIAL).initial_pid_namespace is True
             and facts_of("1", PIPE, pidns=CONTAINER_NS).initial_pid_namespace is False)),
-        ("60 live() no conteiner do CI (sem journalctl, systemd-run, docker): 77", safe(
-            lambda: lived(None, PIPE, CONTAINER_NS, **{"raise": ABSENT})[0] == gate.SKIP)),
+        ("60 live() no conteiner do CI (sem journalctl, systemd-run, docker): 77 e o LIMITE", safe(
+            lambda: (lambda r: r[0] == gate.SKIP
+                     and "host_alert_gate: core dump nao se aplica" in r[2]
+                     and "LIMITE DECLARADO: quem mede o core dump" in r[2])(
+                lived(None, PIPE, CONTAINER_NS, **{"raise": ABSENT})))),
         ("61 AVC mensuravel e o core dump num conteiner: mede so o AVC", safe(
             lambda: gate.plan(facts(True, True, True, True, False, False, pidns=False))[0]
             == "medir")),
@@ -437,7 +451,7 @@ def main(argv: list[str]) -> int:
     for name in failed:
         print(f"check_host_alerts_selftest: FALHOU a celula {name}")
     print(f"check_host_alerts_selftest: celulas={len(table)} falhas={len(failed)}")
-    if len(table) < 61:
+    if len(table) < 62:
         print("check_host_alerts_selftest: menos celulas que o piso (varredura quebrada)")
         return 1
     return 1 if failed else 0

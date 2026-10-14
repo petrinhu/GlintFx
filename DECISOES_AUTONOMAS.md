@@ -9531,3 +9531,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Pedida ao CTO a ordem S5-A-fix4 (D-W8-465 a 467).
 - **Pendências que exigem sudo** (somam-se ao `/etc/cdi/nvidia.yaml`): cerca de 5 GiB em pastas `out-*` e `mut-*` de root em `/var/tmp/cto-w8/r21/*/run*`.
 - **14:26, líder perguntou pela diferença no disco: são partições distintas.** `/home` tem 735 GiB, com 347 livres; `/`, onde mora `/var/tmp`, tem 196 GiB, com 28,5 livres. Ele pediu para levar os builds para dentro do projeto. Pela LEI DAS LEIS, o main citou a L-11 item 4 e a L-55 condição 1, o que elas protegem (a sincronização do IDrive, as pastas do root, a etiqueta SELinux) e a alternativa de uma pasta na `/home` fora do IDrive. **Escolha do líder: "Cancelar, manter /var/tmp".** Nada muda. Daqui em diante, toda menção a disco nomeia a partição.
+- **14:36, ACHADO: limpeza com sudo às 14:32 apagou `/var/tmp/glintfx-win-lab` (o disco de 17 GB da VM Windows 11, o criar-vm.sh e o autounattend.xml) e `/var/tmp/preci`.**
+  - O journal registra o usuário petrus, PWD=/, com pedido de senha às 14:28:54. Os comandos: `xargs -0 rm -rf --` às 14:32:52, depois `journalctl --vacuum-size=500M`, `dnf5 clean all` e a remoção dos core dumps.
+  - Não veio desta sessão: o main e os agentes não rodaram sudo.
+  - Partição do sistema: de 22,9 para 64 GiB livres (min).
+  - A VM `glintfx-win11-lab` segue definida, mas sem disco. Não há snapshot da partição do sistema: `snapper -c rootfs list` só mostra o "current".
+  - Efeito na W8: nenhum bloqueio. O MSVC roda no contêiner `glintfx-msvc`, que segue intacto; G3 e G4 usam as placas da máquina. A pasta do preci se refaz sozinha.
+  - O líder foi informado. Recriar a VM vai à INBOX como decisão dele.

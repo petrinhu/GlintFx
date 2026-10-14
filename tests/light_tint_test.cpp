@@ -17,7 +17,8 @@
 #include "harness/test_registry.hpp"
 
 // light_tint_test.cpp - R2D-SPRITE-SHADE, H4 (docs/auditoria-api-sprite-shade.md, section 2.1;
-// decisions D-W8-325, D-W8-355, D-W8-380 and D-W8-397; GODS_LAWS.md L-17, L-20, L-21, L-40).
+// decisions D-W8-325, D-W8-355, D-W8-380, D-W8-397, and the fix1 decisions D-W8-421 to D-W8-426;
+// GODS_LAWS.md L-17, L-20, L-21, L-40).
 //
 // The expected values are FIXED here, written before the implementation existed. They come from
 // the parecer's table (section 2.1) and from /var/tmp/cto-w8/ordens-anexos/h4/contas/contas_h4.py,
@@ -211,10 +212,61 @@ GLINTFX_TEST(light_tint_tiny_range_stays_finite) {
     expect_rgba(tint_of_one({.x = 0.0, .y = 0.0}, light, k_dark), grey(1.0F));
 }
 
+// Beyond the range the linear law is 0, never negative: an ambient of 0.2 stays 0.2 (fix1, I-5).
+GLINTFX_TEST(light_tint_linear_law_beyond_the_range_takes_nothing_from_the_ambient) {
+    const gltfx_rgba ambient{0.2F, 0.2F, 0.2F, 0.0F};
+    expect_rgba(
+        tint_of_one({.x = 12.0, .y = 0.0}, lamp(0.0, 0.0, gltfx_light_falloff::linear), ambient),
+        grey(0.2F));
+}
+
+// The distance does not overflow on the way (std::hypot): a vertex at 1e200 under a light of
+// range 1e308 is at a hundred-millionth of the range, and takes the full light (fix1, I-6).
+GLINTFX_TEST(light_tint_very_far_vertex_keeps_its_distance_on_the_plane) {
+    gltfx_light_source_2d light = lamp(0.0, 0.0, gltfx_light_falloff::linear);
+    light.range = 1.0e308;
+    expect_rgba(tint_of_one({.x = 1.0e200, .y = 0.0}, light, k_dark), grey(1.0F));
+}
+
+// Every vertex is checked, not only the first, and a refusal found after the first vertex still
+// writes nothing (fix1, I-3 and I-4): three vertices, the bad one last.
+GLINTFX_TEST(light_tint_a_bad_later_vertex_is_refused_and_nothing_is_written) {
+    const std::array<gltfx_vec2_world, 3> vertices{gltfx_vec2_world{.x = 5.0, .y = 0.0},
+                                                   gltfx_vec2_world{.x = 1.0, .y = 0.0},
+                                                   gltfx_vec2_world{.x = k_nan, .y = 0.0}};
+    const std::array<gltfx_light_source_2d, 1> lights{lamp(0.0, 0.0, gltfx_light_falloff::linear)};
+    std::array<gltfx_rgba, 3> tints{k_untouched, k_untouched, k_untouched};
+    const gltfx_rslt<void> result = gltfx_light_tint(vertices, lights, k_dark, tints);
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.has_error() && result.err().rejected_value() == "vertices");
+    for (const gltfx_rgba &tint : tints) {
+        GLINTFX_CHECK(same_rgba(tint, k_untouched));
+    }
+}
+
+// A refusal of a light writes nothing either, over several good vertices (fix1, I-4).
+GLINTFX_TEST(light_tint_a_bad_light_over_good_vertices_writes_nothing) {
+    const std::array<gltfx_vec2_world, 2> vertices{gltfx_vec2_world{.x = 5.0, .y = 0.0},
+                                                   gltfx_vec2_world{.x = 1.0, .y = 0.0}};
+    gltfx_light_source_2d bad = lamp(0.0, 0.0, gltfx_light_falloff::linear);
+    bad.range = 0.0;
+    const std::array<gltfx_light_source_2d, 2> lights{lamp(0.0, 0.0, gltfx_light_falloff::linear),
+                                                      bad};
+    std::array<gltfx_rgba, 2> tints{k_untouched, k_untouched};
+    const gltfx_rslt<void> result = gltfx_light_tint(vertices, lights, k_dark, tints);
+    GLINTFX_CHECK(result.has_error() && result.err().rejected_value() == "range");
+    GLINTFX_CHECK(same_rgba(tints[0], k_untouched));
+    GLINTFX_CHECK(same_rgba(tints[1], k_untouched));
+}
+
 // THE CLOSED TABLE OF THE INPUT CHECK. Each cell breaks one field (or none, for the accepted cells
 // at the edge of each range), calls the function over one vertex and one or two lights, and states
-// the field it expects named, or "" for an accepted call.
+// the field it expects named, or "" for an accepted call. The cells are grouped by the field they
+// break, one function per group (fix1, I-7: no function past 40 lines, CONTRACT.md 6.2).
 namespace {
+
+// How many out_tints a cell passes for its one vertex.
+enum class tint_room : std::uint8_t { exact, shorter, longer };
 
 struct check_cell {
     const char *label = "";
@@ -223,7 +275,7 @@ struct check_cell {
     gltfx_light_source_2d first{};
     gltfx_light_source_2d second{}; // used when `two_lights`
     bool two_lights = false;
-    bool short_tints = false; // out_tints of size 0 for one vertex
+    tint_room room = tint_room::exact;
     std::string_view refused;
 };
 
@@ -262,7 +314,37 @@ gltfx_light_source_2d with_falloff(gltfx_light_falloff falloff) {
 constexpr gltfx_vec2_world k_vertex{.x = 5.0, .y = 0.0};
 
 check_cell cell(const char *label, gltfx_light_source_2d first, std::string_view refused) {
-    return check_cell{label, k_vertex, k_dark, first, good(), false, false, refused};
+    return check_cell{label, k_vertex, k_dark, first, good(), false, tint_room::exact, refused};
+}
+
+check_cell ambient_cell(const char *label, gltfx_rgba ambient, std::string_view refused) {
+    return check_cell{label, k_vertex, ambient, good(), good(), false, tint_room::exact, refused};
+}
+
+check_cell vertex_cell(const char *label, gltfx_vec2_world vertex) {
+    return check_cell{label, vertex, k_dark, good(), good(), false, tint_room::exact, "vertices"};
+}
+
+check_cell room_cell(const char *label, tint_room room) {
+    return check_cell{label, k_vertex, k_dark, good(), good(), false, room, "out_tints"};
+}
+
+check_cell second_light_cell(const char *label, gltfx_light_source_2d second,
+                             std::string_view refused) {
+    return check_cell{label, k_vertex, k_dark, good(), second, true, tint_room::exact, refused};
+}
+
+// The out_tints of a cell: none, one or two places, all untouched before the call.
+std::span<gltfx_rgba> tints_of(const check_cell &c, std::array<gltfx_rgba, 2> &tints) {
+    switch (c.room) {
+    case tint_room::shorter:
+        return std::span<gltfx_rgba>(tints).first(0);
+    case tint_room::longer:
+        return std::span<gltfx_rgba>(tints);
+    case tint_room::exact:
+        break;
+    }
+    return std::span<gltfx_rgba>(tints).first(1);
 }
 
 // Runs one cell; true when the cell holds (the right name, or acceptance, and nothing written on a
@@ -273,94 +355,99 @@ bool cell_holds(const check_cell &c) {
     const std::span<const gltfx_light_source_2d> lights =
         c.two_lights ? std::span<const gltfx_light_source_2d>(both)
                      : std::span<const gltfx_light_source_2d>(both).first(1);
-    std::array<gltfx_rgba, 1> tints{k_untouched};
-    const std::span<gltfx_rgba> out =
-        c.short_tints ? std::span<gltfx_rgba>(tints).first(0) : std::span<gltfx_rgba>(tints);
-    const gltfx_rslt<void> result = gltfx_light_tint(vertices, lights, c.ambient, out);
+    std::array<gltfx_rgba, 2> tints{k_untouched, k_untouched};
+    const gltfx_rslt<void> result =
+        gltfx_light_tint(vertices, lights, c.ambient, tints_of(c, tints));
     if (c.refused.empty()) {
         return result.has_value();
     }
     return result.has_error() && result.err().code() == gltfx_err_code::invalid_argument &&
-           result.err().rejected_value() == c.refused && same_rgba(tints[0], k_untouched);
+           result.err().rejected_value() == c.refused && same_rgba(tints[0], k_untouched) &&
+           same_rgba(tints[1], k_untouched);
+}
+
+// The size of out_tints and the vertex.
+std::array<check_cell, 4> room_and_vertex_cells() {
+    return {room_cell("out_tints shorter than vertices", tint_room::shorter),
+            room_cell("out_tints longer than vertices", tint_room::longer),
+            vertex_cell("vertex x NaN", {.x = k_nan, .y = 0.0}),
+            vertex_cell("vertex y infinite", {.x = 0.0, .y = k_inf})};
+}
+
+// Each colour channel of the ambient, not finite and negative (fix1, I-1).
+std::array<check_cell, 6> ambient_cells() {
+    return {ambient_cell("ambient red NaN", {k_nan_f, 0.0F, 0.0F, 1.0F}, "ambient"),
+            ambient_cell("ambient red negative", {-0.5F, 0.0F, 0.0F, 1.0F}, "ambient"),
+            ambient_cell("ambient green negative", {0.0F, -0.1F, 0.0F, 1.0F}, "ambient"),
+            ambient_cell("ambient green infinite", {0.0F, k_inf_f, 0.0F, 1.0F}, "ambient"),
+            ambient_cell("ambient blue infinite", {0.0F, 0.0F, k_inf_f, 1.0F}, "ambient"),
+            ambient_cell("ambient blue negative", {0.0F, 0.0F, -0.5F, 1.0F}, "ambient")};
+}
+
+// Each field of a light, and the second light (fix1, I-1 for the colour channels).
+std::array<check_cell, 18> light_cells() {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    const auto out_of_enum = static_cast<gltfx_light_falloff>(7);
+    return {cell("position x NaN", with_position(k_nan, 0.0), "position"),
+            cell("position y minus infinity", with_position(0.0, -k_inf), "position"),
+            cell("range zero", with_range(0.0), "range"),
+            cell("range negative", with_range(-1.0), "range"),
+            cell("range NaN", with_range(k_nan), "range"),
+            cell("range infinite", with_range(k_inf), "range"),
+            cell("intensity negative", with_intensity(-1.0), "intensity"),
+            cell("intensity NaN", with_intensity(k_nan), "intensity"),
+            cell("intensity infinite", with_intensity(k_inf), "intensity"),
+            cell("colour red negative", with_color({-1.0F, 1.0F, 1.0F, 1.0F}), "color"),
+            cell("colour red infinite", with_color({k_inf_f, 1.0F, 1.0F, 1.0F}), "color"),
+            cell("colour green negative", with_color({1.0F, -1.0F, 1.0F, 1.0F}), "color"),
+            cell("colour green infinite", with_color({1.0F, k_inf_f, 1.0F, 1.0F}), "color"),
+            cell("colour blue NaN", with_color({1.0F, 1.0F, k_nan_f, 1.0F}), "color"),
+            cell("colour blue negative", with_color({1.0F, 1.0F, -1.0F, 1.0F}), "color"),
+            cell("falloff unspecified", with_falloff(gltfx_light_falloff::unspecified), "falloff"),
+            cell("falloff out of the enumeration", with_falloff(out_of_enum), "falloff"),
+            second_light_cell("second light with range zero", with_range(0.0), "range")};
+}
+
+// Accepted at the edge of each range, and the alphas that are not read (D-W8-397).
+std::array<check_cell, 8> accepted_cells() {
+    return {cell("intensity zero", with_intensity(0.0), ""),
+            cell("colour zero", with_color(k_dark), ""),
+            cell("colour above one", with_color({5.0F, 0.0F, 0.0F, 1.0F}), ""),
+            cell("range tiny but positive", with_range(1.0e-300), ""),
+            ambient_cell("ambient zero", k_dark, ""),
+            second_light_cell("two good lights", good(), ""),
+            ambient_cell("ambient alpha NaN, not read", {0.0F, 0.0F, 0.0F, k_nan_f}, ""),
+            cell("colour alpha negative, not read", with_color({1.0F, 1.0F, 1.0F, -1.0F}), "")};
+}
+
+// The count of the table, as it is printed.
+struct table_count {
+    int refused = 0;
+    int accepted = 0;
+    int failures = 0;
+};
+
+void run_cells(std::span<const check_cell> cells, table_count &count) {
+    for (const check_cell &c : cells) {
+        if (!cell_holds(c)) {
+            ++count.failures;
+            std::printf("[FAIL CELL] %s\n", c.label);
+        }
+        ++(c.refused.empty() ? count.accepted : count.refused);
+    }
 }
 
 } // namespace
 
 GLINTFX_TEST(light_tint_closed_table_of_the_input_check) {
-    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
-    const auto out_of_enum = static_cast<gltfx_light_falloff>(7);
-    const std::array<check_cell, 29> cells{
-        check_cell{"out_tints shorter than vertices", k_vertex, k_dark, good(), good(), false, true,
-                   "out_tints"},
-        check_cell{"vertex x NaN",
-                   {.x = k_nan, .y = 0.0},
-                   k_dark,
-                   good(),
-                   good(),
-                   false,
-                   false,
-                   "vertices"},
-        check_cell{"vertex y infinite",
-                   {.x = 0.0, .y = k_inf},
-                   k_dark,
-                   good(),
-                   good(),
-                   false,
-                   false,
-                   "vertices"},
-        check_cell{"ambient red NaN", k_vertex, gltfx_rgba{k_nan_f, 0.0F, 0.0F, 1.0F}, good(),
-                   good(), false, false, "ambient"},
-        check_cell{"ambient blue infinite", k_vertex, gltfx_rgba{0.0F, 0.0F, k_inf_f, 1.0F}, good(),
-                   good(), false, false, "ambient"},
-        check_cell{"ambient green negative", k_vertex, gltfx_rgba{0.0F, -0.1F, 0.0F, 1.0F}, good(),
-                   good(), false, false, "ambient"},
-        cell("position x NaN", with_position(k_nan, 0.0), "position"),
-        cell("position y minus infinity", with_position(0.0, -k_inf), "position"),
-        cell("range zero", with_range(0.0), "range"),
-        cell("range negative", with_range(-1.0), "range"),
-        cell("range NaN", with_range(k_nan), "range"),
-        cell("range infinite", with_range(k_inf), "range"),
-        cell("intensity negative", with_intensity(-1.0), "intensity"),
-        cell("intensity NaN", with_intensity(k_nan), "intensity"),
-        cell("intensity infinite", with_intensity(k_inf), "intensity"),
-        cell("colour blue NaN", with_color(gltfx_rgba{1.0F, 1.0F, k_nan_f, 1.0F}), "color"),
-        cell("colour red infinite", with_color(gltfx_rgba{k_inf_f, 1.0F, 1.0F, 1.0F}), "color"),
-        cell("colour green negative", with_color(gltfx_rgba{1.0F, -1.0F, 1.0F, 1.0F}), "color"),
-        cell("falloff unspecified", with_falloff(gltfx_light_falloff::unspecified), "falloff"),
-        cell("falloff out of the enumeration", with_falloff(out_of_enum), "falloff"),
-        check_cell{"second light with range zero", k_vertex, k_dark, good(), with_range(0.0), true,
-                   false, "range"},
-        // Accepted at the edge of each range.
-        cell("intensity zero", with_intensity(0.0), ""),
-        cell("colour zero", with_color(k_dark), ""),
-        cell("colour above one", with_color(gltfx_rgba{5.0F, 0.0F, 0.0F, 1.0F}), ""),
-        cell("range tiny but positive", with_range(1.0e-300), ""),
-        check_cell{"ambient zero", k_vertex, k_dark, good(), good(), false, false, ""},
-        check_cell{"two good lights", k_vertex, k_dark, good(), good(), true, false, ""},
-        // The alphas are not read (D-W8-397): not finite or negative there is accepted.
-        check_cell{"ambient alpha NaN, not read", k_vertex, gltfx_rgba{0.0F, 0.0F, 0.0F, k_nan_f},
-                   good(), good(), false, false, ""},
-        cell("colour alpha negative, not read", with_color(gltfx_rgba{1.0F, 1.0F, 1.0F, -1.0F}),
-             ""),
-    };
-    int refused_cells = 0;
-    int accepted_cells = 0;
-    int failures = 0;
-    for (const check_cell &c : cells) {
-        const bool holds = cell_holds(c);
-        if (!holds) {
-            ++failures;
-            std::printf("[FAIL CELL] %s\n", c.label);
-        }
-        if (c.refused.empty()) {
-            ++accepted_cells;
-        } else {
-            ++refused_cells;
-        }
-    }
-    std::printf("celulas=%d recusadas=%d aceitas=%d falhas=%d\n", refused_cells + accepted_cells,
-                refused_cells, accepted_cells, failures);
-    GLINTFX_CHECK(refused_cells == 21);
-    GLINTFX_CHECK(accepted_cells == 8);
-    GLINTFX_CHECK(failures == 0);
+    table_count count;
+    run_cells(room_and_vertex_cells(), count);
+    run_cells(ambient_cells(), count);
+    run_cells(light_cells(), count);
+    run_cells(accepted_cells(), count);
+    std::printf("celulas=%d recusadas=%d aceitas=%d falhas=%d\n", count.refused + count.accepted,
+                count.refused, count.accepted, count.failures);
+    GLINTFX_CHECK(count.refused == 28);
+    GLINTFX_CHECK(count.accepted == 8);
+    GLINTFX_CHECK(count.failures == 0);
 }

@@ -9254,3 +9254,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os 32 coredumps de `sh -c kill` que ainda aparecem no hospedeiro são de rodadas de código antigo de outros agentes. Nenhum é nosso pela atribuição do portão, e nenhum vem do `die_quietly`. O AVC restante é o `ThreadPoolSingl`, de outro projeto.
   - A revisão N3 (leitura e um vermelho) vai a um revisor distinto.
   - A regra de permissão do preci já pode ser apagada pelo líder.
+- **00:06, G2-fix1 emendada pela D-W8-F18 e despachada** (`ordem-g2-fix1.md`, md5 906d3111; anexos rc 0; decisões d6f2bc5c).
+  - **A emenda:** um contêiner só, COM `--pids-limit 512`, e a variante nova de linha de base `gpu_integrated_photo`, capturada por `docker create` com o Docker 29.8.2. A receita difere da `gpu_integrated` só no `PidsLimit`.
+  - **Pré-execução:** todos os mutantes morrem (juiz 11/11, condutor 6/6, portão 2/2); o ensaio a seco dá 7/7; o autoteste do portão foi de 23 para 30 controles; preci 356/356.
+  - **Acréscimo do CTO:** a linha de acerto do portão mostra a versão do Docker que a linha de base declara.
+  - **Disco:** liberado pela regra da L-11, apagando as cópias de build da S4, da S4-fix1 e da fatia dos alertas, com os relatórios mantidos e os arquivos de root apagados por contêiner sem rede. O `min` foi de 23,49 para 26,10 GiB.

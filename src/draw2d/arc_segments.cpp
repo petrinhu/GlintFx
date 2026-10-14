@@ -36,9 +36,13 @@ namespace {
 // column0_y, d = column1_y), e = (a + d) / 2, f = (a - d) / 2, g = (c + b) / 2 and h = (c - b) / 2,
 // the largest is sqrt(e^2 + h^2) + sqrt(f^2 + g^2): a sum of two sizes, with no subtraction that
 // could cancel, multiplied back by 2^e. Only IEEE operations that round once (the square root
-// included), so every system gives the same bits (GODS_LAWS.md L-04); std::hypot is not one of
-// them. One of e, f, g, h is at least 0.25, so a square that underflows below changes nothing. An
-// entry that is not finite gives the sum of the sizes: infinite, or NaN when one of them is a NaN.
+// included), and std::hypot is not one of them (its rounding is the library's own). The same bits
+// on every system also need the compiler to keep each operation separate: a fused multiply-add
+// rounds once where the code rounds twice. Every glintfx target is built with -ffp-contract=off
+// under GCC and Clang, and MSVC's /fp:precise does not contract (cmake/GlintfxCompileOptions.cmake,
+// S5-A-fix3, D-W8-441); fp_contract_test fails if a build fuses. One of e, f, g, h is at least
+// 0.25, so a square that underflows below changes nothing. An entry that is not finite gives the
+// sum of the sizes: infinite, or NaN when one of them is a NaN.
 double largest_stretch(const pixel_affine &affine) noexcept {
     const double a = affine.column0_x;
     const double b = affine.column1_x;

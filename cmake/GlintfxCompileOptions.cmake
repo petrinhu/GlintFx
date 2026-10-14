@@ -2,9 +2,9 @@
 #
 # GlintfxCompileOptions.cmake
 #
-# Single subject: the C++23 language standard, the warning flags and the
-# sanitizer flags applied to a glintfx target (library, test harness or
-# test executable). No user option and no install property belongs here;
+# Single subject: the C++23 language standard, the warning flags, the
+# floating-point contraction rule and the sanitizer flags applied to a
+# glintfx target (library, test harness or test executable). No user option and no install property belongs here;
 # that is GlintfxOptions.cmake and GlintfxLibrary.cmake.
 
 function(glintfx_apply_cxx_standard target)
@@ -26,6 +26,31 @@ function(glintfx_apply_warning_flags target)
             $<$<CXX_COMPILER_ID:MSVC>:/WX>
         )
     endif()
+endfunction()
+
+# GODS_LAWS.md L-04 (the same behaviour on every system, proved on each):
+# a CONTRACTION fuses a * b + c into one fused multiply-add, which rounds
+# once instead of twice, so the result changes in the last bit (measured on
+# screen_radius by the S5-A-fix2 review: 12082 of 196000 answers moved one
+# unit in the last place under -march=x86-64-v3 -ffp-contract=fast). Whether
+# it happens depended on the compiler and the target, never on this project:
+# GCC fuses C++ by default (its ISO-mode exception is for C only; measured in
+# the S5-A-fix3 pre-execution: GCC 16 with -march=x86-64-v3 and
+# CXX_EXTENSIONS OFF fused fp_contract_test), and so does Clang
+# (-ffp-contract=on), wherever the target has the instruction: every arm64
+# and every x86-64-v3 build, such as the packages of CachyOS.
+# -ffp-contract=off makes every glintfx target round each operation as
+# written, under both compilers, on every target (S5-A-fix3, D-W8-441).
+# MSVC needs nothing: from Visual Studio 2022 on, /fp:precise (its default)
+# generates no contraction unless /fp:contract is asked for
+# (learn.microsoft.com/cpp/build/reference/fp-specify-floating-point-
+# behavior), and C++23 already requires Visual Studio 2022.
+# fp_contract_test proves the rule on the binary: it fails when a * b + c
+# is fused.
+function(glintfx_apply_floating_point_flags target)
+    target_compile_options(${target} PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-ffp-contract=off>
+    )
 endfunction()
 
 # GODS_LAWS.md L-23 portao 2: ASan/UBSan is applied to EVERY glintfx
@@ -131,9 +156,10 @@ endfunction()
 
 # Single entry point that the target files (src/CMakeLists.txt,
 # tests/CMakeLists.txt, GlintfxTest.cmake) call. Composition of the
-# three functions above, with no logic of its own.
+# four functions above, with no logic of its own.
 function(glintfx_apply_compile_options target)
     glintfx_apply_cxx_standard(${target})
     glintfx_apply_warning_flags(${target})
+    glintfx_apply_floating_point_flags(${target})
     glintfx_apply_sanitizer_flags(${target})
 endfunction()

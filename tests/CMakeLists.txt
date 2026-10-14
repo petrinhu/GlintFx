@@ -1564,6 +1564,10 @@ target_sources(triangle_pixel_vertices_test PRIVATE
 # pixel triangles. No GL, no window.
 glintfx_add_test(segment_test)
 
+# S5-A-fix3 (D-W8-441, D-W8-443): the build rounds each floating-point operation as written; the test fails
+# when a * b + c is fused into one multiply-add (cmake/GlintfxCompileOptions.cmake).
+glintfx_add_test(fp_contract_test)
+
 glintfx_add_test(arc_segments_test)
 target_include_directories(arc_segments_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(arc_segments_test PRIVATE

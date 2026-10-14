@@ -9584,3 +9584,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A régua sem a linha dá exatamente um achado, em `frame_report_tally.cpp:90-91`.
   - O mutante do reset (BM6) morre nas duas células.
   - Despachada a um implementador novo (ab6e61e4). O CTO a92de40e segue para a T4b-B2 (D-W8-475 a 480).
+- **19:43, revisão N1 e de API da T4b-A NÃO LIMPA** (`rev-t4b-a.txt`, revisor a07ef8a5): zero CRÍTICO, 6 IMPORTANTE, 6 COSMÉTICO.
+  - Os 14 portões de API passaram; a sonda independente de 60000 pontos deu 0 errados.
+  - **I-1, comportamento:** convexos legítimos são recusados como degenerados em escalas extremas (1e-170 e 1e160, 500 de 500), porque a janela está em unidade de mundo.
+  - Quatro mutantes sobreviveram: o limite inferior de s/t, o retângulo de largura zero e a varredura com 4 de 16 valores.
+  - I-5: a cerca do parecer não foi reescrita no lugar. I-6: um teste de 59 linhas.
+  - Pedida ao CTO a92de40e a T4b-A-fix1 (D-W8-493 a 500), com prioridade sobre a B2 e cuidado de colisão com a B1 em voo. O I-1 é escolha de desenho e passa pela pesquisa das 10 queixas.

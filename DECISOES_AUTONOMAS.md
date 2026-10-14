@@ -9413,3 +9413,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **(2) Paridade:** a paridade cai numa linha "Could not find executable .../segment_test" no inventário Linux. O diagnóstico, só leitura, foi despachado a um devops-sre haiku.
   - **(3) Windows:** os 5 jobs Windows passaram.
   - **CI-VERDE-W8 bloqueado até os dois consertos.**
+- **05:53, diagnóstico da paridade (devops-sre haiku, só leitura; `/var/tmp/cto-w8/ci-paridade/`).**
+  - A paridade caiu por TERCEIRA causa, independente do portão de alertas. Os dois jobs Ubuntu (GCC 14.3.0, -Werror) nem compilam: `wire_relay_fd_passthrough_selftest.cpp`, criado por d0291f99 e ajustado em 7fb56c0d, dá `-Werror=array-bounds` (bug 117983 da libstdc++, a mesma família já documentada em `wire_test_encoders.hpp:45-57`). Sem binário, o `ctest -N` do Ubuntu imprime "Could not find executable", e o parser da paridade reprovou essa linha, corretamente.
+  - O `segment_test` não tem culpa.
+  - **Conserto mecânico despachado a um implementador haiku:** corpo de tamanho fixo em `encode_params_add`, mais a varredura do gêmeo no diretório.
+  - Sem GCC 14 nem imagem Ubuntu nesta máquina (baixar exige o líder, L-51), a prova final é o CI do servidor.

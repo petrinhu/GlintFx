@@ -6978,10 +6978,11 @@ set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
 # composed photo taken by tests/container/composed_photo.sh: which card composed (OpenGL, the expected maker,
 # never llvmpipe or softpipe) and what ScreenShot2 handed over (QImage format 6 or 4, mapped to wl_shm). The
 # selftest is the criterion table written before the data (L-43); the count is exact, so a dropped control fails.
+# G2-fix1: the capture must also be the expected size (640x480 for the demo, D-W8-72) at scale 1.
 add_test(
     NAME composed_photo_facts_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 19 controles OK"
+        "-DEXPECT_LINE=selftest: 25 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/composed_photo_facts.py" --selftest
@@ -7056,7 +7057,7 @@ if(UNIX)
     add_test(
         NAME check_isolation_selftest
         COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-            "-DEXPECT_LINE=selftest: 23 controles OK"
+            "-DEXPECT_LINE=selftest: 30 controles OK"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
             sh "${CMAKE_CURRENT_SOURCE_DIR}/container/check_isolation.sh" --selftest
     )

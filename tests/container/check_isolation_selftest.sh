@@ -207,6 +207,8 @@ selftest_variant_takes_the_third_argument() {
 selftest_variant_map_names_its_own_file() {
     [ "$(baseline_file_for_variant ci)" = "$BASELINE_DIR/hostconfig_baseline.txt" ] || return 1
     [ "$(baseline_file_for_variant gpu_integrated)" = "$BASELINE_DIR/hostconfig_baseline_gpu_integrated.txt" ] || return 1
+    [ "$(baseline_file_for_variant gpu_integrated_photo)" = \
+        "$BASELINE_DIR/hostconfig_baseline_gpu_integrated_photo.txt" ] || return 1
     [ "$(baseline_file_for_variant gpu_geforce)" = "$BASELINE_DIR/hostconfig_baseline_gpu_geforce.txt" ] || return 1
 }
 
@@ -239,6 +241,44 @@ selftest_renderd128_plus_uinput_is_refused() {
 # The host's XDG_RUNTIME_DIR as a bind, as TEXT only (never mounted; GODS_LAWS.md L-09 rule 2).
 selftest_run_user_bind_is_refused() {
     hc_must_refuse gpu_integrated "$(integrated_line | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#')"
+}
+
+# -- QA-COMPOSED-PATH G2-fix1 (D-W8-F18): the photo variant is gpu_integrated plus --pids-limit 512 -----------------
+photo_line() {
+    read_baseline_or_fail "$(baseline_file_for_variant gpu_integrated_photo)"
+}
+
+selftest_photo_capture_passes_its_baseline() {
+    hc_must_accept gpu_integrated_photo "$(photo_line)"
+}
+
+# The photo container under the plain integrated variant: the ceiling of processes is a difference, refused.
+selftest_photo_capture_under_integrated_is_refused() {
+    hc_must_refuse gpu_integrated "$(photo_line)"
+}
+
+# Without the ceiling, the photo variant refuses: the 512 is part of what it proves.
+selftest_integrated_capture_under_photo_is_refused() {
+    hc_must_refuse gpu_integrated_photo "$(integrated_line)"
+}
+
+selftest_photo_other_pids_limit_is_refused() {
+    hc_must_refuse gpu_integrated_photo "$(photo_line | sed 's#"PidsLimit":512#"PidsLimit":4096#')"
+}
+
+selftest_photo_renderd129_is_refused() {
+    hc_must_refuse gpu_integrated_photo "$(photo_line | sed 's#/dev/dri/renderD128#/dev/dri/renderD129#g')"
+}
+
+# The host's XDG_RUNTIME_DIR as a bind, as TEXT only (never mounted; GODS_LAWS.md L-09 rule 2).
+selftest_photo_run_user_bind_is_refused() {
+    hc_must_refuse gpu_integrated_photo "$(photo_line | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#')"
+}
+
+# The version printed with a match is the one the baseline's own header names; the CI file names none.
+selftest_docker_version_comes_from_the_baseline() {
+    [ "$(baseline_docker_version "$(baseline_file_for_variant gpu_integrated)")" = 29.7.2 ] || return 1
+    [ "$(baseline_docker_version "$(baseline_file_for_variant ci)")" = "$BASELINE_DOCKER_VERSION" ] || return 1
 }
 
 # Sem 3o argumento, a variante e ci, e a linha de base do CI passa contra o arquivo do CI.
@@ -277,6 +317,13 @@ selftest_main() {
     selftest_check selftest_renderd129_in_integrated_is_refused
     selftest_check selftest_renderd128_plus_uinput_is_refused
     selftest_check selftest_run_user_bind_is_refused
+    selftest_check selftest_photo_capture_passes_its_baseline
+    selftest_check selftest_photo_capture_under_integrated_is_refused
+    selftest_check selftest_integrated_capture_under_photo_is_refused
+    selftest_check selftest_photo_other_pids_limit_is_refused
+    selftest_check selftest_photo_renderd129_is_refused
+    selftest_check selftest_photo_run_user_bind_is_refused
+    selftest_check selftest_docker_version_comes_from_the_baseline
     selftest_check selftest_ci_default_passes_its_baseline
     selftest_check selftest_missing_baseline_fails_closed
     echo "selftest: $SELFTEST_CHECKS controles OK"

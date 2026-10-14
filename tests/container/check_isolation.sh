@@ -196,13 +196,16 @@ variant_of_args() {
 }
 
 # The closed list of variants, and the one file each reads. Printed to stdout so the caller takes the path with
-# $(...); an unknown name fails here, by name, before any file or docker call.
+# $(...); an unknown name fails here, by name, before any file or docker call. gpu_integrated_photo is
+# gpu_integrated plus a ceiling of 512 processes: the container tests/container/composed_photo.sh photographs
+# (QA-COMPOSED-PATH G2-fix1, D-W8-F18).
 baseline_file_for_variant() {
     case "$1" in
         ci) printf '%s' "$BASELINE_DIR/hostconfig_baseline.txt" ;;
         gpu_integrated) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_integrated.txt" ;;
+        gpu_integrated_photo) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_integrated_photo.txt" ;;
         gpu_geforce) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_geforce.txt" ;;
-        *) fail "variante desconhecida '$1' (lista fechada: ci, gpu_integrated, gpu_geforce; QA-COMPOSED-PATH D-W8-266)" ;;
+        *) fail "variante desconhecida '$1' (lista fechada: ci, gpu_integrated, gpu_integrated_photo, gpu_geforce; QA-COMPOSED-PATH D-W8-266)" ;;
     esac
 }
 
@@ -341,6 +344,13 @@ read_baseline_or_fail() {
 # already-normalized text (see its own comment) - a baseline file that
 # somehow already went through this same pipeline once would compare
 # identically either way.
+# The Docker Server version a baseline names in its own header ("Docker Server X"), so the line below never claims
+# another version for a file measured later (G2-fix1, D-W8-F18). The CI baseline's header names none: the constant.
+baseline_docker_version() {
+    found="$(sed -n 's/.*Docker Server \([0-9][0-9.]*\).*/\1/p' "$1" | head -n 1)"
+    printf '%s' "${found:-$BASELINE_DOCKER_VERSION}"
+}
+
 assert_full_hostconfig_matches_baseline() {
     container="$1"
     raw="$2"
@@ -349,7 +359,7 @@ assert_full_hostconfig_matches_baseline() {
     baseline_raw="$(read_baseline_or_fail "$baseline_file")"
     baseline="$(normalize_host_config "$baseline_raw")"
     if [ "$normalized" = "$baseline" ]; then
-        echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $BASELINE_DOCKER_VERSION, $(basename "$baseline_file"))"
+        echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $(baseline_docker_version "$baseline_file"), $(basename "$baseline_file"))"
         return 0
     fi
     diff_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-iso-baseline-XXXXXX")"

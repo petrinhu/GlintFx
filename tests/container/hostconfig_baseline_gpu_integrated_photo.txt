@@ -1,0 +1,28 @@
+# tests/container/hostconfig_baseline_gpu_integrated_photo.txt - SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Measured baseline for check_isolation.sh's variant "gpu_integrated_photo" (QA-COMPOSED-PATH G2-fix1, D-W8-F18).
+# It is the HostConfig of the container tests/container/composed_photo.sh photographs: the INTEGRATED GPU node,
+# a ceiling of 512 processes, and nothing else. Same discipline as hostconfig_baseline_gpu_integrated.txt (G1b):
+# a live capture, not hand-written. Measured with Docker 29.8.2.
+#
+# Capture (14/10/2026, Docker Server 29.8.2, image fedora:44; a HostConfig does not carry image content, and
+# the same run measured the gpu_integrated recipe equal to hostconfig_baseline_gpu_integrated.txt):
+#
+#   docker create --name glintfx-g2fix1-cap-foto --cap-drop=ALL --cap-add=SYS_NICE --pids-limit 512 \
+#       --device /dev/dri/renderD128 -e KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1 \
+#       -e KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 fedora:44
+#   docker inspect --format '{{json .HostConfig}}' glintfx-g2fix1-cap-foto
+#   docker rm glintfx-g2fix1-cap-foto
+#
+# The container was NEVER started: docker create only builds the HostConfig, so no GPU was opened (GODS_LAWS.md
+# L-09). renderD128 is the Intel integrated node (vendor 0x8086); the GeForce (renderD129) is not in this file.
+#
+# The only difference from hostconfig_baseline_gpu_integrated.txt is "PidsLimit": null there, 512 here (checked
+# field by field by the capture). The two KWin variables live in .Config.Env, which is not the HostConfig; the
+# photo driver checks them itself (the container's environment is the image's plus exactly those two).
+#
+# Placeholders: the same three as hostconfig_baseline_gpu_integrated.txt (ConsoleSize, the thermal_throttle entries
+# of MaskedPaths, OomKillDisable), applied with the same sed steps normalize_host_config() runs.
+#
+# Usage: check_isolation.sh <container> <socket> gpu_integrated_photo
+{"Binds":null,"ContainerIDFile":"","LogConfig":{"Type":"json-file","Config":{}},"NetworkMode":"bridge","PortBindings":{},"RestartPolicy":{"Name":"no","MaximumRetryCount":0},"AutoRemove":false,"VolumeDriver":"","VolumesFrom":null,"ConsoleSize":"NORMALIZED","CapAdd":["CAP_SYS_NICE"],"CapDrop":["ALL"],"CgroupnsMode":"private","Dns":null,"DnsOptions":[],"DnsSearch":[],"ExtraHosts":null,"GroupAdd":null,"IpcMode":"private","Cgroup":"","Links":null,"OomScoreAdj":0,"PidMode":"","Privileged":false,"PublishAllPorts":false,"ReadonlyRootfs":false,"SecurityOpt":null,"UTSMode":"","UsernsMode":"","ShmSize":67108864,"Runtime":"runc","Isolation":"","CpuShares":0,"Memory":0,"NanoCpus":0,"CgroupParent":"","BlkioWeight":0,"BlkioWeightDevice":[],"BlkioDeviceReadBps":[],"BlkioDeviceWriteBps":[],"BlkioDeviceReadIOps":[],"BlkioDeviceWriteIOps":[],"CpuPeriod":0,"CpuQuota":0,"CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CpusetCpus":"","CpusetMems":"","Devices":[{"PathOnHost":"/dev/dri/renderD128","PathInContainer":"/dev/dri/renderD128","CgroupPermissions":"rwm"}],"DeviceCgroupRules":null,"DeviceRequests":null,"MemoryReservation":0,"MemorySwap":0,"MemorySwappiness":null,"OomKillDisable":"NORMALIZED","PidsLimit":512,"Ulimits":null,"CpuCount":0,"CpuPercent":0,"IOMaximumIOps":0,"IOMaximumBandwidth":0,"MaskedPaths":["/proc/acpi","/proc/asound","/proc/interrupts","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/sched_debug","/proc/scsi","/proc/timer_list","/proc/timer_stats","/sys/devices/virtual/powercap","/sys/firmware"],"ReadonlyPaths":["/proc/bus","/proc/fs","/proc/irq","/proc/sys","/proc/sysrq-trigger"]}

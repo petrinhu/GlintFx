@@ -9480,3 +9480,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **09:56, Q3 (raio zero, D-W8-414): 7 queixas, abaixo do piso de 10, com uma contrária (canvg #941). O advisor desempatou pela continuidade.** Razão: o consumidor que quer "nada" consegue isso testando o raio zero antes da chamada; quem quer continuidade não consegue recuperar o disco se a lib não desenhar nada. Também é coerente com D-W8-270 e com o `stroke_rect` degenerado. canvg é motor SVG, e o GlintFx não é. A ordem S5-B já embute a escolha.
 - **09:56, LISTA DE RATIFICAÇÃO DO LÍDER** (comportamento público): D-W8-414, raio zero desenha disco ou barra em vez de nada; D-W8-441 a 444, `-ffp-contract=off` em todo alvo, que troca a fusão de ponto flutuante por bits iguais em todo sistema e afeta a numérica e o desempenho da lib inteira.
 - **09:56, furo passado ao revisor da S5-A-fix3** (advisor): "o MSVC com /fp:precise não funde" é leitura de documentação, não medida. A prova é o `fp_contract_test` RODANDO nos jobs Windows do CI, fora do `parity_exceptions.txt` e sem condição de Linux.
+- **10:07, alertas-fix3 commitada: 20f480df** (implementador a0f966ec; 1 arquivo; blob 6a8b21b2 conferido pelo main; portão 0ca88260 intocado).
+  - Vermelho contra M10 (célula 62) e contra M6 (células 62 e 60); verde com 62 células; 27 de 27 mutantes mortos; preci --fast rc 0.
+  - Desvio D1: o trailer diz Haiku, que é o modelo de fato do implementador. Aceito, porque a autoria fica correta e não se faz commit novo só por isso.
+  - Desvio D2: a limpeza ficou para depois da conferência. Aceito.
+  - Conferência mirada despachada ao revisor a03238e1, retomado.

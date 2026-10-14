@@ -34,14 +34,15 @@ constexpr char k_vertex_source[] =
     "layout(location = 0) in vec2 a_position;\n"
     "layout(location = 1) in vec2 a_texcoord;\n"
     "layout(location = 2) in vec4 a_color;\n"
+    "layout(location = 3) in float a_texcoord_q;\n"
     "uniform vec2 u_viewport_pixels;\n"
-    "out vec2 v_texcoord;\n"
+    "out vec3 v_texcoord;\n"
     "out vec4 v_color;\n"
     "void main() {\n"
     "    vec2 clip = vec2(a_position.x / u_viewport_pixels.x * 2.0 - 1.0,\n"
     "                     1.0 - a_position.y / u_viewport_pixels.y * 2.0);\n"
     "    gl_Position = vec4(clip, 0.0, 1.0);\n"
-    "    v_texcoord = a_texcoord;\n"
+    "    v_texcoord = vec3(a_texcoord, a_texcoord_q);\n"
     "    v_color = a_color;\n"
     "}\n";
 
@@ -51,7 +52,7 @@ constexpr char k_vertex_source[] =
 // most 2D libraries do (D-W7D-12): un-premultiply, encode the straight color, premultiply again.
 constexpr char k_fragment_source[] =
     "#version 330 core\n"
-    "in vec2 v_texcoord;\n"
+    "in vec3 v_texcoord;\n"
     "in vec4 v_color;\n"
     "uniform int u_encode_srgb;\n"
     "out vec4 frag_color;\n"

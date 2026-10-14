@@ -332,10 +332,14 @@ constexpr gltfx_rgba k_red{1.0F, 0.0F, 0.0F, 1.0F};
 constexpr gltfx_rgba k_blue{0.0F, 0.0F, 1.0F, 1.0F};
 constexpr glintfx::gltfx_draw_layer k_layer_0{0};
 
-// The first vertex of the k-th piece drawn: {x, y, u, v, r, g, b, a} as floats, 4 vertices a piece.
+// The floats of one vertex sent to the card: {x, y, u, v, r, g, b, a, q} (T4a, D-W8-406).
+constexpr std::size_t k_floats_per_vertex = 9;
+
+// The first vertex of the k-th piece drawn: {x, y, u, v, r, g, b, a, q} as floats, 4 vertices a
+// piece.
 float sent(std::size_t piece, std::size_t field) {
     float value = -12345.0F;
-    const std::size_t at = (piece * 4 * 8 + field) * sizeof(float);
+    const std::size_t at = (piece * 4 * k_floats_per_vertex + field) * sizeof(float);
     if (at + sizeof(float) <= card.vertex_bytes.size()) {
         std::memcpy(&value, card.vertex_bytes.data() + at, sizeof(float));
     }
@@ -356,8 +360,10 @@ void *counting_reallocate(void *block, std::size_t bytes) noexcept {
     return std::realloc(block, bytes);
 }
 
-// The k-th vertex sent, field f of {x, y, u, v, r, g, b, a}: a triangle piece has no fixed four.
-float sent_vertex(std::size_t vertex, std::size_t field) { return sent(0, vertex * 8 + field); }
+// The k-th vertex sent, field f of {x, y, u, v, r, g, b, a, q}: a triangle piece has no fixed four.
+float sent_vertex(std::size_t vertex, std::size_t field) {
+    return sent(0, (vertex * k_floats_per_vertex) + field);
+}
 
 glintfx::gltfx_vertex_2d_world corner_at(double x, double y) {
     return glintfx::gltfx_vertex_2d_world{{x, y}, k_red};
@@ -470,8 +476,9 @@ GLINTFX_TEST(renderer_2d_impl_a_quad_is_two_triangles_like_a_rect) {
                         k_layer_0);
     GLINTFX_CHECK(renderer->finish_frame().has_value());
     GLINTFX_CHECK_EQ(first_draw_count(), 6);
-    GLINTFX_CHECK_EQ(sent(0, 8), 4.0F); // vertex 1 x: the top-right corner, in the order given
-    GLINTFX_CHECK_EQ(sent(0, 9), 1.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 0),
+                     4.0F); // vertex 1 x: the top-right corner, in the order given
+    GLINTFX_CHECK_EQ(sent_vertex(1, 1), 1.0F);
     renderer_2d_impl::destroy(renderer);
 }
 

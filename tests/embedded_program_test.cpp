@@ -406,6 +406,12 @@ GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interfac
     GLINTFX_CHECK(vertex.find("layout(location = 0) in vec2 a_position") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("layout(location = 1) in vec2 a_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("layout(location = 2) in vec4 a_color") != std::string_view::npos);
+    // T4a (D-W8-406): the homogeneous coordinate q, its own location, carried to the fragment
+    // stage with the texture coordinate as one vec3 (u q, v q, q) for the textured drawing of T4b.
+    GLINTFX_CHECK(vertex.find("layout(location = 3) in float a_texcoord_q") !=
+                  std::string_view::npos);
+    GLINTFX_CHECK(vertex.find("out vec3 v_texcoord") != std::string_view::npos);
+    GLINTFX_CHECK(fragment.find("in vec3 v_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("uniform vec2 u_viewport_pixels") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("out vec4 frag_color") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("uniform int u_encode_srgb") != std::string_view::npos);
@@ -415,6 +421,7 @@ GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interfac
     GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_position, std::uint32_t{0});
     GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_texcoord, std::uint32_t{1});
     GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_color, std::uint32_t{2});
+    GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_texcoord_q, std::uint32_t{3});
     std::println("embedded_program_test: fontes conferidas ({} + {} bytes)", vertex.size(),
                  fragment.size());
 }

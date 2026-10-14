@@ -23,7 +23,9 @@
 //   - one quad is 4 vertices and 6 indices, the two triangles of the frozen diagonal
 //     (top_left, top_right, bottom_right) and (top_left, bottom_right, bottom_left)
 //     (docs/auditoria-api-draw2d.md B0-I4);
-//   - the vertex is 32 bytes: position float2 in pixels, texture coordinate float2, color float4
+//   - the vertex is 36 bytes (R2D-TEXTURE T4a, D-W8-23 and D-W8-406): position float2 in pixels,
+//     texture coordinate float2, color float4, and the homogeneous coordinate q, 1 until T4b;
+//     color float4
 //     LINEAR and PREMULTIPLIED (a half-transparent red of alpha 0.5 is stored as 0.5 in the red
 //     channel and 0.5 in alpha) - the mutant that stores the straight color is the one B7 repeats;
 //   - the index is 32 bits (a batch of more than 16 384 pieces does not wrap);
@@ -120,10 +122,10 @@ GLINTFX_TEST(triangle_batch_assembly_cells) {
         }
         ++analyzed;
     }
-    // 3. The vertex is 32 bytes, and the color is stored LINEAR and PREMULTIPLIED: alpha 0.5 over
+    // 3. The vertex is 36 bytes, and the color is stored LINEAR and PREMULTIPLIED: alpha 0.5 over
     //    a red of 1.0 is 0.5 in the channel (and alpha stays 0.5).
     {
-        static_assert(sizeof(batch_vertex) == 32);
+        static_assert(sizeof(batch_vertex) == 36);
         triangle_batch batch;
         GLINTFX_CHECK(
             batch.add_quad(square_at(0, 0, 1), gltfx_rgba{1.0F, 0.5F, 0.0F, 0.5F}, k_state_a));
@@ -332,12 +334,12 @@ GLINTFX_TEST(triangle_batch_reserve_cells) {
     // 2. A request of MORE THAN DOUBLE the capacity in one call takes exactly what was asked, not
     // the
     //    doubled capacity (`grown = needed`): 1000 pieces from an empty batch are 4000 vertices of
-    //    32 bytes, 6000 indices of 4 bytes, and one run.
+    //    36 bytes, 6000 indices of 4 bytes, and one run.
     {
         g_armed = armed_state{};
         triangle_batch batch(armed());
         GLINTFX_CHECK(batch.reserve(1000));
-        GLINTFX_CHECK_EQ(g_armed.requested[0], std::size_t{128000});
+        GLINTFX_CHECK_EQ(g_armed.requested[0], std::size_t{144000});
         GLINTFX_CHECK_EQ(g_armed.requested[1], std::size_t{24000});
         GLINTFX_CHECK(g_armed.requested[2] >= sizeof(glintfx::draw2d::draw_run));
         // ... and they all fit: no more calls while a thousand pieces are added
@@ -513,4 +515,24 @@ GLINTFX_TEST(triangle_batch_a_run_opened_by_a_triangle_counts_its_given_indices)
     GLINTFX_CHECK(batch.add_triangles(tri, local, k_state_a));
     GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{1});
     GLINTFX_CHECK_EQ(batch.runs()[0].index_count, std::size_t{3});
+}
+
+// R2D-TEXTURE T4a (D-W8-23, D-W8-406): every vertex carries the homogeneous coordinate q LAST, and
+// until the textured drawing of T4b it is 1 for a quad and for a triangle piece alike. The quad
+// keeps its texture coordinates by role, the triangle piece keeps them at 0.
+GLINTFX_TEST(triangle_batch_every_vertex_carries_q_of_one) {
+    static_assert(offsetof(batch_vertex, q) == 8U * sizeof(float),
+                  "q is the ninth float, after the color");
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_white, k_state_a));
+    GLINTFX_CHECK(batch.add_triangles(triangle_at(2.0F, 3.0F, k_white), {}, k_state_a));
+    const auto stored = batch.vertices();
+    GLINTFX_CHECK_EQ(stored.size(), std::size_t{7});
+    int with_q_of_one = 0;
+    for (const batch_vertex &vertex : stored) {
+        with_q_of_one += vertex.q == 1.0F ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(with_q_of_one, 7);
+    GLINTFX_CHECK(stored[2].u == 1.0F && stored[2].v == 1.0F);
+    GLINTFX_CHECK(stored[4].u == 0.0F && stored[4].v == 0.0F);
 }

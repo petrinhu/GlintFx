@@ -5,9 +5,9 @@
 #include <glintfx/core/vec2.hpp>
 
 // draw2d/vertex_2d.hpp - R2D-SHAPES (docs/auditoria-api-draw2d.md, section 9).
-// The PUBLIC vertex of fill_triangles(). The 32-byte internal vertex the
-// renderer uploads to the graphics card stays internal: it is not part of
-// this header and never will be (GODS_LAWS.md L-19).
+// The PUBLIC vertex of fill_triangles(). The internal vertex the renderer
+// uploads to the graphics card stays internal: it is not part of this header
+// and never will be (GODS_LAWS.md L-19).
 //
 // Position: WORLD space, double precision, like every world position in the
 // library. Colour: linear light with straight alpha, like every gltfx_rgba.

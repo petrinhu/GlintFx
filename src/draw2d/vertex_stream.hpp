@@ -17,9 +17,10 @@
 // already loaded gl_function_table, no context and no operating system, so it compiles on all five
 // systems and is exercised against a table of fakes (tests/vertex_stream_test.cpp).
 //
-// THE LAYOUT of the vertex array is the one of batch_vertex (triangle_batch.hpp), 32 bytes:
+// THE LAYOUT of the vertex array is the one of batch_vertex (triangle_batch.hpp), 36 bytes:
 // attribute 0 = position float2 at offset 0, attribute 1 = texture coordinate float2 at offset 8,
-// attribute 2 = color float4 at offset 16, all float, not normalized, stride 32 - the locations
+// attribute 2 = color float4 at offset 16, attribute 3 = the homogeneous coordinate q float at
+// offset 32 (T4a, D-W8-406), all float, not normalized, stride 36 - the locations
 // embedded_program.hpp names. Indices are GL_UNSIGNED_INT.
 //
 // THE TWO TECHNIQUES of sending a batch (R-B6: the one the layer uses is chosen by MEASUREMENT on

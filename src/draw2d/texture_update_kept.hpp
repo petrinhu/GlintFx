@@ -48,6 +48,10 @@ struct touched_levels {
 // after level, and writes into `touched` the rectangle of each level. False, and nothing changed,
 // when `chain` does not hold exactly every level (chain_texel_count()), has k_max_chain_levels
 // reduced levels or more, or `rect` is empty, reaches past level 0, or is not the size of `stored`.
+// Once those checks pass, the answer is true: level 0 is exchanged first, and the recomputation
+// after it cannot fail, because the rectangle a non-empty rectangle of level 0 touches in each
+// reduced level lies inside that level (T3-fix1 conference, COSMETICO-1). No false comes back with
+// the block already changed.
 [[nodiscard]] bool swap_update(const kept_chain &chain, const texel_rect &rect,
                                std::span<glintfx::gltfx_rgba8> stored,
                                touched_levels &touched) noexcept;

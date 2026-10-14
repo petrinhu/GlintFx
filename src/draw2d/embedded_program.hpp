@@ -21,11 +21,13 @@
 //
 // THE PROGRAM draws the batch of triangle_batch.hpp: position float2 in PIXELS (attribute 0),
 // texture coordinate float2 (attribute 1, inert until R2D-TEXTURE), color float4 linear and
-// PREMULTIPLIED (attribute 2). The vertex shader turns pixels into clip space with the one uniform
-// `u_viewport_pixels` (top-left origin, y down, as the corner roles of core/quad.hpp); the fragment
-// shader writes the color as it is when the surface encodes for us (the premultiplication already
-// happened, once, on the CPU), and encodes it to sRGB itself when `u_encode_srgb` is 1 (the context
-// option `srgb_framebuffer` off).
+// PREMULTIPLIED (attribute 2), and the homogeneous coordinate q float (attribute 3, T4a), which the
+// vertex shader hands to the fragment stage with the texture coordinate as one vec3 (u q, v q, q),
+// read by the textured drawing of T4b. The vertex shader turns pixels into clip space with the one
+// uniform `u_viewport_pixels` (top-left origin, y down, as the corner roles of core/quad.hpp); the
+// fragment shader writes the color as it is when the surface encodes for us (the premultiplication
+// already happened, once, on the CPU), and encodes it to sRGB itself when `u_encode_srgb` is 1 (the
+// context option `srgb_framebuffer` off).
 //
 // FAILURE (docs/api-conventions.md R1, R3, R7): a gltfx_err `platform_failure` whose
 // rejected_value() is one of the three TOKENS below, never a sentence. The driver's own message
@@ -64,6 +66,7 @@ inline constexpr std::size_t k_driver_log_capacity = 1024;
 inline constexpr std::uint32_t k_attribute_position = 0;
 inline constexpr std::uint32_t k_attribute_texcoord = 1;
 inline constexpr std::uint32_t k_attribute_color = 2;
+inline constexpr std::uint32_t k_attribute_texcoord_q = 3;
 
 // The two sources, exposed so a test can check them and a sabotaged copy can be built outside the
 // tree; the compile function reads exactly these.

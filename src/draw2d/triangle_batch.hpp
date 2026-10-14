@@ -19,12 +19,14 @@
 // but core/ and the pure atoms of draw2d/ (GODS_LAWS.md L-19: src/draw2d/ never reaches
 // src/platform/).
 //
-// THE VERTEX (32 bytes): position float2 in PIXELS, texture coordinate float2, color float4 LINEAR
-// and PREMULTIPLIED (the straight color of core/color.hpp times its alpha, alpha kept). The
-// premultiplication happens HERE, once per piece, so a half-transparent edge never grows a dark
-// fringe; the shader does not repeat it. The texture coordinate is by ROLE, as core/quad.hpp names
-// the corners: top_left (0, 0), top_right (1, 0), bottom_right (1, 1), bottom_left (0, 1); with no
-// image yet the values are inert, and R2D-TEXTURE will use them without reopening the format.
+// THE VERTEX (36 bytes, R2D-TEXTURE T4a, D-W8-23 and D-W8-406): position float2 in PIXELS, texture
+// coordinate float2, color float4 LINEAR and PREMULTIPLIED (the straight color of core/color.hpp
+// times its alpha, alpha kept), and LAST the homogeneous coordinate q, so the texture coordinate
+// stored is (u q, v q) and the program divides by q (the projective drawing of T4b; 1 until then).
+// The premultiplication happens HERE, once per piece, so a half-transparent edge never grows a
+// dark fringe; the shader does not repeat it. The texture coordinate is by ROLE, as core/quad.hpp
+// names the corners: top_left (0, 0), top_right (1, 0), bottom_right (1, 1), bottom_left (0, 1);
+// with no image yet the values are inert, and the textured drawing of T4b reads them.
 //
 // THE INDEX (32 bits): a batch is not capped at 16 384 pieces. A quad is 4 vertices and 6 indices,
 // the two triangles of the frozen diagonal (docs/auditoria-api-draw2d.md B0-I4):
@@ -51,8 +53,9 @@ struct batch_vertex {
     float g = 0.0F;
     float b = 0.0F;
     float a = 0.0F;
+    float q = 1.0F;
 };
-static_assert(sizeof(batch_vertex) == 32, "the vertex format is 32 bytes: 2 + 2 + 4 floats");
+static_assert(sizeof(batch_vertex) == 36, "the vertex format is 36 bytes: 2 + 2 + 4 + 1 floats");
 
 // What has to be equal for two pieces to share one draw call.
 struct batch_state {

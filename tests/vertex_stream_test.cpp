@@ -333,26 +333,31 @@ GLINTFX_TEST(vertex_stream_creation_describes_the_layout_and_leaves_everything_u
                   stream.index_buffer != 0);
     GLINTFX_CHECK_EQ(gl_state.vertex_arrays_created, 1);
     GLINTFX_CHECK_EQ(gl_state.buffers_created, 2);
-    GLINTFX_CHECK_EQ(gl_state.attribs.size(), std::size_t{3});
-    // position float2 @0, texture coordinate float2 @8, color float4 @16, stride 32, not normalized
+    GLINTFX_CHECK_EQ(gl_state.attribs.size(), std::size_t{4});
+    // position float2 @0, texture coordinate float2 @8, color float4 @16, q float @32 (T4a,
+    // D-W8-406), stride 36, not normalized
     GLINTFX_CHECK_EQ(gl_state.attribs[0].index, GLuint{0});
     GLINTFX_CHECK_EQ(gl_state.attribs[0].size, 2);
     GLINTFX_CHECK_EQ(gl_state.attribs[0].type, k_float);
-    GLINTFX_CHECK_EQ(gl_state.attribs[0].stride, 32);
+    GLINTFX_CHECK_EQ(gl_state.attribs[0].stride, 36);
     GLINTFX_CHECK_EQ(gl_state.attribs[0].offset, std::uintptr_t{0});
     GLINTFX_CHECK_EQ(gl_state.attribs[1].index, GLuint{1});
     GLINTFX_CHECK_EQ(gl_state.attribs[1].size, 2);
-    GLINTFX_CHECK_EQ(gl_state.attribs[1].stride, 32);
+    GLINTFX_CHECK_EQ(gl_state.attribs[1].stride, 36);
     GLINTFX_CHECK_EQ(gl_state.attribs[1].offset, std::uintptr_t{8});
     GLINTFX_CHECK_EQ(gl_state.attribs[2].index, GLuint{2});
     GLINTFX_CHECK_EQ(gl_state.attribs[2].size, 4);
-    GLINTFX_CHECK_EQ(gl_state.attribs[2].stride, 32);
+    GLINTFX_CHECK_EQ(gl_state.attribs[2].stride, 36);
     GLINTFX_CHECK_EQ(gl_state.attribs[2].offset, std::uintptr_t{16});
+    GLINTFX_CHECK_EQ(gl_state.attribs[3].index, GLuint{3});
+    GLINTFX_CHECK_EQ(gl_state.attribs[3].size, 1);
+    GLINTFX_CHECK_EQ(gl_state.attribs[3].stride, 36);
+    GLINTFX_CHECK_EQ(gl_state.attribs[3].offset, std::uintptr_t{32});
     for (const auto &attrib : gl_state.attribs) {
         GLINTFX_CHECK_EQ(attrib.type, k_float);
         GLINTFX_CHECK_EQ(attrib.normalized, GLboolean{0});
     }
-    GLINTFX_CHECK_EQ(gl_state.enabled_attribs.size(), std::size_t{3});
+    GLINTFX_CHECK_EQ(gl_state.enabled_attribs.size(), std::size_t{4});
     GLINTFX_CHECK_EQ(gl_state.bound_vertex_array, GLuint{0});
     GLINTFX_CHECK_EQ(gl_state.bound_array_buffer, GLuint{0});
     // (the element-array binding is state OF the vertex array, which is unbound: not asserted here)
@@ -409,7 +414,7 @@ GLINTFX_TEST(vertex_stream_both_techniques_put_the_exact_bytes_in_both_buffers) 
         GLINTFX_CHECK(sent.has_value());
         const std::size_t vertex_bytes = batch.vertices().size() * sizeof(batch_vertex);
         const std::size_t index_bytes = batch.indices().size() * sizeof(std::uint32_t);
-        GLINTFX_CHECK_EQ(vertex_bytes, std::size_t{384});
+        GLINTFX_CHECK_EQ(vertex_bytes, std::size_t{432});
         GLINTFX_CHECK_EQ(index_bytes, std::size_t{72});
         GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.vertex_buffer], batch.vertices().data(),
                                   vertex_bytes));
@@ -444,7 +449,7 @@ GLINTFX_TEST(vertex_stream_growth_doubles_and_never_shrinks) {
     GLINTFX_CHECK(upload_batch(table, stream, vertex_upload_technique::orphan_and_sub_data, small)
                       .has_value());
     const std::size_t small_capacity = stream.vertex_capacity_bytes;
-    GLINTFX_CHECK(small_capacity >= std::size_t{128});
+    GLINTFX_CHECK(small_capacity >= std::size_t{144});
     GLINTFX_CHECK(upload_batch(table, stream, vertex_upload_technique::orphan_and_sub_data, small)
                       .has_value());
     GLINTFX_CHECK_EQ(gl_state.orphan_calls[stream.vertex_buffer], 2);
@@ -454,7 +459,7 @@ GLINTFX_TEST(vertex_stream_growth_doubles_and_never_shrinks) {
     fill(big, 200, false);
     GLINTFX_CHECK(upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, big)
                       .has_value());
-    GLINTFX_CHECK(stream.vertex_capacity_bytes >= std::size_t{25600});
+    GLINTFX_CHECK(stream.vertex_capacity_bytes >= std::size_t{28800});
     GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.vertex_buffer], big.vertices().data(),
                               big.vertices().size() * sizeof(batch_vertex)));
     const std::size_t big_capacity = stream.vertex_capacity_bytes;
@@ -462,8 +467,8 @@ GLINTFX_TEST(vertex_stream_growth_doubles_and_never_shrinks) {
                       .has_value());
     GLINTFX_CHECK_EQ(stream.vertex_capacity_bytes, big_capacity);
 
-    // Growth DOUBLES: from a capacity of 2 quads (256 bytes), a batch of 3 quads (384 bytes) asks
-    // for 512, not for the exact 384 (an exact fit would reallocate on every piece added).
+    // Growth DOUBLES: from a capacity of 2 quads (288 bytes), a batch of 3 quads (432 bytes) asks
+    // for 576, not for the exact 432 (an exact fit would reallocate on every piece added).
     reset();
     const gl_function_table table2 = fake_table();
     vertex_stream doubling = create_vertex_stream(table2).value();
@@ -471,13 +476,13 @@ GLINTFX_TEST(vertex_stream_growth_doubles_and_never_shrinks) {
     fill(two, 2, false);
     GLINTFX_CHECK(upload_batch(table2, doubling, vertex_upload_technique::orphan_and_sub_data, two)
                       .has_value());
-    GLINTFX_CHECK_EQ(doubling.vertex_capacity_bytes, std::size_t{256});
+    GLINTFX_CHECK_EQ(doubling.vertex_capacity_bytes, std::size_t{288});
     triangle_batch three;
     fill(three, 3, false);
     GLINTFX_CHECK(
         upload_batch(table2, doubling, vertex_upload_technique::orphan_and_sub_data, three)
             .has_value());
-    GLINTFX_CHECK_EQ(doubling.vertex_capacity_bytes, std::size_t{512});
+    GLINTFX_CHECK_EQ(doubling.vertex_capacity_bytes, std::size_t{576});
 }
 
 GLINTFX_TEST(vertex_stream_an_empty_batch_sends_nothing_and_calls_no_gl_function) {

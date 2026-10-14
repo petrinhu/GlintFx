@@ -38,6 +38,7 @@ constexpr GLbitfield k_gl_map_invalidate_buffer_bit = 0x0008;
 constexpr GLsizei k_stride = static_cast<GLsizei>(sizeof(batch_vertex));
 constexpr std::uintptr_t k_texcoord_offset = 2 * sizeof(float);
 constexpr std::uintptr_t k_color_offset = 4 * sizeof(float);
+constexpr std::uintptr_t k_texcoord_q_offset = 8 * sizeof(float);
 
 void delete_objects(const render::gl_function_table &gl, GLuint vertex_array,
                     const GLuint (&buffers)[2]) noexcept {
@@ -184,6 +185,7 @@ gltfx_rslt<vertex_stream> create_vertex_stream(const render::gl_function_table &
     describe_attribute(gl, 0, 2, 0);
     describe_attribute(gl, 1, 2, k_texcoord_offset);
     describe_attribute(gl, 2, 4, k_color_offset);
+    describe_attribute(gl, 3, 1, k_texcoord_q_offset);
     // The element-array binding is state OF the vertex array: binding it here ties the index buffer
     // to this array.
     gl.glBindBuffer(k_gl_element_array_buffer, buffers[1]);

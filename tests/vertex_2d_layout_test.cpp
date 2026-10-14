@@ -12,12 +12,13 @@
 // fill_triangles(): gltfx_vertex_2d_world = position (gltfx_vec2_world, two doubles, world
 // space) followed by color (gltfx_rgba, four floats, linear light, straight alpha).
 //
-// THE PUBLIC VERTEX IS NOT THE INTERNAL ONE. The renderer uploads a different 32-byte vertex,
-// batch_vertex (src/draw2d/triangle_batch.hpp), made of eight floats. This test cannot include
-// anything under src/ (the include list below is the proof of that), so it cannot compare the
-// two types by name. It tells them apart by the field types instead: the public position is
-// double precision, and batch_vertex has no double at all. Both are 32 bytes, so size alone
-// would NOT tell them apart; that is why the checks below read the field types, not sizeof.
+// THE PUBLIC VERTEX IS NOT THE INTERNAL ONE. The renderer uploads a different vertex,
+// batch_vertex (src/draw2d/triangle_batch.hpp), made of floats only (nine since R2D-TEXTURE T4a,
+// 36 bytes). This test cannot include anything under src/ (the include list below is the proof of
+// that), so it cannot compare the two types by name. It tells them apart by the field types
+// instead: the public position is double precision, and batch_vertex has no double at all. The
+// sizes once matched (32 bytes each) and may match again, so size alone would NOT tell them apart;
+// that is why the checks below read the field types, not sizeof.
 
 static_assert(std::is_aggregate_v<glintfx::gltfx_vertex_2d_world>,
               "gltfx_vertex_2d_world must stay an aggregate: the layout IS the contract");

@@ -59,9 +59,10 @@ void triangle_batch::write_quad(const quad_corners_pixel &corners,
     constexpr float k_v[k_quad_vertices] = {0.0F, 0.0F, 1.0F, 1.0F};
     const auto base = static_cast<std::uint32_t>(vertex_store.size);
     for (std::size_t corner = 0; corner < k_quad_vertices; ++corner) {
-        vertex_store.data[vertex_store.size + corner] = batch_vertex{
-            corners[corner].x, corners[corner].y,   k_u[corner],        k_v[corner],
-            premultiplied.red, premultiplied.green, premultiplied.blue, premultiplied.alpha};
+        vertex_store.data[vertex_store.size + corner] =
+            batch_vertex{corners[corner].x,  corners[corner].y,   k_u[corner],
+                         k_v[corner],        premultiplied.red,   premultiplied.green,
+                         premultiplied.blue, premultiplied.alpha, 1.0F};
     }
     vertex_store.size += k_quad_vertices;
 
@@ -131,7 +132,8 @@ void triangle_batch::write_triangles(std::span<const colored_pixel_vertex> verti
                                                               premultiplied.red,
                                                               premultiplied.green,
                                                               premultiplied.blue,
-                                                              premultiplied.alpha};
+                                                              premultiplied.alpha,
+                                                              1.0F};
     }
     const std::size_t count = local_indices.empty() ? vertices.size() : local_indices.size();
     for (std::size_t i = 0; i < count; ++i) {

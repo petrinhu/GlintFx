@@ -9551,3 +9551,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Já provado: vermelho em 3 de 6, verde em 6 de 6 (varredura com 30000 pontos e 0 errados), Q1 a Q10 mortos, preci 371 e sanitizer rc 0.
   - O sanitizer deu 181, contra 176 na ordem. **Aceito pela conta:** a ordem mediu sobre a base de 173; esta base, com a S5-B, tem 178; somando os 3 testes novos, dá 181.
   - A base andou: a fix4 tocou tests/CMakeLists.txt. Mandado refazer sobre um snapshot novo do HEAD: âncoras iguais a 1, `git diff` provando que as linhas da fix4 ficaram, verde, preci, sanitizer (esperado 184) e commit. Vermelho e mutantes não se repetem, porque o código ditado é o mesmo byte a byte.
+- **18:29, queda de rede: os 4 agentes morreram com erro de API** ("Self-signed certificate detected", DEPTH_ZERO_SELF_SIGNED_CERT), em torno de 18:2x.
+  - Medido às 18:29: a conexão TLS com a API está normal (emissor Google Trust Services, verify 0).
+  - Os 4 foram retomados por SendMessage, com ordem de conferir o disco antes de repetir qualquer coisa.
+  - A conferência da S5-A-fix4 já tinha um IMPORTANTE provisório (I-2): o ramo não numérico do piso não tem teste. Isso gera uma fix5 quando o veredito sair.

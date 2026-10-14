@@ -9538,3 +9538,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A VM `glintfx-win11-lab` segue definida, mas sem disco. Não há snapshot da partição do sistema: `snapper -c rootfs list` só mostra o "current".
   - Efeito na W8: nenhum bloqueio. O MSVC roda no contêiner `glintfx-msvc`, que segue intacto; G3 e G4 usam as placas da máquina. A pasta do preci se refaz sozinha.
   - O líder foi informado. Recriar a VM vai à INBOX como decisão dele.
+- **15:26, T4b-A com tinta branca (md5 d938b53e; anexos 6cbc04ea; 18 arquivos) e S5-A-fix4 (md5 38bb0945; anexos 20fcda2c; 6 arquivos) recebidas do CTO a92de40e e despachadas a implementadores novos.**
+  - T4b-A: `tint` passa a `{1,1,1,1}` em `gltfx_texture_paint` e `gltfx_textured_vertex_2d`, com errata em `docs/auditoria-api-texture.md` citando a decisão do líder. Pré-execução: vermelho contra a tinta zero, verde, preci 371.
+  - S5-A-fix4 (D-W8-465 a 467): o CTO escolheu IMPOR o piso MSVC>=1930 (`cmake/GlintfxToolchainFloor.cmake`), com dois testes de script, 1929 parando e 1930 passando. Os cosméticos C-1 a C-3 e C-6 foram corrigidos. Pré-execução: preci 370, sanitizer 180, MSVC 1/1.
+  - Tinta do atlas (`gltfx_atlas_paint::tint`): aplicação coerente da D-W8-464, porque é desenho de imagem. Entra branca na T6. `gltfx_vertex_2d_world::color` (já publicado) e a cor da luz ficam como estão.
+  - CTO a92de40e escreve a T4b-B (D-W8-468 a 480).

@@ -9277,3 +9277,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **preci:** 358/358 no snapshot e no SHA.
   - **Disco:** foi a 23,62 no pior momento. Sobraram 0 imagens e 0 contêineres.
   - A conferência mirada e o QA visual da foto nova vão ao revisor da G2.
+- **00:54, conferência mirada da G2-fix1 LIMPA** (`rev-g2-fix1.txt`, revisor a80e82e1). I-1, I-2, I-3 e C-1 fechados; o main reconferiu `composed_photo_facts.py:62-65` e `:101-106` e `composed_photo.sh:61-73` na árvore, e o md5 da foto (5352fd20) bate. QA visual: cena do first_window, 640x480, sem nada alheio, 12/12 sondas. **QA-COMPOSED-PATH passa a ✅.** Dois resíduos cosméticos (o cabeçalho do baseline cala que Ulimits também difere; a linha de contagem ainda imprime Docker 29.7.2) vão na ordem da G3, que toca os mesmos arquivos.

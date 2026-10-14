@@ -9442,3 +9442,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - preci 362, sanitizer 172.
   - Cópia apagada.
   - A revisão N1 foi despachada ao revisor da T3 (abd30072), com a instrução de só usar a trava pesada depois do commit do redesenho dos alertas. O CTO da r21 recebeu o mesmo pedido de ceder a fila: o redesenho é o caminho crítico do CI.
+- **08:26, redesenho dos alertas commitado (eab820af, 4 caminhos, 348+/69-), empurrado e CI 38556511988 disparado.**
+  - Conferência do main: os dois .py batem com os ditados.
+  - Pré-commit do implementador:
+    - vermelho com 61 células e 34 falhas, depois verde 61/0;
+    - 25 mutantes mortos;
+    - nos contêineres do CI (devbuild sem journalctl e cachyos), o portão saiu de rc 1 para rc 77;
+    - paridade com os inventários reais: rc 1 sem a emenda e rc 0 com ela;
+    - preci 362/362 com `host_alert_gate_test` Passed.
+  - A conferência mirada foi despachada ao revisor das três rodadas (a03238e1). Os outros agentes já foram avisados de que a trava pesada está livre.
+- **08:26, conferência da S5-A-fix2 NÃO LIMPA por um único IMPORTANTE** (`rev-s5a-fix2.txt`).
+  - I-7 e I-8 fechados: zero erradas em 196000 afins, os 10 mutantes morrem e a escala é bit a bit igual em 14670 casos.
+  - I-9 em aberto: o comentário em `arc_segments.cpp:36-40` promete os mesmos bits em todo sistema, mas `-ffp-contract=fast` muda 12082 de 196000 resultados em 1 ulp.
+  - Pedida ao CTO a92de40e a decisão entre corrigir o texto e fixar `-ffp-contract=off`, como S5-A-fix3 (D-W8-441 a 444).

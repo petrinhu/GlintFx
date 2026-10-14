@@ -9270,3 +9270,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Limpeza pela L-11:** apagada `/var/tmp/cto-review-cisplit`, cópias do GlintFx de 29/09, de onda fechada e sem uso. Ela devolveu só 0,15 GiB, porque os dados eram divididos (reflink do btrfs). As outras pastas grandes de `/var/tmp` são de outros projetos ou do laboratório Windows, e não foram tocadas.
   - **Retomada:** o implementador mede o `min` com a trava pesada na mão, quando a T3-C não constrói, e só constrói com 26 ou mais, como a ordem manda.
   - **Atenção registrada:** no comando de limpeza, um caminho alternativo montava `/var/tmp` inteiro num contêiner com reetiquetagem `:z`. Ele NÃO rodou, porque a condição falhou. Esse padrão é proibido (memória "container rouba etiqueta de segurança"), e o main não o usa de novo.
+- **00:49, G2-fix1 commitada (1662501f, 6 caminhos, 205+/63-).**
+  - **Isolamento:** provado NO contêiner da foto, na variante `gpu_integrated_photo` (Docker 29.8.2), com `--pids-limit 512` e só o `renderD128`.
+  - **Juiz:** passa, com a Intel 0x8086, OpenGL na Iris Xe, 640x480 e 12/12 sondas.
+  - **Foto nova:** `/var/tmp/cto-w8/g2-fix1/foto/png/conn1_surface1.png`, md5 5352fd20, conferido pelo main.
+  - **preci:** 358/358 no snapshot e no SHA.
+  - **Disco:** foi a 23,62 no pior momento. Sobraram 0 imagens e 0 contêineres.
+  - A conferência mirada e o QA visual da foto nova vão ao revisor da G2.

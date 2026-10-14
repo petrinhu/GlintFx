@@ -9327,3 +9327,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Fontes lidas no código:** no Godot 4 (`canvas.glsl`), `light_blend_compute` só mexe em `color.rgb`; no box2dlights (`RayHandler.setAmbientLight`), o alfa é o brilho da sombra. Isso fecha o ciclo da pergunta ao advisor.
   - **Pré-execução refeita:** vermelho 16/15; verde 2/2; 10/10 mutantes mortos; preci 360/360; sanitizer 170; MSVC 3/0. O preci achou que `gltfx_rgba{a,b,c}` reprova no `-Wextra -Werror`; isso virou armadilha na ordem.
 - **03:41, faxina de disco (L-11):** saíram as cópias e builds da rodada 20 que o CTO liberou (`r20/{h4,s5a}/run`, `run397`, os `base*`, `combo397` e `cppchk`, mais `snap*`, `mut-*` e `xrepo` de `run397b`). Ficaram os logs do Anexo P e os `out-*` de root. O `min` foi de 22,7 para 26,35 GiB.
+- **03:50, alertas-fix2 reemitida pelo CTO a997f43f com a D-W8-394 e despachada ao implementador a4e46777** (`ordem-alertas-fix2.md` md5 349edf63; anexos 104d6dc8, `md5sum -c` verde).
+  - **D-W8-394:** o portão ganhou o fato novo `docker_cli`. Sem o CLI, o AVC não se aplica e o portão pula (77). Havendo coredump a medir, o portão mede e imprime o LIMITE DECLARADO na saída. Com o CLI mas sem a imagem da casa, o portão continua reprovando.
+  - **Evidência do CTO na árvore:** um AVC só conta como nosso se casar o MCS do contêiner da casa (`check_host_alerts.py:132` do ditado). Esse MCS só sai de `docker inspect` (`:284`). O selftest do hospedeiro roda unconfined e cai em `nao_atribuivel` (`:139`).
+  - **Advisor e CTO concordam** com o 77 nesse caso.
+  - **Pré-execução:** 44/23 e 44/0; MY1 a MY10 mortos; preci 359/359.

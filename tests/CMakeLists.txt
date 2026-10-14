@@ -6059,17 +6059,22 @@ if(UNIX)
 
     # HOST-ALERT-GATE (13/10/2026, GODS_LAWS.md L-09 e L-50): teste nenhum
     # chega a mesa do lider. O selftest prova o vermelho e o verde do portao SO
-    # sobre registros de exemplo do diario (nao acende alerta nenhum). O teste
-    # ao vivo sobe um conteiner da casa e roda o exec_fixture.sh --selftest no
-    # hospedeiro, e reprova se aparecer AVC com a categoria MCS daquele
-    # conteiner ou core dump do escopo proprio do teste ou do conteiner. Sai 77
-    # (pulo DECLARADO, "Skipped" no ctest) SO onde alerta nenhum e possivel (SELinux
-    # desligado, nem enforcing nem permissive, e kernel.core_pattern sem
-    # systemd-coredump); onde um alerta e possivel e falta o que o mede (o docker e a
-    # imagem, o diario legivel por conteudo antes, durante e depois da janela, o escopo
-    # do systemd-run), REPROVA: fonte ausente nunca passa, e programa ausente e fonte
-    # ausente, sem traceback (alertas-fix1 e alertas-fix2; a regra 77 contra 99 do
-    # Automake e do Meson).
+    # sobre registros de exemplo do diario e, desde o redesenho de 14/10/2026,
+    # roda a medicao inteira contra um hospedeiro de mentira (nao acende alerta
+    # nenhum). O teste ao vivo sobe um conteiner da casa e roda o
+    # exec_fixture.sh --selftest no hospedeiro, e reprova se aparecer AVC com a
+    # categoria MCS daquele conteiner ou core dump do escopo proprio do teste ou
+    # do conteiner. Sai 77 (pulo DECLARADO, "Skipped" no ctest) SO onde alerta
+    # nenhum nosso e mensuravel: SELinux desligado (nem enforcing nem permissive)
+    # ou sem o CLI do docker, e o core dump fora de alcance (kernel.core_pattern
+    # sem systemd-coredump, ou o teste dentro de um conteiner, fora do namespace
+    # de PID inicial, como nos jobs Linux do CI: o core dump vai ao diario do
+    # hospedeiro, que dali nao se le). Onde um alerta e mensuravel e falta o que
+    # o mede (a imagem da casa, o diario legivel por conteudo antes, durante e
+    # depois da janela, o escopo do systemd-run, o logger), REPROVA: fonte
+    # ausente nunca passa, e programa ausente e fonte ausente, sem traceback
+    # (alertas-fix1, alertas-fix2 e redesenho; a regra 77 contra 99 do Automake
+    # e do Meson).
     add_test(
         NAME host_alert_gate_selftest
         COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"

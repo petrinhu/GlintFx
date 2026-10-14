@@ -1004,3 +1004,15 @@ egl_config_attribs_test|windows|nenhum|SEM-PENDENCIA
 # PERMANENTE desde o fechamento da W7-D (06/10/2026, item D-SRGB2-WGL-SLICES concluido): a assimetria que fica
 # e' so' a dos codigos EGL_BAD_*, que nao existem no Windows (D-FECH-2).
 egl_srgb_surface_test|windows|nenhum|SEM-PENDENCIA
+
+# HOST-ALERT-GATE (13/10/2026; redesenho de 14/10/2026, D-W8-433): host_alert_gate_selftest e
+# host_alert_gate_test (tests/tools/check_host_alerts.py e check_host_alerts_selftest.py, registrados
+# dentro do if(UNIX) de tests/CMakeLists.txt) provam que nenhum teste da casa acende, na mesa do lider,
+# um aviso do setroubleshoot (negacao do SELinux, AVC) ou do DrKonqi (core dump recebido pelo
+# systemd-coredump). As tres fontes sao do Linux por natureza: SELinux, kernel.core_pattern com o
+# systemd-coredump e o conteiner da casa no docker do hospedeiro Linux. No Windows nao ha nenhuma das
+# tres, e o runner do CI nao e a mesa do lider. Esta lacuna da fatia original (cb22974f/ddec1bbe)
+# ficou escondida porque o primeiro CI depois dela caiu no build do Ubuntu; o run 38543250846 a
+# mostrou. MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
+host_alert_gate_selftest|windows|nenhum|SEM-PENDENCIA
+host_alert_gate_test|windows|nenhum|SEM-PENDENCIA

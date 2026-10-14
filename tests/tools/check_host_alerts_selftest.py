@@ -9,12 +9,24 @@
 # prova nao gera alerta nenhum na mesa do lider (L-09, L-50). Uma TABELA
 # FECHADA de celulas, cada veredito escrito da regra do cabecalho do portao,
 # nunca lido da saida dele. Imprime celulas e falhas, sempre (L-40).
+#
+# REDESENHO (14/10/2026, D-W8-427 a D-W8-432): as celulas 45 a 57 e a 60 rodam
+# a MEDICAO inteira, measure() e live(), contra um hospedeiro de mentira
+# (FakeHost) passado pela costura `run`/`sleep` do portao. Um tropeco
+# (`no_real_process`) troca o subprocess.run de verdade por um erro durante essas
+# celulas: um caminho que escape da costura reprova a celula, em vez de rodar um
+# programa de verdade.
+# As celulas 58 a 61 (D-W8-433) sao o caso do CI de 14/10/2026: num conteiner,
+# fora do namespace de PID inicial, o core dump nao e mensuravel daqui.
 import io
+import json
+import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import types
-from contextlib import redirect_stdout
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -54,10 +66,11 @@ def quiet(call):
         return call()
 
 
-def facts(selinux, core, docker, audit, system, scope, cli=True):
+def facts(selinux, core, docker, audit, system, scope, cli=True, pidns=True):
     return gate.HostFacts(selinux_enabled=selinux, core_pipe_to_systemd=core, docker_cli=cli,
                           docker_image=docker, audit_readable=audit,
-                          system_journal_readable=system, user_scope=scope)
+                          system_journal_readable=system, user_scope=scope,
+                          initial_pid_namespace=pidns)
 
 
 GATE_SCOPE = "glintfx-host-alert-gate-1234.scope"
@@ -122,22 +135,26 @@ ONE = '{"MESSAGE": "um registro"}\n'
 READABLE = FakeRun({"journalctl": (0, ONE), "docker": (0, ""), "systemd-run": (0, "")})
 
 
-def fake_root(enforce, pattern):
-    """Um /sys e um /proc de mentira, so com os dois arquivos que host_facts le."""
+def fake_root(enforce, pattern, pidns=None):
+    """Um /sys e um /proc de mentira, so com o que host_facts le (o link do namespace de PID so
+    quando `pidns` e dado; sem ele, host_facts presume o inicial)."""
     root = Path(tempfile.mkdtemp(prefix="glintfx-hostfacts-"))
     if enforce is not None:
         (root / "sys/fs/selinux").mkdir(parents=True)
         (root / "sys/fs/selinux/enforce").write_text(enforce)
     (root / "proc/sys/kernel").mkdir(parents=True)
     (root / "proc/sys/kernel/core_pattern").write_text(pattern)
+    if pidns is not None:
+        (root / "proc/self/ns").mkdir(parents=True)
+        os.symlink(pidns, root / "proc/self/ns/pid")
     return root
 
 
 PIPE = "|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h %d %F\n"
 
 
-def facts_of(enforce, pattern, run=READABLE):
-    root = fake_root(enforce, pattern)
+def facts_of(enforce, pattern, run=READABLE, pidns=None):
+    root = fake_root(enforce, pattern, pidns)
     try:
         return quiet(lambda: gate.host_facts(root, run))
     finally:
@@ -196,6 +213,185 @@ def fix2_cells():
     ]
 
 
+AUDIT_BPF = {"MESSAGE": "audit: BPF prog-id=4242 op=LOAD", "_TRANSPORT": "audit"}
+KERNEL_VETH = {"MESSAGE": "docker0: port 1(veth4242aaa) entered forwarding state",
+               "_TRANSPORT": "kernel"}
+OUR_AVC = {"MESSAGE": "avc:  denied { write } for pid=42 comm=\"sh\" "
+                      "scontext=system_u:system_r:container_t:s0:c7,c8 "
+                      "tcontext=system_u:object_r:user_home_t:s0 tclass=dir permissive=0"}
+SCENE = {"host_rc": 0, "create_rc": 0, "label": "system_u:system_r:container_t:" + OURS,
+         "extra_mount": "", "raise": {}, "after": {}, "our_dump": False,
+         "window": {"_TRANSPORT=audit": [AUDIT_BPF], "_TRANSPORT=kernel": [KERNEL_VETH]}}
+
+
+class FakeHost:
+    """O hospedeiro de mentira da MEDICAO inteira (D-W8-427): responde como o systemd-run, o
+    docker, o logger, o journalctl e o exec_fixture.sh, pelo cenario; check=True com rc
+    diferente de 0 levanta CalledProcessError, como o subprocess.run. Nenhum programa roda."""
+
+    def __init__(self, repo, **scene):
+        self.repo, self.scene = str(repo), {**SCENE, **scene}
+        self.calls, self.marker, self.unit = [], "", ""
+
+    def __call__(self, argv, check=False, **_):
+        self.calls.append(argv[0])
+        failure = self.scene["raise"].get(argv[0])
+        if failure is not None:
+            raise failure
+        rc, out = self.answer(argv)
+        if check and rc != 0:
+            raise subprocess.CalledProcessError(rc, argv)
+        return types.SimpleNamespace(returncode=rc, stdout=out, stderr="")
+
+    def answer(self, argv):
+        if argv[0] == "systemd-run" and "--unit" in argv:
+            self.unit = argv[argv.index("--unit") + 1]
+            return self.scene["host_rc"], ""
+        if argv[0].endswith("exec_fixture.sh"):
+            return self.scene["host_rc"], ""
+        if argv[0] == "logger":
+            self.marker = argv[-1]
+        if argv[0] == "docker":
+            return self.docker(argv[1:])
+        return 0, self.journal(argv) if argv[0] == "journalctl" else ""
+
+    def docker(self, args):
+        if args[0] == "create":
+            return self.scene["create_rc"], CONTAINER + "\n"
+        if args[0] == "inspect" and args[2] == "{{.ProcessLabel}}":
+            return 0, self.scene["label"] + "\n"
+        if args[0] == "inspect":
+            return 0, f"{self.repo} {self.scene['extra_mount']}\n"
+        return 0, ""
+
+    def journal(self, argv):
+        if "--since" not in argv:  # has_records: [filtro, "-n", "1"], antes e depois da janela
+            return ONE if self.scene["after"].get(argv[-3], True) else ""
+        wanted = argv[-1]
+        if wanted.startswith("SYSLOG_IDENTIFIER="):
+            return json.dumps({"MESSAGE": self.marker}) + "\n"
+        records = list(self.scene["window"].get(wanted, []))
+        if wanted == f"MESSAGE_ID={gate.COREDUMP_MESSAGE_ID}" and self.scene["our_dump"]:
+            records.append({"MESSAGE_ID": gate.COREDUMP_MESSAGE_ID, "COREDUMP_CMDLINE": "sh",
+                            "COREDUMP_CGROUP": APP + self.unit + ".scope",
+                            "COREDUMP_SIGNAL_NAME": "SIGSEGV"})
+        return "".join(json.dumps(r) + "\n" for r in records)
+
+
+@contextmanager
+def no_real_process():
+    """O tropeco: durante a celula, um subprocess.run de verdade e um erro, nunca um programa."""
+    real = subprocess.run
+
+    def tripwire(argv, **_):
+        raise RuntimeError(f"processo real chamado fora da costura: {argv}")
+
+    subprocess.run = tripwire
+    try:
+        yield
+    finally:
+        subprocess.run = real
+
+
+def fake_repo():
+    repo = Path(tempfile.mkdtemp(prefix="glintfx-hostgate-repo-"))
+    (repo / "tests/container").mkdir(parents=True)
+    (repo / "tests/container/exec_fixture.sh").write_text("")
+    return repo
+
+
+def measured(**scene):
+    """(rc, saida) de measure() com os fatos todos presentes e o hospedeiro do cenario."""
+    repo, out = fake_repo(), io.StringIO()
+    try:
+        with no_real_process(), redirect_stdout(out):
+            rc = gate.measure(repo, "python3", facts(True, True, True, True, True, True),
+                              FakeHost(repo, **scene), lambda _seconds: None)
+        return rc, out.getvalue()
+    finally:
+        shutil.rmtree(repo)
+
+
+def lived(enforce, pattern, pidns=None, **scene):
+    """(rc, programas chamados) de live() com raiz e hospedeiro de mentira."""
+    repo, root = fake_repo(), fake_root(enforce, pattern, pidns)
+    host = FakeHost(repo, **scene)
+    try:
+        with no_real_process(), redirect_stdout(io.StringIO()):
+            rc = gate.live(repo, "python3", host, lambda _seconds: None, root)
+        return rc, host.calls
+    finally:
+        shutil.rmtree(repo)
+        shutil.rmtree(root)
+
+
+def measure_cells():
+    """Redesenho: a ligacao das regras dentro de measure(), que as celulas 1 a 44 nao chamam
+    (os sobreviventes MZ1, MZ2 e MZ3 da conferencia da alertas-fix2)."""
+    return [
+        ("45 janela lida e legivel depois: passa, com o veredito impresso", safe(
+            lambda: (lambda r: r[0] == 0 and "montagens: 1, fora do repositorio: []" in r[1]
+                     and "avc: lidos=0 nossos=0" in r[1])(measured()))),
+        ("46 janela sem registro de auditoria: reprova", safe(lambda: measured(
+            window={"_TRANSPORT=kernel": [KERNEL_VETH]})[0] == 1)),
+        ("47 diario de auditoria ilegivel depois da leitura: reprova", safe(lambda: measured(
+            after={"_TRANSPORT=audit": False})[0] == 1)),
+        ("48 rotulo do conteiner sem categoria MCS: reprova", safe(lambda: measured(
+            label="system_u:system_r:container_t:s0")[0] == 1)),
+        ("49 selftest do hospedeiro saiu 1: reprova", safe(lambda: measured(host_rc=1)[0] == 1)),
+        ("50 AVC com a categoria do conteiner da casa: reprova", safe(lambda: measured(
+            window={"_TRANSPORT=audit": [AUDIT_BPF, OUR_AVC],
+                    "_TRANSPORT=kernel": [KERNEL_VETH]})[0] == 1)),
+        ("51 logger ausente: reprova com a razao, sem traceback", safe(
+            lambda: (lambda r: r[0] == 1 and "logger indisponivel" in r[1])(measured(**{
+                "raise": {"logger": FileNotFoundError(2, "logger")}})))),
+        ("52 exec_fixture.sh que nao executa: reprova com a razao, sem traceback", safe(
+            lambda: (lambda r: r[0] == 1 and "nao executou" in r[1])(measured(**{
+                "raise": {"systemd-run": PermissionError(13, "exec_fixture.sh")}})))),
+        ("53 core dump no escopo proprio do portao: reprova", safe(
+            lambda: measured(our_dump=True)[0] == 1)),
+        ("54 o conteiner montou algo fora do repositorio: reprova", safe(
+            lambda: measured(extra_mount="/home/lider")[0] == 1)),
+        ("55 o conteiner da casa nao sobe: reprova com a razao, sem traceback", safe(
+            lambda: (lambda r: r[0] == 1 and "nao subiu" in r[1])(measured(create_rc=125)))),
+    ]
+
+
+def live_cells():
+    """Redesenho: live() inteiro, da raiz de mentira ate o veredito."""
+    return [
+        ("56 live() sem alerta possivel: pulo declarado (77)", safe(
+            lambda: lived(None, "core\n")[0] == gate.SKIP)),
+        ("57 live() com SELinux e systemd-coredump: mede ate o fim e passa", safe(
+            lambda: (lambda r: r[0] == 0 and "logger" in r[1])(lived("1", PIPE)))),
+    ]
+
+
+INITIAL = "pid:[4026531836]"  # PID_NS_INIT_INO, 0xEFFFFFFC (include/uapi/linux/nsfs.h)
+CONTAINER_NS = "pid:[4026534125]"  # o de um conteiner desta maquina, medido em 14/10/2026
+ABSENT = {name: FileNotFoundError(2, name) for name in ("journalctl", "systemd-run", "docker",
+                                                       "logger")}
+
+
+def container_cells():
+    """D-W8-433 (o CI de 14/10/2026, run 38533813188): num conteiner o core_pattern e o do
+    hospedeiro, e o core dump vai a um diario que daqui nao se le: pula e declara o limite."""
+    return [
+        ("58 core dump fora do namespace de PID inicial, sem AVC: pula e declara o limite", safe(
+            lambda: (lambda d: d[0] == "pular" and any("LIMITE DECLARADO" in r for r in d[1]))(
+                gate.plan(facts(False, True, False, False, False, False, cli=False,
+                                pidns=False))))),
+        ("59 host_facts le o namespace de PID: o inicial sim, o do conteiner nao", safe(
+            lambda: facts_of("1", PIPE, pidns=INITIAL).initial_pid_namespace is True
+            and facts_of("1", PIPE, pidns=CONTAINER_NS).initial_pid_namespace is False)),
+        ("60 live() no conteiner do CI (sem journalctl, systemd-run, docker): 77", safe(
+            lambda: lived(None, PIPE, CONTAINER_NS, **{"raise": ABSENT})[0] == gate.SKIP)),
+        ("61 AVC mensuravel e o core dump num conteiner: mede so o AVC", safe(
+            lambda: gate.plan(facts(True, True, True, True, False, False, pidns=False))[0]
+            == "medir")),
+    ]
+
+
 def cells():
     avcs = gate.avcs_from(gate.read_jsonl(HERE / "audit.jsonl"))
     dumps = gate.coredumps_from(gate.read_jsonl(HERE / "coredump.jsonl"))
@@ -229,7 +425,7 @@ def cells():
          printed_counts(avcs, dumps, OURS, OWN_SCOPE, "abc") == [
              "avc: lidos=3 nossos=1 alheios=1 nao_atribuiveis=1",
              "coredump: lidos=3 nossos=1 alheios=2"]),
-    ] + fix1_cells() + fix2_cells()
+    ] + fix1_cells() + fix2_cells() + measure_cells() + live_cells() + container_cells()
 
 
 def main(argv: list[str]) -> int:
@@ -241,7 +437,7 @@ def main(argv: list[str]) -> int:
     for name in failed:
         print(f"check_host_alerts_selftest: FALHOU a celula {name}")
     print(f"check_host_alerts_selftest: celulas={len(table)} falhas={len(failed)}")
-    if len(table) < 44:
+    if len(table) < 61:
         print("check_host_alerts_selftest: menos celulas que o piso (varredura quebrada)")
         return 1
     return 1 if failed else 0

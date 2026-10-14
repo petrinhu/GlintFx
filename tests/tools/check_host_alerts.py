@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# check_host_alerts.py - HOST-ALERT-GATE (13/10/2026; alertas-fix1 e alertas-fix2, 14/10/2026):
+# check_host_alerts.py - HOST-ALERT-GATE (13/10/2026; alertas-fix1, alertas-fix2 e o
+# redesenho do selftest, 14/10/2026):
 # portao que REPROVA quando um teste da casa gera, no hospedeiro, um alerta que
 # chega a mesa do lider: uma negacao do SELinux (AVC) de um conteiner nosso, ou
 # um core dump que o systemd-coredump recebe de um processo nosso (cada um vira
@@ -34,6 +35,15 @@
 #     access was not denied."; so o SELinux desligado, sem o selinuxfs, nao
 #     tem AVC); o core dump, se o kernel.core_pattern e um pipe para o
 #     systemd-coredump;
+#   - o core dump so se aplica no namespace de PID INICIAL (D-W8-433, CI de
+#     14/10/2026, run 38533813188): num conteiner, o /proc/sys/kernel/core_pattern
+#     e o do HOSPEDEIRO, e o kernel entrega o core dump ao systemd-coredump do
+#     hospedeiro, num diario que de dentro do conteiner nao se le nem se
+#     atribui. O fato e medido, nunca o nome do ambiente: o link
+#     /proc/self/ns/pid aponta para o namespace inicial, PID_NS_INIT_INO
+#     (0xEFFFFFFC, include/uapi/linux/nsfs.h). Sem /proc legivel, presume-se o
+#     inicial (a medicao continua exigida). LIMITE DECLARADO, impresso: quem
+#     mede o core dump de um teste nosso e a rodada no hospedeiro;
 #   - nenhuma se aplica: pulo DECLARADO (rc 77, "Skipped" no ctest), com a
 #     razao; nesse hospedeiro, alerta nenhum chega a mesa nenhuma;
 #   - um programa que falta (o CLI do docker, o systemd-run, o journalctl) e
@@ -66,6 +76,15 @@
 #                fatos de hospedeiro escritos a mao: o vermelho e o verde SEM
 #                gerar alerta nenhum.
 #   --live       mede neste hospedeiro, pelas regras acima.
+#
+# A COSTURA DE TESTE (redesenho do selftest, 14/10/2026, D-W8-427): toda chamada
+# de programa passa por `run` e toda espera por `sleep`, dois parametros que
+# descem de live() e measure() ate a ultima funcao que os usa. O default e None,
+# resolvido NA HORA DA CHAMADA (subprocess.run e time.sleep), nunca capturado na
+# definicao. O selftest troca os dois por um hospedeiro de mentira e roda a
+# MEDICAO inteira, measure() e live(), sem programa nenhum e sem alerta nenhum.
+# Programa que falta ou que nao executa e fonte ausente tambem no logger e no
+# exec_fixture.sh do hospedeiro (D-W8-428): reprova com a razao, sem traceback.
 import json
 import os
 import re
@@ -77,6 +96,7 @@ from pathlib import Path
 
 SKIP = 77
 COREDUMP_MESSAGE_ID = "fc2e22bc6ee647b6b90729ab34a250b1"  # systemd catalog: process dumped core
+INITIAL_PID_NAMESPACE = f"pid:[{0xEFFFFFFC}]"  # PID_NS_INIT_INO, include/uapi/linux/nsfs.h
 AVC_SCONTEXT = re.compile(r"scontext=(\S+)")
 MCS_SUFFIX = re.compile(r":(s0:c\d+,c\d+)$")
 
@@ -104,6 +124,7 @@ class HostFacts:
     audit_readable: bool
     system_journal_readable: bool
     user_scope: bool
+    initial_pid_namespace: bool  # fora de conteiner: o core dump vai a um diario que se le daqui
 
 
 def mcs_of(context: str) -> str:
@@ -169,6 +190,12 @@ def avc_applies(facts: HostFacts) -> bool:
     return facts.selinux_enabled and facts.docker_cli
 
 
+def core_dump_applies(facts: HostFacts) -> bool:
+    """O core dump so e mensuravel com o systemd-coredump E no namespace de PID inicial
+    (D-W8-433)."""
+    return facts.core_pipe_to_systemd and facts.initial_pid_namespace
+
+
 def plan(facts: HostFacts) -> tuple[str, list[str]]:
     """'pular' (nenhum alerta nosso possivel), 'reprovar' (fonte ausente) ou 'medir'; e as razoes,
     impressas na saida em toda decisao (os limites declarados tambem)."""
@@ -176,21 +203,26 @@ def plan(facts: HostFacts) -> tuple[str, list[str]]:
     if facts.selinux_enabled and not facts.docker_cli:
         notes.append("AVC nao se aplica: sem o CLI do docker nao ha conteiner nosso, e um AVC do "
                      "hospedeiro (unconfined, sem categoria MCS) nao e atribuivel")
-    if not avc_applies(facts) and not facts.core_pipe_to_systemd:
-        return "pular", notes + ["nenhum alerta nosso possivel: sem AVC atribuivel e "
-                                 "kernel.core_pattern sem systemd-coredump"]
+    if facts.core_pipe_to_systemd and not facts.initial_pid_namespace:
+        notes.append("core dump nao se aplica: este processo nao esta no namespace de PID inicial "
+                     "(um conteiner), e o kernel entrega o core dump ao systemd-coredump do "
+                     "hospedeiro, num diario que daqui nao se le nem se atribui. LIMITE DECLARADO: "
+                     "quem mede o core dump de um teste nosso e a rodada no hospedeiro")
+    if not avc_applies(facts) and not core_dump_applies(facts):
+        return "pular", notes + ["nenhum alerta nosso possivel: sem AVC atribuivel e sem core "
+                                 "dump mensuravel daqui"]
     missing = []
     if avc_applies(facts) and not facts.docker_image:
         missing.append(f"AVC: a imagem {HOUSE_IMAGE} ausente")
     if avc_applies(facts) and not facts.audit_readable:
         missing.append("AVC: diario de auditoria ilegivel (nenhum registro lido)")
-    if facts.core_pipe_to_systemd and not facts.system_journal_readable:
+    if core_dump_applies(facts) and not facts.system_journal_readable:
         missing.append("core dump: diario do sistema ilegivel (nenhum registro do kernel lido)")
-    if facts.core_pipe_to_systemd and not facts.user_scope:
+    if core_dump_applies(facts) and not facts.user_scope:
         missing.append("core dump: systemd-run --user --scope indisponivel (sem escopo proprio)")
     if missing:
         return "reprovar", notes + missing
-    if facts.core_pipe_to_systemd and not facts.docker_cli:
+    if core_dump_applies(facts) and not facts.docker_cli:
         notes.append("LIMITE DECLARADO: sem docker, nao ha registro do kernel nosso na janela; "
                      "valem a leitura antes e a de depois")
     return "medir", notes
@@ -218,8 +250,9 @@ HOUSE_IMAGE = "glintfx-devbuild:verify"
 SENTINEL_TAG = "glintfx-host-alert-gate"
 
 
-def journal(filters: list[str], run=subprocess.run) -> list[dict] | None:
+def journal(filters: list[str], run=None) -> list[dict] | None:
     """Registros do diario pelos filtros dados, ou None se o journalctl falhar ou faltar."""
+    run = subprocess.run if run is None else run
     try:
         done = run(["journalctl", "-o", "json", "--no-pager", *filters],
                    capture_output=True, text=True)
@@ -232,24 +265,35 @@ def journal(filters: list[str], run=subprocess.run) -> list[dict] | None:
     return [json.loads(line) for line in done.stdout.splitlines() if line.strip()]
 
 
-def journal_since(since: float, filters: list[str]) -> list[dict] | None:
-    return journal(["--since", f"@{since:.6f}", *filters])
+def journal_since(since: float, filters: list[str], run=None) -> list[dict] | None:
+    return journal(["--since", f"@{since:.6f}", *filters], run)
 
 
-def has_records(filters: list[str], run=subprocess.run) -> bool:
+def has_records(filters: list[str], run=None) -> bool:
     """Legivel por CONTEUDO: ao menos um registro (sem permissao, o journalctl sai 0 vazio)."""
     return bool(journal([*filters, "-n", "1"], run))
 
 
-def runs_ok(command: list[str], run=subprocess.run) -> bool:
+def runs_ok(command: list[str], run=None) -> bool:
     """O comando roda e sai 0; o programa que falta (OSError) e False, nunca um traceback."""
+    run = subprocess.run if run is None else run
     try:
         return run(command, capture_output=True).returncode == 0
     except OSError:
         return False
 
 
-def host_facts(root: Path = Path("/"), run=subprocess.run) -> HostFacts:
+def in_initial_pid_namespace(root: Path) -> bool:
+    """O link /proc/self/ns/pid aponta para o namespace inicial; sem /proc legivel, presume-se o
+    inicial, e a medicao do core dump continua exigida (nunca um pulo por falta de dado)."""
+    try:
+        return os.readlink(root / "proc/self/ns/pid") == INITIAL_PID_NAMESPACE
+    except OSError as error:
+        print(f"namespace de PID ilegivel ({error}): presume-se o inicial, a medicao segue exigida")
+        return True
+
+
+def host_facts(root: Path = Path("/"), run=None) -> HostFacts:
     """Os fatos deste hospedeiro; `root` e `run` existem para o selftest dar /sys, /proc e os
     programas de mentira (alertas-fix2: host_facts nao tinha celula nenhuma)."""
     enforce = root / "sys/fs/selinux/enforce"
@@ -262,89 +306,111 @@ def host_facts(root: Path = Path("/"), run=subprocess.run) -> HostFacts:
         docker_image=runs_ok(["docker", "image", "inspect", HOUSE_IMAGE], run),
         audit_readable=has_records(["_TRANSPORT=audit"], run),
         system_journal_readable=has_records(["_TRANSPORT=kernel"], run),
-        user_scope=runs_ok(["systemd-run", "--user", "--scope", "--quiet", "true"], run))
+        user_scope=runs_ok(["systemd-run", "--user", "--scope", "--quiet", "true"], run),
+        initial_pid_namespace=in_initial_pid_namespace(root))
 
 
 def window_gaps(facts: HostFacts, container_ran: bool, audit_records: list[dict],
-                kernel_records: list[dict], run=subprocess.run) -> list[str]:
+                kernel_records: list[dict], run=None) -> list[str]:
     """O que falta para a leitura valer na JANELA: os registros que a partida do conteiner da casa
     deixa (auditoria e kernel), e o diario ainda legivel DEPOIS da leitura (alertas-fix2)."""
     gaps = []
     if avc_applies(facts) and container_ran and not audit_records:
         gaps.append("nenhum registro de auditoria na janela, nem os da partida do conteiner")
-    if facts.core_pipe_to_systemd and container_ran and not kernel_records:
+    if core_dump_applies(facts) and container_ran and not kernel_records:
         gaps.append("nenhum registro do kernel na janela, nem os da rede do conteiner")
     if avc_applies(facts) and not has_records(["_TRANSPORT=audit"], run):
         gaps.append("o diario de auditoria ficou ilegivel depois da leitura")
-    if facts.core_pipe_to_systemd and not has_records(["_TRANSPORT=kernel"], run):
+    if core_dump_applies(facts) and not has_records(["_TRANSPORT=kernel"], run):
         gaps.append("o diario do sistema ficou ilegivel depois da leitura")
     return gaps
 
 
-def run_house_container(repo: Path) -> tuple[str, str, list[str]]:
+def run_house_container(repo: Path, run=None) -> tuple[str, str, list[str]]:
     """Sobe o conteiner da casa: (id, MCS, origens das montagens). Roda dentro
     dele o python sem -I e o exec_fixture.sh --selftest como root."""
-    created = subprocess.run(
+    run = subprocess.run if run is None else run
+    # `:ro,z`, minusculo, de proposito (D-W8-429): o repositorio e o mesmo que os outros testes
+    # de conteiner da casa montam AO MESMO TEMPO (o ctest roda em paralelo), e o CLAUDE.md do
+    # projeto manda o `:z` compartilhado nesse caso. O `:Z` privado reetiquetaria a pasta so
+    # para este conteiner e tiraria o acesso dos outros (incidente de 07/09/2026: 10 mil
+    # alertas por minuto).
+    created = run(
         ["docker", "create", "-v", f"{repo}:/src:ro,z", "-e", "GLINTFX_PYTHON3=python3",
          HOUSE_IMAGE, "sh", "-c",
          "python3 -c 'import site, sys; print(site.ENABLE_USER_SITE, sys.path)'; "
          "/src/tests/container/exec_fixture.sh --selftest"],
         capture_output=True, text=True, check=True)
     cid = created.stdout.strip()
-    label = subprocess.run(["docker", "inspect", "-f", "{{.ProcessLabel}}", cid],
-                           capture_output=True, text=True, check=True).stdout.strip()
-    sources = subprocess.run(["docker", "inspect", "-f", "{{range .Mounts}}{{.Source}} {{end}}",
-                              cid], capture_output=True, text=True, check=True).stdout.split()
-    started = subprocess.run(["docker", "start", "-a", cid], capture_output=True, text=True)
+    label = run(["docker", "inspect", "-f", "{{.ProcessLabel}}", cid],
+                capture_output=True, text=True, check=True).stdout.strip()
+    sources = run(["docker", "inspect", "-f", "{{range .Mounts}}{{.Source}} {{end}}", cid],
+                  capture_output=True, text=True, check=True).stdout.split()
+    started = run(["docker", "start", "-a", cid], capture_output=True, text=True)
     print(f"conteiner {cid[:12]} rc={started.returncode} rotulo={label}")
-    subprocess.run(["docker", "rm", "-f", cid], capture_output=True)
+    run(["docker", "rm", "-f", cid], capture_output=True)
     return cid, mcs_of(label), sources
 
 
-def wait_for_sentinel(since: float, marker: str) -> bool:
+def wait_for_sentinel(since: float, marker: str, run=None, sleep=None) -> bool:
     """Escreve um registro neutro e espera le-lo: prova que a leitura do diario
-    alcanca a janela (piso nao-vazio, L-40). Depois, 5 s para o systemd-coredump."""
-    subprocess.run(["logger", "-t", SENTINEL_TAG, marker], check=True)
+    alcanca a janela (piso nao-vazio, L-40). Depois, 5 s para o systemd-coredump.
+    O logger que falta ou falha e fonte ausente: False, com a razao (D-W8-428)."""
+    run = subprocess.run if run is None else run
+    sleep = time.sleep if sleep is None else sleep
+    try:
+        run(["logger", "-t", SENTINEL_TAG, marker], check=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f"logger indisponivel, o sentinela nao foi escrito: {error}")
+        return False
     for _ in range(40):
-        seen = journal_since(since, [f"SYSLOG_IDENTIFIER={SENTINEL_TAG}"]) or []
+        seen = journal_since(since, [f"SYSLOG_IDENTIFIER={SENTINEL_TAG}"], run) or []
         if any(marker in str(r.get("MESSAGE", "")) for r in seen):
-            time.sleep(5)
+            sleep(5)
             return True
-        time.sleep(0.5)
+        sleep(0.5)
     return False
 
 
-def run_host_selftest(repo: Path, python: str, scope: str, in_scope: bool) -> int:
-    """O exec_fixture.sh --selftest no hospedeiro, no escopo proprio quando ha core dump a medir."""
+def run_host_selftest(repo: Path, python: str, scope: str, in_scope: bool, run=None) -> int:
+    """O exec_fixture.sh --selftest no hospedeiro, no escopo proprio quando ha core dump a medir.
+    O programa que falta ou nao executa (OSError) devolve 127, e o portao reprova (D-W8-428)."""
+    run = subprocess.run if run is None else run
     prefix = ["systemd-run", "--user", "--scope", "--quiet", "--unit", scope] if in_scope else []
-    host = subprocess.run([*prefix, str(repo / "tests/container/exec_fixture.sh"), "--selftest"],
-                          capture_output=True, text=True,
-                          env={**os.environ, "GLINTFX_PYTHON3": python})
+    try:
+        host = run([*prefix, str(repo / "tests/container/exec_fixture.sh"), "--selftest"],
+                   capture_output=True, text=True,
+                   env={**os.environ, "GLINTFX_PYTHON3": python})
+    except OSError as error:
+        print(f"exec_fixture.sh --selftest no hospedeiro nao executou: {error}")
+        return 127
     print(f"exec_fixture.sh --selftest no hospedeiro: rc={host.returncode}")
     return host.returncode
 
 
-def measure(repo: Path, python: str, facts: HostFacts) -> int:
+def measure(repo: Path, python: str, facts: HostFacts, run=None, sleep=None) -> int:
     since = time.time()
     scope = f"glintfx-host-alert-gate-{os.getpid()}"
-    host_rc = run_host_selftest(repo, python, scope, facts.core_pipe_to_systemd)
+    host_rc = run_host_selftest(repo, python, scope, core_dump_applies(facts), run)
     try:
-        cid, mcs, sources = run_house_container(repo) if facts.docker_image else ("", "", [])
+        cid, mcs, sources = (run_house_container(repo, run) if facts.docker_image
+                             else ("", "", []))
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"REPROVADO: o conteiner da casa nao subiu (fonte ausente): {error}")
         return 1
     foreign = [s for s in sources if Path(s).resolve() != repo.resolve()]
     print(f"montagens: {len(sources)}, fora do repositorio: {foreign}")
     if (avc_applies(facts) and not mcs) or not wait_for_sentinel(
-            since, f"marca-{os.getpid()}-{since:.0f}"):
+            since, f"marca-{os.getpid()}-{since:.0f}", run, sleep):
         print("REPROVADO: sem categoria MCS do conteiner ou sem ler o diario na janela")
         return 1
-    avc_records = journal_since(since, ["_TRANSPORT=audit"]) if avc_applies(facts) else []
-    dump_records = (journal_since(since, [f"MESSAGE_ID={COREDUMP_MESSAGE_ID}"])
-                    if facts.core_pipe_to_systemd else [])
-    kernel_records = (journal_since(since, ["_TRANSPORT=kernel"])
-                      if facts.core_pipe_to_systemd and cid else [])
-    gaps = window_gaps(facts, bool(cid), avc_records or [], kernel_records or [])
+    avc_records = (journal_since(since, ["_TRANSPORT=audit"], run)
+                   if avc_applies(facts) else [])
+    dump_records = (journal_since(since, [f"MESSAGE_ID={COREDUMP_MESSAGE_ID}"], run)
+                    if core_dump_applies(facts) else [])
+    kernel_records = (journal_since(since, ["_TRANSPORT=kernel"], run)
+                      if core_dump_applies(facts) and cid else [])
+    gaps = window_gaps(facts, bool(cid), avc_records or [], kernel_records or [], run)
     for gap in gaps:
         print(f"REPROVADO: fonte ausente na janela: {gap}")
     result = 1 if gaps else judge(avc_records, dump_records, mcs, f"{scope}.scope", cid)
@@ -354,11 +420,11 @@ def measure(repo: Path, python: str, facts: HostFacts) -> int:
     return result
 
 
-def live(repo: Path, python: str) -> int:
+def live(repo: Path, python: str, run=None, sleep=None, root: Path = Path("/")) -> int:
     if not (repo / "tests/container/exec_fixture.sh").is_file():
         print(f"REPROVADO: repositorio sem tests/container/exec_fixture.sh: {repo}")
         return 1
-    facts = host_facts()
+    facts = host_facts(root, run)
     decision, reasons = plan(facts)
     for reason in reasons:
         print(f"host_alert_gate: {reason}")
@@ -368,7 +434,7 @@ def live(repo: Path, python: str) -> int:
     if decision == "reprovar":
         print("REPROVADO: fonte de medida ausente num hospedeiro onde o alerta e possivel")
         return 1
-    return measure(repo, python, facts)
+    return measure(repo, python, facts, run, sleep)
 
 
 def main(argv: list[str]) -> int:

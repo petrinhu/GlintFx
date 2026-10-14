@@ -9239,3 +9239,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Conserto:** a célula 8 passa a usar só o AVC nosso, e a célula nova 13 confere a atribuição exata pelas linhas impressas. Agora o MB1 morre em 3 células, o MB2 em 2 e o MB3 em 1.
   - Ordem emendada (`ordem-alertas.md`, md5 ca04a4c4; anexos d6b0c8f8, rc 0). A tabela agora manda PARAR se um mutante matar menos células que o previsto, e nunca ajustar a tabela.
   - O implementador retoma a etapa B num snapshot novo, reaproveitando o corpo que já escreveu.
+- **23:43, S4 FECHADA e o texto ratificado pelo líder.**
+  - **Conferência mirada da S4-fix1** (`/var/tmp/cto-w8/rev-s4-fix1.txt`): os três IMPORTANTES estão FECHADOS, com uma célula de cada lado de cada limiar; o caso do M-C e o do M-H foram nomeados por linha; o verde no SHA dá 4/4. **A S4 está fechada** (eb23058f, 33fc983b e 23a45206).
+  - **Respostas do líder** (AskUserQuestion, verbatim): o texto novo da cerca, *"Ratifico (Recomendado)"*; a frase falsa que a nota histórica do parecer ainda repete, *"Apagar a frase falsa (Recomendado)"*, pela L-67.
+  - A remoção vai a um agente de documentação. Fica de fora o COSMÉTICO "one of" solto no cabeçalho da paridade, que já existia antes.

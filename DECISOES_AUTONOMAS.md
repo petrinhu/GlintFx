@@ -9493,3 +9493,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Hoje só a miniatura de arquivo é negada: 2 alertas em 2 dias.
   - `restorecon` não resolve, porque o caminho não tem etiqueta padrão. Não mexi nas 475 mil entradas com agentes em voo.
   - Vai à INBOX como TMP-LABEL-PRIVATE, para achar a montagem `:Z` culpada. Classe do vigia: AMARELO (sistema, não bloqueia o build).
+- **10:34, ordem do líder sobre TMP-LABEL-PRIVATE**, verbatim: "Autorizo retirar a exclusividade depois". Execução: numa janela sem agente nem contêiner em voo (ao fechar a W8, antes da limpeza final), devolver `/var/tmp/builds` e `/var/tmp/preci` à etiqueta de uma pasta nova em `/var/tmp`, medida na hora. Achar a montagem `:Z` culpada continua no item da INBOX.

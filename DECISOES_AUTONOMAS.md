@@ -9489,3 +9489,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Já provado: vermelho com `-march=x86-64-v3` (fp_contract_test.cpp:38), verde com e sem a flag, e os 3 mutantes mortos.
   - A causa, medida pelo main no build.log, é o containerd na exportação da imagem ("ref ... locked for 1m12s"), não o código. Não achei build concorrente na janela.
   - Ordem: refazer só o bloco gl. Se o erro voltar, uma nova tentativa depois de 60 s; se repetir, parar. Depois seguem preci, sanitizer, MSVC e o commit.
+- **10:30, achado do vigia: etiqueta SELinux privada** (`container_file_t:s0:c290,c825`) em `/var/tmp/builds` e `/var/tmp/preci`, desde pelo menos 13/10 13:55.
+  - Hoje só a miniatura de arquivo é negada: 2 alertas em 2 dias.
+  - `restorecon` não resolve, porque o caminho não tem etiqueta padrão. Não mexi nas 475 mil entradas com agentes em voo.
+  - Vai à INBOX como TMP-LABEL-PRIVATE, para achar a montagem `:Z` culpada. Classe do vigia: AMARELO (sistema, não bloqueia o build).

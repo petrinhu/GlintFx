@@ -157,6 +157,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage CTO-T3fix1 14/10] `R2D-TEXTURE-CARD-STATE`: estado da textura na placa consultável e ressincronizar depois de recusa (símbolo público novo, exige revisão de API dedicada; origem D-W8-383, `ordem-t3-fix1.md`).
 - [triage CTO-T3fix1 14/10] `R2D-TEXTURE-KEPT-BYTES`: função pública que devolve os bytes guardados pela biblioteca para uma textura atualizável (símbolo público novo, exige revisão de API dedicada; origem D-W8-384).
 - [triage CTO-alertasfix3 14/10] `HOST-ALERT-JSON`: check_host_alerts.py:265 (json.loads sem ValueError) e :301 (core_pattern ilegível sem OSError) saem com traceback; :301 exige decidir o que se presume (precedente D-W8-433). Fonte: /var/tmp/cto-w8/rev-alertas-redesign.txt, COSMETICO-3.
+- [triage main 14/10] `TMP-LABEL-PRIVATE`: `/var/tmp/builds` (pasta temporária das sessões, 475 mil entradas) e `/var/tmp/preci` estão com a etiqueta SELinux PRIVADA `container_file_t:s0:c290,c825`, de uma montagem `:Z` ainda não identificada; o primeiro alerta é de 13/10 13:55 (gsf-office-thumbnailer, ino 30825499). Hoje só a miniatura de arquivo é negada (2 alertas em 2 dias), mas é a família de "Container rouba etiqueta" (a sessão do líder já levou 10 mil alertas por minuto uma vez). `restorecon` não resolve, porque não há etiqueta padrão para esse caminho. Achar o `docker run` com `:Z` que monta essas pastas e trocar por `:z` ou montagem mais estreita. Fonte: achado do vigia às 10:27.
 
 
 

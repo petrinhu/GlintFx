@@ -156,6 +156,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage CTO-H4fix1 14/10] `[[nodiscard]]` por função contra o texto da R2 de `docs/api-conventions.md`: a prática da casa (46 casos) diverge do texto da regra; decidir qual dos dois muda (origem: revisão N1 da H4, `rev-h4.txt`, COSMÉTICO; D-W8-423).
 - [triage CTO-T3fix1 14/10] `R2D-TEXTURE-CARD-STATE`: estado da textura na placa consultável e ressincronizar depois de recusa (símbolo público novo, exige revisão de API dedicada; origem D-W8-383, `ordem-t3-fix1.md`).
 - [triage CTO-T3fix1 14/10] `R2D-TEXTURE-KEPT-BYTES`: função pública que devolve os bytes guardados pela biblioteca para uma textura atualizável (símbolo público novo, exige revisão de API dedicada; origem D-W8-384).
+- [triage CTO-alertasfix3 14/10] `HOST-ALERT-JSON`: check_host_alerts.py:265 (json.loads sem ValueError) e :301 (core_pattern ilegível sem OSError) saem com traceback; :301 exige decidir o que se presume (precedente D-W8-433). Fonte: /var/tmp/cto-w8/rev-alertas-redesign.txt, COSMETICO-3.
 
 
 

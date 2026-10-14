@@ -9465,3 +9465,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - MZ1 a MZ3, a falta de programas e o namespace (D-W8-433) fechados: 10 mutantes, 8 mortos.
   - Dois IMPORTANTE de teste, sem mudança de regra. M10: falta de registro do kernel sem a guarda do contêiner, em `check_host_alerts.py:320-321`; sem a célula, um hospedeiro sem docker que deveria passar reprova. M6: a impressão do LIMITE em `:429-430` não é conferida pela célula 60.
   - O CTO a997f43f não estava mais alcançável. A ordem alertas-fix3 (D-W8-450 a 454) foi para um CTO novo (af139138). É conserto mecânico, sem pesquisa de queixas. O implementador será novo (o a4e46777 também caiu) e a conferência fica com o a03238e1, se ele ainda responder; senão, com um revisor novo que lê o veredito pelo caminho.
+- **09:56, ordem alertas-fix3 recebida (CTO af139138; md5 b78eb256; anexos e0cb5d87) e despachada a um implementador novo (a0f966ec).**
+  - D-W8-450: célula 62. live() sem docker, com core dump aplicável e no namespace inicial, mede, dá rc 0 e imprime o LIMITE. Mata o M10.
+  - D-W8-451: a célula 60 exige rc 77 e a linha do LIMITE vinda do print de live(). Mata o M6 e fecha o COSMÉTICO-4.
+  - D-W8-452: o COSMÉTICO-3 vai à INBOX como HOST-ALERT-JSON, escrito pelo main. Razão: o :301 exige decidir uma regra.
+  - D-W8-453: o piso sobe para 62 células e 27 mutantes, com a tabela medida de novo.
+  - D-W8-454: sem pesquisa de queixas, porque nenhuma regra muda. Fica só o preci --fast.
+  - Pré-execução: vermelho contra M10 e M6, verde na base, 27 de 27 mutantes mortos, preci rc 0.
+- **09:56, rodada 21 recebida do CTO a92de40e.**
+  - S5-A-fix3 (D-W8-441 a 444; md5 283cf05d): `-ffp-contract=off` em todo alvo da glintfx, o comentário corrigido e a trava `fp_contract_test`. 11 queixas lidas. Medido: sem a regra, 127030 de 200000 respostas mudam de bits; com ela, zero, no GCC e no Clang. Despachada ao aae2a372.
+  - T4a-fix1 (D-W8-445 a 449; md5 1a5f0296): o teste exige o repasse de q, visto vermelho contra o R6. Os cosméticos 1 e 2 entram; o 3 foi recusado com citação ("Proved by:" é convenção da casa). Despachada ao a62b9096.
+  - S5-B (D-W8-410 a 418; md5 7a315ace): 25 arquivos, 10 de 10 mutantes, pior erro de borda 0,136 px contra o limite de 0,25. Só sai depois do commit da fix3 e com uma vaga no teto de agentes.
+  - Plano r21 (md5 2ece9229): a T4b anda junto com a S5-B; em série, T4b, S5-C, R2b, T5 e H3a; os exemplos S6, T7 e H5 um de cada vez; depois G3, G4 e CI-VERDE-W8.
+- **09:56, Q3 (raio zero, D-W8-414): 7 queixas, abaixo do piso de 10, com uma contrária (canvg #941). O advisor desempatou pela continuidade.** Razão: o consumidor que quer "nada" consegue isso testando o raio zero antes da chamada; quem quer continuidade não consegue recuperar o disco se a lib não desenhar nada. Também é coerente com D-W8-270 e com o `stroke_rect` degenerado. canvg é motor SVG, e o GlintFx não é. A ordem S5-B já embute a escolha.
+- **09:56, LISTA DE RATIFICAÇÃO DO LÍDER** (comportamento público): D-W8-414, raio zero desenha disco ou barra em vez de nada; D-W8-441 a 444, `-ffp-contract=off` em todo alvo, que troca a fusão de ponto flutuante por bits iguais em todo sistema e afeta a numérica e o desempenho da lib inteira.
+- **09:56, furo passado ao revisor da S5-A-fix3** (advisor): "o MSVC com /fp:precise não funde" é leitura de documentação, não medida. A prova é o `fp_contract_test` RODANDO nos jobs Windows do CI, fora do `parity_exceptions.txt` e sem condição de Linux.

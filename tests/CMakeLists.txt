@@ -5995,9 +5995,12 @@ if(UNIX)
     # sobre registros de exemplo do diario (nao acende alerta nenhum). O teste
     # ao vivo sobe um conteiner da casa e roda o exec_fixture.sh --selftest no
     # hospedeiro, e reprova se aparecer AVC com a categoria MCS daquele
-    # conteiner ou core dump do cgroup do teste ou do conteiner; sai 77 (pulo
-    # DECLARADO, "Skipped" no ctest) onde nao ha como provar: sem SELinux em
-    # enforcing, sem docker ou sem a imagem da casa, sem ler o diario.
+    # conteiner ou core dump do escopo proprio do teste ou do conteiner. Sai 77
+    # (pulo DECLARADO, "Skipped" no ctest) SO onde alerta nenhum e possivel (SELinux
+    # fora de enforcing e kernel.core_pattern sem systemd-coredump); onde um alerta
+    # e possivel e falta o que o mede (docker e a imagem, o diario legivel por
+    # conteudo, o escopo do systemd-run), REPROVA: fonte ausente nunca passa
+    # (alertas-fix1, revisao N3; a regra 77 contra 99 do Automake e do Meson).
     add_test(
         NAME host_alert_gate_selftest
         COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"

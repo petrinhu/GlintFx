@@ -9223,3 +9223,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Ordem da G2-fix1 guardada.**
   - **O que fica para a retomada:** a decisão sobre o MB1 (CTO), o `--pids-limit` da G2-fix1, as conferências miradas da S4-fix1 e da G2-fix1, a T3-C, a ratificação do texto novo da S4 e a regra de permissão do preci, que o líder apaga quando a fatia dos alertas fechar.
   - Ramo empurrado.
+- **23:37, o líder renovou o modo autônomo e retomou a W8.** Ordem verbatim: *"ligue modo autonomo"*. O modo vale até 14/10 às 23:37, com os escopos de push e de limpeza. Perguntado se isso queria dizer retomar (AskUserQuestion), respondeu, verbatim: *"Retomar a W8 agora (Recomendado)"*. A pausa de 17:38 foi tirada. O monitor de agentes e o vigia de travamentos estão ligados.

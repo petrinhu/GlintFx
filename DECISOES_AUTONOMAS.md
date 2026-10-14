@@ -9516,3 +9516,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - É a segunda volta pelo mesmo motivo. Pela L-42, busca na web antes da terceira tentativa.
   - Pedido ao CTO a92de40e: decidir entre uma T4a-fix2 e uma célula de pixel na T4b que mate S3 e S4. Inferência do main a conferir: o efeito de q só fica observável quando o fragmento divide por q, ou seja, na T4b.
 - **11:19, CI 38575186902 sobre 33d69d62 VERDE** (26 jobs, zero falhas): alertas-fix3, T4a-fix1 e S5-A-fix3 juntas. **HOST-ALERT-GATE fechado**: conferência limpa e CI verde. Ele não tem linha na tabela do TODO.md (só ID de commit), então não há Status a tocar. Se o fp_contract_test roda de fato no Windows, quem confere é o revisor da fix3.
+- **14:09, T4b-A recebida do CTO a92de40e e dividida da T4b-B.** São 17 arquivos, só átomos puros: o cabeçalho público `texture_region.hpp` (a cerca da T0), os pesos projetivos, as coordenadas, as recusas e os motivos 9 a 12. Pré-execução verde, com 30000 pontos e 0 errados contra a homografia de Heckbert.
+  - **Colisão de numeração:** o CTO usou D-W8-450 a 458, que a alertas-fix3 já ocupava. Renumerado para 455 a 462 (T4b-A) e 463 (reabertura da T4a-fix1); ordem com md5 6eefe772. **Lição:** dois CTOs em paralelo alocaram faixa cada um por conta própria. Daqui em diante, o main aloca e entrega a faixa fechada no briefing.
+  - Advisor: a técnica projetiva (um q por canto, pela interseção das diagonais) teve 8 queixas, abaixo do piso, e ficou como o CTO escolheu, por ser o método canônico; vai à ratificação. Recusar o quadrilátero côncavo como `degenerate_quad` também vai à ratificação. O contrato público de `texture_region.hpp` exige revisão de API dedicada, com as sete regras de `docs/api-conventions.md`.
+  - **D-W8-464, DECISÃO DO LÍDER** por AskUserQuestion: a tinta padrão quando o usuário não escolhe é **branco opaco**. Resposta literal: "Branco opaco (Recommended)". Muda a promessa ratificada da cerca da T0 (`tint{}` zero). Entra já na T4b-A, com errata em `docs/auditoria-api-texture.md`.
+  - T4a e T4a-fix1 ficam em verificação até a célula de pixel da T4b-B passar (D-W8-463). O teste de fonte passa a ser guarda só de texto.
+- **14:09, S5-B commitada: 87b9db55** (implementador ad282249; 25 arquivos, +2191 −52).
+  - Vermelho em 6 de 10 e verde em 10 de 10; pior erro 0,1356 px contra o limite de 0,25.
+  - 10 de 10 mutantes mortos; preci rc 0 (368); sanitizer rc 0 (178).
+  - Pendência da L-17 para o revisor: `build_stroke`, com 39 linhas e quatro etapas. Revisão N1 despachada a um revisor novo.
+- **14:09, conferência da S5-A-fix3 NÃO LIMPA** (`rev-s5a-fix3.txt`, revisor ae67cde1).
+  - IMPORTANTE I-1: o comentário afirma "C++23 already requires VS 2022", mas nada impõe isso.
+  - O furo do advisor está FECHADO: o fp_contract_test roda no Windows do CI (347 e 173); "/fp:precise não funde" foi medido com o cl.exe 19.51; com a regra, 0 de 200000 resultados diferem. I-9 fechado em x86-64-v3.
+  - Pedida ao CTO a ordem S5-A-fix4 (D-W8-465 a 467).
+- **Pendências que exigem sudo** (somam-se ao `/etc/cdi/nvidia.yaml`): cerca de 5 GiB em pastas `out-*` e `mut-*` de root em `/var/tmp/cto-w8/r21/*/run*`.

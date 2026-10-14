@@ -9505,3 +9505,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - preci rc 0 (363, sobre a base 9b0875c9), sanitizer rc 0 (173), MSVC com 2 compilados e 0 falhas.
   - S5-B despachada a um implementador novo, porque a fix3 já está no HEAD.
   - A conferência da fix3 espera vaga no teto de 4 agentes e leva o furo do advisor (o fp_contract_test tem de RODAR no Windows do CI).
+- **10:50, conferência N3 da alertas-fix3 LIMPA** (`rev-alertas-fix3.txt`, revisor a03238e1; zero CRÍTICO, zero IMPORTANTE).
+  - M10 morre pela célula 62 e M6 pelas células 62 e 60, por asserção. O selftest velho dá rc 0 nos dois, o que prova que a mutação chegou. Dez mutantes do revisor, todos mortos.
+  - COSMÉTICO-1, opcional: provar o piso com um mutante que remove a célula 62. Vai junto com o HOST-ALERT-JSON da INBOX.
+  - **HOST-ALERT-GATE fechado do lado local.** O ✅ espera o CI 38575186902 sobre 33d69d62.
+- **10:50, push de 33d69d62** (alertas-fix3, T4a-fix1 e S5-A-fix3) e CI 38575186902 disparado. Conferência da S5-A-fix3 despachada a um revisor novo, com o furo do advisor sobre o MSVC.

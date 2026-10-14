@@ -9366,3 +9366,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-401 e 402:** M3 equivalente; os cosméticos ficam declarados.
   - **Pré-execução:** vermelho só nos casos do I-5; verde 2/2; 8/8 mutantes mortos; preci 361; sanitizer 171; MSVC 3/0.
   - **Pendente:** a rodada 21 (T4a e S5-B) fica com o mesmo CTO, quando abrir lugar de agente. Entram nela a D-W8-403 (ditar as linhas que o lint pega) e a D-W8-404.
+- **04:54, revisão N1 da H4 NÃO LIMPA** (`rev-h4.txt`, revisor a48aa90d). Nenhum CRÍTICO: o código cumpre as promessas. Mas 8 de 10 mutantes sobrevivem ao teste original:
+  - piso linear;
+  - out_tints maior que o necessário;
+  - vértice não finito em índice maior que 0;
+  - escrita parcial com 2 ou mais vértices;
+  - hypot trocado por sqrt;
+  - sinal do vermelho e do azul;
+  - finitude do verde.
+  Cada um morre só numa sonda do revisor, e a sonda passa no original. Há ainda um IMPORTANTE de forma: a função da tabela tem 78 linhas, contra o limite de 40 do CONTRACT §6.2. O processo L-63 foi apontado: o Status no TODO não entrou no commit; a linha R2D-SPRITE-SHADE segue 🔄, porque cobre H0 a H5, e o main a toca. **H4-fix1 pedida ao CTO a92de40e (D-W8-421 a 426), antes da rodada 21.**

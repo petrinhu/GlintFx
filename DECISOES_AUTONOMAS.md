@@ -9376,3 +9376,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - finitude do verde.
   Cada um morre só numa sonda do revisor, e a sonda passa no original. Há ainda um IMPORTANTE de forma: a função da tabela tem 78 linhas, contra o limite de 40 do CONTRACT §6.2. O processo L-63 foi apontado: o Status no TODO não entrou no commit; a linha R2D-SPRITE-SHADE segue 🔄, porque cobre H0 a H5, e o main a toca. **H4-fix1 pedida ao CTO a92de40e (D-W8-421 a 426), antes da rodada 21.**
 - **05:00, conferência da alertas-fix2 NÃO LIMPA (terceira da linha HOST-ALERT-GATE)** (`rev-alertas-fix2.txt`, revisor a03238e1). Os 5 sobreviventes da fix1 morrem, e as D-W8-390/391/392/394 conferem. **Diagnóstico do revisor: o problema está no ORÁCULO.** Os 3 sobreviventes novos (MZ1, MZ2, MZ3) ficam em `measure()`, que nenhuma das 44 células chama. A sonda W4 mostrou um rótulo sem MCS passando com rc 0. Há ainda o IMPORTANTE-1: `logger` ausente dá traceback (`:307`), com gêmeo em `:320`. **Seguindo a regra do advisor, não haverá fix3: o CTO a997f43f escreve o REDESENHO do selftest**, com uma costura em `measure()` (D-W8-427 a 433). A HOST-ALERT-GATE segue aberta.
+- **05:12, S5-A-fix1 commitada (290fb4a0, 4 caminhos, 222+/54-).**
+  - **Vermelho:** só o I-5, nos dois casos esperados.
+  - **Verde:** casos 12, células 31, `arc_segments` 13.
+  - **Linhas ditadas:** 13/13.
+  - **Mutantes:** F1-F3 e R1/R2/R4/R5/R10 mortos.
+  - **preci e sanitizer:** preci 362; sanitizer 172. O 172 não bate com os 171 da pré-execução; o implementador não investigou. A diferença provável é a H4, que entrou na base entre a pré-execução e o commit.
+  - **Revisão e limpeza:** conferência mirada despachada ao revisor da N1 (a77283fd), veredito em `rev-s5a-fix1.txt`. A cópia `s5afix1/snap` (1,8 GB) foi apagada pelo main.

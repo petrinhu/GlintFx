@@ -9224,3 +9224,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **O que fica para a retomada:** a decisão sobre o MB1 (CTO), o `--pids-limit` da G2-fix1, as conferências miradas da S4-fix1 e da G2-fix1, a T3-C, a ratificação do texto novo da S4 e a regra de permissão do preci, que o líder apaga quando a fatia dos alertas fechar.
   - Ramo empurrado.
 - **23:37, o líder renovou o modo autônomo e retomou a W8.** Ordem verbatim: *"ligue modo autonomo"*. O modo vale até 14/10 às 23:37, com os escopos de push e de limpeza. Perguntado se isso queria dizer retomar (AskUserQuestion), respondeu, verbatim: *"Retomar a W8 agora (Recomendado)"*. A pausa de 17:38 foi tirada. O monitor de agentes e o vigia de travamentos estão ligados.
+- **23:39, décima segunda consulta ao advisor (o limite de processos da G2-fix1, D-W8-F17).**
+  - **Pergunta:** tirar o `--pids-limit 512` do contêiner da foto, para casar com a linha de base do portão, é aceitável?
+  - **Resposta:** não, do jeito que está escrito. O portão prova que nada do hospedeiro vaza para o contêiner; um teto de processos mais apertado é ortogonal a essa prova. A casa já tem o mecanismo: uma VARIANTE de linha de base, como a G1b fez com `gpu_integrated`. Os dois motivos do CTO não sustentam a retirada: o contêiner do CI é efêmero e roda em outra máquina, e o incidente de 29/09 foi nesta; e o HostConfig inteiro é a entrada do portão, não o seu propósito.
+  - **Ação:**
+    - **G2-fix1:** o CTO emenda a ordem para um contêiner COM `--pids-limit 512` e uma variante nova, por exemplo `gpu_integrated_photo`, capturada por `docker create` sem `start`, conferindo que a linha de base diga Docker 29.8.2. Pré-executa só o que muda.
+    - **Alertas, etapa B:** a pergunta ao CTO é por que a célula 8 passou com o MB1, e não como mudar a tabela.
+    - **S4-fix1:** conferência mirada.
+    - **T3-C:** despachada.
+    - **Disco:** limpeza das pastas de fatias fechadas antes da G2-fix1.

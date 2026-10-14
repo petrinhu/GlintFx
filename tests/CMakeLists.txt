@@ -5989,6 +5989,29 @@ if(UNIX)
     # sem a variavel, o selftest recusa em vez de presumir um interpretador.
     set_tests_properties(container_exec_fixture_selftest PROPERTIES LABELS selftest
         ENVIRONMENT "GLINTFX_PYTHON3=${GLINTFX_PYTHON3_EXECUTABLE}")
+
+    # HOST-ALERT-GATE (13/10/2026, GODS_LAWS.md L-09 e L-50): teste nenhum
+    # chega a mesa do lider. O selftest prova o vermelho e o verde do portao SO
+    # sobre registros de exemplo do diario (nao acende alerta nenhum). O teste
+    # ao vivo sobe um conteiner da casa e roda o exec_fixture.sh --selftest no
+    # hospedeiro, e reprova se aparecer AVC com a categoria MCS daquele
+    # conteiner ou core dump do cgroup do teste ou do conteiner; sai 77 (pulo
+    # DECLARADO, "Skipped" no ctest) onde nao ha como provar: sem SELinux em
+    # enforcing, sem docker ou sem a imagem da casa, sem ler o diario.
+    add_test(
+        NAME host_alert_gate_selftest
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_host_alerts_selftest.py" --selftest
+    )
+    set_tests_properties(host_alert_gate_selftest PROPERTIES LABELS selftest)
+    add_test(
+        NAME host_alert_gate_test
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}" -I
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_host_alerts.py" --live
+            "${PROJECT_SOURCE_DIR}" "${GLINTFX_PYTHON3_EXECUTABLE}"
+    )
+    set_tests_properties(host_alert_gate_test PROPERTIES LABELS host
+        SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 300)
 endif()
 
 # CONTAINER-LEAK-COUNTER sub-fatia S3 (/var/tmp/glintfx-plan/leak-
@@ -7388,4 +7411,10 @@ endif()
 get_property(_glintfx_every_registered_test DIRECTORY PROPERTY TESTS)
 foreach(_glintfx_test_name IN LISTS _glintfx_every_registered_test)
     set_property(TEST "${_glintfx_test_name}" APPEND PROPERTY ENVIRONMENT "PYTHONUNBUFFERED=1")
+    # HOST-ALERT-GATE (13/10/2026): nenhum teste le a pasta de pacotes do
+    # USUARIO (~/.local/lib/python3.*/site-packages). A biblioteca tem
+    # dependencia zero, e um teste que importasse dali dependeria em silencio
+    # do que esta instalado na maquina de quem roda; desligada aqui, uma
+    # dependencia assim reprova em vez de passar so nesta maquina.
+    set_property(TEST "${_glintfx_test_name}" APPEND PROPERTY ENVIRONMENT "PYTHONNOUSERSITE=1")
 endforeach()

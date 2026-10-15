@@ -38,15 +38,20 @@ endfunction()
 # GCC fuses C++ by default (its ISO-mode exception is for C only; measured in
 # the S5-A-fix3 pre-execution: GCC 16 with -march=x86-64-v3 and
 # CXX_EXTENSIONS OFF fused fp_contract_test), and so does Clang
-# (-ffp-contract=on), wherever the target has the instruction: every arm64
-# and every x86-64-v3 build, such as the packages of CachyOS.
+# (-ffp-contract=on), wherever the target has the instruction: every
+# x86-64-v3 build, such as the packages of CachyOS (measured), and every
+# arm64 build (expected, but NOT measured: there is no arm64 machine here).
 # -ffp-contract=off makes every glintfx target round each operation as
 # written, under both compilers, on every target (S5-A-fix3, D-W8-441).
 # MSVC needs nothing: from Visual Studio 2022 on, /fp:precise (its default)
 # generates no contraction unless /fp:contract is asked for
 # (learn.microsoft.com/cpp/build/reference/fp-specify-floating-point-
-# behavior; measured on cl 19.51 with /arch:AVX2 by the S5-A-fix3 review),
-# and the build refuses an older MSVC at configure time
+# behavior). Measured only on cl 19.51 (Visual Studio 18), with /arch:AVX2,
+# by the S5-A-fix3 review; the Windows CI runs cl 19.51 too (CI run
+# 38575186902), but for the default x64, where nothing fuses (measured by the
+# S5-A-fix4 review: even /fp:fast passes there). Visual Studio 2022 itself
+# (cl 19.30 to 19.4x) was NOT measured: the floor accepts it on the
+# documentation's word. The build refuses an older MSVC at configure time
 # (GlintfxToolchainFloor.cmake, S5-A-fix4, D-W8-465).
 # fp_contract_test proves that the compiler honours the rule on the one
 # expression it computes; that the library's own results keep their bits

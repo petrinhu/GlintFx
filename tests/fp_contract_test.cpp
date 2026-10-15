@@ -21,8 +21,9 @@
 // A DECLARED LIMIT: on a target without the instruction the compiler cannot fuse even without the
 // rule, so there the test passes either way. That is x86-64 below v3 under GCC and Clang (the
 // default of this project's Linux CI) and the default x64 of MSVC (no /arch, the project's
-// Windows CI). It bites on arm64 and on x86-64-v3 builds, which is where the rule matters (the
-// S5-A-fix3 pre-execution proves it there, with -march=x86-64-v3, failing without the rule).
+// Windows CI). It bites on x86-64-v3 builds: measured by the S5-A-fix3 pre-execution, which fails
+// without the rule under -march=x86-64-v3. On arm64, which has the instruction too, it is expected
+// to bite, but that was NOT measured: there is no arm64 machine here (S5-A-fix4 review, C-7).
 
 namespace {
 

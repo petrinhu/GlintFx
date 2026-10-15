@@ -1586,6 +1586,39 @@ add_test(NAME msvc_floor_accepts_visual_studio_2022
             "-DMSVC_VERSION_UNDER_TEST=1930"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
 set_tests_properties(msvc_floor_accepts_visual_studio_2022 PROPERTIES LABELS unit)
+# S5-A-fix5 (D-W8-481): the floor's non-numeric branch, by its message. A value that is not a
+# number must be refused SAYING so; without the MATCHES guard of GlintfxToolchainFloor.cmake, 'x'
+# and '' would be accepted (S5-A-fix4 review, X2). Exit code and line through the house executor
+# (D-W8-114: never PASS_REGULAR_EXPRESSION). The line is CMake's own wrapping of the FATAL_ERROR
+# text, measured with CMake 4.3: two spaces of indent, broken after "Visual Studio".
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refuses_a_version_that_is_not_a_number
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  glintfx: MSVC_VERSION 'x' is not a number, so the floor of Visual Studio"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DMSVC_VERSION_UNDER_TEST=x"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refuses_a_version_that_is_not_a_number PROPERTIES LABELS unit)
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refuses_an_empty_version
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  glintfx: MSVC_VERSION '' is not a number, so the floor of Visual Studio"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DMSVC_VERSION_UNDER_TEST="
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refuses_an_empty_version PROPERTIES LABELS unit)
+# S5-A-fix5 (D-W8-482): the CALL of the floor in the top-level CMakeLists.txt. Without MSVC
+# nothing executes it (if(MSVC)), so this READS the file: the include, then the call under
+# if(MSVC), each one as whole lines (a commented line does not count). DECLARED LIMIT: it proves
+# the wiring is written, not that an MSVC configure refuses; no MSVC below the floor runs
+# anywhere, the Windows CI's included (S5-A-fix4 review, X3 and X5).
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_is_wired_in_the_top_level_cmake
+    COMMAND "${CMAKE_COMMAND}" "-DTOP_LEVEL_LISTS=${PROJECT_SOURCE_DIR}/CMakeLists.txt"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_wiring_check.cmake")
+set_tests_properties(msvc_floor_is_wired_in_the_top_level_cmake PROPERTIES LABELS unit)
 
 glintfx_add_test(arc_segments_test)
 target_include_directories(arc_segments_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

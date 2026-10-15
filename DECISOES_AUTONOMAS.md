@@ -9656,3 +9656,5 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - I-1: a suíte não prova a ORDEM da ligação nem o if(MSVC); M4 e M9 sobrevivem. I-2: "(measured)" sem medição em GlintfxCompileOptions.cmake:42. C-1: o M2 sobrevive.
   - **L-42: é a segunda volta do achado da ligação.** A S5-A-fix6 (D-W8-517 a 524) foi pedida a um CTO NOVO (o af139138 não estava mais ao alcance), com pesquisa na web antes do plano: Tests/RunCMake, -P com fixtures, WILL_FAIL.
   - O mesmo CTO escreve a EMBED-WIN-TIMEOUT (D-W8-525 a 528, CI-VERDE-W8), em commit próprio, em série com a fix6.
+- **23:23, CI 38669031219 (sobre 769ff591, com a T4b-A-fix1) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
+  - embed_win_test: Debug 117,05 s (a 3 s do teto de 120), estático 107,90 s e compartilhado 76,25 s. Isso confirma a oscilação perto do teto e reforça a EMBED-WIN-TIMEOUT, que está com o CTO a023304b.

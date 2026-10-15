@@ -9590,3 +9590,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Quatro mutantes sobreviveram: o limite inferior de s/t, o retângulo de largura zero e a varredura com 4 de 16 valores.
   - I-5: a cerca do parecer não foi reescrita no lugar. I-6: um teste de 59 linhas.
   - Pedida ao CTO a92de40e a T4b-A-fix1 (D-W8-493 a 500), com prioridade sobre a B2 e cuidado de colisão com a B1 em voo. O I-1 é escolha de desenho e passa pela pesquisa das 10 queixas.
+- **21:22, segunda queda de rede** (por volta de 20:3x; erros EAI_AGAIN e de certificado). Derrubou os três agentes em voo: o implementador da B1, que já estava no sanitizer, e os dois CTOs. O líder refez o login e religou o modo autônomo: "ligue modo autonomo", válido até 15/10 às 21:21, com escopos push e clean. Os três foram retomados com a ordem de conferir o disco antes de repetir qualquer coisa.

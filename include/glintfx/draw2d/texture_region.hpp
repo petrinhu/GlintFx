@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include <glintfx/core/color.hpp>
-#include <glintfx/core/rect.hpp>
 #include <glintfx/core/vec2.hpp>
 
 // draw2d/texture_region.hpp - R2D-TEXTURE. A part of a
@@ -18,12 +17,14 @@
 //
 // MIRRORING is a named value, never a sign: `flip_left_right` swaps the
 // left and right edges of the source, `flip_top_bottom` the top and bottom,
-// `flip_left_right_and_top_bottom` both (docs/api-conventions.md R7: the
-// reader sees the effect of the name). A value outside this list is refused
-// for the whole call, counted as `unknown_option`.
+// `flip_left_right_and_top_bottom` both: the name says what the reader sees.
+// A value outside this list is refused for the whole call, counted as
+// `unknown_option`.
 //
 // Proved by: texture_region_uv_test (each mirror value puts the corners of
-// the source on the corner roles of core/quad.hpp).
+// the source on the corner roles of core/quad.hpp; and, at compile time, a
+// world vector or rectangle neither converts to nor builds a texel one,
+// nor the other way round).
 
 namespace glintfx {
 
@@ -47,7 +48,8 @@ enum class gltfx_texture_mirror : std::uint8_t {
 // A region of a texture, as a VALUE: the rectangle in texels and the
 // mirroring. It holds NO reference to the texture. The texture comes in each
 // drawing call, as in SDL_RenderTexture, so a region can never point to a
-// texture that was released. Copying a region copies two numbers and a name.
+// texture that was released. Copying a region copies four numbers (the
+// corner and the size) and an enumerator (the mirroring).
 //
 // A texture that is not open, or that belongs to another renderer, is refused
 // by the drawing call (`texture_not_open`, `texture_other_renderer`). A

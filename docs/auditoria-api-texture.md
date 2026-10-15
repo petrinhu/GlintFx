@@ -39,6 +39,7 @@
 
 - **Errata da T4b-A (CTO, 14/10/2026; D-W8-455 a 462 e D-W8-464):** (1) a tinta que o consumidor não escolhe é BRANCO OPACO, `{1, 1, 1, 1}`, em `gltfx_texture_paint::tint` e em `gltfx_textured_vertex_2d::tint`: decisão do líder via AskUserQuestion, 14/10/2026 (D-W8-464); a cerca abaixo já mostra o valor novo. (2) A cerca de `texture_region.hpp` entra com o `Proved by:` de `texture_region_uv_test` (a leitura em pixels de cada espelho, `texture_region_mirror_test`, entra na T4b-B junto com o teste, D-W8-374); sem a frase de `draw_shadow_texture`, método da H3 que ainda não existe; e com as cinco recusas que tocam a região (D-W8-461). (3) `degenerate_quad` inclui o quadrilátero côncavo: o critério da cerca é "não define mapeamento projetivo", e o côncavo não define (D-W8-460). A tinta de `gltfx_atlas_paint`, mais abaixo, continua `tint{}` até decisão própria.
 - **Errata da T4b-B1 (CTO, 14/10/2026; D-W8-468 a 474):** `draw_texture` e `draw_texture_quad` entram em `renderer_2d.hpp` com quatro diferenças contra a cerca abaixo. (1) A lista de recusas vem completa e na ordem em que se aplica (D-W8-472): `not_a_number` e `infinite` (retângulo ou cantos, região e tinta), `negative_size`, `unknown_option`, `texture_not_open`, `texture_other_renderer`, `region_out_of_range`, `degenerate_quad` (só o quadrilátero) e `pixel_position_out_of_range`. A cerca citava só a origem da região e o espelho, e é a ordem de `src/draw2d/texture_region_check.hpp` (T4b-A) que vale. (2) A frase de que a troca de textura nunca reordena: a peça texturizada entra na ordem de pintura como qualquer outra. (3) O `Proved by:` cita só `renderer_2d_impl_test`, que existe na T4b-B1; o de `draw2d_texture_parity_test` entra na T4b-B2, junto com o teste (D-W8-374). (4) `texture_switches` entra no FIM de `gltfx_frame_2d_report`, depois dos quatro contadores da T4b-A (o layout da S0 o punha logo depois de `pieces_refused_pixel_position_out_of_range`, posição que a T4b-A já ocupou; D-W8-471), e é contado onde a ligação é feita, uma vez por troca, a ida a nenhuma textura incluída (D-W8-292). Porta de mão única: vai à ratificação do líder.
+- **Errata da T4b-A-fix1 (CTO, 14/10/2026; D-W8-493 a 500; revisão N1 da T4b-A, I-5):** a cerca de `texture_region.hpp`, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado, como a errata da T3-fix1 fez com a de `update_texture`: o `Proved by:` de `texture_region_uv_test` (com a prova, na compilação, de que tipo de texel e tipo de mundo não se misturam); sem a frase de `draw_shadow_texture`; as recusas de origem OU tamanho que não são número finito, de tamanho negativo e de região fora da textura; "quatro números e um enumerador" no lugar de "dois números e um nome"; sem o `#include` de `rect.hpp`, que o cabeçalho não usa; e sem a citação de R7, que trata de tokens e não de nomes de espelhamento. A leitura em pixels de cada espelho, que a errata da T4b-A chamava `texture_region_mirror_test`, não terá esse nome: é uma célula de `draw2d_texture_parity_test` (T4b-B2), e o `Proved by:` dela entra na cerca e no cabeçalho junto com o teste (D-W8-374). Porta de mão única: vai à ratificação do líder.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -237,7 +238,6 @@ inline constexpr std::uint32_t gltfx_all_mipmap_levels = 0xFFFFFFFFU;
 #include <cstdint>
 
 #include <glintfx/core/color.hpp>
-#include <glintfx/core/rect.hpp>
 #include <glintfx/core/vec2.hpp>
 
 // draw2d/texture_region.hpp - R2D-TEXTURE. A part of a
@@ -251,13 +251,14 @@ inline constexpr std::uint32_t gltfx_all_mipmap_levels = 0xFFFFFFFFU;
 //
 // MIRRORING is a named value, never a sign: `flip_left_right` swaps the
 // left and right edges of the source, `flip_top_bottom` the top and bottom,
-// `flip_left_right_and_top_bottom` both (docs/api-conventions.md R7: the reader sees the effect
-// of the name). A value outside this list is refused for the whole call,
-// counted as `unknown_option`.
+// `flip_left_right_and_top_bottom` both: the name says what the reader sees.
+// A value outside this list is refused for the whole call, counted as
+// `unknown_option`.
 //
-// Proved by: texture_region_mirror_test (each mirror value, read back
-// as pixels) and projective_quad_test (the corner roles of
-// core/quad.hpp survive the mirror).
+// Proved by: texture_region_uv_test (each mirror value puts the corners of
+// the source on the corner roles of core/quad.hpp; and, at compile time, a
+// world vector or rectangle neither converts to nor builds a texel one,
+// nor the other way round).
 
 namespace glintfx {
 
@@ -281,22 +282,27 @@ enum class gltfx_texture_mirror : std::uint8_t {
 // A region of a texture, as a VALUE: the rectangle in texels and the
 // mirroring. It holds NO reference to the texture. The texture comes in each
 // drawing call, as in SDL_RenderTexture, so a region can never point to a
-// texture that was released. Copying a region copies two numbers and a name.
+// texture that was released. Copying a region copies four numbers (the
+// corner and the size) and an enumerator (the mirroring).
 //
 // A texture that is not open, or that belongs to another renderer, is refused
 // by the drawing call (`texture_not_open`, `texture_other_renderer`). A
-// region whose origin is not a finite number is refused as `not_a_number`.
+// region whose origin or size is not a finite number is refused as
+// `not_a_number` or `infinite`, one with a negative width or height as
+// `negative_size`, and one that reaches outside the texture as
+// `region_out_of_range`.
 struct gltfx_texture_region {
     gltfx_rect_texel source{};
     gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
 };
 
 // What a textured drawing call paints with, grouped (D-W8-354): the region and
-// the tint. In a shadow (draw_shadow_texture) the tint is the colour of the
-// shadow. Grouping keeps each drawing call within four parameters.
+// the tint. Grouping keeps each drawing call within four parameters. The
+// tint you do not choose is opaque white, which leaves the texture as it is
+// (D-W8-464).
 struct gltfx_texture_paint {
     gltfx_texture_region region{};
-    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F}; // D-W8-464
+    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
 };
 
 // The vertex of the textured triangles. Position in WORLD space, like
@@ -305,10 +311,11 @@ struct gltfx_texture_paint {
 // tint in two parts: the colour by `tint` times `tint.alpha`, and the alpha
 // by `tint.alpha`. So a tint of alpha 0.5 over a texel of partial alpha
 // gives the right colour and the right alpha, not a dark halo.
-// `texel` is in texel units of the texture being drawn.
+// `texel` is in texel units of the texture being drawn. The tint you do not
+// choose is opaque white, as in gltfx_texture_paint (D-W8-464).
 struct gltfx_textured_vertex_2d {
     gltfx_vec2_world position{};
-    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F}; // D-W8-464
+    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
     gltfx_vec2_texel texel{};
 };
 

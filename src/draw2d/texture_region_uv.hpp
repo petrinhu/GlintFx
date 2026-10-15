@@ -2,10 +2,11 @@
 #pragma once
 
 #include <array>
-#include <cstdint>
 #include <optional>
 
 #include <glintfx/draw2d/texture_region.hpp>
+
+#include "draw2d/texture_extent.hpp"
 
 // draw2d/texture_region_uv.hpp - R2D-TEXTURE, fatia T4b-A (D-W8-297, D-W8-456): where the four
 // corners of a drawn piece read the texture, as texture coordinates (0 to 1 across the texture),
@@ -23,12 +24,6 @@
 // `unknown_option` before, texture_region_check.hpp; never taken for `none`), and for a texture
 // with no width or no height.
 namespace glintfx::draw2d {
-
-// The size of a texture, in texels.
-struct texture_extent {
-    std::uint32_t width = 0;
-    std::uint32_t height = 0;
-};
 
 struct texture_coordinate {
     double u = 0.0;

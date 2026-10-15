@@ -126,6 +126,54 @@ struct homography {
     return point{uq / sum_q, vq / sum_q};
 }
 
+// A convex quadrilateral: each corner jittered up to 30 inside its own corner of a square of side
+// 100, which keeps it convex: along the segment between the two neighbours of a corner, x + y (or
+// its mirror) is at least 100 - 30, while at the corner it is at most 2 x 30 = 60 < 70, so no
+// corner reaches the line of its neighbours.
+[[nodiscard]] gltfx_quad_world jittered_quad(quad_draw &draw) {
+    const auto jitter = [&draw]() { return 30.0 * draw.next_unit(); };
+    return gltfx_quad_world{{jitter(), jitter()},
+                            {100.0 - jitter(), jitter()},
+                            {100.0 - jitter(), 100.0 - jitter()},
+                            {jitter(), 100.0 - jitter()}};
+}
+
+// Ten texture points carried to the screen by the homography and brought back by the
+// interpolation; how many come back wrong.
+[[nodiscard]] std::size_t wrong_points(const gltfx_quad_world &quad,
+                                       const std::array<double, 4> &weight, quad_draw &draw) {
+    const homography m = square_to(quad);
+    std::size_t wrong = 0;
+    for (std::size_t k = 0; k < 10U; ++k) {
+        const double u = 0.02 + (0.96 * draw.next_unit());
+        const double v = 0.02 + (0.96 * draw.next_unit());
+        const point back = interpolated(quad, weight, map(m, u, v));
+        wrong += (near(back.x, u, 1e-9) && near(back.y, v, 1e-9)) ? 0U : 1U;
+    }
+    return wrong;
+}
+
+// The quadrilateral with every coordinate multiplied by `scale`.
+[[nodiscard]] gltfx_quad_world scaled(const gltfx_quad_world &q, double scale) {
+    return gltfx_quad_world{{q.top_left.x * scale, q.top_left.y * scale},
+                            {q.top_right.x * scale, q.top_right.y * scale},
+                            {q.bottom_right.x * scale, q.bottom_right.y * scale},
+                            {q.bottom_left.x * scale, q.bottom_left.y * scale}};
+}
+
+// Both have weights, and they agree to twelve digits.
+[[nodiscard]] bool same_weights(const std::optional<std::array<double, 4>> &got,
+                                const std::optional<std::array<double, 4>> &want) {
+    if (!got.has_value() || !want.has_value()) {
+        return false;
+    }
+    bool same = true;
+    for (std::size_t i = 0; i < 4U; ++i) {
+        same = same && near((*got)[i], (*want)[i], 1e-12 * (*want)[i]);
+    }
+    return same;
+}
+
 } // namespace
 
 GLINTFX_TEST(projective_quad_closed_cases) {
@@ -162,11 +210,13 @@ GLINTFX_TEST(projective_quad_no_mapping_is_degenerate) {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     std::size_t refused = 0;
     std::size_t counted = 0;
-    const std::array<gltfx_quad_world, 8> degenerate{{
+    const std::array<gltfx_quad_world, 10> degenerate{{
         {{0, 0}, {1, 0}, {2, 0}, {0, 1}},   // three corners on one line
         {{0, 0}, {1, 0}, {0, 1}, {1, 1}},   // two edges cross (a bow tie)
         {{0, 0}, {4, 0}, {1, 1}, {0, 4}},   // a corner pointing inward
         {{0, 0}, {4, 0}, {4, 4}, {3, 1}},   // corner 3 pointing inward: t = 2, s = 1/2
+        {{3, 3}, {4, 0}, {4, 4}, {0, 4}},   // corner 0 pointing inward: s = -1 (T4b-A-fix1)
+        {{0, 0}, {1, 3}, {4, 4}, {0, 4}},   // corner 1 pointing inward: t = -1 (T4b-A-fix1)
         {{3, 3}, {3, 3}, {3, 3}, {3, 3}},   // no area at all
         {{0, 0}, {2, 0}, {4, 0}, {6, 0}},   // all four on one line
         {{0, 0}, {nan, 0}, {1, 1}, {0, 1}}, // a value that is not a number
@@ -180,47 +230,63 @@ GLINTFX_TEST(projective_quad_no_mapping_is_degenerate) {
         refused += projective_weights(quad).has_value() ? 0U : 1U;
     }
     std::println("projective_quad_test: degenerados casos={} recusados={}", counted, refused);
-    GLINTFX_CHECK_EQ(counted, std::size_t{8});
-    GLINTFX_CHECK_EQ(refused, std::size_t{8});
+    GLINTFX_CHECK_EQ(counted, std::size_t{10});
+    GLINTFX_CHECK_EQ(refused, std::size_t{10});
 }
 
-// 3000 convex quadrilaterals, 10 texture points each: the interpolation gives the texture point
-// back. Each corner is jittered up to 30 inside its own corner of a square of side 100, which keeps
-// them convex: along the segment between the two neighbours of a corner, x + y (or its mirror) is
-// at least 100 - 30, while at the corner it is at most 2 x 30 = 60 < 70, so no corner reaches the
-// line of its neighbours.
+// 3000 convex quadrilaterals (jittered_quad), 10 texture points each: the interpolation gives the
+// texture point back.
 GLINTFX_TEST(projective_quad_sweep_maps_texture_points_back) {
     quad_draw draw;
     std::size_t counted = 0;
     std::size_t wrong = 0;
     for (std::size_t i = 0; i < 3000U; ++i) {
-        const auto jitter = [&draw]() { return 30.0 * draw.next_unit(); };
-        const gltfx_quad_world quad{{jitter(), jitter()},
-                                    {100.0 - jitter(), jitter()},
-                                    {100.0 - jitter(), 100.0 - jitter()},
-                                    {jitter(), 100.0 - jitter()}};
+        const gltfx_quad_world quad = jittered_quad(draw);
         const std::optional<std::array<double, 4>> weight = projective_weights(quad);
-        if (!weight.has_value()) {
-            ++counted;
-            ++wrong;
-            continue;
-        }
-        const homography m = square_to(quad);
-        for (std::size_t k = 0; k < 10U; ++k) {
-            const double u = 0.02 + (0.96 * draw.next_unit());
-            const double v = 0.02 + (0.96 * draw.next_unit());
-            const point back = interpolated(quad, *weight, map(m, u, v));
-            ++counted;
-            if (!near(back.x, u, 1e-9) || !near(back.y, v, 1e-9)) {
-                ++wrong;
-                if (wrong <= 4U) {
-                    std::println("projective_quad_test: FALHOU i={} u={} v={} volta {} {}", i, u, v,
-                                 back.x, back.y);
-                }
-            }
+        const std::size_t bad = weight.has_value() ? wrong_points(quad, *weight, draw) : 10U;
+        counted += 10U;
+        wrong += bad;
+        if (bad != 0U && wrong <= 40U) {
+            std::println("projective_quad_test: FALHOU o quadrilatero i={} ({} de 10)", i, bad);
         }
     }
     std::println("projective_quad_test: varredura pontos={} errados={}", counted, wrong);
     GLINTFX_CHECK_EQ(counted, std::size_t{30000});
     GLINTFX_CHECK_EQ(wrong, std::size_t{0});
+}
+
+// T4b-A-fix1 (D-W8-493, I-1 of the review): the weights do not depend on the size of the
+// quadrilateral. The corners come in world units, and a camera zoom can bring a quadrilateral of
+// 1e-170 or 1e160 to ordinary pixels; there the products of the coordinates would underflow to
+// zero or overflow to infinity, and a convex quadrilateral would be refused. 500 convex
+// quadrilaterals at nine scales from 1e-300 to 1e300 get the weights of the same quadrilateral at
+// scale 1, to twelve digits.
+GLINTFX_TEST(projective_quad_any_size_gets_the_same_weights) {
+    constexpr std::array<double, 9> scales{1e-300, 1e-170, 1e-100, 1e-3, 1.0,
+                                           1e6,    1e150,  1e160,  1e300};
+    quad_draw draw;
+    std::size_t counted = 0;
+    std::size_t wrong = 0;
+    for (std::size_t i = 0; i < 500U; ++i) {
+        const gltfx_quad_world unit = jittered_quad(draw);
+        const std::optional<std::array<double, 4>> reference = projective_weights(unit);
+        for (const double scale : scales) {
+            ++counted;
+            wrong += same_weights(projective_weights(scaled(unit, scale)), reference) ? 0U : 1U;
+        }
+    }
+    std::println("projective_quad_test: escalas quadrilateros={} errados={}", counted, wrong);
+    GLINTFX_CHECK_EQ(counted, std::size_t{4500});
+    GLINTFX_CHECK_EQ(wrong, std::size_t{0});
+    // The closed trapezoid at the two scales of the review: 1.5, 1.5, 0.75, 0.75.
+    const gltfx_quad_world trapezoid{{0, 0}, {4, 0}, {3, 2}, {1, 2}};
+    const std::optional<std::array<double, 4>> want{{1.5, 1.5, 0.75, 0.75}};
+    GLINTFX_CHECK(same_weights(projective_weights(scaled(trapezoid, 1e-170)), want));
+    GLINTFX_CHECK(same_weights(projective_weights(scaled(trapezoid, 1e160)), want));
+    // Corners near the largest double: their difference (3e308) is not a double, and the vectors
+    // are still found, because each coordinate is halved before the subtraction.
+    const gltfx_quad_world widest{
+        {-1.5e308, -1.5e308}, {1.5e308, -1.5e308}, {1.5e308, 1.5e308}, {-1.5e308, 1.5e308}};
+    const std::optional<std::array<double, 4>> ones{{1.0, 1.0, 1.0, 1.0}};
+    GLINTFX_CHECK(same_weights(projective_weights(widest), ones));
 }

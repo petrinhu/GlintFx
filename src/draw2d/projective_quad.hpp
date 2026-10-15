@@ -26,12 +26,19 @@
 // THE CORNERS are the roles of core/quad.hpp, walked once around: top_left (0), top_right (1),
 // bottom_right (2), bottom_left (3).
 //
+// ANY SIZE, ANY PLACE (T4b-A-fix1, D-W8-493): the corners come in WORLD units, and a camera zoom
+// can bring a quadrilateral of 1e-170 or of 1e160 world units to ordinary pixels. s and t do not
+// change when the quadrilateral is moved or scaled, and the computation keeps that: the vectors
+// are measured from corner 0 and scaled together by one power of two, exact, before any product,
+// so a convex quadrilateral of any finite size and place gets its weights.
+//
 // NO WEIGHTS (std::nullopt) when the corners define no projective mapping (`degenerate_quad`): the
 // diagonals do not cross strictly inside both of them. That is three corners on one line (a
 // quadrilateral of zero area is one of these), two edges that cross each other, or a corner that
-// points inward (a concave quadrilateral, whose diagonals cross outside one of them). Also when a
-// value is not a finite number, or a weight would not be one (a corner so close to the crossing
-// that 1 / (2 s) overflows).
+// points inward (a concave quadrilateral, whose diagonals cross outside one of them: before
+// corner 0 or corner 1, s or t below 0; past corner 2 or corner 3, above 1). Also when a value is
+// not a finite number, or a weight would not be one (a corner so close to the crossing that
+// 1 / (2 s) overflows: the mapping exists, but its weight is not a double).
 namespace glintfx::draw2d {
 
 [[nodiscard]] std::optional<std::array<double, 4>>

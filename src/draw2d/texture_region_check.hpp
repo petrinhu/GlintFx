@@ -6,7 +6,7 @@
 #include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
 
-#include "draw2d/texture_region_uv.hpp"
+#include "draw2d/texture_extent.hpp"
 
 // draw2d/texture_region_check.hpp - R2D-TEXTURE, fatia T4b-A (D-W8-290, D-W8-457): the PURE checks
 // of one draw_texture() or draw_texture_quad() call. They know nothing of GL, of the renderer, of
@@ -25,7 +25,10 @@
 //      (refusal_of_region_range(), which needs the texture's size, so it comes after the texture
 //      is known to be open);
 //   6. degenerate_quad: the corners of draw_texture_quad() define no projective mapping
-//      (projective_quad.hpp), last, because it is a property of the shape, not of a value.
+//      (projective_quad.hpp), because it is a property of the shape, not of a value;
+//   and last the drawing call asks the pixel range: pixel_position_out_of_range, when the batch
+//   transform takes a corner outside what the drawing program can scale (quad_vertices.hpp;
+//   D-W8-472 of T4b-B1).
 // A rectangle or a region of zero width or height is NOT refused: it is a piece of zero area,
 // drawn, covering no pixel (frame_2d_report.hpp, pieces_drawn).
 namespace glintfx::draw2d {

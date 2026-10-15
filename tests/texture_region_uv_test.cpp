@@ -3,7 +3,10 @@
 #include <cstddef>
 #include <optional>
 #include <print>
+#include <type_traits>
 
+#include <glintfx/core/rect.hpp>
+#include <glintfx/core/vec2.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
 
 #include "draw2d/texture_region_uv.hpp"
@@ -112,4 +115,26 @@ GLINTFX_TEST(texture_region_uv_answers_nothing_it_cannot_say) {
     GLINTFX_CHECK(!region_corner_coordinates(
                        gltfx_texture_region{k_source, gltfx_texture_mirror::none}, {64U, 0U})
                        .has_value());
+}
+
+// texture_region.hpp (L-19, T4b-A-fix1, C-5 of the review): texel coordinates are their own type.
+// A world vector or rectangle neither converts to a texel one nor builds one (with braces or with
+// parentheses), and the other way round; a mistake of unit does not compile.
+GLINTFX_TEST(texture_region_texel_and_world_do_not_mix) {
+    using glintfx::gltfx_rect_world;
+    using glintfx::gltfx_vec2_texel;
+    using glintfx::gltfx_vec2_world;
+    static_assert(!std::is_convertible_v<gltfx_rect_world, gltfx_rect_texel>);
+    static_assert(!std::is_constructible_v<gltfx_rect_texel, gltfx_rect_world>);
+    static_assert(!std::is_convertible_v<gltfx_rect_texel, gltfx_rect_world>);
+    static_assert(!std::is_constructible_v<gltfx_rect_world, gltfx_rect_texel>);
+    static_assert(!std::is_convertible_v<gltfx_vec2_world, gltfx_vec2_texel>);
+    static_assert(!std::is_constructible_v<gltfx_vec2_texel, gltfx_vec2_world>);
+    static_assert(!std::is_convertible_v<gltfx_vec2_texel, gltfx_vec2_world>);
+    static_assert(!std::is_constructible_v<gltfx_vec2_world, gltfx_vec2_texel>);
+    static_assert(!std::is_assignable_v<gltfx_rect_texel &, gltfx_rect_world>);
+    static_assert(!std::is_assignable_v<gltfx_vec2_texel &, gltfx_vec2_world>);
+    std::println("texture_region_uv_test: tipos de texel e de mundo nao se misturam (10 conferidos "
+                 "na compilacao)");
+    GLINTFX_CHECK(true);
 }

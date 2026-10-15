@@ -55,10 +55,10 @@ struct outline_angle_sources {
 // Writes into `out` the normal angles of `sources`, each in [0, 2 pi), in increasing order, every
 // value once, and answers how many; 0, writing nothing, when `out` holds fewer than the parameters
 // and the uniform angles together. `plane` and `principal` are the same ellipse.
-[[nodiscard]] std::size_t write_outline_angles(const conjugate_ellipse &plane,
-                                               const principal_ellipse &principal,
-                                               const outline_angle_sources &sources,
-                                               std::span<double> out) noexcept;
+[[nodiscard]] std::size_t write_sorted_outline_angles(const conjugate_ellipse &plane,
+                                                      const principal_ellipse &principal,
+                                                      const outline_angle_sources &sources,
+                                                      std::span<double> out) noexcept;
 
 enum class outline_hole : std::uint8_t {
     none,  // h >= b: a fan

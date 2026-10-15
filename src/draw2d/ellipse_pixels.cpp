@@ -32,6 +32,87 @@ namespace {
     return pixel_position_wide{point.x, point.y};
 }
 
+// The outline of one stroke call in the plane of its thickness unit (D-W8-273): the screen ellipse
+// (the arc's parameters come from it), the ellipse in the plane in both forms, the half thickness
+// and its reach on the screen (by the largest stretch of the transform for world unit).
+struct stroke_plane {
+    conjugate_ellipse on_screen_ellipse{};
+    conjugate_ellipse plane{};
+    principal_ellipse principal{};
+    double half_thickness = 0.0;
+    double reach_pixels = 0.0;
+    bool world_plane = false;
+};
+
+[[nodiscard]] stroke_plane stroke_plane_of(const glintfx::gltfx_ellipse_world &ellipse,
+                                           const glintfx::gltfx_stroke &stroke,
+                                           const pixel_affine &affine) noexcept {
+    const bool world_plane = stroke.unit == glintfx::gltfx_stroke_unit::world;
+    const double half_thickness = 0.5 * stroke.thickness;
+    const conjugate_ellipse on_screen_ellipse = screen_conjugate_ellipse(ellipse, affine);
+    const conjugate_ellipse plane =
+        world_plane ? world_conjugate_ellipse(ellipse) : on_screen_ellipse;
+    return stroke_plane{
+        .on_screen_ellipse = on_screen_ellipse,
+        .plane = plane,
+        .principal = principal_of(plane),
+        .half_thickness = half_thickness,
+        .reach_pixels = world_plane ? screen_radius(half_thickness, affine) : half_thickness,
+        .world_plane = world_plane,
+    };
+}
+
+// The normal angles of the outline (D-W8-416), in increasing order, into `angles`: the arc's
+// parameters of the SCREEN ellipse, with HALF the largest error and the band's reach on the screen
+// (so the surface cuts the band only where it does not show), joined to the uniform normal angles,
+// which take the other half. 0 when the screen ellipse cannot be measured.
+[[nodiscard]] std::size_t write_stroke_angles(const stroke_plane &frame,
+                                              const ellipse_screen &screen,
+                                              std::span<double> parameters,
+                                              std::span<double> angles) noexcept {
+    const arc_request request{pixel_ellipse_of(frame.on_screen_ellipse), arc_extent::whole,
+                              0.5 * screen.max_error_pixels, frame.reach_pixels};
+    const std::size_t count = arc_parameters(request, screen.surface, parameters);
+    if (count < 2U) {
+        return 0U;
+    }
+    const outline_angle_sources sources{
+        parameters.first(count - 1U),
+        uniform_normal_angle_count(frame.reach_pixels, screen.max_error_pixels)};
+    return write_sorted_outline_angles(frame.plane, frame.principal, sources, angles);
+}
+
+// How many points write_band_positions() wrote, and whether they are a ring.
+struct band_points {
+    std::size_t count = 0;
+    bool ring = false;
+};
+
+// The points of the band at `angles`, carried to the screen, into `positions`: with no hole, a fan
+// (the centre, then the outer points); with a hole, a ring (the outer points, then the inner ones).
+[[nodiscard]] band_points write_band_positions(const stroke_plane &frame,
+                                               std::span<const double> angles,
+                                               const pixel_affine &affine,
+                                               std::span<pixel_position_wide> positions) noexcept {
+    const outline_band band{frame.half_thickness,
+                            outline_shape_of(frame.principal, frame.half_thickness)};
+    const std::size_t n = angles.size();
+    if (band.shape.hole == outline_hole::none) {
+        positions[0] = on_screen(frame.principal.center, frame.world_plane, affine);
+        for (std::size_t k = 0U; k < n; ++k) {
+            positions[k + 1U] = on_screen(outline_pair_at(frame.principal, band, angles[k]).outer,
+                                          frame.world_plane, affine);
+        }
+        return band_points{n + 1U, false};
+    }
+    for (std::size_t k = 0U; k < n; ++k) {
+        const outline_pair pair = outline_pair_at(frame.principal, band, angles[k]);
+        positions[k] = on_screen(pair.outer, frame.world_plane, affine);
+        positions[n + k] = on_screen(pair.inner, frame.world_plane, affine);
+    }
+    return band_points{2U * n, true};
+}
+
 } // namespace
 
 ellipse_pixels_outcome ellipse_pixels::build_fill(const glintfx::gltfx_ellipse_world &ellipse,
@@ -54,7 +135,7 @@ ellipse_pixels_outcome ellipse_pixels::build_fill(const glintfx::gltfx_ellipse_w
         positions[k + 1U] = {on_screen_ellipse.center.x + offset.x,
                              on_screen_ellipse.center.y + offset.y};
     }
-    return finish(rim + 1U, color, false);
+    return publish_as_triangles(rim + 1U, color, false);
 }
 
 ellipse_pixels_outcome ellipse_pixels::build_stroke(const glintfx::gltfx_ellipse_world &ellipse,
@@ -63,42 +144,19 @@ ellipse_pixels_outcome ellipse_pixels::build_stroke(const glintfx::gltfx_ellipse
                                                     const ellipse_screen &screen) noexcept {
     point_count = 0;
     index_count = 0;
-    const bool world_plane = stroke.unit == glintfx::gltfx_stroke_unit::world;
-    const double half_thickness = 0.5 * stroke.thickness;
-    const double reach =
-        world_plane ? screen_radius(half_thickness, screen.affine) : half_thickness;
-    const conjugate_ellipse on_screen_ellipse = screen_conjugate_ellipse(ellipse, screen.affine);
-    const conjugate_ellipse plane =
-        world_plane ? world_conjugate_ellipse(ellipse) : on_screen_ellipse;
-    const arc_request request{pixel_ellipse_of(on_screen_ellipse), arc_extent::whole,
-                              0.5 * screen.max_error_pixels, reach};
-    const std::size_t count = arc_parameters(request, screen.surface, parameters);
-    if (count < 2U) {
+    const stroke_plane frame = stroke_plane_of(ellipse, stroke, screen.affine);
+    const std::size_t n = write_stroke_angles(frame, screen, parameters, angles);
+    if (n == 0U) {
         return ellipse_pixels_outcome::pixel_position_out_of_range;
     }
-    const principal_ellipse principal = principal_of(plane);
-    const outline_angle_sources sources{std::span<const double>(parameters.data(), count - 1U),
-                                        uniform_normal_angle_count(reach, screen.max_error_pixels)};
-    const std::size_t n = write_outline_angles(plane, principal, sources, angles);
-    const outline_band band{half_thickness, outline_shape_of(principal, half_thickness)};
-    if (band.shape.hole == outline_hole::none) {
-        positions[0] = on_screen(principal.center, world_plane, screen.affine);
-        for (std::size_t k = 0U; k < n; ++k) {
-            positions[k + 1U] = on_screen(outline_pair_at(principal, band, angles[k]).outer,
-                                          world_plane, screen.affine);
-        }
-        return finish(n + 1U, color, false);
-    }
-    for (std::size_t k = 0U; k < n; ++k) {
-        const outline_pair pair = outline_pair_at(principal, band, angles[k]);
-        positions[k] = on_screen(pair.outer, world_plane, screen.affine);
-        positions[n + k] = on_screen(pair.inner, world_plane, screen.affine);
-    }
-    return finish(2U * n, color, true);
+    const band_points band = write_band_positions(frame, std::span<const double>(angles.data(), n),
+                                                  screen.affine, positions);
+    return publish_as_triangles(band.count, color, band.ring);
 }
 
-ellipse_pixels_outcome ellipse_pixels::finish(std::size_t count, glintfx::gltfx_rgba color,
-                                              bool ring) noexcept {
+ellipse_pixels_outcome ellipse_pixels::publish_as_triangles(std::size_t count,
+                                                            glintfx::gltfx_rgba color,
+                                                            bool ring) noexcept {
     const std::span<const pixel_position_wide> points(positions.data(), count);
     // Every point must be in the pixel range; one that is not refuses the whole ellipse (I-7,
     // S2b-fix1). A NaN is in no range, so it is refused too.

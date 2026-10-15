@@ -153,6 +153,21 @@ GLINTFX_TEST(ellipse_frame_principal_form_of_closed_cases) {
 // 2000 ellipses made by construction: major from 1e-3 to 1e3, the ratio of the two from 0 to 1,
 // any turn, any start of the parameter, half of them mirrored. The principal form must give the
 // constructed half-axes and, when they differ, the constructed direction.
+// The determinant rounded ONCE (S5-B-fix1, D-W8-487; the S5-B review, mutant MC). u = (1 + 2^-30,
+// 1) and v = (1, 1 - 2^-30), by hand: a d - b c = (1 + 2^-30)(1 - 2^-30) - 1 = -2^-60 exactly. The
+// two half-axes are the singular values of [u v], so their PRODUCT is |a d - b c| = 2^-60 and the
+// sum of their squares is a^2 + b^2 + c^2 + d^2 = 4 + 2^-59 (the longer is 2 to the last place).
+// Rounded twice, a d = 1 - 2^-60 becomes 1, the determinant 0 and the shorter half-axis 0: all of
+// it lost.
+GLINTFX_TEST(ellipse_frame_the_determinant_of_a_nearly_flat_pair_rounds_once) {
+    const double tiny = std::ldexp(1.0, -30);
+    const double determinant = std::ldexp(1.0, -60);
+    const principal_ellipse flat =
+        principal_of(conjugate_ellipse{{0.0, 0.0}, {1.0 + tiny, 1.0}, {1.0, 1.0 - tiny}});
+    GLINTFX_CHECK(near(flat.major, 2.0, 1e-15));
+    GLINTFX_CHECK(std::abs((flat.major * flat.minor) - determinant) <= 1e-14 * determinant);
+}
+
 GLINTFX_TEST(ellipse_frame_principal_form_sweep_against_the_construction) {
     ellipse_draw draw;
     std::size_t counted = 0;

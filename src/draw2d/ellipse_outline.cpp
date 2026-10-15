@@ -19,9 +19,10 @@ std::size_t uniform_normal_angle_count(double reach_pixels, double max_error_pix
     return 4U * ((half + 1U) / 2U);
 }
 
-std::size_t write_outline_angles(const conjugate_ellipse &plane, const principal_ellipse &principal,
-                                 const outline_angle_sources &sources,
-                                 std::span<double> out) noexcept {
+std::size_t write_sorted_outline_angles(const conjugate_ellipse &plane,
+                                        const principal_ellipse &principal,
+                                        const outline_angle_sources &sources,
+                                        std::span<double> out) noexcept {
     const std::size_t from_arc = sources.parameters.size();
     if (out.size() < from_arc || out.size() - from_arc < sources.uniform_count) {
         return 0U;

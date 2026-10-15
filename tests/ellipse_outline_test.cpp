@@ -9,7 +9,7 @@
 #include <span>
 #include <vector>
 
-#include "draw2d/arc_segments.hpp"
+#include "draw2d/arc_parameters.hpp"
 #include "draw2d/ellipse_frame.hpp"
 #include "draw2d/ellipse_outline.hpp"
 #include "draw2d/ellipse_triangles.hpp"
@@ -27,8 +27,11 @@
 // erosion), and the true outer edge, the curve pushed out by h, sampled between every two angles,
 // is at most the error from the outer polygon. No GL, no window.
 
-using glintfx::draw2d::arc_segment_count;
+using glintfx::draw2d::arc_extent;
+using glintfx::draw2d::arc_parameters;
+using glintfx::draw2d::arc_request;
 using glintfx::draw2d::conjugate_ellipse;
+using glintfx::draw2d::k_max_arc_parameters;
 using glintfx::draw2d::local_point_at_normal_angle;
 using glintfx::draw2d::outline_angle_sources;
 using glintfx::draw2d::outline_band;
@@ -37,13 +40,15 @@ using glintfx::draw2d::outline_pair;
 using glintfx::draw2d::outline_pair_at;
 using glintfx::draw2d::outline_shape;
 using glintfx::draw2d::outline_shape_of;
+using glintfx::draw2d::pixel_box;
+using glintfx::draw2d::pixel_ellipse;
 using glintfx::draw2d::pixel_position_wide;
 using glintfx::draw2d::plane_point;
 using glintfx::draw2d::principal_ellipse;
 using glintfx::draw2d::uniform_normal_angle_count;
 using glintfx::draw2d::write_fan_indices;
-using glintfx::draw2d::write_outline_angles;
 using glintfx::draw2d::write_ring_indices;
+using glintfx::draw2d::write_sorted_outline_angles;
 
 namespace {
 
@@ -101,6 +106,15 @@ struct ellipse_draw {
         step *= 0.5;
     }
     return best;
+}
+
+// The point of the curve of the axis-aligned ellipse major by minor (minor > 0) whose outward
+// normal has the angle phi, written here from the geometry and not read from the code: the normal
+// of (major cos t, minor sin t) is along (cos t / major, sin t / minor), so tan phi = (major /
+// minor) tan t.
+[[nodiscard]] plane_point curve_point_of_normal(double major, double minor, double phi) {
+    const double t = std::atan2(minor * std::sin(phi), major * std::cos(phi));
+    return plane_point{major * std::cos(t), minor * std::sin(t)};
 }
 
 } // namespace
@@ -167,7 +181,7 @@ GLINTFX_TEST(ellipse_outline_angles_are_sorted_once_each) {
     const std::array<double, 2> parameters{0.1, 0.0};
     std::array<double, 10> out{};
     const std::size_t n =
-        write_outline_angles(plane, circle, outline_angle_sources{parameters, 8U}, out);
+        write_sorted_outline_angles(plane, circle, outline_angle_sources{parameters, 8U}, out);
     GLINTFX_CHECK_EQ(n, std::size_t{9});
     GLINTFX_CHECK(out[0] == 0.0);
     GLINTFX_CHECK(near(out[1], 0.1, 1e-15));
@@ -175,20 +189,26 @@ GLINTFX_TEST(ellipse_outline_angles_are_sorted_once_each) {
         GLINTFX_CHECK(near(out[k], (k_pi / 4.0) * static_cast<double>(k - 1U), 1e-15));
     }
     std::array<double, 9> short_out{};
-    GLINTFX_CHECK_EQ(
-        write_outline_angles(plane, circle, outline_angle_sources{parameters, 8U}, short_out),
-        std::size_t{0});
+    GLINTFX_CHECK_EQ(write_sorted_outline_angles(plane, circle,
+                                                 outline_angle_sources{parameters, 8U}, short_out),
+                     std::size_t{0});
 }
 
 // 240 bands: the major half-axis from 0.1 to 300, the ratio of the two from 0 (a segment) to 1, h
 // from 0.01 to 300 across the three regions, and some ellipses of radius zero. The angles are the
-// two sets of the header: the parameters of the uniform arc for the curve (arc_segment_count(a,
-// e / 2) equal steps, written here, not read from the code) and the uniform normal angles.
+// two sets of the header, as ellipse_pixels takes them (S5-B-fix1, D-W8-488; the S5-B review,
+// IMPORTANTE-4): the parameters of arc_parameters() for half the error and the reach h, and the
+// uniform normal angles. Both edges are measured against the geometry: the true outer edge, and,
+// when the band has a hole, the true inner edge, the curve pushed in by h where that is the edge
+// of the erosion (every angle of a plain hole; in a cut hole, the angles whose inner point has not
+// crossed the major axis; the corner X is the closed case above).
 GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
     ellipse_draw draw;
     std::size_t counted = 0;
     std::size_t wrong = 0;
     double worst_error = 0.0;
+    double worst_inner = 0.0;
+    std::size_t inner_samples = 0;
     std::vector<double> parameters;
     std::vector<double> angles;
     std::vector<plane_point> outer;
@@ -206,14 +226,15 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
         }
         const principal_ellipse e{{0.0, 0.0}, {1.0, 0.0}, major, minor};
         const conjugate_ellipse plane{{0.0, 0.0}, {major, 0.0}, {0.0, minor}};
-        const std::size_t segments = arc_segment_count(major, 0.5 * k_error);
-        parameters.assign(segments, 0.0);
-        for (std::size_t k = 0; k < segments; ++k) {
-            parameters[k] = 2.0 * k_pi * static_cast<double>(k) / static_cast<double>(segments);
-        }
-        angles.assign(segments + 1024U, 0.0);
-        const std::size_t n = write_outline_angles(
-            plane, e, outline_angle_sources{parameters, uniform_normal_angle_count(h, k_error)},
+        parameters.assign(k_max_arc_parameters, 0.0);
+        const arc_request request{pixel_ellipse{{0.0, 0.0}, {major, 0.0}, {0.0, minor}},
+                                  arc_extent::whole, 0.5 * k_error, h};
+        const std::size_t count =
+            arc_parameters(request, pixel_box{-1000.0, -1000.0, 1000.0, 1000.0}, parameters);
+        const std::span<const double> from_arc(parameters.data(), count > 0U ? count - 1U : 0U);
+        angles.assign(k_max_arc_parameters + 1024U, 0.0);
+        const std::size_t n = write_sorted_outline_angles(
+            plane, e, outline_angle_sources{from_arc, uniform_normal_angle_count(h, k_error)},
             angles);
         const outline_band band{h, outline_shape_of(e, h)};
         outer.assign(n, plane_point{});
@@ -223,7 +244,7 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
             outer[k] = pair.outer;
             inner[k] = pair.inner;
         }
-        bool good = n >= 8U;
+        bool good = count >= 2U && n >= 8U;
         // The true outer edge between every two angles, against the chord between them.
         for (std::size_t k = 0; good && k < n; ++k) {
             const double from = angles[k];
@@ -238,6 +259,35 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
                 const double error = distance_to_segment(edge, a, b);
                 worst_error = std::max(worst_error, error);
                 good = good && error <= k_error * (1.0 + 1e-9);
+            }
+        }
+        // The true inner edge between every two angles, against the inner sides around it.
+        for (std::size_t k = 0; good && band.shape.hole != outline_hole::none && k < n; ++k) {
+            const double from = angles[k];
+            const double to = k + 1U < n ? angles[k + 1U] : angles[0] + (2.0 * k_pi);
+            const plane_point &before = inner[k == 0U ? n - 1U : k - 1U];
+            const plane_point &here = inner[k];
+            const plane_point &after = inner[k + 1U < n ? k + 1U : 0U];
+            const plane_point &later = inner[k + 2U < n ? k + 2U : (k + 2U) - n];
+            for (int s = 1; s < 8; ++s) {
+                const double phi = from + ((to - from) * static_cast<double>(s) / 8.0);
+                const plane_point on_curve = curve_point_of_normal(major, minor, phi);
+                const plane_point edge{on_curve.x - (h * std::cos(phi)),
+                                       on_curve.y - (h * std::sin(phi))};
+                // In a cut hole, the inner point that crossed the major axis is inside the
+                // fold, and so is one ON the axis (its y at the rounding of the size): there the
+                // edge is the corner X, the closed case above.
+                const bool on_axis = std::abs(edge.y) <= 1e-9 * (major + h);
+                if (band.shape.hole == outline_hole::cut &&
+                    (on_axis || !(edge.y * std::sin(phi) > 0.0))) {
+                    continue;
+                }
+                const double error = std::min({distance_to_segment(edge, before, here),
+                                               distance_to_segment(edge, here, after),
+                                               distance_to_segment(edge, after, later)});
+                worst_inner = std::max(worst_inner, error);
+                ++inner_samples;
+                good = error <= k_error * (1.0 + 1e-9);
             }
         }
         if (good && band.shape.hole != outline_hole::none) {
@@ -285,8 +335,10 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
             }
         }
     }
-    std::println("ellipse_outline_test: varredura faixas={} erradas={} pior_erro={}", counted,
-                 wrong, worst_error);
+    std::println("ellipse_outline_test: varredura faixas={} erradas={} pior_erro={} "
+                 "amostras_internas={} pior_erro_interno={}",
+                 counted, wrong, worst_error, inner_samples, worst_inner);
     GLINTFX_CHECK_EQ(counted, std::size_t{240});
     GLINTFX_CHECK_EQ(wrong, std::size_t{0});
+    GLINTFX_CHECK(inner_samples >= 10000U);
 }

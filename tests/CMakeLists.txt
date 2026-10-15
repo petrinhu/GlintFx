@@ -1711,6 +1711,7 @@ target_sources(ellipse_outline_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_outline.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )

@@ -81,8 +81,11 @@ class ellipse_pixels {
     [[nodiscard]] std::span<const std::uint32_t> indices() const noexcept;
 
   private:
-    [[nodiscard]] ellipse_pixels_outcome finish(std::size_t count, glintfx::gltfx_rgba color,
-                                                bool ring) noexcept;
+    // The first `count` positions as the triangles of the build: every point checked against the
+    // pixel range (one out refuses the whole ellipse), the indices of a fan or of a ring written,
+    // and the points narrowed to the vertex format with `color`.
+    [[nodiscard]] ellipse_pixels_outcome
+    publish_as_triangles(std::size_t count, glintfx::gltfx_rgba color, bool ring) noexcept;
 
     std::array<double, k_max_arc_parameters> parameters{};
     std::array<double, k_max_outline_angles> angles{};

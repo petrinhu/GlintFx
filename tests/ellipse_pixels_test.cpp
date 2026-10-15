@@ -6,6 +6,7 @@
 #include <limits>
 #include <memory>
 #include <numbers>
+#include <print>
 #include <span>
 
 #include <glintfx/core/angle.hpp>
@@ -109,32 +110,60 @@ struct true_band {
                         : glintfx::gltfx_vec2_world{along, across};
 }
 
+// The distance from (x, y) to the closed polygon `polygon` (its nearest side), in pixels.
+[[nodiscard]] double distance_to_polygon(double x, double y,
+                                         std::span<const colored_pixel_vertex> polygon) {
+    const std::size_t n = polygon.size();
+    double best = std::numeric_limits<double>::infinity();
+    for (std::size_t k = 0; k < n; ++k) {
+        const auto &a = polygon[k].position;
+        const auto &b = polygon[k + 1U < n ? k + 1U : 0U].position;
+        const double ax = static_cast<double>(a.x);
+        const double ay = static_cast<double>(a.y);
+        const double dx = static_cast<double>(b.x) - ax;
+        const double dy = static_cast<double>(b.y) - ay;
+        const double length_squared = (dx * dx) + (dy * dy);
+        double along = 0.0;
+        if (length_squared > 0.0) {
+            along = std::clamp((((x - ax) * dx) + ((y - ay) * dy)) / length_squared, 0.0, 1.0);
+        }
+        best = std::min(best, std::hypot(x - (ax + (along * dx)), y - (ay + (along * dy))));
+    }
+    return best;
+}
+
 // The largest distance from the true outer edge (40000 normal angles, each carried to the screen by
 // `affine`) to `polygon`, the outer polygon of a build.
 [[nodiscard]] double outer_error(std::span<const colored_pixel_vertex> polygon,
                                  const true_band &band, const pixel_affine &affine) {
-    const std::size_t n = polygon.size();
     double worst = 0.0;
     for (int j = 0; j < 40000; ++j) {
         const double phi = 2.0 * k_pi * (static_cast<double>(j) + 0.5) / 40000.0;
         const auto p = glintfx::draw2d::pixel_position_of(true_outer(band, phi), affine);
-        double best = std::numeric_limits<double>::infinity();
-        for (std::size_t k = 0; k < n; ++k) {
-            const auto &a = polygon[k].position;
-            const auto &b = polygon[k + 1U < n ? k + 1U : 0U].position;
-            const double ax = static_cast<double>(a.x);
-            const double ay = static_cast<double>(a.y);
-            const double dx = static_cast<double>(b.x) - ax;
-            const double dy = static_cast<double>(b.y) - ay;
-            const double length_squared = (dx * dx) + (dy * dy);
-            double along = 0.0;
-            if (length_squared > 0.0) {
-                along =
-                    std::clamp((((p.x - ax) * dx) + ((p.y - ay) * dy)) / length_squared, 0.0, 1.0);
-            }
-            best = std::min(best, std::hypot(p.x - (ax + (along * dx)), p.y - (ay + (along * dy))));
+        worst = std::max(worst, distance_to_polygon(p.x, p.y, polygon));
+    }
+    return worst;
+}
+
+// The largest distance from the true outer edge of a CIRCLE on the screen (centre (cx, cy), radius
+// `outer_radius`: the curve's radius plus h, by hand), sampled at 20000 angles of its top, to
+// `polygon`, counting only the points ON the surface 800 by 600; `on_surface` is how many were.
+[[nodiscard]] double circle_edge_error_on_surface(std::span<const colored_pixel_vertex> polygon,
+                                                  double cx, double cy, double outer_radius,
+                                                  std::size_t &on_surface) {
+    const double half_width = std::min(1.0, 1200.0 / outer_radius);
+    double worst = 0.0;
+    on_surface = 0;
+    for (int j = 0; j < 20000; ++j) {
+        const double angle = (k_pi / 2.0) - half_width +
+                             (2.0 * half_width * (static_cast<double>(j) + 0.5) / 20000.0);
+        const double x = cx + (outer_radius * std::cos(angle));
+        const double y = cy - (outer_radius * std::sin(angle));
+        if (x < 0.0 || x > 800.0 || y < 0.0 || y > 600.0) {
+            continue;
         }
-        worst = std::max(worst, best);
+        ++on_surface;
+        worst = std::max(worst, distance_to_polygon(x, y, polygon));
     }
     return worst;
 }
@@ -324,4 +353,48 @@ GLINTFX_TEST(ellipse_pixels_the_outer_edge_is_within_the_error) {
     GLINTFX_CHECK_EQ(built->indices().size(), 3U * (fan.size() - 1U));
     GLINTFX_CHECK(outer_error(fan.subspan(1), true_band{50.0, 0.0, 10.0, true}, stretched) <=
                   0.25 + 1e-3);
+}
+
+// The arc's HALF of the error (S5-B-fix1, D-W8-485; the S5-B review, mutant MA). A circle of radius
+// 80 pixels, 20 thick (h = 10): its true outer edge is the circle of radius 90, by hand. The radius
+// of curvature, 80, is near 4 h, where the curve's own chords decide the step and the thickness
+// multiplies their error by (80 + 10) / 80: with the arc at half the error the edge stays within
+// it; with the arc at the whole error it passes it (measured before the code: 0.137 and 0.277
+// pixel).
+GLINTFX_TEST(ellipse_pixels_the_arc_takes_half_the_error) {
+    const auto built = std::make_unique<ellipse_pixels>();
+    const pixel_affine centred = pixel_affine_from_transform(
+        gltfx_transform{.translation = {400.0, 300.0}, .rotation = {0.0}, .scale = {1.0, 1.0}});
+    const gltfx_ellipse_world circle{{0.0, 0.0}, 80.0, 80.0, gltfx_angle{0.0}};
+    GLINTFX_CHECK(built->build_stroke(circle, gltfx_stroke{20.0, gltfx_stroke_unit::pixel}, k_red,
+                                      screen_of(centred)) == ellipse_pixels_outcome::built);
+    const auto ring = built->vertices();
+    GLINTFX_CHECK_EQ(built->indices().size(), 3U * ring.size());
+    const double worst =
+        outer_error(ring.first(ring.size() / 2U), true_band{80.0, 80.0, 10.0, false}, centred);
+    std::println("ellipse_pixels_test: meio erro no arco pior_erro={}", worst);
+    GLINTFX_CHECK(worst <= 0.25 + 1e-3);
+}
+
+// The CUT regime of the arc (S5-B-fix1, D-W8-486; the S5-B review, mutant MB). A circle of radius
+// 20000 pixels whose curve passes 5 pixels BELOW the surface (centre (400, 20605)), 60 thick (h =
+// 30): the curve itself is never on the surface, but the band reaches 25 pixels into it. Its true
+// outer edge is the circle of radius 20030, by hand. The cut keeps the pieces whose band touches
+// the surface only when it is told the band's reach; told 0, it draws them as long chords and the
+// edge on the surface is pixels away (measured before the code: 0.094 with the reach, 13.5
+// without).
+GLINTFX_TEST(ellipse_pixels_the_cut_keeps_the_band_on_the_surface) {
+    const auto built = std::make_unique<ellipse_pixels>();
+    const gltfx_ellipse_world huge{{400.0, 20605.0}, 20000.0, 20000.0, gltfx_angle{0.0}};
+    GLINTFX_CHECK(built->build_stroke(huge, gltfx_stroke{60.0, gltfx_stroke_unit::pixel}, k_red,
+                                      screen_of(pixel_affine{})) == ellipse_pixels_outcome::built);
+    const auto ring = built->vertices();
+    GLINTFX_CHECK_EQ(built->indices().size(), 3U * ring.size());
+    std::size_t on_surface = 0;
+    const double worst = circle_edge_error_on_surface(ring.first(ring.size() / 2U), 400.0, 20605.0,
+                                                      20030.0, on_surface);
+    std::println("ellipse_pixels_test: corte com alcance pontos_na_tela={} pior_erro={}",
+                 on_surface, worst);
+    GLINTFX_CHECK(on_surface >= 1000U);
+    GLINTFX_CHECK(worst <= 0.25 + 1e-3);
 }

@@ -9658,3 +9658,17 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O mesmo CTO escreve a EMBED-WIN-TIMEOUT (D-W8-525 a 528, CI-VERDE-W8), em commit próprio, em série com a fix6.
 - **23:23, CI 38669031219 (sobre 769ff591, com a T4b-A-fix1) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
   - embed_win_test: Debug 117,05 s (a 3 s do teto de 120), estático 107,90 s e compartilhado 76,25 s. Isso confirma a oscilação perto do teto e reforça a EMBED-WIN-TIMEOUT, que está com o CTO a023304b.
+- **23:25, T4b-B1-fix1 e T4b-A-fix2 recebidas do CTO a92de40e**, pré-executadas sobre 769ff591. Relato em `/var/tmp/cto-w8/relato-cto-b1fix1-fix2.txt`; plano r21 8ccc9412.
+  - B1-fix1: ordem 519a1fc0, anexos 4ffc39de, D-W8-501 a 508. Vermelho em 14 casos, verde 5/5, 5 de 5 mutantes mortos, preci 377, sanitizer 187, MSVC 6/6.
+  - fix2: ordem a6f5f630, anexos ea800381, D-W8-513 a 516. Vermelho só na célula subnormal, verde 4/4, 2 de 2 mutantes, preci 376, sanitizer 186, MSVC 2/2.
+  - As duas não têm arquivo em comum.
+  - **Subnormal reprovou (caso ii).** Com a fix1, cantos inteiros vezes denorm_min deram 1696 aceitos errado, 2759 recusados errado e 43029 pesos errados em 200000; sem o corte ao meio, zero erros. D-W8-514: corta ao meio só quando alguma coordenada passa de max/4, e a frase do cabeçalho fica como está.
+  - **D-W8-501, desempate do advisor (contagem honesta 0 sobre a DEFINIÇÃO do contador):** fica (a): a frase pública de texture_switches passa a dizer o que o contador conta, a primeira ligação de cada flush incluída.
+    - O contador mede o custo real na placa. (b) e (c) escondem uma ligação real, e (b) cria estado entre flushes.
+    - frame_2d_report.hpp:151-153 já dizia isso. O teste A,B,A,A = 3 continua coerente.
+  - **Conferências do main pedidas pelo advisor, as duas passaram:**
+    - a célula vertex_stream_the_same_texture_in_two_runs_is_bound_once usa dois lotes no MESMO flush (um draw_batch, sem flush entre eles), então não contradiz a D-W8-501;
+    - na fix2 a decisão de cortar é UMA só, tomada sobre os oito valores (near_the_largest_double) e aplicada às seis componentes, então s e t continuam invariantes.
+  - Despacho: a B1-fix1 primeiro (uma vaga), a fix2 na próxima.
+  - O veredito do revisor da fix1 (af45), se reprovar na sonda subnormal, fica mapeado à fix2. Não vira ordem nova.
+  - **LISTA DE RATIFICAÇÃO**, acrescentar: D-W8-501 (a frase pública de texture_switches) e D-W8-513 a 516 (o corte ao meio só perto do maior double).

@@ -9685,3 +9685,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - I-1 = o subnormal, mapeado à fix2 já em voo, como o advisor previu. Não vira ordem nova.
   - I-2, novo: o mutante O1 (sem fabs, projective_quad.cpp:51) passa nos 4 testes; falta a célula de orientação.
   - Pedidos ao CTO a92de40e: a S5-B-fix2 (D-W8-529 a 536) e a célula do O1 (D-W8-537 a 540), numa fix3 ou dentro da B2, à escolha dele, com a conferência de que as sondas 2a e 2b do revisor caem a zero com a fix2.
+- **23:43, T4b-B1-fix1 commitada: 3876d1c3** (implementador afae1fc0; 11 arquivos; +366 −125; pai 1943710b).
+  - Vermelho em 14 casos por asserção; verde 5/5; 5 de 5 mutantes mortos; preci 377; sanitizer 187.
+  - O MSVC fica com o revisor.
+  - Revisão N1 despachada a um revisor haiku novo, com a varredura do gêmeo da frase pública (L-17).
+  - **Defeito recorrente nas ordens do CTO, apontado por 3 implementadores** (fix1, B1-fix1, S5-B-fix1): o laço de formato fmt_rc=1 sai com 0 mesmo quando reprova (L-45). Cada um refez a checagem por arquivo. Aviso aos CTOs: trocar pelo laço que conta falhas.
+  - A B1-fix1 mexeu em tests/CMakeLists.txt (+10). A S5-A-fix6 e a EMBED-WIN-TIMEOUT conferem a base na hora do commit.
+- **23:43, push de onda-w8 e CI disparado**, com a B1-fix1.

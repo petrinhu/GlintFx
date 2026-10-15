@@ -9680,3 +9680,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Conflito apontado pelo revisor: MC e MK ficam fora das linhas mudadas (seção 9, itens 2 e 5). Fica para o CTO.
   - A S5-B-fix2 vai a um CTO na próxima vaga, com faixa a partir de D-W8-529.
 - **23:32, T4b-A-fix2 despachada a um implementador haiku novo** (ordem a6f5f630). Teto de 4: B1-fix1, fix2, revisor da fix1 e CTO a023304b.
+- **23:35, revisão N1 da T4b-A-fix1 NÃO LIMPA** (`rev-t4bafix1.txt`, revisor af45d53d): zero CRÍTICO, 2 IMPORTANTE, 2 COSMÉTICO.
+  - Normal, de 1e-307 a 1e307: 500 de 500 aceitos em todas as escalas, pior erro 7,2e-16. A cerca é igual ao cabeçalho. MSVC 4/4. L-17 ok.
+  - I-1 = o subnormal, mapeado à fix2 já em voo, como o advisor previu. Não vira ordem nova.
+  - I-2, novo: o mutante O1 (sem fabs, projective_quad.cpp:51) passa nos 4 testes; falta a célula de orientação.
+  - Pedidos ao CTO a92de40e: a S5-B-fix2 (D-W8-529 a 536) e a célula do O1 (D-W8-537 a 540), numa fix3 ou dentro da B2, à escolha dele, com a conferência de que as sondas 2a e 2b do revisor caem a zero com a fix2.

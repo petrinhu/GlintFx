@@ -9629,3 +9629,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O limite declarado (D-W8-481 e 482) vai ser confirmado no primeiro CI com Windows.
   - O revisor da fix4 (ae67cde1) não estava mais ao alcance; a conferência mirada foi a um revisor haiku novo, como manda a seção 9 da ordem.
   - A S5-B-fix1 vai commitar depois desta; se a base de tests/CMakeLists.txt tiver mudado, ela refaz sobre um snapshot novo.
+- **22:28, S5-B-fix1 commitada: 7616be7d** (implementador a5330b3e; 8 arquivos; +282 −79; pai bbeba567). O commit foi refeito sobre o snapshot novo, porque a fix5 mexeu em tests/CMakeLists.txt.
+  - Vermelho: 14 de 14 mortos. Verde 10 de 10 nos dois snapshots. preci 376 e sanitizer 186, ambos com rc 0.
+  - Os bits e o MSVC não foram remedidos pelo implementador; valem os do Anexo P.
+  - Conferência mirada despachada a um revisor haiku novo (seção 9 da ordem).
+- **22:28, push de onda-w8 e CI disparado** (decisão do líder às 22:23: "esperar a próxima fatia"; a próxima é esta).
+  - Entram S5-A-fix5 e S5-B-fix1.
+  - O CI deve sair vermelho de novo no embed_win_test do Windows Debug, cujo conserto pelo TIMEOUT ainda não entrou. O resto mede a fix5 no Windows, que é o item 2b da conferência dela.
+  - Com as duas fixes de tests/CMakeLists.txt já commitadas, o conserto do TIMEOUT fica livre para ir ao CTO na próxima vaga.

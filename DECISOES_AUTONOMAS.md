@@ -9623,3 +9623,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - INFERÊNCIA: o orçamento estourou pelo crescimento; não é travamento. A prova vem do rerun do job que falhou, já disparado.
   - Conserto previsto: TIMEOUT medido, não chutado, com o precedente de L-44 no mesmo arquivo (public_name_collision_test e pkgconfig_test). Mexe em tests/CMakeLists.txt, então entra DEPOIS dos commits da fix5 e da S5-B-fix1. Ordem a cargo de um CTO quando houver vaga (o teto de 4 está cheio).
 - **21:51, o rerun foi recusado pelo próprio CI (erro meu de orquestração, sem dano):** o rerun_guard (ci.yml:464-472, A4/D-A4) só aceita reexecução de falha de PREPARO; falha de teste não se reexecuta. A tentativa 2 parou na guarda em 47 s. A guarda funcionou como desenhada. Não houve segundo ponto de medida; a tendência 75 → 102 → >120 s basta para o conserto medido. Fica o conserto pelo TIMEOUT, e o CI novo sai com o push da próxima fatia fechada.
+- **22:00, S5-A-fix5 commitada: 60ef554b** (implementador ae27c80a; 5 arquivos; +74 −7). O HEAD de antes só tinha docs, então não precisou refazer.
+  - Os sobreviventes da revisão anterior foram reproduzidos. Vermelho: X2 e X2B rc 8; X3, X3B e X5 rc 8. Verde: 8 de 8. preci 376, verde.
+  - O Co-Authored-By saiu Haiku 5.5, que é a atribuição do próprio implementador; aceito.
+  - O limite declarado (D-W8-481 e 482) vai ser confirmado no primeiro CI com Windows.
+  - O revisor da fix4 (ae67cde1) não estava mais ao alcance; a conferência mirada foi a um revisor haiku novo, como manda a seção 9 da ordem.
+  - A S5-B-fix1 vai commitar depois desta; se a base de tests/CMakeLists.txt tiver mudado, ela refaz sobre um snapshot novo.

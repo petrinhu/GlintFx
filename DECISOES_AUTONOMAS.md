@@ -9650,3 +9650,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Os testes novos da fix5 (msvc_floor_refuses_a_version_that_is_not_a_number, msvc_floor_refuses_an_empty_version e msvc_floor_is_wired_in_the_top_level_cmake) passaram nos jobs Windows. Isso fecha o limite declarado da D-W8-481 e da 482 (item 2b da conferência).
   - embed_win_test passou desta vez, mas no limite: Debug 107,71 s, estático 108,78 s e compartilhado 105,49 s, contra o TIMEOUT de 120 s. A falha anterior (acima de 120 s) foi oscilação perto do teto, não travamento. O conserto pelo TIMEOUT medido continua necessário: a margem é de cerca de 10% e encolhe a cada fatia.
 - **23:04, push de onda-w8 e CI disparado**, com a T4b-A-fix1 (12a98049).
+- **23:06, conferência mirada da S5-A-fix5 NÃO LIMPA** (`rev-s5a-fix5.txt`, revisor adbc6d33): zero CRÍTICO, 2 IMPORTANTE, 1 COSMÉTICO.
+  - O I-2 da fix4 fechou: x, vazio e 19x dão rc 1; 1929 dá rc 1; 1930 dá rc 0.
+  - Item 2b fechado: os 3 testes passaram nos 4 jobs Windows do run 38665857294.
+  - I-1: a suíte não prova a ORDEM da ligação nem o if(MSVC); M4 e M9 sobrevivem. I-2: "(measured)" sem medição em GlintfxCompileOptions.cmake:42. C-1: o M2 sobrevive.
+  - **L-42: é a segunda volta do achado da ligação.** A S5-A-fix6 (D-W8-517 a 524) foi pedida a um CTO NOVO (o af139138 não estava mais ao alcance), com pesquisa na web antes do plano: Tests/RunCMake, -P com fixtures, WILL_FAIL.
+  - O mesmo CTO escreve a EMBED-WIN-TIMEOUT (D-W8-525 a 528, CI-VERDE-W8), em commit próprio, em série com a fix6.

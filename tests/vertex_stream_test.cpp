@@ -847,3 +847,22 @@ GLINTFX_TEST(vertex_stream_no_texture_first_binds_nothing_and_a_return_to_none_c
                   gl_state.sequence[2].second == 1 && gl_state.sequence[4].second == 0 &&
                   gl_state.sequence[5].second == 0);
 }
+
+// T4b-B1-fix1 (D-W8-505): bind_run_texture binds only when the texture CHANGES. Two runs with the
+// same texture, split by the program, bind it once: one switch, and no second glBindTexture.
+GLINTFX_TEST(vertex_stream_the_same_texture_in_two_runs_is_bound_once) {
+    reset();
+    const gl_function_table table = fake_table();
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_red, batch_state{1, 5, 0}));
+    GLINTFX_CHECK(batch.add_quad(square_at(1, 0, 1), k_red, batch_state{2, 5, 0}));
+    const auto counts = draw_batch(table, batch, k_textured_location);
+    GLINTFX_CHECK(counts.has_value());
+    GLINTFX_CHECK(counts.has_value() && counts.value().calls == 2U &&
+                  counts.value().texture_switches == 1U);
+    int binds = 0;
+    for (const texture_event &event : gl_state.sequence) {
+        binds += event.kind == 'B' ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(binds, 1);
+}

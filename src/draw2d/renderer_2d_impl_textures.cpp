@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-#include <array>
 #include <optional>
 
-#include "draw2d/projective_quad.hpp"
 #include "draw2d/renderer_2d_impl.hpp"
+#include "draw2d/texture_extent.hpp"
 #include "draw2d/texture_region_check.hpp"
-#include "draw2d/texture_region_uv.hpp"
+#include "draw2d/textured_quad_corners.hpp"
 
 // renderer_2d_impl_textures.cpp - R2D-TEXTURE, fatia T4b-B1 (D-W8-472, D-W8-474): the textured
 // methods of the frame machine, in a file of their own as the renderer's texture family grew (the
@@ -13,7 +12,9 @@
 // corners by the batch transform in force, like fill_quad(), and kept as ONE textured quad: its
 // texture's GL name and where each corner reads it, stored times the projective weight q
 // (triangle_batch.hpp). The checks are the pure ones of texture_region_check.hpp, asked in its
-// order; the renderer adds the two only it can answer (is the texture open, is it ours).
+// order; the renderer adds the two only it can answer (is the texture open, is it ours). Where the
+// corners read the texture is textured_quad_corners.hpp's (T4b-B1-fix1, D-W8-506): this file only
+// refuses and keeps.
 namespace glintfx {
 
 namespace {
@@ -40,39 +41,6 @@ refusal_of_texture(const texture_2d_impl *texture, const void *renderer,
     }
     return draw2d::refusal_of_region_range(region.source,
                                            draw2d::texture_extent{texture->width, texture->height});
-}
-
-// Where each corner reads the texture, times its weight (1 at every corner of a rectangle).
-[[nodiscard]] draw2d::quad_texture_corners
-weighted_corners(const std::array<draw2d::texture_coordinate, 4> &reads,
-                 const std::array<double, 4> &weights) noexcept {
-    draw2d::quad_texture_corners corners{};
-    for (std::size_t corner = 0; corner < corners.size(); ++corner) {
-        corners[corner] = draw2d::quad_texture_corner{static_cast<float>(reads[corner].u),
-                                                      static_cast<float>(reads[corner].v),
-                                                      static_cast<float>(weights[corner])};
-    }
-    return corners;
-}
-
-// Where each corner of a submission that passed its values reads its texture, weighted: the
-// rectangle at q = 1, the quadrilateral at its projective weights. No value when the
-// quadrilateral has no projective mapping (degenerate_quad). The region was checked against this
-// texture before, so it always has coordinates (they are missing only for a mirroring this build
-// does not know or a texture of no size, both refused before this point).
-[[nodiscard]] std::optional<draw2d::quad_texture_corners>
-texture_corners_of(const draw2d::textured_submission &submission) noexcept {
-    const std::optional<std::array<double, 4>> weights =
-        submission.projective ? draw2d::projective_weights(submission.corners)
-                              : std::optional<std::array<double, 4>>{{1.0, 1.0, 1.0, 1.0}};
-    const std::optional<std::array<draw2d::texture_coordinate, 4>> reads =
-        draw2d::region_corner_coordinates(
-            submission.paint->region,
-            draw2d::texture_extent{submission.texture->width, submission.texture->height});
-    if (!weights.has_value() || !reads.has_value()) {
-        return std::nullopt;
-    }
-    return weighted_corners(*reads, *weights);
 }
 
 } // namespace
@@ -110,7 +78,12 @@ void renderer_2d_impl::submit_textured(const draw2d::textured_submission &submis
         tally.piece_refused(refusal);
         return;
     }
-    const std::optional<draw2d::quad_texture_corners> reads = texture_corners_of(submission);
+    // The region was checked against this texture before, so it always has coordinates; no
+    // corners here means a quadrilateral with no projective mapping.
+    const std::optional<draw2d::quad_texture_corners> reads = draw2d::textured_quad_corners(
+        submission.paint->region,
+        draw2d::texture_extent{submission.texture->width, submission.texture->height},
+        submission.corners, submission.projective);
     if (!reads.has_value()) {
         tally.piece_refused(gltfx_draw_2d_refusal::degenerate_quad);
         return;

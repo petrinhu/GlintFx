@@ -1891,55 +1891,137 @@ GLINTFX_TEST(renderer_2d_impl_each_flush_starts_with_no_texture_and_u_textured_a
     renderer_2d_impl::destroy(renderer);
 }
 
-// D-W8-472: a textured rectangle is refused for the FIRST reason, in this order: the values
-// (not_a_number, infinite, negative_size, unknown_option), the texture (not open, another
-// renderer's, a source outside it), then the pixel range.
+namespace {
+
+// One textured call of the refusal tables, and the reason it must give (T4b-B1-fix1, D-W8-498:
+// the tables live here, so each test stays within the limits of L-17).
+struct rect_case {
+    const glintfx::texture_2d_impl *texture = nullptr;
+    gltfx_texture_paint paint{};
+    glintfx::gltfx_rect_world where{};
+    gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
+};
+
+struct quad_case {
+    const glintfx::texture_2d_impl *texture = nullptr;
+    gltfx_texture_paint paint{};
+    glintfx::gltfx_quad_world corners{};
+    gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
+};
+
+// A region of a 2 x 2 texture that reaches past it.
+glintfx::gltfx_rect_texel outside() { return glintfx::gltfx_rect_texel{{1.0, 1.0}, {2.0, 2.0}}; }
+
+gltfx_texture_mirror unknown_mirror() {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    return static_cast<gltfx_texture_mirror>(9);
+}
+
+// D-W8-472 for draw_texture(): the values, the texture (not open, another renderer's, a source
+// outside it), then the pixel range; each pair of neighbours crossed.
+std::array<rect_case, 10> rect_cases(const glintfx::texture_2d_impl *mine,
+                                     const glintfx::texture_2d_impl *theirs) {
+    using enum gltfx_draw_2d_refusal;
+    const double inf = std::numeric_limits<double>::infinity();
+    return {{
+        {nullptr, paint_of(whole()), rect(k_nan, 0, 1, 1), not_a_number},
+        {nullptr, paint_of(whole()), rect(0, 0, 1, inf), infinite},
+        {nullptr, paint_of(glintfx::gltfx_rect_texel{{0.0, 0.0}, {-1.0, 1.0}}), rect(0, 0, 1, 1),
+         negative_size},
+        {nullptr, paint_of(whole(), unknown_mirror()), rect(0, 0, 1, 1), unknown_option},
+        {nullptr, paint_of(outside()), rect(k_far, 0, 1, 1), texture_not_open},
+        {theirs, paint_of(outside()), rect(k_far, 0, 1, 1), texture_other_renderer},
+        {mine, paint_of(outside()), rect(k_far, 0, 1, 1), region_out_of_range},
+        {mine, paint_of(whole()), rect(k_far, 0, 1, 1), pixel_position_out_of_range},
+        {mine, paint_of(whole(), unknown_mirror()), rect(k_far, 0, 1, 1), unknown_option},
+        {mine, paint_of(whole()), rect(0, 0, 1, 1), none},
+    }};
+}
+
+// D-W8-472 for draw_texture_quad(): the values, the texture, degenerate_quad, the pixel range. The
+// rows 6 and 7 (T4b-B1-fix1, D-W8-502, I-2 of the review) cross the shape with the region and with
+// the owner: a source outside the texture, or a texture of another renderer, comes BEFORE the
+// shape, whatever the shape is.
+std::array<quad_case, 9> quad_cases(const glintfx::texture_2d_impl *mine,
+                                    const glintfx::texture_2d_impl *theirs) {
+    using enum gltfx_draw_2d_refusal;
+    const glintfx::gltfx_quad_world far_trapezoid{
+        {k_far, 0.0}, {4.0 * k_far, 0.0}, {3.0 * k_far, 2.0}, {2.0 * k_far, 2.0}};
+    const glintfx::gltfx_quad_world nan_corner{{k_nan, 0.0}, {4.0, 0.0}, {3.0, 2.0}, {1.0, 2.0}};
+    return {{
+        {nullptr, paint_of(whole()), nan_corner, not_a_number},
+        {mine, paint_of(glintfx::gltfx_rect_texel{{0.0, 0.0}, {1.0, -1.0}}), trapezoid(),
+         negative_size},
+        {nullptr, paint_of(whole()), collinear(1.0), texture_not_open},
+        {mine, paint_of(whole()), collinear(1.0), degenerate_quad},
+        {mine, paint_of(whole()), collinear(k_far), degenerate_quad},
+        {mine, paint_of(outside()), collinear(1.0), region_out_of_range},
+        {theirs, paint_of(whole()), collinear(1.0), texture_other_renderer},
+        {mine, paint_of(whole()), far_trapezoid, pixel_position_out_of_range},
+        {mine, paint_of(whole()), trapezoid(), none},
+    }};
+}
+
+// How many rows give their reason, each alone in a frame.
+template <typename Case, std::size_t N, typename Draw>
+int rows_right(renderer_2d_impl *renderer, const std::array<Case, N> &rows, const Draw &draw) {
+    int right = 0;
+    for (const Case &row : rows) {
+        right += reason_of_one(renderer, [&] { draw(row); }) == row.expected ? 1 : 0;
+    }
+    return right;
+}
+
+// Two renderers with a texture each: `mine` belongs to the first, `theirs` to the second.
+struct two_owners {
+    renderer_2d_impl *renderer = nullptr;
+    renderer_2d_impl *other = nullptr;
+    glintfx::texture_2d_impl *mine = nullptr;
+    glintfx::texture_2d_impl *theirs = nullptr;
+};
+
+two_owners open_two_owners() {
+    two_owners owners;
+    owners.renderer = make_with_textures();
+    owners.other = make_with_textures();
+    owners.mine = texture_of(owners.renderer, 77U);
+    owners.theirs = texture_of(owners.other, 88U);
+    return owners;
+}
+
+void close_two_owners(const two_owners &owners) {
+    glintfx::draw2d::release_texture_object(owners.theirs);
+    glintfx::draw2d::release_texture_object(owners.mine);
+    renderer_2d_impl::destroy(owners.other);
+    renderer_2d_impl::destroy(owners.renderer);
+}
+
+} // namespace
+
+// D-W8-472: a textured rectangle is refused for the FIRST reason, in the order of rect_cases().
 GLINTFX_TEST(renderer_2d_impl_a_textured_rect_is_refused_for_the_first_reason_in_order) {
     reset();
-    renderer_2d_impl *renderer = make_with_textures();
-    renderer_2d_impl *other = make_with_textures();
-    glintfx::texture_2d_impl *mine = texture_of(renderer, 77U);
-    glintfx::texture_2d_impl *theirs = texture_of(other, 88U);
-    const glintfx::gltfx_rect_texel outside{{1.0, 1.0}, {2.0, 2.0}};
-    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
-    const auto mirror_unknown = static_cast<gltfx_texture_mirror>(9);
-    struct case_row {
-        const glintfx::texture_2d_impl *texture = nullptr;
-        gltfx_texture_paint paint{};
-        glintfx::gltfx_rect_world where{};
-        gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
-    };
-    const std::array<case_row, 10> rows{{
-        {nullptr, paint_of(whole()), rect(k_nan, 0, 1, 1), gltfx_draw_2d_refusal::not_a_number},
-        {nullptr, paint_of(whole()), rect(0, 0, 1, std::numeric_limits<double>::infinity()),
-         gltfx_draw_2d_refusal::infinite},
-        {nullptr, paint_of(glintfx::gltfx_rect_texel{{0.0, 0.0}, {-1.0, 1.0}}), rect(0, 0, 1, 1),
-         gltfx_draw_2d_refusal::negative_size},
-        {nullptr, paint_of(whole(), mirror_unknown), rect(0, 0, 1, 1),
-         gltfx_draw_2d_refusal::unknown_option},
-        {nullptr, paint_of(outside), rect(k_far, 0, 1, 1), gltfx_draw_2d_refusal::texture_not_open},
-        {theirs, paint_of(outside), rect(k_far, 0, 1, 1),
-         gltfx_draw_2d_refusal::texture_other_renderer},
-        {mine, paint_of(outside), rect(k_far, 0, 1, 1), gltfx_draw_2d_refusal::region_out_of_range},
-        {mine, paint_of(whole()), rect(k_far, 0, 1, 1),
-         gltfx_draw_2d_refusal::pixel_position_out_of_range},
-        {mine, paint_of(whole(), mirror_unknown), rect(k_far, 0, 1, 1),
-         gltfx_draw_2d_refusal::unknown_option},
-        {mine, paint_of(whole()), rect(0, 0, 1, 1), gltfx_draw_2d_refusal::none},
-    }};
-    int right = 0;
-    for (const case_row &row : rows) {
-        const gltfx_draw_2d_refusal reason = reason_of_one(renderer, [&] {
-            renderer->draw_texture(row.texture, row.paint, row.where, k_layer_0);
-        });
-        right += reason == row.expected ? 1 : 0;
-    }
-    GLINTFX_CHECK_EQ(right, 10);
-    // Each texture reason has its own counter, and the counters add up to pieces_refused.
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    GLINTFX_CHECK_EQ(rows_right(renderer, rect_cases(owners.mine, owners.theirs),
+                                [&](const rect_case &row) {
+                                    renderer->draw_texture(row.texture, row.paint, row.where,
+                                                           k_layer_0);
+                                }),
+                     10);
+    GLINTFX_CHECK(card.draw_counts.size() == 1); // only the one row that was drawn
+    close_two_owners(owners);
+}
+
+// Each texture reason has its own counter, and the counters add up to pieces_refused.
+GLINTFX_TEST(renderer_2d_impl_each_texture_reason_has_its_own_counter) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
     renderer->begin_frame(gltfx_frame_2d_desc{});
     renderer->draw_texture(nullptr, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
-    renderer->draw_texture(theirs, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
-    renderer->draw_texture(mine, paint_of(outside), rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_texture(owners.theirs, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_texture(owners.mine, paint_of(outside()), rect(0, 0, 1, 1), k_layer_0);
     const auto report = renderer->finish_frame();
     GLINTFX_CHECK(report.has_value());
     if (report.has_value()) {
@@ -1949,49 +2031,22 @@ GLINTFX_TEST(renderer_2d_impl_a_textured_rect_is_refused_for_the_first_reason_in
         GLINTFX_CHECK_EQ(report.value().pieces_refused_region_out_of_range, std::uint64_t{1});
         GLINTFX_CHECK(ends_add_up(report.value()));
     }
-    GLINTFX_CHECK(card.draw_counts.size() == 1); // only the one row that was drawn
-    glintfx::draw2d::release_texture_object(theirs);
-    glintfx::draw2d::release_texture_object(mine);
-    renderer_2d_impl::destroy(other);
-    renderer_2d_impl::destroy(renderer);
+    close_two_owners(owners);
 }
 
 // The textured quadrilateral: the values, then the texture, then degenerate_quad (a property of
-// the shape), then the pixel range.
+// the shape), then the pixel range, in the order of quad_cases().
 GLINTFX_TEST(renderer_2d_impl_a_textured_quad_is_refused_for_the_first_reason_in_order) {
     reset();
-    renderer_2d_impl *renderer = make_with_textures();
-    glintfx::texture_2d_impl *mine = texture_of(renderer, 77U);
-    const glintfx::gltfx_quad_world far_trapezoid{
-        {k_far, 0.0}, {4.0 * k_far, 0.0}, {3.0 * k_far, 2.0}, {2.0 * k_far, 2.0}};
-    const glintfx::gltfx_quad_world nan_corner{{k_nan, 0.0}, {4.0, 0.0}, {3.0, 2.0}, {1.0, 2.0}};
-    struct case_row {
-        const glintfx::texture_2d_impl *texture = nullptr;
-        gltfx_texture_paint paint{};
-        glintfx::gltfx_quad_world corners{};
-        gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
-    };
-    const std::array<case_row, 7> rows{{
-        {nullptr, paint_of(whole()), nan_corner, gltfx_draw_2d_refusal::not_a_number},
-        {mine, paint_of(glintfx::gltfx_rect_texel{{0.0, 0.0}, {1.0, -1.0}}), trapezoid(),
-         gltfx_draw_2d_refusal::negative_size},
-        {nullptr, paint_of(whole()), collinear(1.0), gltfx_draw_2d_refusal::texture_not_open},
-        {mine, paint_of(whole()), collinear(1.0), gltfx_draw_2d_refusal::degenerate_quad},
-        {mine, paint_of(whole()), collinear(k_far), gltfx_draw_2d_refusal::degenerate_quad},
-        {mine, paint_of(whole()), far_trapezoid,
-         gltfx_draw_2d_refusal::pixel_position_out_of_range},
-        {mine, paint_of(whole()), trapezoid(), gltfx_draw_2d_refusal::none},
-    }};
-    int right = 0;
-    for (const case_row &row : rows) {
-        const gltfx_draw_2d_refusal reason = reason_of_one(renderer, [&] {
-            renderer->draw_texture_quad(row.texture, row.paint, row.corners, k_layer_0);
-        });
-        right += reason == row.expected ? 1 : 0;
-    }
-    GLINTFX_CHECK_EQ(right, 7);
-    glintfx::draw2d::release_texture_object(mine);
-    renderer_2d_impl::destroy(renderer);
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    GLINTFX_CHECK_EQ(rows_right(renderer, quad_cases(owners.mine, owners.theirs),
+                                [&](const quad_case &row) {
+                                    renderer->draw_texture_quad(row.texture, row.paint, row.corners,
+                                                                k_layer_0);
+                                }),
+                     9);
+    close_two_owners(owners);
 }
 
 // D-W8-455, D-W8-470: the projective weight of each corner reaches its vertex, the coordinate

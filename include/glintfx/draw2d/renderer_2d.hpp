@@ -492,8 +492,10 @@ class gltfx_renderer_2d {
     //     outside the range the drawing program can scale, as for fill_rect.
     // A textured piece is painted in the same order as every other piece
     // (layer, then submission); a change of texture never reorders. Each
-    // change of the bound texture between two calls counts in
-    // texture_switches, including a change to or from no texture.
+    // texture the library binds to draw counts once in texture_switches: a
+    // change of texture between two draw calls, a change to or from no
+    // texture, and the first texture of every flush (each flush starts with
+    // none bound).
     // D-W8-354: texture, paint and rect with the layer; four parameters at most.
     // Proved by: renderer_2d_impl_test (each reason in this order, over a
     // fake GL; the corners read the region by role and mirror; a texture

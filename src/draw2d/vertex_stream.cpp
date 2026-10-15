@@ -271,16 +271,32 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
                              technique, k_reject_index_upload);
 }
 
+namespace {
+
+// Binds `texture` to unit 0, and sets u_textured to 1 for a texture and 0 for none, when it is not
+// the one `bound` (T4b-B1-fix1, D-W8-505: the binding of a run, an atom of its own). True when it
+// bound: one texture switch (D-W8-471).
+[[nodiscard]] bool bind_run_texture(const render::gl_function_table &gl,
+                                    std::int32_t textured_location, std::uint32_t texture,
+                                    std::uint32_t &bound) noexcept {
+    if (texture == bound) {
+        return false;
+    }
+    gl.glBindTexture(k_gl_texture_2d, texture);
+    gl.glUniform1i(textured_location, texture != 0 ? 1 : 0);
+    bound = texture;
+    return true;
+}
+
+} // namespace
+
 gltfx_rslt<batch_draw_counts> draw_batch(const render::gl_function_table &gl,
                                          const triangle_batch &batch,
                                          std::int32_t textured_location) noexcept {
     batch_draw_counts counts;
     std::uint32_t bound_texture = 0; // as if none: u_textured is 0 until a run binds its own
     for (const draw_run &run : batch.runs()) {
-        if (run.state.texture != bound_texture) {
-            gl.glBindTexture(k_gl_texture_2d, run.state.texture);
-            gl.glUniform1i(textured_location, run.state.texture != 0 ? 1 : 0);
-            bound_texture = run.state.texture;
+        if (bind_run_texture(gl, textured_location, run.state.texture, bound_texture)) {
             ++counts.texture_switches;
         }
         gl.glDrawElements(k_gl_triangles, static_cast<GLsizei>(run.index_count), k_gl_unsigned_int,

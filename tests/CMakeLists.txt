@@ -2037,6 +2037,16 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_check.cpp"
 )
+# R2D-TEXTURE T4b-B1-fix1 (D-W8-506): where the corners of a textured quad read the texture is an atom of its own;
+# the frame machine compiles it, and it has its own pure test.
+target_sources(renderer_2d_impl_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/textured_quad_corners.cpp")
+glintfx_add_test(textured_quad_corners_test)
+target_include_directories(textured_quad_corners_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(textured_quad_corners_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/textured_quad_corners.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
+)
 
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

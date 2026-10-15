@@ -9591,3 +9591,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - I-5: a cerca do parecer não foi reescrita no lugar. I-6: um teste de 59 linhas.
   - Pedida ao CTO a92de40e a T4b-A-fix1 (D-W8-493 a 500), com prioridade sobre a B2 e cuidado de colisão com a B1 em voo. O I-1 é escolha de desenho e passa pela pesquisa das 10 queixas.
 - **21:22, segunda queda de rede** (por volta de 20:3x; erros EAI_AGAIN e de certificado). Derrubou os três agentes em voo: o implementador da B1, que já estava no sanitizer, e os dois CTOs. O líder refez o login e religou o modo autônomo: "ligue modo autonomo", válido até 15/10 às 21:21, com escopos push e clean. Os três foram retomados com a ordem de conferir o disco antes de repetir qualquer coisa.
+- **21:23, T4b-B1 commitada: 6498d773** (implementador ab6e61e4; 26 arquivos; +1131 −76).
+  - Vermelho por asserção em 21 casos, nenhum caso velho, e verde 6 de 6. Os 10 mutantes morreram.
+  - GL: 106 e 31, zero reprovadas. A régua sem a linha dá um achado. preci 373 e sanitizer 183.
+  - O MSVC ficou de fora e passa para o revisor. Revisão N1 despachada a um revisor novo.
+- **21:23, push de onda-w8 e CI disparado.** Entram S5-B, S5-A-fix4, T4b-A e T4b-B1, que estão no ramo desde 33d69d62. O CI dá a medida no Windows antes das conferências fecharem.

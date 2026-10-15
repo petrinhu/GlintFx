@@ -9596,3 +9596,12 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - GL: 106 e 31, zero reprovadas. A régua sem a linha dá um achado. preci 373 e sanitizer 183.
   - O MSVC ficou de fora e passa para o revisor. Revisão N1 despachada a um revisor novo.
 - **21:23, push de onda-w8 e CI disparado.** Entram S5-B, S5-A-fix4, T4b-A e T4b-B1, que estão no ramo desde 33d69d62. O CI dá a medida no Windows antes das conferências fecharem.
+- **21:24, S5-A-fix5 (md5 ae9e8a26) e S5-B-fix1 (md5 833bebf4) recebidas do CTO af139138 e despachadas a implementadores novos.** Os dois tocam tests/CMakeLists.txt; quem commitar por último refaz sobre o snapshot novo.
+  - fix5:
+    - D-W8-481: o ramo não numérico ganha dois testes no formato da casa, sem PASS_REGULAR_EXPRESSION.
+    - D-W8-482: um teste cobre a ligação sob if(MSVC).
+    - D-W8-483: os textos dizem o que foi medido. O C-8 do revisor partia de premissa errada: o CI roda o cl 19.51 do Visual Studio 18, e o VS 2022 é que não foi medido. Fato registrado: o motivo da diferença 126979/127030 não foi medido; medido é o zero com a regra.
+  - S5-B-fix1:
+    - D-W8-485 a 488: testes de pixel que matam MA (0,277 contra 0,137), MB (13,46 contra 0,094) e MC (2^-60), mais a borda interna, com 14 mutantes mortos.
+    - D-W8-489 e 490: build_stroke dividido em três, com bits iguais em 600 chamadas.
+    - D-W8-491: INBOX ganha DRAW2D-RANGE-LOOP.

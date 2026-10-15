@@ -161,6 +161,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage main 14/10] `WIN-LAB-LOST`: o disco da VM Windows 11 (`/var/tmp/glintfx-win-lab`, 17 GB, com o criar-vm.sh e o autounattend.xml) foi apagado às 14:32 de 14/10 por uma limpeza com sudo vinda de fora desta sessão. A VM `glintfx-win11-lab` segue definida, sem disco. Recriar pela receita versionada (ver `project_estado_sessao_2026_09_07.md`) é decisão do líder; não bloqueia a W8.
 - [triage CTO-T4bB1 14/10] `TEX-UNTEXTURED-IN-BATCH`: candidata "peça sem textura no lote texturizado", com um modo por vértice (bevyengine/bevy#8793). Mudaria o sentido da D-W8-292, reabriria o vértice de 36 bytes e poria a amostragem num ramo que o driver não garante. Recusada agora; se voltar, é escolha de desenho sob o regime das 10 queixas.
 - [triage advisor 14/10] `NOEXCEPT-GAUGE-NAME-PREFIX`: a régua de noexcept classifica pelo prefixo do nome ("text" vira concatenação de texto) em vez do tipo; o `+=` de `texture_switches` (inteiro) caiu nela. Corrigir no produtor e remover a linha FALSO-POSITIVO-DA-REGUA de tests/noexcept_alloc_exceptions.txt. Se a B2 tropeçar no mesmo prefixo, a correção entra na B2, nunca uma segunda exceção.
+- [triage CTO-S5Bfix1 14/10] `DRAW2D-RANGE-LOOP`: triangle_pixel_vertices.cpp:9-18 repete o laço de faixa sobre os vértices do mundo transformados; avaliar se vira átomo comum com all_pixel_positions_in_range. Fonte: /var/tmp/cto-w8/rev-s5b.txt, COSMETICO-7.
 
 
 

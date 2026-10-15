@@ -9672,3 +9672,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Despacho: a B1-fix1 primeiro (uma vaga), a fix2 na próxima.
   - O veredito do revisor da fix1 (af45), se reprovar na sonda subnormal, fica mapeado à fix2. Não vira ordem nova.
   - **LISTA DE RATIFICAÇÃO**, acrescentar: D-W8-501 (a frase pública de texture_switches) e D-W8-513 a 516 (o corte ao meio só perto do maior double).
+- **23:32, conferência mirada da S5-B-fix1 NÃO LIMPA** (`rev-s5b-fix1.txt`, revisor a87fa9a0): zero CRÍTICO, 3 IMPORTANTE.
+  - Bits iguais em 600 chamadas (bbeba567 contra 7616be7d, hash a763b6a0). 9 de 9 mutantes mortos.
+  - **I-1, conferido pelo main no blob:** tests/ellipse_outline_test.cpp:290 diz `good = error <= ...`, que é atribuição; a falha de uma amostra interna some na amostra seguinte. A correção de uma token passa no blob.
+  - I-2: L-17 em publish_as_triangles (ellipse_pixels.cpp:157-177), que faz três coisas.
+  - I-3: L-17 em write_sorted_outline_angles (ellipse_outline.cpp:22-41). O C-6 foi só renomeado, não fechado.
+  - Conflito apontado pelo revisor: MC e MK ficam fora das linhas mudadas (seção 9, itens 2 e 5). Fica para o CTO.
+  - A S5-B-fix2 vai a um CTO na próxima vaga, com faixa a partir de D-W8-529.
+- **23:32, T4b-A-fix2 despachada a um implementador haiku novo** (ordem a6f5f630). Teto de 4: B1-fix1, fix2, revisor da fix1 e CTO a023304b.

@@ -9646,3 +9646,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - D6 do implementador ("encontrados=0..." sem rótulo): é a linha do gancho global no_mdash_staged.py, explicada na linha seguinte dele. Não é varredura vazia do projeto.
   - Revisão N1 despachada a um revisor haiku novo (seção 9), com a sonda subnormal do advisor acrescentada: 2a, 2b e 2c, só números. O conserto fica com o CTO (D-W8-513 a 516).
   - Push depois que o CI 38665857294 terminar, para não rodar dois CIs ao mesmo tempo.
+- **23:04, CI 38665857294 (sobre a8eee7e3) VERDE:** 25 de 26 jobs com sucesso; VERSION-TAG-SYNC pulado, como esperado.
+  - Os testes novos da fix5 (msvc_floor_refuses_a_version_that_is_not_a_number, msvc_floor_refuses_an_empty_version e msvc_floor_is_wired_in_the_top_level_cmake) passaram nos jobs Windows. Isso fecha o limite declarado da D-W8-481 e da 482 (item 2b da conferência).
+  - embed_win_test passou desta vez, mas no limite: Debug 107,71 s, estático 108,78 s e compartilhado 105,49 s, contra o TIMEOUT de 120 s. A falha anterior (acima de 120 s) foi oscilação perto do teto, não travamento. O conserto pelo TIMEOUT medido continua necessário: a margem é de cerca de 10% e encolhe a cada fatia.
+- **23:04, push de onda-w8 e CI disparado**, com a T4b-A-fix1 (12a98049).

@@ -9689,6 +9689,6 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Vermelho em 14 casos por asserção; verde 5/5; 5 de 5 mutantes mortos; preci 377; sanitizer 187.
   - O MSVC fica com o revisor.
   - Revisão N1 despachada a um revisor haiku novo, com a varredura do gêmeo da frase pública (L-17).
-  - **Defeito recorrente nas ordens do CTO, apontado por 3 implementadores** (fix1, B1-fix1, S5-B-fix1): o laço de formato fmt_rc=1 sai com 0 mesmo quando reprova (L-45). Cada um refez a checagem por arquivo. Aviso aos CTOs: trocar pelo laço que conta falhas.
+  - **Defeito recorrente nas ordens do CTO, apontado por 3 implementadores** (fix1, B1-fix1, S5-B-fix1): o laço de formato que termina em "|| break; done; echo fmt_rc=$?" sai com 0 mesmo quando reprova (L-45). Cada um refez a checagem por arquivo. Aviso aos CTOs: trocar pelo laço que conta falhas.
   - A B1-fix1 mexeu em tests/CMakeLists.txt (+10). A S5-A-fix6 e a EMBED-WIN-TIMEOUT conferem a base na hora do commit.
 - **23:43, push de onda-w8 e CI disparado**, com a B1-fix1.

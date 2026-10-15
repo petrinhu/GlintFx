@@ -9637,3 +9637,6 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Entram S5-A-fix5 e S5-B-fix1.
   - O CI deve sair vermelho de novo no embed_win_test do Windows Debug, cujo conserto pelo TIMEOUT ainda não entrou. O resto mede a fix5 no Windows, que é o item 2b da conferência dela.
   - Com as duas fixes de tests/CMakeLists.txt já commitadas, o conserto do TIMEOUT fica livre para ir ao CTO na próxima vaga.
+- **22:45, decisão do líder (AskUserQuestion): fatia de preencher polígono "Sim, numa onda futura".** Pergunta dele: "tem fatia de desenhar poligonos e circulos?".
+  - Círculo: sim. É a elipse de raios iguais. A S5-B (os átomos) está commitada em 7616be7d e em conferência; a S5-C liga `fill_ellipse` e `stroke_ellipse` ao desenhador ainda na W8.
+  - Polígono: não havia fatia. Hoje ele só sai se o consumidor dividir em triângulos. A INBOX ganha R2D-FILL-POLYGON, para depois da W8, com a pesquisa das 10 queixas antes do plano.

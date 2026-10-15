@@ -9605,3 +9605,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - D-W8-485 a 488: testes de pixel que matam MA (0,277 contra 0,137), MB (13,46 contra 0,094) e MC (2^-60), mais a borda interna, com 14 mutantes mortos.
     - D-W8-489 e 490: build_stroke dividido em três, com bits iguais em 600 chamadas.
     - D-W8-491: INBOX ganha DRAW2D-RANGE-LOOP.
+- **21:44, ordem da T4b-A-fix1 recebida do CTO a92de40e** (md5 7026910e; anexos 28895113; plano r21 a19ed557; D-W8-493 a 500). Pré-executada sobre 6498d773: vermelho por asserção, só o teste de escala (2000 de 4500 errados); verde 4 de 4; 6 de 6 mutantes mortos, incluindo R1 a R4; preci 373; sanitizer 183; MSVC 7 arquivos.
+  - **D-W8-493, desempate do advisor (contagem honesta: 2 queixas, abaixo de 10; Boost.Geometry PR #272 e Boost Trac #10904):** fica a opção (a), uma potência de 2 comum depois de medir a partir do canto 0.
+    - (b), a tolerância relativa, muda quais quase-degenerados passam e deixa o estouro intacto.
+    - (c), long double, quebra a L-04 (no MSVC long double é double).
+    - (a) é exata e não depende da escala: é a ideia do PR #272, mas sem épsilon.
+  - **Ressalva do advisor, um passo além da fronteira (L-43):** o cabeçalho promete "any finite size", e a pré-execução cobriu de 1e-300 a 1e300. Em subnormal (abaixo de 2,2e-308), cortar ao meio não é exato. Os anexos não têm sonda subnormal (grep: zero). Isso não segura o despacho, mas segura o aceite: o CTO mede agora e decide entre estreitar a frase e proteger a metade (D-W8-513 a 516). Se a sonda reprovar, vem uma fix2 sobre a fix1.
+  - Despachada a um implementador novo.
+- **21:44, revisão N1 da T4b-B1 NÃO LIMPA** (`rev-t4b-b1.txt`, revisor a607f0e6): zero CRÍTICO, 2 IMPORTANTE, 2 COSMÉTICO e 1 lacuna. 9 de 10 mutantes morreram; o do reset de u_textured morreu nas duas células; a régua sem a linha dá exatamente um achado, em frame_report_tally.cpp:90-91.
+  - I-1: a frase pública de texture_switches ("entre duas chamadas") não bate com o contador, que conta também a primeira ligação de cada flush. O teste afirma 3 para A,B,A,A.
+  - I-2: nenhuma célula cobre ao mesmo tempo região fora e quadrilátero degenerado com textura aberta. O mutante M10 sobrevive.
+  - C-1: a errata cita uma frase que a cerca não tem. C-2: L-17 em draw_batch.
+  - Lacuna: o MSVC não rodou.
+  - Pedida ao CTO a92de40e a **T4b-B1-fix1 (D-W8-501 a 512)**, que entra DEPOIS do commit da T4b-A-fix1: as duas mexem em docs/auditoria-api-texture.md, e a ordem das erratas tem de ser conferida. O I-1 é escolha de API pública: o CTO decide e o líder ratifica. A B2 é regenerada depois das duas.

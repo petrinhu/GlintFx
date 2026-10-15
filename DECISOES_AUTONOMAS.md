@@ -9640,3 +9640,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **22:45, decisão do líder (AskUserQuestion): fatia de preencher polígono "Sim, numa onda futura".** Pergunta dele: "tem fatia de desenhar poligonos e circulos?".
   - Círculo: sim. É a elipse de raios iguais. A S5-B (os átomos) está commitada em 7616be7d e em conferência; a S5-C liga `fill_ellipse` e `stroke_ellipse` ao desenhador ainda na W8.
   - Polígono: não havia fatia. Hoje ele só sai se o consumidor dividir em triângulos. A INBOX ganha R2D-FILL-POLYGON, para depois da W8, com a pesquisa das 10 queixas antes do plano.
+- **22:54, T4b-A-fix1 commitada: 12a98049** (implementador a611d99f, parado por TaskStop ao aceitar o resultado; 10 arquivos; +378 −160; pai f6629201).
+  - Vermelho: só o teste de escala (2000 errados). Verde 4 de 4: escalas 4500/0, varredura 30000/0, células 14/0.
+  - 6 de 6 mutantes mortos. preci 373, sanitizer 183, fmt 9/0.
+  - D6 do implementador ("encontrados=0..." sem rótulo): é a linha do gancho global no_mdash_staged.py, explicada na linha seguinte dele. Não é varredura vazia do projeto.
+  - Revisão N1 despachada a um revisor haiku novo (seção 9), com a sonda subnormal do advisor acrescentada: 2a, 2b e 2c, só números. O conserto fica com o CTO (D-W8-513 a 516).
+  - Push depois que o CI 38665857294 terminar, para não rodar dois CIs ao mesmo tempo.

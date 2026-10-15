@@ -9618,3 +9618,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - C-1: a errata cita uma frase que a cerca não tem. C-2: L-17 em draw_batch.
   - Lacuna: o MSVC não rodou.
   - Pedida ao CTO a92de40e a **T4b-B1-fix1 (D-W8-501 a 512)**, que entra DEPOIS do commit da T4b-A-fix1: as duas mexem em docs/auditoria-api-texture.md, e a ordem das erratas tem de ser conferida. O I-1 é escolha de API pública: o CTO decide e o líder ratifica. A B2 é regenerada depois das duas.
+- **21:49, CI 38659724788 (sobre 4547143c) VERMELHO em 1 de 26 jobs:** no Windows Debug, o embed_win_test deu Timeout aos 120,06 s, o TIMEOUT padrão. Nenhum outro job falhou; VERSION-TAG-SYNC pulado, como esperado.
+  - Tendência medida: 75,24 s (run 36202987723, comentário em tests/CMakeLists.txt:6530), depois 102,27 s (run 38575186902, o último verde), agora acima de 120 s. A biblioteca cresceu com T4b-A, B1 e S5-B, e o teste monta a lib inteira num CMake aninhado (168 passos).
+  - INFERÊNCIA: o orçamento estourou pelo crescimento; não é travamento. A prova vem do rerun do job que falhou, já disparado.
+  - Conserto previsto: TIMEOUT medido, não chutado, com o precedente de L-44 no mesmo arquivo (public_name_collision_test e pkgconfig_test). Mexe em tests/CMakeLists.txt, então entra DEPOIS dos commits da fix5 e da S5-B-fix1. Ordem a cargo de um CTO quando houver vaga (o teto de 4 está cheio).

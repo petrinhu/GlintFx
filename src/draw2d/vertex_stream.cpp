@@ -30,6 +30,7 @@ constexpr GLenum k_gl_stream_draw = 0x88E0;
 constexpr GLenum k_gl_float = 0x1406;
 constexpr GLenum k_gl_unsigned_int = 0x1405;
 constexpr GLenum k_gl_triangles = 0x0004;
+constexpr GLenum k_gl_texture_2d = 0x0DE1;
 constexpr GLenum k_gl_out_of_memory = 0x0505;
 constexpr GLbitfield k_gl_map_write_bit = 0x0002;
 constexpr GLbitfield k_gl_map_invalidate_buffer_bit = 0x0008;
@@ -270,22 +271,30 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
                              technique, k_reject_index_upload);
 }
 
-gltfx_rslt<std::uint64_t> draw_batch(const render::gl_function_table &gl,
-                                     const triangle_batch &batch) noexcept {
-    std::uint64_t calls = 0;
+gltfx_rslt<batch_draw_counts> draw_batch(const render::gl_function_table &gl,
+                                         const triangle_batch &batch,
+                                         std::int32_t textured_location) noexcept {
+    batch_draw_counts counts;
+    std::uint32_t bound_texture = 0; // as if none: u_textured is 0 until a run binds its own
     for (const draw_run &run : batch.runs()) {
+        if (run.state.texture != bound_texture) {
+            gl.glBindTexture(k_gl_texture_2d, run.state.texture);
+            gl.glUniform1i(textured_location, run.state.texture != 0 ? 1 : 0);
+            bound_texture = run.state.texture;
+            ++counts.texture_switches;
+        }
         gl.glDrawElements(k_gl_triangles, static_cast<GLsizei>(run.index_count), k_gl_unsigned_int,
                           buffer_offset(run.first_index * sizeof(std::uint32_t)));
-        ++calls;
+        ++counts.calls;
     }
-    if (calls == 0) {
-        return gltfx_rslt<std::uint64_t>::ok(calls);
+    if (counts.calls == 0) {
+        return gltfx_rslt<batch_draw_counts>::ok(counts);
     }
     const gl_errors_of_operation errors = read_gl_errors(gl);
     if (errors.first != 0) {
-        return gltfx_rslt<std::uint64_t>::err(error_of_step(errors, k_reject_draw));
+        return gltfx_rslt<batch_draw_counts>::err(error_of_step(errors, k_reject_draw));
     }
-    return gltfx_rslt<std::uint64_t>::ok(calls);
+    return gltfx_rslt<batch_draw_counts>::ok(counts);
 }
 
 } // namespace glintfx::draw2d

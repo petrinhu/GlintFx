@@ -408,3 +408,21 @@ GLINTFX_TEST(frame_report_tally_the_texture_reasons_are_nine_to_twelve_with_thei
     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
     GLINTFX_CHECK(gltfx_draw_2d_refusal_name(static_cast<gltfx_draw_2d_refusal>(13)) == "unknown");
 }
+
+// R2D-TEXTURE T4b-B1 (D-W8-471): the texture switches of each flush add up in the frame's report,
+// LAST in the struct; they start at zero every frame, and an empty frame has none.
+GLINTFX_TEST(frame_report_tally_texture_switches_add_up_per_frame) {
+    static_assert(offsetof(glintfx::gltfx_frame_2d_report, texture_switches) ==
+                      sizeof(glintfx::gltfx_frame_2d_report) - sizeof(std::uint64_t),
+                  "texture_switches is appended last (the layout only grows at its end)");
+    frame_tally tally;
+    tally.begin_frame();
+    tally.texture_switched(2);
+    tally.texture_switched(3);
+    (void)tally.finish();
+    GLINTFX_CHECK_EQ(tally.last_report().texture_switches, std::uint64_t{5});
+    GLINTFX_CHECK_EQ(tally.last_report().draw_calls, std::uint64_t{0}); // its own counter
+    tally.begin_frame();
+    (void)tally.finish();
+    GLINTFX_CHECK_EQ(tally.last_report().texture_switches, std::uint64_t{0});
+}

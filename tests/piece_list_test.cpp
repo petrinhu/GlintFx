@@ -345,3 +345,57 @@ GLINTFX_TEST(piece_list_triangle_piece_copies_its_vertices_and_indices) {
     GLINTFX_CHECK_EQ(indices.size(), std::size_t{3});
     GLINTFX_CHECK(indices[0] == 0U && indices[1] == 1U && indices[2] == 2U);
 }
+
+// R2D-TEXTURE T4b-B1 (D-W8-470): a textured quad keeps its texture's name, where each corner reads
+// it and its tint (as the color) through the sort; an untextured quad carries texture 0 and the
+// coordinates by role with q = 1.
+GLINTFX_TEST(piece_list_a_textured_quad_keeps_its_texture_and_reads_through_the_sort) {
+    const glintfx::draw2d::quad_texture_corners reads{
+        {{0.25F, 0.5F, 2.0F}, {0.75F, 0.5F, 0.5F}, {0.75F, 1.0F, 4.0F}, {0.25F, 1.0F, 0.25F}}};
+    piece_list list;
+    GLINTFX_CHECK(list.add(marked(1), k_red, 5));
+    GLINTFX_CHECK(list.add_textured(
+        marked(2),
+        glintfx::draw2d::textured_quad_paint{42U, reads, gltfx_rgba{0.5F, 0.25F, 1.0F, 0.75F}}, 1));
+    list.sort();
+    const auto &textured = list.painted(0); // the layer-1 piece
+    GLINTFX_CHECK(textured.corners[0].x == 2.0F);
+    GLINTFX_CHECK(textured.kind == piece_kind::quad);
+    GLINTFX_CHECK_EQ(textured.texture, std::uint32_t{42});
+    GLINTFX_CHECK(textured.texture_corners[1].u == 0.75F && textured.texture_corners[1].q == 0.5F);
+    GLINTFX_CHECK(textured.texture_corners[3].v == 1.0F && textured.texture_corners[3].q == 0.25F);
+    GLINTFX_CHECK(textured.color.red == 0.5F && textured.color.alpha == 0.75F);
+    GLINTFX_CHECK_EQ(textured.layer, std::int32_t{1});
+    const auto &plain = list.painted(1);
+    GLINTFX_CHECK_EQ(plain.texture, std::uint32_t{0});
+    int role_corners = 0;
+    for (std::size_t corner = 0; corner < 4; ++corner) {
+        const auto &read = plain.texture_corners[corner];
+        const auto &role = glintfx::draw2d::k_role_texture_corners[corner];
+        role_corners += read.u == role.u && read.v == role.v && read.q == 1.0F ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(role_corners, 4);
+}
+
+// add_textured() has the bound and the refusal of add(): over the bound, or with the memory
+// refused, it adds nothing and says false; the next call works again.
+GLINTFX_TEST(piece_list_add_textured_honors_the_bound_and_the_memory_refusal) {
+    const glintfx::draw2d::textured_quad_paint paint{7U, glintfx::draw2d::k_role_texture_corners,
+                                                     k_red};
+    {
+        piece_list list(default_batch_allocator(), 1);
+        GLINTFX_CHECK(list.add_textured(marked(1), paint, 0));
+        GLINTFX_CHECK(!list.add_textured(marked(2), paint, 0));
+        GLINTFX_CHECK_EQ(list.size(), std::size_t{1});
+    }
+    {
+        g_armed = armed_state{};
+        g_armed.fail_at = 1;
+        piece_list list(armed());
+        GLINTFX_CHECK(!list.add_textured(marked(1), paint, 0));
+        GLINTFX_CHECK_EQ(list.size(), std::size_t{0});
+        GLINTFX_CHECK(list.add_textured(marked(2), paint, 0));
+        GLINTFX_CHECK_EQ(list.size(), std::size_t{1});
+        GLINTFX_CHECK_EQ(list.painted(0).texture, std::uint32_t{7});
+    }
+}

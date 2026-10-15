@@ -87,6 +87,10 @@ void frame_tally::flushed() noexcept { ++current.flushes; }
 
 void frame_tally::draw_calls_issued(std::uint64_t count) noexcept { current.draw_calls += count; }
 
+void frame_tally::texture_switched(std::uint64_t count) noexcept {
+    current.texture_switches += count;
+}
+
 finish_status frame_tally::finish() noexcept {
     if (!frame_open) {
         return finish_status::no_frame_open;

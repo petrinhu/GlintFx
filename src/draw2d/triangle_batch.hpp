@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -21,13 +22,13 @@
 //
 // THE VERTEX (36 bytes, R2D-TEXTURE T4a, D-W8-23 and D-W8-406): position float2 in PIXELS, texture
 // coordinate float2, color float4 LINEAR and PREMULTIPLIED (the straight color of core/color.hpp
-// times its alpha, alpha kept), and LAST the homogeneous coordinate q. The projective drawing of
-// T4b will store the texture coordinate as (u q, v q) and the program will divide by q; until then
-// q is 1 and u, v are stored as they are (T4a-fix1, D-W8-446).
+// times its alpha, alpha kept), and LAST the homogeneous coordinate q. The texture coordinate is
+// stored as (u q, v q) and the program divides by q (the projective drawing, R2D-TEXTURE T4b-B1,
+// D-W8-470; the weights are projective_quad.hpp's). An untextured piece carries the coordinate by
+// ROLE, as core/quad.hpp names the corners: top_left (0, 0), top_right (1, 0), bottom_right (1, 1),
+// bottom_left (0, 1), with q = 1; the program does not read it (D-W8-469).
 // The premultiplication happens HERE, once per piece, so a half-transparent edge never grows a
-// dark fringe; the shader does not repeat it. The texture coordinate is by ROLE, as core/quad.hpp
-// names the corners: top_left (0, 0), top_right (1, 0), bottom_right (1, 1), bottom_left (0, 1);
-// with no image yet the values are inert, and the textured drawing of T4b reads them.
+// dark fringe; the shader does not repeat it.
 //
 // THE INDEX (32 bits): a batch is not capped at 16 384 pieces. A quad is 4 vertices and 6 indices,
 // the two triangles of the frozen diagonal (docs/auditoria-api-draw2d.md B0-I4):
@@ -79,6 +80,22 @@ struct colored_pixel_vertex {
     glintfx::gltfx_rgba color{};
 };
 
+// Where one corner of a TEXTURED quad reads its texture, and the projective weight of that corner
+// (T4b-B1, D-W8-470): u and v in 0..1 across the texture, q from projective_quad.hpp (1 for a
+// rectangle). The vertex stores (u q, v q, q).
+struct quad_texture_corner {
+    float u = 0.0F;
+    float v = 0.0F;
+    float q = 1.0F;
+};
+
+// The four corners by role, top_left, top_right, bottom_right, bottom_left (core/quad.hpp).
+using quad_texture_corners = std::array<quad_texture_corner, 4>;
+
+// What an untextured quad carries: the coordinates by role and q = 1.
+inline constexpr quad_texture_corners k_role_texture_corners{
+    {{0.0F, 0.0F, 1.0F}, {1.0F, 0.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {0.0F, 1.0F, 1.0F}}};
+
 // One draw call: `index_count` indices starting at `first_index`, all with `state`.
 struct draw_run {
     batch_state state;
@@ -100,6 +117,13 @@ class triangle_batch {
     // then unchanged and pieces_dropped_out_of_memory() has grown by one.
     [[nodiscard]] bool add_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                                 batch_state state) noexcept;
+
+    // The same quad, TEXTURED (T4b-B1, D-W8-470): each corner reads `texture_corners` (stored as
+    // (u q, v q, q)), and `color` is the tint, stored premultiplied like every color. add_quad() is
+    // this call with k_role_texture_corners. The same atomicity and the same count of drops.
+    [[nodiscard]] bool add_textured_quad(const quad_corners_pixel &corners,
+                                         const quad_texture_corners &texture_corners,
+                                         glintfx::gltfx_rgba color, batch_state state) noexcept;
 
     // Adds one TRIANGLE piece (S2a): `vertices` in pixels with a color each, and `local_indices`
     // into them (0..n-1). NO indices means 0..n-1 in order. The same atomicity as add_quad(): every
@@ -127,7 +151,8 @@ class triangle_batch {
 
   private:
     // add_quad() in two steps (D-B7-1): the vertices and indices of one piece, and its run.
-    void write_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba premultiplied) noexcept;
+    void write_quad(const quad_corners_pixel &corners, const quad_texture_corners &texture_corners,
+                    glintfx::gltfx_rgba premultiplied) noexcept;
     // The triangles of one piece (S2a): the vertices and the indices, shifted by the base.
     void write_triangles(std::span<const colored_pixel_vertex> vertices,
                          std::span<const std::uint32_t> local_indices) noexcept;

@@ -32,6 +32,12 @@ bool triangle_batch::reserve(std::size_t pieces) noexcept {
 
 bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                               batch_state state) noexcept {
+    return add_textured_quad(corners, k_role_texture_corners, color, state);
+}
+
+bool triangle_batch::add_textured_quad(const quad_corners_pixel &corners,
+                                       const quad_texture_corners &texture_corners,
+                                       glintfx::gltfx_rgba color, batch_state state) noexcept {
     const bool starts_a_run =
         run_store.size == 0 || !(run_store.data[run_store.size - 1].state == state);
 
@@ -46,23 +52,24 @@ bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_
 
     // Straight linear color in, premultiplied color stored (the one place it happens).
     const std::size_t first_index = index_store.size;
-    write_quad(corners, glintfx::gltfx_rgba_premultiplied(color));
+    write_quad(corners, texture_corners, glintfx::gltfx_rgba_premultiplied(color));
     record_run(state, first_index, k_quad_indices, starts_a_run);
     return true;
 }
 
 // The four vertices and the six indices of one piece, room already made (D-B7-1, Extract Function).
 void triangle_batch::write_quad(const quad_corners_pixel &corners,
+                                const quad_texture_corners &texture_corners,
                                 glintfx::gltfx_rgba premultiplied) noexcept {
-    // Texture coordinates by ROLE: top_left, top_right, bottom_right, bottom_left.
-    constexpr float k_u[k_quad_vertices] = {0.0F, 1.0F, 1.0F, 0.0F};
-    constexpr float k_v[k_quad_vertices] = {0.0F, 0.0F, 1.0F, 1.0F};
+    // By ROLE: top_left, top_right, bottom_right, bottom_left. The coordinate is stored times q,
+    // and q itself last (the program divides).
     const auto base = static_cast<std::uint32_t>(vertex_store.size);
     for (std::size_t corner = 0; corner < k_quad_vertices; ++corner) {
+        const quad_texture_corner &texture = texture_corners[corner];
         vertex_store.data[vertex_store.size + corner] =
-            batch_vertex{corners[corner].x,  corners[corner].y,   k_u[corner],
-                         k_v[corner],        premultiplied.red,   premultiplied.green,
-                         premultiplied.blue, premultiplied.alpha, 1.0F};
+            batch_vertex{corners[corner].x,     corners[corner].y,   texture.u * texture.q,
+                         texture.v * texture.q, premultiplied.red,   premultiplied.green,
+                         premultiplied.blue,    premultiplied.alpha, texture.q};
     }
     vertex_store.size += k_quad_vertices;
 

@@ -185,6 +185,12 @@ GLint GLINTFX_GL_APIENTRY fake_get_uniform_location(GLuint, const GLchar *name) 
     if (std::strcmp(name, "u_viewport_pixels") == 0) {
         return 7;
     }
+    if (std::strcmp(name, "u_textured") == 0) {
+        return 9; // T4b-B1
+    }
+    if (std::strcmp(name, "u_texture") == 0) {
+        return 10; // T4b-B1
+    }
     return std::strcmp(name, "u_encode_srgb") == 0 ? 8 : -1;
 }
 
@@ -264,6 +270,8 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK_EQ(result.value().program, GLuint{40});
     GLINTFX_CHECK_EQ(result.value().viewport_location, 7);
     GLINTFX_CHECK_EQ(result.value().encode_srgb_location, 8);
+    GLINTFX_CHECK_EQ(result.value().textured_location, 9); // T4b-B1: each uniform by its own name
+    GLINTFX_CHECK_EQ(result.value().texture_location, 10);
     GLINTFX_CHECK_EQ(driver.shaders_created, GLuint{2});
     GLINTFX_CHECK_EQ(driver.shader_type[1], k_vertex_shader);
     GLINTFX_CHECK_EQ(driver.shader_type[2], k_fragment_shader);
@@ -282,6 +290,8 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK_EQ(program.program, GLuint{0});
     GLINTFX_CHECK_EQ(program.viewport_location, -1);
     GLINTFX_CHECK_EQ(program.encode_srgb_location, -1);
+    GLINTFX_CHECK_EQ(program.textured_location, -1);
+    GLINTFX_CHECK_EQ(program.texture_location, -1);
     disarm();
 }
 
@@ -396,9 +406,14 @@ GLINTFX_TEST(embedded_program_destroy_on_an_empty_program_is_harmless) {
     disarm();
 }
 
-// The two sources: GLSL 330 core, the three attribute locations the constants name, the one
-// uniform the program reads.
-GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interface) {
+// A guard of TEXT only (D-W8-463): the two sources say GLSL 330 core and the agreed interface (the
+// four attribute locations the constants name, the uniforms the program reads, the varying that
+// carries (u q, v q, q)). It never proves that a value reaches the fragment stage: a sentence in a
+// GLSL comment, or one undone on the next line, passes it. That q reaches the fragment and divides
+// the coordinate is a property of the drawn pixels, for the textured parity cells of T4b-B2 on a
+// real context (D-W8-463: the checkered trapezoid with q not 1, and the attribute location of
+// a_texcoord_q read from the linked program).
+GLINTFX_TEST(embedded_program_sources_hold_the_agreed_interface_text) {
     const std::string_view vertex = glintfx::draw2d::embedded_vertex_shader_source();
     const std::string_view fragment = glintfx::draw2d::embedded_fragment_shader_source();
     GLINTFX_CHECK(vertex.starts_with("#version 330 core"));
@@ -406,19 +421,30 @@ GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interfac
     GLINTFX_CHECK(vertex.find("layout(location = 0) in vec2 a_position") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("layout(location = 1) in vec2 a_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("layout(location = 2) in vec4 a_color") != std::string_view::npos);
-    // T4a (D-W8-406): the homogeneous coordinate q, its own location, carried to the fragment
-    // stage with the texture coordinate as one vec3 (u, v, q) for the textured drawing of T4b.
+    // T4a (D-W8-406): the homogeneous coordinate q, its own location, handed to the fragment
+    // stage with the texture coordinate as one vec3 (u q, v q, q).
     GLINTFX_CHECK(vertex.find("layout(location = 3) in float a_texcoord_q") !=
                   std::string_view::npos);
     GLINTFX_CHECK(vertex.find("out vec3 v_texcoord") != std::string_view::npos);
-    // ...and the assignment itself (T4a-fix1, D-W8-445): with 1.0 written in place of a_texcoord_q,
-    // every test stayed green and q never reached the fragment stage (the N1 review's R6).
+    // ...and the text of the assignment (T4a-fix1, D-W8-445: with 1.0 written in place of
+    // a_texcoord_q, every test stayed green, the N1 review's R6). Text, not behavior: see above.
     GLINTFX_CHECK(vertex.find("v_texcoord = vec3(a_texcoord, a_texcoord_q);") !=
                   std::string_view::npos);
     GLINTFX_CHECK(fragment.find("in vec3 v_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("uniform vec2 u_viewport_pixels") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("out vec4 frag_color") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("uniform int u_encode_srgb") != std::string_view::npos);
+    // T4b-B1 (D-W8-469, D-W8-473): a textured run multiplies the color by the texel of unit 0,
+    // read PROJECTIVELY (textureProj divides (u q, v q) by q), and only when u_textured is not 0;
+    // the multiplication comes BEFORE the sRGB encoding, which works on the textured color.
+    GLINTFX_CHECK(fragment.find("uniform int u_textured") != std::string_view::npos);
+    GLINTFX_CHECK(fragment.find("uniform sampler2D u_texture") != std::string_view::npos);
+    const std::size_t textured = fragment.find("if (u_textured != 0) {");
+    const std::size_t sampled = fragment.find("color *= textureProj(u_texture, v_texcoord);");
+    const std::size_t encoded = fragment.find("if (u_encode_srgb != 0");
+    GLINTFX_CHECK(textured != std::string_view::npos && sampled != std::string_view::npos &&
+                  encoded != std::string_view::npos);
+    GLINTFX_CHECK(textured < sampled && sampled < encoded);
     // the sources are NUL-terminated views (they are handed to glShaderSource as C strings)
     GLINTFX_CHECK(vertex.data()[vertex.size()] == '\0');
     GLINTFX_CHECK(fragment.data()[fragment.size()] == '\0');

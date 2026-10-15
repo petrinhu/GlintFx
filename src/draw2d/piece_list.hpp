@@ -30,6 +30,14 @@
 // nothing and cannot fail, so the paint order never depends on memory.
 namespace glintfx::draw2d {
 
+// What a textured quad is painted with (T4b-B1): the texture's GL name, where each corner reads it,
+// and the tint. Grouped so add_textured() stays within four parameters.
+struct textured_quad_paint {
+    std::uint32_t texture = 0;
+    quad_texture_corners texture_corners = k_role_texture_corners;
+    glintfx::gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
+};
+
 // What the piece is: a quadrilateral (`corners`, one `color`) or a TRIANGLE piece (S2a), whose
 // vertices and local indices sit in the piece_list's own stores, at the offsets below.
 enum class piece_kind : std::uint8_t { quad, triangles };
@@ -44,6 +52,12 @@ struct pending_piece {
     std::size_t vertex_count = 0;
     std::size_t first_index = 0; // triangles only: where its LOCAL indices start in the index store
     std::size_t index_count = 0; // 0 when the piece came with no indices (0..n-1 in order)
+    // Quads only (T4b-B1, D-W8-470): the GL name of the texture, 0 for an untextured quad, and
+    // where each corner reads it. An untextured quad carries the coordinates by role and q = 1.
+    // Inline, so the sort keeps copying one plain value: a texture name and four corners more per
+    // piece, paid by every piece.
+    std::uint32_t texture = 0;
+    quad_texture_corners texture_corners = k_role_texture_corners;
 };
 static_assert(std::is_trivially_copyable_v<pending_piece>,
               "a pending piece is copied by value through the sort (D-B4-2)");
@@ -68,6 +82,11 @@ class piece_list {
     // at its bound (the caller counts the piece as dropped).
     [[nodiscard]] bool add(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                            std::int32_t layer) noexcept;
+
+    // Adds one TEXTURED quad (T4b-B1): the texture's GL name (not zero) and where each corner reads
+    // it, with `tint` as the color. The same bound and the same refusal as add().
+    [[nodiscard]] bool add_textured(const quad_corners_pixel &corners,
+                                    const textured_quad_paint &paint, std::int32_t layer) noexcept;
 
     [[nodiscard]] std::size_t size() const noexcept;
 

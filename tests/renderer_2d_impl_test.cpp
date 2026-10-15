@@ -68,6 +68,8 @@ constexpr GLenum k_out_of_memory = 0x0505;
 constexpr GLenum k_invalid_operation = 0x0502;
 constexpr GLint k_viewport_location = 11;
 constexpr GLint k_encode_location = 12;
+constexpr GLint k_textured_location = 13; // T4b-B1: u_textured
+constexpr GLint k_texture_location = 14;  // T4b-B1: u_texture
 
 struct fake_card {
     GLuint next_id = 1;
@@ -89,6 +91,13 @@ struct fake_card {
     GLuint program_at_draw = 0;
     std::array<int, 65536> cap_state{}; // 0 unknown, 1 enabled, 2 disabled, by enumerator
     std::array<GLint, 4> viewport{-1, -1, -1, -1};
+    // T4b-B1: the texture bound to unit 0, the program's u_textured and u_texture as last set, and
+    // what each draw call saw of the two.
+    GLuint bound_texture = 0;
+    int textured_uniform = -1;
+    int texture_unit_uniform = -1;
+    std::vector<GLuint> texture_at_draw;
+    std::vector<int> textured_at_draw;
 };
 fake_card card;
 
@@ -157,6 +166,12 @@ void GLINTFX_GL_APIENTRY f_programiv(GLuint, GLenum, GLint *params) {
 }
 GLint GLINTFX_GL_APIENTRY f_uniform_location(GLuint, const GLchar *name) {
     GLINTFX_COUNT();
+    if (std::strcmp(name, "u_textured") == 0) {
+        return k_textured_location;
+    }
+    if (std::strcmp(name, "u_texture") == 0) {
+        return k_texture_location;
+    }
     return std::strcmp(name, "u_encode_srgb") == 0 ? k_encode_location : k_viewport_location;
 }
 void GLINTFX_GL_APIENTRY f_gen(GLsizei n, GLuint *ids) {
@@ -204,6 +219,8 @@ void GLINTFX_GL_APIENTRY f_draw(GLenum, GLsizei count, GLenum, const void *) {
     card.calls.emplace_back("draw");
     card.program_at_draw = card.current_program;
     card.draw_counts.push_back(count);
+    card.texture_at_draw.push_back(card.bound_texture);
+    card.textured_at_draw.push_back(card.textured_uniform);
     if (card.error_from_draw != 0) {
         card.error_queue.push_back(card.error_from_draw);
     }
@@ -236,6 +253,16 @@ void GLINTFX_GL_APIENTRY f_uniform1i(GLint location, GLint value) {
     if (location == k_encode_location) {
         card.encode_uniform = value;
     }
+    if (location == k_textured_location) {
+        card.textured_uniform = value;
+    }
+    if (location == k_texture_location) {
+        card.texture_unit_uniform = value;
+    }
+}
+void GLINTFX_GL_APIENTRY f_bind_texture(GLenum, GLuint texture) {
+    GLINTFX_COUNT();
+    card.bound_texture = texture;
 }
 void GLINTFX_GL_APIENTRY f_enum(GLenum) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_enable(GLenum cap) {
@@ -293,7 +320,7 @@ gl_function_table fake_table() {
     t.glUseProgram = &f_use_program;
     t.glActiveTexture = &f_enum;
     t.glBindFramebuffer = &f_enum_uint;
-    t.glBindTexture = &f_enum_uint;
+    t.glBindTexture = &f_bind_texture;
     t.glBlendEquationSeparate = &f_enum_enum;
     t.glBlendFuncSeparate = &f_blend4;
     t.glColorMask = &f_color_mask;
@@ -1644,5 +1671,420 @@ GLINTFX_TEST(renderer_2d_impl_a_line_of_zero_thickness_is_a_drawn_piece_of_zero_
     GLINTFX_CHECK_EQ(first_draw_count(), 6);
     GLINTFX_CHECK_EQ(sent_vertex(0, 1), 10.0F);
     GLINTFX_CHECK_EQ(sent_vertex(2, 1), 10.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// ---- R2D-TEXTURE T4b-B1: draw_texture() and draw_texture_quad() in the frame machine ----------
+
+namespace {
+
+using glintfx::gltfx_draw_2d_refusal;
+using glintfx::gltfx_texture_mirror;
+using glintfx::gltfx_texture_paint;
+
+constexpr double k_nan = std::numeric_limits<double>::quiet_NaN();
+constexpr double k_far = 1.0e39; // past the pixel range the vertex program can scale
+
+// The paint of a region of a texture: `source` in texels, the mirror, the tint (white, the
+// default, when not given).
+gltfx_texture_paint paint_of(glintfx::gltfx_rect_texel source,
+                             gltfx_texture_mirror mirror = gltfx_texture_mirror::none,
+                             gltfx_rgba tint = gltfx_rgba{1.0F, 1.0F, 1.0F, 1.0F}) {
+    return gltfx_texture_paint{glintfx::gltfx_texture_region{source, mirror}, tint};
+}
+
+// The whole of a texture of texture_of(): 2 texels square.
+glintfx::gltfx_rect_texel whole() { return glintfx::gltfx_rect_texel{{0.0, 0.0}, {2.0, 2.0}}; }
+
+// A trapezoid whose diagonals cross two thirds of the way from its top corners, so the weights of
+// projective_quad.hpp are 1 / (2 (1 - 2/3)) = 1.5 at the top and 1 / (2 (2/3)) = 0.75 at the
+// bottom (worked by hand, not by the code under test).
+glintfx::gltfx_quad_world trapezoid() {
+    return glintfx::gltfx_quad_world{{0.0, 0.0}, {4.0, 0.0}, {3.0, 2.0}, {1.0, 2.0}};
+}
+
+// Three corners on one line: no projective mapping.
+glintfx::gltfx_quad_world collinear(double scale) {
+    return glintfx::gltfx_quad_world{{0.0, 0.0}, {scale, 0.0}, {2.0 * scale, 0.0}, {0.0, 1.0}};
+}
+
+// One textured call alone in a frame: the reason the report gives (none when it was drawn). A frame
+// that ended in an error answers a value no row expects.
+template <typename Call>
+gltfx_draw_2d_refusal reason_of_one(renderer_2d_impl *renderer, const Call &call) {
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    call();
+    const auto report = renderer->finish_frame();
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the value no row expects
+    const auto no_row = static_cast<gltfx_draw_2d_refusal>(255);
+    return report.has_value() ? report.value().first_refusal : no_row;
+}
+
+// The k-th vertex sent compared with a value, within a millionth (the weights are computed in
+// double and stored as float).
+bool sent_near(std::size_t vertex, std::size_t field, float expected) {
+    return std::fabs(sent_vertex(vertex, field) - expected) <= 1.0e-6F;
+}
+
+} // namespace
+
+// A textured rectangle reaches the card as one quad: its texture bound to unit 0 for its draw call,
+// u_textured 1 and the sampler on unit 0, the coordinates by role with q = 1, the default tint
+// opaque white; and GL is left with no texture bound (the closed list).
+GLINTFX_TEST(renderer_2d_impl_a_textured_rect_is_drawn_with_its_texture_on_unit_0) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(texture, paint_of(whole()), rect(10, 20, 30, 40), k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().draw_calls, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().texture_switches, std::uint64_t{1});
+    }
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{77U}));
+    GLINTFX_CHECK((card.textured_at_draw == std::vector<int>{1}));
+    GLINTFX_CHECK_EQ(card.texture_unit_uniform, 0);
+    GLINTFX_CHECK_EQ(card.bound_texture, GLuint{0});
+    GLINTFX_CHECK(sent_vertex(0, 0) == 10.0F && sent_vertex(0, 1) == 20.0F);
+    GLINTFX_CHECK(sent_vertex(2, 0) == 40.0F && sent_vertex(2, 1) == 60.0F);
+    const std::array<std::array<float, 3>, 4> reads{
+        {{0.0F, 0.0F, 1.0F}, {1.0F, 0.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {0.0F, 1.0F, 1.0F}}};
+    int corners_right = 0;
+    for (std::size_t corner = 0; corner < 4; ++corner) {
+        corners_right += sent_vertex(corner, 2) == reads[corner][0] &&
+                                 sent_vertex(corner, 3) == reads[corner][1] &&
+                                 sent_vertex(corner, 8) == reads[corner][2]
+                             ? 1
+                             : 0;
+    }
+    GLINTFX_CHECK_EQ(corners_right, 4);
+    GLINTFX_CHECK(sent_vertex(0, 4) == 1.0F && sent_vertex(0, 5) == 1.0F &&
+                  sent_vertex(0, 6) == 1.0F && sent_vertex(0, 7) == 1.0F);
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// The region and the mirror say where each corner reads: the right column of a 2 x 2 texture,
+// flipped left to right, puts its right edge (u = 1) on the top-left corner.
+GLINTFX_TEST(renderer_2d_impl_the_region_and_the_mirror_say_where_each_corner_reads) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(texture,
+                           paint_of(glintfx::gltfx_rect_texel{{1.0, 0.0}, {1.0, 2.0}},
+                                    gltfx_texture_mirror::flip_left_right),
+                           rect(0, 0, 8, 8), k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(sent_vertex(0, 2) == 1.0F && sent_vertex(0, 3) == 0.0F); // top_left
+    GLINTFX_CHECK(sent_vertex(1, 2) == 0.5F && sent_vertex(1, 3) == 0.0F); // top_right
+    GLINTFX_CHECK(sent_vertex(2, 2) == 0.5F && sent_vertex(2, 3) == 1.0F); // bottom_right
+    GLINTFX_CHECK(sent_vertex(3, 2) == 1.0F && sent_vertex(3, 3) == 1.0F); // bottom_left
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// The tint is the color of the piece, stored premultiplied like every color.
+GLINTFX_TEST(renderer_2d_impl_the_tint_is_the_color_stored_premultiplied) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(
+        texture, paint_of(whole(), gltfx_texture_mirror::none, gltfx_rgba{1.0F, 0.5F, 0.25F, 0.5F}),
+        rect(0, 0, 8, 8), k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(sent_vertex(0, 4) == 0.5F && sent_vertex(0, 5) == 0.25F &&
+                  sent_vertex(0, 6) == 0.125F && sent_vertex(0, 7) == 0.5F);
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// D-W8-13, D-W8-292: a textured piece between two untextured ones is three draw calls in paint
+// order, and two texture switches (to the texture, and back to none).
+GLINTFX_TEST(
+    renderer_2d_impl_a_texture_between_two_untextured_pieces_is_three_calls_and_two_switches) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_rect(rect(0, 0, 1, 1), k_red, k_layer_0);
+    renderer->draw_texture(texture, paint_of(whole()), rect(1, 0, 1, 1), k_layer_0);
+    renderer->fill_rect(rect(2, 0, 1, 1), k_blue, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().draw_calls, std::uint64_t{3});
+        GLINTFX_CHECK_EQ(report.value().texture_switches, std::uint64_t{2});
+    }
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{0U, 77U, 0U}));
+    GLINTFX_CHECK((card.textured_at_draw == std::vector<int>{0, 1, 0}));
+    GLINTFX_CHECK_EQ(sent(0, 4), 1.0F); // red first
+    GLINTFX_CHECK_EQ(sent(2, 6), 1.0F); // blue last
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// Textures A, B, A are three draw calls in that order, never merged across B; a fourth piece with
+// A extends the last call.
+GLINTFX_TEST(renderer_2d_impl_textures_a_b_a_are_three_draw_calls_in_order) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *first = texture_of(renderer, 77U);
+    glintfx::texture_2d_impl *second = texture_of(renderer, 78U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(first, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_texture(second, paint_of(whole()), rect(1, 0, 1, 1), k_layer_0);
+    renderer->draw_texture(first, paint_of(whole()), rect(2, 0, 1, 1), k_layer_0);
+    renderer->draw_texture(first, paint_of(whole()), rect(3, 0, 1, 1), k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().draw_calls, std::uint64_t{3});
+        GLINTFX_CHECK_EQ(report.value().texture_switches, std::uint64_t{3});
+        GLINTFX_CHECK_EQ(report.value().pieces_drawn, std::uint64_t{4});
+    }
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{77U, 78U, 77U}));
+    GLINTFX_CHECK((card.draw_counts == std::vector<int>{6, 6, 12}));
+    glintfx::draw2d::release_texture_object(second);
+    glintfx::draw2d::release_texture_object(first);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// A textured piece takes its place in the paint order (layer, then submission) like any other.
+GLINTFX_TEST(renderer_2d_impl_a_textured_piece_is_painted_in_its_layer) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(texture, paint_of(whole()), rect(0, 0, 1, 1),
+                           glintfx::gltfx_draw_layer{5});
+    renderer->fill_rect(rect(1, 0, 1, 1), k_red, glintfx::gltfx_draw_layer{1});
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{0U, 77U}));
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// Every flush starts from no texture and u_textured at 0 (a uniform keeps its value in the program
+// between flushes): an untextured piece after a flush that ended textured is drawn untextured, and
+// that flush makes no switch.
+GLINTFX_TEST(renderer_2d_impl_each_flush_starts_with_no_texture_and_u_textured_at_zero) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(texture, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
+    renderer->flush();
+    renderer->fill_rect(rect(1, 0, 1, 1), k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().texture_switches, std::uint64_t{1});
+    }
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{77U, 0U}));
+    GLINTFX_CHECK((card.textured_at_draw == std::vector<int>{1, 0}));
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// D-W8-472: a textured rectangle is refused for the FIRST reason, in this order: the values
+// (not_a_number, infinite, negative_size, unknown_option), the texture (not open, another
+// renderer's, a source outside it), then the pixel range.
+GLINTFX_TEST(renderer_2d_impl_a_textured_rect_is_refused_for_the_first_reason_in_order) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    renderer_2d_impl *other = make_with_textures();
+    glintfx::texture_2d_impl *mine = texture_of(renderer, 77U);
+    glintfx::texture_2d_impl *theirs = texture_of(other, 88U);
+    const glintfx::gltfx_rect_texel outside{{1.0, 1.0}, {2.0, 2.0}};
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    const auto mirror_unknown = static_cast<gltfx_texture_mirror>(9);
+    struct case_row {
+        const glintfx::texture_2d_impl *texture = nullptr;
+        gltfx_texture_paint paint{};
+        glintfx::gltfx_rect_world where{};
+        gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
+    };
+    const std::array<case_row, 10> rows{{
+        {nullptr, paint_of(whole()), rect(k_nan, 0, 1, 1), gltfx_draw_2d_refusal::not_a_number},
+        {nullptr, paint_of(whole()), rect(0, 0, 1, std::numeric_limits<double>::infinity()),
+         gltfx_draw_2d_refusal::infinite},
+        {nullptr, paint_of(glintfx::gltfx_rect_texel{{0.0, 0.0}, {-1.0, 1.0}}), rect(0, 0, 1, 1),
+         gltfx_draw_2d_refusal::negative_size},
+        {nullptr, paint_of(whole(), mirror_unknown), rect(0, 0, 1, 1),
+         gltfx_draw_2d_refusal::unknown_option},
+        {nullptr, paint_of(outside), rect(k_far, 0, 1, 1), gltfx_draw_2d_refusal::texture_not_open},
+        {theirs, paint_of(outside), rect(k_far, 0, 1, 1),
+         gltfx_draw_2d_refusal::texture_other_renderer},
+        {mine, paint_of(outside), rect(k_far, 0, 1, 1), gltfx_draw_2d_refusal::region_out_of_range},
+        {mine, paint_of(whole()), rect(k_far, 0, 1, 1),
+         gltfx_draw_2d_refusal::pixel_position_out_of_range},
+        {mine, paint_of(whole(), mirror_unknown), rect(k_far, 0, 1, 1),
+         gltfx_draw_2d_refusal::unknown_option},
+        {mine, paint_of(whole()), rect(0, 0, 1, 1), gltfx_draw_2d_refusal::none},
+    }};
+    int right = 0;
+    for (const case_row &row : rows) {
+        const gltfx_draw_2d_refusal reason = reason_of_one(renderer, [&] {
+            renderer->draw_texture(row.texture, row.paint, row.where, k_layer_0);
+        });
+        right += reason == row.expected ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(right, 10);
+    // Each texture reason has its own counter, and the counters add up to pieces_refused.
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(nullptr, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_texture(theirs, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_texture(mine, paint_of(outside), rect(0, 0, 1, 1), k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_refused, std::uint64_t{3});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused_texture_not_open, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused_texture_other_renderer, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused_region_out_of_range, std::uint64_t{1});
+        GLINTFX_CHECK(ends_add_up(report.value()));
+    }
+    GLINTFX_CHECK(card.draw_counts.size() == 1); // only the one row that was drawn
+    glintfx::draw2d::release_texture_object(theirs);
+    glintfx::draw2d::release_texture_object(mine);
+    renderer_2d_impl::destroy(other);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// The textured quadrilateral: the values, then the texture, then degenerate_quad (a property of
+// the shape), then the pixel range.
+GLINTFX_TEST(renderer_2d_impl_a_textured_quad_is_refused_for_the_first_reason_in_order) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *mine = texture_of(renderer, 77U);
+    const glintfx::gltfx_quad_world far_trapezoid{
+        {k_far, 0.0}, {4.0 * k_far, 0.0}, {3.0 * k_far, 2.0}, {2.0 * k_far, 2.0}};
+    const glintfx::gltfx_quad_world nan_corner{{k_nan, 0.0}, {4.0, 0.0}, {3.0, 2.0}, {1.0, 2.0}};
+    struct case_row {
+        const glintfx::texture_2d_impl *texture = nullptr;
+        gltfx_texture_paint paint{};
+        glintfx::gltfx_quad_world corners{};
+        gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
+    };
+    const std::array<case_row, 7> rows{{
+        {nullptr, paint_of(whole()), nan_corner, gltfx_draw_2d_refusal::not_a_number},
+        {mine, paint_of(glintfx::gltfx_rect_texel{{0.0, 0.0}, {1.0, -1.0}}), trapezoid(),
+         gltfx_draw_2d_refusal::negative_size},
+        {nullptr, paint_of(whole()), collinear(1.0), gltfx_draw_2d_refusal::texture_not_open},
+        {mine, paint_of(whole()), collinear(1.0), gltfx_draw_2d_refusal::degenerate_quad},
+        {mine, paint_of(whole()), collinear(k_far), gltfx_draw_2d_refusal::degenerate_quad},
+        {mine, paint_of(whole()), far_trapezoid,
+         gltfx_draw_2d_refusal::pixel_position_out_of_range},
+        {mine, paint_of(whole()), trapezoid(), gltfx_draw_2d_refusal::none},
+    }};
+    int right = 0;
+    for (const case_row &row : rows) {
+        const gltfx_draw_2d_refusal reason = reason_of_one(renderer, [&] {
+            renderer->draw_texture_quad(row.texture, row.paint, row.corners, k_layer_0);
+        });
+        right += reason == row.expected ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(right, 7);
+    glintfx::draw2d::release_texture_object(mine);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// D-W8-455, D-W8-470: the projective weight of each corner reaches its vertex, the coordinate
+// stored times it; a parallelogram has weight 1 at every corner.
+GLINTFX_TEST(renderer_2d_impl_a_textured_quad_carries_the_projective_weight_of_each_corner) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture_quad(texture, paint_of(whole()), trapezoid(), k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(sent_near(0, 8, 1.5F) && sent_near(1, 8, 1.5F));
+    GLINTFX_CHECK(sent_near(2, 8, 0.75F) && sent_near(3, 8, 0.75F));
+    GLINTFX_CHECK(sent_near(0, 2, 0.0F) && sent_near(0, 3, 0.0F));
+    GLINTFX_CHECK(sent_near(1, 2, 1.5F) && sent_near(1, 3, 0.0F));
+    GLINTFX_CHECK(sent_near(2, 2, 0.75F) && sent_near(2, 3, 0.75F));
+    GLINTFX_CHECK(sent_near(3, 2, 0.0F) && sent_near(3, 3, 0.75F));
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture_quad(
+        texture, paint_of(whole()),
+        glintfx::gltfx_quad_world{{0.0, 0.0}, {4.0, 0.0}, {5.0, 2.0}, {1.0, 2.0}}, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    int weight_one = 0;
+    for (std::size_t corner = 0; corner < 4; ++corner) {
+        weight_one += sent_near(corner, 8, 1.0F) ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(weight_one, 4);
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// With no frame open a textured call is counted outside the frame, whatever it carries.
+GLINTFX_TEST(renderer_2d_impl_a_textured_call_with_no_frame_open_is_counted_outside_the_frame) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    renderer->draw_texture(nullptr, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_texture_quad(nullptr, paint_of(whole()), trapezoid(), k_layer_0);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    if (report.has_value()) {
+        GLINTFX_CHECK_EQ(report.value().pieces_dropped_outside_frame, std::uint64_t{2});
+        GLINTFX_CHECK_EQ(report.value().pieces_submitted, std::uint64_t{0});
+        GLINTFX_CHECK_EQ(report.value().pieces_refused, std::uint64_t{0});
+    }
+    renderer_2d_impl::destroy(renderer);
+}
+
+// A textured piece is turned into pixels by the batch transform in force when it is submitted.
+GLINTFX_TEST(renderer_2d_impl_a_textured_piece_is_placed_by_the_batch_transform) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->begin_batch(glintfx::gltfx_transform{
+        .translation = {.x = 100.0, .y = 0.0},
+        .rotation = {.radians = 0.0},
+        .scale = {.x = 2.0, .y = 2.0},
+    });
+    renderer->draw_texture(texture, paint_of(whole()), rect(1, 1, 1, 1), k_layer_0);
+    renderer->draw_texture_quad(texture, paint_of(whole()), trapezoid(), k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(sent_vertex(0, 0) == 102.0F && sent_vertex(0, 1) == 2.0F);
+    GLINTFX_CHECK(sent_vertex(5, 0) == 108.0F && sent_vertex(5, 1) == 0.0F); // the trapezoid
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// A textured piece that finds no memory is counted, whole, and is the error of the frame.
+GLINTFX_TEST(renderer_2d_impl_a_textured_piece_that_finds_no_memory_is_counted_and_is_the_error) {
+    reset();
+    deny_growth = false;
+    gl_function_table table = fake_table();
+    table.glDeleteTextures = &f_delete_textures;
+    auto created = renderer_2d_impl::create(
+        fake_host(), table,
+        renderer_2d_options{true, 1,
+                            glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release}});
+    GLINTFX_CHECK(created.has_value());
+    renderer_2d_impl *renderer = created.value();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    deny_growth = true;
+    for (int i = 0; i < 5; ++i) {
+        renderer->draw_texture(texture, paint_of(whole()), rect(i, 0, 1, 1), k_layer_0);
+    }
+    const auto report = renderer->finish_frame();
+    deny_growth = false;
+    GLINTFX_CHECK(report.has_error() && report.err().code() == gltfx_err_code::out_of_memory);
+    const auto last = renderer->last_frame_report();
+    GLINTFX_CHECK_EQ(last.pieces_submitted, std::uint64_t{5});
+    GLINTFX_CHECK(last.pieces_dropped_out_of_memory > 0 && last.pieces_drawn > 0);
+    GLINTFX_CHECK(ends_add_up(last));
+    glintfx::draw2d::release_texture_object(texture);
     renderer_2d_impl::destroy(renderer);
 }

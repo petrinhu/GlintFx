@@ -7,11 +7,12 @@
 #include "draw2d/texture_2d_impl.hpp"
 #include "draw2d/texture_upload.hpp"
 
-// renderer_2d_facade_textures.cpp - R2D-TEXTURE, fatias T2a and T3: the public methods that make a
-// texture (create_texture) and overwrite a part of one (update_texture), in their own file as the
-// renderer's texture family opened. They only forward: the renderer's context and GL table are
-// read from the frame machine, the making is texture_upload.hpp's and the writing
-// texture_update.hpp's. Their refusals reach the caller as they came.
+// renderer_2d_facade_textures.cpp - R2D-TEXTURE, fatias T2a, T3 and T4b-B1: the public methods that
+// make a texture (create_texture), overwrite a part of one (update_texture) and draw one
+// (draw_texture, draw_texture_quad), in their own file as the renderer's texture family opened.
+// They only forward: the renderer's context and GL table are read from the frame machine, the
+// making is texture_upload.hpp's, the writing texture_update.hpp's and the drawing the frame
+// machine's (renderer_2d_impl_textures.cpp). Their refusals reach the caller as they came.
 namespace glintfx {
 
 // cppcheck-suppress-begin passedByValue
@@ -44,6 +45,28 @@ gltfx_rslt<void> gltfx_renderer_2d::update_texture(gltfx_texture_2d &texture, st
            "gltfx_renderer_2d::update_texture() called on a moved-from renderer - the object no "
            "longer owns its drawing state");
     return impl->update_texture(texture.impl, x, y, image);
+}
+// cppcheck-suppress-end passedByValue
+
+// cppcheck-suppress-begin passedByValue
+// reason: gltfx_texture_paint, gltfx_rect_world and gltfx_quad_world are VALUE types (a few numbers
+// each), and the public draw_texture() and draw_texture_quad() take them by value as
+// docs/auditoria-api-texture.md fixes, like fill_rect() and fill_quad() take theirs.
+void gltfx_renderer_2d::draw_texture(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
+                                     gltfx_rect_world rect, gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr &&
+           "gltfx_renderer_2d::draw_texture() called on a moved-from renderer - the object no "
+           "longer owns its drawing state");
+    impl->draw_texture(texture.impl, paint, rect, layer);
+}
+
+void gltfx_renderer_2d::draw_texture_quad(const gltfx_texture_2d &texture,
+                                          gltfx_texture_paint paint, gltfx_quad_world corners,
+                                          gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr &&
+           "gltfx_renderer_2d::draw_texture_quad() called on a moved-from renderer - the object "
+           "no longer owns its drawing state");
+    impl->draw_texture_quad(texture.impl, paint, corners, layer);
 }
 // cppcheck-suppress-end passedByValue
 

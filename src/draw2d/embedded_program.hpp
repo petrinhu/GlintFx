@@ -20,14 +20,15 @@
 // loads the table through the context's own resolver first.
 //
 // THE PROGRAM draws the batch of triangle_batch.hpp: position float2 in PIXELS (attribute 0),
-// texture coordinate float2 (attribute 1, inert until R2D-TEXTURE), color float4 linear and
-// PREMULTIPLIED (attribute 2), and the homogeneous coordinate q float (attribute 3, T4a), which the
-// vertex shader hands to the fragment stage with the texture coordinate as one vec3 (u, v, q),
-// read by the textured drawing of T4b. The vertex shader turns pixels into clip space with the one
-// uniform `u_viewport_pixels` (top-left origin, y down, as the corner roles of core/quad.hpp); the
-// fragment shader writes the color as it is when the surface encodes for us (the premultiplication
-// already happened, once, on the CPU), and encodes it to sRGB itself when `u_encode_srgb` is 1 (the
-// context option `srgb_framebuffer` off).
+// texture coordinate float2 stored times q (attribute 1), color float4 linear and PREMULTIPLIED
+// (attribute 2), and the homogeneous coordinate q float (attribute 3, T4a), which the vertex shader
+// hands to the fragment stage with the texture coordinate as one vec3 (u q, v q, q). The vertex
+// shader turns pixels into clip space with the one uniform `u_viewport_pixels` (top-left origin,
+// y down, as the corner roles of core/quad.hpp). The fragment shader multiplies the color by the
+// texel of `u_texture` (texture unit 0), read projectively, when `u_textured` is 1 (a textured run,
+// T4b-B1, D-W8-469); an untextured run (0) reads no texture. Then it writes the color as it is when
+// the surface encodes for us (the premultiplication already happened, once, on the CPU), and
+// encodes it to sRGB itself when `u_encode_srgb` is 1 (the context option `srgb_framebuffer` off).
 //
 // FAILURE (docs/api-conventions.md R1, R3, R7): a gltfx_err `platform_failure` whose
 // rejected_value() is one of the three TOKENS below, never a sentence. The driver's own message
@@ -77,6 +78,8 @@ struct embedded_program {
     std::uint32_t program = 0;
     std::int32_t viewport_location = -1;    // uniform vec2 u_viewport_pixels
     std::int32_t encode_srgb_location = -1; // uniform int u_encode_srgb
+    std::int32_t textured_location = -1;    // uniform int u_textured (T4b-B1)
+    std::int32_t texture_location = -1;     // uniform sampler2D u_texture (T4b-B1)
 };
 
 // Compiles both shaders and links the program. On success the shaders are already deleted and

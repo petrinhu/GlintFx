@@ -18,6 +18,7 @@
 #include <glintfx/draw2d/stroke.hpp>
 #include <glintfx/draw2d/texture_2d.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
+#include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 #include <glintfx/export.hpp>
 #include <glintfx/platform/gl/context.hpp>
@@ -473,6 +474,51 @@ class gltfx_renderer_2d {
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> update_texture(gltfx_texture_2d &texture,
                                                               std::uint32_t x, std::uint32_t y,
                                                               gltfx_image_view image) noexcept;
+
+    // Draws the region of `paint.region` from `texture` into the axis-aligned
+    // rectangle `rect` (world space, like fill_rect), multiplied by `paint.tint`
+    // as texture_region.hpp says. Mirroring is applied to the source, not to
+    // the rectangle. Refused as ONE piece, counted in the report, never an
+    // exception, for the first of these reasons, in this order:
+    //   - not_a_number, then infinite: a value of the rectangle, of the
+    //     source region or of the tint that is not a finite number;
+    //   - negative_size: the rectangle or the source region with a negative
+    //     width or height;
+    //   - unknown_option: the mirror is a value outside its enumeration;
+    //   - texture_not_open: the texture is released or was never opened;
+    //   - texture_other_renderer: the texture belongs to another renderer;
+    //   - region_out_of_range: the source rectangle is outside the texture;
+    //   - pixel_position_out_of_range: the batch transform takes a corner
+    //     outside the range the drawing program can scale, as for fill_rect.
+    // A textured piece is painted in the same order as every other piece
+    // (layer, then submission); a change of texture never reorders. Each
+    // change of the bound texture between two calls counts in
+    // texture_switches, including a change to or from no texture.
+    // D-W8-354: texture, paint and rect with the layer; four parameters at most.
+    // Proved by: renderer_2d_impl_test (each reason in this order, over a
+    // fake GL; the corners read the region by role and mirror; a texture
+    // between two untextured pieces is three draw calls in paint order and
+    // two switches).
+    GLINTFX_API void draw_texture(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
+                                  gltfx_rect_world rect, gltfx_draw_layer layer = {}) noexcept;
+
+    // Draws the region of `paint.region` from `texture` into a free
+    // quadrilateral, with PROJECTIVE interpolation: a straight line of the
+    // texture stays a straight line on the screen, even when the quad is a
+    // trapezoid. The corner roles of gltfx_quad_world say where the texture's
+    // top-left lands. Refused as ONE piece, counted in the report, for the
+    // reasons of draw_texture (negative_size only for the source region: a
+    // quadrilateral has no size), in its order, with `degenerate_quad` just
+    // before pixel_position_out_of_range: the corners do not define a
+    // projective mapping (three of them on one line, a quad whose edges
+    // cross, or a corner that points inward; a quad of zero area has its
+    // corners on one line, so it is refused the same way).
+    // D-W8-354: four parameters at most.
+    // Proved by: renderer_2d_impl_test (degenerate_quad after the texture's
+    // reasons; the projective weight of each corner reaches the vertex).
+    GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
+                                       gltfx_quad_world corners,
+                                       gltfx_draw_layer layer = {}) noexcept;
 
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}

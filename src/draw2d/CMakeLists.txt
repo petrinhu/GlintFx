@@ -29,6 +29,7 @@ target_sources(glintfx_library PRIVATE
     mipmap_reduce.cpp
     frame_2d_report.cpp
     renderer_2d_impl.cpp
+    renderer_2d_impl_textures.cpp
     renderer_2d_facade.cpp
     texture_upload.cpp
     texture_release.cpp

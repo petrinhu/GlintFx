@@ -19,11 +19,14 @@
 #   qualificador de classe/namespace, sem numero de linha - numero de
 #   linha apodrece a cada edicao).
 # - tipo: EXATAMENTE um dos dois valores abaixo, nunca outro:
-#     * FALSO-POSITIVO-DA-REGUA - afirmacao sobre a FERRAMENTA: a forma
-#       nao aloca de verdade (ex.: uma classe de construcao que a
-#       calibracao ainda nao cobre). O orquestrador pode decidir, com
+#     * FALSO-POSITIVO-DA-REGUA - afirmacao sobre a FERRAMENTA, nunca
+#       sobre o codigo: a forma achada nao aloca de verdade, e a regua
+#       errou ao classifica-la (ex.: uma classe de construcao que a
+#       calibracao ainda nao cobre). A linha e um DEFEITO DA REGUA
+#       registrado, nunca um perdao: o orquestrador pode decidir, com
 #       razao escrita e, quando fizer sentido, uma fixture nova no
-#       mesmo commit que prove a classe.
+#       mesmo commit que prove a classe, e o item da linha e o conserto
+#       da regua; quando ele fecha, a linha morre (regra abaixo).
 #     * DECISAO-LIDER:DD/MM/AAAA - afirmacao sobre o PRODUTO: aqui a
 #       biblioteca aceita alocar dentro de `noexcept`, por decisao
 #       explicita do lider naquela data. Excecao a uma ordem dele - SO
@@ -35,12 +38,19 @@
 #   regra de morte de tests/parity_exceptions.txt,
 #   check_test_parity.py's own validate_exceptions()).
 #
-# O estado correto deste arquivo HOJE e VAZIO (so este cabecalho): as
-# fatias F1 a F5 (17-18/09/2026) fecharam os oito pontos que a
+# TODA LINHA APONTA PARA UM ITEM DA INBOX de TODO.md, vivo, que diz o
+# que a faz morrer; nenhuma usa SEM-PENDENCIA. Os oito pontos que a
 # auditoria de 17/09/2026 encontrou
-# (/var/tmp/builds/claude-1000/varredura-noexcept/RELATORIO.md) sem
-# precisar de excecao nenhuma - cada um foi CONSERTADO (a alocacao
-# parou, o try passou a ser eficaz, ou o `noexcept` decorativo caiu),
-# nunca perdoado por linha aqui. O portao NAO exige que este arquivo
-# tenha linhas; exige que cada linha, se existir, tenha os cinco
-# campos e um item vivo.
+# (/var/tmp/builds/claude-1000/varredura-noexcept/RELATORIO.md) foram
+# CONSERTADOS nas fatias F1 a F5 (17-18/09/2026), sem linha aqui (a
+# alocacao parou, o try passou a ser eficaz, ou o `noexcept` decorativo
+# caiu). A unica linha de hoje e um FALSO-POSITIVO-DA-REGUA (T4b-B1,
+# 14/10/2026): a regua classifica o `+=` pelo PREFIXO do nome, e o
+# contador inteiro `texture_switches` comeca por "text"; o conserto da
+# regua e o item NOEXCEPT-GAUGE-NAME-PREFIX, e quando ele fechar a linha
+# sai. O portao NAO exige que este arquivo tenha linhas; exige que cada
+# linha, se existir, tenha os cinco campos e um item vivo.
+
+# T4b-B1 (R2D-TEXTURE, D-W8-471): a regua le `+=` depois de um nome que comeca por `text` como concatenacao
+# de string; texture_switches e um contador std::uint64_t.
+src/draw2d/frame_report_tally.cpp|frame_tally::texture_switched|FALSO-POSITIVO-DA-REGUA|a regua toma o += de current.texture_switches (um std::uint64_t, cujo nome comeca por text) por concatenacao de string; a soma de dois inteiros nao aloca|NOEXCEPT-GAUGE-NAME-PREFIX

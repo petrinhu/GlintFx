@@ -29,6 +29,21 @@ bool piece_list::add(const quad_corners_pixel &corners, glintfx::gltfx_rgba colo
     return true;
 }
 
+bool piece_list::add_textured(const quad_corners_pixel &corners, const textured_quad_paint &paint,
+                              std::int32_t layer) noexcept {
+    if (piece_store.size >= bound || !ensure_room<pending_piece>(allocator, piece_store, 1)) {
+        return false;
+    }
+    pending_piece piece{corners, paint.tint, layer, static_cast<std::uint32_t>(piece_store.size),
+                        piece_kind::quad};
+    piece.texture = paint.texture;
+    piece.texture_corners = paint.texture_corners;
+    piece_store.data[piece_store.size] = piece;
+    note_layer(layer);
+    ++piece_store.size;
+    return true;
+}
+
 void piece_list::note_layer(std::int32_t layer) noexcept {
     if (piece_store.size > 0 && layer != piece_store.data[0].layer) {
         one_layer = false;

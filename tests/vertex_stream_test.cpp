@@ -65,6 +65,8 @@ constexpr GLenum k_unsigned_int = 0x1405;
 constexpr GLenum k_triangles = 0x0004;
 constexpr GLbitfield k_map_write_bit = 0x0002;
 constexpr GLbitfield k_map_invalidate_buffer_bit = 0x0008;
+constexpr GLenum k_texture_2d = 0x0DE1;
+constexpr GLint k_textured_location = 11; // where the fake program keeps u_textured (T4b-B1)
 
 struct attrib_call {
     GLuint index = 0;
@@ -79,6 +81,12 @@ struct draw_call {
     GLsizei count = 0;
     GLenum type = 0;
     std::uintptr_t offset = 0;
+};
+
+struct texture_event {
+    char kind = 0;
+    std::int64_t first = 0;  // the target ('B') or the location ('U')
+    std::int64_t second = 0; // the texture ('B') or the value ('U')
 };
 
 struct fake_gl {
@@ -119,6 +127,9 @@ struct fake_gl {
     int buffers_created = 0;
     int buffers_deleted = 0;
     int gl_calls = 0; // every call of the table, to prove an empty batch calls none
+    // T4b-B1: the texture binds, the u_textured settings and the draws, in the order made: 'B' is
+    // glBindTexture(target, name), 'U' glUniform1i(location, value), 'D' glDrawElements.
+    std::vector<texture_event> sequence;
 };
 
 fake_gl gl_state;
@@ -236,6 +247,15 @@ void GLINTFX_GL_APIENTRY fake_draw_elements(GLenum mode, GLsizei count, GLenum t
         gl_state.error_queue.push_back(gl_state.error_from_draw);
     }
     gl_state.draws.push_back({mode, count, type, reinterpret_cast<std::uintptr_t>(indices)});
+    gl_state.sequence.push_back({'D', 0, 0});
+}
+void GLINTFX_GL_APIENTRY fake_bind_texture(GLenum target, GLuint texture) {
+    ++gl_state.gl_calls;
+    gl_state.sequence.push_back({'B', target, texture});
+}
+void GLINTFX_GL_APIENTRY fake_uniform1i(GLint location, GLint value) {
+    ++gl_state.gl_calls;
+    gl_state.sequence.push_back({'U', location, value});
 }
 GLenum GLINTFX_GL_APIENTRY fake_get_error() {
     ++gl_state.gl_calls;
@@ -267,6 +287,8 @@ gl_function_table fake_table() {
     table.glVertexAttribPointer = &fake_vertex_attrib_pointer;
     table.glDrawElements = &fake_draw_elements;
     table.glGetError = &fake_get_error;
+    table.glBindTexture = &fake_bind_texture;
+    table.glUniform1i = &fake_uniform1i;
     return table;
 }
 
@@ -497,7 +519,7 @@ GLINTFX_TEST(vertex_stream_an_empty_batch_sends_nothing_and_calls_no_gl_function
         GLINTFX_CHECK(upload_batch(table, stream, technique, empty).has_value());
     }
     GLINTFX_CHECK_EQ(gl_state.gl_calls, calls_before);
-    GLINTFX_CHECK_EQ(draw_batch(table, empty).value(), std::uint64_t{0});
+    GLINTFX_CHECK_EQ(draw_batch(table, empty, k_textured_location).value().calls, std::uint64_t{0});
     GLINTFX_CHECK_EQ(gl_state.draws.size(), std::size_t{0});
 }
 
@@ -592,7 +614,7 @@ GLINTFX_TEST(vertex_stream_draws_one_call_per_run_with_the_run_offsets) {
     triangle_batch batch;
     fill(batch, 5, true); // states alternate a b a b a: five runs of one piece
     GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{5});
-    GLINTFX_CHECK_EQ(draw_batch(table, batch).value(), std::uint64_t{5});
+    GLINTFX_CHECK_EQ(draw_batch(table, batch, k_textured_location).value().calls, std::uint64_t{5});
     GLINTFX_CHECK_EQ(gl_state.draws.size(), std::size_t{5});
     for (std::size_t i = 0; i < 5; ++i) {
         GLINTFX_CHECK_EQ(gl_state.draws[i].mode, k_triangles);
@@ -605,7 +627,8 @@ GLINTFX_TEST(vertex_stream_draws_one_call_per_run_with_the_run_offsets) {
     const gl_function_table table2 = fake_table();
     triangle_batch merged;
     fill(merged, 4, false); // one state: ONE run of 24 indices
-    GLINTFX_CHECK_EQ(draw_batch(table2, merged).value(), std::uint64_t{1});
+    GLINTFX_CHECK_EQ(draw_batch(table2, merged, k_textured_location).value().calls,
+                     std::uint64_t{1});
     GLINTFX_CHECK_EQ(gl_state.draws[0].count, 24);
     GLINTFX_CHECK_EQ(gl_state.draws[0].offset, std::uintptr_t{0});
 }
@@ -728,7 +751,7 @@ GLINTFX_TEST(vertex_stream_draw_reads_the_gl_errors_and_maps_them_with_the_token
         triangle_batch batch;
         fill(batch, 3, false);
         gl_state.error_from_draw = raised;
-        auto failed = draw_batch(table, batch);
+        auto failed = draw_batch(table, batch, k_textured_location);
         GLINTFX_CHECK(failed.has_error());
         GLINTFX_CHECK(failed.err().code() == (raised == 0x0505 ? gltfx_err_code::out_of_memory
                                                                : gltfx_err_code::platform_failure));
@@ -740,7 +763,7 @@ GLINTFX_TEST(vertex_stream_draw_reads_the_gl_errors_and_maps_them_with_the_token
     const gl_function_table table = fake_table();
     triangle_batch empty;
     gl_state.error_from_draw = 0x0502; // would be raised by a draw: there is none
-    auto nothing = draw_batch(table, empty);
+    auto nothing = draw_batch(table, empty, k_textured_location);
     GLINTFX_CHECK(nothing.has_value());
     GLINTFX_CHECK_EQ(gl_state.get_error_calls, 0); // and nothing was read
 }
@@ -767,4 +790,60 @@ GLINTFX_TEST(vertex_stream_index_capacity_is_not_trusted_after_a_failed_growth) 
     GLINTFX_CHECK(after.has_value());
     GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.index_buffer], medium.indices().data(),
                               medium.indices().size() * sizeof(std::uint32_t)));
+}
+
+// R2D-TEXTURE T4b-B1 (D-W8-471, D-W8-473): before the draw call of a run whose texture differs from
+// the one bound, the texture is bound to unit 0 and u_textured set to 1; each such change is one
+// switch. Textures 2, 9, 2, 9, 2 are five runs and five switches, each bind before its draw.
+GLINTFX_TEST(vertex_stream_a_texture_is_bound_before_the_draw_of_its_run_and_counted) {
+    reset();
+    const gl_function_table table = fake_table();
+    triangle_batch batch;
+    fill(batch, 5, true); // textures 2 9 2 9 2
+    const auto counts = draw_batch(table, batch, k_textured_location);
+    GLINTFX_CHECK(counts.has_value());
+    GLINTFX_CHECK_EQ(counts.value().calls, std::uint64_t{5});
+    GLINTFX_CHECK_EQ(counts.value().texture_switches, std::uint64_t{5});
+    GLINTFX_CHECK_EQ(gl_state.sequence.size(), std::size_t{15});
+    const std::array<std::int64_t, 5> textures{2, 9, 2, 9, 2};
+    int in_order = 0;
+    for (std::size_t run = 0; run < 5; ++run) {
+        const texture_event &bind = gl_state.sequence[run * 3];
+        const texture_event &uniform = gl_state.sequence[(run * 3) + 1];
+        const texture_event &draw = gl_state.sequence[(run * 3) + 2];
+        in_order += bind.kind == 'B' && bind.first == k_texture_2d &&
+                            bind.second == textures[run] && uniform.kind == 'U' &&
+                            uniform.first == k_textured_location && uniform.second == 1 &&
+                            draw.kind == 'D'
+                        ? 1
+                        : 0;
+    }
+    GLINTFX_CHECK_EQ(in_order, 5);
+}
+
+// A run with NO texture first binds nothing (every flush starts with none bound and u_textured at
+// 0); a return to no texture binds 0 and sets u_textured to 0, and counts; two runs with the same
+// texture (here none, split by the program) bind nothing between them.
+GLINTFX_TEST(vertex_stream_no_texture_first_binds_nothing_and_a_return_to_none_counts) {
+    reset();
+    const gl_function_table table = fake_table();
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_red, batch_state{1, 0, 0}));
+    GLINTFX_CHECK(batch.add_quad(square_at(1, 0, 1), k_red, batch_state{1, 5, 0}));
+    GLINTFX_CHECK(batch.add_quad(square_at(2, 0, 1), k_red, batch_state{1, 0, 0}));
+    GLINTFX_CHECK(batch.add_quad(square_at(3, 0, 1), k_red, batch_state{2, 0, 0}));
+    const auto counts = draw_batch(table, batch, k_textured_location);
+    GLINTFX_CHECK(counts.has_value());
+    GLINTFX_CHECK_EQ(counts.value().calls, std::uint64_t{4});
+    GLINTFX_CHECK_EQ(counts.value().texture_switches, std::uint64_t{2});
+    const std::array<char, 8> kinds{'D', 'B', 'U', 'D', 'B', 'U', 'D', 'D'};
+    GLINTFX_CHECK_EQ(gl_state.sequence.size(), kinds.size());
+    int matching = 0;
+    for (std::size_t i = 0; i < kinds.size() && i < gl_state.sequence.size(); ++i) {
+        matching += gl_state.sequence[i].kind == kinds[i] ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(matching, 8);
+    GLINTFX_CHECK(gl_state.sequence.size() == 8 && gl_state.sequence[1].second == 5 &&
+                  gl_state.sequence[2].second == 1 && gl_state.sequence[4].second == 0 &&
+                  gl_state.sequence[5].second == 0);
 }

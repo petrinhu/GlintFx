@@ -17,6 +17,7 @@
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/stroke.hpp>
+#include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 
 #include "draw2d/embedded_program.hpp"
@@ -47,6 +48,18 @@
 //
 // Nothing here includes a header of src/platform/ or of the operating system (GODS_LAWS.md L-19).
 namespace glintfx {
+
+namespace draw2d {
+// What one textured call submits (T4b-B1): grouped so submit_textured() stays within four
+// parameters. `projective` is false for draw_texture() (q = 1 at every corner). `texture` and
+// `paint` are read only during the call.
+struct textured_submission {
+    const texture_2d_impl *texture = nullptr;
+    const gltfx_texture_paint *paint = nullptr;
+    gltfx_quad_world corners{};
+    bool projective = false;
+};
+} // namespace draw2d
 
 // What the renderer asks of its context (D-API-07: it makes ITS OWN context current before it
 // touches GL).
@@ -102,6 +115,15 @@ struct renderer_2d_impl {
     // and counted once otherwise.
     void stroke_rect(const gltfx_rect_world &rect, const gltfx_rect_outline_style &style,
                      gltfx_rgba color, gltfx_draw_layer layer) noexcept;
+    // The textured methods (T4b-B1, renderer_2d_impl_textures.cpp): checked in the order of
+    // texture_region_check.hpp, the texture last of the values (not open, another renderer's, a
+    // source outside it), then the shape (degenerate_quad, the quadrilateral only), then the pixel
+    // range; refused whole and counted once, or kept as one textured quad. The rectangle reads the
+    // texture affinely (q = 1); the quadrilateral projectively (projective_quad.hpp).
+    void draw_texture(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                      const gltfx_rect_world &rect, gltfx_draw_layer layer) noexcept;
+    void draw_texture_quad(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                           const gltfx_quad_world &corners, gltfx_draw_layer layer) noexcept;
     void flush() noexcept;
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
     [[nodiscard]] gltfx_frame_2d_report last_frame_report() const noexcept;
@@ -129,6 +151,10 @@ struct renderer_2d_impl {
 
     void submit(const draw2d::quad_corners_world &corners, gltfx_rgba color, gltfx_draw_layer layer,
                 gltfx_draw_2d_refusal refusal) noexcept;
+    // The one path of both textured methods: `refusal` is the first reason of the values and the
+    // texture (none when they pass); the shape and the pixel range are asked here.
+    void submit_textured(const draw2d::textured_submission &submission,
+                         gltfx_draw_2d_refusal refusal, gltfx_draw_layer layer) noexcept;
     // The one path of both triangle methods: an empty call is nothing; the rest is checked, refused
     // whole and counted once, or kept as one piece in the paint order (S2b).
     void submit_triangles(std::span<const gltfx_vertex_2d_world> vertices,

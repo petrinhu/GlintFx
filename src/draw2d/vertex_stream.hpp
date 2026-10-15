@@ -88,12 +88,27 @@ void destroy_vertex_stream(const render::gl_function_table &gl, vertex_stream &s
                                                      vertex_upload_technique technique,
                                                      const triangle_batch &batch) noexcept;
 
-// Issues one draw call per run of `batch`, in order, and returns how many were issued. The array
-// and the buffers must be bound (set_gl_state_for_drawing does it). The GL errors the calls left
-// are read (at most k_max_gl_error_reads, D-B3c-2) and mapped: GL_OUT_OF_MEMORY is `out_of_memory`,
-// anything else `platform_failure` with rejected_value() "draw" and the GL code in os_error_code().
-// An empty batch issues nothing and reads nothing.
-[[nodiscard]] glintfx::gltfx_rslt<std::uint64_t> draw_batch(const render::gl_function_table &gl,
-                                                            const triangle_batch &batch) noexcept;
+// What one draw_batch() did (T4b-B1, D-W8-471): the draw calls it issued and how many times it
+// changed the bound texture, counted where the change is made, so the report says what GL was
+// told.
+struct batch_draw_counts {
+    std::uint64_t calls = 0;
+    std::uint64_t texture_switches = 0;
+};
+
+// Issues one draw call per run of `batch`, in order, and says how many were issued. The array, the
+// buffers and the program must be bound (set_gl_state_for_drawing does it), unit 0 active, and the
+// program's `u_textured` (at `textured_location`) at 0, which the caller sets every flush. It
+// starts as if no texture were bound: whatever the consumer left on unit 0 is never read, because
+// a run with no texture samples nothing (`u_textured` 0) and a run with one binds its own. Before
+// the draw call of a run whose texture differs from the last one it bound (0 is no texture), it
+// binds the run's texture to unit 0 and sets `u_textured` to 1 for a texture, 0 for none; that is
+// one texture switch (renderer_2d.hpp: a change to or from no texture counts). The
+// GL errors the calls left are read (at most k_max_gl_error_reads, D-B3c-2) and mapped:
+// GL_OUT_OF_MEMORY is `out_of_memory`, anything else `platform_failure` with rejected_value()
+// "draw" and the GL code in os_error_code(). An empty batch issues nothing and reads nothing.
+[[nodiscard]] glintfx::gltfx_rslt<batch_draw_counts>
+draw_batch(const render::gl_function_table &gl, const triangle_batch &batch,
+           std::int32_t textured_location) noexcept;
 
 } // namespace glintfx::draw2d

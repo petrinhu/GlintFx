@@ -327,12 +327,14 @@ void renderer_2d_impl::drop_pending_without_context() noexcept {
 }
 
 bool renderer_2d_impl::add_piece_to_batch(const draw2d::pending_piece &piece) noexcept {
-    const draw2d::batch_state state{program.program, 0, 0};
     if (piece.kind == draw2d::piece_kind::triangles) {
         return batch.add_triangles(pieces.triangle_vertices(piece), pieces.triangle_indices(piece),
-                                   state);
+                                   draw2d::batch_state{program.program, 0, 0});
     }
-    return batch.add_quad(piece.corners, piece.color, state);
+    // A quad carries its texture (0 for none) and where its corners read it (T4b-B1, D-W8-470):
+    // a change of texture between two pieces starts another run, in paint order, never reordered.
+    return batch.add_textured_quad(piece.corners, piece.texture_corners, piece.color,
+                                   draw2d::batch_state{program.program, piece.texture, 0});
 }
 
 std::size_t renderer_2d_impl::batch_pending_in_paint_order() noexcept {
@@ -363,12 +365,19 @@ bool renderer_2d_impl::upload_and_draw_batch() noexcept {
     gl.glUniform2f(program.viewport_location, static_cast<float>(surface_width),
                    static_cast<float>(surface_height));
     gl.glUniform1i(program.encode_srgb_location, srgb_framebuffer ? 0 : 1);
-    const gltfx_rslt<std::uint64_t> calls = draw2d::draw_batch(gl, batch);
-    if (calls.has_error()) {
-        remember_error(calls.err());
+    // What draw_batch() starts from (T4b-B1, D-W8-473): the sampler reads unit 0, and no run is
+    // textured until one binds its texture; a uniform keeps its value in the program between
+    // flushes, so it is set every time.
+    gl.glUniform1i(program.texture_location, 0);
+    gl.glUniform1i(program.textured_location, 0);
+    const gltfx_rslt<draw2d::batch_draw_counts> counts =
+        draw2d::draw_batch(gl, batch, program.textured_location);
+    if (counts.has_error()) {
+        remember_error(counts.err());
         return false;
     }
-    tally.draw_calls_issued(calls.value());
+    tally.draw_calls_issued(counts.value().calls);
+    tally.texture_switched(counts.value().texture_switches);
     return true;
 }
 

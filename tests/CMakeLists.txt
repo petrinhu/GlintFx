@@ -1995,6 +1995,14 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
 )
+# R2D-TEXTURE T4b-B1: draw_texture() and draw_texture_quad() reach the frame machine (renderer_2d_impl_textures.cpp),
+# so this target compiles them and the pure atoms they ask (T4b-A).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_textures.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_check.cpp"
+)
 
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

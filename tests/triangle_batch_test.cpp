@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -518,7 +519,7 @@ GLINTFX_TEST(triangle_batch_a_run_opened_by_a_triangle_counts_its_given_indices)
 }
 
 // R2D-TEXTURE T4a (D-W8-23, D-W8-406): every vertex carries the homogeneous coordinate q LAST, and
-// until the textured drawing of T4b it is 1 for a quad and for a triangle piece alike. The quad
+// for an untextured piece it is 1, for a quad and for a triangle piece alike (T4b-B1). The quad
 // keeps its texture coordinates by role, the triangle piece keeps them at 0.
 GLINTFX_TEST(triangle_batch_every_vertex_carries_q_of_one) {
     static_assert(offsetof(batch_vertex, q) == 8U * sizeof(float),
@@ -535,4 +536,66 @@ GLINTFX_TEST(triangle_batch_every_vertex_carries_q_of_one) {
     GLINTFX_CHECK_EQ(with_q_of_one, 7);
     GLINTFX_CHECK(stored[2].u == 1.0F && stored[2].v == 1.0F);
     GLINTFX_CHECK(stored[4].u == 0.0F && stored[4].v == 0.0F);
+}
+
+// R2D-TEXTURE T4b-B1 (D-W8-470): a textured quad stores, at each corner, the coordinate TIMES its
+// weight q and q itself last; the program divides. The weights are powers of two, so every product
+// is exact in float and compared with ==.
+GLINTFX_TEST(triangle_batch_textured_quad_stores_the_coordinate_times_q_and_q_last) {
+    const glintfx::draw2d::quad_texture_corners reads{
+        {{0.25F, 0.5F, 2.0F}, {0.75F, 0.5F, 0.5F}, {0.75F, 1.0F, 4.0F}, {0.25F, 1.0F, 0.25F}}};
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(0, 0, 8), reads,
+                                          gltfx_rgba{1.0F, 0.5F, 0.25F, 0.5F}, k_state_a));
+    const auto v = batch.vertices();
+    GLINTFX_CHECK_EQ(v.size(), std::size_t{4});
+    GLINTFX_CHECK(v[0].u == 0.5F && v[0].v == 1.0F && v[0].q == 2.0F);      // top_left
+    GLINTFX_CHECK(v[1].u == 0.375F && v[1].v == 0.25F && v[1].q == 0.5F);   // top_right
+    GLINTFX_CHECK(v[2].u == 3.0F && v[2].v == 4.0F && v[2].q == 4.0F);      // bottom_right
+    GLINTFX_CHECK(v[3].u == 0.0625F && v[3].v == 0.25F && v[3].q == 0.25F); // bottom_left
+    // the tint is stored premultiplied, like every color
+    GLINTFX_CHECK(v[0].r == 0.5F && v[0].g == 0.25F && v[0].b == 0.125F && v[0].a == 0.5F);
+    GLINTFX_CHECK(v[3].x == 0.0F && v[3].y == 8.0F); // the positions are the corners by role
+}
+
+// add_quad() is add_textured_quad() with the coordinates by role and q = 1, byte for byte: what
+// keeps every untextured piece drawn exactly as before the textured drawing came.
+GLINTFX_TEST(triangle_batch_add_quad_is_the_textured_quad_with_the_role_corners) {
+    const glintfx::draw2d::quad_texture_corners &role = glintfx::draw2d::k_role_texture_corners;
+    GLINTFX_CHECK(role[0].u == 0.0F && role[0].v == 0.0F && role[0].q == 1.0F);
+    GLINTFX_CHECK(role[1].u == 1.0F && role[1].v == 0.0F && role[1].q == 1.0F);
+    GLINTFX_CHECK(role[2].u == 1.0F && role[2].v == 1.0F && role[2].q == 1.0F);
+    GLINTFX_CHECK(role[3].u == 0.0F && role[3].v == 1.0F && role[3].q == 1.0F);
+    triangle_batch plain;
+    triangle_batch textured;
+    const gltfx_rgba color{0.25F, 0.5F, 1.0F, 0.5F};
+    GLINTFX_CHECK(plain.add_quad(square_at(3, 4, 5), color, k_state_a));
+    GLINTFX_CHECK(textured.add_textured_quad(square_at(3, 4, 5), role, color, k_state_a));
+    GLINTFX_CHECK_EQ(plain.vertices().size(), textured.vertices().size());
+    // Bit for bit: each vertex as its nine 32-bit words (std::bit_cast, never memcmp of floats).
+    using vertex_words = std::array<std::uint32_t, 9>;
+    int equal_bits = 0;
+    for (std::size_t i = 0; i < plain.vertices().size(); ++i) {
+        const bool same = std::bit_cast<vertex_words>(plain.vertices()[i]) ==
+                          std::bit_cast<vertex_words>(textured.vertices()[i]);
+        equal_bits += same ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(equal_bits, 4);
+}
+
+// A change of texture between two quads starts another run, in order, never reordered (D-W8-13):
+// textures A, B, A are three runs, A, B, A.
+GLINTFX_TEST(triangle_batch_textures_a_b_a_are_three_runs_in_order) {
+    const batch_state a{1, 7, 0};
+    const batch_state b{1, 9, 0};
+    const auto &role = glintfx::draw2d::k_role_texture_corners;
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(0, 0, 1), role, k_white, a));
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(1, 0, 1), role, k_white, b));
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(2, 0, 1), role, k_white, a));
+    const auto runs = batch.runs();
+    GLINTFX_CHECK_EQ(runs.size(), std::size_t{3});
+    GLINTFX_CHECK(runs[0].state.texture == 7U && runs[0].first_index == 0U);
+    GLINTFX_CHECK(runs[1].state.texture == 9U && runs[1].first_index == 6U);
+    GLINTFX_CHECK(runs[2].state.texture == 7U && runs[2].first_index == 12U);
 }

@@ -147,6 +147,12 @@ struct gltfx_frame_2d_report {
     std::uint64_t pieces_refused_texture_other_renderer = 0;
     std::uint64_t pieces_refused_region_out_of_range = 0;
     std::uint64_t pieces_refused_degenerate_quad = 0;
+    // Appended by R2D-TEXTURE T4b-B1 (D-W8-471): how many times the bound
+    // texture changed between two draw calls, a change to or from no
+    // texture included; the first draw call of every flush counts when it
+    // binds a texture. A cost, printed for you to measure, never promised
+    // as a number: a textured piece between two untextured ones costs two.
+    std::uint64_t texture_switches = 0;
 };
 
 } // namespace glintfx

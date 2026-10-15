@@ -52,6 +52,8 @@ class frame_tally {
     void batch_began() noexcept;
     void flushed() noexcept;
     void draw_calls_issued(std::uint64_t count) noexcept;
+    // The texture switches one flush made (draw_batch(), T4b-B1, D-W8-471).
+    void texture_switched(std::uint64_t count) noexcept;
 
     // Closes the frame and makes its report the last one. no_frame_open (and no new report) when
     // none is open; out_of_memory when any piece was dropped for lack of memory; otherwise ok.

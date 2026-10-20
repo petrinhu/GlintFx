@@ -3,9 +3,10 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 #include <optional>
 
-// draw2d/projective_quad.cpp - R2D-TEXTURE, fatias T4b-A and T4b-A-fix1: the weights of
+// draw2d/projective_quad.cpp - R2D-TEXTURE, fatias T4b-A, T4b-A-fix1 and T4b-A-fix2: the weights of
 // projective_quad.hpp.
 namespace glintfx::draw2d {
 
@@ -27,16 +28,36 @@ struct quad_vectors {
     double ry = 0.0;
 };
 
+// Whether a difference of two of the coordinates could overflow: some coordinate is above a
+// quarter of the largest double (T4b-A-fix2, D-W8-514).
+[[nodiscard]] bool near_the_largest_double(const glintfx::gltfx_quad_world &corners) noexcept {
+    constexpr double k_quarter_of_max = std::numeric_limits<double>::max() / 4.0;
+    const std::array<double, 8> values{corners.top_left.x,     corners.top_left.y,
+                                       corners.top_right.x,    corners.top_right.y,
+                                       corners.bottom_right.x, corners.bottom_right.y,
+                                       corners.bottom_left.x,  corners.bottom_left.y};
+    for (const double value : values) {
+        if (std::fabs(value) > k_quarter_of_max) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // The vectors, scaled together so the largest of their six components lies in [1, 2) (T4b-A-fix1,
 // D-W8-493). s and t are RATIOS of the products below, so a common factor changes none of their
 // digits, and the products neither overflow nor vanish whatever the size of the quadrilateral.
-// Each coordinate is halved BEFORE the subtraction, so the difference of two finite values is
-// always finite; halving and the power of two are exact (only a subnormal coordinate loses its last
-// bit). No value when a component is not finite or all of them are zero (the four corners are one
-// point).
+// Near the largest double each coordinate is halved BEFORE the subtraction, so the difference of
+// two finite values stays finite; there halving is exact. Anywhere else nothing is halved
+// (T4b-A-fix2, D-W8-514): halving a SUBNORMAL coordinate rounds away its last bit, and a
+// quadrilateral of a few multiples of the smallest double changed shape (measured: 1696 of 200000
+// accepted wrongly, 2759 refused wrongly). The subtraction of two subnormals is exact, and so is
+// the power of two. No value when a component is not finite or all of them are zero (the four
+// corners are one point).
 [[nodiscard]] std::optional<quad_vectors>
 scaled_vectors(const glintfx::gltfx_quad_world &corners) noexcept {
-    const auto half = [](double value) noexcept { return std::ldexp(value, -1); };
+    const int halving = near_the_largest_double(corners) ? -1 : 0;
+    const auto half = [halving](double value) noexcept { return std::ldexp(value, halving); };
     std::array<double, 6> v{half(corners.bottom_right.x) - half(corners.top_left.x),
                             half(corners.bottom_right.y) - half(corners.top_left.y),
                             half(corners.bottom_left.x) - half(corners.top_right.x),

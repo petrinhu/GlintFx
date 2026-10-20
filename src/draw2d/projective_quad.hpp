@@ -30,7 +30,9 @@
 // can bring a quadrilateral of 1e-170 or of 1e160 world units to ordinary pixels. s and t do not
 // change when the quadrilateral is moved or scaled, and the computation keeps that: the vectors
 // are measured from corner 0 and scaled together by one power of two, exact, before any product,
-// so a convex quadrilateral of any finite size and place gets its weights.
+// so a convex quadrilateral of any finite size and place gets its weights, down to corners that
+// are a few multiples of the smallest double (subnormal: the subtraction is exact there, and
+// nothing is rounded before it, T4b-A-fix2, D-W8-514).
 //
 // NO WEIGHTS (std::nullopt) when the corners define no projective mapping (`degenerate_quad`): the
 // diagonals do not cross strictly inside both of them. That is three corners on one line (a

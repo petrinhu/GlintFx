@@ -161,6 +161,41 @@ struct homography {
                             {q.bottom_left.x * scale, q.bottom_left.y * scale}};
 }
 
+// T4b-A-fix2 (D-W8-515): corners that are whole multiples of the smallest double are exact in
+// double, so a quadrilateral of them has an EXACT answer in integers: accepted when the diagonals
+// cross strictly inside both (0 < s < 1, 0 < t < 1 as fractions of integers), with
+// q = 1 / (2 (1 - s)) and the rest computed from those fractions.
+struct exact_answer {
+    bool accepted = false;
+    std::array<double, 4> weights{};
+};
+
+[[nodiscard]] std::int64_t cross_int(std::int64_t ax, std::int64_t ay, std::int64_t bx,
+                                     std::int64_t by) {
+    return (ax * by) - (ay * bx);
+}
+
+[[nodiscard]] exact_answer exact_weights(const std::array<std::array<std::int64_t, 2>, 4> &c) {
+    const std::int64_t d1x = c[2][0] - c[0][0];
+    const std::int64_t d1y = c[2][1] - c[0][1];
+    const std::int64_t d2x = c[3][0] - c[1][0];
+    const std::int64_t d2y = c[3][1] - c[1][1];
+    std::int64_t den = cross_int(d1x, d1y, d2x, d2y);
+    std::int64_t ns = cross_int(c[1][0] - c[0][0], c[1][1] - c[0][1], d2x, d2y);
+    std::int64_t nt = cross_int(c[1][0] - c[0][0], c[1][1] - c[0][1], d1x, d1y);
+    if (den < 0) {
+        den = -den;
+        ns = -ns;
+        nt = -nt;
+    }
+    if (!(den > 0 && ns > 0 && ns < den && nt > 0 && nt < den)) {
+        return exact_answer{};
+    }
+    const double s = static_cast<double>(ns) / static_cast<double>(den);
+    const double t = static_cast<double>(nt) / static_cast<double>(den);
+    return exact_answer{true, {0.5 / (1.0 - s), 0.5 / (1.0 - t), 0.5 / s, 0.5 / t}};
+}
+
 // Both have weights, and they agree to twelve digits.
 [[nodiscard]] bool same_weights(const std::optional<std::array<double, 4>> &got,
                                 const std::optional<std::array<double, 4>> &want) {
@@ -289,4 +324,36 @@ GLINTFX_TEST(projective_quad_any_size_gets_the_same_weights) {
         {-1.5e308, -1.5e308}, {1.5e308, -1.5e308}, {1.5e308, 1.5e308}, {-1.5e308, 1.5e308}};
     const std::optional<std::array<double, 4>> ones{{1.0, 1.0, 1.0, 1.0}};
     GLINTFX_CHECK(same_weights(projective_weights(widest), ones));
+}
+
+// T4b-A-fix2 (D-W8-515): 20000 quadrilaterals whose corners are whole multiples, 0 to 64, of the
+// smallest double (4.9e-324, subnormal) get the EXACT answer of exact_weights(): accepted or
+// refused as the integers say, and the weights to twelve digits. Halving a subnormal coordinate
+// rounded its last bit and changed the shape (T4b-A-fix1: 1696 of 200000 accepted wrongly, 2759
+// refused wrongly, measured by the CTO).
+GLINTFX_TEST(projective_quad_subnormal_corners_keep_their_shape) {
+    constexpr double k_unit = std::numeric_limits<double>::denorm_min();
+    quad_draw draw;
+    std::size_t counted = 0;
+    std::size_t wrong = 0;
+    for (std::size_t i = 0; i < 20000U; ++i) {
+        std::array<std::array<std::int64_t, 2>, 4> c{};
+        for (auto &corner : c) {
+            corner = {static_cast<std::int64_t>(65.0 * draw.next_unit()),
+                      static_cast<std::int64_t>(65.0 * draw.next_unit())};
+        }
+        const gltfx_quad_world quad{
+            {static_cast<double>(c[0][0]) * k_unit, static_cast<double>(c[0][1]) * k_unit},
+            {static_cast<double>(c[1][0]) * k_unit, static_cast<double>(c[1][1]) * k_unit},
+            {static_cast<double>(c[2][0]) * k_unit, static_cast<double>(c[2][1]) * k_unit},
+            {static_cast<double>(c[3][0]) * k_unit, static_cast<double>(c[3][1]) * k_unit}};
+        const exact_answer want = exact_weights(c);
+        const std::optional<std::array<double, 4>> got = projective_weights(quad);
+        ++counted;
+        const bool right = want.accepted ? same_weights(got, want.weights) : !got.has_value();
+        wrong += right ? 0U : 1U;
+    }
+    std::println("projective_quad_test: subnormais quadrilateros={} errados={}", counted, wrong);
+    GLINTFX_CHECK_EQ(counted, std::size_t{20000});
+    GLINTFX_CHECK_EQ(wrong, std::size_t{0});
 }

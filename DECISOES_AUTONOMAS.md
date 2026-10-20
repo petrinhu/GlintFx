@@ -10114,3 +10114,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **L-42:** a busca na web confirma a técnica e não muda o desenho.
   - **A errata D-W8-626 da S5-C1** está pronta no Anexo E (D-W8-697). O main aplica depois da revisão LIMPA.
   - **Implementador haiku novo despachado.**
+- **20/10 14:5x, revisão N1 da T4b-A-PHRASE (2e23d00c): NÃO LIMPA** (revisor a8e5c8df, /var/tmp/cto-w8/rev-t4baphrase.txt).
+  - **CRÍTICO-1, defeito que já existia desde a T4b-B1-fix1:** o desenho converte o peso projetivo para float (textured_quad_corners.cpp:21-23). Medido com oráculo exato sobre 18601 quadriláteros: a decisão de mapeamento está certa em todos, mas 3563 dos 5623 aceitos têm peso acima de FLT_MAX. Esse peso vira inf no vértice sem recusa e conta como desenhado.
+  - IMPORTANTE-1: nenhum teste cobre peso na faixa de float.
+  - **OK no blob:** cerca igual ao cabeçalho, citações existentes, mutantes que mordem, zero travessão, CI com 25 jobs verdes.
+  - **Pedido ao CTO: decidir e escrever a T4b-A-FLOAT** (faixa D-W8-716 a 735). Opções a comparar:
+    - (a) recusar acima de FLT_MAX, como sugere o revisor;
+    - (b) normalizar os quatro pesos pela escala comum antes do float, sem recusa nova, porque os pesos são homogêneos;
+    - (c) a (b) mais recusa só onde a normalização ainda falhar.
+  - **A frase pública muda, então vai à ratificação do líder.**
+  - R2D-TEXTURE agora fecha com a última entre a FILTER e a FLOAT.

@@ -9995,3 +9995,11 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Sequência: a revisão N1 da B2-fix2; os implementadores da T4b-A-fix5 e da S5-B-fix4; e um CTO para as ordens da T4b-A-FILTER e da T4b-A-PHRASE (faixa D-W8-637 em diante).
   - Depois: a S5-C1, assim que a S5-B-fix4 for revisada e a errata D-W8-626 for feita.
   - Nenhuma decisão de produto nova sem o líder.
+- **20/10 11:4x, ORDEM DO LÍDER, verbatim: "pause hoje 17:00h. Antes da pausa, commit".**
+  - Plano, igual ao da pausa das 07:15:
+    1. a partir de 16:30, nenhum despacho novo;
+    2. às 17:00, TaskStop nos agentes em voo, sem commitar fatia pela metade;
+    3. commitar e empurrar o registro e o retrato da memória;
+    4. gravar parada_do_lider.
+  - A pausa está agendada em ~/.config/olhe_agentes/GlintFx/pausa_agendada.
+  - O modo autônomo vale até 22:13.

@@ -10086,3 +10086,11 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - I-3: projective_quad_test.cpp foi tocado em 6 das 6 fatias, um sinal de monolito.
   - **Pedido ao CTO: a T4b-A-fix6** (faixa D-W8-701 a 715), que também regera os blocos da FILTER que ela quebrar.
   - **A FILTER fica para depois da fix6.**
+- **20/10 13:1x, DECISÃO DO LÍDER por AskUserQuestion, disco: "Limpar só compilação (Recomendado)".**
+  - Às 14:14 o main apagou 63 pastas `build*` do usuário, com caminhos literais conferidos e nenhum arquivo de outro dono dentro. Contagem: encontrados=63, apagados=63, falharam=0.
+  - As pastas vieram de 14 fatias já commitadas e revisadas: t4ba, t4bafix1 a fix3, t4bb1, t4bb1fix1, t4bb2, s5afix4 a fix6, s5bfix1 a fix3 e embedwintimeout.
+  - Relatórios, logs e cópias de prova ficaram. As 69 pastas build de root ficam para o fechamento.
+  - Disco: o mínimo subiu de 28,5 para 32,1 GiB.
+- **20/10 14:1x, T4b-A-PHRASE commitada: 2e23d00c** (implementador aae12def; etapa P; 6 arquivos, +38 −9).
+  - O confere_texto pega as duas sabotagens, M1 e M2. Verde 6/6, preci 381/381.
+  - Push feito (ls-remote 2e23d00c) e CI 39464351012 disparado. **Revisão N1 com um haiku novo.**

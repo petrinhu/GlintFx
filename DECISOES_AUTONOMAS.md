@@ -9776,3 +9776,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **20/10 01:09, CI 39365077605 (sobre b626c6bc, com a EMBED-WIN-TIMEOUT) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado. CI novo disparado com a fix6.
 - **20/10 01:43, CI 39368033791 (sobre 125201db, com a S5-A-fix6) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
 - **20/10 02:00, TODO.md: o Status de R2D-TEXTURE, R2D-SHAPES e CI-VERDE-W8 passa de ⏳ para 🔄 Em andamento** (higiene da tabela; os três têm fatias commitadas e em revisão nesta onda).
+- **20/10 02:34, T4b-B2 commitada: ee160e76** (implementador a6604eb1; 10 arquivos; +879 −24).
+  - Refeita sobre um snapshot novo depois da EMBED e da fix6.
+  - Fixture: 52 de 52 células, irmãs 106 e 31, 0 reprovadas. K1 com 0 erradas; K2 com programas=1, da_biblioteca=1 e a_texcoord_q=3 nos dois modos. Halo 188.
+  - ASan: 52/0. Mutantes S3, S4 e BQ mortos: os S3 e S4 da T4a morrem aqui (D-W8-463). preci 380.
+  - Revisão N1 despachada a um revisor haiku novo, com a condição do advisor (registrar o nome do programa) e a conferência das cercas por diff.
+- **20/10 02:34, push de onda-w8 e CI disparado**, com a B2.

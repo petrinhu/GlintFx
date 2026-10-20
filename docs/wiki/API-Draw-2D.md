@@ -117,7 +117,7 @@ The four counters add up to the pieces submitted.
 | `pieces_dropped_outside_frame` | Pieces submitted with no frame open, since the previous report. |
 | `frames_abandoned` | Frames begun and never finished, since the previous report. |
 | `batches`, `flushes` | How many times the transform changed, and how many barriers the frame had. |
-| `draw_calls` | How many draw calls reached the card. Printed for you to measure, never promised as a number. |
+| `draw_calls` | How many draw calls reached the graphics card. A flush whose data or drawing the card refuses counts none of its draw calls: its pieces count in `pieces_dropped_graphics_failure`, and the frame then ends with an error. Printed for you to measure, never promised as a number. |
 
 ## Errors
 

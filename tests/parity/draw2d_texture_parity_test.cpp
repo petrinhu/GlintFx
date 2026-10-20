@@ -62,7 +62,6 @@
 //     its attribute a_texcoord_q has location 3. A driver may drop an attribute that never reaches
 //     the output (location -1), so this is an AUXILIARY lock where the driver does that (llvmpipe
 //     does); the trapezoid is the proof on every driver.
-//     does); the trapezoid is the proof on every driver.
 //   - THE ORDER (D-W8-13): textures A, B, A on the same layer, overlapping, are painted in that
 //     order (the overlap of A and B is B, the overlap of B and the second A is A), and the report
 //     says texture_switches 3; a solid piece, a textured one and a solid one say texture_switches 2

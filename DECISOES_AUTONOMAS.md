@@ -10138,3 +10138,20 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - D-W8-705: o revisor concorda. D-W8-706 se sustenta, com uma ressalva: a L-17 pede que separação com custo real vá ao líder, e isso entra na próxima ratificação.
   - Achado anterior à fix6: PQ-POSE-DISTINCT vai para a INBOX. O teste não prende uma pose ignorada.
   - **A FILTER fica para depois da pausa das 17:00:** com a fila atual, não chegaria ao commit antes dela.
+- **20/10 16:3x: o CTO entregou a T5 (aa735dd1, D-W8-671 a 682; as decisões 683 a 690 não foram usadas).** Relato completo em /var/tmp/cto-w8/relato-cto-t5.txt.
+  - A T5 virou duas ordens (D-W8-677):
+    - **T5-A**: /var/tmp/cto-w8/ordem-t5.md (md5 0bc50387). São 15 arquivos de átomos puros. Pode rodar em paralelo com a S5-C1 e a FILTER.
+    - **T5-B**: /var/tmp/cto-w8/ordem-t5b.md (md5 11c3b0fc). São 10 arquivos: métodos públicos, desenhador e células. Só depois da S5-C1 e da T5-A commitadas e LIMPAS.
+    - Anexos em /var/tmp/cto-w8/ordens-anexos/t5/ (anexos.md5 c35e1eaa).
+  - Pré-execução sem "NÃO MEDIDO":
+    - T5-A sobre 691fc96a: 7/7 mutantes mortos, MSVC 10/10, preci --fast 381/381, sanitizer 191/191.
+    - T5-B sobre a composição com FILTER, S5-C1 e T5-A: preci --fast 383/383, sanitizer 193/193.
+  - **Errata de STATUS vinda da T5, ACEITA pelo main** (L-63: nunca 🔍 antes de a implementação acabar):
+    - As etapas FT da FILTER (D-W8-649) e LT da FLOAT levavam R2D-TEXTURE a 🔍 como "a última fatia". Errado: o item ainda tem T5-A, T5-B, T6 e T7 (plano-w8-v3.md:225), e o aceite de 13/10 em TODO.md:559 exige o exemplo `textures` na imagem.
+    - **A FILTER vai rodar só na etapa F; a FLOAT só na etapa L. Nenhuma das duas toca o TODO.md.** O CTO da FLOAT recebeu a errata às 16:3x. A FILTER recebe a mesma nota quando for despachada, depois da pausa.
+  - **Vão ao advisor, e depois ao líder o que for porta de mão única:**
+    - D-W8-672: texel fora da textura é recusado com `region_out_of_range`; 7 queixas, abaixo do piso de 10.
+    - D-W8-677: a divisão da T5 em duas ordens.
+    - D-W8-671 e D-W8-681: o par público e a frase pública. Porta de mão única: precisa de ratificação do líder.
+    - D-W8-679: a textura entra na chave do lote; 5 queixas.
+  - Nada é despachado depois das 16:30 (pausa do líder às 17:00). A T5-A fica para a volta.

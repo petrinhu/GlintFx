@@ -9790,3 +9790,18 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Pré-execução: preci 377/0, sanitizer 187/0, MSVC 2/0. A fatia não toca tests/CMakeLists.txt. Conserto mecânico, fora do piso de 10 queixas da L-34.
   - O main conferiu a base: o último commit nos 3 arquivos é 6266dc97. **Implementador haiku novo despachado.**
   - Mandados para a INBOX, sem conserto nesta fatia (L-32): I-3, ellipse_pixels.cpp com 196 linhas e 12 funções (D-W8-563); e duas funções intocadas do mesmo teste que passam da régua (D-W8-561).
+- **20/10 03:5x, a ordem da T4b-A-fix4 chegou** do CTO a023304b, com as decisões D-W8-551 a 558. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-a-fix4.md (md5 b65bb46b), anexos (anexos.md5 e9f60322, as 48 linhas conferidas: ok) e relatório /var/tmp/cto-w8/relatorio-cto-t4bafix4.txt (md5 9c0fbd82).
+  - Proposta: decisão exata do mapeamento, com produtos vetoriais em inteiros largos (átomo `exact_cross`). Nas 1.025.922 entradas das revisões, 0 aceites errados, 0 recusas erradas e pior peso a 3,2e-16.
+  - **L-34: 3 queixas, abaixo de 10, então o advisor desempatou.**
+  - **Desenho (b), exato: aceito.** A alternativa (a) estreitaria a promessa para caber na implementação, a frase-guarda proíbe isso, e ela ainda deixaria passar 7,9% de erro de peso. O cabeçalho já promete "any finite size", e só inteiros dão os mesmos bits em todo sistema (L-04).
+  - **D-W8-555, a frase pública: cortada; roda a etapa G (8 arquivos).** "Decided exactly, no rounding" ficaria ao lado de uma recusa que depende de arredondamento: o peso que passa do maior double (D-W8-553). Seria uma segunda contradição entre o texto público e o comportamento, da mesma forma que a D-W8-548. Promessa pública é decisão de produto.
+  - Conferências do main antes de despachar:
+    - as 9 âncoras aparecem uma vez cada no HEAD 9e1e7832;
+    - desde a base da pré-execução (1bc6f4a0), só ee160e76 tocou os arquivos da fatia, e só os compartilhados;
+    - os laços de multiplicação do átomo percorrem só os limbs usados (`a.size`, `b.size`), não os 140, então o custo de um quad comum é pequeno.
+  - **Implementador haiku novo despachado, com a etapa G.**
+  - Para o revisor N1: a seção 9 item 2 já roda o binário C++ (`sonda_cpp.sh`). Acrescentar um número de tempo, HEAD contra fix4, por `draw_texture_quad`, em quads comuns e nos kites; serve para a ratificação, não é portão.
+  - **Para a lista de ratificação do líder:**
+    - D-W8-551 a 558;
+    - o corte da frase D-W8-555;
+    - a recusa por peso acima do maior double, que o texto público não menciona. É lacuna anterior, e vai junto com a D-W8-548.

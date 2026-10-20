@@ -9991,3 +9991,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **/etc/cdi/nvidia.yaml:** "atualize com sudo -A se precisar". Atualizar só se alguma prova precisar; hoje a G4 usa o /run/cdi gerado no boot. Se precisar, o comando é com `sudo -A` (SUDO_ASKPASS=/usr/bin/ksshaskpass), mostrado antes.
   - **Limpeza das pastas de root (cerca de 5 GB em /var/tmp/cto-w8):** "No fechamento da W8 (Recomendado)".
   - **Pausa:** "retome agora apenas com as decisoes tomadas agora". O main pediu esclarecimento antes de retomar.
+- **20/10 11:2x, o líder retoma a W8 inteira (AskUserQuestion: "Retomar a W8 inteira").** O main apagou parada_do_lider.
+  - Sequência: a revisão N1 da B2-fix2; os implementadores da T4b-A-fix5 e da S5-B-fix4; e um CTO para as ordens da T4b-A-FILTER e da T4b-A-PHRASE (faixa D-W8-637 em diante).
+  - Depois: a S5-C1, assim que a S5-B-fix4 for revisada e a errata D-W8-626 for feita.
+  - Nenhuma decisão de produto nova sem o líder.

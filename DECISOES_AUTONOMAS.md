@@ -10047,3 +10047,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Push feito (ls-remote 8ed72a93). O CI sai depois que o 39442828644 terminar.
   - **Revisão N1 com um revisor haiku novo.** Se sair LIMPA, o main faz a errata D-W8-626 na ordem da S5-C1 e despacha o implementador dela.
 - **20/10 12:2x, CI 39442828644 (sobre 3a4cf511, com a T4b-A-fix5) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. Disparado um CI novo sobre o HEAD, com a S5-B-fix4.
+- **20/10 12:5x, revisão N1 da S5-B-fix4 (8ed72a93): NÃO LIMPA, 0 CRÍTICO, 2 IMPORTANTE, 1 COSMÉTICO** (revisor a61820a4, /var/tmp/cto-w8/rev-s5bfix4.txt).
+  - O que passou: régua 2/2, equivalência no verde e sob MK, MKR e MKW, os 5 mutantes do snapshot mortos e MSVC 1/0.
+  - **I-1, fiação sem teste:** os mutantes RINGW e IDXW sobrevivem. O caso do RING chama a função direto e não prova que band_holds a usa. O revisor validou um conserto em cópia: um caso via band_holds mata os dois.
+  - **I-2 (L-17):** o laço dos pontos do anel ficou dentro de write_band_triangles e tem nome próprio. A sugestão é extrair ring_points_of.
+  - **Pedido ao CTO: a S5-B-fix5** (faixa D-W8-691 a 700), com o texto exato da errata D-W8-626 para a S5-C1.

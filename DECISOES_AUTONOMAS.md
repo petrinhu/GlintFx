@@ -10161,3 +10161,50 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Desvios: a linha `Claude-Session` na mensagem de commit, por atribuição do harness, e o corte `head -8` do varre_ct.sh, que foi para a INBOX como VARRE-CT-HEAD-CUT.
   - O TODO.md e a errata D-W8-626 da S5-C1 não foram tocados.
   - **Falta a revisão N1 com um haiku novo. Fica para a volta da pausa**, porque nada é despachado depois das 16:30. A errata D-W8-626 é aplicada depois da revisão LIMPA.
+- **20/10 16:3x: desempates do advisor (Fable 5.1) para a T5**:
+  - **D-W8-672: texel fora da textura é RECUSADO** com `region_out_of_range`.
+    - É paridade com os quads: o código já existe (`frame_2d_report.hpp:75`, `renderer_2d.hpp:490`).
+    - Repetir a textura exigiria mexer no sampler `GL_CLAMP_TO_EDGE` (`texture_sampling.cpp:31-32`), fora do escopo da T5.
+    - Grampear em silêncio entrega imagem errada sem erro nenhum.
+    - Conferir na ordem antes de despachar:
+      - (1) o intervalo é fechado em cima, `[0, largura]`. A ordem tem de ter um caso exatamente em `largura` (aceito) e um em `largura+ε` (recusado), o passo além da fronteira pedido pela L-43;
+      - (2) a recusa vale para a chamada inteira, sem enfileirar nada pela metade (L-35).
+  - **D-W8-679: a textura entra na chave do lote.** É correção, não preferência: antes do atlas (T6), duas texturas diferentes não cabem na mesma chamada de desenho. Conferir que, sem textura (textura 0), os triângulos continuam se agrupando como hoje.
+  - **D-W8-677: aceita.** É execução.
+  - **D-W8-671 e D-W8-681: decisão autônoma, a confirmar depois** na ratificação, junto com a D-W8-706. Elas travam só a T5-B, porque a T5-A cita os arquivos dela só em src/ e tests/; o único header citado é texture_region.hpp:90, que é referência e não edição. Conferir isso no despacho.
+  - **Números trocados no relato da T5:** a seção 0 diz que a D-W8-679 é "não toca o TODO.md". A tabela, nas linhas 52 e 191, diz que é "textura na chave do lote". **Vale a tabela.** A frase da seção 0 é engano de número.
+- **20/10 16:33: o CTO entregou a T4b-A-FLOAT** (aa46e4de, D-W8-716 a 735).
+  - Ordem em /var/tmp/cto-w8/ordem-t4b-a-float.md (md5 4d031ca0), anexos em /var/tmp/cto-w8/ordens-anexos/t4bafloat/ (anexos.md5 882df70f), relato em /var/tmp/cto-w8/relato-cto-t4bafloat.txt.
+  - **Recomendação, a opção (c):** multiplicar os quatro pesos por uma potência de dois comum, o que não muda o mapeamento.
+    - Com `top = ilogb(maior)`: se `top >= 63`, o quad é recusado como `degenerate_quad`; senão, `shift = min(0, 31 - top)`.
+    - Assim, no vértice, todo peso fica em [2^-32, 2^32], a faixa que a GL 3.3 garante (§2.1.1). Abaixo de 2^32, os pesos ficam bit a bit iguais aos de hoje.
+  - Na amostra do revisor:
+
+    | Opção | Aceita | Recusa | Observação |
+    |---|---|---|---|
+    | (c) | 1855 | 3768 | erro máximo de 2^-24 |
+    | (a) | 2060 | — | manda até cerca de 2^128 ao vértice |
+    | (b) sozinha | — | — | deixa 0 ou inf no vértice em mais de 3000 quads |
+    | c-IEEE | 2391 | — | fora da garantia da GL |
+
+    **(c) aceita menos que (a).** Isso vai ao líder com honestidade.
+  - Pré-execução verde:
+    - TDD: vermelho com o código de hoje, verde com o novo;
+    - 6 mutantes de código e 2 de texto, todos mortos;
+    - régua da L-17 zerada, MSVC sem falha;
+    - preci --fast 382/382 e sanitizer 192/192;
+    - commit de prova com 8 arquivos.
+  - A errata do main foi aplicada: só existe a etapa L, e o TODO.md não é tocado.
+  - Queixas da comunidade: 12 atendidas pela (c), mas só 4 a separam da (a). Fica abaixo de 10, então vai ao advisor e ao líder.
+  - **A frase pública muda, por isso a ordem só sai com a ratificação do líder** entre (c), recomendada, (a) e c-IEEE, que é a D-W8-735. Depende também da FILTER já no HEAD.
+  - **Conflito de arquivo:** a FLOAT troca o trecho `U-renderer` de `renderer_2d.hpp` por uma âncora, e a T5-B mexe no mesmo header. **Quem despachar depois confere as âncoras contra o HEAD.**
+  - Vão para a INBOX: T4b-A-FLOAT-GPU e TEX-WEIGHT-RANGE-IEEE.
+- **20/10 16:3x: os três agentes entregaram e não sobrou nenhum em voo.** Nada é despachado depois das 16:30. A pausa ordenada pelo líder começa às 17:00.
+  - **Prontos para a volta:**
+    - (1) revisão N1 da S5-B-fix5 (7694a682), com um haiku novo;
+    - (2) FILTER, só a etapa F e com a nota de errata;
+    - (3) T5-A, conferindo as âncoras: o HEAD ganhou o ellipse_outline_test.cpp depois da pré-execução;
+    - (4) S5-C1, depois da N1 LIMPA da fix5 e da errata D-W8-626;
+    - (5) FLOAT, depois da FILTER e da escolha do líder;
+    - (6) T5-B, depois da S5-C1, da T5-A e da ratificação de 671 e 681.
+  - Faixa livre a partir de D-W8-736.

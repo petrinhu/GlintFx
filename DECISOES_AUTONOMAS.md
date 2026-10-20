@@ -9901,3 +9901,27 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - D-W8-618: a errata desta fatia fica no registro e na mensagem de commit, não na auditoria de textura.
   - D-W8-620: a cópia de docs/wiki para a wiki do GitHub é ação no remoto e fica para o fechamento da onda.
   - **Implementador haiku novo despachado às 06:2x**, avisado de que para às 07:15 se não chegar ao commit.
+
+### LISTA CONSOLIDADA DE RATIFICAÇÃO DO LÍDER (20/10/2026, 06:3x, antes da pausa das 07:15)
+
+O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e espera confirmação ou troca. **A marca v0.7.0.0 não sai antes da ratificação dos itens marcados com (MARCA).**
+
+**Promessas públicas e nomes, que são porta de mão única:**
+1. **D-W8-501:** a frase pública de `texture_switches` conta a primeira ligação de textura de cada flush.
+2. **D-W8-548/581 (MARCA):** um flush que a placa recusa não soma chamadas de desenho nem trocas de textura. O código já fazia isso; as três frases públicas e a wiki passam a dizer.
+   - Alternativa B, não adotada: contar no erro, como sokol, bgfx e three.js.
+   - Alternativa C, não adotada: um contador próprio de recusas, como o do Skia. Acrescentar campo ao struct é mudança de ABI, e só é barato antes da 1.0.
+   - Contagem de queixas: 0. Desempate do advisor.
+3. **D-W8-555 (MARCA):** a frase pública "decidido de forma exata" do draw_texture_quad foi cortada. Fica uma lacuna: o texto público não menciona a recusa por peso acima do maior double.
+4. **D-W8-568 (MARCA):** o campo de tolerância se chama `curve_max_error_pixels`, e não `ellipse_max_error_pixels`, como a cerca da S0 dizia. O motivo é que a ponta redonda também vai lê-lo.
+5. **D-W8-569:** as frases públicas de fill_ellipse e stroke_ellipse (Anexo T da S5-C1) corrigem três contradições da cerca da S0.
+
+**Desenho:**
+6. **D-W8-551 a 558:** a decisão do mapeamento projetivo passa a ser exata, com inteiros largos, para quaisquer cantos finitos. São 3 queixas; desempate do advisor; a opção (a), que estreitaria a promessa, foi recusada.
+7. **Custo medido da D-W8-551:** projective_weights subiu de 80-85 ns para 1415-1511 ns por quad comum, cerca de 17 vezes. A T4b-A-fix5 estuda um predicado filtrado: conta rápida com cota certificada, e o caminho exato só quando o sinal fica ambíguo.
+8. **D-W8-565:** a S5-C sai em duas ordens, C1 e C2. R2D-SHAPES só fecha com C1, C2 e S6.
+9. **D-W8-572 (Q4):** a ponta redonda lê o campo de tolerância. São 10 queixas, no piso, das quais 8 reais: 2 já contavam na D-W8-416 e nenhuma trata da ponta diretamente.
+
+**Já estavam na lista antes desta noite:** D-W8-380, 383, 397, 414, 441 a 444, 471, 473 e 513 a 516.
+
+**Processo:** a L-63 foi violada duas vezes (fix6 e EMBED). Os commits citaram o item sem tocar o Status no mesmo commit. Foi corrigido às 02:00 e as ordens passaram a exigir a troca.

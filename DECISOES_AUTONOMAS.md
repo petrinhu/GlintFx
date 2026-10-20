@@ -9966,3 +9966,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - O domínio glintfx-win11-lab segue definido em qemu:///session, desligado e apontando para os quatro arquivos que sumiram.
   - Nenhum qcow2 da VM foi achado em /, /home nem /var; só sobrou o NVRAM.
   - Recriar exige baixar a ISO de novo, o que precisa de autorização do líder (L-14 do projeto e L-51 global).
+- **20/10 07:16, PAUSA ORDENADA PELO LÍDER** (19/10, verbatim: "pause 20/10/2026 07:15h. Antes da pausa, commit.").
+  - Na hora não havia nenhum agente em voo nem trabalho pesado, então não foi preciso TaskStop.
+  - Nada ficou commitado pela metade.
+  - O CI 39404324377, da B2-fix2, ainda roda no servidor.
+  - Registro e memória foram commitados e empurrados; `~/.config/olhe_agentes/GlintFx/parada_do_lider` foi gravado.
+  - **Ao voltar, o próximo passo é:**
+    1. revisão N1 da B2-fix2;
+    2. implementadores da T4b-A-fix5 e da S5-B-fix4;
+    3. ordem da T4b-A-FILTER (opção A do líder);
+    4. a S5-C1, depois da revisão da S5-B-fix4 e da errata D-W8-626.

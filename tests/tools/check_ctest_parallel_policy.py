@@ -253,6 +253,11 @@ MEASURED_HEAVY = {
     "layers_selftest": "45,1 s Windows estatico, 37515318202",
     "install_includedir_win_test": "44,6 s Windows compartilhado, 37438340098",
     "dep_zero_selftest": "41,0 s Windows estatico, 37515318202",
+    # EMBED-WIN-TIMEOUT (D-W8-529): os tres que a varredura de 13 runs (38177249612 a 38672501272) achou acima
+    # de 40 s sem trinco; o primeiro reprovou o agregado do run 38672501272.
+    "examples_pass_test": "40,9 s Windows estatico, 38672501272",
+    "claim_citations_test": "57,1 s Arch estatico, 38247951304",
+    "claim_citations_selftest": "52,1 s Arch estatico, 38247951304",
 }
 
 
@@ -271,7 +276,7 @@ def measured_heavy_errors(cmake_text, known):
     return errors, travados
 
 
-MEASURED_HEAVY_MIN = 14  # piso LITERAL: a lista so' cresce; encolher exige editar ESTA linha, visivel no diff
+MEASURED_HEAVY_MIN = 17  # piso LITERAL: a lista so' cresce; encolher exige editar ESTA linha, visivel no diff
 
 
 def measured_heavy_floor_errors(cmake_text, known, minimo):

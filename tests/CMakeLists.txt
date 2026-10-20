@@ -3635,7 +3635,7 @@ set_tests_properties(vendor_purity_selftest PROPERTIES LABELS selftest)
 # resolved earlier in this file (hygiene_coverage_test's own
 # registration above) - find_program() is idempotent across repeated
 # calls with the same cache variable, so it is not re-called here.
-# glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (310,66 s serial no Windows compartilhado (TIMEOUT 900), run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
+# glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (310,66 s serial no Windows compartilhado, run 36202987723, medido pelo CTO com o TIMEOUT de 900 s da epoca; TIMEOUT 1230 desde EMBED-WIN-TIMEOUT); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 add_test(
     NAME public_name_collision_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3711,7 +3711,14 @@ set_tests_properties(public_name_collision_test PROPERTIES LABELS consume RESOUR
 # 300s is ~2.98x); it is not sized against the 300.06s timeout itself,
 # since that number is censored (the process was killed mid-run, not
 # measured to completion).
-set_tests_properties(public_name_collision_test PROPERTIES TIMEOUT 900)
+#
+# THIRD TIMEOUT override, 900s -> 1230s (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): rule 4 of docs/plano-ci-split-per-os.md 4.8 over the worst
+# completed time. That is 400.79 s ("Windows - estatico", run 37515318202, the value
+# check_ctest_parallel_policy.py's MEASURED_HEAVY already recorded, re-read from that run's log);
+# the thirteen runs 38177249612 to 38672501272 went up to 351.15 s ("Windows - Debug", run
+# 38672501272). 400.79 s is above a third of 900 s; 3 x 400.79 = 1202.37 -> 1230 s.
+set_tests_properties(public_name_collision_test PROPERTIES TIMEOUT 1230)
 
 add_test(
     NAME public_name_collision_selftest
@@ -4245,6 +4252,11 @@ set_tests_properties(dep_zero_selftest PROPERTIES
     LABELS selftest
     RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FAILED")
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 60.66 s ("Windows - compartilhado", CI
+# 36535342498, the run the comment above already cites, re-read from its log; the thirteen runs
+# 38177249612 to 38672501272 went up to 55.11 s); rule 4: 3 x 60.66 = 181.98 -> 210 s.
+set_tests_properties(dep_zero_selftest PROPERTIES TIMEOUT 210)
 
 # PARITY-GATE: sub-check (c) given a NAME OF ITS OWN, unconditional
 # (reuses GLINTFX_DEP_ZERO_LIB_ARG computed above, so it sees the same
@@ -4679,6 +4691,11 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(embed_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): ***Timeout 120.90 sec on "Arch - estatico" (run 38247951304,
+    # a killed process, not used as a time); worst completed time 93.84 s ("Arch - compartilhado",
+    # run 38665857294); rule 4: 3 x 93.84 = 281.52 -> 300 s.
+    set_tests_properties(embed_test PROPERTIES TIMEOUT 300)
 endif()
 
 # EMBED-DLL decision-logic gate: proves glintfx_colocate_embedded_
@@ -4808,6 +4825,7 @@ set_tests_properties(examples_option_default_test PROPERTIES LABELS consume)
 # expectation of each planta). The rc of each configure is the signal, read
 # by the driver; no PASS_REGULAR_EXPRESSION here, on purpose.
 # glintfx-build-dir: private-subdir - tests/examples_pass_check/ (um configure aninhado por planta, LANGUAGES CXX, sem construir nada)
+# glintfx-nested-build: heavy - um configure aninhado por planta, dezesseis plantas, e mediu 40,90 s no Windows estatico (mediana 5,11 s em 179 amostras de 13 runs); trinco por MEDICAO (run 38672501272, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py, EMBED-WIN-TIMEOUT D-W8-529), vira `PROCESSORS n` medido
 add_test(
     NAME examples_pass_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4817,7 +4835,10 @@ add_test(
         --source "${PROJECT_SOURCE_DIR}"
         --work "${CMAKE_CURRENT_BINARY_DIR}/examples_pass_check"
 )
-set_tests_properties(examples_pass_test PROPERTIES LABELS consume)
+set_tests_properties(examples_pass_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 40.90 s (above); rule 4: 3 x 40.90 = 122.70 -> 150 s.
+set_tests_properties(examples_pass_test PROPERTIES TIMEOUT 150)
 
 # DEMO-1 D7 (D-W8-76, D-W8-194): every example builds as a CONSUMER of the INSTALLED glintfx. Installs this build
 # into a private prefix, configures examples/ on its own (the find_package branch of examples/CMakeLists.txt) with
@@ -4908,6 +4929,11 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): ***Timeout 120.68 sec on "Arch - estatico" (run 38247951304,
+    # a killed process, not used as a time); worst completed time 67.19 s ("Clang (Fedora -
+    # segundo compilador, compartilhado)", run 38659724788); rule 4: 3 x 67.19 = 201.57 -> 210 s.
+    set_tests_properties(install_packager_layout_test PROPERTIES TIMEOUT 210)
 endif()
 
 # GL-CODEGEN-HOST-TOOL H-5 (D-11 of docs/plano-fecho-w7b.md, the Qt 6
@@ -4928,6 +4954,11 @@ add_test(
         "${CMAKE_GENERATOR}"
 )
 set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): ***Timeout 120.90 sec on "Arch - estatico" (run 38247951304, a
+# killed process, not used as a time); worst completed time 72.61 s ("Windows - Debug", run
+# 38390738988); rule 4: 3 x 72.61 = 217.83 -> 240 s.
+set_tests_properties(gl_codegen_host_leak_test PROPERTIES TIMEOUT 240)
 
 # glintfx-blob: fora - monta CMake + Ninja de fixtura (pesado); coberto pelo ctest do preci
 
@@ -5055,7 +5086,10 @@ if(UNIX)
     # magnitude as that precedent's ~3x) - never widening the SUITE-WIDE
     # 120s default itself, only this one test's own budget, sized to its
     # own measured worst case.
-    set_tests_properties(pkgconfig_test PROPERTIES TIMEOUT 300)
+    # SECOND TIMEOUT override, 300s -> 360s (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): worst completed time 117.10 s ("Arch - compartilhado", run
+    # 38665857294), above a third of 300 s; rule 4: 3 x 117.10 = 351.30 -> 360 s.
+    set_tests_properties(pkgconfig_test PROPERTIES TIMEOUT 360)
 endif()
 
 # Post-install pkg-config VALIDATOR gate (PKG-VALIDATE): proves the
@@ -5115,6 +5149,10 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
 )
 set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 116.84 s ("Windows - estatico", run
+# 38672501272), 97% of the 120 s default; rule 4: 3 x 116.84 = 350.52 -> 360 s.
+set_tests_properties(pkgconfig_validate_test PROPERTIES TIMEOUT 360)
 
 # --selftest: pure logic controls (normalize_wrapped_message's own
 # wrap-immunity across a range of widths - the fix that also closes the
@@ -6571,7 +6609,7 @@ if(WIN32)
 
     # CI-CONSUME (Concluido): par de embed_test (if(UNIX) acima,
     # tools/check_embed.sh) - ver tests/parity_aliases.txt.
-    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (75,24 s serial no Windows, com o TIMEOUT padrao de 120 s, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (75,24 s serial no Windows no run 36202987723; ate 117,05 s no Windows Debug no run 38669031219, com TIMEOUT proprio de 360 s desde EMBED-WIN-TIMEOUT); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
     add_test(
         NAME embed_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -6580,6 +6618,29 @@ if(WIN32)
             -EmbedSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed"
     )
     set_tests_properties(embed_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-525; the same precedent as
+    # public_name_collision_test and pkgconfig_test above, GODS_LAWS.md L-44): this test inherited
+    # the SUITE-WIDE 120 s default until it timed out on "Windows - Debug" (run 38659724788,
+    # ***Timeout 120.06 sec: a killed process, not a completion time, so it is not used below).
+    # Completed times pulled from the server (gh run view --job <id> --log, never estimated):
+    # 75.24 s (run 36202987723); 102.27 s Debug (run 38575186902); 109.59 s Debug (run
+    # 38543250846); 111.12 s Debug (run 38556511988); 107.71 s Debug, 108.78 s static, 105.49 s
+    # shared (run 38665857294); 117.05 s Debug, 107.90 s static, 76.25 s shared (run 38669031219);
+    # 76.89 s Debug, 110.13 s static, 110.58 s shared (run 38672501272). Worst completed time:
+    # 117.05 s, 98% of the old ceiling. Rule 4 of docs/plano-ci-split-per-os.md 4.8 (the one
+    # tests/tools/ctest_p1_compare.py applies): 3 x the worst completed time, rounded UP to a
+    # multiple of 30 s, never below the current ceiling: 3 x 117.05 = 351.15 -> 360 s.
+    # GODS_LAWS.md L-17, not isolated: over the thirteen runs 38177249612 to 38672501272, every
+    # test whose worst completed time reached a third of its own ceiling (the trigger of rule 4
+    # itself, the "folga P2" line tests/tools/ctest_aggregate.py prints in every CI leg) got the
+    # same rule, each with its own numbers at its own registration: public_name_collision_test,
+    # pkgconfig_test, pkgconfig_validate_test, embed_test, gl_codegen_host_leak_test,
+    # install_packager_layout_test, no_target_collision_win_test, install_includedir_win_test,
+    # dep_zero_selftest, claim_citations_test, claim_citations_selftest and examples_pass_test.
+    # Where the file already recorded a worse completed time (re-read from that run's log), that
+    # one counts. install_includedir_test timed out once (run 38247951304, where four tests timed
+    # out), but its worst completed time, 36.08 s, is below 40 s: rule 4 does not move it.
+    set_tests_properties(embed_win_test PROPERTIES TIMEOUT 360)
 
     # PRECI-WIN (Concluido): par de preci_selftest (if(UNIX) acima) -
     # ver tests/parity_aliases.txt. Custo aceito e declarado: no job
@@ -6623,6 +6684,10 @@ if(WIN32)
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
     )
     set_tests_properties(install_includedir_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): worst completed time 60.11 s ("Windows - Debug", run
+    # 38556511988); rule 4: 3 x 60.11 = 180.33 -> 210 s.
+    set_tests_properties(install_includedir_win_test PROPERTIES TIMEOUT 210)
 
     # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (37,52 s serial no Windows, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 
@@ -6634,6 +6699,10 @@ if(WIN32)
             -FixtureSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
     )
     set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): worst completed time 61.04 s ("Windows - Debug", run
+    # 38533813188); rule 4: 3 x 61.04 = 183.12 -> 210 s.
+    set_tests_properties(no_target_collision_win_test PROPERTIES TIMEOUT 210)
 
     # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - INFERENCIA por leitura de check-output-name-win.ps1 (`cmake --install $buildDir`, gemeo do output_name_test); nao medido aqui
 
@@ -7438,14 +7507,19 @@ set_tests_properties(test_name_inventory_selftest PROPERTIES
 # GODS_LAWS.md L-40 (piso de varredura nao-vazia) aplicado tambem ao
 # proprio arquivo de excecoes (regra de morte identica a check_test_
 # parity.py's own alias hygiene, C3).
+# glintfx-nested-build: heavy - o --check varre include/**/*.hpp e mediu 57,13 s no Arch estatico (mediana 8,22 s em 179 amostras de 13 runs); trinco por MEDICAO (run 38247951304, Arch estatico, o run em que quatro testes deram Timeout, acima da regua de 40 s do ctest_aggregate.py; MEASURED_HEAVY em check_ctest_parallel_policy.py, EMBED-WIN-TIMEOUT D-W8-529), vira `PROCESSORS n` medido
 add_test(
     NAME claim_citations_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claim_citations.py"
         --check "${PROJECT_SOURCE_DIR}"
 )
-set_tests_properties(claim_citations_test PROPERTIES LABELS consume)
+set_tests_properties(claim_citations_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 57.13 s (above); rule 4: 3 x 57.13 = 171.39 -> 180 s.
+set_tests_properties(claim_citations_test PROPERTIES TIMEOUT 180)
 
+# glintfx-nested-build: heavy - o --selftest mediu 52,11 s no Arch estatico (mediana 7,58 s em 179 amostras de 13 runs); trinco por MEDICAO (run 38247951304, Arch estatico, o run em que quatro testes deram Timeout, acima da regua de 40 s do ctest_aggregate.py; MEASURED_HEAVY em check_ctest_parallel_policy.py, EMBED-WIN-TIMEOUT D-W8-529), vira `PROCESSORS n` medido
 add_test(
     NAME claim_citations_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -7453,7 +7527,11 @@ add_test(
 )
 set_tests_properties(claim_citations_selftest PROPERTIES
     LABELS selftest
+    RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FALHOU")
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 52.11 s (above); rule 4: 3 x 52.11 = 156.33 -> 180 s.
+set_tests_properties(claim_citations_selftest PROPERTIES TIMEOUT 180)
 
 # DOCS-COUNT-VOCAB sub-fatia D1b (achado do main, 24/09/2026,
 # check_selftest_orphan_test #223): citation_grammar.py declara

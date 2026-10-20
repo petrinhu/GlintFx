@@ -9986,3 +9986,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **20/10 09:0x, DECISÃO DO LÍDER por AskUserQuestion, item 2 (D-W8-581): "Não conta (Recomendado)". RATIFICADO.**
   - **A lista consolidada de ratificação está fechada.** Todos os itens foram ratificados ou decididos.
   - Ainda bloqueiam a 0.7.0.0 as fatias de trabalho, não mais decisões: a T4b-A-FILTER (opção A) e a T4b-A-PHRASE (frase completa).
+- **20/10 11:1x, DECISÕES DO LÍDER por AskUserQuestion (verbatim):**
+  - **VM Windows:** "recriar depois da w8 em subpasta da /home/petrus/opt/". A VM é recriada depois do fechamento da W8, numa subpasta de /home/petrus/opt/ (partição /home), e não mais em /var/tmp. O download da ISO está autorizado para essa hora.
+  - **/etc/cdi/nvidia.yaml:** "atualize com sudo -A se precisar". Atualizar só se alguma prova precisar; hoje a G4 usa o /run/cdi gerado no boot. Se precisar, o comando é com `sudo -A` (SUDO_ASKPASS=/usr/bin/ksshaskpass), mostrado antes.
+  - **Limpeza das pastas de root (cerca de 5 GB em /var/tmp/cto-w8):** "No fechamento da W8 (Recomendado)".
+  - **Pausa:** "retome agora apenas com as decisoes tomadas agora". O main pediu esclarecimento antes de retomar.

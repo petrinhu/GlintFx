@@ -9725,3 +9725,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - às 07:15 os agentes em voo param (TaskStop). Trabalho de fatia não terminada fica nas cópias em /var/tmp, nunca commitado pela metade, porque os portões da L-23 valem;
   - o main commita e empurra o registro e a memória da sessão; parada_do_lider é gravado e o monitor só vigia até o líder mandar seguir.
   - Agendamento em ~/.config/olhe_agentes/GlintFx/pausa_agendada (epoch 1792491300).
+- **19/10 22:35, CI 39351873581 (sobre 78e62ff5, com a T4b-A-fix2) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado. O portão de pesados não reprovou desta vez, mas pkgconfig_validate_test está em 113,2 s e embed_win_test em 107,8 s, contra o teto de 120, no compartilhado. A EMBED-WIN-TIMEOUT ampliada continua necessária (oscilação perto do teto).

@@ -9955,3 +9955,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Os 4 portões de documento passaram (4/4), assim como o preci, com 381/381.
   - Push feito (ls-remote 8583cff1) e CI 39404324377 disparado.
   - **A revisão N1 fica para depois da pausa**, porque já passou das 06:45.
+- **20/10 06:58, DECISÃO DO LÍDER sobre a versão rápida da T4b-A, verbatim: "opcao a".**
+  - Fica assim: a fatia própria **T4b-A-filtro** (predicado filtrado com double-double, protótipo medido de 84 a 94 ns por quad comum e 0 erros nas 1.025.922 entradas) **bloqueia o fechamento de R2D-TEXTURE e a marca v0.7.0.0.**
+  - A T4b-A-fix5 (só testes) entra antes dela, porque prende em teste a cota de 2^-50 que o filtro terá de manter.
+  - Depois da pausa, um CTO escreve a ordem da T4b-A-filtro, com a prova da cota de erro do double-double e mutantes próprios.
+  - A pergunta sai da lista de ratificação: o líder já decidiu.

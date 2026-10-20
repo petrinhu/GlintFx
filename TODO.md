@@ -173,6 +173,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage CTO-S5C 20/10] `CELL-REFUSALS-L17`: a função cell_refusals do teste de pixel passa da régua da L-17 (49 linhas). Origem: relato /var/tmp/cto-w8/relato-cto-s5c.txt.
 - [triage CTO-S5C 20/10] `FRAME-TEST-OLD-L17`: 33 funções antigas do teste da máquina de quadro (renderer_2d_impl_test.cpp) ficam fora da régua da L-17, e o arquivo passou de 2100 linhas. Origem: relato /var/tmp/cto-w8/relato-cto-s5c.txt e relatório da T4b-B2-fix1.
 - [triage CTO-S5C 20/10] `PER-CALL-TOLERANCE`: pedidos da comunidade por tolerância de tesselação por chamada, em vez de só por campo do renderizador. Anotado como achado da pesquisa da Q4, sem reabrir a decisão. Origem: relato /var/tmp/cto-w8/relato-cto-s5c.txt.
+- [triage LIDER 20/10] `T4b-A-FILTER`: predicado filtrado para projective_weights (conta em double-double com cota de erro certificada; o caminho exato de inteiros largos da T4b-A-fix4 só no sinal ambíguo). O protótipo do CTO ade52563 mediu 84 a 94 ns por quad comum (o pai faz 81 a 98 ns; a fix4, 1287 a 1549 ns), com 0 erros nas 1.025.922 entradas. Decisão do líder em 20/10/2026 às 06:58 (verbatim "opcao a"): BLOQUEIA o fechamento de R2D-TEXTURE e a marca v0.7.0.0. Vem depois da T4b-A-fix5. Origem: /var/tmp/cto-w8/relato-cto-t4bafix5.txt (D-W8-605).
 
 
 

@@ -9815,3 +9815,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - Daqui em diante, toda ordem do CTO faz a fatia que fecha o item tocar o Status (🔄 para 🔍) no próprio commit, e nenhuma fatia cita item em ⏳ sem levá-lo a 🔄.
   - **Decisão do main:** as duas conferências ficam aceitas no conteúdo, e o achado de processo, registrado e corrigido.
   - Novo para a INBOX: EMBED-PKGCONFIG-DEBUG (pkgconfig_validate_test com 124,23 s no Windows Debug, teto 360, quando a regra 4 pede 390; o passo "folga P2" não roda no job Debug).
+- **20/10 04:1x, S5-B-fix3 commitada: 3b0365af** (implementador af50267f; 3 arquivos; +253 −138).
+  - Régua da L-17: a base listava 3 funções, o snapshot lista 2, e a varredura saiu da lista. Equivalência no verde, sob MK e sob MKR: linhas iguais. Sob MKD reprova só o worst_inner.
+  - preci 380/0, sanitizer 190/0, MSVC 2/0. O blob confere byte a byte com o snapshot.
+  - Desvio de metadado: o trailer Co-Authored-By saiu Haiku 5.5. Commit publicado não se reescreve (L-25).
+  - **ELLIPSE-OUTLINE-TEST-L17 sai da INBOX** (decisão das 03:4x).
+  - O implementador levantou um possível achado da L-17 em três átomos, que vai ao revisor.
+  - Push feito (ls-remote 3b0365af) e CI 39385013879 disparado. **Revisão N1 com um revisor haiku novo**, pela seção 9 da ordem.

@@ -10132,3 +10132,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Revisão N1 com um revisor haiku novo.**
   - **A FILTER fica para depois da pausa das 17:00:** o implementador não chegaria ao commit a tempo com a fila atual.
 - **20/10 15:5x, CI 39474194421 (sobre 7cdc7082, com a T4b-A-fix6) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 15:5x, revisão N1 da T4b-A-fix6 (7cdc7082): LIMPA** (revisor a0eb1564, /var/tmp/cto-w8/rev-t4bafix6.txt). Sem CRÍTICO e sem IMPORTANTE no diff; há 2 COSMÉTICOS de comentário.
+  - Mutantes conferidos de novo: R1, R7, MK e MP morrem pelo nome do caso. O M7 também morre. A régua da L-17 mostra só as funções intocadas. O CI 39474194421 saiu verde.
+  - **A cadeia T4b-A fecha no código e nos testes até a fix6:** fix4 d6e28b62, fix5 9df07056 e fix6 7cdc7082. A PHRASE (2e23d00c) foi revisada como NÃO LIMPA por causa do CRÍTICO do float, que vem de antes; o conserto é a T4b-A-FLOAT, com o CTO.
+  - D-W8-705: o revisor concorda. D-W8-706 se sustenta, com uma ressalva: a L-17 pede que separação com custo real vá ao líder, e isso entra na próxima ratificação.
+  - Achado anterior à fix6: PQ-POSE-DISTINCT vai para a INBOX. O teste não prende uma pose ignorada.
+  - **A FILTER fica para depois da pausa das 17:00:** com a fila atual, não chegaria ao commit antes dela.

@@ -9884,3 +9884,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - IMPORTANTE-1: o gêmeo público docs/wiki/API-Draw-2D.md:120 ("How many draw calls reached the card") ficou fora da enumeração da D-W8-582.
   - COSMÉTICO-1: uma linha duplicada que o próprio commit criou no teste de paridade (:64-65).
   - **Pedido ao CTO ad06e61c: a mini-ordem T4b-B2-fix2** (faixa D-W8-613 a 620), com a varredura de gêmeos do main anexada.
+- **20/10 06:1x, revisão N1 da S5-B-fix3 (3b0365af): NÃO LIMPA, 0 CRÍTICO** (revisor a2accb32, /var/tmp/cto-w8/rev-s5bfix3.txt).
+  - O comportamento está igual ao do pai: a varredura bate no verde, em MK e em MKR. A régua da L-17 baixou de 3 para 2 funções, src/ só mudou comentário e o MSVC deu 2/0. MKD e MKW reprovam só no worst_inner. Os 10 mutantes morrem.
+  - IMPORTANTE (L-17): quatro átomos novos fazem duas coisas cada: ring_turns_with_the_outline, band_holds, count_band e hole_is_inside_the_erosion.
+  - O mutante RING sobrevive, mas é limite não demonstrado, não furo provado.
+  - O revisor apagou por glob mal escrito a própria pasta mut/ e a recriou; nada de fora dela foi tocado (L-53).
+  - **Pedido ao CTO a4f22b43: a S5-B-fix4** (faixa D-W8-621 a 636). Ele foi avisado da pausa e grava tudo em disco.

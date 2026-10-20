@@ -8,6 +8,7 @@
 #include <optional>
 #include <print>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "draw2d/arc_parameters.hpp"
@@ -197,8 +198,9 @@ GLINTFX_TEST(ellipse_outline_angles_are_sorted_once_each) {
 
 namespace {
 
-// The sweep of the band, in atoms (S5-B-fix3, D-W8-559): the same 240 bands, the same samples in
-// the same order, and the same counts as the one function they replace (L-17: 40 lines, 3 levels).
+// The sweep of the band, in atoms (S5-B-fix3, D-W8-559; S5-B-fix4, D-W8-621): each band is drawn,
+// built, written into triangles, checked and counted, one atom per step, so a check that changes
+// changes one atom; the draws and the samples keep the order the counts depend on.
 
 // One band of the sweep: its place in the draw, the two half-axes and the half thickness.
 struct sweep_case {
@@ -217,11 +219,13 @@ struct sweep_tally {
     std::size_t inner_samples = 0;
 };
 
-// The angles and the two edges of one band, with the buffers the checks reuse.
+// The angles and the two edges of one band, with the buffers the checks reuse. The three counts
+// are what the code under test answered, kept for band_holds to check.
 struct sweep_band {
     outline_band band{};
     std::size_t parameter_count = 0;
     std::size_t n = 0;
+    std::size_t index_count = 0;
     std::vector<double> parameters;
     std::vector<double> angles;
     std::vector<plane_point> outer;
@@ -274,6 +278,26 @@ void build_sweep_band(const sweep_case &c, sweep_band &out) {
         out.outer[k] = pair.outer;
         out.inner[k] = pair.inner;
     }
+}
+
+// Writes the triangles of `b` into its buffers: the ring between the outer and the inner polygon
+// when the band has a hole, the fan of the outer polygon when it has none. The count the writer
+// answers goes to `b.index_count`. Every band is written, the failed ones too, so that the checks
+// only read (S5-B-fix4, D-W8-622).
+void write_band_triangles(sweep_band &b) {
+    const std::size_t n = b.n;
+    if (b.band.shape.hole == outline_hole::none) {
+        b.indices.assign(3U * n, 0U);
+        b.index_count = write_fan_indices(n, b.indices);
+        return;
+    }
+    b.ring.assign(2U * n, pixel_position_wide{});
+    for (std::size_t k = 0; k < n; ++k) {
+        b.ring[k] = {b.outer[k].x, b.outer[k].y};
+        b.ring[n + k] = {b.inner[k].x, b.inner[k].y};
+    }
+    b.indices.assign(6U * n, 0U);
+    b.index_count = write_ring_indices(b.ring, b.indices);
 }
 
 // Whether the true outer edge, between every two angles, is within the error of the chord
@@ -354,18 +378,11 @@ void build_sweep_band(const sweep_case &c, sweep_band &out) {
     return good;
 }
 
-// Whether every triangle of the ring between the outer and the inner polygon of `b` turns with
-// the outer polygon. Writes the ring and its indices into the buffers of `b`.
-[[nodiscard]] bool ring_turns_with_the_outline(const sweep_case &c, sweep_band &b) {
-    const std::size_t n = b.n;
-    b.ring.assign(2U * n, pixel_position_wide{});
-    for (std::size_t k = 0; k < n; ++k) {
-        b.ring[k] = {b.outer[k].x, b.outer[k].y};
-        b.ring[n + k] = {b.inner[k].x, b.inner[k].y};
-    }
-    b.indices.assign(6U * n, 0U);
-    bool good = write_ring_indices(b.ring, b.indices) == 6U * n;
+// Whether every triangle of the ring of `b` turns with the outer polygon (a triangle of no area,
+// at the rounding of the size, passes).
+[[nodiscard]] bool ring_turns_with_the_outline(const sweep_case &c, const sweep_band &b) {
     const double scale = (c.major + c.h) * (c.major + c.h);
+    bool good = true;
     for (std::size_t t = 0; good && t < b.indices.size(); t += 3U) {
         const pixel_position_wide &p = b.ring[b.indices[t]];
         const pixel_position_wide &q = b.ring[b.indices[t + 1U]];
@@ -376,9 +393,9 @@ void build_sweep_band(const sweep_case &c, sweep_band &out) {
     return good;
 }
 
-// Whether the hole of `b` is convex, inside the ellipse, and at least h from its curve (the
-// last two read at every sixteenth inner point).
-[[nodiscard]] bool hole_is_inside_the_erosion(const sweep_case &c, const sweep_band &b) {
+// Whether the hole of `b` is convex: at every inner point, the inner polygon turns the way the
+// outer one does (a straight run, at the rounding of the size, passes).
+[[nodiscard]] bool hole_is_convex(const sweep_case &c, const sweep_band &b) {
     const std::size_t n = b.n;
     const double scale = (c.major + c.h) * (c.major + c.h);
     bool good = true;
@@ -389,43 +406,57 @@ void build_sweep_band(const sweep_case &c, sweep_band &out) {
         const double turn = ((here.x - before.x) * (after.y - before.y)) -
                             ((here.y - before.y) * (after.x - before.x));
         good = turn >= -1e-9 * scale;
-        if (good && k % 16U == 0U) {
-            const double inside = ((here.x / c.major) * (here.x / c.major)) +
-                                  ((here.y / c.minor) * (here.y / c.minor));
-            good = inside <= 1.0 + 1e-9 &&
-                   distance_to_curve(here, c.major, c.minor) >= c.h - (1e-7 * (c.major + c.h));
-        }
+    }
+    return good;
+}
+
+// Whether every sixteenth inner point of `b` lies in the erosion of the ellipse by h, the points
+// inside the ellipse at least h from its curve.
+[[nodiscard]] bool hole_is_inside_the_erosion(const sweep_case &c, const sweep_band &b) {
+    bool good = true;
+    for (std::size_t k = 0; good && k < b.n; k += 16U) {
+        const plane_point &here = b.inner[k];
+        const double inside =
+            ((here.x / c.major) * (here.x / c.major)) + ((here.y / c.minor) * (here.y / c.minor));
+        good = inside <= 1.0 + 1e-9 &&
+               distance_to_curve(here, c.major, c.minor) >= c.h - (1e-7 * (c.major + c.h));
     }
     return good;
 }
 
 // Whether band `b` of `c` holds every check, in the order of the sweep: enough angles, the outer
-// edge, the inner edge, then the triangles (a ring around a hole, a fan without one).
-[[nodiscard]] bool band_holds(const sweep_case &c, sweep_band &b, sweep_tally &tally) {
+// edge, the inner edge, every index of its triangles written, then, around a hole, the ring and
+// the hole itself. Every sample the edges read is in `tally`.
+[[nodiscard]] bool band_holds(const sweep_case &c, const sweep_band &b, sweep_tally &tally) {
+    const bool has_hole = b.band.shape.hole != outline_hole::none;
     bool good = b.parameter_count >= 2U && b.n >= 8U;
     good = good && outer_edge_holds(c, b, tally);
     good = good && inner_edge_holds(c, b, tally);
-    if (good && b.band.shape.hole != outline_hole::none) {
-        good = ring_turns_with_the_outline(c, b) && hole_is_inside_the_erosion(c, b);
-    }
-    if (good && b.band.shape.hole == outline_hole::none) {
-        b.indices.assign(3U * b.n, 0U);
-        good = write_fan_indices(b.n, b.indices) == 3U * b.n;
+    good = good && b.index_count == (has_hole ? 6U : 3U) * b.n;
+    if (good && has_hole) {
+        good = ring_turns_with_the_outline(c, b) && hole_is_convex(c, b) &&
+               hole_is_inside_the_erosion(c, b);
     }
     return good;
 }
 
-// Counts band `c` in `tally`, and prints the first four that fail.
-void count_band(sweep_tally &tally, const sweep_case &c, std::size_t n, bool good) {
+// Counts one band in `tally`: every band in `counted`, a band that failed also in `wrong`.
+void count_band(sweep_tally &tally, bool good) {
     ++tally.counted;
     if (good) {
         return;
     }
     ++tally.wrong;
-    if (tally.wrong <= 4U) {
-        std::println("ellipse_outline_test: FALHOU faixa i={} a={} b={} h={} n={}", c.index,
-                     c.major, c.minor, c.h, n);
+}
+
+// Prints band `c` when it failed and is among the first four that did: a red sweep names bands
+// to reproduce, without a line for every one of them. Reads the count of `tally` already updated.
+void report_failed_band(const sweep_tally &tally, const sweep_case &c, std::size_t n, bool good) {
+    if (good || tally.wrong > 4U) {
+        return;
     }
+    std::println("ellipse_outline_test: FALHOU faixa i={} a={} b={} h={} n={}", c.index, c.major,
+                 c.minor, c.h, n);
 }
 
 } // namespace
@@ -445,8 +476,10 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
     for (std::size_t i = 0; i < 240U; ++i) {
         const sweep_case c = draw_sweep_case(draw, i);
         build_sweep_band(c, band);
+        write_band_triangles(band);
         const bool good = band_holds(c, band, tally);
-        count_band(tally, c, band.n, good);
+        count_band(tally, good);
+        report_failed_band(tally, c, band.n, good);
     }
     std::println("ellipse_outline_test: varredura faixas={} erradas={} pior_erro={} "
                  "amostras_internas={} pior_erro_interno={}",
@@ -459,4 +492,20 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
     GLINTFX_CHECK(tally.worst_inner <= k_error * (1.0 + 1e-9));
     GLINTFX_CHECK_EQ(tally.wrong, std::size_t{0});
     GLINTFX_CHECK(tally.inner_samples >= 10000U);
+}
+
+// The ring check of the sweep fails on a ring of its own (S5-B-fix4, D-W8-623): with a correct
+// library no band of the sweep fails it, so without this case nothing shows that it can.
+// A ring the writer built passes; the same ring with its first triangle turned back does not.
+GLINTFX_TEST(ellipse_outline_the_ring_check_refuses_a_triangle_that_turns_back) {
+    const sweep_case c{0U, 20.0, 10.0, 2.0};
+    sweep_band b;
+    build_sweep_band(c, b);
+    write_band_triangles(b);
+    GLINTFX_CHECK(b.band.shape.hole != outline_hole::none);
+    GLINTFX_CHECK(b.n >= 8U);
+    GLINTFX_CHECK_EQ(b.index_count, 6U * b.n);
+    GLINTFX_CHECK(ring_turns_with_the_outline(c, b));
+    std::swap(b.indices[1], b.indices[2]);
+    GLINTFX_CHECK(!ring_turns_with_the_outline(c, b));
 }

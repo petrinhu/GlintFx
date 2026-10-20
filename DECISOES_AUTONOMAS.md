@@ -9979,3 +9979,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **20/10 08:3x, RATIFICAÇÃO DO LÍDER, verbatim: "queo entender  melhor 2, 3, 4 e me de opcoes com askuserquestion. As outras eu ratifico."**
   - **Ratificados os itens 1 e 5 a 14 da lista consolidada:** D-W8-501, 569, 380, 383, 551 a 558, 565, 572, 397, 414, 441 a 444, 471, 473 e 513 a 516, mais o achado de processo da L-63.
   - Em aberto, com as perguntas levadas ao líder: os itens 2 (D-W8-581), 3 (D-W8-555) e 4 (D-W8-568).
+- **20/10 08:4x, DECISÕES DO LÍDER por AskUserQuestion:**
+  - **Item 3 (D-W8-555):** "Frase completa (Recomendado)". A frase de exatidão volta e passa a citar a recusa rara: o quadrilátero cujo peso passaria do maior número representável é recusado. **Precisa de uma fatia pequena de texto público, com revisão:** a T4b-A-PHRASE, que fecha a lacuna junto.
+  - **Item 4 (D-W8-568):** "curve_max_error_pixels (Recomendado)". RATIFICADO.
+  - **Item 2 (D-W8-581):** o líder perguntou, verbatim: "o que é mais vantajoso e sem causar problemas práticos ao consumidor?". O main explicou e perguntou de novo.

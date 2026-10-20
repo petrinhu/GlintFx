@@ -10155,3 +10155,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - D-W8-671 e D-W8-681: o par público e a frase pública. Porta de mão única: precisa de ratificação do líder.
     - D-W8-679: a textura entra na chave do lote; 5 queixas.
   - Nada é despachado depois das 16:30 (pausa do líder às 17:00). A T5-A fica para a volta.
+- **20/10 16:3x: S5-B-fix5 commitada: `7694a682`** (ac1ca782). Um arquivo, `tests/ellipse_outline_test.cpp`, com 108 linhas acrescentadas e 27 removidas. Foi empurrada junto com efd1ee47; CI disparado.
+  - preci --fast 381/381, sanitizer 191/191, MSVC sem falha.
+  - Na base, sobrevivem os 6 mutantes ANGW, OUTW, IDXW, RINGW, CONVW e EROW. No snapshot morrem os 7, cada um só no caso que tem o nome dele.
+  - Desvios: a linha `Claude-Session` na mensagem de commit, por atribuição do harness, e o corte `head -8` do varre_ct.sh, que foi para a INBOX como VARRE-CT-HEAD-CUT.
+  - O TODO.md e a errata D-W8-626 da S5-C1 não foram tocados.
+  - **Falta a revisão N1 com um haiku novo. Fica para a volta da pausa**, porque nada é despachado depois das 16:30. A errata D-W8-626 é aplicada depois da revisão LIMPA.

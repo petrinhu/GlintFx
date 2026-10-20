@@ -9763,3 +9763,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A revisão N1 vai na próxima vaga, depois do CI, porque precisa do artefato.
 - **20/10 00:35, S5-A-fix6 despachada** a um implementador haiku novo, com SHA_EMBED=21bfb9ed.
 - **20/10 00:35, push de onda-w8 e CI disparado**, com a EMBED.
+- **20/10 00:52, conferência mirada da S5-B-fix2 NÃO LIMPA** (rev-s5bfix2.txt, revisor a40885bb). O código está certo: bits iguais, verde 5/5, MK em 46, MSVC 4/0, 9 de 10 mutantes (o X10 sobrevive, como esperado).
+  - I-1: a função de teste tests/ellipse_outline_test.cpp:205-348, com 144 linhas, foi tocada pelo commit (L-17).
+    - **Decisão do main: não diferir.** O CTO a tinha mandado para a INBOX (D-W8-540). Mas a L-17 é lei, e agente nenhum a flexibiliza (LEI DAS LEIS): função tocada e reprovada pela régua se conserta na fatia que a toca.
+  - I-2: o comentário "and answers how many" (L-17, pergunta 2).
+  - Pedida ao CTO a92de40e a **S5-B-fix3 (D-W8-559 a 564)**. O item ELLIPSE-OUTLINE-TEST-L17 sai da INBOX quando ela commitar.

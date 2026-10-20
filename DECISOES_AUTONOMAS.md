@@ -9768,3 +9768,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - **Decisão do main: não diferir.** O CTO a tinha mandado para a INBOX (D-W8-540). Mas a L-17 é lei, e agente nenhum a flexibiliza (LEI DAS LEIS): função tocada e reprovada pela régua se conserta na fatia que a toca.
   - I-2: o comentário "and answers how many" (L-17, pergunta 2).
   - Pedida ao CTO a92de40e a **S5-B-fix3 (D-W8-559 a 564)**. O item ELLIPSE-OUTLINE-TEST-L17 sai da INBOX quando ela commitar.
+- **20/10 01:06, S5-A-fix6 commitada: 16728be8** (implementador a830754a; 6 arquivos; +58 −4).
+  - Os sobreviventes M2, M4 e M9 foram reproduzidos na suíte velha. Vermelho: M2, M4, M9 e M10 com rc 8, exatamente a tabela. Verde 11/11. preci 380.
+  - As 2 fixturas estão no ls-tree.
+  - Revisão: um revisor haiku novo confere a fix6 e depois a EMBED (esta com o artefato Windows do CI 39365077605), com vereditos separados.
+- **20/10 01:06, push de onda-w8**, com a fix6. O CI sai depois que o run 39365077605 terminar, para não rodar dois ao mesmo tempo.

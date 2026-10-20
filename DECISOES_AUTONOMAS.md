@@ -9960,3 +9960,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - A T4b-A-fix5 (só testes) entra antes dela, porque prende em teste a cota de 2^-50 que o filtro terá de manter.
   - Depois da pausa, um CTO escreve a ordem da T4b-A-filtro, com a prova da cota de erro do double-double e mutantes próprios.
   - A pergunta sai da lista de ratificação: o líder já decidiu.
+- **20/10 07:07, terminaram as rodadas finais da ordem S5-B-fix4** (/var/tmp/cto-w8/r21/s5bfix4/rodada3.prog): MSVC com 1 compilado e 0 falhas, preci rc 0, sanitizer rc 0. A ordem fica pré-executada por inteiro.
+- **20/10 07:07, conferido a pedido do líder: o disco da VM Windows não existe.**
+  - /var/tmp/glintfx-win-lab/ foi apagado inteiro: o qcow2 de 17 GB e as três ISOs.
+  - O domínio glintfx-win11-lab segue definido em qemu:///session, desligado e apontando para os quatro arquivos que sumiram.
+  - Nenhum qcow2 da VM foi achado em /, /home nem /var; só sobrou o NVRAM.
+  - Recriar exige baixar a ISO de novo, o que precisa de autorização do líder (L-14 do projeto e L-51 global).

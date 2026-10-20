@@ -10046,3 +10046,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - preci 381/0, sanitizer 191/0 e MSVC 1/0.
   - Push feito (ls-remote 8ed72a93). O CI sai depois que o 39442828644 terminar.
   - **Revisão N1 com um revisor haiku novo.** Se sair LIMPA, o main faz a errata D-W8-626 na ordem da S5-C1 e despacha o implementador dela.
+- **20/10 12:2x, CI 39442828644 (sobre 3a4cf511, com a T4b-A-fix5) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. Disparado um CI novo sobre o HEAD, com a S5-B-fix4.

@@ -9835,3 +9835,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O trailer Co-Authored-By saiu Haiku 5.5. Commit publicado não se reescreve (L-25).
   - Push feito (ls-remote d6e28b62). O CI sai quando o run 39385013879 terminar.
   - **Revisão N1 com um revisor haiku novo**, com os pedidos do advisor: o binário C++ sobre as cinco entradas e um número de tempo, pai contra fix4.
+- **20/10 04:4x, CI 39385013879 (sobre 3b0365af, com a S5-B-fix3) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. Disparado o CI 39388751658 sobre d6e28b62, com a T4b-A-fix4.

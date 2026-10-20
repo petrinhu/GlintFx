@@ -9867,3 +9867,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O MB sobrevive no pai e morre no snapshot, com o vermelho visto. MBS e MT também morrem.
   - preci 381/0, sanitizer 191/0, MSVC 2/2.
   - Push feito (ls-remote 9f959d2a) e CI 39397064502 disparado. **Revisão N1 com um revisor haiku novo**, que grava o veredito aos poucos, por causa da pausa.
+- **20/10 06:0x, revisão N1 da T4b-A-fix4 (d6e28b62): NÃO LIMPA, 0 CRÍTICO** (revisor a30092f8, /var/tmp/cto-w8/rev-t4bafix4.txt).
+  - **O código está certo:** o binário C++ deu 0 aceites errados e 0 recusas erradas nas 1.025.922 entradas, com pior peso a 3,21e-16. O CI mostra exact_cross_test e projective_quad_test passando em 4 jobs Windows e 9 Linux. Os mutantes R2 a R8 morrem.
+  - Os IMPORTANTES são testes que faltam e régua da L-17:
+    - I-1: nenhum teste derruba a promessa de 2^-50; o mutante R1 sobrevive.
+    - I-2: a entrada infinita não está testada; o mutante R7 sobrevive.
+    - I-3 e I-4: kite() tem 5 parâmetros, e um laço chega a 4 níveis.
+  - **Tempo (para a ratificação):** projective_weights passou de 80-85 ns para 1415-1511 ns por quad comum, cerca de 17 vezes mais.
+  - **Pedido ao CTO ade52563 (faixa D-W8-597 a 612), a T4b-A-fix5:**
+    - os testes que matam R1 e R7, e a régua da L-17;
+    - medir um predicado filtrado (ponto flutuante com cota certificada e queda para o caminho exato só no sinal ambíguo, como Shewchuk e o Filtered_predicate do CGAL), que devolva o custo comum sem perder a exatidão;
+    - avisado de que pode ser parado às 07:15, grava tudo aos poucos.
+  - **Para a lista de ratificação do líder:** o custo de 17 vezes no draw_texture_quad, com o número medido.

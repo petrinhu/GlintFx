@@ -22,7 +22,7 @@ endif()
 string(SUBSTRING "${text}" ${include_at} -1 after_include)
 string(FIND "${after_include}" "${call_block}" call_at)
 if(call_at EQUAL -1)
-    message(FATAL_ERROR
-        "msvc_floor_wiring_check: no call under if(MSVC), as three whole lines, after the include")
+    # One line, short enough that CMake does not wrap it: the refusal tests compare it whole (S5-A-fix6).
+    message(FATAL_ERROR "msvc_floor_wiring_check: no call under if(MSVC) after the include")
 endif()
 message(STATUS "msvc_floor_wiring_check: the include, then the call under if(MSVC): wired")

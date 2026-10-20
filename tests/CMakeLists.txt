@@ -1619,6 +1619,43 @@ add_test(NAME msvc_floor_is_wired_in_the_top_level_cmake
     COMMAND "${CMAKE_COMMAND}" "-DTOP_LEVEL_LISTS=${PROJECT_SOURCE_DIR}/CMakeLists.txt"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_wiring_check.cmake")
 set_tests_properties(msvc_floor_is_wired_in_the_top_level_cmake PROPERTIES LABELS unit)
+# S5-A-fix6 (D-W8-517, D-W8-518): the two refusals of msvc_floor_wiring_check.cmake that no test had
+# seen (S5-A-fix5 review, I-1: a search with no order, and a call with no if(MSVC), both passed the
+# whole suite). One fixture per failure mode, the shape of CMake's own Tests/RunCMake (a case file,
+# the expected exit code, the expected output): the call written before the include, and the call
+# under a guard other than if(MSVC). Exit code 1 and the refusal line, whole, through the house
+# executor (D-W8-114); the check keeps that line short enough that CMake does not wrap it.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_wiring_refuses_the_call_before_the_include
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  msvc_floor_wiring_check: no call under if(MSVC) after the include"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}"
+        "-DTOP_LEVEL_LISTS=${CMAKE_CURRENT_SOURCE_DIR}/tools/fixtures/msvc_floor_wiring/call_before_include.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_wiring_check.cmake")
+set_tests_properties(msvc_floor_wiring_refuses_the_call_before_the_include PROPERTIES LABELS unit)
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_wiring_refuses_the_call_under_another_guard
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  msvc_floor_wiring_check: no call under if(MSVC) after the include"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}"
+        "-DTOP_LEVEL_LISTS=${CMAKE_CURRENT_SOURCE_DIR}/tools/fixtures/msvc_floor_wiring/call_under_another_guard.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_wiring_check.cmake")
+set_tests_properties(msvc_floor_wiring_refuses_the_call_under_another_guard PROPERTIES LABELS unit)
+# S5-A-fix6 (D-W8-519): the SECOND line of the non-numeric refusal, which the two tests that check
+# its first line leave open (S5-A-fix5 review, C-1: the floor's number in it could change unseen).
+# The same wrapping by CMake as there: measured with CMake 4.3, and the first line passes on the
+# CMake 4.1.6 of the Windows CI (run 38665857294).
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refusal_names_the_floor_it_cannot_check
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  2022 (1930) cannot be checked."
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DMSVC_VERSION_UNDER_TEST=x"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refusal_names_the_floor_it_cannot_check PROPERTIES LABELS unit)
 
 glintfx_add_test(arc_segments_test)
 target_include_directories(arc_segments_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

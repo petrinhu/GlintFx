@@ -39,7 +39,10 @@ endfunction()
 # the S5-A-fix3 pre-execution: GCC 16 with -march=x86-64-v3 and
 # CXX_EXTENSIONS OFF fused fp_contract_test), and so does Clang
 # (-ffp-contract=on), wherever the target has the instruction: every
-# x86-64-v3 build, such as the packages of CachyOS (measured), and every
+# x86-64-v3 build (measured, as above); every -march=native build on a CPU
+# that has it (expected, NOT measured: -march=native is the default CFLAGS
+# of CachyOS's makepkg.conf, read in the cachyos/cachyos:latest image of the
+# CI on 14/10/2026, whose own packages are plain x86_64, not v3); and every
 # arm64 build (expected, but NOT measured: there is no arm64 machine here).
 # -ffp-contract=off makes every glintfx target round each operation as
 # written, under both compilers, on every target (S5-A-fix3, D-W8-441).

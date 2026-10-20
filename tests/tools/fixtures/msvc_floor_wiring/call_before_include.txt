@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Fixture of msvc_floor_wiring_check.cmake (S5-A-fix6, D-W8-517): the call under if(MSVC), written
+# BEFORE the include of the floor module. The check must refuse it.
+if(MSVC)
+    glintfx_require_msvc_floor("${MSVC_VERSION}")
+endif()
+include(GlintfxToolchainFloor)

@@ -10094,3 +10094,15 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **20/10 14:1x, T4b-A-PHRASE commitada: 2e23d00c** (implementador aae12def; etapa P; 6 arquivos, +38 −9).
   - O confere_texto pega as duas sabotagens, M1 e M2. Verde 6/6, preci 381/381.
   - Push feito (ls-remote 2e23d00c) e CI 39464351012 disparado. **Revisão N1 com um haiku novo.**
+- **20/10 14:2x, a ordem da T4b-A-fix6 chegou** do CTO aa5e196c, com as decisões D-W8-701 a 715. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-a-fix6.md (md5 9cc24f8b); anexos com anexos.md5 79809927, 24 linhas, conferidas: ok.
+  - **O que a fix6 conserta:**
+    - o I-1 da revisão: os laços das alturas saem para kites_of_width e kite_weights;
+    - a contagem passa a vir de cada pose conferida, e não mais de um 4 fixo;
+    - os cabeçalhos são acertados (só comentário).
+  - **Pré-execução:** a régua da L-17 fica só nas duas funções que a fix6 não toca. Os mutantes R1, R7 e os dois novos dão os números fixados antes. MSVC 2/2, preci 381/0, sanitizer 191/0.
+  - **A FILTER não tem bloco nos dois testes:** a premissa do main estava errada. Basta a errata /var/tmp/cto-w8/ordens-anexos/t4bafilter-r2/ (anexos.md5 1d2f5598, conferida: ok). A FILTER rodou sobre a fix6 com o mesmo verde.
+  - **Ordem dos commits:** a fix6 vai antes da FILTER. A FILTER sai em seguida, na etapa FT, porque a PHRASE já commitou.
+  - **Decisões autônomas, a confirmar retroativamente:**
+    - D-W8-705: o I-2 vai para a INBOX. As duas funções não foram tocadas pela fix5.
+    - D-W8-706: o I-3 não divide o arquivo agora. Dividir seria fragmentação, ia para o tests/CMakeLists.txt que as outras fatias também mudam, e quebraria a citação da PHRASE. O corte e o gatilho ficaram escritos.
+  - **Implementador haiku novo despachado.** Na INBOX entram PQ-EC-TEST-NESTING, PQ-TEST-SPLIT e EXACT-CROSS-DIGITS-SWEEP.

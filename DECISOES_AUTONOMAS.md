@@ -9749,3 +9749,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - fix3: a enumeração 5^8 dá 0 erros, mas MX e MDIAG sobrevivem à célula nova (só inteiros, sem magnitude mista).
   - Processo: o relatório da fix3 em t4bafix3/relatorio.txt traz conteúdo da S5-B-fix2.
   - **Terceira volta da mesma família**, então valem a L-42 e a L-34. Pedida ao CTO a023304b a **T4b-A-fix4 (D-W8-551 a 558)**: estreitar a promessa pública, usar predicados exatos ou outra saída da pesquisa, com contagem de queixas e advisor se ficar abaixo de 10.
+- **20/10 00:25, T4b-B2 recebida do CTO a92de40e** (ordem cdfef976, anexos 009fb3e3, plano r21 5495e2a7; D-W8-475 a 480 e 545 a 550). Pré-execução: 52 células, com e sem ASan; trapézio com 154 de 154 sondas; preci 377; MSVC rc 0; 3 de 3 mutantes.
+  - **D-W8-477, desempate do advisor (0 queixas):** a varredura dos nomes de programa de 1 a 4096 fica como trava auxiliar. Conferi que src/draw2d/gl_state_contract.cpp:86 faz glUseProgram(0), então GL_CURRENT_PROGRAM depois do flush não serve. A célula K2 já imprime programas= e da_biblioteca= e exige exatamente 1; zero é falha.
+    - Condição do advisor que fica para o revisor: medir e registrar o nome encontrado, porque a faixa 1-4096 é premissa do Mesa.
+    - A prova real continua sendo o trapézio.
+  - **Erro de fato na ordem, corrigido no briefing:** a linha 19 diz que nenhuma ordem viva toca os arquivos da B2, mas a EMBED-WIN-TIMEOUT e a S5-A-fix6 mexem em tests/CMakeLists.txt. O implementador foi avisado para refazer sobre um snapshot novo se a base mudar.
+  - **D-W8-548 vai à LISTA DE RATIFICAÇÃO como INCONSISTÊNCIA com a D-W8-501**, não como lacuna de frase: um flush que termina em erro GL descarta as trocas que já ligou, e a frase nova diz "each texture the library binds to draw counts once". Saídas: contar mesmo com erro (o custo foi pago) ou a frase dizer "in a flush that completes". É escolha de API: o CTO decide, com contagem de queixas, e o líder ratifica.
+  - Processo: o relatório da fix3 (t4bafix3/relatorio.txt) foi sobrescrito pelo implementador da S5-B-fix2. O revisor a597 já cobriu o conteúdo. Daqui em diante os briefings dão o caminho do relatório, único por fatia.
+  - B2 despachada a um implementador haiku novo, com a pausa das 07:15 no briefing.

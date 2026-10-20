@@ -38,8 +38,8 @@ void write_uniform_normal_angles(std::span<double> out) noexcept {
     }
 }
 
-// Puts `values` in increasing order with every value once, in its first slots, and answers how
-// many.
+// Puts `values` in increasing order with every value once, in its first slots. The result is the
+// count of distinct values.
 [[nodiscard]] std::size_t sort_and_drop_repeated(std::span<double> values) noexcept {
     std::sort(values.begin(), values.end());
     const auto last = std::unique(values.begin(), values.end());

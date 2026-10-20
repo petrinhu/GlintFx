@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <numbers>
+#include <optional>
 #include <print>
 #include <span>
 #include <vector>
@@ -194,6 +195,241 @@ GLINTFX_TEST(ellipse_outline_angles_are_sorted_once_each) {
         std::size_t{0});
 }
 
+namespace {
+
+// The sweep of the band, in atoms (S5-B-fix3, D-W8-559): the same 240 bands, the same samples in
+// the same order, and the same counts as the one function they replace (L-17: 40 lines, 3 levels).
+
+// One band of the sweep: its place in the draw, the two half-axes and the half thickness.
+struct sweep_case {
+    std::size_t index = 0;
+    double major = 0.0;
+    double minor = 0.0;
+    double h = 0.0;
+};
+
+// What the sweep measured, over every band so far.
+struct sweep_tally {
+    std::size_t counted = 0;
+    std::size_t wrong = 0;
+    double worst_error = 0.0;
+    double worst_inner = 0.0;
+    std::size_t inner_samples = 0;
+};
+
+// The angles and the two edges of one band, with the buffers the checks reuse.
+struct sweep_band {
+    outline_band band{};
+    std::size_t parameter_count = 0;
+    std::size_t n = 0;
+    std::vector<double> parameters;
+    std::vector<double> angles;
+    std::vector<plane_point> outer;
+    std::vector<plane_point> inner;
+    std::vector<pixel_position_wide> ring;
+    std::vector<std::uint32_t> indices;
+};
+
+// The band number `index` of the draw: the major half-axis from 0.1 to 300, the ratio of the two
+// from the table, h from 0.01 to 300, and every fortieth ellipse of radius zero.
+[[nodiscard]] sweep_case draw_sweep_case(ellipse_draw &draw, std::size_t index) {
+    const std::array<double, 9> ratios{0.0, 1e-6, 1e-3, 0.01, 0.1, 0.3, 0.5, 0.9, 1.0};
+    sweep_case c{index, 0.0, 0.0, 0.0};
+    c.major = std::pow(10.0, -1.0 + (3.477 * draw.next_unit()));
+    c.minor = c.major * ratios[index % ratios.size()];
+    c.h = std::pow(10.0, -2.0 + (4.477 * draw.next_unit()));
+    if (index % 40U == 39U) {
+        c.major = 0.0;
+        c.minor = 0.0;
+    }
+    return c;
+}
+
+// The ellipse of `c`, centred at the origin with its major axis along x.
+[[nodiscard]] principal_ellipse principal_of(const sweep_case &c) {
+    return principal_ellipse{{0.0, 0.0}, {1.0, 0.0}, c.major, c.minor};
+}
+
+// Fills `out` with the angles of `c` (the arc's parameters for half the error and the reach h,
+// merged with the uniform normal angles) and the outer and inner point at each of them.
+void build_sweep_band(const sweep_case &c, sweep_band &out) {
+    const principal_ellipse e = principal_of(c);
+    const conjugate_ellipse plane{{0.0, 0.0}, {c.major, 0.0}, {0.0, c.minor}};
+    out.parameters.assign(k_max_arc_parameters, 0.0);
+    const arc_request request{pixel_ellipse{{0.0, 0.0}, {c.major, 0.0}, {0.0, c.minor}},
+                              arc_extent::whole, 0.5 * k_error, c.h};
+    out.parameter_count =
+        arc_parameters(request, pixel_box{-1000.0, -1000.0, 1000.0, 1000.0}, out.parameters);
+    const std::span<const double> from_arc(
+        out.parameters.data(), out.parameter_count > 0U ? out.parameter_count - 1U : 0U);
+    out.angles.assign(k_max_arc_parameters + 1024U, 0.0);
+    out.n = merge_outline_angles(
+        plane, e, outline_angle_sources{from_arc, uniform_normal_angle_count(c.h, k_error)},
+        out.angles);
+    out.band = outline_band{c.h, outline_shape_of(e, c.h)};
+    out.outer.assign(out.n, plane_point{});
+    out.inner.assign(out.n, plane_point{});
+    for (std::size_t k = 0; k < out.n; ++k) {
+        const outline_pair pair = outline_pair_at(e, out.band, out.angles[k]);
+        out.outer[k] = pair.outer;
+        out.inner[k] = pair.inner;
+    }
+}
+
+// Whether the true outer edge, between every two angles, is within the error of the chord
+// between them. Stops after the first side that fails; every sample it reads is in `tally`.
+[[nodiscard]] bool outer_edge_holds(const sweep_case &c, const sweep_band &b, sweep_tally &tally) {
+    const principal_ellipse e = principal_of(c);
+    const std::size_t n = b.n;
+    bool good = true;
+    for (std::size_t k = 0; good && k < n; ++k) {
+        const double from = b.angles[k];
+        const double to = k + 1U < n ? b.angles[k + 1U] : b.angles[0] + (2.0 * k_pi);
+        const plane_point &a = b.outer[k];
+        const plane_point &next = b.outer[k + 1U < n ? k + 1U : 0U];
+        for (int s = 1; s < 8; ++s) {
+            const double phi = from + ((to - from) * static_cast<double>(s) / 8.0);
+            const plane_point on_curve = local_point_at_normal_angle(e, phi);
+            const plane_point edge{on_curve.x + (c.h * std::cos(phi)),
+                                   on_curve.y + (c.h * std::sin(phi))};
+            const double error = distance_to_segment(edge, a, next);
+            tally.worst_error = std::max(tally.worst_error, error);
+            good = good && error <= k_error * (1.0 + 1e-9);
+        }
+    }
+    return good;
+}
+
+// The distance from the true inner edge at the normal angle `phi`, between angles k and k + 1, to
+// the three inner sides around it; none in a cut hole where the sample has folded onto the
+// corner X (the inner point crossed the major axis, or sits ON it at the rounding of the size).
+[[nodiscard]] std::optional<double> inner_sample_error(const sweep_case &c, const sweep_band &b,
+                                                       std::size_t k, double phi) {
+    const std::size_t n = b.n;
+    const plane_point on_curve = curve_point_of_normal(c.major, c.minor, phi);
+    const plane_point edge{on_curve.x - (c.h * std::cos(phi)), on_curve.y - (c.h * std::sin(phi))};
+    const bool on_axis = std::abs(edge.y) <= 1e-9 * (c.major + c.h);
+    if (b.band.shape.hole == outline_hole::cut && (on_axis || !(edge.y * std::sin(phi) > 0.0))) {
+        return std::nullopt;
+    }
+    const plane_point &before = b.inner[k == 0U ? n - 1U : k - 1U];
+    const plane_point &here = b.inner[k];
+    const plane_point &after = b.inner[k + 1U < n ? k + 1U : 0U];
+    const plane_point &later = b.inner[k + 2U < n ? k + 2U : (k + 2U) - n];
+    return std::min({distance_to_segment(edge, before, here),
+                     distance_to_segment(edge, here, after),
+                     distance_to_segment(edge, after, later)});
+}
+
+// Whether the true inner edge between angles k and k + 1 is within the error of the inner sides
+// around it, at its seven samples. Every sample counts (S5-B-fix2, D-W8-533): `good &&` keeps the
+// failure of an earlier sample of the side.
+[[nodiscard]] bool inner_side_holds(const sweep_case &c, const sweep_band &b, std::size_t k,
+                                    sweep_tally &tally) {
+    const double from = b.angles[k];
+    const double to = k + 1U < b.n ? b.angles[k + 1U] : b.angles[0] + (2.0 * k_pi);
+    bool good = true;
+    for (int s = 1; s < 8; ++s) {
+        const double phi = from + ((to - from) * static_cast<double>(s) / 8.0);
+        const std::optional<double> error = inner_sample_error(c, b, k, phi);
+        if (error.has_value()) {
+            tally.worst_inner = std::max(tally.worst_inner, *error);
+            ++tally.inner_samples;
+            good = good && *error <= k_error * (1.0 + 1e-9);
+        }
+    }
+    return good;
+}
+
+// Whether the true inner edge, between every two angles, is within the error of the inner sides
+// around it (always, when the band has no hole). Stops after the first side that fails.
+[[nodiscard]] bool inner_edge_holds(const sweep_case &c, const sweep_band &b, sweep_tally &tally) {
+    if (b.band.shape.hole == outline_hole::none) {
+        return true;
+    }
+    bool good = true;
+    for (std::size_t k = 0; good && k < b.n; ++k) {
+        good = inner_side_holds(c, b, k, tally);
+    }
+    return good;
+}
+
+// Whether every triangle of the ring between the outer and the inner polygon of `b` turns with
+// the outer polygon. Writes the ring and its indices into the buffers of `b`.
+[[nodiscard]] bool ring_turns_with_the_outline(const sweep_case &c, sweep_band &b) {
+    const std::size_t n = b.n;
+    b.ring.assign(2U * n, pixel_position_wide{});
+    for (std::size_t k = 0; k < n; ++k) {
+        b.ring[k] = {b.outer[k].x, b.outer[k].y};
+        b.ring[n + k] = {b.inner[k].x, b.inner[k].y};
+    }
+    b.indices.assign(6U * n, 0U);
+    bool good = write_ring_indices(b.ring, b.indices) == 6U * n;
+    const double scale = (c.major + c.h) * (c.major + c.h);
+    for (std::size_t t = 0; good && t < b.indices.size(); t += 3U) {
+        const pixel_position_wide &p = b.ring[b.indices[t]];
+        const pixel_position_wide &q = b.ring[b.indices[t + 1U]];
+        const pixel_position_wide &r = b.ring[b.indices[t + 2U]];
+        const double turn = ((q.x - p.x) * (r.y - p.y)) - ((q.y - p.y) * (r.x - p.x));
+        good = turn >= -1e-9 * scale;
+    }
+    return good;
+}
+
+// Whether the hole of `b` is convex, inside the ellipse, and at least h from its curve (the
+// last two read at every sixteenth inner point).
+[[nodiscard]] bool hole_is_inside_the_erosion(const sweep_case &c, const sweep_band &b) {
+    const std::size_t n = b.n;
+    const double scale = (c.major + c.h) * (c.major + c.h);
+    bool good = true;
+    for (std::size_t k = 0; good && k < n; ++k) {
+        const plane_point &before = b.inner[k == 0U ? n - 1U : k - 1U];
+        const plane_point &here = b.inner[k];
+        const plane_point &after = b.inner[k + 1U < n ? k + 1U : 0U];
+        const double turn = ((here.x - before.x) * (after.y - before.y)) -
+                            ((here.y - before.y) * (after.x - before.x));
+        good = turn >= -1e-9 * scale;
+        if (good && k % 16U == 0U) {
+            const double inside = ((here.x / c.major) * (here.x / c.major)) +
+                                  ((here.y / c.minor) * (here.y / c.minor));
+            good = inside <= 1.0 + 1e-9 &&
+                   distance_to_curve(here, c.major, c.minor) >= c.h - (1e-7 * (c.major + c.h));
+        }
+    }
+    return good;
+}
+
+// Whether band `b` of `c` holds every check, in the order of the sweep: enough angles, the outer
+// edge, the inner edge, then the triangles (a ring around a hole, a fan without one).
+[[nodiscard]] bool band_holds(const sweep_case &c, sweep_band &b, sweep_tally &tally) {
+    bool good = b.parameter_count >= 2U && b.n >= 8U;
+    good = good && outer_edge_holds(c, b, tally);
+    good = good && inner_edge_holds(c, b, tally);
+    if (good && b.band.shape.hole != outline_hole::none) {
+        good = ring_turns_with_the_outline(c, b) && hole_is_inside_the_erosion(c, b);
+    }
+    if (good && b.band.shape.hole == outline_hole::none) {
+        b.indices.assign(3U * b.n, 0U);
+        good = write_fan_indices(b.n, b.indices) == 3U * b.n;
+    }
+    return good;
+}
+
+// Counts band `c` in `tally`, and prints the first four that fail.
+void count_band(sweep_tally &tally, const sweep_case &c, std::size_t n, bool good) {
+    ++tally.counted;
+    if (good) {
+        return;
+    }
+    ++tally.wrong;
+    if (tally.wrong <= 4U) {
+        std::println("ellipse_outline_test: FALHOU faixa i={} a={} b={} h={} n={}", c.index,
+                     c.major, c.minor, c.h, n);
+    }
+}
+
+} // namespace
+
 // 240 bands: the major half-axis from 0.1 to 300, the ratio of the two from 0 (a segment) to 1, h
 // from 0.01 to 300 across the three regions, and some ellipses of radius zero. The angles are the
 // two sets of the header, as ellipse_pixels takes them (S5-B-fix1, D-W8-488; the S5-B review,
@@ -204,145 +440,23 @@ GLINTFX_TEST(ellipse_outline_angles_are_sorted_once_each) {
 // crossed the major axis; the corner X is the closed case above).
 GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
     ellipse_draw draw;
-    std::size_t counted = 0;
-    std::size_t wrong = 0;
-    double worst_error = 0.0;
-    double worst_inner = 0.0;
-    std::size_t inner_samples = 0;
-    std::vector<double> parameters;
-    std::vector<double> angles;
-    std::vector<plane_point> outer;
-    std::vector<plane_point> inner;
-    std::vector<pixel_position_wide> ring;
-    std::vector<std::uint32_t> indices;
+    sweep_tally tally;
+    sweep_band band;
     for (std::size_t i = 0; i < 240U; ++i) {
-        const std::array<double, 9> ratios{0.0, 1e-6, 1e-3, 0.01, 0.1, 0.3, 0.5, 0.9, 1.0};
-        double major = std::pow(10.0, -1.0 + (3.477 * draw.next_unit()));
-        double minor = major * ratios[i % ratios.size()];
-        const double h = std::pow(10.0, -2.0 + (4.477 * draw.next_unit()));
-        if (i % 40U == 39U) {
-            major = 0.0;
-            minor = 0.0;
-        }
-        const principal_ellipse e{{0.0, 0.0}, {1.0, 0.0}, major, minor};
-        const conjugate_ellipse plane{{0.0, 0.0}, {major, 0.0}, {0.0, minor}};
-        parameters.assign(k_max_arc_parameters, 0.0);
-        const arc_request request{pixel_ellipse{{0.0, 0.0}, {major, 0.0}, {0.0, minor}},
-                                  arc_extent::whole, 0.5 * k_error, h};
-        const std::size_t count =
-            arc_parameters(request, pixel_box{-1000.0, -1000.0, 1000.0, 1000.0}, parameters);
-        const std::span<const double> from_arc(parameters.data(), count > 0U ? count - 1U : 0U);
-        angles.assign(k_max_arc_parameters + 1024U, 0.0);
-        const std::size_t n = merge_outline_angles(
-            plane, e, outline_angle_sources{from_arc, uniform_normal_angle_count(h, k_error)},
-            angles);
-        const outline_band band{h, outline_shape_of(e, h)};
-        outer.assign(n, plane_point{});
-        inner.assign(n, plane_point{});
-        for (std::size_t k = 0; k < n; ++k) {
-            const outline_pair pair = outline_pair_at(e, band, angles[k]);
-            outer[k] = pair.outer;
-            inner[k] = pair.inner;
-        }
-        bool good = count >= 2U && n >= 8U;
-        // The true outer edge between every two angles, against the chord between them.
-        for (std::size_t k = 0; good && k < n; ++k) {
-            const double from = angles[k];
-            const double to = k + 1U < n ? angles[k + 1U] : angles[0] + (2.0 * k_pi);
-            const plane_point &a = outer[k];
-            const plane_point &b = outer[k + 1U < n ? k + 1U : 0U];
-            for (int s = 1; s < 8; ++s) {
-                const double phi = from + ((to - from) * static_cast<double>(s) / 8.0);
-                const plane_point on_curve = local_point_at_normal_angle(e, phi);
-                const plane_point edge{on_curve.x + (h * std::cos(phi)),
-                                       on_curve.y + (h * std::sin(phi))};
-                const double error = distance_to_segment(edge, a, b);
-                worst_error = std::max(worst_error, error);
-                good = good && error <= k_error * (1.0 + 1e-9);
-            }
-        }
-        // The true inner edge between every two angles, against the inner sides around it.
-        for (std::size_t k = 0; good && band.shape.hole != outline_hole::none && k < n; ++k) {
-            const double from = angles[k];
-            const double to = k + 1U < n ? angles[k + 1U] : angles[0] + (2.0 * k_pi);
-            const plane_point &before = inner[k == 0U ? n - 1U : k - 1U];
-            const plane_point &here = inner[k];
-            const plane_point &after = inner[k + 1U < n ? k + 1U : 0U];
-            const plane_point &later = inner[k + 2U < n ? k + 2U : (k + 2U) - n];
-            for (int s = 1; s < 8; ++s) {
-                const double phi = from + ((to - from) * static_cast<double>(s) / 8.0);
-                const plane_point on_curve = curve_point_of_normal(major, minor, phi);
-                const plane_point edge{on_curve.x - (h * std::cos(phi)),
-                                       on_curve.y - (h * std::sin(phi))};
-                // In a cut hole, the inner point that crossed the major axis is inside the
-                // fold, and so is one ON the axis (its y at the rounding of the size): there the
-                // edge is the corner X, the closed case above.
-                const bool on_axis = std::abs(edge.y) <= 1e-9 * (major + h);
-                if (band.shape.hole == outline_hole::cut &&
-                    (on_axis || !(edge.y * std::sin(phi) > 0.0))) {
-                    continue;
-                }
-                const double error = std::min({distance_to_segment(edge, before, here),
-                                               distance_to_segment(edge, here, after),
-                                               distance_to_segment(edge, after, later)});
-                worst_inner = std::max(worst_inner, error);
-                ++inner_samples;
-                // Every sample counts (S5-B-fix2, D-W8-533): `good &&` keeps the failure of an
-                // earlier sample of the band, which a plain assignment erased.
-                good = good && error <= k_error * (1.0 + 1e-9);
-            }
-        }
-        if (good && band.shape.hole != outline_hole::none) {
-            ring.assign(2U * n, pixel_position_wide{});
-            for (std::size_t k = 0; k < n; ++k) {
-                ring[k] = {outer[k].x, outer[k].y};
-                ring[n + k] = {inner[k].x, inner[k].y};
-            }
-            indices.assign(6U * n, 0U);
-            good = write_ring_indices(ring, indices) == 6U * n;
-            const double scale = (major + h) * (major + h);
-            for (std::size_t t = 0; good && t < indices.size(); t += 3U) {
-                const pixel_position_wide &p = ring[indices[t]];
-                const pixel_position_wide &q = ring[indices[t + 1U]];
-                const pixel_position_wide &r = ring[indices[t + 2U]];
-                const double turn = ((q.x - p.x) * (r.y - p.y)) - ((q.y - p.y) * (r.x - p.x));
-                good = turn >= -1e-9 * scale;
-            }
-            // The hole is convex, inside the ellipse, and at least h from its curve.
-            for (std::size_t k = 0; good && k < n; ++k) {
-                const plane_point &before = inner[k == 0U ? n - 1U : k - 1U];
-                const plane_point &here = inner[k];
-                const plane_point &after = inner[k + 1U < n ? k + 1U : 0U];
-                const double turn = ((here.x - before.x) * (after.y - before.y)) -
-                                    ((here.y - before.y) * (after.x - before.x));
-                good = turn >= -1e-9 * scale;
-                if (good && k % 16U == 0U) {
-                    const double inside = ((here.x / major) * (here.x / major)) +
-                                          ((here.y / minor) * (here.y / minor));
-                    good = inside <= 1.0 + 1e-9 &&
-                           distance_to_curve(here, major, minor) >= h - (1e-7 * (major + h));
-                }
-            }
-        }
-        if (good && band.shape.hole == outline_hole::none) {
-            indices.assign(3U * n, 0U);
-            good = write_fan_indices(n, indices) == 3U * n;
-        }
-        ++counted;
-        if (!good) {
-            ++wrong;
-            if (wrong <= 4U) {
-                std::println("ellipse_outline_test: FALHOU faixa i={} a={} b={} h={} n={}", i,
-                             major, minor, h, n);
-            }
-        }
+        const sweep_case c = draw_sweep_case(draw, i);
+        build_sweep_band(c, band);
+        const bool good = band_holds(c, band, tally);
+        count_band(tally, c, band.n, good);
     }
     std::println("ellipse_outline_test: varredura faixas={} erradas={} pior_erro={} "
                  "amostras_internas={} pior_erro_interno={}",
-                 counted, wrong, worst_error, inner_samples, worst_inner);
-    GLINTFX_CHECK_EQ(counted, std::size_t{240});
-    GLINTFX_CHECK_EQ(wrong, std::size_t{0});
-    GLINTFX_CHECK(inner_samples >= 10000U);
-    // The worst inner sample, printed above, is also asserted (S5-B-fix2, D-W8-533).
-    GLINTFX_CHECK(worst_inner <= k_error * (1.0 + 1e-9));
+                 tally.counted, tally.wrong, tally.worst_error, tally.inner_samples,
+                 tally.worst_inner);
+    GLINTFX_CHECK_EQ(tally.counted, std::size_t{240});
+    // The worst inner sample is asserted BEFORE the count of wrong bands (S5-B-fix3, D-W8-562):
+    // it does not read the bookkeeping of `good`, so a check that loses a failed inner sample
+    // still fails here.
+    GLINTFX_CHECK(tally.worst_inner <= k_error * (1.0 + 1e-9));
+    GLINTFX_CHECK_EQ(tally.wrong, std::size_t{0});
+    GLINTFX_CHECK(tally.inner_samples >= 10000U);
 }

@@ -53,8 +53,9 @@ struct outline_angle_sources {
 };
 
 // MERGES into `out` the normal angles of both `sources` - the arc's (one per parameter) and the
-// uniform ones - each in [0, 2 pi), in increasing order, every value once, and answers how many;
-// 0, writing nothing, when `out` holds fewer than the parameters and the uniform angles together.
+// uniform ones - each in [0, 2 pi), in increasing order, every value once. The result is the count
+// of angles written; 0, writing nothing, when `out` holds fewer than the parameters and the
+// uniform angles together.
 // `plane` and `principal` are the same ellipse. Three atoms do the work (S5-B-fix2, D-W8-535): the
 // arc's angles, the uniform angles, and the sort that drops repeated values.
 [[nodiscard]] std::size_t merge_outline_angles(const conjugate_ellipse &plane,

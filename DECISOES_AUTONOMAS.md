@@ -9976,3 +9976,6 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     2. implementadores da T4b-A-fix5 e da S5-B-fix4;
     3. ordem da T4b-A-FILTER (opção A do líder);
     4. a S5-C1, depois da revisão da S5-B-fix4 e da errata D-W8-626.
+- **20/10 08:3x, RATIFICAÇÃO DO LÍDER, verbatim: "queo entender  melhor 2, 3, 4 e me de opcoes com askuserquestion. As outras eu ratifico."**
+  - **Ratificados os itens 1 e 5 a 14 da lista consolidada:** D-W8-501, 569, 380, 383, 551 a 558, 565, 572, 397, 414, 441 a 444, 471, 473 e 513 a 516, mais o achado de processo da L-63.
+  - Em aberto, com as perguntas levadas ao líder: os itens 2 (D-W8-581), 3 (D-W8-555) e 4 (D-W8-568).

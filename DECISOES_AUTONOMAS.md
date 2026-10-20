@@ -10124,3 +10124,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - (c) a (b) mais recusa só onde a normalização ainda falhar.
   - **A frase pública muda, então vai à ratificação do líder.**
   - R2D-TEXTURE agora fecha com a última entre a FILTER e a FLOAT.
+- **20/10 15:2x, T4b-A-fix6 commitada: 7cdc7082** (implementador ab22139f; 2 arquivos de teste; +72 −34).
+  - Mutantes: R1 dá 32 errados e 334 fora da cota; R7 dá 14 recusados; MK e MP dão 1568 e 1344. Cada um reprova pelo nome do caso.
+  - A régua mostra só as duas funções intocadas.
+  - preci 381/381, sanitizer 191/191 e MSVC 2/2.
+  - Push feito (ls-remote 7cdc7082) e CI 39474194421 disparado.
+  - **Revisão N1 com um revisor haiku novo.**
+  - **A FILTER fica para depois da pausa das 17:00:** o implementador não chegaria ao commit a tempo com a fila atual.

@@ -9849,3 +9849,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Os commits dos implementadores levam o Co-Authored-By do próprio modelo (Haiku 5.5).** Daqui em diante, isso não conta como desvio.
   - Vão à INBOX: K2-PROGRAM-NAME-PRINT e K1-OUTLINE-PROBE (D-W8-585).
   - **Para a lista de ratificação do líder:** a D-W8-581, com as alternativas B e C nomeadas e a nota de ABI.
+- **20/10 05:2x, CI 39388751658 (sobre d6e28b62, com a T4b-A-fix4) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. É o primeiro run com o exact_cross_test no Windows; o passo 6b do revisor confere os jobs.

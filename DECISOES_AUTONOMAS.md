@@ -9730,3 +9730,5 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - A revisão N1 foi somada à do revisor da fix2 (a597d9a4, que não escreveu nenhuma das duas), com veredito separado em rev-t4bafix3.txt. Isso economiza uma vaga.
   - O downgrade da L-09 do preci (roda no hospedeiro) é o vigente até PRECI-IN-CONTAINER, como em toda fatia da onda.
 - **19/10 22:40, CTO a92de40e retomado para a T4b-B2** (D-W8-475 a 480), com os achados documentais da revisão da B1-fix1 (D-W8-545 a 550). O de "flush com erro zera a contagem" vai à ratificação do líder. Instrução de pausa às 07:15 dada.
+- **19/10 22:41, S5-B-fix2 commitada: 6266dc97** (implementador acc96305; 5 arquivos; +85 −45). Verde 5/5; bits iguais (cmp em 601 linhas, a763b6a0); 7 de 7 mutantes; MK marca 46 e MC morre; preci 377; sanitizer 187. Entrou no push de c829fe96.
+  - Conferência mirada despachada a um revisor haiku novo, com instrução para a pausa das 07:15.

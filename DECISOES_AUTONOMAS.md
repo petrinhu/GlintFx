@@ -9733,3 +9733,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **19/10 22:41, S5-B-fix2 commitada: 6266dc97** (implementador acc96305; 5 arquivos; +85 −45). Verde 5/5; bits iguais (cmp em 601 linhas, a763b6a0); 7 de 7 mutantes; MK marca 46 e MC morre; preci 377; sanitizer 187. Entrou no push de c829fe96.
   - Conferência mirada despachada a um revisor haiku novo, com instrução para a pausa das 07:15.
 - **19/10 23:05, CI 39354842683 (com S5-B-fix2 e T4b-A-fix3) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
+- **20/10 00:12, EMBED-WIN-TIMEOUT e S5-A-fix6 recebidas do CTO a023304b**, pré-executadas em cópias (relatório 42d03562).
+  - EMBED: ordem 00fb7928, anexos 4b28a8be, D-W8-525 a 530. É padrão, não caso isolado: a regra 4 da casa (3 vezes o pior tempo, arredondado em múltiplos de 30 s) vale para 13 testes. O embed_win_test fica com 360. examples_pass_test e os dois claim_citations_* ganham trinco e MEASURED_HEAVY, com o piso de 14 para 17. A régua de 40 s não alarga.
+  - fix6: ordem ddfac66a, anexos 82669f9e, D-W8-517 a 524.
+    - Uma fixtura negativa por modo de falha mata M4 e M9, e um teste da segunda linha mata M2.
+    - I-2: a medida na imagem CachyOS contradiz o "(measured)" (pacotes x86_64 de base; o makepkg pede -march=native). A frase foi reescrita.
+    - Fontes da L-42: Tests/RunCMake, CMakeTest EXPECTFAIL, WILL_FAIL e cmake#23311, README-cmake do SDL3.
+  - Pré-execução das duas juntas: preci 380, rc 0.
+  - Ordem de commit: a EMBED primeiro; a fix6 espera o SHA dela.
+  - EMBED despachada a um implementador haiku novo. A fix6 vai depois do commit da EMBED.
+  - INBOX: EMBED-WIN-GROWTH (de 61 para 117 s em 4 dias; FOLGA_REPROVA_FATOR segue None).

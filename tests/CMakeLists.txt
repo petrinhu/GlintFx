@@ -1771,6 +1771,14 @@ glintfx_add_test(projective_quad_test)
 target_include_directories(projective_quad_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(projective_quad_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
+)
+# R2D-TEXTURE T4b-A-fix4 (D-W8-551): the exact cross product the weights stand on is an atom of its own, with its
+# own pure test.
+glintfx_add_test(exact_cross_test)
+target_include_directories(exact_cross_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(exact_cross_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
 )
 
 glintfx_add_test(texture_region_uv_test)
@@ -2071,6 +2079,7 @@ target_sources(renderer_2d_impl_test PRIVATE
 target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_textures.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_check.cpp"
 )
@@ -2082,6 +2091,7 @@ target_include_directories(textured_quad_corners_test PRIVATE "${PROJECT_SOURCE_
 target_sources(textured_quad_corners_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/textured_quad_corners.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
 )
 

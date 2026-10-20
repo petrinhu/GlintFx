@@ -343,7 +343,8 @@ GLINTFX_TEST(projective_quad_any_size_gets_the_same_weights) {
     GLINTFX_CHECK(same_weights(projective_weights(scaled(trapezoid, 1e-170)), want));
     GLINTFX_CHECK(same_weights(projective_weights(scaled(trapezoid, 1e160)), want));
     // Corners near the largest double: their difference (3e308) is not a double, and the vectors
-    // are still found, because each coordinate is halved before the subtraction.
+    // are still found, because every cross product is computed exactly, in whole numbers wide
+    // enough for any double (exact_cross.hpp; T4b-A-fix4, D-W8-551).
     const gltfx_quad_world widest{
         {-1.5e308, -1.5e308}, {1.5e308, -1.5e308}, {1.5e308, 1.5e308}, {-1.5e308, 1.5e308}};
     const std::optional<std::array<double, 4>> ones{{1.0, 1.0, 1.0, 1.0}};
@@ -409,4 +410,101 @@ GLINTFX_TEST(projective_quad_every_small_integer_quad_is_decided_exactly) {
     GLINTFX_CHECK_EQ(counted, std::size_t{781250});
     GLINTFX_CHECK_EQ(convex, std::size_t{118368});
     GLINTFX_CHECK_EQ(wrong, std::size_t{0});
+}
+
+// T4b-A-fix4 (D-W8-554): corners of MIXED magnitude in one quadrilateral. A kite of half-width L
+// whose two other corners are k1 and k2 multiples of the smallest double off the axis has, exactly,
+// s = 1/2 and t = k1 / (k1 + k2), so q = 1, (k1 + k2) / (2 k2), 1, (k1 + k2) / (2 k1). With the
+// one common scale of T4b-A-fix1 to fix3 the subnormal components were rounded away: of the 320
+// kites of L 0.5 to 3, 84 refused and 186 with wrong weights (review of the fix2). L up to 2^1023
+// (where the diagonal 2 L is not a double), each kite also turned a quarter (x and y swapped) and
+// mirrored (y negated): the weights do not change.
+namespace {
+
+[[nodiscard]] gltfx_quad_world kite(double half_width, std::int64_t k1, std::int64_t k2,
+                                    bool turned, bool mirrored) {
+    constexpr double k_unit = std::numeric_limits<double>::denorm_min();
+    const double up = static_cast<double>(k1) * k_unit;
+    const double down = -static_cast<double>(k2) * k_unit;
+    const double sign = mirrored ? -1.0 : 1.0;
+    const auto at = [&](double x, double y) {
+        return turned ? glintfx::gltfx_vec2_world{sign * y, x}
+                      : glintfx::gltfx_vec2_world{x, sign * y};
+    };
+    return gltfx_quad_world{at(-half_width, 0.0), at(0.0, up), at(half_width, 0.0), at(0.0, down)};
+}
+
+} // namespace
+
+GLINTFX_TEST(projective_quad_mixed_magnitudes_keep_their_weights) {
+    constexpr std::array<double, 7> half_widths{0.5, 1.0, 1.5, 2.0, 3.0, 1e300, 0x1p1023};
+    std::size_t counted = 0;
+    std::size_t wrong = 0;
+    for (const double half_width : half_widths) {
+        for (std::int64_t k1 = 1; k1 <= 8; ++k1) {
+            for (std::int64_t k2 = 1; k2 <= 8; ++k2) {
+                const double sum = static_cast<double>(k1 + k2);
+                const std::optional<std::array<double, 4>> want{
+                    {1.0, sum / (2.0 * static_cast<double>(k2)), 1.0,
+                     sum / (2.0 * static_cast<double>(k1))}};
+                for (const int variant : {0, 1, 2, 3}) {
+                    const gltfx_quad_world quad =
+                        kite(half_width, k1, k2, (variant & 1) != 0, (variant & 2) != 0);
+                    ++counted;
+                    wrong += same_weights(projective_weights(quad), want) ? 0U : 1U;
+                }
+            }
+        }
+    }
+    std::println("projective_quad_test: magnitude mista quadrilateros={} errados={}", counted,
+                 wrong);
+    GLINTFX_CHECK_EQ(counted, std::size_t{1792});
+    GLINTFX_CHECK_EQ(wrong, std::size_t{0});
+}
+
+// T4b-A-fix4 (D-W8-554, D-W8-556): the cases of the reviews where a mutant of the common scale
+// went wrong and the code was right, kept so that no rewrite loses them: number 1403 of the fix2
+// review (a coordinate near -1.9e308 next to -1 and 0: without the absolute value in the check of
+// a quarter of the largest double, refused by overflow), number 3996 of the same family (refused
+// when bottom_left.y was read as bottom_left.x) and number 3773 of the fix3 review (the
+// components of y without their absolute value: refused). The weights are those of exact
+// fractions, rounded once. And number 2947 of the fix2 family, which has NO mapping (a corner
+// points inward by 1.6e-17 of the exact fraction): the same five cross products computed in
+// double, with no bound on their rounding, gave it weights (measured by the CTO, T4b-A-fix4).
+GLINTFX_TEST(projective_quad_review_cases_keep_their_weights) {
+    const gltfx_quad_world case_1403{{-0x1.0000000000000p+0, -0x1.e42d130773b76p+1023},
+                                     {-0x1.c7b1f3cac7433p+1019, 0x1.c7b1f3cac7433p+1019},
+                                     {0x1.e848000000000p+19, 0x1.55c576d815726p+1021},
+                                     {0x1.f543bf5f0e638p+1021, 0x0.0p+0}};
+    const gltfx_quad_world case_3996{{0x1.c7b1f3cac7433p+1019, 0x1.0000000000000p+0},
+                                     {0x1.c7b1f3cac7433p+1019, -0x1.c7b1f3cac7433p+1019},
+                                     {-0x1.56e1fc2f8f359p-997, 0x1.56e1fc2f8f359p-996},
+                                     {0x1.56e1fc2f8f359p-996, 0x1.e42d130773b76p+1023}};
+    const gltfx_quad_world case_3773{{-0x1.b7cdfd9d7bdbbp-34, 0x1.e42d130773b76p+1023},
+                                     {-0x0.0p+0, 0x1.e42d130773b76p+1023},
+                                     {0x0.0p+0, -0x1.56e1fc2f8f359p-997},
+                                     {-0x1.b7cdfd9d7bdbbp-34, 0x1.b7cdfd9d7bdbbp-34}};
+    const gltfx_quad_world case_2947{{0x1.c7b1f3cac7433p+1019, 0x1.e848000000000p+19},
+                                     {0x1.55c576d815726p+1021, 0x1.55c576d815726p+1023},
+                                     {0x1.56e1fc2f8f359p-997, 0x1.55c576d815726p+1021},
+                                     {-0x1.c7b1f3cac7433p+1019, 0x1.56e1fc2f8f359p-997}};
+    const std::optional<std::array<double, 4>> want_1403{
+        {0x1.24e1a08ad8f30p+2, 0x1.3a2e8ba2e8ba3p-1, 0x1.1f66b82651f67p-1, 0x1.599999999999ap+1}};
+    const std::optional<std::array<double, 4>> want_3996{
+        {0x1.0f0f0f0f0f0f1p-1, 0x1.0f0f0f0f0f0f1p-1, 0x1.2000000000000p+3, 0x1.2000000000000p+3}};
+    const std::optional<std::array<double, 4>> ones{{1.0, 1.0, 1.0, 1.0}};
+    GLINTFX_CHECK(same_weights(projective_weights(case_1403), want_1403));
+    GLINTFX_CHECK(same_weights(projective_weights(case_3996), want_3996));
+    GLINTFX_CHECK(same_weights(projective_weights(case_3773), ones));
+    GLINTFX_CHECK(!projective_weights(case_2947).has_value());
+}
+
+// T4b-A-fix4 (D-W8-552): 1 - s keeps its digits near 1. The kite (-1, 0), (0, 1), (2^-60, 0),
+// (0, -1) has s = 1 / (1 + 2^-60): computed as 1 - s from the rounded s it was 0, and the kite
+// was refused (COSMETICO-2 of the fix2 review). Exactly, q0 = (1 + 2^-60) / 2^-59 = 2^59 + 1/2,
+// which rounds to 2^59; q1 = q3 = 1 (t = 1/2) and q2 = (1 + 2^-60) / 2, which rounds to 1/2.
+GLINTFX_TEST(projective_quad_one_minus_s_keeps_its_digits) {
+    const gltfx_quad_world thin{{-1.0, 0.0}, {0.0, 1.0}, {0x1p-60, 0.0}, {0.0, -1.0}};
+    const std::optional<std::array<double, 4>> want{{0x1p59, 1.0, 0.5, 1.0}};
+    GLINTFX_CHECK(same_weights(projective_weights(thin), want));
 }

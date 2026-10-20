@@ -26,13 +26,18 @@
 // THE CORNERS are the roles of core/quad.hpp, walked once around: top_left (0), top_right (1),
 // bottom_right (2), bottom_left (3).
 //
-// ANY SIZE, ANY PLACE (T4b-A-fix1, D-W8-493): the corners come in WORLD units, and a camera zoom
-// can bring a quadrilateral of 1e-170 or of 1e160 world units to ordinary pixels. s and t do not
-// change when the quadrilateral is moved or scaled, and the computation keeps that: the vectors
-// are measured from corner 0 and scaled together by one power of two, exact, before any product,
-// so a convex quadrilateral of any finite size and place gets its weights, down to corners that
-// are a few multiples of the smallest double (subnormal: the subtraction is exact there, and
-// nothing is rounded before it, T4b-A-fix2, D-W8-514).
+// ANY SIZE, ANY PLACE, ANY MIX, DECIDED EXACTLY (T4b-A-fix4, D-W8-551 to D-W8-553): the corners
+// come in WORLD units, and a camera zoom can bring a quadrilateral of 1e-170 or of 1e160 world
+// units to ordinary pixels, with corners of very different magnitudes in one quadrilateral (one
+// near zero, one near the largest double; a sliver a few multiples of the smallest double tall).
+// s, 1 - s, t and 1 - t come from five cross products of the corners, each computed EXACTLY
+// (exact_cross.hpp): the answer "is there a mapping" has no rounding in it, for any finite
+// corners. Each weight 1 / (2 x) is then the ratio of two exact values rounded to their leading
+// digits, within 2^-50 of the exact weight (a weight that rounds past the largest double is
+// refused). 1 - s and 1 - t are cross products of their own, never a subtraction from 1, so a
+// corner next to the crossing keeps its weight. One common scale for the whole quadrilateral
+// (T4b-A-fix1 to fix3) rounded the small components away when the corners mixed magnitudes, and
+// gave wrong weights without a word; it is gone.
 //
 // NO WEIGHTS (std::nullopt) when the corners define no projective mapping (`degenerate_quad`): the
 // diagonals do not cross strictly inside both of them. That is three corners on one line (a

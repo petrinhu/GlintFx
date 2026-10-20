@@ -3,102 +3,81 @@
 
 #include <array>
 #include <cmath>
-#include <limits>
 #include <optional>
 
-// draw2d/projective_quad.cpp - R2D-TEXTURE, fatias T4b-A, T4b-A-fix1 and T4b-A-fix2: the weights of
+#include "draw2d/exact_cross.hpp"
+
+// draw2d/projective_quad.cpp - R2D-TEXTURE, fatias T4b-A to T4b-A-fix4: the weights of
 // projective_quad.hpp.
 namespace glintfx::draw2d {
 
 namespace {
 
-// The cross product of (ax, ay) and (bx, by).
-[[nodiscard]] double cross(double ax, double ay, double bx, double by) noexcept {
-    return (ax * by) - (ay * bx);
-}
-
-// The three vectors the solution needs: the diagonal 0 -> 2, the diagonal 1 -> 3 and the edge
-// 0 -> 1.
-struct quad_vectors {
-    double d1x = 0.0;
-    double d1y = 0.0;
-    double d2x = 0.0;
-    double d2y = 0.0;
-    double rx = 0.0;
-    double ry = 0.0;
+// The five cross products of the solution, each straight from the corners and exact
+// (exact_cross.hpp; T4b-A-fix4, D-W8-551, D-W8-552): the diagonals' D = d1 x d2, and s, 1 - s, t
+// and 1 - t times D. 1 - s and 1 - t are cross products of their own, never a subtraction from 1,
+// so they keep their digits near 1. With corner0 + s d1 = corner1 + t d2 and r = corner1 - corner0:
+// s D = r x d2, (1 - s) D = (corner2 - corner1) x d2, t D = r x d1, (1 - t) D = d1 x (corner3 -
+// corner0).
+struct quad_crosses {
+    exact_cross_value diagonals;
+    exact_cross_value s;
+    exact_cross_value one_minus_s;
+    exact_cross_value t;
+    exact_cross_value one_minus_t;
 };
 
-// Whether a difference of two of the coordinates could overflow: some coordinate is above a
-// quarter of the largest double (T4b-A-fix2, D-W8-514).
-[[nodiscard]] bool near_the_largest_double(const glintfx::gltfx_quad_world &corners) noexcept {
-    constexpr double k_quarter_of_max = std::numeric_limits<double>::max() / 4.0;
-    const std::array<double, 8> values{corners.top_left.x,     corners.top_left.y,
-                                       corners.top_right.x,    corners.top_right.y,
-                                       corners.bottom_right.x, corners.bottom_right.y,
-                                       corners.bottom_left.x,  corners.bottom_left.y};
-    for (const double value : values) {
-        if (std::fabs(value) > k_quarter_of_max) {
-            return true;
-        }
-    }
-    return false;
+[[nodiscard]] quad_crosses crosses_of(const glintfx::gltfx_quad_world &c) noexcept {
+    return quad_crosses{
+        exact_cross(c.top_left, c.bottom_right, c.top_right, c.bottom_left),
+        exact_cross(c.top_left, c.top_right, c.top_right, c.bottom_left),
+        exact_cross(c.top_right, c.bottom_right, c.top_right, c.bottom_left),
+        exact_cross(c.top_left, c.top_right, c.top_left, c.bottom_right),
+        exact_cross(c.top_left, c.bottom_right, c.top_left, c.bottom_left),
+    };
 }
 
-// The vectors, scaled together so the largest of their six components lies in [1, 2) (T4b-A-fix1,
-// D-W8-493). s and t are RATIOS of the products below, so a common factor changes none of their
-// digits, and the products neither overflow nor vanish whatever the size of the quadrilateral.
-// Near the largest double each coordinate is halved BEFORE the subtraction, so the difference of
-// two finite values stays finite; there halving is exact. Anywhere else nothing is halved
-// (T4b-A-fix2, D-W8-514): halving a SUBNORMAL coordinate rounds away its last bit, and a
-// quadrilateral of a few multiples of the smallest double changed shape (measured: 1696 of 200000
-// accepted wrongly, 2759 refused wrongly). The subtraction of two subnormals is exact, and so is
-// the power of two. No value when a component is not finite or all of them are zero (the four
-// corners are one point).
-[[nodiscard]] std::optional<quad_vectors>
-scaled_vectors(const glintfx::gltfx_quad_world &corners) noexcept {
-    const int halving = near_the_largest_double(corners) ? -1 : 0;
-    const auto half = [halving](double value) noexcept { return std::ldexp(value, halving); };
-    std::array<double, 6> v{half(corners.bottom_right.x) - half(corners.top_left.x),
-                            half(corners.bottom_right.y) - half(corners.top_left.y),
-                            half(corners.bottom_left.x) - half(corners.top_right.x),
-                            half(corners.bottom_left.y) - half(corners.top_right.y),
-                            half(corners.top_right.x) - half(corners.top_left.x),
-                            half(corners.top_right.y) - half(corners.top_left.y)};
-    double largest = 0.0;
-    for (const double component : v) {
-        if (!std::isfinite(component)) {
-            return std::nullopt;
+[[nodiscard]] bool all_finite(const glintfx::gltfx_quad_world &c) noexcept {
+    const std::array<double, 8> values{c.top_left.x,    c.top_left.y,     c.top_right.x,
+                                       c.top_right.y,   c.bottom_right.x, c.bottom_right.y,
+                                       c.bottom_left.x, c.bottom_left.y};
+    for (const double value : values) {
+        if (!std::isfinite(value)) {
+            return false;
         }
-        largest = std::fmax(largest, std::fabs(component));
     }
-    if (largest == 0.0) {
-        return std::nullopt;
-    }
-    const int exponent = std::ilogb(largest);
-    for (double &component : v) {
-        component = std::ldexp(component, -exponent);
-    }
-    return quad_vectors{v[0], v[1], v[2], v[3], v[4], v[5]};
+    return true;
+}
+
+// Strictly inside both diagonals: D is not zero, and s, 1 - s, t and 1 - t have its sign. The
+// signs are exact, so this is decided exactly.
+[[nodiscard]] bool crossing_inside(const quad_crosses &q) noexcept {
+    const int sign = q.diagonals.sign;
+    return sign != 0 && q.s.sign == sign && q.one_minus_s.sign == sign && q.t.sign == sign &&
+           q.one_minus_t.sign == sign;
+}
+
+// 1 / (2 x) = D / (2 x D) as a double; infinite when it is not one.
+[[nodiscard]] double weight_of(const exact_cross_value &diagonals,
+                               const exact_cross_value &x_times_d) noexcept {
+    return std::ldexp(0.5 * diagonals.m / x_times_d.m, diagonals.e - x_times_d.e);
 }
 
 } // namespace
 
 std::optional<std::array<double, 4>>
 projective_weights(const glintfx::gltfx_quad_world &corners) noexcept {
-    const std::optional<quad_vectors> vectors = scaled_vectors(corners);
-    if (!vectors.has_value()) {
+    if (!all_finite(corners)) {
         return std::nullopt;
     }
-    const quad_vectors &q = *vectors;
-    const double denominator = cross(q.d1x, q.d1y, q.d2x, q.d2y);
-    // corner0 + s d1 = corner1 + t d2, solved by Cramer's rule.
-    const double s = cross(q.rx, q.ry, q.d2x, q.d2y) / denominator;
-    const double t = cross(q.rx, q.ry, q.d1x, q.d1y) / denominator;
-    // Strictly inside both diagonals; a NaN (parallel diagonals) fails every comparison.
-    if (!(s > 0.0 && s < 1.0 && t > 0.0 && t < 1.0)) {
+    const quad_crosses q = crosses_of(corners);
+    if (!crossing_inside(q)) {
         return std::nullopt;
     }
-    const std::array<double, 4> weights{0.5 / (1.0 - s), 0.5 / (1.0 - t), 0.5 / s, 0.5 / t};
+    // q0 = 1 / (2 (1 - s)), q1 = 1 / (2 (1 - t)), q2 = 1 / (2 s), q3 = 1 / (2 t).
+    const std::array<double, 4> weights{weight_of(q.diagonals, q.one_minus_s),
+                                        weight_of(q.diagonals, q.one_minus_t),
+                                        weight_of(q.diagonals, q.s), weight_of(q.diagonals, q.t)};
     for (const double weight : weights) {
         if (!std::isfinite(weight)) {
             return std::nullopt;

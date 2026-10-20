@@ -9700,3 +9700,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **CI 38672501272 (sobre dc2d8cf6) VERMELHO no Windows estático, no passo "Resultado agregado":** todos os 361 testes passaram, mas o ctest_aggregate.py reprova examples_pass_test (40,9 s, acima da régua de 40 s, sem RESOURCE_LOCK nem PROCESSORS). A "folga P2" mostra pkgconfig_validate_test a 116,8 de 120 s e embed_win_test a 110,1 de 120 s.
   - L-17 deu padrão, não caso isolado: a EMBED-WIN-TIMEOUT foi ampliada para todos os testes perto do teto e para o portão de pesados (CTO a023304b, faixa até D-W8-532).
   - Faixas do CTO a92de40e remanejadas: S5-B-fix2 em D-W8-533 a 540, célula do O1 em D-W8-541 a 544.
+- **19/10 22:09, T4b-A-fix2 commitada: b83eccc7** (implementador a30427e9, retomado sem repetir passo; 3 arquivos; +97 −7).
+  - Vermelho só na célula subnormal (4752 errados). Verde 4/4: subnormais 20000/0 e escalas 4500/0.
+  - 2 de 2 mutantes mortos. preci 376, sanitizer 186.
+  - O MSVC fica com o revisor.
+  - Revisão N1 despachada a um revisor haiku novo, que reroda as sondas 2a e 2b do revisor da fix1: elas têm de cair a zero.
+- **19/10 22:09, push de onda-w8 e CI disparado**, com a fix2, pela autorização do líder de 19/10 ("Autorizo tag/merge/push").

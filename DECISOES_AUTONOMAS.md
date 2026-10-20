@@ -10209,3 +10209,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - (6) T5-B, depois da S5-C1, da T5-A e da ratificação de 671 e 681.
   - Faixa livre a partir de D-W8-736.
 - **20/10 16:53: CI 39484168800 verde sobre efd1ee47, que contém a S5-B-fix5 7694a682.** Dos 26 jobs, 25 passaram, 1 foi pulado (o mesmo de sempre) e nenhum falhou. A revisão N1 da fix5 continua para a volta da pausa.
+- **20/10 18:1x: decisões do líder, tomadas por AskUserQuestion depois de ver a pesquisa** (manuais da GL 3.3 e da GLSL 3.30, Skia, Chromium, SDL3, ImGui, raylib, sokol, SFML e queixas públicas):
+  - **D-W8-735, FLOAT: "(c) Normalizar".** O vértice só recebe pesos em [2^-32, 2^32]. A ordem /var/tmp/cto-w8/ordem-t4b-a-float.md fica liberada; sai depois da FILTER.
+  - **D-W8-671, API: "Duas funções".** São `fill_textured_triangles` e `fill_indexed_textured_triangles`. Ratificada.
+  - **D-W8-681 (frase pública) e D-W8-706 (divisão do arquivo de teste): "Pesquisar antes".** Na volta da pausa, o CTO pesquisa como outras bibliotecas documentam a API de geometria e organizam os testes, e traz as duas de novo ao líder. A T5-B continua travada pela 681.
+  - Pedido do líder registrado: ele quer ver o que dizem a comunidade, os manuais, a documentação e as outras bibliotecas antes de cada decisão sua.

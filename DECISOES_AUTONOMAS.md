@@ -9983,3 +9983,6 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Item 3 (D-W8-555):** "Frase completa (Recomendado)". A frase de exatidão volta e passa a citar a recusa rara: o quadrilátero cujo peso passaria do maior número representável é recusado. **Precisa de uma fatia pequena de texto público, com revisão:** a T4b-A-PHRASE, que fecha a lacuna junto.
   - **Item 4 (D-W8-568):** "curve_max_error_pixels (Recomendado)". RATIFICADO.
   - **Item 2 (D-W8-581):** o líder perguntou, verbatim: "o que é mais vantajoso e sem causar problemas práticos ao consumidor?". O main explicou e perguntou de novo.
+- **20/10 09:0x, DECISÃO DO LÍDER por AskUserQuestion, item 2 (D-W8-581): "Não conta (Recomendado)". RATIFICADO.**
+  - **A lista consolidada de ratificação está fechada.** Todos os itens foram ratificados ou decididos.
+  - Ainda bloqueiam a 0.7.0.0 as fatias de trabalho, não mais decisões: a T4b-A-FILTER (opção A) e a T4b-A-PHRASE (frase completa).

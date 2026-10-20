@@ -9805,3 +9805,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - D-W8-551 a 558;
     - o corte da frase D-W8-555;
     - a recusa por peso acima do maior double, que o texto público não menciona. É lacuna anterior, e vai junto com a D-W8-548.
+- **20/10 03:49, chegou a conferência mirada da S5-A-fix6 (16728be8) e da EMBED-WIN-TIMEOUT (21bfb9ed)** (revisor a3b00521). Arquivos: /var/tmp/cto-w8/rev-s5a-fix6.txt e /var/tmp/cto-w8/rev-embed-win-timeout.txt.
+  - **Código e testes LIMPOS nas duas.**
+    - fix6: M2, M4, M9 e M10 morrem pelo blob, cada um no teste previsto, e o controle fica 11/11. A frase do CachyOS confere com a imagem de hoje. Os 3 testes novos passaram nos jobs Windows do CI 39368033791.
+    - EMBED: as 13 contas conferem, as 4 medidas batem com os logs do servidor, a prova local deu 15/15, os artefatos Windows deram 7/7 e os 5 mutantes morrem onde devem.
+  - **Único IMPORTANTE, nas duas: processo (L-63).** Os commits citam o ID sem tocar o Status no mesmo commit.
+    - O defeito é real: às 01:06 R2D-SHAPES ainda estava ⏳. O Status foi corrigido para 🔄 no commit separado das 02:00.
+    - Não se reescreve histórico publicado (L-25), então o conserto possível já foi feito.
+    - Daqui em diante, toda ordem do CTO faz a fatia que fecha o item tocar o Status (🔄 para 🔍) no próprio commit, e nenhuma fatia cita item em ⏳ sem levá-lo a 🔄.
+  - **Decisão do main:** as duas conferências ficam aceitas no conteúdo, e o achado de processo, registrado e corrigido.
+  - Novo para a INBOX: EMBED-PKGCONFIG-DEBUG (pkgconfig_validate_test com 124,23 s no Windows Debug, teto 360, quando a regra 4 pede 390; o passo "folga P2" não roda no job Debug).

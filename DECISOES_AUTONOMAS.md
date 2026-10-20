@@ -10052,3 +10052,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **I-1, fiação sem teste:** os mutantes RINGW e IDXW sobrevivem. O caso do RING chama a função direto e não prova que band_holds a usa. O revisor validou um conserto em cópia: um caso via band_holds mata os dois.
   - **I-2 (L-17):** o laço dos pontos do anel ficou dentro de write_band_triangles e tem nome próprio. A sugestão é extrair ring_points_of.
   - **Pedido ao CTO: a S5-B-fix5** (faixa D-W8-691 a 700), com o texto exato da errata D-W8-626 para a S5-C1.
+- **20/10 13:0x, CI 39448365750 (sobre d59a255e, com a S5-B-fix4) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.

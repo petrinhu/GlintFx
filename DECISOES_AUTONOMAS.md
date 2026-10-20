@@ -9743,3 +9743,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Ordem de commit: a EMBED primeiro; a fix6 espera o SHA dela.
   - EMBED despachada a um implementador haiku novo. A fix6 vai depois do commit da EMBED.
   - INBOX: EMBED-WIN-GROWTH (de 61 para 117 s em 4 dias; FOLGA_REPROVA_FATOR segue None).
+- **20/10 00:21, revisões N1 da T4b-A-fix2 e da fix3: as duas NÃO LIMPA** (revisor a597d9a4; rev-t4bafix2.txt e rev-t4bafix3.txt).
+  - fix2: o escopo dela (D-W8-514) está cumprido, com todas as sondas do CTO e do revisor anterior em zero e MSVC 4/0. O O1 agora morre.
+  - **IMPORTANTE novo, um passo além:** escala 1 com uma aresta subnormal. Um kite é recusado ou recebe pesos errados calados (84 recusas erradas e 186 de 236 pesos errados na família sliver_escala1). A causa é o ldexp de escalonamento da fix1. M1 e M4 sobrevivem.
+  - fix3: a enumeração 5^8 dá 0 erros, mas MX e MDIAG sobrevivem à célula nova (só inteiros, sem magnitude mista).
+  - Processo: o relatório da fix3 em t4bafix3/relatorio.txt traz conteúdo da S5-B-fix2.
+  - **Terceira volta da mesma família**, então valem a L-42 e a L-34. Pedida ao CTO a023304b a **T4b-A-fix4 (D-W8-551 a 558)**: estreitar a promessa pública, usar predicados exatos ou outra saída da pesquisa, com contagem de queixas e advisor se ficar abaixo de 10.

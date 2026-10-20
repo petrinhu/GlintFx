@@ -9836,3 +9836,16 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Push feito (ls-remote d6e28b62). O CI sai quando o run 39385013879 terminar.
   - **Revisão N1 com um revisor haiku novo**, com os pedidos do advisor: o binário C++ sobre as cinco entradas e um número de tempo, pai contra fix4.
 - **20/10 04:4x, CI 39385013879 (sobre 3b0365af, com a S5-B-fix3) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. Disparado o CI 39388751658 sobre d6e28b62, com a T4b-A-fix4.
+- **20/10 05:1x, a ordem da T4b-B2-fix1 chegou** do CTO a7b9643f, com as decisões D-W8-581 a 588. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-b2-fix1.md (md5 5afb855a), anexos (anexos.md5 85e97587, as 36 linhas conferidas: ok) e relato /var/tmp/cto-w8/relato-cto-t4bb2fix1.txt (md5 05f181e4).
+  - **A D-W8-548 vira a D-W8-581. Queixas: 0, então o advisor desempatou. Opção A, aceita:**
+    - um flush que a placa recusa não soma chamadas de desenho nem trocas de textura; as peças dele contam em pieces_dropped_graphics_failure, como já contam;
+    - o código não muda; mudam as três frases públicas (draw_texture, draw_calls e texture_switches), e um caso novo fixa a promessa.
+  - **Por que A:** no relatório, "reached the graphics card" já quer dizer "a placa aceitou" (pieces_drawn e pieces_dropped_graphics_failure). Contar no erro (B) daria ao mesmo verbo, no mesmo struct, dois sentidos opostos. Sokol, bgfx e three.js contam na submissão porque nunca leem o erro GL; o GlintFx lê.
+  - **Por que isto não contradiz o desempate da T4b-A-fix4:** lá, estreitar a promessa deixaria passar um erro de peso de 7,9% em silêncio. Aqui, o flush recusado já aparece duas vezes, no erro de finish_frame() e em pieces_dropped_graphics_failure. A muda palavras de contabilidade, e nenhum defeito deixa de ser reportado.
+  - **C**, um contador novo de recusa como o do Skia, fica para quando um consumidor pedir. Acrescentar campo ao struct por valor é mudança de ABI; antes da 1.0 (SOVERSION 0) é o único momento barato. Esse fato vai à ratificação.
+  - O vermelho (L-20) é o mutante MB: ele sobrevive no pai e morre no snapshot. O bloco "ct" roda os dois, e o relatório imprime os dois.
+  - Pré-execução: preci 380/380, sanitizer 190/190, MSVC 2/2, commit em cópia com 5 arquivos (+58 −22). A fatia não fecha R2D-TEXTURE (fica 🔄).
+  - **Implementador haiku novo despachado.** O implementador da S5-C1 só sai depois do commit desta fatia (D-W8-586).
+  - **Os commits dos implementadores levam o Co-Authored-By do próprio modelo (Haiku 5.5).** Daqui em diante, isso não conta como desvio.
+  - Vão à INBOX: K2-PROGRAM-NAME-PRINT e K1-OUTLINE-PROBE (D-W8-585).
+  - **Para a lista de ratificação do líder:** a D-W8-581, com as alternativas B e C nomeadas e a nota de ABI.

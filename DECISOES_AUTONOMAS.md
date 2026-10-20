@@ -9719,3 +9719,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - C: a errata cita D-W8-501 a 512, mas 509 a 512 não existem (:43); "(each flush starts with none bound)" descreve o modelo do contador, não o GL; um flush com erro GL zera a contagem, sem promessa pública em contrário (fica para o líder).
   - O conserto vai com a B2, que reescreve o mesmo parecer. Fica com o CTO a92de40e na próxima vaga.
 - **19/10 22:13, modo autônomo LIGADO pelo líder** ("inicie modo autonomo"), até 20/10 às 22:13, com escopos push e clean. A autorização de tag, merge e push de 19/10 continua valendo.
+- **19/10 22:15, ordem do líder, verbatim: "pause 20/10/2026 07:15h. Antes da pausa, commit."** Como vai ser cumprida:
+  - o trabalho segue até lá;
+  - a partir de 06:45 não sai despacho novo;
+  - às 07:15 os agentes em voo param (TaskStop). Trabalho de fatia não terminada fica nas cópias em /var/tmp, nunca commitado pela metade, porque os portões da L-23 valem;
+  - o main commita e empurra o registro e a memória da sessão; parada_do_lider é gravado e o monitor só vigia até o líder mandar seguir.
+  - Agendamento em ~/.config/olhe_agentes/GlintFx/pausa_agendada (epoch 1792491300).

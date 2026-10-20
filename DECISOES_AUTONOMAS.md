@@ -9850,3 +9850,20 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Vão à INBOX: K2-PROGRAM-NAME-PRINT e K1-OUTLINE-PROBE (D-W8-585).
   - **Para a lista de ratificação do líder:** a D-W8-581, com as alternativas B e C nomeadas e a nota de ABI.
 - **20/10 05:2x, CI 39388751658 (sobre d6e28b62, com a T4b-A-fix4) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. É o primeiro run com o exact_cross_test no Windows; o passo 6b do revisor confere os jobs.
+- **20/10 05:5x, a ordem da S5-C1 chegou** do CTO a2dd851e, com as decisões D-W8-565 a 580. Arquivos: ordem /var/tmp/cto-w8/ordem-s5c.md (md5 721ebcc4), anexos (anexos.md5 8ba4e6e8, as 102 linhas conferidas: ok) e relato /var/tmp/cto-w8/relato-cto-s5c.txt (md5 efd8404f).
+  - Pré-execução sobre ebbd18a9:
+    - verde 5/5 e 7 de 7 mutantes mortos;
+    - fixture em contêiner com 40 células, e os mutantes M8 e MX morrem;
+    - preci 381/381, sanitizer 191/191, MSVC 8/8;
+    - commit de prova sobre 4ffecec6 com 16 arquivos (+770 −96).
+  - **Desempate do advisor nas quatro, todas aceitas:**
+    - **D-W8-565:** a S5-C sai em duas ordens, C1 agora e C2 depois, porque a C2 lê o campo que a C1 cria; precedente da D-W8-468. **R2D-SHAPES só fecha com C1, C2 e S6.**
+    - **D-W8-568:** o campo se chama `curve_max_error_pixels`, não `ellipse_max_error_pixels`. Depois da C2 a ponta redonda também lê o campo, e "ellipse_" ficaria falso num cabeçalho público. O custo de ABI hoje é zero. **Porta de mão única: a marca v0.7.0.0 espera a ratificação do líder para a 568, a 581 e a lacuna da 555.** Antes da marca, renomear custa um commit; depois, é quebra.
+    - **D-W8-569:** as frases públicas do Anexo T tiram três contradições da cerca da S0. O revisor confere que todo `Proved by:` existe no blob e que o check_claim_citations passa.
+    - **D-W8-572 (Q4):** a ponta redonda lê o campo. São 10 queixas, exatamente no piso, mas 2 já contavam na D-W8-416 e 0 tratam da ponta diretamente. A conta honesta é 8 reais, e o registro diz isso. Nada sai disso agora; ela só justifica o nome da 568.
+  - **A S5-C1 não sai antes da pausa:** são 16 arquivos com fixture, preci, sanitizer e MSVC, e não chegariam ao commit até 07:15. Antes de despachá-la, depois da pausa, o main confere uma a uma as âncoras dos arquivos compartilhados no HEAD novo.
+  - Vão à INBOX: S5-C2 (registro visível), CELL-REFUSALS-L17, FRAME-TEST-OLD-L17 e PER-CALL-TOLERANCE.
+- **20/10 05:56, T4b-B2-fix1 commitada: 9f959d2a** (implementador a242a0a7; 5 arquivos; +58 −22).
+  - O MB sobrevive no pai e morre no snapshot, com o vermelho visto. MBS e MT também morrem.
+  - preci 381/0, sanitizer 191/0, MSVC 2/2.
+  - Push feito (ls-remote 9f959d2a) e CI 39397064502 disparado. **Revisão N1 com um revisor haiku novo**, que grava o veredito aos poucos, por causa da pausa.

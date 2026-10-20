@@ -79,7 +79,7 @@ struct stroke_plane {
     const outline_angle_sources sources{
         parameters.first(count - 1U),
         uniform_normal_angle_count(frame.reach_pixels, screen.max_error_pixels)};
-    return write_sorted_outline_angles(frame.plane, frame.principal, sources, angles);
+    return merge_outline_angles(frame.plane, frame.principal, sources, angles);
 }
 
 // How many points write_band_positions() wrote, and whether they are a ring.
@@ -135,7 +135,7 @@ ellipse_pixels_outcome ellipse_pixels::build_fill(const glintfx::gltfx_ellipse_w
         positions[k + 1U] = {on_screen_ellipse.center.x + offset.x,
                              on_screen_ellipse.center.y + offset.y};
     }
-    return publish_as_triangles(rim + 1U, color, false);
+    return publish_band_if_in_range(rim + 1U, color, false);
 }
 
 ellipse_pixels_outcome ellipse_pixels::build_stroke(const glintfx::gltfx_ellipse_world &ellipse,
@@ -151,26 +151,35 @@ ellipse_pixels_outcome ellipse_pixels::build_stroke(const glintfx::gltfx_ellipse
     }
     const band_points band = write_band_positions(frame, std::span<const double>(angles.data(), n),
                                                   screen.affine, positions);
-    return publish_as_triangles(band.count, color, band.ring);
+    return publish_band_if_in_range(band.count, color, band.ring);
 }
 
-ellipse_pixels_outcome ellipse_pixels::publish_as_triangles(std::size_t count,
-                                                            glintfx::gltfx_rgba color,
-                                                            bool ring) noexcept {
+std::size_t ellipse_pixels::write_band_indices(std::span<const pixel_position_wide> points,
+                                               bool ring) noexcept {
+    return ring ? write_ring_indices(points, ellipse_indices)
+                : write_fan_indices(points.size() - 1U, ellipse_indices);
+}
+
+void ellipse_pixels::write_band_vertices(std::size_t count, glintfx::gltfx_rgba color) noexcept {
+    for (std::size_t k = 0U; k < count; ++k) {
+        pixels[k] = colored_pixel_vertex{narrowed_to_pixel(positions[k]), color};
+    }
+}
+
+ellipse_pixels_outcome ellipse_pixels::publish_band_if_in_range(std::size_t count,
+                                                                glintfx::gltfx_rgba color,
+                                                                bool ring) noexcept {
     const std::span<const pixel_position_wide> points(positions.data(), count);
     // Every point must be in the pixel range; one that is not refuses the whole ellipse (I-7,
     // S2b-fix1). A NaN is in no range, so it is refused too.
     if (!all_pixel_positions_in_range(points)) {
         return ellipse_pixels_outcome::pixel_position_out_of_range;
     }
-    const std::size_t indices_written = ring ? write_ring_indices(points, ellipse_indices)
-                                             : write_fan_indices(count - 1U, ellipse_indices);
+    const std::size_t indices_written = write_band_indices(points, ring);
     if (indices_written == 0U) {
         return ellipse_pixels_outcome::pixel_position_out_of_range;
     }
-    for (std::size_t k = 0U; k < count; ++k) {
-        pixels[k] = colored_pixel_vertex{narrowed_to_pixel(positions[k]), color};
-    }
+    write_band_vertices(count, color);
     point_count = count;
     index_count = indices_written;
     return ellipse_pixels_outcome::built;

@@ -19,26 +19,45 @@ std::size_t uniform_normal_angle_count(double reach_pixels, double max_error_pix
     return 4U * ((half + 1U) / 2U);
 }
 
-std::size_t write_sorted_outline_angles(const conjugate_ellipse &plane,
-                                        const principal_ellipse &principal,
-                                        const outline_angle_sources &sources,
-                                        std::span<double> out) noexcept {
+namespace {
+
+// The normal angle of the curve at each of the arc's `parameters`, one per slot of `out` (which
+// holds at least as many).
+void write_arc_normal_angles(const conjugate_ellipse &plane, const principal_ellipse &principal,
+                             std::span<const double> parameters, std::span<double> out) noexcept {
+    for (std::size_t k = 0U; k < parameters.size(); ++k) {
+        out[k] = normal_angle_of_offset(principal, offset_at_parameter(plane, parameters[k]));
+    }
+}
+
+// The `out.size()` uniform angles 0, 2 pi / m, ..., (m - 1) 2 pi / m, m = out.size().
+void write_uniform_normal_angles(std::span<double> out) noexcept {
+    const double step = 2.0 * std::numbers::pi / static_cast<double>(out.size());
+    for (std::size_t j = 0U; j < out.size(); ++j) {
+        out[j] = step * static_cast<double>(j);
+    }
+}
+
+// Puts `values` in increasing order with every value once, in its first slots, and answers how
+// many.
+[[nodiscard]] std::size_t sort_and_drop_repeated(std::span<double> values) noexcept {
+    std::sort(values.begin(), values.end());
+    const auto last = std::unique(values.begin(), values.end());
+    return static_cast<std::size_t>(last - values.begin());
+}
+
+} // namespace
+
+std::size_t merge_outline_angles(const conjugate_ellipse &plane, const principal_ellipse &principal,
+                                 const outline_angle_sources &sources,
+                                 std::span<double> out) noexcept {
     const std::size_t from_arc = sources.parameters.size();
     if (out.size() < from_arc || out.size() - from_arc < sources.uniform_count) {
         return 0U;
     }
-    for (std::size_t k = 0U; k < from_arc; ++k) {
-        out[k] =
-            normal_angle_of_offset(principal, offset_at_parameter(plane, sources.parameters[k]));
-    }
-    const double step = 2.0 * std::numbers::pi / static_cast<double>(sources.uniform_count);
-    for (std::size_t j = 0U; j < sources.uniform_count; ++j) {
-        out[from_arc + j] = step * static_cast<double>(j);
-    }
-    const auto written = out.first(from_arc + sources.uniform_count);
-    std::sort(written.begin(), written.end());
-    const auto last = std::unique(written.begin(), written.end());
-    return static_cast<std::size_t>(last - written.begin());
+    write_arc_normal_angles(plane, principal, sources.parameters, out);
+    write_uniform_normal_angles(out.subspan(from_arc, sources.uniform_count));
+    return sort_and_drop_repeated(out.first(from_arc + sources.uniform_count));
 }
 
 outline_shape outline_shape_of(const principal_ellipse &principal, double half_thickness) noexcept {

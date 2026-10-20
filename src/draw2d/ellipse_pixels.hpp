@@ -81,11 +81,17 @@ class ellipse_pixels {
     [[nodiscard]] std::span<const std::uint32_t> indices() const noexcept;
 
   private:
-    // The first `count` positions as the triangles of the build: every point checked against the
-    // pixel range (one out refuses the whole ellipse), the indices of a fan or of a ring written,
-    // and the points narrowed to the vertex format with `color`.
+    // Publishes the first `count` positions as the triangles of the build, IF every one is in the
+    // pixel range (one out, or a NaN, refuses the whole ellipse: pixel_position_out_of_range); it
+    // only sequences the check and the two atoms below (S5-B-fix2, D-W8-534).
     [[nodiscard]] ellipse_pixels_outcome
-    publish_as_triangles(std::size_t count, glintfx::gltfx_rgba color, bool ring) noexcept;
+    publish_band_if_in_range(std::size_t count, glintfx::gltfx_rgba color, bool ring) noexcept;
+    // The indices of a ring (outer then inner points) or of a fan (centre first) over `points`;
+    // how many were written, 0 when they did not fit.
+    [[nodiscard]] std::size_t write_band_indices(std::span<const pixel_position_wide> points,
+                                                 bool ring) noexcept;
+    // The first `count` positions narrowed to the vertex format, with `color`.
+    void write_band_vertices(std::size_t count, glintfx::gltfx_rgba color) noexcept;
 
     std::array<double, k_max_arc_parameters> parameters{};
     std::array<double, k_max_outline_angles> angles{};

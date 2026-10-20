@@ -33,6 +33,7 @@ using glintfx::draw2d::arc_request;
 using glintfx::draw2d::conjugate_ellipse;
 using glintfx::draw2d::k_max_arc_parameters;
 using glintfx::draw2d::local_point_at_normal_angle;
+using glintfx::draw2d::merge_outline_angles;
 using glintfx::draw2d::outline_angle_sources;
 using glintfx::draw2d::outline_band;
 using glintfx::draw2d::outline_hole;
@@ -48,7 +49,6 @@ using glintfx::draw2d::principal_ellipse;
 using glintfx::draw2d::uniform_normal_angle_count;
 using glintfx::draw2d::write_fan_indices;
 using glintfx::draw2d::write_ring_indices;
-using glintfx::draw2d::write_sorted_outline_angles;
 
 namespace {
 
@@ -181,7 +181,7 @@ GLINTFX_TEST(ellipse_outline_angles_are_sorted_once_each) {
     const std::array<double, 2> parameters{0.1, 0.0};
     std::array<double, 10> out{};
     const std::size_t n =
-        write_sorted_outline_angles(plane, circle, outline_angle_sources{parameters, 8U}, out);
+        merge_outline_angles(plane, circle, outline_angle_sources{parameters, 8U}, out);
     GLINTFX_CHECK_EQ(n, std::size_t{9});
     GLINTFX_CHECK(out[0] == 0.0);
     GLINTFX_CHECK(near(out[1], 0.1, 1e-15));
@@ -189,9 +189,9 @@ GLINTFX_TEST(ellipse_outline_angles_are_sorted_once_each) {
         GLINTFX_CHECK(near(out[k], (k_pi / 4.0) * static_cast<double>(k - 1U), 1e-15));
     }
     std::array<double, 9> short_out{};
-    GLINTFX_CHECK_EQ(write_sorted_outline_angles(plane, circle,
-                                                 outline_angle_sources{parameters, 8U}, short_out),
-                     std::size_t{0});
+    GLINTFX_CHECK_EQ(
+        merge_outline_angles(plane, circle, outline_angle_sources{parameters, 8U}, short_out),
+        std::size_t{0});
 }
 
 // 240 bands: the major half-axis from 0.1 to 300, the ratio of the two from 0 (a segment) to 1, h
@@ -233,7 +233,7 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
             arc_parameters(request, pixel_box{-1000.0, -1000.0, 1000.0, 1000.0}, parameters);
         const std::span<const double> from_arc(parameters.data(), count > 0U ? count - 1U : 0U);
         angles.assign(k_max_arc_parameters + 1024U, 0.0);
-        const std::size_t n = write_sorted_outline_angles(
+        const std::size_t n = merge_outline_angles(
             plane, e, outline_angle_sources{from_arc, uniform_normal_angle_count(h, k_error)},
             angles);
         const outline_band band{h, outline_shape_of(e, h)};
@@ -287,7 +287,9 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
                                                distance_to_segment(edge, after, later)});
                 worst_inner = std::max(worst_inner, error);
                 ++inner_samples;
-                good = error <= k_error * (1.0 + 1e-9);
+                // Every sample counts (S5-B-fix2, D-W8-533): `good &&` keeps the failure of an
+                // earlier sample of the band, which a plain assignment erased.
+                good = good && error <= k_error * (1.0 + 1e-9);
             }
         }
         if (good && band.shape.hole != outline_hole::none) {
@@ -341,4 +343,6 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
     GLINTFX_CHECK_EQ(counted, std::size_t{240});
     GLINTFX_CHECK_EQ(wrong, std::size_t{0});
     GLINTFX_CHECK(inner_samples >= 10000U);
+    // The worst inner sample, printed above, is also asserted (S5-B-fix2, D-W8-533).
+    GLINTFX_CHECK(worst_inner <= k_error * (1.0 + 1e-9));
 }

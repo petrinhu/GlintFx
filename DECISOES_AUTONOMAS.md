@@ -10107,3 +10107,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - D-W8-706: o I-3 não divide o arquivo agora. Dividir seria fragmentação, ia para o tests/CMakeLists.txt que as outras fatias também mudam, e quebraria a citação da PHRASE. O corte e o gatilho ficaram escritos.
   - **Implementador haiku novo despachado.** Na INBOX entram PQ-EC-TEST-NESTING, PQ-TEST-SPLIT e EXACT-CROSS-DIGITS-SWEEP.
 - **20/10 14:3x, CI 39464351012 (sobre 2e23d00c, com a T4b-A-PHRASE) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 14:4x, a ordem da S5-B-fix5 chegou** do CTO a513d49a. Decisões D-W8-691 a 699. Ordem em /var/tmp/cto-w8/ordem-s5b-fix5.md (md5 75f37dcd); anexos em cca541c5, conferidos (ok).
+  - **Escopo maior que o pedido, decidido pelo CTO (D-W8-691 e D-W8-692):** a ordem fecha os 7 termos de band_holds, não só RINGW e IDXW. Na base, 6 das 7 deleções sobrevivem; no snapshot, as 7 morrem, cada uma no caso do seu nome. Motivo: é a quinta volta da mesma família, e consertar só dois deixaria quatro iguais para a próxima revisão.
+  - **D-W8-694:** o COSMÉTICO-1 entra.
+  - **Pré-execução:** a varredura sai idêntica no verde e sob MK, MKR e MKW. preci 381/0, sanitizer 191/0, MSVC 1/0.
+  - **L-42:** a busca na web confirma a técnica e não muda o desenho.
+  - **A errata D-W8-626 da S5-C1** está pronta no Anexo E (D-W8-697). O main aplica depois da revisão LIMPA.
+  - **Implementador haiku novo despachado.**

@@ -196,6 +196,30 @@ struct exact_answer {
     return exact_answer{true, {0.5 / (1.0 - s), 0.5 / (1.0 - t), 0.5 / s, 0.5 / t}};
 }
 
+// T4b-A-fix3 (D-W8-542): the corners of quadrilateral number `code` of the 5^8 whose eight
+// coordinates are the whole numbers 0 to 4, one base-5 digit each.
+[[nodiscard]] std::array<std::array<std::int64_t, 2>, 4> corners_of_code(std::int64_t code) {
+    std::array<std::array<std::int64_t, 2>, 4> c{};
+    for (auto &corner : c) {
+        for (std::int64_t &coordinate : corner) {
+            coordinate = code % 5;
+            code /= 5;
+        }
+    }
+    return c;
+}
+
+// The quadrilateral of whole-number corners, each coordinate times `unit` (exact in double for
+// the units of the tests: 1 and the smallest double).
+[[nodiscard]] gltfx_quad_world quad_of_integers(const std::array<std::array<std::int64_t, 2>, 4> &c,
+                                                double unit) {
+    const auto at = [&](std::size_t i, std::size_t axis) {
+        return static_cast<double>(c[i][axis]) * unit;
+    };
+    return gltfx_quad_world{
+        {at(0, 0), at(0, 1)}, {at(1, 0), at(1, 1)}, {at(2, 0), at(2, 1)}, {at(3, 0), at(3, 1)}};
+}
+
 // Both have weights, and they agree to twelve digits.
 [[nodiscard]] bool same_weights(const std::optional<std::array<double, 4>> &got,
                                 const std::optional<std::array<double, 4>> &want) {
@@ -355,5 +379,34 @@ GLINTFX_TEST(projective_quad_subnormal_corners_keep_their_shape) {
     }
     std::println("projective_quad_test: subnormais quadrilateros={} errados={}", counted, wrong);
     GLINTFX_CHECK_EQ(counted, std::size_t{20000});
+    GLINTFX_CHECK_EQ(wrong, std::size_t{0});
+}
+
+// T4b-A-fix3 (D-W8-541, D-W8-542; IMPORTANTE-2 of the review of T4b-A-fix1): EVERY quadrilateral
+// whose corners are whole numbers 0 to 4, in every orientation and with every vector pointing any
+// way (5^8 = 390625 of them), gets the exact answer of exact_weights(), at unit 1 and at the
+// smallest double. Without the absolute value in the largest component, the quadrilaterals whose
+// six vector components are all zero or below were refused (1118 convex ones, measured).
+GLINTFX_TEST(projective_quad_every_small_integer_quad_is_decided_exactly) {
+    constexpr std::int64_t k_codes = 390625; // 5^8
+    std::size_t counted = 0;
+    std::size_t convex = 0;
+    std::size_t wrong = 0;
+    for (const double unit : {1.0, std::numeric_limits<double>::denorm_min()}) {
+        for (std::int64_t code = 0; code < k_codes; ++code) {
+            const std::array<std::array<std::int64_t, 2>, 4> c = corners_of_code(code);
+            const exact_answer want = exact_weights(c);
+            const std::optional<std::array<double, 4>> got =
+                projective_weights(quad_of_integers(c, unit));
+            ++counted;
+            convex += want.accepted ? 1U : 0U;
+            const bool right = want.accepted ? same_weights(got, want.weights) : !got.has_value();
+            wrong += right ? 0U : 1U;
+        }
+    }
+    std::println("projective_quad_test: enumeracao quadrilateros={} convexos={} errados={}",
+                 counted, convex, wrong);
+    GLINTFX_CHECK_EQ(counted, std::size_t{781250});
+    GLINTFX_CHECK_EQ(convex, std::size_t{118368});
     GLINTFX_CHECK_EQ(wrong, std::size_t{0});
 }

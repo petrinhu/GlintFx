@@ -10106,3 +10106,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - D-W8-705: o I-2 vai para a INBOX. As duas funções não foram tocadas pela fix5.
     - D-W8-706: o I-3 não divide o arquivo agora. Dividir seria fragmentação, ia para o tests/CMakeLists.txt que as outras fatias também mudam, e quebraria a citação da PHRASE. O corte e o gatilho ficaram escritos.
   - **Implementador haiku novo despachado.** Na INBOX entram PQ-EC-TEST-NESTING, PQ-TEST-SPLIT e EXACT-CROSS-DIGITS-SWEEP.
+- **20/10 14:3x, CI 39464351012 (sobre 2e23d00c, com a T4b-A-PHRASE) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.

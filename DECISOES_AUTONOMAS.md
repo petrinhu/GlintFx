@@ -10037,3 +10037,6 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **20/10 12:1x, DECISÃO DO LÍDER por AskUserQuestion, WL-REAL-PORTS-UNIT-PROOF: "Falso nosso + real (Recomendado)".**
   - Fica a opção (a) mais (c): um compositor falso escrito em casa sobre o wire_relay, hostil de propósito, junto com a suíte de contêiner com o KWin real, e os cenários comuns rodando nos dois.
   - O item continua na W9-B. Ele deixa de ser 🎨 e passa a ⏳, e o CTO fatia quando a onda abrir.
+- **20/10 12:1x, conserto de registro do main:** as duas edições na linha da WL-REAL-PORTS-UNIT-PROOF (11:43 e 12:1x) caíram por engano na linha WL-FRAME-ORDER-ARM-TEST. O critério buscava o ID em qualquer lugar da linha, e a linha da ARM-TEST o cita como resíduo; é a armadilha da memória feedback_criterio_largo_edita_alvo_errado.
+  - A linha da ARM-TEST voltou byte a byte ao estado de antes de a407dfae, com ✅ Concluído.
+  - As duas decisões do líder e o ⏳ foram aplicados na linha certa, agora casando a coluna ID exata.

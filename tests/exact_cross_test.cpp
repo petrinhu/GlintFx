@@ -13,10 +13,12 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// exact_cross_test.cpp - R2D-TEXTURE, fatia T4b-A-fix4 (D-W8-551, D-W8-552): the exact cross
-// product of two differences of points (draw2d/exact_cross.hpp). The expected values are whole
-// numbers or powers of two, so every one is exact in double and the test needs no wide integers
-// of its own.
+// exact_cross_test.cpp - R2D-TEXTURE, fatias T4b-A-fix4 to T4b-A-fix6 (D-W8-551, D-W8-552,
+// D-W8-598, D-W8-707): the exact cross product of two differences of points
+// (draw2d/exact_cross.hpp). The expected values are whole numbers or powers of two, exact in
+// double, so the test needs no wide integers of its own; the one exception is the odd 62-bit
+// product of exact_cross_keeps_sixty_two_bits, which is not a double: its expected value is the
+// double nearest to it, written as a literal.
 
 using glintfx::gltfx_vec2_world;
 using glintfx::draw2d::exact_cross;

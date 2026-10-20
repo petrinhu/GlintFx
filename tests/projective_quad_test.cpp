@@ -14,15 +14,24 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// projective_quad_test.cpp - R2D-TEXTURE, fatia T4b-A (D-W8-13, D-W8-290, D-W8-455): the weights q
-// of a textured quadrilateral (draw2d/projective_quad.hpp). The closed values are by hand (the
-// square, a trapezoid whose diagonals cross at two thirds). The sweep checks the MAPPING, not the
-// formula: for 3000 convex quadrilaterals, texture points (u, v) are carried to the screen by the
-// square-to-quadrilateral homography in the closed form of P. Heckbert ("Fundamentals of Texture
-// Mapping and Image Warping", 1989, section 2.2.3, written here from the paper's equations), and
-// the interpolation the program does (the barycentric weights of the point in the triangle of the
-// frozen diagonal that holds it, applied to (u q, v q, q), then divided by q) must give (u, v)
-// back. No GL, no window.
+// projective_quad_test.cpp - R2D-TEXTURE, fatias T4b-A to T4b-A-fix6 (D-W8-13, D-W8-290,
+// D-W8-455, D-W8-707): the weights q of a textured quadrilateral (draw2d/projective_quad.hpp), one
+// subject, in the order of the cases below:
+// - the closed values by hand (the square, a trapezoid whose diagonals cross at two thirds), and
+//   the quadrilaterals with no mapping, refused;
+// - the MAPPING, not the formula: for 3000 convex quadrilaterals, texture points (u, v) are carried
+//   to the screen by the square-to-quadrilateral homography in the closed form of P. Heckbert
+//   ("Fundamentals of Texture Mapping and Image Warping", 1989, section 2.2.3, written here from
+//   the paper's equations), and the interpolation the program does (the barycentric weights of
+//   the point in the triangle of the frozen diagonal that holds it, applied to (u q, v q, q), then
+//   divided by q) must give (u, v) back; and 500 convex quadrilaterals keep their weights at nine
+//   scales from 1e-300 to 1e300;
+// - the exact decision: corners that are whole numbers, or whole multiples of the smallest double,
+//   against the answer computed in integers (exact_weights);
+// - corners of mixed magnitude in one quadrilateral, and the cases kept from the reviews (1 - s
+//   near 1 among them);
+// - the promise of 2^-50 on each weight, against the definition.
+// No GL, no window.
 
 using glintfx::gltfx_quad_world;
 using glintfx::draw2d::projective_weights;
@@ -466,6 +475,17 @@ struct kite_pose {
     bool mirrored = false;
 };
 
+// How many kites were checked, and how many of them left the promised weights.
+struct kite_tally {
+    std::size_t counted = 0;
+    std::size_t wrong = 0;
+
+    void add(const kite_tally &other) {
+        counted += other.counted;
+        wrong += other.wrong;
+    }
+};
+
 [[nodiscard]] gltfx_quad_world kite(const kite_shape &shape, kite_pose pose) {
     constexpr double k_unit = std::numeric_limits<double>::denorm_min();
     const double up = static_cast<double>(shape.k1) * k_unit;
@@ -479,38 +499,54 @@ struct kite_pose {
                             at(0.0, down)};
 }
 
-// How many of the four poses of `shape` leave the promised weights `want` (T4b-A-fix5,
-// D-W8-603: the loop of the poses was a fourth level of nesting in the test).
-[[nodiscard]] std::size_t wrong_poses(const kite_shape &shape, const std::array<double, 4> &want) {
-    std::size_t wrong = 0;
+// The four poses of `shape` against the promised weights `want`, each pose counted as it is
+// checked (T4b-A-fix5, D-W8-603; T4b-A-fix6, D-W8-703: the count comes from the poses checked, not
+// from a constant).
+[[nodiscard]] kite_tally tally_of_poses(const kite_shape &shape,
+                                        const std::array<double, 4> &want) {
+    kite_tally tally;
     for (const int variant : {0, 1, 2, 3}) {
         const kite_pose pose{(variant & 1) != 0, (variant & 2) != 0};
-        wrong += within_promise(projective_weights(kite(shape, pose)), want) ? 0U : 1U;
+        ++tally.counted;
+        tally.wrong += within_promise(projective_weights(kite(shape, pose)), want) ? 0U : 1U;
     }
-    return wrong;
+    return tally;
+}
+
+// The weights of the kite of heights k1 and k2: exactly s = 1/2 and t = k1 / (k1 + k2), so
+// q = 1, (k1 + k2) / (2 k2), 1, (k1 + k2) / (2 k1), each one division of small whole numbers,
+// rounded once.
+[[nodiscard]] std::array<double, 4> kite_weights(std::int64_t k1, std::int64_t k2) {
+    const double sum = static_cast<double>(k1 + k2);
+    return {1.0, sum / (2.0 * static_cast<double>(k2)), 1.0, sum / (2.0 * static_cast<double>(k1))};
+}
+
+// The 64 kites of half-width `half_width`, heights k1 and k2 from 1 to 8, in their four poses
+// (T4b-A-fix6, D-W8-702: the two loops of the heights were the second and third levels inside the
+// test, and the rule of the house, clang-tidy with the body of the function as level 1, D-W8-561,
+// counts that as level 4).
+[[nodiscard]] kite_tally kites_of_width(double half_width) {
+    kite_tally tally;
+    for (std::int64_t k1 = 1; k1 <= 8; ++k1) {
+        for (std::int64_t k2 = 1; k2 <= 8; ++k2) {
+            tally.add(tally_of_poses(kite_shape{half_width, k1, k2}, kite_weights(k1, k2)));
+        }
+    }
+    return tally;
 }
 
 } // namespace
 
 GLINTFX_TEST(projective_quad_mixed_magnitudes_keep_their_weights) {
     constexpr std::array<double, 7> half_widths{0.5, 1.0, 1.5, 2.0, 3.0, 1e300, 0x1p1023};
-    std::size_t counted = 0;
-    std::size_t wrong = 0;
+    kite_tally total;
     for (const double half_width : half_widths) {
-        for (std::int64_t k1 = 1; k1 <= 8; ++k1) {
-            for (std::int64_t k2 = 1; k2 <= 8; ++k2) {
-                const double sum = static_cast<double>(k1 + k2);
-                const std::array<double, 4> want{1.0, sum / (2.0 * static_cast<double>(k2)), 1.0,
-                                                 sum / (2.0 * static_cast<double>(k1))};
-                counted += 4U;
-                wrong += wrong_poses(kite_shape{half_width, k1, k2}, want);
-            }
-        }
+        total.add(kites_of_width(half_width));
     }
-    std::println("projective_quad_test: magnitude mista quadrilateros={} errados={}", counted,
-                 wrong);
-    GLINTFX_CHECK_EQ(counted, std::size_t{1792});
-    GLINTFX_CHECK_EQ(wrong, std::size_t{0});
+    std::println("projective_quad_test: magnitude mista quadrilateros={} errados={}", total.counted,
+                 total.wrong);
+    GLINTFX_CHECK_EQ(total.counted, std::size_t{1792});
+    GLINTFX_CHECK_EQ(total.wrong, std::size_t{0});
 }
 
 // T4b-A-fix4 (D-W8-554, D-W8-556): the cases of the reviews where a mutant of the common scale

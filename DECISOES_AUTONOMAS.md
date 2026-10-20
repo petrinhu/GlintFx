@@ -9829,3 +9829,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Mais cinco COSMÉTICOS.
   - **Pedido ao CTO a7b9643f: decidir a D-W8-548**, com pesquisa e contagem de queixas (abaixo de 10, vai ao advisor; o líder ratifica), e escrever a T4b-B2-fix1 (faixa D-W8-581 a 596).
   - A T4a segue em verificação até a B2-fix1.
+- **20/10 04:4x, T4b-A-fix4 commitada na etapa G: d6e28b62** (implementador afc77cba; 8 arquivos, 3 novos; +529 −80; renderer_2d.hpp fora).
+  - Vermelho medido: o código velho com os testes novos erra 1592 kites. Depois, verde 4/4, com os mutantes E1 a E8 mortos onde a tabela manda.
+  - preci 381/0 e sanitizer 191/0, no hospedeiro (downgrade da L-09).
+  - O trailer Co-Authored-By saiu Haiku 5.5. Commit publicado não se reescreve (L-25).
+  - Push feito (ls-remote d6e28b62). O CI sai quando o run 39385013879 terminar.
+  - **Revisão N1 com um revisor haiku novo**, com os pedidos do advisor: o binário C++ sobre as cinco entradas e um número de tempo, pai contra fix4.

@@ -40,7 +40,8 @@
 - **Errata da T4b-A (CTO, 14/10/2026; D-W8-455 a 462 e D-W8-464):** (1) a tinta que o consumidor não escolhe é BRANCO OPACO, `{1, 1, 1, 1}`, em `gltfx_texture_paint::tint` e em `gltfx_textured_vertex_2d::tint`: decisão do líder via AskUserQuestion, 14/10/2026 (D-W8-464); a cerca abaixo já mostra o valor novo. (2) A cerca de `texture_region.hpp` entra com o `Proved by:` de `texture_region_uv_test` (a leitura em pixels de cada espelho, `texture_region_mirror_test`, entra na T4b-B junto com o teste, D-W8-374); sem a frase de `draw_shadow_texture`, método da H3 que ainda não existe; e com as cinco recusas que tocam a região (D-W8-461). (3) `degenerate_quad` inclui o quadrilátero côncavo: o critério da cerca é "não define mapeamento projetivo", e o côncavo não define (D-W8-460). A tinta de `gltfx_atlas_paint`, mais abaixo, continua `tint{}` até decisão própria.
 - **Errata da T4b-B1 (CTO, 14/10/2026; D-W8-468 a 474):** `draw_texture` e `draw_texture_quad` entram em `renderer_2d.hpp` com quatro diferenças contra a cerca abaixo. (1) A lista de recusas vem completa e na ordem em que se aplica (D-W8-472): `not_a_number` e `infinite` (retângulo ou cantos, região e tinta), `negative_size`, `unknown_option`, `texture_not_open`, `texture_other_renderer`, `region_out_of_range`, `degenerate_quad` (só o quadrilátero) e `pixel_position_out_of_range`. A cerca citava só a origem da região e o espelho, e é a ordem de `src/draw2d/texture_region_check.hpp` (T4b-A) que vale. (2) A frase de que a troca de textura nunca reordena, que a cerca não tinha e que vem da confirmação da D-W8-13 (mais abaixo, nesta página): a peça texturizada entra na ordem de pintura como qualquer outra. (3) O `Proved by:` cita só `renderer_2d_impl_test`, que existe na T4b-B1; o de `draw2d_texture_parity_test` entra na T4b-B2, junto com o teste (D-W8-374). (4) `texture_switches` entra no FIM de `gltfx_frame_2d_report`, depois dos quatro contadores da T4b-A (o layout da S0 o punha logo depois de `pieces_refused_pixel_position_out_of_range`, posição que a T4b-A já ocupou; D-W8-471), e é contado onde a ligação é feita: cada textura que a biblioteca liga para desenhar conta uma vez, a ida a nenhuma textura e a primeira textura de cada flush incluídas, porque todo flush começa sem textura ligada (D-W8-292, com a frase pública refinada pela D-W8-501 da T4b-B1-fix1). Porta de mão única: vai à ratificação do líder.
 - **Errata da T4b-A-fix1 (CTO, 14/10/2026; D-W8-493 a 500; revisão N1 da T4b-A, I-5):** a cerca de `texture_region.hpp`, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado, como a errata da T3-fix1 fez com a de `update_texture`: o `Proved by:` de `texture_region_uv_test` (com a prova, na compilação, de que tipo de texel e tipo de mundo não se misturam); sem a frase de `draw_shadow_texture`; as recusas de origem OU tamanho que não são número finito, de tamanho negativo e de região fora da textura; "quatro números e um enumerador" no lugar de "dois números e um nome"; sem o `#include` de `rect.hpp`, que o cabeçalho não usa; e sem a citação de R7, que trata de tokens e não de nomes de espelhamento. A leitura em pixels de cada espelho, que a errata da T4b-A chamava `texture_region_mirror_test`, não terá esse nome: é uma célula de `draw2d_texture_parity_test` (T4b-B2), e o `Proved by:` dela entra na cerca e no cabeçalho junto com o teste (D-W8-374). Porta de mão única: vai à ratificação do líder.
-- **Errata da T4b-B1-fix1 (CTO, 14/10/2026; D-W8-501 a 512; revisão N1 da T4b-B1, I-1 e C-1):** (1) a frase pública de `texture_switches` em `draw_texture` passa a dizer o que o contador conta: cada textura que a biblioteca liga para desenhar conta uma vez, a troca entre duas chamadas de desenho, a ida e a volta de nenhuma textura, e a PRIMEIRA textura de cada flush (todo flush começa sem textura ligada). A frase da cerca, "each change of the bound texture between two calls", dava 2 para as texturas A, B, A, A, e o contador dá 3, como `frame_2d_report.hpp` já dizia. O contador não muda (D-W8-471): ele mede o custo que a placa paga, e uma contagem "entre chamadas do consumidor" exigiria guardar estado de um flush para o outro. (2) O item (2) da errata da T4b-B1 passa a dizer de onde vem a frase de que a troca nunca reordena (a confirmação da D-W8-13), e o item (4), a contagem refinada. Porta de mão única: a frase pública vai à ratificação do líder.
+- **Errata da T4b-B1-fix1 (CTO, 14/10/2026; D-W8-501 a 508; revisão N1 da T4b-B1, I-1 e C-1):** (1) a frase pública de `texture_switches` em `draw_texture` passa a dizer o que o contador conta: cada textura que a biblioteca liga para desenhar conta uma vez, a troca entre duas chamadas de desenho, a ida e a volta de nenhuma textura, e a PRIMEIRA textura de cada flush (a contagem recomeça de nenhuma textura a cada flush). A frase da cerca, "each change of the bound texture between two calls", dava 2 para as texturas A, B, A, A, e o contador dá 3, como `frame_2d_report.hpp` já dizia. O contador não muda (D-W8-471): ele mede o custo que a placa paga, e uma contagem "entre chamadas do consumidor" exigiria guardar estado de um flush para o outro. (2) O item (2) da errata da T4b-B1 passa a dizer de onde vem a frase de que a troca nunca reordena (a confirmação da D-W8-13), e o item (4), a contagem refinada. Porta de mão única: a frase pública vai à ratificação do líder.
+- **Errata da T4b-B2 (CTO, 19/10/2026; D-W8-475 a 480 e D-W8-545 a 550):** nasce `tests/parity/draw2d_texture_parity_test.cpp`, a prova por pixel do desenho com textura, e com ele entram os textos que o citam. (1) O parágrafo FILTERING AND COLOUR de `texture_2d_desc.hpp` entra como a cerca acima o fixa, linha por linha (errata da T2b, D-W8-374). (2) `draw_texture`, `draw_texture_quad`, a leitura de cada espelho e a tinta (`texture_region.hpp`) ganham o `Proved by:` de `draw2d_texture_parity_test`; o nome `texture_region_mirror_test` não existe, a leitura em pixels dos espelhos é célula desse teste (errata da fix1); e a promessa do halo, que a fix1 deixou para cá (D-W8-499), passa a citar as células do halo e da tinta (D-W8-549). (3) As cercas de `draw_texture`, `draw_texture_quad` e `texture_region.hpp` são reescritas NO LUGAR com o texto do cabeçalho publicado (D-W8-545, como a errata da fix1 fez): a cerca de `draw_texture` ainda trazia "each change of the bound texture between two calls", o gêmeo da frase velha que a B1-fix1 trocou no cabeçalho (revisão N1 da B1-fix1, I-1). (4) A errata da B1-fix1 cita D-W8-501 a 508, as que existem (D-W8-546). (5) A frase "(each flush starts with none bound)" descrevia o modelo do contador e não o GL, onde o consumidor pode deixar uma textura ligada entre dois flushes; passa a ser "(the count starts again from no texture at every flush)" (D-W8-547). (6) A célula `filter_linear_no_dark_halo` da D-W8-305 espera o valor DA FÓRMULA em cada modo: em x = 100 o texel vermelho pesa 1 - 0,505 = 0,495; com a superfície que codifica, 255 * srgb(0,495) = 186,7; com a que não codifica, 255 * 0,495 = 126,2; a tabela da D-W8-305 dizia 188,3, o peso do BRANCO de `filter_linear_srgb_order` em x = 100. (7) PONTO DE RATIFICAÇÃO DO LÍDER, sem decisão aqui (D-W8-548): um flush cujo desenho termina em erro GL não soma as suas trocas de textura (nem as suas chamadas de desenho) ao relatório, e nenhuma frase pública diz isso nem o contrário. Porta de mão única: as frases públicas vão à ratificação do líder.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -260,6 +261,9 @@ inline constexpr std::uint32_t gltfx_all_mipmap_levels = 0xFFFFFFFFU;
 // the source on the corner roles of core/quad.hpp; and, at compile time, a
 // world vector or rectangle neither converts to nor builds a texel one,
 // nor the other way round).
+// Proved by: draw2d_texture_parity_test (each mirror value read back as
+// pixels from a real surface: every texel of a 2 x 2 texture in the quarter
+// the mirror puts it).
 
 namespace glintfx {
 
@@ -301,6 +305,11 @@ struct gltfx_texture_region {
 // the tint. Grouping keeps each drawing call within four parameters. The
 // tint you do not choose is opaque white, which leaves the texture as it is
 // (D-W8-464).
+// Proved by: draw2d_texture_parity_test (on a real context, in both values
+// of srgb_framebuffer: a white texel tinted white with alpha 0.5 over black,
+// and an opaque red texel filtered next to a transparent one, read back at
+// the value the formula gives, the red with green and blue exactly zero: no
+// dark halo).
 struct gltfx_texture_paint {
     gltfx_texture_region region{};
     gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
@@ -708,32 +717,58 @@ class gltfx_texture_atlas {
                                                               gltfx_image_view image) noexcept;
 
     // Draws the region of `paint.region` from `texture` into the axis-aligned
-    // rectangle `rect` (world space, like fill_rect), multiplied by `paint.tint`.
-    // Mirroring is applied to the source, not to the rectangle. Refused as ONE
-    // piece, counted in the report, never an exception:
+    // rectangle `rect` (world space, like fill_rect), multiplied by `paint.tint`
+    // as texture_region.hpp says. Mirroring is applied to the source, not to
+    // the rectangle. Refused as ONE piece, counted in the report, never an
+    // exception, for the first of these reasons, in this order:
+    //   - not_a_number, then infinite: a value of the rectangle, of the
+    //     source region or of the tint that is not a finite number;
+    //   - negative_size: the rectangle or the source region with a negative
+    //     width or height;
+    //   - unknown_option: the mirror is a value outside its enumeration;
     //   - texture_not_open: the texture is released or was never opened;
     //   - texture_other_renderer: the texture belongs to another renderer;
     //   - region_out_of_range: the source rectangle is outside the texture;
-    //   - not_a_number: the origin of the source is not a finite number;
-    //   - unknown_option: the mirror is a value outside its enumeration.
-    // Each change of the bound texture between two calls counts in
-    // texture_switches, including a change to or from no texture.
+    //   - pixel_position_out_of_range: the batch transform takes a corner
+    //     outside the range the drawing program can scale, as for fill_rect.
+    // A textured piece is painted in the same order as every other piece
+    // (layer, then submission); a change of texture never reorders. Each
+    // texture the library binds to draw counts once in texture_switches: a
+    // change of texture between two draw calls, a change to or from no
+    // texture, and the first texture of every flush (the count starts again
+    // from no texture at every flush).
     // D-W8-354: texture, paint and rect with the layer; four parameters at most.
-    GLINTFX_API void draw_texture(const gltfx_texture_2d &texture,
-                                  gltfx_texture_paint paint, gltfx_rect_world rect,
-                                  gltfx_draw_layer layer = {}) noexcept;
+    // Proved by: renderer_2d_impl_test (each reason in this order, over a
+    // fake GL; the corners read the region by role and mirror; a texture
+    // between two untextured pieces is three draw calls in paint order and
+    // two switches).
+    // Proved by: draw2d_texture_parity_test (on a real context, in both
+    // values of srgb_framebuffer: textures A, B, A painted in that order
+    // with three switches; a solid, a textured and a solid piece with two;
+    // the four mirrors read back texel by texel; the tint over black).
+    GLINTFX_API void draw_texture(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
+                                  gltfx_rect_world rect, gltfx_draw_layer layer = {}) noexcept;
 
-    // Draws the region of `paint.region` from `texture` into a free quadrilateral,
-    // with PROJECTIVE interpolation: a straight line of the texture stays a
-    // straight line on the screen, even when the quad is a trapezoid. The corner
-    // roles of gltfx_quad_world say where the texture's top-left lands. Refused
-    // as ONE piece, counted in the report: `degenerate_quad` when the corners do
-    // not define a projective mapping (three of them on one line, or a quad whose
-    // edges cross; a quad of zero area has its corners on one line, so it is
-    // refused the same way); plus the refusals of draw_texture.
+    // Draws the region of `paint.region` from `texture` into a free
+    // quadrilateral, with PROJECTIVE interpolation: a straight line of the
+    // texture stays a straight line on the screen, even when the quad is a
+    // trapezoid. The corner roles of gltfx_quad_world say where the texture's
+    // top-left lands. Refused as ONE piece, counted in the report, for the
+    // reasons of draw_texture (negative_size only for the source region: a
+    // quadrilateral has no size), in its order, with `degenerate_quad` just
+    // before pixel_position_out_of_range: the corners do not define a
+    // projective mapping (three of them on one line, a quad whose edges
+    // cross, or a corner that points inward; a quad of zero area has its
+    // corners on one line, so it is refused the same way).
     // D-W8-354: four parameters at most.
-    GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture,
-                                       gltfx_texture_paint paint, gltfx_quad_world corners,
+    // Proved by: renderer_2d_impl_test (degenerate_quad after the texture's
+    // reasons; the projective weight of each corner reaches the vertex).
+    // Proved by: draw2d_texture_parity_test (on a real context: a
+    // checkerboard drawn into a trapezoid reads back, pixel by pixel, the
+    // square the homography of the four corners puts there, including
+    // pixels a drawing that ignored the projective weight would get wrong).
+    GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
+                                       gltfx_quad_world corners,
                                        gltfx_draw_layer layer = {}) noexcept;
 
     // Draws one cell of an atlas, named by `paint.slot`, into `rect`. A slot whose

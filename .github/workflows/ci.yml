@@ -2295,6 +2295,20 @@ jobs:
           printf 'draw2d_shapes_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # R2D-TEXTURE T4b-B2 (D-W8-475 a 480): a prova viva do desenho com textura (pixels lidos) dentro do container,
+      # contra este MESMO compositor, so pela API publica: o filtro da D-W8-305, o trapezio projetivo, o atributo de q,
+      # a ordem das texturas, os espelhos e a tinta. O irmao Windows de mesmo nome e um alvo ctest
+      # (tests/CMakeLists.txt, if(WIN32)). ORDEM: depois de draw2d_shapes_parity_test (mesmo EGL, mesmo compositor).
+      - name: R2D-TEXTURE T4b-B2 - desenho com textura (pixels lidos) dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "draw2d_texture_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_texture_parity_test || codigo=$?
+          printf 'draw2d_texture_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
       # PRESENT-EMPTY-FRAME (D-W8-53, D-W8-54): o quadro apresentado sem nada desenhado, pelo contexto, pelo laco e pelo
       # desenho 2D, contra este MESMO compositor e este MESMO EGL. O irmao Windows de mesmo nome e um alvo ctest comum
       # (tests/CMakeLists.txt, if(WIN32)). A EXPECTATIVA do aparato mora aqui, no preparo do sistema (GODS_LAWS.md

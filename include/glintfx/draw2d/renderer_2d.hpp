@@ -494,13 +494,17 @@ class gltfx_renderer_2d {
     // (layer, then submission); a change of texture never reorders. Each
     // texture the library binds to draw counts once in texture_switches: a
     // change of texture between two draw calls, a change to or from no
-    // texture, and the first texture of every flush (each flush starts with
-    // none bound).
+    // texture, and the first texture of every flush (the count starts again
+    // from no texture at every flush).
     // D-W8-354: texture, paint and rect with the layer; four parameters at most.
     // Proved by: renderer_2d_impl_test (each reason in this order, over a
     // fake GL; the corners read the region by role and mirror; a texture
     // between two untextured pieces is three draw calls in paint order and
     // two switches).
+    // Proved by: draw2d_texture_parity_test (on a real context, in both
+    // values of srgb_framebuffer: textures A, B, A painted in that order
+    // with three switches; a solid, a textured and a solid piece with two;
+    // the four mirrors read back texel by texel; the tint over black).
     GLINTFX_API void draw_texture(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
                                   gltfx_rect_world rect, gltfx_draw_layer layer = {}) noexcept;
 
@@ -518,6 +522,10 @@ class gltfx_renderer_2d {
     // D-W8-354: four parameters at most.
     // Proved by: renderer_2d_impl_test (degenerate_quad after the texture's
     // reasons; the projective weight of each corner reaches the vertex).
+    // Proved by: draw2d_texture_parity_test (on a real context: a
+    // checkerboard drawn into a trapezoid reads back, pixel by pixel, the
+    // square the homography of the four corners puts there, including
+    // pixels a drawing that ignored the projective weight would get wrong).
     GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
                                        gltfx_quad_world corners,
                                        gltfx_draw_layer layer = {}) noexcept;

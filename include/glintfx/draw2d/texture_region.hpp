@@ -25,6 +25,9 @@
 // the source on the corner roles of core/quad.hpp; and, at compile time, a
 // world vector or rectangle neither converts to nor builds a texel one,
 // nor the other way round).
+// Proved by: draw2d_texture_parity_test (each mirror value read back as
+// pixels from a real surface: every texel of a 2 x 2 texture in the quarter
+// the mirror puts it).
 
 namespace glintfx {
 
@@ -66,6 +69,11 @@ struct gltfx_texture_region {
 // the tint. Grouping keeps each drawing call within four parameters. The
 // tint you do not choose is opaque white, which leaves the texture as it is
 // (D-W8-464).
+// Proved by: draw2d_texture_parity_test (on a real context, in both values
+// of srgb_framebuffer: a white texel tinted white with alpha 0.5 over black,
+// and an opaque red texel filtered next to a transparent one, read back at
+// the value the formula gives, the red with green and blue exactly zero: no
+// dark halo).
 struct gltfx_texture_paint {
     gltfx_texture_region region{};
     gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};

@@ -32,6 +32,16 @@ enum class gltfx_texture_filter : std::uint8_t {
     linear = 1,
 };
 
+// FILTERING AND COLOUR: a texture keeps sRGB-encoded colour that is already
+// multiplied by alpha (core/image_view.hpp). With the linear filter, the
+// graphics card turns each texel into linear light BEFORE it blends the
+// neighbours, so an edge between two colours does not come out darker
+// than it should. OpenGL lets a driver do the conversion after the blend
+// instead; this library treats that as a driver defect, and the test below
+// checks the order on every system it is tested on, failing when a driver
+// converts after the blend.
+// Proved by: draw2d_texture_parity_test
+
 struct gltfx_texture_2d_desc {
     gltfx_texture_filter filter = gltfx_texture_filter::linear;
     // Number of REDUCED levels (mipmaps) below the full-size image, the

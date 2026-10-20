@@ -3286,6 +3286,19 @@ if(WIN32)
     set_tests_properties(draw2d_shapes_parity_test PROPERTIES LABELS consume)
 endif()
 
+# R2D-TEXTURE T4b-B2 (D-W8-475 a 480): draw2d_texture_parity_test.cpp (tests/parity/) is the textured cell of the same
+# family: the filter of D-W8-305, the projective trapezoid, the attribute of q, the order of textures, the mirrors and
+# the tint, in both values of srgb_framebuffer. ONE file, only the public API, no #if. The Linux side is the container
+# fixture of this exact name (tests/container/Containerfile, ci.yml); this block is the Windows side only.
+if(WIN32)
+    add_executable(draw2d_texture_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_texture_parity_test.cpp")
+    target_link_libraries(draw2d_texture_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_texture_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_texture_parity_test)
+    add_test(NAME draw2d_texture_parity_test COMMAND draw2d_texture_parity_test)
+    set_tests_properties(draw2d_texture_parity_test PROPERTIES LABELS consume)
+endif()
+
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_hidden_
 # test is a PAIR OF FILES SHARING ONE NAME - tests/loop_hidden_test.cpp
 # here (harness, ShowWindow(SW_MINIMIZE)/IsIconic) and tests/container/

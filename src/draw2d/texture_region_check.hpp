@@ -24,8 +24,9 @@
 //   5. region_out_of_range: the source region reaches outside the texture
 //      (refusal_of_region_range(), which needs the texture's size, so it comes after the texture
 //      is known to be open);
-//   6. degenerate_quad: the corners of draw_texture_quad() define no projective mapping
-//      (projective_quad.hpp), because it is a property of the shape, not of a value;
+//   6. degenerate_quad: the corners of draw_texture_quad() define no projective mapping, or
+//      define one with a weight that is not a double (projective_quad.hpp), because it is a
+//      property of the shape, not of a value;
 //   and last the drawing call asks the pixel range: pixel_position_out_of_range, when the batch
 //   transform takes a corner outside what the drawing program can scale (quad_vertices.hpp;
 //   D-W8-472 of T4b-B1).

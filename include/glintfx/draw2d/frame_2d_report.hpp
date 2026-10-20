@@ -67,7 +67,9 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     // opened; it belongs to another renderer; the source region reaches
     // outside the texture; or the four corners of a textured quadrilateral
     // define no projective mapping (three on one line, edges that cross, or
-    // a corner pointing inward).
+    // a corner pointing inward; decided exactly), or define one with a
+    // projective weight past the largest double (draw_texture_quad() in
+    // renderer_2d.hpp).
     texture_not_open = 9,
     texture_other_renderer = 10,
     region_out_of_range = 11,
@@ -99,7 +101,8 @@ struct gltfx_frame_2d_report {
     // whose pixel coordinate is out of the range the vertex program can
     // scale, a texture that is not open or belongs to another renderer, a
     // source region outside its texture, or a textured quadrilateral with no
-    // projective mapping. The frame goes on without them; this is not an error of the
+    // projective mapping or with a projective weight past the largest double.
+    // The frame goes on without them; this is not an error of the
     // frame. The counters at the end of this struct, one per reason, add up
     // to this one.
     std::uint64_t pieces_refused = 0;

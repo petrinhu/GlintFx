@@ -20,8 +20,9 @@
 // projective_quad.hpp when it is true (draw_texture_quad()). The quad stores (u q, v q, q)
 // (triangle_batch.hpp).
 //
-// NO CORNERS (std::nullopt) when the quadrilateral has no projective mapping (`projective` true and
-// projective_quad.hpp answers nothing: the caller refuses it as degenerate_quad), and when the
+// NO CORNERS (std::nullopt) when the quadrilateral has no projective mapping, or has one with a
+// weight that is not a double (`projective` true and projective_quad.hpp answers nothing: the
+// caller refuses it as degenerate_quad), and when the
 // region has no coordinates (a mirroring this build does not know, a texture of no size: both
 // refused before the frame machine asks).
 namespace glintfx::draw2d {

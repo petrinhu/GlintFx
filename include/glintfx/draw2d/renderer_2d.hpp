@@ -519,10 +519,21 @@ class gltfx_renderer_2d {
     // before pixel_position_out_of_range: the corners do not define a
     // projective mapping (three of them on one line, a quad whose edges
     // cross, or a corner that points inward; a quad of zero area has its
-    // corners on one line, so it is refused the same way).
+    // corners on one line, so it is refused the same way). Whether the
+    // corners define a mapping is decided exactly, for any finite corners,
+    // at any size, place and mix of magnitudes: no rounding enters that
+    // answer. One quad that does define a mapping is also refused as
+    // `degenerate_quad`, and it is the only one: when the diagonals cross
+    // so close to one corner (closer than about 2^-1025 of the diagonal's
+    // length) that a projective weight of the quad, rounded to a double,
+    // would be larger than the largest double.
     // D-W8-354: four parameters at most.
     // Proved by: renderer_2d_impl_test (degenerate_quad after the texture's
     // reasons; the projective weight of each corner reaches the vertex).
+    // Proved by: projective_quad_test (the decision for quads of mixed
+    // magnitudes, from slivers a few multiples of the smallest double tall
+    // to half widths of 2^1023, and for every small whole-number quad; a
+    // quad whose weight would pass the largest double, refused).
     // Proved by: draw2d_texture_parity_test (on a real context: a
     // checkerboard drawn into a trapezoid reads back, pixel by pixel, the
     // square the homography of the four corners puts there, including

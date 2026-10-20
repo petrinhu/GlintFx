@@ -9773,3 +9773,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - As 2 fixturas estão no ls-tree.
   - Revisão: um revisor haiku novo confere a fix6 e depois a EMBED (esta com o artefato Windows do CI 39365077605), com vereditos separados.
 - **20/10 01:06, push de onda-w8**, com a fix6. O CI sai depois que o run 39365077605 terminar, para não rodar dois ao mesmo tempo.
+- **20/10 01:09, CI 39365077605 (sobre b626c6bc, com a EMBED-WIN-TIMEOUT) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado. CI novo disparado com a fix6.

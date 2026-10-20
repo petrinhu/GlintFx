@@ -9706,3 +9706,15 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O MSVC fica com o revisor.
   - Revisão N1 despachada a um revisor haiku novo, que reroda as sondas 2a e 2b do revisor da fix1: elas têm de cair a zero.
 - **19/10 22:09, push de onda-w8 e CI disparado**, com a fix2, pela autorização do líder de 19/10 ("Autorizo tag/merge/push").
+- **19/10 22:12, S5-B-fix2 e T4b-A-fix3 recebidas do CTO a92de40e** (relato b651cadc; plano r21 3a3f0a77, D-W8-533 a 544), conferidas sobre b83eccc7.
+  - S5-B-fix2: ordem b92e31dc, anexos 08c089b6. Verde 5/5; bits iguais em 600 chamadas; MK marca 46; 7 de 7 mutantes; preci 377; sanitizer 187; MSVC 4/4.
+  - T4b-A-fix3 (a célula do O1): ordem 9c9381e7, anexos 7a9701e4. Enumeração 5^8 nas unidades 1 e denorm_min; o O1 morre.
+  - D-W8-537: os mutantes do revisor ficam só nas linhas mudadas; MK e MC entram como regressão nomeada, à parte.
+  - **A fix2 está completa contra as sondas do revisor da fix1** (medido pelo CTO): B, 500/500 (eram 291); D, 0 trocas (eram 5115); E, 0 erros. O3 e O7 medidos como equivalentes (diff vazio).
+  - As duas não têm arquivo em comum, nem com tests/CMakeLists.txt. Despachadas em paralelo a implementadores haiku novos.
+  - INBOX: ELLIPSE-OUTLINE-TEST-L17.
+- **19/10 22:12, revisão N1 da T4b-B1-fix1 NÃO LIMPA, só documental** (`rev-t4bb1fix1.txt`, revisor a55652ae).
+  - A frase nova bate com o contador e com frame_2d_report.hpp (sondas A,flush,A=2; nenhuma,flush,A=1; A,flush,A,B=3). 8 de 8 mutantes mortos. MSVC 6/0.
+  - I-1: o gêmeo da frase velha continua na cerca, em docs/auditoria-api-texture.md:719-720 ("between two calls").
+  - C: a errata cita D-W8-501 a 512, mas 509 a 512 não existem (:43); "(each flush starts with none bound)" descreve o modelo do contador, não o GL; um flush com erro GL zera a contagem, sem promessa pública em contrário (fica para o líder).
+  - O conserto vai com a B2, que reescreve o mesmo parecer. Fica com o CTO a92de40e na próxima vaga.

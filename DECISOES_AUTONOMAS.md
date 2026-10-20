@@ -10073,3 +10073,16 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - CLAIM-CITATION-NAME-GATE;
     - DASH-GATE-HPP (junto do DASH-GATE-EN-DASH: o mesmo portão com dois furos);
     - WIKI-TEXTURE-PAGE.
+- **20/10 13:0x, revisão N1 da T4b-A-fix5 (9df07056): NÃO LIMPA, só L-17, 0 CRÍTICO** (revisor aca67acf, /var/tmp/cto-w8/rev-t4bafix5.txt).
+  - **O que passou:**
+    - verde 4/4;
+    - R1 morre pela cota e R7 pela recusa do infinito;
+    - P82 e P63 morrem; P63B e A62 sobrevivem, como devem;
+    - MSVC 2/2; o CI 39442828644 deu 32 Passed;
+    - gltfx_quad_world não colide: é o tipo público.
+  - **Os IMPORTANTES:**
+    - I-1: mixed_magnitudes chega ao nível 4 de aninhamento (são três laços). Pela leitura da casa (D-W8-561), isso é violação.
+    - I-2: closed_cases e exact_cross_test:44 já acusavam no pai.
+    - I-3: projective_quad_test.cpp foi tocado em 6 das 6 fatias, um sinal de monolito.
+  - **Pedido ao CTO: a T4b-A-fix6** (faixa D-W8-701 a 715), que também regera os blocos da FILTER que ela quebrar.
+  - **A FILTER fica para depois da fix6.**

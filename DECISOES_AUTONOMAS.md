@@ -9879,3 +9879,8 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
     - medir um predicado filtrado (ponto flutuante com cota certificada e queda para o caminho exato só no sinal ambíguo, como Shewchuk e o Filtered_predicate do CGAL), que devolva o custo comum sem perder a exatidão;
     - avisado de que pode ser parado às 07:15, grava tudo aos poucos.
   - **Para a lista de ratificação do líder:** o custo de 17 vezes no draw_texture_quad, com o número medido.
+- **20/10 06:1x, revisão N1 da T4b-B2-fix1 (9f959d2a): NÃO LIMPA, só documental** (revisor a96269ed, /var/tmp/cto-w8/rev-t4bb2fix1.txt).
+  - O código está certo: as frases batem com o código do blob, e MB, MBS, MT mais quatro mutantes do revisor morrem. MB e MBS sobrevivem no pai, como a mensagem do commit diz. MSVC 2/0.
+  - IMPORTANTE-1: o gêmeo público docs/wiki/API-Draw-2D.md:120 ("How many draw calls reached the card") ficou fora da enumeração da D-W8-582.
+  - COSMÉTICO-1: uma linha duplicada que o próprio commit criou no teste de paridade (:64-65).
+  - **Pedido ao CTO ad06e61c: a mini-ordem T4b-B2-fix2** (faixa D-W8-613 a 620), com a varredura de gêmeos do main anexada.

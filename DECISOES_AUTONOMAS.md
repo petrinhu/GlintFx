@@ -9925,3 +9925,19 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 **Já estavam na lista antes desta noite:** D-W8-380, 383, 397, 414, 441 a 444, 471, 473 e 513 a 516.
 
 **Processo:** a L-63 foi violada duas vezes (fix6 e EMBED). Os commits citaram o item sem tocar o Status no mesmo commit. Foi corrigido às 02:00 e as ordens passaram a exigir a troca.
+- **20/10 06:45, a ordem da T4b-A-fix5 chegou** do CTO ade52563, com as decisões D-W8-597 a 612. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-a-fix5.md, anexos /var/tmp/cto-w8/ordens-anexos/t4bafix5/ e relato /var/tmp/cto-w8/relato-cto-t4bafix5.txt. O md5 de cada um está na linha de conferência da sessão.
+  - **O que a ordem traz:** só testes, em 2 arquivos (projective_quad_test e exact_cross_test), sem nenhum arquivo em comum com a B2-fix1 ou a S5-C1.
+  - **Os mutantes que sobreviviam agora morrem:** o R1 cai em 3 testes e o R7 em 1.
+  - **Pré-execução:** preci 381/381, sanitizer 191/191, MSVC 2/2, e commit em cópia de 2 arquivos (+161 −36).
+  - **O filtro foi medido com um protótipo, sem entrar na ordem:**
+    - 84 a 94 ns por quad comum, contra 81 a 98 ns no pai e 1287 a 1549 ns na fix4;
+    - nas 1.025.922 entradas: 0 aceites errados, 0 recusas erradas e 0 pesos fora da cota;
+    - os kites de magnitude mista continuam em cerca de 2,1 µs, porque caem no caminho exato;
+    - o filtro precisa de double-double, porque o double simples dá cerca de 9 x 2^-53 nos pesos, acima da cota.
+  - **O filtro fica para uma fatia própria (D-W8-605):** é código de produto novo, com uma prova de cota de erro que ainda precisa ser escrita, e tocaria tests/CMakeLists.txt, que é da S5-C1.
+  - **Queixas da L-34:** 0. As fontes achadas são literatura, não queixas.
+  - **Decisão em aberto, que vai ao advisor depois da pausa e à ratificação do líder:**
+    - **A, recomendada pelo CTO:** a fatia T4b-A-filtro bloqueia o fechamento de R2D-TEXTURE, para não marcar a 0.7.0.0 com o desenho 17 vezes mais lento;
+    - **B:** R2D-TEXTURE fecha com a fix5, e o filtro vai para a INBOX;
+    - **C:** só otimizar o caminho exato.
+  - **Nenhum implementador foi despachado, porque já passou das 06:45.** A fix5 sai depois da pausa.

@@ -9891,3 +9891,13 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O revisor apagou por glob mal escrito a própria pasta mut/ e a recriou; nada de fora dela foi tocado (L-53).
   - **Pedido ao CTO a4f22b43: a S5-B-fix4** (faixa D-W8-621 a 636). Ele foi avisado da pausa e grava tudo em disco.
 - **20/10 06:2x, CI 39397064502 (sobre 9f959d2a, com a T4b-B2-fix1) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 06:2x, chegou a mini-ordem da T4b-B2-fix2** do CTO ad06e61c, com as decisões D-W8-613 a 620. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-b2-fix2.md (md5 39196c42) e anexos (anexos.md5 838f75bc; o main conferiu as 17 entradas e estão ok).
+  - Muda só a wiki:120, que passa a ressalvar o flush recusado, e sai a linha duplicada do teste de paridade. São 2 arquivos, +1 −2.
+  - Os gêmeos foram conferidos linha a linha:
+    - os de auditoria-api-draw2d ficam como estão, porque trocar a :274 deixa vermelho o auditoria_texto_congelado_test (medido);
+    - o plano da W7-D é histórico e também fica.
+  - Pré-execução: 4 de 4 portões de documento, cada um sabotado e visto reprovar; preci 381/381.
+  - Achado lateral: o so_comentario.sh da fix1 diz que pega espaço a mais dentro de uma linha, mas não pega, porque o pré-processador normaliza. O comentário foi corrigido no script da fix2.
+  - D-W8-618: a errata desta fatia fica no registro e na mensagem de commit, não na auditoria de textura.
+  - D-W8-620: a cópia de docs/wiki para a wiki do GitHub é ação no remoto e fica para o fechamento da onda.
+  - **Implementador haiku novo despachado às 06:2x**, avisado de que para às 07:15 se não chegar ao commit.

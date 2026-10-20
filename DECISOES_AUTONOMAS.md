@@ -10053,3 +10053,23 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **I-2 (L-17):** o laço dos pontos do anel ficou dentro de write_band_triangles e tem nome próprio. A sugestão é extrair ring_points_of.
   - **Pedido ao CTO: a S5-B-fix5** (faixa D-W8-691 a 700), com o texto exato da errata D-W8-626 para a S5-C1.
 - **20/10 13:0x, CI 39448365750 (sobre d59a255e, com a S5-B-fix4) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 13:0x, as ordens da T4b-A-FILTER e da T4b-A-PHRASE chegaram** do CTO af74ae98, com as decisões D-W8-637 a 660, em duas ordens separadas (L-17).
+  - **FILTER** (/var/tmp/cto-w8/ordem-t4b-a-filter.md, md5 b1670cbb; anexos 6019ecd2, conferidos):
+    - um átomo novo, `filtered_cross`, com a prova da cota escrita no código e no Anexo B;
+    - verde 5/5; numa varredura de 20000 casos, 8370 certificados e 0 errados;
+    - 13 mutantes: 11 morrem pelo nome do teste, e E1 e E3 sobrevivem, como foi declarado antes;
+    - nas 1.025.922 entradas: 0 aceites errados, 0 recusas erradas e 0 pesos fora da cota;
+    - preci 382/382, sanitizer 192/192 e MSVC 3/3;
+    - tempo: 108 a 199 ns por quad comum, contra 166 a 191 no pai e 2333 a 2970 na fix4, com a máquina em carga 5 a 6.
+  - **PHRASE** (/var/tmp/cto-w8/ordem-t4b-a-phrase.md, md5 b541a0a8; anexos 1d4280b0, conferidos):
+    - a frase completa decidida pelo líder; verde 6/6;
+    - um `confere_texto.py` próprio no anexo.
+  - **Achado de portão (L-36), medido pelo CTO:**
+    - um `Proved by:` com nome de teste falso passa no claim_citations_test;
+    - um travessão num `.hpp` público passa no dash_pubdoc_test.
+  - **Ordem dos commits:** fecha R2D-TEXTURE a última das duas. O main despachou a PHRASE primeiro, na etapa P.
+  - A FILTER sai depois do commit da PHRASE **e** da revisão LIMPA da T4b-A-fix5, porque a FILTER se apoia nos testes da fix5.
+  - **Vão à INBOX:**
+    - CLAIM-CITATION-NAME-GATE;
+    - DASH-GATE-HPP (junto do DASH-GATE-EN-DASH: o mesmo portão com dois furos);
+    - WIKI-TEXTURE-PAGE.

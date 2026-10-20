@@ -9692,3 +9692,11 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **Defeito recorrente nas ordens do CTO, apontado por 3 implementadores** (fix1, B1-fix1, S5-B-fix1): o laço de formato que termina em "|| break; done; echo fmt_rc=$?" sai com 0 mesmo quando reprova (L-45). Cada um refez a checagem por arquivo. Aviso aos CTOs: trocar pelo laço que conta falhas.
   - A B1-fix1 mexeu em tests/CMakeLists.txt (+10). A S5-A-fix6 e a EMBED-WIN-TIMEOUT conferem a base na hora do commit.
 - **23:43, push de onda-w8 e CI disparado**, com a B1-fix1.
+- **14/10 por volta de 23:58: os quatro agentes caíram pelo limite semanal de uso** (HTTP 429, renovação em 19/10 às 19h, America/Recife): os CTOs a92de40e e a023304b, o implementador da fix2 (a30427e9) e o revisor da B1-fix1 (a55652ae). O modo autônomo venceu em 15/10 às 21:21. A máquina reiniciou nesse intervalo: o vigia e o guardião estavam parados.
+- **19/10 22:08, o líder voltou: "Ligue modo autonomo. Autorizo tag/merge/push. Continue de onde parou".**
+  - A flag do modo autônomo é prerrogativa do líder: o gancho P12b barra o agente. Pedi que ele rode o comando.
+  - A autorização de tag, merge e push vale desde já, com os portões da L-24.
+  - Vigia e guardião religados. Os quatro agentes foram retomados por SendMessage, com a ordem de conferir o disco antes de repetir.
+  - **CI 38672501272 (sobre dc2d8cf6) VERMELHO no Windows estático, no passo "Resultado agregado":** todos os 361 testes passaram, mas o ctest_aggregate.py reprova examples_pass_test (40,9 s, acima da régua de 40 s, sem RESOURCE_LOCK nem PROCESSORS). A "folga P2" mostra pkgconfig_validate_test a 116,8 de 120 s e embed_win_test a 110,1 de 120 s.
+  - L-17 deu padrão, não caso isolado: a EMBED-WIN-TIMEOUT foi ampliada para todos os testes perto do teto e para o portão de pesados (CTO a023304b, faixa até D-W8-532).
+  - Faixas do CTO a92de40e remanejadas: S5-B-fix2 em D-W8-533 a 540, célula do O1 em D-W8-541 a 544.

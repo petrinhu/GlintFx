@@ -9718,3 +9718,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - I-1: o gêmeo da frase velha continua na cerca, em docs/auditoria-api-texture.md:719-720 ("between two calls").
   - C: a errata cita D-W8-501 a 512, mas 509 a 512 não existem (:43); "(each flush starts with none bound)" descreve o modelo do contador, não o GL; um flush com erro GL zera a contagem, sem promessa pública em contrário (fica para o líder).
   - O conserto vai com a B2, que reescreve o mesmo parecer. Fica com o CTO a92de40e na próxima vaga.
+- **19/10 22:13, modo autônomo LIGADO pelo líder** ("inicie modo autonomo"), até 20/10 às 22:13, com escopos push e clean. A autorização de tag, merge e push de 19/10 continua valendo.

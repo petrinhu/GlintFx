@@ -10020,3 +10020,17 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - O implementador apontou um possível choque de nomes: gltfx_quad_world aparece no teste. O main conferiu, e o teste só usa o tipo público com `using glintfx::gltfx_quad_world;`. O revisor julga.
   - Push feito (ls-remote 3a4cf511) e CI 39442828644 disparado. **Revisão N1 com um revisor haiku novo.**
   - A T4b-A-FILTER (ordem em curso no CTO af74ae98) vem depois desta.
+- **20/10 12:0x, chegou a pesquisa da WL-REAL-PORTS-UNIT-PROOF** (CTO a5b8ec80, /var/tmp/cto-w8/pesquisa-wl-real-ports.txt).
+  - Queixas: 16, com fonte (15 fortes e 1 fraca), acima do piso de 10.
+  - **Quanto cada opção pega por inteiro:** a (a) e a (b) pegam 14 e 2 em parte. A (c) não pega nenhuma por inteiro e pega 11 em parte.
+  - **Como os outros fazem:** o mundo prova as chamadas com a libwayland-server num servidor falso dentro do processo: a própria libwayland, o Chromium, o Qt e o wayland-rs. SDL3, GLFW, winit e wlroots não provam nada automatizado.
+  - **Recomendação do CTO: (a) mais (c).**
+    - O compositor falso é escrito em casa, sobre o wire_relay; só ele simula bytes malformados.
+    - A suíte com o KWin de verdade continua.
+    - Os cenários comuns rodam nos dois, falso contra real, a técnica do wayland-rs.
+  - Porte: de 6 a 8 peças novas, mais um teste por queixa.
+  - Nenhuma opção prova o driver de placa real; isso precisa ficar declarado.
+  - Dois possíveis defeitos achados por leitura vão à INBOX:
+    - WL-SEND-ERROR-NAME-LOST: egl_context_adapter.cpp l.307-311;
+    - WL-SINGLE-FRAME-CALLBACK: nada prova que nunca fica mais de um pedido de quadro pendente.
+  - **A escolha vai ao líder.**

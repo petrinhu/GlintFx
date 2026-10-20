@@ -10008,3 +10008,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - Antes de levar as opções de novo ao líder, um CTO pesquisa como bibliotecas e comunidades provam as chamadas reais do Wayland/EGL em teste de unidade: SDL3, GLFW, wlroots, Chromium/Ozone, Qt Wayland, Mesa e o que mais achar.
     - A pesquisa sai na próxima vaga de agente, sem atrasar a W8.
   - **Wiki do GitHub:** "Sim, publique no fechamento (Recomendado)". No fechamento da W8, junto com o merge e a tag, o main copia docs/wiki para a wiki do GitHub e confere pelo site.
+- **20/10 11:5x, revisão N1 da T4b-B2-fix2 (8583cff1): LIMPA** (revisor ae394966, /var/tmp/cto-w8/rev-t4bb2fix2.txt).
+  - O commit tem 0 CRÍTICO e 0 IMPORTANTE. Os 4 COSMÉTICOS já existiam antes ou foram aceitos pela ordem.
+  - A sabotagem com travessão na wiki reprova o dash_pubdoc, ou seja, o portão vê a wiki.
+  - **A cadeia T4b-B2 fecha:** a B2 (ee160e76), a B2-fix1 (9f959d2a) e a B2-fix2 (8583cff1) saíram LIMPA. A T4a, que esperava a revisão da B2, fecha junto, porque os S3 e S4 dela morrem na B2.
+  - **Achado fora do commit (F-1, FATO medido):** o portão de travessão NÃO pega o en-dash (U+2013); a sabotagem com en-dash passou. A L-32 global proíbe os dois. Vai para a INBOX como DASH-GATE-EN-DASH (L-36: portão com furo provado).
+  - Defeito de ordem (C-4): o passo 1 usa git archive, que vem sem .git, mas o passo 6 exige .git. Daqui em diante, as ordens usam clone e checkout do SHA.

@@ -280,6 +280,17 @@ void build_sweep_band(const sweep_case &c, sweep_band &out) {
     }
 }
 
+// Fills the ring of `b` with its points, as write_ring_indices takes them: the outer polygon
+// first, then the inner one, point n + k facing point k (S5-B-fix5, D-W8-693).
+void fill_ring_points(sweep_band &b) {
+    const std::size_t n = b.n;
+    b.ring.assign(2U * n, pixel_position_wide{});
+    for (std::size_t k = 0; k < n; ++k) {
+        b.ring[k] = {b.outer[k].x, b.outer[k].y};
+        b.ring[n + k] = {b.inner[k].x, b.inner[k].y};
+    }
+}
+
 // Writes the triangles of `b` into its buffers: the ring between the outer and the inner polygon
 // when the band has a hole, the fan of the outer polygon when it has none. The count the writer
 // answers goes to `b.index_count`. Every band is written, the failed ones too, so that the checks
@@ -291,11 +302,7 @@ void write_band_triangles(sweep_band &b) {
         b.index_count = write_fan_indices(n, b.indices);
         return;
     }
-    b.ring.assign(2U * n, pixel_position_wide{});
-    for (std::size_t k = 0; k < n; ++k) {
-        b.ring[k] = {b.outer[k].x, b.outer[k].y};
-        b.ring[n + k] = {b.inner[k].x, b.inner[k].y};
-    }
+    fill_ring_points(b);
     b.indices.assign(6U * n, 0U);
     b.index_count = write_ring_indices(b.ring, b.indices);
 }
@@ -424,20 +431,34 @@ void write_band_triangles(sweep_band &b) {
     return good;
 }
 
-// Whether band `b` of `c` holds every check, in the order of the sweep: enough angles, the outer
-// edge, the inner edge, every index of its triangles written, then, around a hole, the ring and
-// the hole itself. Every sample the edges read is in `tally`.
-[[nodiscard]] bool band_holds(const sweep_case &c, const sweep_band &b, sweep_tally &tally) {
+// Whether `b` has angles enough to be checked: the arc answered at least two parameters and the
+// merge at least eight angles (S5-B-fix5, D-W8-694).
+[[nodiscard]] bool has_enough_angles(const sweep_band &b) {
+    return b.parameter_count >= 2U && b.n >= 8U;
+}
+
+// Whether the writer answered every index of the triangles of `b`: six per angle around a hole,
+// three per angle in a fan (S5-B-fix5, D-W8-694).
+[[nodiscard]] bool every_index_is_written(const sweep_band &b) {
     const bool has_hole = b.band.shape.hole != outline_hole::none;
-    bool good = b.parameter_count >= 2U && b.n >= 8U;
+    return b.index_count == (has_hole ? 6U : 3U) * b.n;
+}
+
+// Whether band `b` of `c` holds every check, in the order of the sweep, one named check per line:
+// enough angles, the outer edge, the inner edge, every index of its triangles written, then,
+// around a hole, the ring, the convexity of the hole and the erosion. Every sample the edges read
+// is in `tally`.
+[[nodiscard]] bool band_holds(const sweep_case &c, const sweep_band &b, sweep_tally &tally) {
+    bool good = has_enough_angles(b);
     good = good && outer_edge_holds(c, b, tally);
     good = good && inner_edge_holds(c, b, tally);
-    good = good && b.index_count == (has_hole ? 6U : 3U) * b.n;
-    if (good && has_hole) {
-        good = ring_turns_with_the_outline(c, b) && hole_is_convex(c, b) &&
-               hole_is_inside_the_erosion(c, b);
+    good = good && every_index_is_written(b);
+    if (!good || b.band.shape.hole == outline_hole::none) {
+        return good;
     }
-    return good;
+    good = ring_turns_with_the_outline(c, b);
+    good = good && hole_is_convex(c, b);
+    return good && hole_is_inside_the_erosion(c, b);
 }
 
 // Counts one band in `tally`: every band in `counted`, a band that failed also in `wrong`.
@@ -457,6 +478,24 @@ void report_failed_band(const sweep_tally &tally, const sweep_case &c, std::size
     }
     std::println("ellipse_outline_test: FALHOU faixa i={} a={} b={} h={} n={}", c.index, c.major,
                  c.minor, c.h, n);
+}
+
+// A band that has a hole: 20 by 10, with h = 2.
+constexpr sweep_case k_case_with_a_hole{0U, 20.0, 10.0, 2.0};
+
+// The band of k_case_with_a_hole, built and written as the sweep builds and writes every band;
+// each case of band_holds spoils one thing of it (S5-B-fix5, D-W8-692).
+[[nodiscard]] sweep_band written_band_with_a_hole() {
+    sweep_band b;
+    build_sweep_band(k_case_with_a_hole, b);
+    write_band_triangles(b);
+    return b;
+}
+
+// Whether band_holds takes `b` as the band of k_case_with_a_hole, with a tally of its own.
+[[nodiscard]] bool holds_with_a_hole(const sweep_band &b) {
+    sweep_tally tally;
+    return band_holds(k_case_with_a_hole, b, tally);
 }
 
 } // namespace
@@ -494,18 +533,60 @@ GLINTFX_TEST(ellipse_outline_sweep_of_the_band) {
     GLINTFX_CHECK(tally.inner_samples >= 10000U);
 }
 
-// The ring check of the sweep fails on a ring of its own (S5-B-fix4, D-W8-623): with a correct
-// library no band of the sweep fails it, so without this case nothing shows that it can.
-// A ring the writer built passes; the same ring with its first triangle turned back does not.
-GLINTFX_TEST(ellipse_outline_the_ring_check_refuses_a_triangle_that_turns_back) {
-    const sweep_case c{0U, 20.0, 10.0, 2.0};
-    sweep_band b;
-    build_sweep_band(c, b);
-    write_band_triangles(b);
+// The cases of band_holds (S5-B-fix5, D-W8-691, D-W8-692): with a correct library no band of the
+// sweep fails the angles, the outer edge, the count of indices, the ring, the convexity or the
+// erosion, so the sweep alone does not show that band_holds still asks for each of them. Each case
+// sees band_holds take the band with a hole, spoils ONE thing of it that one check alone refuses,
+// and sees band_holds refuse it. The inner edge has no case here: the sweep asserts its samples.
+
+// The arc's answer cut to a single parameter, which no band can be drawn from.
+GLINTFX_TEST(ellipse_outline_band_holds_refuses_too_few_angles) {
+    sweep_band b = written_band_with_a_hole();
+    GLINTFX_CHECK(holds_with_a_hole(b));
+    b.parameter_count = 1U;
+    GLINTFX_CHECK(!holds_with_a_hole(b));
+}
+
+// The outer point of the first angle pulled 5% toward the centre, more than twice the error.
+GLINTFX_TEST(ellipse_outline_band_holds_refuses_an_outer_point_off_the_edge) {
+    sweep_band b = written_band_with_a_hole();
+    GLINTFX_CHECK(holds_with_a_hole(b));
+    b.outer[0] = {0.95 * b.outer[0].x, 0.95 * b.outer[0].y};
+    GLINTFX_CHECK(!holds_with_a_hole(b));
+}
+
+// The count the writer answered, one index short.
+GLINTFX_TEST(ellipse_outline_band_holds_refuses_a_count_one_index_short) {
+    sweep_band b = written_band_with_a_hole();
+    GLINTFX_CHECK(holds_with_a_hole(b));
+    b.index_count -= 1U;
+    GLINTFX_CHECK(!holds_with_a_hole(b));
+}
+
+// The first triangle of the ring turned back: its last two indices swapped.
+GLINTFX_TEST(ellipse_outline_band_holds_refuses_a_ring_triangle_that_turns_back) {
+    sweep_band b = written_band_with_a_hole();
     GLINTFX_CHECK(b.band.shape.hole != outline_hole::none);
-    GLINTFX_CHECK(b.n >= 8U);
-    GLINTFX_CHECK_EQ(b.index_count, 6U * b.n);
-    GLINTFX_CHECK(ring_turns_with_the_outline(c, b));
+    GLINTFX_CHECK(holds_with_a_hole(b));
     std::swap(b.indices[1], b.indices[2]);
-    GLINTFX_CHECK(!ring_turns_with_the_outline(c, b));
+    GLINTFX_CHECK(!holds_with_a_hole(b));
+}
+
+// The inner point of the second angle moved just inside the chord of its two neighbours: a dent
+// in the hole far below the error, that only the convexity sees.
+GLINTFX_TEST(ellipse_outline_band_holds_refuses_a_dent_in_the_hole) {
+    sweep_band b = written_band_with_a_hole();
+    GLINTFX_CHECK(holds_with_a_hole(b));
+    const double inward = 0.5 * (1.0 - 1e-6);
+    b.inner[1] = {inward * (b.inner[0].x + b.inner[2].x), inward * (b.inner[0].y + b.inner[2].y)};
+    GLINTFX_CHECK(!holds_with_a_hole(b));
+}
+
+// The inner point of the first angle pushed a millionth of its distance away from the centre:
+// closer to the curve than h, by far less than the error, which only the erosion sees.
+GLINTFX_TEST(ellipse_outline_band_holds_refuses_an_inner_point_outside_the_erosion) {
+    sweep_band b = written_band_with_a_hole();
+    GLINTFX_CHECK(holds_with_a_hole(b));
+    b.inner[0] = {(1.0 + 1e-6) * b.inner[0].x, (1.0 + 1e-6) * b.inner[0].y};
+    GLINTFX_CHECK(!holds_with_a_hole(b));
 }

@@ -9782,3 +9782,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - ASan: 52/0. Mutantes S3, S4 e BQ mortos: os S3 e S4 da T4a morrem aqui (D-W8-463). preci 380.
   - Revisão N1 despachada a um revisor haiku novo, com a condição do advisor (registrar o nome do programa) e a conferência das cercas por diff.
 - **20/10 02:34, push de onda-w8 e CI disparado**, com a B2.
+- **20/10 02:54, CI 39375662931 (sobre e33ff67e, com a T4b-B2) VERDE:** jobs no resumo acima; VERSION-TAG-SYNC pulado. A prova por pixel nova roda no job wayland-container.

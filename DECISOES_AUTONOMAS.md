@@ -10003,3 +10003,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     4. gravar parada_do_lider.
   - A pausa está agendada em ~/.config/olhe_agentes/GlintFx/pausa_agendada.
   - O modo autônomo vale até 22:13.
+- **20/10 11:4x, DECISÕES DO LÍDER por AskUserQuestion (verbatim):**
+  - **WL-REAL-PORTS-UNIT-PROOF** (W9-B; caminhos a, b, c da 11ª consulta ao advisor): "pesquise na web / comunidades / outras libs".
+    - Antes de levar as opções de novo ao líder, um CTO pesquisa como bibliotecas e comunidades provam as chamadas reais do Wayland/EGL em teste de unidade: SDL3, GLFW, wlroots, Chromium/Ozone, Qt Wayland, Mesa e o que mais achar.
+    - A pesquisa sai na próxima vaga de agente, sem atrasar a W8.
+  - **Wiki do GitHub:** "Sim, publique no fechamento (Recomendado)". No fechamento da W8, junto com o merge e a tag, o main copia docs/wiki para a wiki do GitHub e confere pelo site.

@@ -9951,3 +9951,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **D-W8-626, recomendação do CTO, aceita pelo main:** a fix4 commita e é revisada primeiro. Depois, uma errata na seção ESPERE da S5-C1 (ordem-s5c.md:20) troca a exigência "rev-s5bfix3.txt LIMPA" pelo SHA da fix4 e por rev-s5bfix4.txt LIMPA. A S5-C1 só sai depois disso.
   - Não toca a S5-C1 nem é tocada por ela.
   - Nenhum implementador foi despachado, porque já passou das 06:45.
+- **20/10 06:56, T4b-B2-fix2 commitada: 8583cff1** (implementador ab2d84d6). São 2 arquivos (+1 −2): a wiki:120 e a linha duplicada da paridade.
+  - Os 4 portões de documento passaram (4/4), assim como o preci, com 381/381.
+  - Push feito (ls-remote 8583cff1) e CI 39404324377 disparado.
+  - **A revisão N1 fica para depois da pausa**, porque já passou das 06:45.

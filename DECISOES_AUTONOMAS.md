@@ -9890,3 +9890,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - O mutante RING sobrevive, mas é limite não demonstrado, não furo provado.
   - O revisor apagou por glob mal escrito a própria pasta mut/ e a recriou; nada de fora dela foi tocado (L-53).
   - **Pedido ao CTO a4f22b43: a S5-B-fix4** (faixa D-W8-621 a 636). Ele foi avisado da pausa e grava tudo em disco.
+- **20/10 06:2x, CI 39397064502 (sobre 9f959d2a, com a T4b-B2-fix1) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.

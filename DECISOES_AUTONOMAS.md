@@ -9822,3 +9822,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **ELLIPSE-OUTLINE-TEST-L17 sai da INBOX** (decisão das 03:4x).
   - O implementador levantou um possível achado da L-17 em três átomos, que vai ao revisor.
   - Push feito (ls-remote 3b0365af) e CI 39385013879 disparado. **Revisão N1 com um revisor haiku novo**, pela seção 9 da ordem.
+- **20/10 04:3x, revisão N1 da T4b-B2 (ee160e76): NÃO LIMPA, só documental** (revisor a911b6d7, /var/tmp/cto-w8/rev-t4bb2.txt).
+  - O código passou: fixture 52/106/31 com 0 reprovadas, K1 com 0 sondas erradas, K2 com 1 programa, ASan 52/0, MSVC rc 0, S3, S4 e BQ mortos, as cercas com diff 0. O nome do programa K2 mediu 3, abaixo da condição de 256 do advisor (D-W8-477), então não há achado.
+  - Os mutantes do próprio revisor mostram que o piso de sondas é a única guarda do poder de discriminar do teste. O own-C reprova o código certo; o own-B mais o own-C, juntos, passam.
+  - IMPORTANTE-1: docs/auditoria-api-texture.md:44 diz que nenhuma frase pública trata do flush com erro GL. Mas renderer_2d.hpp:493-497 e frame_2d_report.hpp:150-154 dizem que toda textura conta, e o código não conta no erro. É o mesmo assunto da D-W8-548.
+  - Mais cinco COSMÉTICOS.
+  - **Pedido ao CTO a7b9643f: decidir a D-W8-548**, com pesquisa e contagem de queixas (abaixo de 10, vai ao advisor; o líder ratifica), e escrever a T4b-B2-fix1 (faixa D-W8-581 a 596).
+  - A T4a segue em verificação até a B2-fix1.

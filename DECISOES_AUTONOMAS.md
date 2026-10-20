@@ -10014,3 +10014,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A cadeia T4b-B2 fecha:** a B2 (ee160e76), a B2-fix1 (9f959d2a) e a B2-fix2 (8583cff1) saíram LIMPA. A T4a, que esperava a revisão da B2, fecha junto, porque os S3 e S4 dela morrem na B2.
   - **Achado fora do commit (F-1, FATO medido):** o portão de travessão NÃO pega o en-dash (U+2013); a sabotagem com en-dash passou. A L-32 global proíbe os dois. Vai para a INBOX como DASH-GATE-EN-DASH (L-36: portão com furo provado).
   - Defeito de ordem (C-4): o passo 1 usa git archive, que vem sem .git, mas o passo 6 exige .git. Daqui em diante, as ordens usam clone e checkout do SHA.
+- **20/10 11:5x, T4b-A-fix5 commitada: 9df07056** (implementador ac244f83; 2 arquivos de teste; +161 −36).
+  - R1 morre em 3 testes, com 334 pesos fora da cota. R7 morre em 1, com 14 de 18 recusados.
+  - preci 381/381, sanitizer verde, MSVC 2/2.
+  - O implementador apontou um possível choque de nomes: gltfx_quad_world aparece no teste. O main conferiu, e o teste só usa o tipo público com `using glintfx::gltfx_quad_world;`. O revisor julga.
+  - Push feito (ls-remote 3a4cf511) e CI 39442828644 disparado. **Revisão N1 com um revisor haiku novo.**
+  - A T4b-A-FILTER (ordem em curso no CTO af74ae98) vem depois desta.

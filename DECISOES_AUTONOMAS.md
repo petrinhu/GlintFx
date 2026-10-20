@@ -9726,3 +9726,7 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - o main commita e empurra o registro e a memória da sessão; parada_do_lider é gravado e o monitor só vigia até o líder mandar seguir.
   - Agendamento em ~/.config/olhe_agentes/GlintFx/pausa_agendada (epoch 1792491300).
 - **19/10 22:35, CI 39351873581 (sobre 78e62ff5, com a T4b-A-fix2) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado. O portão de pesados não reprovou desta vez, mas pkgconfig_validate_test está em 113,2 s e embed_win_test em 107,8 s, contra o teto de 120, no compartilhado. A EMBED-WIN-TIMEOUT ampliada continua necessária (oscilação perto do teto).
+- **19/10 22:40, T4b-A-fix3 commitada: 96259ecf** (implementador a33fe11a; 1 arquivo; +53). Enumeração de 781250 casos, 118368 convexos, 0 errados; o O1 morre; preci 377; sanitizer 187.
+  - A revisão N1 foi somada à do revisor da fix2 (a597d9a4, que não escreveu nenhuma das duas), com veredito separado em rev-t4bafix3.txt. Isso economiza uma vaga.
+  - O downgrade da L-09 do preci (roda no hospedeiro) é o vigente até PRECI-IN-CONTAINER, como em toda fatia da onda.
+- **19/10 22:40, CTO a92de40e retomado para a T4b-B2** (D-W8-475 a 480), com os achados documentais da revisão da B1-fix1 (D-W8-545 a 550). O de "flush com erro zera a contagem" vai à ratificação do líder. Instrução de pausa às 07:15 dada.

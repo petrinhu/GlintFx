@@ -129,8 +129,10 @@ struct gltfx_frame_2d_report {
     std::uint64_t batches = 0;
     // How many flush() barriers this frame had.
     std::uint64_t flushes = 0;
-    // How many draw calls reached the graphics card. Printed for you to
-    // measure, never promised as a number.
+    // How many draw calls reached the graphics card. A flush whose data or
+    // drawing the card refuses counts none of its draw calls: its pieces
+    // count in pieces_dropped_graphics_failure, and finish_frame() returns
+    // an error. Printed for you to measure, never promised as a number.
     std::uint64_t draw_calls = 0;
     // Appended in W8 (D-W8-30): one counter per refusal reason. Their sum is
     // pieces_refused, always.
@@ -150,8 +152,10 @@ struct gltfx_frame_2d_report {
     // Appended by R2D-TEXTURE T4b-B1 (D-W8-471): how many times the bound
     // texture changed between two draw calls, a change to or from no
     // texture included; the first draw call of every flush counts when it
-    // binds a texture. A cost, printed for you to measure, never promised
-    // as a number: a textured piece between two untextured ones costs two.
+    // binds a texture. A flush the card refuses counts none of its
+    // switches, as for draw_calls. A cost, printed for you to measure, never
+    // promised as a number: a textured piece between two untextured ones
+    // costs two.
     std::uint64_t texture_switches = 0;
 };
 

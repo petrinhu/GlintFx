@@ -1891,6 +1891,35 @@ GLINTFX_TEST(renderer_2d_impl_each_flush_starts_with_no_texture_and_u_textured_a
     renderer_2d_impl::destroy(renderer);
 }
 
+// A flush the card refuses adds none of its draw calls and none of its texture switches to the
+// report, and its pieces count as a graphics failure; the flush before it keeps its counts
+// (D-W8-581, the decision of D-W8-548). The refused draw call did reach the fake card: the counts
+// leave it out by decision, not because it was never made.
+GLINTFX_TEST(renderer_2d_impl_a_refused_flush_adds_no_draw_call_and_no_switch) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *first = texture_of(renderer, 77U);
+    glintfx::texture_2d_impl *second = texture_of(renderer, 78U);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(first, paint_of(whole()), rect(0, 0, 1, 1), k_layer_0);
+    renderer->fill_rect(rect(1, 0, 1, 1), k_red, k_layer_0);
+    renderer->flush(); // accepted: two draw calls, two switches (to the texture, back to none)
+    card.error_from_draw = k_invalid_operation;
+    renderer->draw_texture(second, paint_of(whole()), rect(2, 0, 1, 1), k_layer_0);
+    const auto report = renderer->finish_frame(); // refused: its one call and one switch
+    const auto last = renderer->last_frame_report();
+    GLINTFX_CHECK_EQ(last.draw_calls, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(last.texture_switches, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(last.pieces_drawn, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(last.pieces_dropped_graphics_failure, std::uint64_t{1});
+    GLINTFX_CHECK(ends_add_up(last));
+    GLINTFX_CHECK(report.has_error());
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{77U, 0U, 78U}));
+    glintfx::draw2d::release_texture_object(second);
+    glintfx::draw2d::release_texture_object(first);
+    renderer_2d_impl::destroy(renderer);
+}
+
 namespace {
 
 // One textured call of the refusal tables, and the reason it must give (T4b-B1-fix1, D-W8-498:

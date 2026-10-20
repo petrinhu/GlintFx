@@ -491,16 +491,17 @@ class gltfx_renderer_2d {
     //   - pixel_position_out_of_range: the batch transform takes a corner
     //     outside the range the drawing program can scale, as for fill_rect.
     // A textured piece is painted in the same order as every other piece
-    // (layer, then submission); a change of texture never reorders. Each
-    // texture the library binds to draw counts once in texture_switches: a
-    // change of texture between two draw calls, a change to or from no
-    // texture, and the first texture of every flush (the count starts again
-    // from no texture at every flush).
+    // (layer, then submission); a change of texture never reorders. In a
+    // flush the graphics card accepts, each texture the library binds to
+    // draw counts once in texture_switches: a change of texture between two
+    // draw calls, a change to or from no texture, and the first texture of
+    // every flush (the count starts again from no texture at every flush).
+    // A flush the card refuses counts none (frame_2d_report.hpp).
     // D-W8-354: texture, paint and rect with the layer; four parameters at most.
     // Proved by: renderer_2d_impl_test (each reason in this order, over a
     // fake GL; the corners read the region by role and mirror; a texture
     // between two untextured pieces is three draw calls in paint order and
-    // two switches).
+    // two switches; a flush the card refuses adds no switch).
     // Proved by: draw2d_texture_parity_test (on a real context, in both
     // values of srgb_framebuffer: textures A, B, A painted in that order
     // with three switches; a solid, a textured and a solid piece with two;

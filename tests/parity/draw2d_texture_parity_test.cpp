@@ -58,10 +58,10 @@
 //     ignores q would draw) falls, also a quarter texel inside, in a square of the OTHER colour are
 //     counted: at least 10 of them, or the cell does not discriminate and fails.
 //   - THE ATTRIBUTE OF q (D-W8-463, D-W8-477): among the program objects alive in the context
-//   (names
-//     1 to 4096, glIsProgram), the one with the uniform u_viewport_pixels is the library's; its
-//     attribute a_texcoord_q has location 3. A driver may drop an attribute that never reaches the
-//     output (location -1), so this is an AUXILIARY lock where the driver does that (llvmpipe
+//     (names 1 to 4096, glIsProgram), the one with the uniform u_viewport_pixels is the library's;
+//     its attribute a_texcoord_q has location 3. A driver may drop an attribute that never reaches
+//     the output (location -1), so this is an AUXILIARY lock where the driver does that (llvmpipe
+//     does); the trapezoid is the proof on every driver.
 //     does); the trapezoid is the proof on every driver.
 //   - THE ORDER (D-W8-13): textures A, B, A on the same layer, overlapping, are painted in that
 //     order (the overlap of A and B is B, the overlap of B and the second A is A), and the report

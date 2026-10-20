@@ -9783,3 +9783,10 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - Revisão N1 despachada a um revisor haiku novo, com a condição do advisor (registrar o nome do programa) e a conferência das cercas por diff.
 - **20/10 02:34, push de onda-w8 e CI disparado**, com a B2.
 - **20/10 02:54, CI 39375662931 (sobre e33ff67e, com a T4b-B2) VERDE:** jobs no resumo acima; VERSION-TAG-SYNC pulado. A prova por pixel nova roda no job wayland-container.
+- **20/10 03:40, a ordem da S5-B-fix3 chegou** do CTO a92de40e, com as decisões D-W8-559 a 564. Arquivos: ordem /var/tmp/cto-w8/ordem-s5b-fix3.md (md5 a2093661), anexos com anexos.md5 03167464 (o main conferiu as 25 linhas: ok) e relato /var/tmp/cto-w8/relato-cto-s5bfix3.txt (md5 5b528f6b).
+  - I-1: a varredura de 144 linhas vira onze átomos. A saída é igual à da base no verde, sob MK (46) e sob MKR (45).
+  - I-2: as duas frases foram reescritas, só comentário.
+  - C: a asserção do pior erro interno fica e vai para antes da contagem; no mutante MKD ela é a única que reprova.
+  - Pré-execução: preci 377/0, sanitizer 187/0, MSVC 2/0. A fatia não toca tests/CMakeLists.txt. Conserto mecânico, fora do piso de 10 queixas da L-34.
+  - O main conferiu a base: o último commit nos 3 arquivos é 6266dc97. **Implementador haiku novo despachado.**
+  - Mandados para a INBOX, sem conserto nesta fatia (L-32): I-3, ellipse_pixels.cpp com 196 linhas e 12 funções (D-W8-563); e duas funções intocadas do mesmo teste que passam da régua (D-W8-561).

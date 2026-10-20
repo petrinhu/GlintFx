@@ -9775,3 +9775,4 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
 - **20/10 01:06, push de onda-w8**, com a fix6. O CI sai depois que o run 39365077605 terminar, para não rodar dois ao mesmo tempo.
 - **20/10 01:09, CI 39365077605 (sobre b626c6bc, com a EMBED-WIN-TIMEOUT) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado. CI novo disparado com a fix6.
 - **20/10 01:43, CI 39368033791 (sobre 125201db, com a S5-A-fix6) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
+- **20/10 02:00, TODO.md: o Status de R2D-TEXTURE, R2D-SHAPES e CI-VERDE-W8 passa de ⏳ para 🔄 Em andamento** (higiene da tabela; os três têm fatias commitadas e em revisão nesta onda).

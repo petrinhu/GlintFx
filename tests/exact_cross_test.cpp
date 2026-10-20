@@ -115,3 +115,21 @@ GLINTFX_TEST(exact_cross_keeps_the_sign_through_cancellation) {
     GLINTFX_CHECK(value_of(v) == 57.0 * 0x1p-51);
     GLINTFX_CHECK(naive == 0.0);
 }
+
+// T4b-A-fix5 (D-W8-598): the leading digits keep 62 bits, which the promise of the header (2^-52)
+// and that of the weights (2^-50) need. (2147483647, 0) x (0, 1515870811) is the odd whole number
+// 3255307777587127717, 62 bits long; the double nearest to it is 0x1.696969692d2d3p+61 (computed
+// by the CTO in integers). Leading digits cut to 50 bits (mutant R1 of the fix4 review) give
+// 0x1.696969692d2d0p+61, and nothing in the suite failed (I-1 of that review).
+GLINTFX_TEST(exact_cross_keeps_sixty_two_bits) {
+    const gltfx_vec2_world origin{0.0, 0.0};
+    const gltfx_vec2_world across{2147483647.0, 0.0};
+    const gltfx_vec2_world up{0.0, 1515870811.0};
+    const exact_cross_value v = exact_cross(origin, across, origin, up);
+    const exact_cross_value turned = exact_cross(origin, up, origin, across);
+    std::println("exact_cross_test: sessenta e dois bits m={} e={}", v.m, v.e);
+    GLINTFX_CHECK_EQ(v.sign, 1);
+    GLINTFX_CHECK(value_of(v) == 0x1.696969692d2d3p+61);
+    GLINTFX_CHECK_EQ(turned.sign, -1);
+    GLINTFX_CHECK(value_of(turned) == -0x1.696969692d2d3p+61);
+}

@@ -233,6 +233,53 @@ struct exact_answer {
     return same;
 }
 
+// The promise of projective_quad.hpp (D-W8-553): each weight within 2^-50 of the exact one. `want`
+// is the exact weight rounded once (within 2^-53 of it), so the check leaves that rounding out:
+// |got - want| <= (2^-50 - 2^-53) want = 7 x 2^-53 want (T4b-A-fix5, D-W8-599). A weight that
+// leaves the promise by more than 2^-53 fails it.
+[[nodiscard]] bool within_promise(const std::optional<std::array<double, 4>> &got,
+                                  const std::array<double, 4> &want) {
+    if (!got.has_value()) {
+        return false;
+    }
+    bool within = true;
+    for (std::size_t i = 0; i < 4U; ++i) {
+        within = within && std::abs((*got)[i] - want[i]) <= 7.0 * 0x1p-53 * want[i];
+    }
+    return within;
+}
+
+// The quadrilaterals with no mapping: the shapes of projective_quad.hpp, a value that is not a
+// number, and (T4b-A-fix5, D-W8-601) plus and minus infinity in each of the four corners of a
+// square that has a mapping.
+[[nodiscard]] std::array<gltfx_quad_world, 18> degenerate_quads() {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    return {{
+        {{0, 0}, {1, 0}, {2, 0}, {0, 1}},   // three corners on one line
+        {{0, 0}, {1, 0}, {0, 1}, {1, 1}},   // two edges cross (a bow tie)
+        {{0, 0}, {4, 0}, {1, 1}, {0, 4}},   // a corner pointing inward
+        {{0, 0}, {4, 0}, {4, 4}, {3, 1}},   // corner 3 pointing inward: t = 2, s = 1/2
+        {{3, 3}, {4, 0}, {4, 4}, {0, 4}},   // corner 0 pointing inward: s = -1 (T4b-A-fix1)
+        {{0, 0}, {1, 3}, {4, 4}, {0, 4}},   // corner 1 pointing inward: t = -1 (T4b-A-fix1)
+        {{3, 3}, {3, 3}, {3, 3}, {3, 3}},   // no area at all
+        {{0, 0}, {2, 0}, {4, 0}, {6, 0}},   // all four on one line
+        {{0, 0}, {nan, 0}, {1, 1}, {0, 1}}, // a value that is not a number
+        {{0, 0},
+         {2e-310, -1},
+         {2, 0},
+         {2e-310, 1}},                       // corner 0 next to the crossing: 1/(2s) overflows
+        {{inf, 0}, {1, 0}, {1, 1}, {0, 1}},  // plus infinity in corner 0
+        {{0, 0}, {inf, 0}, {1, 1}, {0, 1}},  // ... in corner 1
+        {{0, 0}, {1, 0}, {inf, 1}, {0, 1}},  // ... in corner 2
+        {{0, 0}, {1, 0}, {1, 1}, {inf, 1}},  // ... in corner 3
+        {{0, -inf}, {1, 0}, {1, 1}, {0, 1}}, // minus infinity in corner 0
+        {{0, 0}, {1, -inf}, {1, 1}, {0, 1}}, // ... in corner 1
+        {{0, 0}, {1, 0}, {1, -inf}, {0, 1}}, // ... in corner 2
+        {{0, 0}, {1, 0}, {1, 1}, {0, -inf}}, // ... in corner 3
+    }};
+}
+
 } // namespace
 
 GLINTFX_TEST(projective_quad_closed_cases) {
@@ -266,31 +313,15 @@ GLINTFX_TEST(projective_quad_closed_cases) {
 }
 
 GLINTFX_TEST(projective_quad_no_mapping_is_degenerate) {
-    const double nan = std::numeric_limits<double>::quiet_NaN();
     std::size_t refused = 0;
     std::size_t counted = 0;
-    const std::array<gltfx_quad_world, 10> degenerate{{
-        {{0, 0}, {1, 0}, {2, 0}, {0, 1}},   // three corners on one line
-        {{0, 0}, {1, 0}, {0, 1}, {1, 1}},   // two edges cross (a bow tie)
-        {{0, 0}, {4, 0}, {1, 1}, {0, 4}},   // a corner pointing inward
-        {{0, 0}, {4, 0}, {4, 4}, {3, 1}},   // corner 3 pointing inward: t = 2, s = 1/2
-        {{3, 3}, {4, 0}, {4, 4}, {0, 4}},   // corner 0 pointing inward: s = -1 (T4b-A-fix1)
-        {{0, 0}, {1, 3}, {4, 4}, {0, 4}},   // corner 1 pointing inward: t = -1 (T4b-A-fix1)
-        {{3, 3}, {3, 3}, {3, 3}, {3, 3}},   // no area at all
-        {{0, 0}, {2, 0}, {4, 0}, {6, 0}},   // all four on one line
-        {{0, 0}, {nan, 0}, {1, 1}, {0, 1}}, // a value that is not a number
-        {{0, 0},
-         {2e-310, -1},
-         {2, 0},
-         {2e-310, 1}}, // corner 0 next to the crossing: 1/(2s) overflows
-    }};
-    for (const gltfx_quad_world &quad : degenerate) {
+    for (const gltfx_quad_world &quad : degenerate_quads()) {
         ++counted;
         refused += projective_weights(quad).has_value() ? 0U : 1U;
     }
     std::println("projective_quad_test: degenerados casos={} recusados={}", counted, refused);
-    GLINTFX_CHECK_EQ(counted, std::size_t{10});
-    GLINTFX_CHECK_EQ(refused, std::size_t{10});
+    GLINTFX_CHECK_EQ(counted, std::size_t{18});
+    GLINTFX_CHECK_EQ(refused, std::size_t{18});
 }
 
 // 3000 convex quadrilaterals (jittered_quad), 10 texture points each: the interpolation gives the
@@ -421,17 +452,42 @@ GLINTFX_TEST(projective_quad_every_small_integer_quad_is_decided_exactly) {
 // mirrored (y negated): the weights do not change.
 namespace {
 
-[[nodiscard]] gltfx_quad_world kite(double half_width, std::int64_t k1, std::int64_t k2,
-                                    bool turned, bool mirrored) {
+// The shape of a kite: half-width L, and the heights k1 and k2, in multiples of the smallest
+// double, of its two other corners (T4b-A-fix5, D-W8-602: the review counted five parameters).
+struct kite_shape {
+    double half_width = 0.0;
+    std::int64_t k1 = 0;
+    std::int64_t k2 = 0;
+};
+
+// How the kite is laid: turned a quarter (x and y swapped) and mirrored (y negated).
+struct kite_pose {
+    bool turned = false;
+    bool mirrored = false;
+};
+
+[[nodiscard]] gltfx_quad_world kite(const kite_shape &shape, kite_pose pose) {
     constexpr double k_unit = std::numeric_limits<double>::denorm_min();
-    const double up = static_cast<double>(k1) * k_unit;
-    const double down = -static_cast<double>(k2) * k_unit;
-    const double sign = mirrored ? -1.0 : 1.0;
+    const double up = static_cast<double>(shape.k1) * k_unit;
+    const double down = -static_cast<double>(shape.k2) * k_unit;
+    const double sign = pose.mirrored ? -1.0 : 1.0;
     const auto at = [&](double x, double y) {
-        return turned ? glintfx::gltfx_vec2_world{sign * y, x}
-                      : glintfx::gltfx_vec2_world{x, sign * y};
+        return pose.turned ? glintfx::gltfx_vec2_world{sign * y, x}
+                           : glintfx::gltfx_vec2_world{x, sign * y};
     };
-    return gltfx_quad_world{at(-half_width, 0.0), at(0.0, up), at(half_width, 0.0), at(0.0, down)};
+    return gltfx_quad_world{at(-shape.half_width, 0.0), at(0.0, up), at(shape.half_width, 0.0),
+                            at(0.0, down)};
+}
+
+// How many of the four poses of `shape` leave the promised weights `want` (T4b-A-fix5,
+// D-W8-603: the loop of the poses was a fourth level of nesting in the test).
+[[nodiscard]] std::size_t wrong_poses(const kite_shape &shape, const std::array<double, 4> &want) {
+    std::size_t wrong = 0;
+    for (const int variant : {0, 1, 2, 3}) {
+        const kite_pose pose{(variant & 1) != 0, (variant & 2) != 0};
+        wrong += within_promise(projective_weights(kite(shape, pose)), want) ? 0U : 1U;
+    }
+    return wrong;
 }
 
 } // namespace
@@ -444,15 +500,10 @@ GLINTFX_TEST(projective_quad_mixed_magnitudes_keep_their_weights) {
         for (std::int64_t k1 = 1; k1 <= 8; ++k1) {
             for (std::int64_t k2 = 1; k2 <= 8; ++k2) {
                 const double sum = static_cast<double>(k1 + k2);
-                const std::optional<std::array<double, 4>> want{
-                    {1.0, sum / (2.0 * static_cast<double>(k2)), 1.0,
-                     sum / (2.0 * static_cast<double>(k1))}};
-                for (const int variant : {0, 1, 2, 3}) {
-                    const gltfx_quad_world quad =
-                        kite(half_width, k1, k2, (variant & 1) != 0, (variant & 2) != 0);
-                    ++counted;
-                    wrong += same_weights(projective_weights(quad), want) ? 0U : 1U;
-                }
+                const std::array<double, 4> want{1.0, sum / (2.0 * static_cast<double>(k2)), 1.0,
+                                                 sum / (2.0 * static_cast<double>(k1))};
+                counted += 4U;
+                wrong += wrong_poses(kite_shape{half_width, k1, k2}, want);
             }
         }
     }
@@ -507,4 +558,60 @@ GLINTFX_TEST(projective_quad_one_minus_s_keeps_its_digits) {
     const gltfx_quad_world thin{{-1.0, 0.0}, {0.0, 1.0}, {0x1p-60, 0.0}, {0.0, -1.0}};
     const std::optional<std::array<double, 4>> want{{0x1p59, 1.0, 0.5, 1.0}};
     GLINTFX_CHECK(same_weights(projective_weights(thin), want));
+}
+
+// T4b-A-fix5 (D-W8-599): the promise of 2^-50 on the weights, held by a test (I-1 of the fix4
+// review: nothing failed when the leading digits were cut to 50 bits). 1000 convex quadrilaterals
+// of whole-number corners: a square of side 2^25 with each coordinate moved by 0 to 2^23 - 1.
+// Every cross product of their corners is below 2^53, so it is exact in 64-bit integers and in
+// double. The reference is the DEFINITION, not the path of the code: den = d1 x d2, s den = r x d2,
+// t den = r x d1, 1 - s = (den - s den) / den, and each weight 0.5 den / x, one division of two
+// exact doubles, rounded once. With the leading digits cut to 50 bits (mutant R1 of the review),
+// 334 of the 1000 leave the promise (emulated by the CTO, T4b-A-fix5).
+namespace {
+
+[[nodiscard]] std::array<std::array<std::int64_t, 2>, 4> square_moved(quad_draw &draw) {
+    constexpr std::int64_t k_side = std::int64_t{1} << 25U;
+    std::array<std::array<std::int64_t, 2>, 4> c{
+        {{0, 0}, {k_side, 0}, {k_side, k_side}, {0, k_side}}};
+    for (auto &corner : c) {
+        for (std::int64_t &coordinate : corner) {
+            coordinate += static_cast<std::int64_t>(draw.next_unit() * 0x1p23);
+        }
+    }
+    return c;
+}
+
+[[nodiscard]] std::array<double, 4>
+defined_weights(const std::array<std::array<std::int64_t, 2>, 4> &c) {
+    const std::int64_t d1x = c[2][0] - c[0][0];
+    const std::int64_t d1y = c[2][1] - c[0][1];
+    const std::int64_t d2x = c[3][0] - c[1][0];
+    const std::int64_t d2y = c[3][1] - c[1][1];
+    const std::int64_t den = cross_int(d1x, d1y, d2x, d2y);
+    const std::int64_t ns = cross_int(c[1][0] - c[0][0], c[1][1] - c[0][1], d2x, d2y);
+    const std::int64_t nt = cross_int(c[1][0] - c[0][0], c[1][1] - c[0][1], d1x, d1y);
+    const auto weight = [den](std::int64_t x) {
+        return 0.5 * static_cast<double>(den) / static_cast<double>(x);
+    };
+    return {weight(den - ns), weight(den - nt), weight(ns), weight(nt)};
+}
+
+} // namespace
+
+GLINTFX_TEST(projective_quad_weights_keep_the_promised_digits) {
+    quad_draw draw{20261020U};
+    std::size_t counted = 0;
+    std::size_t outside = 0;
+    for (int i = 0; i < 1000; ++i) {
+        const std::array<std::array<std::int64_t, 2>, 4> c = square_moved(draw);
+        ++counted;
+        const bool within =
+            within_promise(projective_weights(quad_of_integers(c, 1.0)), defined_weights(c));
+        outside += within ? 0U : 1U;
+    }
+    std::println("projective_quad_test: cota 2^-50 quadrilateros={} fora_da_cota={}", counted,
+                 outside);
+    GLINTFX_CHECK_EQ(counted, std::size_t{1000});
+    GLINTFX_CHECK_EQ(outside, std::size_t{0});
 }

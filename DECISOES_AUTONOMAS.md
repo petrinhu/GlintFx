@@ -10040,3 +10040,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **20/10 12:1x, conserto de registro do main:** as duas edições na linha da WL-REAL-PORTS-UNIT-PROOF (11:43 e 12:1x) caíram por engano na linha WL-FRAME-ORDER-ARM-TEST. O critério buscava o ID em qualquer lugar da linha, e a linha da ARM-TEST o cita como resíduo; é a armadilha da memória feedback_criterio_largo_edita_alvo_errado.
   - A linha da ARM-TEST voltou byte a byte ao estado de antes de a407dfae, com ✅ Concluído.
   - As duas decisões do líder e o ⏳ foram aplicados na linha certa, agora casando a coluna ID exata.
+- **20/10 12:2x, S5-B-fix4 commitada: 8ed72a93** (implementador aca6b55f; 1 arquivo; +86 −37).
+  - Equivalência no verde e sob MK, MKR e MKW: as linhas da varredura saem iguais.
+  - Os 5 mutantes morrem.
+  - preci 381/0, sanitizer 191/0 e MSVC 1/0.
+  - Push feito (ls-remote 8ed72a93). O CI sai depois que o 39442828644 terminar.
+  - **Revisão N1 com um revisor haiku novo.** Se sair LIMPA, o main faz a errata D-W8-626 na ordem da S5-C1 e despacha o implementador dela.

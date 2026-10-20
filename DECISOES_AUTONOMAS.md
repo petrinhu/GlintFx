@@ -9941,3 +9941,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - **B:** R2D-TEXTURE fecha com a fix5, e o filtro vai para a INBOX;
     - **C:** só otimizar o caminho exato.
   - **Nenhum implementador foi despachado, porque já passou das 06:45.** A fix5 sai depois da pausa.
+- **20/10 06:4x, a ordem da S5-B-fix4 chegou** do CTO a4f22b43, com as decisões D-W8-621 a 628.
+  - Arquivos: ordem /var/tmp/cto-w8/ordem-s5b-fix4.md, anexos (anexos.md5 e98e0908) e relato /var/tmp/cto-w8/relato-cto-s5bfix4.txt.
+  - A fatia muda só tests/ellipse_outline_test.cpp (+86 −37). Os 4 átomos viram 14, cada um fazendo uma coisa só.
+  - Equivalência medida em contêiner: as linhas da varredura saem iguais byte a byte, no verde e sob MK, MKR e MKW.
+  - Os 5 mutantes morrem, inclusive o RING, que ganhou uma célula própria que o alcança. A régua fica em 2 e 2.
+  - Os IDs de decisão nos comentários ficam, porque são convenção do projeto (336 ocorrências).
+  - MSVC, preci e sanitizer ainda rodavam em segundo plano às 06:45 (/var/tmp/cto-w8/r21/s5bfix4/rodada3.prog). O implementador refaz essas medidas nos passos 12 e 13.
+  - **D-W8-626, recomendação do CTO, aceita pelo main:** a fix4 commita e é revisada primeiro. Depois, uma errata na seção ESPERE da S5-C1 (ordem-s5c.md:20) troca a exigência "rev-s5bfix3.txt LIMPA" pelo SHA da fix4 e por rev-s5bfix4.txt LIMPA. A S5-C1 só sai depois disso.
+  - Não toca a S5-C1 nem é tocada por ela.
+  - Nenhum implementador foi despachado, porque já passou das 06:45.

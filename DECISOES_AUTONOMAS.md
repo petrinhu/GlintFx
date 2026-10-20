@@ -9757,3 +9757,9 @@ Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O pl
   - **D-W8-548 vai à LISTA DE RATIFICAÇÃO como INCONSISTÊNCIA com a D-W8-501**, não como lacuna de frase: um flush que termina em erro GL descarta as trocas que já ligou, e a frase nova diz "each texture the library binds to draw counts once". Saídas: contar mesmo com erro (o custo foi pago) ou a frase dizer "in a flush that completes". É escolha de API: o CTO decide, com contagem de queixas, e o líder ratifica.
   - Processo: o relatório da fix3 (t4bafix3/relatorio.txt) foi sobrescrito pelo implementador da S5-B-fix2. O revisor a597 já cobriu o conteúdo. Daqui em diante os briefings dão o caminho do relatório, único por fatia.
   - B2 despachada a um implementador haiku novo, com a pausa das 07:15 no briefing.
+- **20/10 00:35, EMBED-WIN-TIMEOUT commitada: 21bfb9ed** (implementador ac0331e5; 2 arquivos; +90 −7).
+  - Vermelho: rc_prova 1, com 2 controles. Verde: 15 de 15. 4 de 4 mutantes como previsto. preci 377.
+  - Os 3 testes só do Windows serão provados pelo artefato ctest-junit-windows do primeiro CI.
+  - A revisão N1 vai na próxima vaga, depois do CI, porque precisa do artefato.
+- **20/10 00:35, S5-A-fix6 despachada** a um implementador haiku novo, com SHA_EMBED=21bfb9ed.
+- **20/10 00:35, push de onda-w8 e CI disparado**, com a EMBED.

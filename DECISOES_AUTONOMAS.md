@@ -10275,3 +10275,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **20/10 23:1x: disco.** O mínimo na partição / chegou a 20,98 GiB. Pela regra "limpar só compilação" do líder (20/10 14:14), foram apagadas só as pastas `build`/`build-*` das fatias já commitadas e revisadas LIMPAS: r21/s5bfix4, t4bafix4, t4b, t4bb2fix1, t4bafix5, s5bfix5, rev-s5bfix4 e rev-t4bb1fix1.
   - Resultado: encontrados=109, apagados=83, falharam=26. As 26 falhas são pastas criadas como root dentro do container, e esperam a limpeza das pastas de root no fechamento da W8, como o líder decidiu.
   - O mínimo subiu para 24,27 GiB. Logs, relatórios e árvores de fonte ficaram intactos. As pastas das fatias ativas (t5, s5c, s5c-r2, t4bafilter, t4bafloat) não foram tocadas.
+- **20/10 23:2x: o CTO entregou a errata r2 da S5-C1** (a09b4f87, D-W8-756 a 758): /var/tmp/cto-w8/ordens-anexos/s5c-r2/errata.md (md5 5e074375, anexos.md5 b445b7b5).
+  - O ESPERE foi reescrito com a fix5 7694a682, a fix6 7cdc7082 LIMPA, a B2-fix1 9f959d2a e a B2-fix2 8583cff1, e o laço passa a contar desde 4320d99a. A ordem e os anexos originais não mudam, e nenhum bloco precisou ser regenerado.
+  - Pré-execução sobre 4320d99a:
+    - o vermelho falha pela razão certa, o verde passa 5/5 e os 7 mutantes morrem;
+    - a fixture tem 40 células e 0 reprovadas; M8 reprova 2 e MX reprova 1;
+    - preci --fast 382/382, sanitizer 192/192 e MSVC 8/8;
+    - o commit de prova sai 16 arquivos, 770+/96-, sobre fea57ce6, 4320d99a e 385bfe19.
+  - Limite declarado: sobre 385bfe19, que já tem a FILTER, rodaram só o build e os 7 testes no container, 7/7 verdes. O preci com a FILTER fica com o implementador.
+  - Ordem de commit: com a FILTER, a T5-A e a FLOAT, qualquer ordem chega à mesma árvore. A T5-B vem só depois da S5-C1. Se a R2b entrar antes dela, é PARE.
+  - **S5-C1 despachada às 23:2x**, com implementador haiku novo. Ela e a revisão N1 da FILTER são os 2 agentes.

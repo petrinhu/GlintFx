@@ -10228,3 +10228,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - tag e merge só se a W8 fechar antes, com os portões da L-24 verdes;
     - gravar `parada_do_lider`.
   - O agendamento está em `~/.config/olhe_agentes/GlintFx/pausa_agendada`.
+- **20/10 21:5x, ordem do líder, verbatim: "duvidas com clevel do mesmo modo anterior. Se nao resolver, fale com advisor".** Repete a regra que já valia.
+  - Toda dúvida vai primeiro ao C-level. Ele pesquisa em outras bibliotecas, na comunidade e na web, e decide pela L-34: pelo menos 10 queixas atendidas.
+  - Se não resolver, vai ao advisor (Fable 5.1). A decisão fica registrada para ratificação depois.
+  - **Aplicada já a D-W8-681 e D-W8-706:** o CTO decide depois da pesquisa, e só a dúvida que sobrar vai ao advisor. A mensagem foi enviada ao CTO às 21:5x.

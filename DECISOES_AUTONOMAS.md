@@ -10416,3 +10416,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Achado do implementador:** a sonda do fxgreen passa por casar com a linha de descrição do g++, não com a compilação do arquivo.
   - **Rodadas até o bloco fx, todas boas:** blocos, ditadas, gen, régua, prep 9/9, ct 6/6 e fxgreen (44 células).
   - **Próximo passo:** o CTO autor da ordem foi retomado para escrever uma errata (forçar a reconstrução por rodada de mutante e endurecer a sonda). O implementador retoma de onde parou, com as pastas intactas.
+- **21/10 04:1x: errata 1 da S5-C1-fix1 pronta** (`/var/tmp/cto-w8/ordens-anexos/s5c1fix1-errata1/errata1.md`, md5 44c5a67c; anexos.md5 726ee2c4, 6 de 6 OK; a ordem congelada 80fe3bf5 continua intocada).
+  - **Por que não `--no-cache` nem ARG:** os dois estágios do Containerfile começam com dnf install (linhas 237 e 1242), e o `--no-cache` baixaria os pacotes da rede a cada rodada. Um ARG exigiria editar o Containerfile.
+  - **Reconstrução:** o roda_fx2.sh acrescenta uma linha de comentário única ao arquivo mutado, só na cópia, e esse conteúdo nunca foi construído antes.
+  - **Sonda nova:** conta a linha do ninja `Building CXX object .../<arquivo>.o` e confere contexto=1 e lib_em_cache=0. O fxgreen antigo sai do aceite; o fxgreen2 entra no lugar.
+  - **Pré-execução mínima do CTO:** o MI3 com o roda_fx2.sh deu chegou=1 (build.log:237), só a C17 caiu, e o confere deu igual. MR9, MR9F e fxgreen2 ficam com o implementador.
+  - **Guarda de tempo:** se passar das 05:35 sem commit, o implementador para e relata.
+  - **Próximo passo:** o implementador foi retomado com a errata, e as pastas dele estão intactas.

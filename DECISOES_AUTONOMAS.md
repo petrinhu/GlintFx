@@ -10324,3 +10324,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **IMPORTANTE-1:** tests/textured_quad_corners_test.cpp:73-75 (`carries`) tem "e" ligando dois verbos e três assuntos, e isso reprova pela L-17.
   - COSMÉTICOS: renderer_2d.hpp:529, ilogb(0) sem defesa (o caso não é alcançado) e a linha Co-Authored-By. Obs.: o revisor disse "não empurrado", mas foi empurrado (o ls-remote conferiu 40bcafa0).
   - **CTO despachado às 00:4x para a ordem T4b-A-FLOAT-fix1** (D-W8-771 a 785), em commit novo pela L-25. É o segundo agente, junto com a revisão da S5-C1.
+- **21/10 01:0x: CI 39538394875 verde sobre 40bcafa0** (a FLOAT c3df4dd5 com a S5-C1 por cima). Dos 26 jobs, 25 passaram, 1 foi pulado (o de sempre) e nenhum falhou. A combinação das duas está provada em todas as plataformas do CI.

@@ -10219,3 +10219,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **Despachados às 21:5x, os 2 permitidos:**
   - (1) a revisão N1 da S5-B-fix5 (7694a682), com um haiku novo, pela seção 9 da ordem;
   - (2) o CTO, com duas tarefas. A primeira é a errata r3 da FILTER, que fixa a etapa F sem tocar o TODO.md; é necessária porque o passo 1 da ordem escolheria FT, já que a PHRASE está no HEAD. A segunda é a pesquisa de D-W8-681 e D-W8-706, com a faixa D-W8-736 a 755.
+- **20/10 21:5x: alcance da ordem "max 2 agentes", escolhido pelo líder por AskUserQuestion: "Só esta retomada".** As leis ficam como estão.
+- **Pausa agendada pelo líder, verbatim: "pause 21/10/2026 06:00AM. Antes commit e push/tag/merge se precisar".**
+  - A partir de 05:30, nenhum despacho novo.
+  - Às 06:00:
+    - TaskStop nos agentes que ainda estiverem rodando, sem commitar fatia pela metade;
+    - commit e push do registro e da memória;
+    - tag e merge só se a W8 fechar antes, com os portões da L-24 verdes;
+    - gravar `parada_do_lider`.
+  - O agendamento está em `~/.config/olhe_agentes/GlintFx/pausa_agendada`.

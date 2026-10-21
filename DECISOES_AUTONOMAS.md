@@ -10315,3 +10315,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - (d) rm -rf nas pastas de trabalho do próprio $F sem olhar o conteúdo antes, contra a L-53; registro, sem perda conhecida;
     - (e) 2 cosméticos: um include sem uso e um comentário errado em renderer_2d_impl.cpp:274.
   - **Revisão N1 da S5-C1 despachada às 00:3x**, com haiku novo, junto com a revisão da FLOAT; são os 2 agentes.
+- **21/10 00:4x: revisão N1 da T4b-A-FLOAT (c3df4dd5): NÃO LIMPA, só por lei de projeto** (a92141f8, /var/tmp/cto-w8/rev-t4bafloat.txt). Não há CRÍTICO, e o comportamento está correto.
+  - Medido:
+    - verde 4/4 e vermelho como previsto;
+    - 10 mutantes, todos mortos pelo nome do teste;
+    - MSVC 2/2 e régua da L-17 zero no produto.
+  - **O oráculo exato confirma a escolha (c) do líder em 18.601 quadriláteros:** 1855 aceitos, 0 pesos fora de [2^-32, 2^32], 0 infinitos, e 1775 iguais bit a bit abaixo de 2^32. Com o código do pai, o CRÍTICO-1 se reproduz.
+  - **IMPORTANTE-1:** tests/textured_quad_corners_test.cpp:73-75 (`carries`) tem "e" ligando dois verbos e três assuntos, e isso reprova pela L-17.
+  - COSMÉTICOS: renderer_2d.hpp:529, ilogb(0) sem defesa (o caso não é alcançado) e a linha Co-Authored-By. Obs.: o revisor disse "não empurrado", mas foi empurrado (o ls-remote conferiu 40bcafa0).
+  - **CTO despachado às 00:4x para a ordem T4b-A-FLOAT-fix1** (D-W8-771 a 785), em commit novo pela L-25. É o segundo agente, junto com a revisão da S5-C1.

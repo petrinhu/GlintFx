@@ -74,6 +74,7 @@ renderer_2d_impl::create(const renderer_2d_host &host, const render::gl_function
         return gltfx_rslt<renderer_2d_impl *>::err(stream.err());
     }
     impl->stream = stream.value();
+    impl->curve_max_error_pixels = options.curve_max_error_pixels;
     const std::size_t room =
         options.reserve_pieces == 0 ? k_default_reserve_pieces : options.reserve_pieces;
     if (!impl->batch.reserve(room) || !impl->pieces.reserve(room)) {
@@ -234,43 +235,46 @@ void renderer_2d_impl::fill_indexed_triangles(std::span<const gltfx_vertex_2d_wo
 void renderer_2d_impl::stroke_line(const gltfx_segment_world &segment,
                                    const gltfx_line_style &style, gltfx_rgba color,
                                    gltfx_draw_layer layer) noexcept {
-    if (!frame_open) {
-        tally.piece_outside_frame();
-        return;
+    if (!shape_call_goes_on(draw2d::refusal_of_stroke_line(segment, style, color))) {
+        return; // the whole line, once
     }
-    const gltfx_draw_2d_refusal refusal = draw2d::refusal_of_stroke_line(segment, style, color);
-    if (refusal != gltfx_draw_2d_refusal::none) {
-        tally.piece_refused(refusal); // the whole line, once
-        return;
-    }
-    if (stroke_pixels.build(segment, style, color, affine) ==
-        draw2d::stroke_pixels_outcome::pixel_position_out_of_range) {
-        tally.piece_refused(gltfx_draw_2d_refusal::pixel_position_out_of_range); // S3, the outline
-        return;
-    }
-    if (!pieces.add_triangles(stroke_pixels.vertices(), stroke_pixels.indices(), layer.value)) {
-        tally.piece_dropped_out_of_memory();
-    }
+    const bool built =
+        stroke_pixels.build(segment, style, color, affine) == draw2d::stroke_pixels_outcome::built;
+    keep_shape_triangles(built, stroke_pixels.vertices(), stroke_pixels.indices(), layer);
 }
 
 void renderer_2d_impl::stroke_rect(const gltfx_rect_world &rect,
                                    const gltfx_rect_outline_style &style, gltfx_rgba color,
                                    gltfx_draw_layer layer) noexcept {
+    if (!shape_call_goes_on(draw2d::refusal_of_stroke_rect(rect, style, color))) {
+        return; // the whole outline, once
+    }
+    const bool built =
+        rect_pixels.build(rect, style, color, affine) == draw2d::stroke_rect_pixels_outcome::built;
+    keep_shape_triangles(built, rect_pixels.vertices(), rect_pixels.indices(), layer);
+}
+
+bool renderer_2d_impl::shape_call_goes_on(gltfx_draw_2d_refusal refusal) noexcept {
     if (!frame_open) {
         tally.piece_outside_frame();
-        return;
+        return false;
     }
-    const gltfx_draw_2d_refusal refusal = draw2d::refusal_of_stroke_rect(rect, style, color);
     if (refusal != gltfx_draw_2d_refusal::none) {
-        tally.piece_refused(refusal); // the whole outline, once
+        tally.piece_refused(refusal);
+        return false;
+    }
+    return true;
+}
+
+void renderer_2d_impl::keep_shape_triangles(bool built,
+                                            std::span<const draw2d::colored_pixel_vertex> vertices,
+                                            std::span<const std::uint32_t> indices,
+                                            gltfx_draw_layer layer) noexcept {
+    if (!built) {
+        tally.piece_refused(gltfx_draw_2d_refusal::pixel_position_out_of_range); // the outline
         return;
     }
-    if (rect_pixels.build(rect, style, color, affine) ==
-        draw2d::stroke_rect_pixels_outcome::pixel_position_out_of_range) {
-        tally.piece_refused(gltfx_draw_2d_refusal::pixel_position_out_of_range); // S4, the outline
-        return;
-    }
-    if (!pieces.add_triangles(rect_pixels.vertices(), rect_pixels.indices(), layer.value)) {
+    if (!pieces.add_triangles(vertices, indices, layer.value)) {
         tally.piece_dropped_out_of_memory();
     }
 }

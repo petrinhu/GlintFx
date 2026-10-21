@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <glintfx/core/color.hpp>
+#include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/log/event.hpp>
 #include <glintfx/core/log/sink.hpp>
@@ -2170,5 +2171,179 @@ GLINTFX_TEST(renderer_2d_impl_a_textured_piece_that_finds_no_memory_is_counted_a
     GLINTFX_CHECK(last.pieces_dropped_out_of_memory > 0 && last.pieces_drawn > 0);
     GLINTFX_CHECK(ends_add_up(last));
     glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// ---- R2D-SHAPES S5-C1: fill_ellipse() and stroke_ellipse() in the frame machine ----------------
+// One call is one piece of the triangles of ellipse_pixels.hpp, refused whole and counted once with
+// its reason, in the order of the vocabulary; with no frame open, it is counted outside the frame;
+// the curve distance given to create() sets the segments. Expected values from the geometry, not
+// read from the code: a circle of radius r pixels with the largest distance e is
+// n = ceil(pi / acos(1 - e / r)) equal segments (arc_parameters.hpp, the uniform regime): r = 10,
+// e = 0.25 gives 15 (the centre and 15 rim points, 45 indices); e = 1 gives 7 (8 points, 21
+// indices); r = 20, e = 0.25 gives 20 (60 indices). The fan starts at the centre, then t = 0, the
+// point at +x.
+namespace {
+
+constexpr glintfx::gltfx_ellipse_world k_circle{{100.0, 100.0}, 10.0, 10.0, {0.0}};
+
+[[nodiscard]] renderer_2d_impl *make_with_curve_error(double pixels) {
+    const gl_function_table table = fake_table();
+    renderer_2d_options options{true, 16};
+    options.curve_max_error_pixels = pixels;
+    auto created = renderer_2d_impl::create(fake_host(), table, options);
+    GLINTFX_CHECK(created.has_value());
+    return created.has_value() ? created.value() : nullptr;
+}
+
+[[nodiscard]] std::size_t sent_vertex_count() {
+    return card.vertex_bytes.size() / (k_floats_per_vertex * sizeof(float));
+}
+
+[[nodiscard]] glintfx::gltfx_stroke world_stroke(double thickness) {
+    return glintfx::gltfx_stroke{thickness, glintfx::gltfx_stroke_unit::world};
+}
+
+// The report of the frame, or an empty one when finish_frame() failed (the check before it then
+// fails): the checks stay at the top level of each test, within three levels (L-17).
+[[nodiscard]] glintfx::gltfx_frame_2d_report
+report_or_empty(const glintfx::gltfx_rslt<glintfx::gltfx_frame_2d_report> &finished) {
+    return finished.has_value() ? finished.value() : glintfx::gltfx_frame_2d_report{};
+}
+
+[[nodiscard]] glintfx::gltfx_stroke_unit unknown_stroke_unit() {
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    return static_cast<glintfx::gltfx_stroke_unit>(9);
+}
+
+} // namespace
+
+GLINTFX_TEST(renderer_2d_impl_a_filled_ellipse_reaches_the_card_as_its_fan) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_ellipse(k_circle, k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    const glintfx::gltfx_frame_2d_report r = report_or_empty(report);
+    GLINTFX_CHECK_EQ(r.pieces_submitted, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(r.pieces_drawn, std::uint64_t{1});
+    GLINTFX_CHECK(ends_add_up(r));
+    GLINTFX_CHECK_EQ(first_draw_count(), 45);
+    GLINTFX_CHECK_EQ(sent_vertex_count(), std::size_t{16});
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 100.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 100.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 0), 110.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 1), 100.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_the_curve_distance_given_to_create_sets_the_segments) {
+    reset();
+    renderer_2d_impl *renderer = make_with_curve_error(1.0);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_ellipse(k_circle, k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(first_draw_count(), 21);
+    GLINTFX_CHECK_EQ(sent_vertex_count(), std::size_t{8});
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_an_ellipse_is_placed_by_the_batch_transform_in_force) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->begin_batch(glintfx::gltfx_transform{
+        .translation = {.x = 0.0, .y = 0.0},
+        .rotation = {.radians = 0.0},
+        .scale = {.x = 2.0, .y = 2.0},
+    });
+    renderer->fill_ellipse(glintfx::gltfx_ellipse_world{{50.0, 50.0}, 10.0, 10.0, {0.0}}, k_red,
+                           k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(first_draw_count(), 60);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 100.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 0), 120.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 1), 100.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// The ring of an outline: the outer points, then the inner ones, at the same normal angles, the
+// first at angle 0; six indices per angle. Thickness 2 in world unit around the circle of radius
+// 10: the outer point at angle 0 is (111, 100), the inner one (109, 100).
+GLINTFX_TEST(renderer_2d_impl_an_outlined_ellipse_reaches_the_card_as_its_ring) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_ellipse(k_circle, world_stroke(2.0), k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(report_or_empty(report).pieces_drawn, std::uint64_t{1});
+    const std::size_t points = sent_vertex_count();
+    const std::size_t angles = points / 2U;
+    GLINTFX_CHECK(points >= 16U && points % 2U == 0U);
+    GLINTFX_CHECK_EQ(first_draw_count(), static_cast<int>(6U * angles));
+    GLINTFX_CHECK_EQ(sent_vertex(0, 0), 111.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(0, 1), 100.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(angles, 0), 109.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(angles, 1), 100.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_an_ellipse_refusal_is_counted_once_with_its_reason) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const double not_a_number = std::numeric_limits<double>::quiet_NaN();
+    renderer->fill_ellipse(glintfx::gltfx_ellipse_world{{0.0, 0.0}, not_a_number, 1.0, {0.0}},
+                           k_red, k_layer_0);
+    renderer->fill_ellipse(glintfx::gltfx_ellipse_world{{0.0, 0.0}, -1.0, 1.0, {0.0}}, k_red,
+                           k_layer_0);
+    renderer->stroke_ellipse(k_circle, glintfx::gltfx_stroke{2.0, unknown_stroke_unit()}, k_red,
+                             k_layer_0);
+    renderer->stroke_ellipse(glintfx::gltfx_ellipse_world{{1.0e39, 0.0}, 1.0, 1.0, {0.0}},
+                             world_stroke(2.0), k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    const glintfx::gltfx_frame_2d_report r = report_or_empty(report);
+    GLINTFX_CHECK_EQ(r.pieces_submitted, std::uint64_t{4});
+    GLINTFX_CHECK_EQ(r.pieces_refused, std::uint64_t{4});
+    GLINTFX_CHECK_EQ(r.pieces_refused_not_a_number, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(r.pieces_refused_negative_size, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(r.pieces_refused_unknown_option, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(r.pieces_refused_pixel_position_out_of_range, std::uint64_t{1});
+    GLINTFX_CHECK(r.first_refusal == glintfx::gltfx_draw_2d_refusal::not_a_number);
+    GLINTFX_CHECK(ends_add_up(r));
+    GLINTFX_CHECK(card.draw_counts.empty());
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_an_ellipse_with_no_frame_open_is_counted_outside_the_frame) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->fill_ellipse(k_circle, k_red, k_layer_0);
+    renderer->stroke_ellipse(k_circle, world_stroke(2.0), k_red, k_layer_0);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(report_or_empty(report).pieces_dropped_outside_frame, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(report_or_empty(report).pieces_submitted, std::uint64_t{0});
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_filled_ellipse_of_radius_zero_is_a_drawn_piece_of_zero_area) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_ellipse(glintfx::gltfx_ellipse_world{{40.0, 30.0}, 0.0, 0.0, {0.0}}, k_red,
+                           k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK_EQ(report_or_empty(report).pieces_drawn, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(report_or_empty(report).pieces_refused, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(sent_vertex(1, 0), 40.0F);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 1), 30.0F);
     renderer_2d_impl::destroy(renderer);
 }

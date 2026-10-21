@@ -7,6 +7,7 @@
 #include <span>
 #include <utility>
 
+#include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
 #include <glintfx/core/quad.hpp>
@@ -20,6 +21,7 @@
 #include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 
+#include "draw2d/ellipse_pixels.hpp"
 #include "draw2d/embedded_program.hpp"
 #include "draw2d/frame_report_tally.hpp"
 #include "draw2d/piece_list.hpp"
@@ -72,11 +74,14 @@ struct renderer_2d_host {
 
 // What create() is told besides the host and the GL functions (D-B7-1, Introduce Parameter Object):
 // the surface encoding the context was opened with, how many pieces to make room for (0 lets the
-// renderer choose), and the allocator of the piece and batch storage (a test arms its own).
+// renderer choose), the allocator of the piece and batch storage (a test arms its own), and the
+// largest distance of a drawn curve from the true one on the screen (open() checked it: finite and
+// above zero; S5-C1, D-W8-566).
 struct renderer_2d_options {
     bool srgb_framebuffer = false;
     std::size_t reserve_pieces = 0;
     draw2d::batch_allocator allocator = draw2d::default_batch_allocator();
+    double curve_max_error_pixels = 0.25;
 };
 
 struct renderer_2d_impl {
@@ -115,6 +120,14 @@ struct renderer_2d_impl {
     // and counted once otherwise.
     void stroke_rect(const gltfx_rect_world &rect, const gltfx_rect_outline_style &style,
                      gltfx_rgba color, gltfx_draw_layer layer) noexcept;
+    // The ellipse methods (S5-C1, renderer_2d_impl_ellipses.cpp): checked (ellipse_check.hpp),
+    // turned into pixel triangles by the batch transform in force, on the surface of the frame,
+    // with the curve distance given to create() (ellipse_pixels.hpp), and kept as one piece;
+    // refused whole and counted once otherwise.
+    void fill_ellipse(const gltfx_ellipse_world &ellipse, gltfx_rgba color,
+                      gltfx_draw_layer layer) noexcept;
+    void stroke_ellipse(const gltfx_ellipse_world &ellipse, const gltfx_stroke &stroke,
+                        gltfx_rgba color, gltfx_draw_layer layer) noexcept;
     // The textured methods (T4b-B1, renderer_2d_impl_textures.cpp): checked in the order of
     // texture_region_check.hpp, the texture last of the values (not open, another renderer's, a
     // source outside it), then the shape (degenerate_quad, the quadrilateral only), then the pixel
@@ -151,6 +164,19 @@ struct renderer_2d_impl {
 
     void submit(const draw2d::quad_corners_world &corners, gltfx_rgba color, gltfx_draw_layer layer,
                 gltfx_draw_2d_refusal refusal) noexcept;
+    // The head of every shape call (line, rectangle outline, ellipse; S5-C1, the third shape, rule
+    // of 3): with no frame open the call is counted outside the frame; with a reason, it is refused
+    // whole and counted once. True only when the call goes on to be built.
+    [[nodiscard]] bool shape_call_goes_on(gltfx_draw_2d_refusal refusal) noexcept;
+    // The tail of every shape call: a build that did not answer `built` is refused as
+    // pixel_position_out_of_range; a built one is kept as one piece in its layer, or counted as
+    // dropped when the piece list has no memory for it.
+    void keep_shape_triangles(bool built, std::span<const draw2d::colored_pixel_vertex> vertices,
+                              std::span<const std::uint32_t> indices,
+                              gltfx_draw_layer layer) noexcept;
+    // The screen an ellipse is built on: the batch transform in force, the surface of the frame and
+    // the curve distance given to create().
+    [[nodiscard]] draw2d::ellipse_screen ellipse_screen_now() const noexcept;
     // The one path of both textured methods: `refusal` is the first reason of the values and the
     // texture (none when they pass); the shape and the pixel range are asked here.
     void submit_textured(const draw2d::textured_submission &submission,
@@ -211,6 +237,12 @@ struct renderer_2d_impl {
     // The pixel triangles of the rectangle outline being kept (S4): fixed storage, reused by every
     // call; the piece list copies them.
     draw2d::stroke_rect_pixels rect_pixels;
+    // The largest distance of a drawn curve from the true one on the screen (S5-C1, D-W8-566).
+    double curve_max_error_pixels = 0.25;
+    // The pixel triangles of the ellipse being kept (S5-C1): fixed storage of about 240 KB, reused
+    // by every call; it lives inside this interior, which create() puts on the heap, as
+    // ellipse_pixels.hpp asks. The piece list copies them.
+    draw2d::ellipse_pixels ellipse_triangles;
 };
 
 } // namespace glintfx

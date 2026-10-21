@@ -5,12 +5,13 @@
 #include <cstdint>
 #include <span>
 
+#include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/segment.hpp>
 #include <glintfx/draw2d/stroke.hpp>
 
 #include "draw2d/renderer_2d_impl.hpp"
 
-// renderer_2d_facade_shapes.cpp - R2D-SHAPES, fatias S2b to S4 (D-W8-18): the public methods of
+// renderer_2d_facade_shapes.cpp - R2D-SHAPES, fatias S2b to S5-C1 (D-W8-18): the public methods of
 // the SHAPE family, in their own file, opened the first time the family gained a method (the facade
 // of the rectangles and quadrilaterals stays in renderer_2d_facade.cpp). Each method is a forward
 // to the frame machine (renderer_2d_impl.hpp), with the same moved-from precondition as the rest of
@@ -54,6 +55,25 @@ void gltfx_renderer_2d::stroke_rect(gltfx_rect_world rect, gltfx_rect_outline_st
     assert(impl != nullptr && "gltfx_renderer_2d::stroke_rect() called on a moved-from renderer - "
                               "the object no longer owns its drawing state");
     impl->stroke_rect(rect, style, color, layer);
+}
+// cppcheck-suppress-end passedByValue
+
+// cppcheck-suppress-begin passedByValue
+// reason: gltfx_ellipse_world is a VALUE type, and fill_ellipse() and stroke_ellipse() take it by
+// value as docs/auditoria-api-shapes.md fixes (D-W8-354): the copy is a few doubles, and a const
+// reference would make the caller's lifetime part of the contract.
+void gltfx_renderer_2d::fill_ellipse(gltfx_ellipse_world ellipse, gltfx_rgba color,
+                                     gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::fill_ellipse() called on a moved-from renderer - "
+                              "the object no longer owns its drawing state");
+    impl->fill_ellipse(ellipse, color, layer);
+}
+
+void gltfx_renderer_2d::stroke_ellipse(gltfx_ellipse_world ellipse, gltfx_stroke stroke,
+                                       gltfx_rgba color, gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::stroke_ellipse() called on a moved-from "
+                              "renderer - the object no longer owns its drawing state");
+    impl->stroke_ellipse(ellipse, stroke, color, layer);
 }
 // cppcheck-suppress-end passedByValue
 

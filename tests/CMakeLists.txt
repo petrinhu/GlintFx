@@ -1980,6 +1980,11 @@ target_sources(vertex_stream_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-SHAPES S5-C1 (D-W8-566): the one field of the renderer's descriptor that open() can refuse, checked by a pure
+# predicate (header only), on every system.
+glintfx_add_test(renderer_2d_desc_check_test)
+target_include_directories(renderer_2d_desc_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # R2D-BATCH B4: the frame machine behind the public handle, against a FAKE host and a table of FAKE GL functions.
 glintfx_add_test(renderer_2d_impl_test)
 add_dependencies(renderer_2d_impl_test glintfx_gl_functions_generated)
@@ -2015,6 +2020,17 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_check.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_pixels.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_geometry.cpp"
+)
+# R2D-SHAPES S5-C1: fill_ellipse() and stroke_ellipse() reach the frame machine (renderer_2d_impl_ellipses.cpp), so
+# this target compiles them and the atoms of the ellipse (S5-B).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_ellipses.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_outline.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
 )
 # R2D-SHAPES S3, etapa B: stroke_line() reaches the frame machine, so this target compiles the atoms of the line.
 target_sources(renderer_2d_impl_test PRIVATE

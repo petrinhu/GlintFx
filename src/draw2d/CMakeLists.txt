@@ -64,6 +64,7 @@ target_sources(glintfx_library PRIVATE
     ellipse_triangles.cpp
     ellipse_outline.cpp
     ellipse_pixels.cpp
+    renderer_2d_impl_ellipses.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

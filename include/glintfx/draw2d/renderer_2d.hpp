@@ -5,6 +5,7 @@
 #include <span>
 
 #include <glintfx/core/color.hpp>
+#include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
 #include <glintfx/core/quad.hpp>
@@ -126,6 +127,10 @@ class gltfx_renderer_2d {
     // gltfx_err, never an exception (docs/api-conventions.md R1, R3):
     //   - `invalid_argument`, rejected_value() "context": `context` is
     //     not open.
+    //   - `invalid_argument`, rejected_value() "curve_max_error_pixels":
+    //     that field of `desc` is not a finite number greater than zero
+    //     (renderer_2d_desc.hpp). Checked right after the context, before
+    //     anything is made or made current.
     //   - `unsupported`, rejected_value() naming the missing GL
     //     function (for example "glGenVertexArrays").
     //   - `platform_failure`, rejected_value() "vertex_shader",
@@ -547,6 +552,85 @@ class gltfx_renderer_2d {
     GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
                                        gltfx_quad_world corners,
                                        gltfx_draw_layer layer = {}) noexcept;
+
+    // A filled ellipse (core/ellipse.hpp; a circle when its two radii are
+    // equal): `ellipse.radius_x` and `ellipse.radius_y` turned by
+    // `ellipse.rotation` about `ellipse.center`, in the world, then placed by
+    // the batch transform like every other piece. D-W8-354: four parameters
+    // at most.
+    //
+    // One call is one piece, painted as a fan of triangles from the centre.
+    // Its edge is made of straight segments at most `curve_max_error_pixels`
+    // (renderer_2d_desc.hpp, default 0.25) away from the true edge on the
+    // screen, while two conditions hold: the larger radius on the screen is at
+    // most 2^40 pixels, and the 1024 segments one call may use are enough for
+    // that distance. A very small distance on a very large surface can need
+    // more, and then the distance drawn is larger than asked for. The part of
+    // the edge that lies off the surface may be drawn coarser; no pixel on the
+    // surface changes for that. A radius of zero is not refused: with one or
+    // both radii zero, the filled ellipse is a piece of zero area, drawn,
+    // covering no pixel. Refused, counted in the report, never an exception.
+    // The first rule that applies names the reason:
+    //   1. a NaN in the centre, a radius, the rotation or the colour:
+    //      not_a_number; then an infinity in any of them: infinite;
+    //   2. a radius below zero (-0.0 is zero): negative_size;
+    //   3. a point of the edge that the batch transform turns into a pixel
+    //      coordinate larger in magnitude than about 1.7e38, where the vertex
+    //      program would overflow: pixel_position_out_of_range.
+    // Proved by: ellipse_check_test (the order of the refusals).
+    // Proved by: ellipse_pixels_test (the edge within the distance on the
+    // surface).
+    // Proved by: arc_parameters_test (the two conditions of the distance; the
+    // coarser edge off the surface).
+    // Proved by: renderer_2d_impl_test (one call is one piece; the distance
+    // given to open() sets the segments).
+    // Proved by: draw2d_shapes_parity_test (a filled circle read back as
+    // pixels; a distance of 8 pixels draws the circle as a pentagon).
+    GLINTFX_API void fill_ellipse(gltfx_ellipse_world ellipse, gltfx_rgba color,
+                                  gltfx_draw_layer layer = {}) noexcept;
+
+    // The outline of an ellipse, `stroke.thickness` wide, centred on its
+    // curve: half the thickness on each side. There is no alignment for an
+    // ellipse (D-W8-281). D-W8-354: four parameters at most.
+    //
+    // One call is one piece. The thickness is in the unit `stroke.unit`
+    // (stroke.hpp): in world unit the outline is the world outline carried by
+    // the batch transform (a non-uniform scale makes it thicker on one axis);
+    // in pixel unit it is built on the screen, half the thickness away from
+    // the screen ellipse across its curve, at every zoom. On the surface, its
+    // two edges are within `curve_max_error_pixels` of their true curves,
+    // under the two conditions of fill_ellipse(). Where the curve bends
+    // tighter than half the thickness, the inner edge is the true boundary of
+    // the points farther than half the thickness from the curve, so it never
+    // folds over itself, and a half-transparent outline covers each pixel
+    // once. When half the thickness reaches the shorter half axis of the
+    // ellipse (measured in the unit of the thickness), there is no hole: the
+    // outline fills its outer edge. A radius of zero is not refused: the
+    // outline is the one the same thickness gives every other ellipse,
+    // continued (a disc of radius half the thickness when both radii are
+    // zero, a bar with rounded ends when one is). A thickness of zero is a
+    // piece of zero area: drawn, covering no pixel. Refused, counted in the
+    // report, never an exception. The first rule that applies names the
+    // reason:
+    //   1. a NaN in the centre, a radius, the rotation, the thickness or the
+    //      colour: not_a_number; then an infinity in any of them: infinite;
+    //   2. a radius or a thickness below zero (-0.0 is zero): negative_size;
+    //   3. a thickness unit outside its enumeration: unknown_option;
+    //   4. a point of the outline that the batch transform turns into a pixel
+    //      coordinate larger in magnitude than about 1.7e38, where the vertex
+    //      program would overflow: pixel_position_out_of_range.
+    // Proved by: ellipse_check_test (the order of the refusals).
+    // Proved by: ellipse_outline_test (the inner edge within the true
+    // boundary; the ring turning with the outline; no hole once half the
+    // thickness reaches the shorter half axis).
+    // Proved by: ellipse_pixels_test (the outline of each unit; the shapes of
+    // radius zero).
+    // Proved by: renderer_2d_impl_test (one call is one piece).
+    // Proved by: draw2d_shapes_parity_test (a half-transparent outline of a
+    // long ellipse, bent tighter than half its thickness, reads the same
+    // value along its band and black in its hole).
+    GLINTFX_API void stroke_ellipse(gltfx_ellipse_world ellipse, gltfx_stroke stroke,
+                                    gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}

@@ -9,6 +9,7 @@
 #include <glintfx/platform/gl/gfx_option.hpp>
 
 #include "draw2d/gl_load_refusal.hpp"
+#include "draw2d/renderer_2d_desc_check.hpp"
 #include "draw2d/renderer_2d_impl.hpp"
 #include "gl_functions.hpp"
 #include "platform/gl/gl_context_access.hpp"
@@ -46,6 +47,12 @@ gltfx_rslt<gltfx_renderer_2d> gltfx_renderer_2d::open(gltfx_gl_context &context,
         return gltfx_rslt<gltfx_renderer_2d>::err(
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("context"));
     }
+    // The one field open() can refuse, before anything is made or made current (D-W8-566).
+    if (!draw2d::is_valid_curve_max_error(desc.curve_max_error_pixels)) {
+        return gltfx_rslt<gltfx_renderer_2d>::err(
+            gltfx_err(gltfx_err_code::invalid_argument)
+                .with_rejected_value("curve_max_error_pixels"));
+    }
     // The interior, not the handle: moving the handle afterwards moves nothing this renderer holds.
     void *interior = gl_context_internal_access::get(context);
     const gltfx_rslt<void> current = gl_context_interior_make_current(interior);
@@ -62,7 +69,10 @@ gltfx_rslt<gltfx_renderer_2d> gltfx_renderer_2d::open(gltfx_gl_context &context,
 
     const renderer_2d_host host{interior, &host_make_current, &host_surface_size};
     auto created = renderer_2d_impl::create(
-        host, table.value(), renderer_2d_options{srgb_framebuffer, desc.reserve_pieces});
+        host, table.value(),
+        renderer_2d_options{.srgb_framebuffer = srgb_framebuffer,
+                            .reserve_pieces = desc.reserve_pieces,
+                            .curve_max_error_pixels = desc.curve_max_error_pixels});
     if (created.has_error()) {
         return gltfx_rslt<gltfx_renderer_2d>::err(created.err());
     }

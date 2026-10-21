@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <glintfx/core/color.hpp>
+#include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/segment.hpp>
 #include <glintfx/core/transform.hpp>
@@ -62,6 +63,20 @@
 //     one of
 //     zero thickness covers no pixel, and a negative width and an unknown alignment are refused,
 //     one count each.
+//   - fill_ellipse() (fatia S5-C1), white on black: a circle of radius 30 centred at (80,60) has
+//     the pixels (80,60) and (101,75) white (26.5 from the centre) and (112,60) and (103,83) black
+//     (32 and 33.2 from it); one piece drawn;
+//   - open() refuses curve_max_error_pixels NaN and zero by name (invalid_argument,
+//     "curve_max_error_pixels"); a renderer opened with 8 draws the same circle as a pentagon
+//     (ceil(pi / acos(1 - 8 / 30)) = 5 segments, a vertex at +x): (101,75), inside the circle but
+//     past the edge of the pentagon (26.5 from the centre against 24.27 across it), is black, and
+//     (107,60), near the vertex, and the centre stay white;
+//   - stroke_ellipse() (fatia S5-C1): white with alpha 0.5, 16 pixels thick in pixel unit, around
+//     the ellipse of radii 60 and 10 centred at (160,120): the curve bends tighter than half the
+//     thickness near the ends of the long axis (10^2 / 60 = 1.67 < 8 < 10), and the band reads, at
+//     (200,120), (205,120), (210,120), (218,120) and (225,120), the same value as at (160,110), the
+//     middle of the top of the band, within one level per channel, neither black nor white (no
+//     pixel covered twice); the hole (160,119) and the outside (160,100) and (230,120) are black.
 // Geometry assumes a scale factor of 1: pixels are the numbers written below (as in
 // draw2d_parity_test.cpp). The surface is 320 by 240.
 
@@ -460,37 +475,107 @@ void cell_rect_report(const session &s) {
          "cobre nada");
 }
 
-} // namespace
+// C13: a filled circle, white on black (S5-C1).
+void cell_ellipse_fill(const session &s) {
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.fill_ellipse(glintfx::gltfx_ellipse_world{{80.0, 60.0}, 30.0, 30.0, {0.0}}, k_white);
+    const auto finished = s.renderer.finish_frame();
+    cell(finished.has_value() && finished.value().pieces_drawn == 1,
+         "C13 o circulo cheio e uma peca desenhada");
+    cell(is_exact(read_at(s, 80, 60), 255, 255, 255) &&
+             is_exact(read_at(s, 101, 75), 255, 255, 255),
+         "C13 o centro (80,60) e (101,75), a 26,5 do centro, brancos");
+    cell(is_exact(read_at(s, 112, 60), 0, 0, 0) && is_exact(read_at(s, 103, 83), 0, 0, 0),
+         "C13 (112,60) e (103,83), a 32 e 33,2 do centro, pretos");
+}
 
-int main() {
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
-    glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
-    if (display_opened.has_error()) {
-        std::fprintf(stderr, "draw2d_shapes_parity_test: gltfx_display::open() falhou: %s\n",
-                     std::string(display_opened.err().rejected_value()).c_str());
+// True when open() refuses `pixels` as invalid_argument naming the field.
+bool open_refuses_curve_error(glintfx::gltfx_gl_context &context, double pixels) {
+    glintfx::gltfx_renderer_2d_desc desc{};
+    desc.curve_max_error_pixels = pixels;
+    const auto opened = glintfx::gltfx_renderer_2d::open(context, desc);
+    return opened.has_error() && opened.err().code() == glintfx::gltfx_err_code::invalid_argument &&
+           opened.err().rejected_value() == "curve_max_error_pixels";
+}
+
+// C14: the curve distance of open(), refused by name, and read: 8 pixels draw the pentagon.
+void cell_ellipse_curve_error(const session &s, glintfx::gltfx_gl_context &context) {
+    cell(open_refuses_curve_error(context, std::numeric_limits<double>::quiet_NaN()),
+         "C14 open() recusa curve_max_error_pixels NaN pelo nome");
+    cell(open_refuses_curve_error(context, 0.0),
+         "C14 open() recusa curve_max_error_pixels zero pelo nome");
+    glintfx::gltfx_renderer_2d_desc coarse{};
+    coarse.curve_max_error_pixels = 8.0;
+    auto opened = glintfx::gltfx_renderer_2d::open(context, coarse);
+    bool pentagon = false;
+    if (opened.has_value()) {
+        glintfx::gltfx_renderer_2d renderer = std::move(opened.value());
+        renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+        renderer.fill_ellipse(glintfx::gltfx_ellipse_world{{80.0, 60.0}, 30.0, 30.0, {0.0}},
+                              k_white);
+        (void)renderer.finish_frame();
+        pentagon = is_exact(read_at(s, 101, 75), 0, 0, 0) &&
+                   is_exact(read_at(s, 107, 60), 255, 255, 255) &&
+                   is_exact(read_at(s, 80, 60), 255, 255, 255);
+    }
+    cell(pentagon, "C14 com 8 pixels o circulo vira o pentagono: (101,75) preto, (107,60) branco");
+}
+
+// C15: the outline of a long ellipse bent tighter than half its thickness covers each pixel once.
+void cell_ellipse_outline_once(const session &s) {
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.stroke_ellipse(glintfx::gltfx_ellipse_world{{160.0, 120.0}, 60.0, 10.0, {0.0}},
+                              glintfx::gltfx_stroke{16.0, glintfx::gltfx_stroke_unit::pixel},
+                              glintfx::gltfx_rgba{1.0F, 1.0F, 1.0F, 0.5F});
+    const auto finished = s.renderer.finish_frame();
+    const pixel top = read_at(s, 160, 110);
+    cell(
+        finished.has_value() && top.red > 0 && top.red < 255,
+        "C15 o meio do topo da faixa (160,110) e o branco meio transparente, nem preto nem branco");
+    cell(within_one_level(read_at(s, 200, 120), top) &&
+             within_one_level(read_at(s, 205, 120), top) &&
+             within_one_level(read_at(s, 210, 120), top) &&
+             within_one_level(read_at(s, 218, 120), top) &&
+             within_one_level(read_at(s, 225, 120), top),
+         "C15 a faixa na ponta do eixo longo tem o valor do topo: nenhum pixel coberto duas vezes");
+    cell(is_exact(read_at(s, 160, 119), 0, 0, 0) && is_exact(read_at(s, 160, 100), 0, 0, 0) &&
+             is_exact(read_at(s, 230, 120), 0, 0, 0),
+         "C15 o buraco (160,119) e o lado de fora (160,100) e (230,120) pretos");
+}
+
+// Every cell, in order: the triangles, the lines, the rectangle outlines and the ellipses.
+void run_all_cells(const session &s, glintfx::gltfx_gl_context &context) {
+    cell_triangle_and_order(s);
+    cell_triangle_alone(s);
+    cell_refusals(s);
+    cell_outside_frame(s);
+    cell_line_pixel_unit(s);
+    cell_line_world_unit(s);
+    cell_line_caps(s);
+    cell_line_report(s);
+    cell_rect_corner(s);
+    cell_rect_alignments(s);
+    cell_rect_pixel_unit(s);
+    cell_rect_report(s);
+    cell_ellipse_fill(s);
+    cell_ellipse_curve_error(s, context);
+    cell_ellipse_outline_once(s);
+}
+
+// Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
+int verdict() {
+    std::fprintf(stdout, "draw2d_shapes_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
+                 g_cells, g_failures);
+    if (g_cells < 40) {
+        std::fprintf(stderr, "draw2d_shapes_parity_test: menos celulas do que o piso\n");
         return EXIT_FAILURE;
     }
-    glintfx::gltfx_display display = std::move(display_opened.value());
-    const glintfx::gltfx_window_desc window_desc{
-        .title = "janela de paridade das formas 2D",
-        .application_id = "org.glintfx.draw2d_shapes_parity_test",
-        .logical_size = {.width = 320, .height = 240},
-    };
-    glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
-        glintfx::gltfx_window::open(display, window_desc);
-    if (window_opened.has_error()) {
-        std::fprintf(stderr, "draw2d_shapes_parity_test: FAIL gltfx_window::open()\n");
-        return EXIT_FAILURE;
-    }
-    glintfx::gltfx_window window = std::move(window_opened.value());
-    glintfx::gltfx_rslt<glintfx::gltfx_gl_context> opened =
-        glintfx::gltfx_gl_context::open(window, glintfx::gltfx_gl_context_desc{});
-    if (opened.has_error()) {
-        std::fprintf(stderr, "draw2d_shapes_parity_test: FAIL gltfx_gl_context::open(): %s\n",
-                     std::string(opened.err().rejected_value()).c_str());
-        return EXIT_FAILURE;
-    }
-    glintfx::gltfx_gl_context context = std::move(opened.value());
+    return g_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+// The renderer over a current context, the surface size checked, then every cell (S5-C1: the
+// steps of the old main(), split so that each stays within 40 lines, L-17).
+int run_with_context(glintfx::gltfx_gl_context &context) {
     if (const glintfx::gltfx_rslt<void> current = context.make_current(); current.has_error()) {
         std::fprintf(stderr, "draw2d_shapes_parity_test: FAIL make_current()\n");
         return EXIT_FAILURE;
@@ -516,26 +601,45 @@ int main() {
         std::fprintf(stderr, "draw2d_shapes_parity_test: FAIL superficie menor que 320 x 240\n");
         return EXIT_FAILURE;
     }
-    const session s{renderer, gl, viewport[3]};
-    cell_triangle_and_order(s);
-    cell_triangle_alone(s);
-    cell_refusals(s);
-    cell_outside_frame(s);
-    cell_line_pixel_unit(s);
-    cell_line_world_unit(s);
-    cell_line_caps(s);
-    cell_line_report(s);
-    cell_rect_corner(s);
-    cell_rect_alignments(s);
-    cell_rect_pixel_unit(s);
-    cell_rect_report(s);
+    run_all_cells(session{renderer, gl, viewport[3]}, context);
+    return verdict();
+}
 
-    // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
-    std::fprintf(stdout, "draw2d_shapes_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
-                 g_cells, g_failures);
-    if (g_cells < 31) {
-        std::fprintf(stderr, "draw2d_shapes_parity_test: menos celulas do que o piso\n");
+// The window of 320 by 240 and its context, then run_with_context().
+int run_with_display(glintfx::gltfx_display &display) {
+    const glintfx::gltfx_window_desc window_desc{
+        .title = "janela de paridade das formas 2D",
+        .application_id = "org.glintfx.draw2d_shapes_parity_test",
+        .logical_size = {.width = 320, .height = 240},
+    };
+    glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
+        glintfx::gltfx_window::open(display, window_desc);
+    if (window_opened.has_error()) {
+        std::fprintf(stderr, "draw2d_shapes_parity_test: FAIL gltfx_window::open()\n");
         return EXIT_FAILURE;
     }
-    return g_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    glintfx::gltfx_window window = std::move(window_opened.value());
+    glintfx::gltfx_rslt<glintfx::gltfx_gl_context> opened =
+        glintfx::gltfx_gl_context::open(window, glintfx::gltfx_gl_context_desc{});
+    if (opened.has_error()) {
+        std::fprintf(stderr, "draw2d_shapes_parity_test: FAIL gltfx_gl_context::open(): %s\n",
+                     std::string(opened.err().rejected_value()).c_str());
+        return EXIT_FAILURE;
+    }
+    glintfx::gltfx_gl_context context = std::move(opened.value());
+    return run_with_context(context);
+}
+
+} // namespace
+
+int main() {
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
+    if (display_opened.has_error()) {
+        std::fprintf(stderr, "draw2d_shapes_parity_test: gltfx_display::open() falhou: %s\n",
+                     std::string(display_opened.err().rejected_value()).c_str());
+        return EXIT_FAILURE;
+    }
+    glintfx::gltfx_display display = std::move(display_opened.value());
+    return run_with_display(display);
 }

@@ -10344,3 +10344,17 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Empurrada (o ls-remote confere e23b0d06) e CI 39546765562 disparado.
   - NÃO VERIFICADO pelo implementador: o MT4 sob WERROR. O revisor mede.
   - **Revisão N1 despachada às 01:5x**, com haiku novo, junto com a revisão da S5-C1; são os 2 agentes.
+- **21/10 02:1x: revisão N1 da S5-C1 (40bcafa0): NÃO LIMPA** (a86a92af, /var/tmp/cto-w8/rev-s5c1.txt md5 a84fce22).
+  - Sem CRÍTICO. Nenhuma frase pública contradiz o comportamento medido; os IMPORTANTE são lacunas de prova.
+  - **I-1:** a camada (layer) de fill_ellipse e stroke_ellipse não tem teste. Os mutantes R2 e R9 sobrevivem, e na fixture só o -Werror os pega.
+  - **I-2:** a superfície no regime de corte não tem teste. O mutante R1 sobrevive 17/17, e a sonda mostra 5 contra 22 vértices: é FURO.
+  - **I-3:** a cláusula de open() sem teste (INFERÊNCIA de leitura).
+  - Herdadas do pai: H-1 (impl.cpp:278) e H-2 (impl.cpp:258).
+  - Cosméticos: um include sem uso e um comentário errado.
+  - Medido verde:
+    - a fixture sobre o blob: 40 células e 0 reprovadas;
+    - ctest 5/5, e 17/17 na versão estendida;
+    - MSVC 8/8;
+    - os 10 mutantes, com prova de que a mutação chegou ao binário;
+    - o CI 39538394875 com todos os jobs verdes.
+  - **CTO despachado às 02:1x para a ordem S5-C1-fix1** (D-W8-786 a 800), só de teste, em commit novo. É o segundo agente, junto com a revisão da FLOAT-fix1.

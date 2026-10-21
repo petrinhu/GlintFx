@@ -10423,3 +10423,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Pré-execução mínima do CTO:** o MI3 com o roda_fx2.sh deu chegou=1 (build.log:237), só a C17 caiu, e o confere deu igual. MR9, MR9F e fxgreen2 ficam com o implementador.
   - **Guarda de tempo:** se passar das 05:35 sem commit, o implementador para e relata.
   - **Próximo passo:** o implementador foi retomado com a errata, e as pastas dele estão intactas.
+- **21/10 04:2x: CI 39557225741 (head 8a1eae41) VERDE: 25 de 26 jobs, mais 1 pulado (VERSION-TAG-SYNC, só roda com etiqueta). CI-HEAVY-RULER-WIN ✅.** O item 6 do revisor foi conferido pelo main no log do job Windows - estatico (119079715279):
+  - nenhuma linha `regua de pesados`;
+  - `com RESOURCE_LOCK: 23`;
+  - declarados 368, executados 366, passaram 366, falharam 0;
+  - layers_oracle_selftest 7,71 s, libdir_includedir_mix 6,67 s, blank_install_dir 5,19 s (eram 58,5, 41,3 e 33,4 s no vermelho).
+  - O CI-VERDE-W8 segue 🔄 até a última fatia da onda.

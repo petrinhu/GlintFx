@@ -10411,3 +10411,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - Decisão autônoma, a ratificar: vai para a INBOX como `CI-HEAVY-GATE-INVERSE`, sem fix agora. O LIMPA fica.
   - **IMPORTANTE-2 e COSMÉTICO-1:** o trinco glintfx_nested_build cobre um teste que não monta CMake, e a docstring do portão (linhas 214 a 216) ficou falsa. A escolha foi consciente (D-W8-804, a declaração diz "nao por build aninhado"). A docstring entra no mesmo item da INBOX.
   - **COSMÉTICO-2:** trailer, já decidido. **COSMÉTICO-3:** o roda_conserto.sh do CTO monta com `:z` e não com `:Z` (um container só); fica anotado para as próximas ordens.
+- **21/10 04:0x: o implementador da S5-C1-fix1 PAROU no bloco fx, como a ordem manda** (`/var/tmp/cto-w8/s5c1fix1/relatorio.txt`). Não houve commit e a árvore real ficou intocada.
+  - **Causa:** o mutante MI3 deu chegou=0 nas duas tentativas. No build.log, o docker build reaproveitou o cache (COPY _arch_ports_lib e RUN cmake CACHED). É a mesma armadilha que o CTO mediu no MR9F.
+  - **Achado do implementador:** a sonda do fxgreen passa por casar com a linha de descrição do g++, não com a compilação do arquivo.
+  - **Rodadas até o bloco fx, todas boas:** blocos, ditadas, gen, régua, prep 9/9, ct 6/6 e fxgreen (44 células).
+  - **Próximo passo:** o CTO autor da ordem foi retomado para escrever uma errata (forçar a reconstrução por rodada de mutante e endurecer a sonda). O implementador retoma de onde parou, com as pastas intactas.

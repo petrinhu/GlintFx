@@ -10292,3 +10292,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **FLOAT despachada às 23:3x**, com implementador haiku novo, junto com a S5-C1 em voo; são os 2 agentes.
   - O ESPERE foi conferido pelo main: a FILTER está no HEAD, os 5 arquivos próprios não mudaram desde 6b96df1a, os md5 batem e os compartilhados também não mudaram desde 6b96df1a.
   - A ratificação D-W8-735 é a escolha (c) do líder, às 18:1x.
+- **20/10 23:4x: CI 39530902263 verde sobre 28e9a756, a T4b-A-FILTER.** Dos 26 jobs, 25 passaram, 1 foi pulado (o mesmo de sempre) e nenhum falhou.

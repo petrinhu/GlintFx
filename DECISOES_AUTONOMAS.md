@@ -10448,3 +10448,15 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - os códigos (D-W8, fatia, run, ordem) só na linha de referências do fim.
   O CLAUDE.md e o índice de gatilhos foram atualizados. As próximas ordens dos CTOs têm de gravar o msg.txt nessa forma.
 - **21/10 05:3x: CI 39566472244 (head 9e106ca6, S5-C1-fix1) VERDE:** 25 de 26 jobs, 1 pulado (VERSION-TAG-SYNC). A revisão N1 segue em curso, com prazo até 05:50.
+- **21/10 05:4x: a revisão N1 da S5-C1-fix1 (9e106ca6) ficou INCOMPLETA POR PRAZO** (`/var/tmp/cto-w8/rev-s5c1fix1.txt`). Não houve CRÍTICO nem IMPORTANTE.
+  - **O que o revisor conferiu:**
+    - o blob bate com o md5 dos .blk, e o diff só acrescenta;
+    - a geometria e as distâncias batem com a D-W8-789 e a D-W8-788;
+    - ctest 6/6;
+    - na fixture, fxgreen2, MR9F e MR9 deram chegou=1 e "igual";
+    - MSVC 8/8;
+    - no CI 39566472244, 44 células com 0 reprovadas no contêiner Wayland e no Windows.
+  - **O que falta para virar LIMPA:** a régua do passo 4 (fsize.sh), o MI3 na fixture e o mutante extra OPENNOCHK na fixture. Na volta, um revisor haiku novo faz só esses itens, a partir do relatório.
+  - **COSMÉTICOS, para a INBOX como S5C1FIX1-COSMETICS:**
+    - a recusa de open() por contexto (C17) só tem guarda na fixture, não no ctest: o OPENNOCHK passa no ctest 5/5;
+    - o caso blue_square_of_layer_0_before_the_red_piece confere só o canal azul do vértice 0.

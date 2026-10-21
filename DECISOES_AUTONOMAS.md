@@ -10358,3 +10358,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - os 10 mutantes, com prova de que a mutação chegou ao binário;
     - o CI 39538394875 com todos os jobs verdes.
   - **CTO despachado às 02:1x para a ordem S5-C1-fix1** (D-W8-786 a 800), só de teste, em commit novo. É o segundo agente, junto com a revisão da FLOAT-fix1.
+- **21/10 02:2x: CI 39546765562 VERMELHO sobre e23b0d06 (FLOAT-fix1), só no job Windows - estatico.**
+  - Os testes passaram (366/366, 2 pulados). Quem reprovou foi o portão do agregador (ctest_aggregate.py, a régua de pesados).
+  - Os dois testes reprovados: layers_oracle_selftest com 58,5 s e libdir_includedir_mix_rejected_test com 41,3 s. Os dois passaram de 40 s sem RESOURCE_LOCK nem PROCESSORS.
+  - **FATO:** o commit só mexe em tests/textured_quad_corners_test.cpp, que nenhum desses dois testes usa. A régua mede o tempo da máquina do runner, e no run anterior (39538394875, sobre 40bcafa0) os 26 jobs saíram verdes.
+  - O rerun é recusado (memória feedback_rerun_guard), e o conserto vem por commit. Foi para a INBOX como CI-HEAVY-RULER-WIN.
+  - **Fica para o próximo slot de agente, com um CTO**: diagnosticar antes de só acrescentar a trava (L-49: falha da ferramenta e falha do produto pedem consertos opostos). O CI-VERDE-W8 fica aberto até isso fechar.

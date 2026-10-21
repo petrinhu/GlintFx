@@ -10403,3 +10403,11 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Revisor N1 despachado:** qa-engineer novo, pela seção 9 da ordem; relatório em `/var/tmp/cto-w8/rev-ciheavyruler.txt`.
   - **INBOX:** a linha CI-HEAVY-RULER-WIN passou a 🔍.
   - **Desvio relatado pelo implementador, sem efeito:** o trailer do commit é "Claude Opus 5.5", como manda o anexo da ordem. O lembrete de atribuição do subagente sugeria Haiku. Vale o da sessão (Opus 5.5), que é o da regra que o main recebeu; sem amend (L-25).
+- **21/10 04:0x: revisão N1 da CI-HEAVY-RULER-WIN (8a1eae41): LIMPA para o código, condicional ao CI** (`/var/tmp/cto-w8/rev-ciheavyruler.txt`). Sem CRÍTICO. O item 6 (CI 39557225741) ainda estava em curso; o fechamento depende do job Windows - estatico verde, sem linha `regua de pesados` e com `com RESOURCE_LOCK: 23`.
+  - **O revisor refez a causa:** sobreposição de 100% com public_name_collision em 46 jobs; mediana vermelho/verde de 1,20; quatro testes acima de 3x. O oráculo não é ocioso (CPU e ~11 mil operações de arquivo), então vale a D-A58 e não a §16. Os mutantes M1 e P1 mordem.
+  - **IMPORTANTE-1:** o portão aceita tirar o trinco E a declaração do blank_install_dir_rejected_test; o mutante P2 sai rc 0.
+    - O main refez o P2 num clone do blob 8a1eae41: p2_rc=0 e p0_rc=0. O advisor indicou medir se a lacuna é nova; o main mediu.
+    - **É pré-existente:** no pai 6911d8cd, quatro testes já tinham declaração e trinco fora da MEASURED_HEAVY (container_fixture_link_selftest, examples_consume_installed_test, install_includedir_test, no_target_collision_test). O portão é de mão única desde a origem.
+    - Decisão autônoma, a ratificar: vai para a INBOX como `CI-HEAVY-GATE-INVERSE`, sem fix agora. O LIMPA fica.
+  - **IMPORTANTE-2 e COSMÉTICO-1:** o trinco glintfx_nested_build cobre um teste que não monta CMake, e a docstring do portão (linhas 214 a 216) ficou falsa. A escolha foi consciente (D-W8-804, a declaração diz "nao por build aninhado"). A docstring entra no mesmo item da INBOX.
+  - **COSMÉTICO-2:** trailer, já decidido. **COSMÉTICO-3:** o roda_conserto.sh do CTO monta com `:z` e não com `:Z` (um container só); fica anotado para as próximas ordens.

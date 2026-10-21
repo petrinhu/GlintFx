@@ -10371,3 +10371,16 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A cadeia T4b-A-FLOAT está fechada no código e nos testes:** c3df4dd5 e e23b0d06, revisada LIMPA. O CI dela saiu vermelho só pela régua de pesados do Windows, que não toca esse código; esse ponto é o CI-HEAVY-RULER-WIN.
 - **21/10 02:2x: CTO despachado para o CI-HEAVY-RULER-WIN** (D-W8-801 a 815): diagnosticar primeiro, com a série histórica de durações, e depois a ordem do conserto. Ele e o CTO da S5-C1-fix1 são os 2 agentes.
 - **21/10 02:3x: disco.** O mínimo da partição / chegou a 20,92 GiB. Pela regra "limpar só compilação", foram apagadas as pastas `build`/`build-*` das fatias fechadas e revisadas LIMPAS (FILTER, FLOAT e FLOAT-fix1, S5-B-fix5, T4b-A-fix6, com as pastas r21 e rev de cada uma): encontrados=80, apagados=80, falharam=0. O mínimo subiu para 22,81 GiB. A S5-C1 (fix pendente) e as fatias ativas não foram tocadas.
+- **21/10 03:2x: o CTO devolveu o diagnóstico do CI-HEAVY-RULER-WIN** (D-W8-801 a 815; ordem `/var/tmp/cto-w8/ordem-ci-heavy-ruler.md`, md5 dea7d9cf; anexos.md5 1971accf, 72 de 72 OK; estado parcial em `/var/tmp/cto-w8/ciheavy-work/STATUS.md`).
+  - **Causa medida (D-W8-801):** em 46 de 46 jobs Windows estáticos, três testes rodam 100% do tempo ao lado do build aninhado, que já tem trinco. São o layers_oracle_selftest (cerca de 10 mil operações de arquivo, ZERO compilador), o libdir_includedir_mix e o gêmeo blank_install_dir (4 configures aninhados cada). No vermelho, a mediana de lentidão do job foi de 1,2x, e só os testes dessa janela ficaram de 3 a 5x mais lentos. Não é defeito de produto nem do e23b0d06.
+  - **Conserto, opção (a) (D-W8-802 a 806):** trinco nos três, com a declaração heavy medida; a MEASURED_HEAVY passa de 17 para 19 (o blank fica fora da lista, porque não passou de 40 s). A régua e o ctest_aggregate.py ficam intactos. O precedente §16 da W7-D, que recusou o trinco num teste que só esperava, foi enfrentado por escrito: este teste faz E/S de verdade, no mesmo recurso que o vizinho satura.
+  - **Pré-execução no contêiner:** o agregador real, rodado contra o JUnit do vermelho, reproduz o rc 1 e passa a rc 0 com o trinco nos três. Continua rc 1 com trinco só no oráculo e com um teste sem trinco a 41 s. O portão morde nas 4 sabotagens. preci --fast deu 383/383, rodado no hospedeiro (downgrade da L-09 até PRECI-IN-CONTAINER).
+  - **Downgrade declarado (D-W8-810):** só o próximo CI prova o Windows real. O custo estimado é de mais 3 a 6% no passo de testes do Windows.
+  - **Verificação do main:** md5 da ordem e dos 72 anexos conferidos. Âncoras conferidas no HEAD d6ff2975:
+    - policy md5 34e6ad22;
+    - MEASURED_HEAVY_MIN = 17 na linha 279;
+    - os três add_test nas linhas 4084, 5290 e 5325;
+    - HEAVY_LIMIT_S na linha 58;
+    - 13 declarações heavy.
+  - **Despachado o implementador** (devops-sre novo). Agentes vivos: ele e o CTO da S5-C1-fix1.
+  - **INBOX:** ORACLE-SELFTEST-EXPORT-IO (D-W8-807) e CI-HEAVY-WATCH-WIN (D-W8-808). Resíduos do CTO para a limpeza do fim da onda: `/var/tmp/cto-w8/ciheavy-work/ci-logs/` (131M) e um `.pyc` de root em `ciheavy-work/site/__pycache__/`.

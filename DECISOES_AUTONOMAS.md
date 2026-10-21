@@ -10304,3 +10304,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **S5-C1 commitada por cima: `40bcafa0`** (pai c3df4dd5). São 16 arquivos, com 770 linhas acrescentadas e 96 removidas, como a pré-execução previu. O relatório do implementador ainda não chegou.
 - As duas foram empurradas (o ls-remote confere 40bcafa0) e o CI 39538394875 foi disparado.
 - **Revisão N1 da FLOAT despachada às 00:2x**, com haiku novo. A revisão da S5-C1 sai quando o implementador dela fechar, para manter o teto de 2 agentes.
+- **21/10 00:3x: o implementador da S5-C1 (a885fbd2) entregou o relatório de 40bcafa0** (/var/tmp/cto-w8/s5c1/relatorio.txt, errata r2 md5 5e074375).
+  - ESPERE 1 a 3 batem; o vermelho saiu pela razão certa e o verde 5/5.
+  - Os 9 mutantes morrem, a fixture tem 40 células e 0 reprovadas, MSVC 8/8 e sanitizer 193.
+  - preci --fast 383/383 no snapshot e também num clone do HEAD 40bcafa0, já com a FLOAT por baixo.
+  - Desvios:
+    - (a) a fixture provou e7101ae6 mais a S5-C1, não 40bcafa0; o revisor refaz;
+    - (b) a mensagem leva a linha Claude-Session;
+    - (c) o TODO.md não foi tocado (D-W8-571);
+    - (d) rm -rf nas pastas de trabalho do próprio $F sem olhar o conteúdo antes, contra a L-53; registro, sem perda conhecida;
+    - (e) 2 cosméticos: um include sem uso e um comentário errado em renderer_2d_impl.cpp:274.
+  - **Revisão N1 da S5-C1 despachada às 00:3x**, com haiku novo, junto com a revisão da FLOAT; são os 2 agentes.

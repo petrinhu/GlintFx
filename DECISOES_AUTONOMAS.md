@@ -10336,3 +10336,11 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - Régua 0, MSVC 2/2, preci --fast 383/383 e sanitizer 193/193.
     - O commit de prova sai 1 arquivo, 29+/18-.
   - **Implementador despachado às 01:1x**, com haiku novo, junto com a revisão da S5-C1; são os 2 agentes.
+- **21/10 01:56: T4b-A-FLOAT-fix1 commitada: `e23b0d06`** (ae6b5906). Só tests/textured_quad_corners_test.cpp, com 29 linhas acrescentadas e 18 removidas, sem TODO.md e sem amend.
+  - 13 mutantes mortos dos 13 esperados; MT4 sobrevive por desenho (D-W8-785).
+  - O vermelho saiu sobre 7d81b85d.
+  - MSVC 2/2, preci --fast 383/383 e sanitizer verde.
+  - A mensagem é o anexo byte a byte, com Co-Authored-By Opus 5.5 (msg_igual_rc=0).
+  - Empurrada (o ls-remote confere e23b0d06) e CI 39546765562 disparado.
+  - NÃO VERIFICADO pelo implementador: o MT4 sob WERROR. O revisor mede.
+  - **Revisão N1 despachada às 01:5x**, com haiku novo, junto com a revisão da S5-C1; são os 2 agentes.

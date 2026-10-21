@@ -10242,3 +10242,23 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - O item 3 manda PARAR: tests/renderer_2d_impl_test.cpp, que é arquivo próprio da S5-C1, mudou em 9f959d2a depois da base da pré-execução (4ffecec6). Os compartilhados mudaram em 9f959d2a e em 2e23d00c.
   - **Despachado às 22:1x: um segundo CTO para a errata r2 da S5-C1** (D-W8-756 a 770), que refaz a pré-execução sobre o HEAD atual e confere a composição com a FILTER F e a T5-A. É o segundo dos 2 agentes permitidos.
   - A errata D-W8-697, do Anexo E da fix5, entra nessa r2.
+- **20/10 22:16: o CTO (a38daf4a) entregou a errata r3 da FILTER e a pesquisa de 681 e 706** (D-W8-736 a 741; as decisões 742 a 755 não foram usadas).
+  - **Errata r3:** /var/tmp/cto-w8/ordens-anexos/t4bafilter-r3/errata.md (md5 50949b7c, anexos.md5 e44aad04).
+    - D-W8-736: a etapa é F, fixa.
+    - D-W8-737: entram etapa_F.sh e commit_F.sh.
+    - D-W8-738: **o aceite passa a ser 517 inserções, não 516.** Medido: um bloco foi editado depois do teste a seco.
+    - D-W8-739: quem leva R2D-TEXTURE a 🔍 é a última fatia de implementação, hoje a T7.
+    - Pré-execução sobre deb93b55: o commit de prova sai rc 0 e TODO.md fica fora; rodado de novo, sai rc 3; a sabotagem do guarda dá rc 5.
+    - NÃO VERIFICADO pelo CTO: os 13 mutantes, o MSVC e os dois preci. A ordem que o implementador executa cobre os três; o main confere no relatório que os 13 rodaram e que o aceite saiu 517.
+  - **FILTER despachada às 22:2x**, com implementador haiku novo. É o segundo dos 2 agentes, junto com o CTO do rebase da S5-C1.
+  - **Pesquisa:** /var/tmp/cto-w8/pesquisa-681-706.md (md5 8b361662).
+  - **D-W8-740 (sobre a 681), decisão autônoma do CTO, a ratificar:** opção (a), a cerca completa do texto público dos triângulos com textura.
+    - Atende 15 queixas, uma fraca (ImGui #185), contra 9 do texto atual. A diferença está nas três de winding e nas três de mistura.
+    - É porta de mão única. Não trava nada antes das 06:00, porque a T5-B ainda espera a S5-C1, a T5-A e os blocos regenerados.
+    - Na INBOX: T5B-REGEN-681. Leva o defeito do "//   of" solto e a conferência da frase sobre a origem do texel, que é INFERÊNCIA.
+  - **D-W8-741 (sobre a 706), abaixo do piso; o advisor desempatou: (c), mantém a D-W8-706 (não dividir agora).**
+    - As 8 queixas a favor de dividir são de arquivos de 1800 a 8193 linhas, e este tem 653 (medido). A contagem que casa com o caso é 0.
+    - A L-17 proíbe a fragmentação com o mesmo peso que proíbe o monolito. A opção (a) custaria uma fatia nova fora do plano, mudaria uma citação pública (porta de mão única) e mexeria no tests/CMakeLists.txt de três fatias.
+    - LLVM e Catch2 também são contra dividir sem necessidade.
+    - O gatilho escrito em PQ-TEST-SPLIT foi conferido: dispara por evento, quando "a próxima fatia acrescentar ao arquivo um GRUPO NOVO de casos", então não é vago.
+    - Decisão autônoma, a ratificar junto com a 740.

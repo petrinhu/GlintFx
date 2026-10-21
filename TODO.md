@@ -188,6 +188,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage S5B-fix5 20/10] `VARRE-CT-HEAD-CUT`: o varre_ct.sh das ordens de mutação corta o log em head -8; a evidência da linha :589 (mutante MKW do snapshot, e casos parecidos em MRB e RPS) só aparece em out-new-<n>/outline_v.txt. Não muda nenhum resultado, mas o log da rodada esconde a prova. Origem: /var/tmp/cto-w8/s5bfix5/relatorio.txt desvio 2.
 - [triage FLOAT 20/10] `T4b-A-FLOAT-GPU`: provar a normalização dos pesos projetivos da T4b-A-FLOAT (pesos no vértice em [2^-32, 2^32], GL 3.3 §2.1.1) em GL real, não só no llvmpipe; nesta fatia o downgrade fica declarado. Origem: /var/tmp/cto-w8/relato-cto-t4bafloat.txt.
 - [triage FLOAT 20/10] `TEX-WEIGHT-RANGE-IEEE`: a variante c-IEEE aceitaria 2391 quads contra 1855 da (c), mas fica fora da faixa que a GL garante; reavaliar se algum dia a lib exigir mais que GL 3.3. Origem: /var/tmp/cto-w8/relato-cto-t4bafloat.txt.
+- [triage REV-s5bfix5 20/10] `S5B-OUTLINE-COSMETICS`: 4 COSMÉTICOS da revisão N1 da S5-B-fix5 (7694a682) em tests/ellipse_outline_test.cpp: o grupo anel+convexidade+erosão em band_holds sem nome próprio (hole_holds); a atribuição good = ring... depois de retorno antecipado; a magnitude do far below the error do dent não medida; o mutante X10 (resultado da borda interna descartado) sobrevive, redundante com a asserção :531. Origem: /var/tmp/cto-w8/rev-s5bfix5.txt.
 
 
 

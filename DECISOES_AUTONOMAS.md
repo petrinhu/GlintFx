@@ -10232,3 +10232,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Toda dúvida vai primeiro ao C-level. Ele pesquisa em outras bibliotecas, na comunidade e na web, e decide pela L-34: pelo menos 10 queixas atendidas.
   - Se não resolver, vai ao advisor (Fable 5.1). A decisão fica registrada para ratificação depois.
   - **Aplicada já a D-W8-681 e D-W8-706:** o CTO decide depois da pesquisa, e só a dúvida que sobrar vai ao advisor. A mensagem foi enviada ao CTO às 21:5x.
+- **20/10 22:1x: revisão N1 da S5-B-fix5 (7694a682): LIMPA** (revisor a730de59, /var/tmp/cto-w8/rev-s5bfix5.txt). Sem CRÍTICO e sem IMPORTANTE; há 4 COSMÉTICOS, que foram para a INBOX como S5B-OUTLINE-COSMETICS.
+  - D-W8-691: as 7 deleções batem com a tabela da ordem.
+  - D-W8-692 está provada.
+  - MSVC sem falha. Dos 10 mutantes do revisor, 8 morrem, X4 é equivalente e X10 é redundante.
+  - Pela camada, o revisor fez o rigor N1 que a ordem pedia. A observação dele sobre a definição de N1 nas leis da r20 fica registrada, e o main mantém N1.
+- **A ordem da S5-C1 não pode sair como está; o main conferiu contra o HEAD.**
+  - O item 2 do ESPERE exige o rev-t4bafix4 LIMPA, mas ele está NÃO LIMPA; a cadeia T4b-A fechou com a fix6, que está LIMPA.
+  - O item 3 manda PARAR: tests/renderer_2d_impl_test.cpp, que é arquivo próprio da S5-C1, mudou em 9f959d2a depois da base da pré-execução (4ffecec6). Os compartilhados mudaram em 9f959d2a e em 2e23d00c.
+  - **Despachado às 22:1x: um segundo CTO para a errata r2 da S5-C1** (D-W8-756 a 770), que refaz a pré-execução sobre o HEAD atual e confere a composição com a FILTER F e a T5-A. É o segundo dos 2 agentes permitidos.
+  - A errata D-W8-697, do Anexo E da fix5, entra nessa r2.

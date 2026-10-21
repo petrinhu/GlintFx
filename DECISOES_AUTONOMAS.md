@@ -10429,3 +10429,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - declarados 368, executados 366, passaram 366, falharam 0;
   - layers_oracle_selftest 7,71 s, libdir_includedir_mix 6,67 s, blank_install_dir 5,19 s (eram 58,5, 41,3 e 33,4 s no vermelho).
   - O CI-VERDE-W8 segue 🔄 até a última fatia da onda.
+- **21/10 05:0x: S5-C1-fix1 commitada (9e106ca6) e empurrada** (`git ls-remote` deu 9e106ca6). Ela só toca os dois testes, com 122 inserções e 1 remoção. O relatório está em `/var/tmp/cto-w8/s5c1fix1/relatorio.txt`.
+  - **O que o implementador reporta:**
+    - fx2: MI3, MR9, MR9F e fxgreen2 saíram com chegou=1, contexto=1 e lib_em_cache=0;
+    - confere2: ct 6/6 e fx 4/4;
+    - MSVC 8/8; green-snap 7/7;
+    - preci --fast e --sanitizer-only verdes, rodados no hospedeiro.
+  - **CI 39566472244 disparado.**
+  - **Revisor N1 despachado** (qa-engineer novo, pela seção 9 da ordem e pela errata). O prazo duro dele é 05:50, por causa da pausa do líder às 06:00.
+  - **TODO.md:** não foi tocado; o R2D-SHAPES segue 🔄 até a S5-C2.

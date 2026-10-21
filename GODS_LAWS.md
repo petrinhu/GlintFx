@@ -1123,6 +1123,12 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 
 **Corolário que fecha o buraco:** a mesma régua vale para o texto de opção de `AskUserQuestion`. Opção que só se entende sabendo a estrutura interna é opção mal escrita, e uma decisão tomada sobre ela é decisão tomada às cegas.
 
+### EMENDA de 21/10/2026: relato de progresso se dá pelo que ficou útil
+
+**Ordem do líder, por `AskUserQuestion` ("Juntar na L-41 e apagar").** Ele perguntou *"avancamos algo durante a madrugada?"*, e o orquestrador respondeu com itens da tabela fechados e fatias. A resposta do líder, verbatim: *"Nãoq uero saber de fatias. Quero saber se algum trabalho proveitoso foi feito."* Depois de ouvir a resposta pelo efeito, ele confirmou: *"Ótimo, é isso que quero saber"*.
+
+**A regra:** quando o líder pergunta se o trabalho avançou, a resposta começa pelo que ficou útil para quem usa a biblioteca, em linguagem comum, uma linha por ganho (por exemplo: "agora dá para desenhar elipses"). Fatia, item da tabela, contagem de commits e ritmo só entram se ele pedir. A medida da meta (L-06 global) continua disponível, mas vem só quando ele perguntar por ela.
+
 ---
 
 ## L-42

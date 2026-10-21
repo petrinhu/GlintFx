@@ -44,7 +44,7 @@
 | [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level audita e cria no modelo configurado em `/modelos_sessao` (emenda de 02/10/2026; `fable` só como advisor); sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 | [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
-| [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit em pt-br |
+| [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit escrito para quem não estava lá: título claro, texto explicativo em português e o mesmo em inglês, códigos internos só na linha de referências do fim (emenda de 21/10/2026) |
 | [L-22](#l-22) | projetar assinatura pública ou tratar erro | Nenhuma exceção cruza a API pública |
 | [L-23](#l-23) | commitar, ou fechar uma fatia, ou dar push | Portões de qualidade e o `preci.sh` antes do push |
 | [L-24](#l-24) | pensar em cobertura, formatação ou auditoria | Sem meta de cobertura; clang-format LLVM; dossiê só antes da 1.0 |
@@ -628,6 +628,26 @@ O manual `TESTES.md` continua normativo para **como** testar; esta lei fixa **qu
 **Regra para arquivo novo, que é o que evita a mistura voltar:** antes de criar documento, **responda a pergunta do leitor**. Se a resposta for "os dois", ele provavelmente são **dois documentos**, não um bilíngue.
 
 **Aplicação:** `runtime_version`, `frame_buffer`, `is_valid`. Nada de `buscarItem`, nada de `m_cache`. Nome revela intenção, sem abreviação que não seja universal (`id`, `url`, `http`), e nada de letra solta fora de contador de laço.
+
+### EMENDA de 21/10/2026 — a mensagem de commit é escrita para quem NÃO estava lá
+
+**Ordem do líder, verbatim:** *"as mensagens dos commits estão muito ruins. Só você entende. Um visitante do projeto que lê não entende nada. Eu mesmo não entendo nada do que tem escrito nos commits. Essas mensagens devem ter entendimento para você internamente, para mim e para visitantes externos. Mesmo que fiquem um texto mais longo. Torne lei do projeto."* E logo depois: *"Ponha alguma coisa em linguagem mais explicativa e natural"*. Por `AskUserQuestion` (LEI DAS LEIS: a alteração desta lei foi argumentada contra e confirmada), ele escolheu **emendar a L-21** e, para o idioma, verbatim: *"opcao 1 mais os codigos internos para que você tenha as referências sem dificuldade"* (a opção 1 era português e inglês).
+
+**O defeito que esta emenda corrige:** a frase acima, *"o histórico é conversa dele com o projeto"*, virou na prática histórico escrito para os agentes. As mensagens saíram feitas de códigos internos (`D-W8-801`, `MR9F`, `fix1`, `S5-C1`), que só fazem sentido para quem estava na sessão. O líder não entendia, e o visitante do repositório público menos ainda.
+
+**Leitores da mensagem de commit, os três ao mesmo tempo:** o líder, o visitante externo do repositório (que pode não ler português) e o agente que precisa rastrear a decisão. A tabela da emenda de 25/08 muda nesta linha: **mensagem de commit sai da coluna "nós" e passa a ter os três leitores.**
+
+**Forma obrigatória de toda mensagem de commit** (o detalhe abaixo é preenchimento do orquestrador sobre a ordem do líder, L-07):
+1. **Título:** o tipo do Conventional Commits (L-24 global) e, depois dele, uma frase em português comum dizendo o que mudou, sem código interno no título.
+2. **Texto em português, em linguagem natural e explicativa:** o que estava errado ou faltando, o que mudou, por que e o que isso muda para quem usa a biblioteca. Termo técnico que um leigo não conhece ganha meia frase de explicação. Escreva para quem nunca viu a sessão.
+3. **O mesmo texto em inglês internacional simples**, logo abaixo, para o visitante de fora (mesma régua de clareza da emenda de 25/08: vocabulário neutro, sem gíria).
+4. **Linha de referências no fim:** os códigos internos (item da tabela, decisões `D-W8-...`, nome da fatia, run do CI, caminho da ordem), para o agente rastrear sem dificuldade. Os códigos ficam **só** aqui, nunca no lugar da explicação.
+5. Os trailers de autoria vêm por último, como sempre.
+
+**Vale para todo commit:** de produto, de teste, de CI e também os `docs(decisoes)` do orquestrador. A mensagem que o CTO grava como anexo da ordem (`blocos/msg.txt`) segue a mesma forma, e quem escreve a ordem confere isso antes de congelá-la. Mensagem só de código, ou sem o texto em inglês, é defeito de revisão (IMPORTANTE).
+
+**O que NÃO muda:** identificador e comentário de código seguem em inglês e `snake_case`; histórico publicado não é reescrito (L-25 global: nada de `amend` em commit publicado). A forma nova vale daqui em diante.
+
 
 ## L-22
 

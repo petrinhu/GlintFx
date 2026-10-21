@@ -10442,3 +10442,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Conferência de início:** nenhum dos 15 arquivos da BLOCKED_OWNED_A (os átomos triangle_batch, triangle_store, piece_list, triangle_pixel_vertices e triangle_list_check, com os testes deles) mudou em ff4c1377..HEAD. O ff4c1377 é ancestral do HEAD, e `git status` de src/draw2d e tests sai vazio.
   - **A ordem vale sem regenerar:** a T5-A não toca o tests/renderer_2d_impl_test.cpp; quem toca é a T5-B.
   - **Decisão autônoma, a ratificar:** a T5-A NÃO foi despachada agora. Ela disputaria a heavy.lock com o revisor da S5-C1-fix1 a 50 minutos da pausa das 06:00. Na volta, é a primeira da fila: um implementador haiku novo começa direto pela ordem.
+- **21/10 05:3x: ORDEM DO LÍDER, nova regra para mensagem de commit, gravada como emenda na L-21 do GODS_LAWS.md.** O verbatim está na emenda. Por AskUserQuestion ele escolheu emendar a L-21; para o idioma, escolheu português e inglês, mais os códigos internos numa linha de referências. A partir de agora todo commit leva:
+  - um título claro;
+  - um texto explicativo em português e o mesmo texto em inglês simples;
+  - os códigos (D-W8, fatia, run, ordem) só na linha de referências do fim.
+  O CLAUDE.md e o índice de gatilhos foram atualizados. As próximas ordens dos CTOs têm de gravar o msg.txt nessa forma.
+- **21/10 05:3x: CI 39566472244 (head 9e106ca6, S5-C1-fix1) VERDE:** 25 de 26 jobs, 1 pulado (VERSION-TAG-SYNC). A revisão N1 segue em curso, com prazo até 05:50.

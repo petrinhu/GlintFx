@@ -70,25 +70,35 @@ struct carried_kite {
     int shift = 0;
 };
 
-// True when `got` reads the region by role and carries the kite's exact weights times 2^shift,
-// each within 2^-23, and every u q and v q the vertex will store (triangle_batch.cpp) is a normal
-// float.
-[[nodiscard]] bool carries(const std::optional<quad_texture_corners> &got, carried_kite kite) {
-    if (!got.has_value()) {
-        return false;
-    }
-    const std::array<double, 4> exact{1.0 / (2.0 - kite.a), 1.0, 1.0 / kite.a, 1.0};
+// True when each corner of `got` reads the region of k_source by role: 0.25 to 0.75 in both
+// directions.
+[[nodiscard]] bool reads_by_role(const quad_texture_corners &got) {
     const std::array<std::array<float, 2>, 4> read{
         {{0.25F, 0.25F}, {0.75F, 0.25F}, {0.75F, 0.75F}, {0.25F, 0.75F}}};
     int right = 0;
     for (std::size_t i = 0; i < 4U; ++i) {
+        right += got[i].u == read[i][0] && got[i].v == read[i][1] ? 1 : 0;
+    }
+    return right == 4;
+}
+
+// True when each corner of `got` weighs the kite's exact weight times 2^shift, within 2^-23.
+[[nodiscard]] bool weighs_as_carried(const quad_texture_corners &got, carried_kite kite) {
+    const std::array<double, 4> exact{1.0 / (2.0 - kite.a), 1.0, 1.0 / kite.a, 1.0};
+    int right = 0;
+    for (std::size_t i = 0; i < 4U; ++i) {
         const double want = std::ldexp(exact[i], kite.shift);
-        const quad_texture_corner &corner = (*got)[i];
-        const bool weight_ok = std::fabs(corner.q - want) <= std::ldexp(want, -23);
-        const bool read_ok = corner.u == read[i][0] && corner.v == read[i][1];
-        const bool stored_ok =
-            std::isnormal(corner.u * corner.q) && std::isnormal(corner.v * corner.q);
-        right += weight_ok && read_ok && stored_ok ? 1 : 0;
+        right += std::fabs(got[i].q - want) <= std::ldexp(want, -23) ? 1 : 0;
+    }
+    return right == 4;
+}
+
+// True when every product of a texture coordinate by its weight that the vertex will store
+// (u q, v q; triangle_batch.cpp) is a normal float.
+[[nodiscard]] bool stores_normal_floats(const quad_texture_corners &got) {
+    int right = 0;
+    for (const quad_texture_corner &corner : got) {
+        right += std::isnormal(corner.u * corner.q) && std::isnormal(corner.v * corner.q) ? 1 : 0;
     }
     return right == 4;
 }
@@ -138,10 +148,11 @@ GLINTFX_TEST(textured_quad_corners_a_large_weight_is_carried_with_the_others) {
         {{0x1.8p-32, 0}, {0x1.8p-40, -8}, {0x1.8p-63, -31}}};
     std::size_t right = 0;
     for (const carried_kite &kite : kites) {
-        right +=
-            carries(textured_quad_corners(region, k_texture, kite_crossing_at(kite.a), true), kite)
-                ? 1U
-                : 0U;
+        const std::optional<quad_texture_corners> got =
+            textured_quad_corners(region, k_texture, kite_crossing_at(kite.a), true);
+        const bool carried = got.has_value() && reads_by_role(*got) &&
+                             weighs_as_carried(*got, kite) && stores_normal_floats(*got);
+        right += carried ? 1U : 0U;
     }
     std::println("textured_quad_corners_test: pesos levados pipas={} certas={}", kites.size(),
                  right);

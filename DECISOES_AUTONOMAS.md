@@ -10272,3 +10272,6 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - (2) os testes rodaram sobre fea57ce6, e o HEAD virou 4320d99a só com docs. O revisor confere.
   - **Revisão N1 despachada às 23:0x**, com haiku novo. Ela e o CTO da S5-C1 são os 2 agentes permitidos.
   - Disco: o mínimo na partição / estava em 21,5 GiB. Foram apagadas só as 37 pastas `build` da revisão fechada da fix5 (encontradas 37, apagadas 37, falharam 0), pela regra "limpar só compilação" do líder (20/10 14:14). Os clones de mutante dessa revisão (fontes, 11G) ficaram intactos.
+- **20/10 23:1x: disco.** O mínimo na partição / chegou a 20,98 GiB. Pela regra "limpar só compilação" do líder (20/10 14:14), foram apagadas só as pastas `build`/`build-*` das fatias já commitadas e revisadas LIMPAS: r21/s5bfix4, t4bafix4, t4b, t4bb2fix1, t4bafix5, s5bfix5, rev-s5bfix4 e rev-t4bb1fix1.
+  - Resultado: encontrados=109, apagados=83, falharam=26. As 26 falhas são pastas criadas como root dentro do container, e esperam a limpeza das pastas de root no fechamento da W8, como o líder decidiu.
+  - O mínimo subiu para 24,27 GiB. Logs, relatórios e árvores de fonte ficaram intactos. As pastas das fatias ativas (t5, s5c, s5c-r2, t4bafilter, t4bafloat) não foram tocadas.

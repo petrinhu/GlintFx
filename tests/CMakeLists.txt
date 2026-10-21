@@ -4081,12 +4081,13 @@ set_tests_properties(layers_oracle_test PROPERTIES LABELS consume TIMEOUT 900 SK
 # for chamado durante --selftest). Roda em TODO sistema, opcao ligada ou
 # nao - mesma taxonomia consume/selftest dos demais portoes deste
 # arquivo.
+# glintfx-nested-build: heavy - zero compilador, mas o --selftest exporta as fixturas do check_layers.py (3409 diretorios e 2174 arquivos criados, 2184 arquivos e 3111 diretorios apagados, medido em container Linux em 21/10/2026): custo de sistema de arquivos, 0,90 s no Fedora, 6,4 a 32,8 s (mediana 12,8 s) nos 45 runs verdes do Windows estatico e 58,5 s no run 39546765562 (Windows estatico, regua de 40 s do ctest_aggregate.py reprovou), sempre sobreposto a public_name_collision_test (46 de 46 jobs estaticos); trinco por MEDICAO (MEASURED_HEAVY em check_ctest_parallel_policy.py), nao por build aninhado
 add_test(
     NAME layers_oracle_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers_oracle.py" --selftest
 )
-set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest)
+set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 
 # LAYERS-ORACLE-REPORT sub-fatia J1 (docs/plano-w7c-adendo-
 # revalidacao.md secao 3.J, achado N8, decisao D-A11, 24/09/2026): as
@@ -5286,6 +5287,7 @@ set_tests_properties(pkgconfig_validate_selftest PROPERTIES LABELS selftest)
 # CMAKE_CXX_COMPILER could be found" before ever reaching the blank-var
 # guard - a false negative that hid the real assertion this test
 # exists to make.
+# glintfx-nested-build: heavy - gemeo de forma do libdir_includedir_mix_rejected_test (L-17): quatro configures CMake aninhados com o compilador real; mediu 33,4 s (5,3 vezes a mediana de 6,3 s dos 45 runs verdes) no Windows estatico do run 39546765562, abaixo da regua de 40 s por 7 s; trinco pelo RECURSO que o teste usa, fora da MEASURED_HEAVY (que so' leva medido acima de 40 s)
 add_test(
     NAME blank_install_dir_rejected_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -5293,7 +5295,7 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CXX_COMPILER}"
 )
-set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
+set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # --selftest: pure text-processing controls (classify_configure_result,
 # normalize_wrapped_message) - no nested cmake configure, no compiler
@@ -5321,6 +5323,7 @@ set_tests_properties(blank_install_dir_rejected_selftest PROPERTIES LABELS selft
 # stay unaffected in the same run. Same GATE-TREE-PARITY shape as
 # blank_install_dir_rejected_test above: unguarded by platform
 # (GODS_LAWS.md L-04), resolved via GLINTFX_PYTHON3_EXECUTABLE.
+# glintfx-nested-build: heavy - quatro configures CMake aninhados com o compilador real (um por cenario), um build aninhado em miniatura; mediu 41,3 s no Windows estatico do run 39546765562 (6,1 a 23,9 s, mediana 9,7 s, nos 45 runs verdes), onde a regua de 40 s do ctest_aggregate.py reprovou; trinco por MEDICAO (MEASURED_HEAVY em check_ctest_parallel_policy.py)
 add_test(
     NAME libdir_includedir_mix_rejected_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -5328,7 +5331,7 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CXX_COMPILER}"
 )
-set_tests_properties(libdir_includedir_mix_rejected_test PROPERTIES LABELS consume)
+set_tests_properties(libdir_includedir_mix_rejected_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # --selftest: pure text-processing controls (classify_configure_result)
 # - no nested cmake configure, no compiler needed. Same

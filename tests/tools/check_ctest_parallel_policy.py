@@ -258,6 +258,10 @@ MEASURED_HEAVY = {
     "examples_pass_test": "40,9 s Windows estatico, 38672501272",
     "claim_citations_test": "57,1 s Arch estatico, 38247951304",
     "claim_citations_selftest": "52,1 s Arch estatico, 38247951304",
+    # CI-HEAVY-RULER-WIN: os dois que o run 39546765562 mediu acima de 40 s sem trinco (agregado reprovou o
+    # Windows estatico); varredura de 181 jobs Windows (38087850239 a 39546765562) nao achou outro.
+    "layers_oracle_selftest": "58,5 s Windows estatico, 39546765562",
+    "libdir_includedir_mix_rejected_test": "41,3 s Windows estatico, 39546765562",
 }
 
 
@@ -276,7 +280,7 @@ def measured_heavy_errors(cmake_text, known):
     return errors, travados
 
 
-MEASURED_HEAVY_MIN = 17  # piso LITERAL: a lista so' cresce; encolher exige editar ESTA linha, visivel no diff
+MEASURED_HEAVY_MIN = 19  # piso LITERAL: a lista so' cresce; encolher exige editar ESTA linha, visivel no diff
 
 
 def measured_heavy_floor_errors(cmake_text, known, minimo):

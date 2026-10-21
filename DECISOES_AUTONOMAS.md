@@ -10214,3 +10214,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **D-W8-671, API: "Duas funções".** São `fill_textured_triangles` e `fill_indexed_textured_triangles`. Ratificada.
   - **D-W8-681 (frase pública) e D-W8-706 (divisão do arquivo de teste): "Pesquisar antes".** Na volta da pausa, o CTO pesquisa como outras bibliotecas documentam a API de geometria e organizam os testes, e traz as duas de novo ao líder. A T5-B continua travada pela 681.
   - Pedido do líder registrado: ele quer ver o que dizem a comunidade, os manuais, a documentação e as outras bibliotecas antes de cada decisão sua.
+- **20/10 21:5x: o líder ligou o modo autônomo de novo, válido até 21/10 às 21:51, com escopo de push e clean.** Por AskUserQuestion, escolheu **"Retomar agora"** a W8. A pausa das 17:00 terminou e o arquivo `parada_do_lider` foi apagado.
+- **Ordem nova do líder, 20/10 21:5x, verbatim: "max 2 agentes de cada vez".** Vale a partir de agora: no máximo 2 agentes vivos, contados juntos C-levels, implementadores e revisores. O teto da L-11 global (4) continua como teto, e a ordem nova é mais estrita, dentro dele. O alcance (só esta retomada ou permanente) vai ao líder por AskUserQuestion.
+- **Despachados às 21:5x, os 2 permitidos:**
+  - (1) a revisão N1 da S5-B-fix5 (7694a682), com um haiku novo, pela seção 9 da ordem;
+  - (2) o CTO, com duas tarefas. A primeira é a errata r3 da FILTER, que fixa a etapa F sem tocar o TODO.md; é necessária porque o passo 1 da ordem escolheria FT, já que a PHRASE está no HEAD. A segunda é a pesquisa de D-W8-681 e D-W8-706, com a faixa D-W8-736 a 755.

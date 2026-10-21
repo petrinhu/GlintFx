@@ -10396,3 +10396,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Verificação do main:** os md5 dos dois testes no HEAD batem com os .anc (29f72306, a82320e5). Nenhum commit nos dois testes depois de 40bcafa0. Não há colisão de arquivo com a CI-HEAVY-RULER-WIN, que só toca tests/CMakeLists.txt e o portão de política.
   - **Despachado o implementador** (backend-engineer novo). Agentes vivos: os dois implementadores (S5-C1-fix1 e CI-HEAVY-RULER-WIN). A trava pesada serializa os dois.
   - **INBOX:** S5C-OPEN-NOTHING-MADE (a metade do I-3 sem is_current() público), S5C-SHAPE-OOM-COUNT (H-1), S5C-OUTSIDE-BEFORE-REFUSAL (H-2), S5C-COMMENT-OUTLINE (C-2).
+- **21/10 03:4x: CI-HEAVY-RULER-WIN commitada, empurrada e em revisão.** Commit 8a1eae41, só tests/CMakeLists.txt e tests/tools/check_ctest_parallel_policy.py, com 11 inserções e 4 remoções. Relatório em `/var/tmp/cto-w8/ciheavyruler/relatorio.txt`.
+  - **O implementador:** todos os rc deram 0; o confere deu 27/27. O agregador deu A 1, B 0, C 1 e D 1, e as sabotagens S1 a S4 deram rc 1. O preci --fast saiu verde, rodado no hospedeiro.
+  - **O main conferiu:** 16 declarações heavy (13 + 3) e MEASURED_HEAVY_MIN = 19.
+  - **Push:** `git ls-remote` deu 8a1eae41. O CI 39557225741 foi disparado.
+  - **Revisor N1 despachado:** qa-engineer novo, pela seção 9 da ordem; relatório em `/var/tmp/cto-w8/rev-ciheavyruler.txt`.
+  - **INBOX:** a linha CI-HEAVY-RULER-WIN passou a 🔍.
+  - **Desvio relatado pelo implementador, sem efeito:** o trailer do commit é "Claude Opus 5.5", como manda o anexo da ordem. O lembrete de atribuição do subagente sugeria Haiku. Vale o da sessão (Opus 5.5), que é o da regra que o main recebeu; sem amend (L-25).

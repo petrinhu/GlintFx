@@ -30,14 +30,17 @@
 // come in WORLD units, and a camera zoom can bring a quadrilateral of 1e-170 or of 1e160 world
 // units to ordinary pixels, with corners of very different magnitudes in one quadrilateral (one
 // near zero, one near the largest double; a sliver a few multiples of the smallest double tall).
-// s, 1 - s, t and 1 - t come from five cross products of the corners, each computed EXACTLY
-// (exact_cross.hpp): the answer "is there a mapping" has no rounding in it, for any finite
-// corners. Each weight 1 / (2 x) is then the ratio of two exact values rounded to their leading
-// digits, within 2^-50 of the exact weight (a weight that rounds past the largest double is
-// refused). 1 - s and 1 - t are cross products of their own, never a subtraction from 1, so a
-// corner next to the crossing keeps its weight. One common scale for the whole quadrilateral
-// (T4b-A-fix1 to fix3) rounded the small components away when the corners mixed magnitudes, and
-// gave wrong weights without a word; it is gone.
+// s, 1 - s, t and 1 - t come from five cross products of the corners, each with an exact sign
+// and leading digits within 2^-52 of the exact value: in double-double when its certified error
+// bound vouches for it, as it does for an ordinary quadrilateral (filtered_cross.hpp,
+// T4b-A-FILTER), in wide integers otherwise (exact_cross.hpp). The answer "is there a mapping"
+// has no rounding in it, for any finite corners. Each weight 1 / (2 x) is then the ratio of two
+// such values rounded once, within 2^-50 of the exact weight (at most 3.26 x 2^-53 by either
+// path; a weight that rounds past the largest double is refused). 1 - s and 1 - t are cross
+// products of their own, never a subtraction from 1, so a corner next to the crossing keeps its
+// weight. One common scale for the whole quadrilateral (T4b-A-fix1 to fix3) rounded the small
+// components away when the corners mixed magnitudes, and gave wrong weights without a word; it is
+// gone.
 //
 // NO WEIGHTS (std::nullopt) when the corners define no projective mapping (`degenerate_quad`): the
 // diagonals do not cross strictly inside both of them. That is three corners on one line (a

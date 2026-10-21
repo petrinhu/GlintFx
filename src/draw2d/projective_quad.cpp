@@ -6,15 +6,16 @@
 #include <optional>
 
 #include "draw2d/exact_cross.hpp"
+#include "draw2d/filtered_cross.hpp"
 
-// draw2d/projective_quad.cpp - R2D-TEXTURE, fatias T4b-A to T4b-A-fix4: the weights of
+// draw2d/projective_quad.cpp - R2D-TEXTURE, fatias T4b-A to T4b-A-FILTER: the weights of
 // projective_quad.hpp.
 namespace glintfx::draw2d {
 
 namespace {
 
-// The five cross products of the solution, each straight from the corners and exact
-// (exact_cross.hpp; T4b-A-fix4, D-W8-551, D-W8-552): the diagonals' D = d1 x d2, and s, 1 - s, t
+// The five cross products of the solution, each straight from the corners with an exact sign
+// (certain_cross(); T4b-A-fix4, D-W8-551, D-W8-552): the diagonals' D = d1 x d2, and s, 1 - s, t
 // and 1 - t times D. 1 - s and 1 - t are cross products of their own, never a subtraction from 1,
 // so they keep their digits near 1. With corner0 + s d1 = corner1 + t d2 and r = corner1 - corner0:
 // s D = r x d2, (1 - s) D = (corner2 - corner1) x d2, t D = r x d1, (1 - t) D = d1 x (corner3 -
@@ -27,13 +28,28 @@ struct quad_crosses {
     exact_cross_value one_minus_t;
 };
 
+// (b - a) x (d - c) from the double-double filter when its bound vouches for it, from the wide
+// integers otherwise (T4b-A-FILTER, D-W8-641): the same sign either way, and leading digits within
+// 2^-52 of the exact value (filtered_cross.hpp, exact_cross.hpp). The integers cost about 17 times
+// as much; an ordinary quadrilateral never reaches them.
+[[nodiscard]] exact_cross_value certain_cross(glintfx::gltfx_vec2_world a,
+                                              glintfx::gltfx_vec2_world b,
+                                              glintfx::gltfx_vec2_world c,
+                                              glintfx::gltfx_vec2_world d) noexcept {
+    const std::optional<exact_cross_value> filtered = filtered_cross(a, b, c, d);
+    if (filtered.has_value()) {
+        return *filtered;
+    }
+    return exact_cross(a, b, c, d);
+}
+
 [[nodiscard]] quad_crosses crosses_of(const glintfx::gltfx_quad_world &c) noexcept {
     return quad_crosses{
-        exact_cross(c.top_left, c.bottom_right, c.top_right, c.bottom_left),
-        exact_cross(c.top_left, c.top_right, c.top_right, c.bottom_left),
-        exact_cross(c.top_right, c.bottom_right, c.top_right, c.bottom_left),
-        exact_cross(c.top_left, c.top_right, c.top_left, c.bottom_right),
-        exact_cross(c.top_left, c.bottom_right, c.top_left, c.bottom_left),
+        certain_cross(c.top_left, c.bottom_right, c.top_right, c.bottom_left),
+        certain_cross(c.top_left, c.top_right, c.top_right, c.bottom_left),
+        certain_cross(c.top_right, c.bottom_right, c.top_right, c.bottom_left),
+        certain_cross(c.top_left, c.top_right, c.top_left, c.bottom_right),
+        certain_cross(c.top_left, c.bottom_right, c.top_left, c.bottom_left),
     };
 }
 

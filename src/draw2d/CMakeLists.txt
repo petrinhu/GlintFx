@@ -39,6 +39,7 @@ target_sources(glintfx_library PRIVATE
     renderer_2d_facade_textures.cpp
     projective_quad.cpp
     exact_cross.cpp
+    filtered_cross.cpp
     texture_region_uv.cpp
     texture_region_check.cpp
     texture_sampling.cpp

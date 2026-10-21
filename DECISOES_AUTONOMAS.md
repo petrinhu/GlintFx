@@ -10325,3 +10325,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - COSMÉTICOS: renderer_2d.hpp:529, ilogb(0) sem defesa (o caso não é alcançado) e a linha Co-Authored-By. Obs.: o revisor disse "não empurrado", mas foi empurrado (o ls-remote conferiu 40bcafa0).
   - **CTO despachado às 00:4x para a ordem T4b-A-FLOAT-fix1** (D-W8-771 a 785), em commit novo pela L-25. É o segundo agente, junto com a revisão da S5-C1.
 - **21/10 01:0x: CI 39538394875 verde sobre 40bcafa0** (a FLOAT c3df4dd5 com a S5-C1 por cima). Dos 26 jobs, 25 passaram, 1 foi pulado (o de sempre) e nenhum falhou. A combinação das duas está provada em todas as plataformas do CI.
+- **21/10 01:15: o CTO entregou a ordem da T4b-A-FLOAT-fix1** (ab0ef72b, D-W8-771 a 785): /var/tmp/cto-w8/ordem-t4b-a-float-fix1.md (md5 ec4bff94, anexos.md5 bb7ea1b7).
+  - Mexe só em tests/textured_quad_corners_test.cpp: `carries` vira três predicados com nome próprio (`reads_by_role`, `weighs_as_carried` e `stores_normal_floats`), e a conjunção dos três fica no corpo do caso. Sai em commit novo (L-25).
+  - Vão para a INBOX: TEX-PHRASE-SUCH (D-W8-773) e TEX-CARRIED-ZERO (D-W8-774).
+  - D-W8-775: a mensagem de commit virou anexo com md5, e o commit mede a linha Co-Authored-By.
+  - Pré-execução: 16 de 16 rodadas como o esperado.
+    - O vermelho é o teste novo sobre 7d81b85d.
+    - MF1-MF6 e MX7-MX10 saem iguais aos da revisão; MT1-MT3 morrem.
+    - MT4 sobrevive, como a D-W8-785 declara; só o aviso -Wunused-function o pega, e esse aviso reprova a compilação com WERROR.
+    - Régua 0, MSVC 2/2, preci --fast 383/383 e sanitizer 193/193.
+    - O commit de prova sai 1 arquivo, 29+/18-.
+  - **Implementador despachado às 01:1x**, com haiku novo, junto com a revisão da S5-C1; são os 2 agentes.

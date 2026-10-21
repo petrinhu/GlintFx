@@ -10285,3 +10285,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Limite declarado: sobre 385bfe19, que já tem a FILTER, rodaram só o build e os 7 testes no container, 7/7 verdes. O preci com a FILTER fica com o implementador.
   - Ordem de commit: com a FILTER, a T5-A e a FLOAT, qualquer ordem chega à mesma árvore. A T5-B vem só depois da S5-C1. Se a R2b entrar antes dela, é PARE.
   - **S5-C1 despachada às 23:2x**, com implementador haiku novo. Ela e a revisão N1 da FILTER são os 2 agentes.
+- **20/10 23:29: revisão N1 da T4b-A-FILTER (28e9a756): LIMPA** (a2664e36, /var/tmp/cto-w8/rev-t4bafilter.txt). Sem CRÍTICO e sem IMPORTANTE; há 4 COSMÉTICOS, que foram para a INBOX como FILTER-COSMETICS.
+  - O código em fea57ce6 e em 4320d99a é idêntico, conferido pelo tree-hash.
+  - A prova do Anexo B foi fechada termo a termo. Em 1.025.922 entradas contra o blob, 0 erros, e o pior erro foi 3,205e-16.
+  - Dos 8 mutantes do revisor, 6 morrem pelo nome do teste; M3 e M6 são equivalentes.
+- **FLOAT despachada às 23:3x**, com implementador haiku novo, junto com a S5-C1 em voo; são os 2 agentes.
+  - O ESPERE foi conferido pelo main: a FILTER está no HEAD, os 5 arquivos próprios não mudaram desde 6b96df1a, os md5 batem e os compartilhados também não mudaram desde 6b96df1a.
+  - A ratificação D-W8-735 é a escolha (c) do líder, às 18:1x.

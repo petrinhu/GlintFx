@@ -10293,3 +10293,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - O ESPERE foi conferido pelo main: a FILTER está no HEAD, os 5 arquivos próprios não mudaram desde 6b96df1a, os md5 batem e os compartilhados também não mudaram desde 6b96df1a.
   - A ratificação D-W8-735 é a escolha (c) do líder, às 18:1x.
 - **20/10 23:4x: CI 39530902263 verde sobre 28e9a756, a T4b-A-FILTER.** Dos 26 jobs, 25 passaram, 1 foi pulado (o mesmo de sempre) e nenhum falhou.
+- **21/10 00:2x: T4b-A-FLOAT commitada: `c3df4dd5`, etapa L** (a82b8614). São 8 arquivos, com 165 linhas acrescentadas e 28 removidas, sem TODO.md.
+  - O vermelho saiu como esperado (rc 8, certas=1 e recusadas=1) e o verde 4/4 (certas=3 e recusadas=3).
+  - MF1 a MF6 morrem pelo caso esperado; os dois mutantes de texto dão confere_rc=1.
+  - preci --fast 382/382, sanitizer verde, MSVC 2/2.
+  - Desvios:
+    - (1) a linha Co-Authored-By saiu como Haiku 5.5, com Claude-Session, por atribuição da sessão. Registro; commit publicado não leva amend.
+    - (2) a base real era 832c6634, e os 5 md5 bateram.
+  - NÃO VERIFICADO: GL real (D-W8-731, item T4b-A-FLOAT-GPU na INBOX).
+- **S5-C1 commitada por cima: `40bcafa0`** (pai c3df4dd5). São 16 arquivos, com 770 linhas acrescentadas e 96 removidas, como a pré-execução previu. O relatório do implementador ainda não chegou.
+- As duas foram empurradas (o ls-remote confere 40bcafa0) e o CI 39538394875 foi disparado.
+- **Revisão N1 da FLOAT despachada às 00:2x**, com haiku novo. A revisão da S5-C1 sai quando o implementador dela fechar, para manter o teto de 2 agentes.

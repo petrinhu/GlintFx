@@ -25,7 +25,7 @@
 //      (refusal_of_region_range(), which needs the texture's size, so it comes after the texture
 //      is known to be open);
 //   6. degenerate_quad: the corners of draw_texture_quad() define no projective mapping, or
-//      define one with a weight that is not a double (projective_quad.hpp), because it is a
+//      define one with a weight of 2^63 or more (textured_quad_corners.hpp), because it is a
 //      property of the shape, not of a value;
 //   and last the drawing call asks the pixel range: pixel_position_out_of_range, when the batch
 //   transform takes a corner outside what the drawing program can scale (quad_vertices.hpp;

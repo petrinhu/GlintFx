@@ -79,8 +79,8 @@ void renderer_2d_impl::submit_textured(const draw2d::textured_submission &submis
         return;
     }
     // The region was checked against this texture before, so it always has coordinates; no
-    // corners here means a quadrilateral with no projective mapping, or with a weight that is not
-    // a double (projective_quad.hpp).
+    // corners here means a quadrilateral with no projective mapping, or with a weight of 2^63 or
+    // more (textured_quad_corners.hpp).
     const std::optional<draw2d::quad_texture_corners> reads = draw2d::textured_quad_corners(
         submission.paint->region,
         draw2d::texture_extent{submission.texture->width, submission.texture->height},

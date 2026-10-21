@@ -522,14 +522,20 @@ class gltfx_renderer_2d {
     // corners on one line, so it is refused the same way). Whether the
     // corners define a mapping is decided exactly, for any finite corners,
     // at any size, place and mix of magnitudes: no rounding enters that
-    // answer. One quad that does define a mapping is also refused as
-    // `degenerate_quad`, and it is the only one: when the diagonals cross
-    // so close to one corner (closer than about 2^-1025 of the diagonal's
-    // length) that a projective weight of the quad, rounded to a double,
-    // would be larger than the largest double.
+    // answer. Quads that do define a mapping are refused as
+    // `degenerate_quad` in one case only: when the diagonals cross so close
+    // to one corner (closer than about 2^-64 of the diagonal's length) that
+    // a projective weight of the quad would be 2^63 or more. Every such quad
+    // that is drawn carries its four weights to the graphics card multiplied
+    // by one common power of two, which leaves the mapping as it is, so that
+    // each lies between 2^-32 and 2^32 (OpenGL promises texture coordinates
+    // up to 2^32 in magnitude).
     // D-W8-354: four parameters at most.
     // Proved by: renderer_2d_impl_test (degenerate_quad after the texture's
     // reasons; the projective weight of each corner reaches the vertex).
+    // Proved by: textured_quad_corners_test (a quad whose largest weight is
+    // 2^63 or more, refused, the one past the largest float included; one
+    // of 2^64/3, carried with the others below 2^32 by one power of two).
     // Proved by: projective_quad_test (the decision for quads of mixed
     // magnitudes, from slivers a few multiples of the smallest double tall
     // to half widths of 2^1023, and for every small whole-number quad; a

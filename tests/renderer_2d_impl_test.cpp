@@ -2347,3 +2347,78 @@ GLINTFX_TEST(renderer_2d_impl_a_filled_ellipse_of_radius_zero_is_a_drawn_piece_o
     GLINTFX_CHECK_EQ(sent_vertex(1, 1), 30.0F);
     renderer_2d_impl::destroy(renderer);
 }
+
+// ---- R2D-SHAPES S5-C1-fix1 (revisao N1 da S5-C1, IMPORTANTE-1 e IMPORTANTE-2) ------------------
+// The layer: an ellipse is painted in ITS layer, as the rectangle outline is (S4-fix1). A red
+// ellipse in layer 1, then a blue square in layer 0 submitted after it: the square is painted first
+// (its four vertices are the first sent), and the ellipse's first vertex, its centre, is the fifth.
+// The surface: a circle of radius 20000 pixels is in the cut regime (pi / acos(1 - 0.25 / 20000)
+// is about 628, above 512; arc_parameters.hpp), where a quarter whose hull misses the surface of
+// the frame, 800 columns by 600 rows here (fake_surface_size()), grown by 1 pixel, is drawn as its
+// chord. Centred at (400, 20605), the top of the circle is at row 605, below row 601: the four
+// quarters miss, and the fan is the centre and the four quarter points, 5 vertices and 12 indices.
+// Centred at (20700, 300), its leftmost point is at column 700, within the 800 columns: the quarter
+// that touches the surface is cut finer, and the fan has more than those 5 vertices.
+namespace {
+
+// True when the blue square of layer 0 is the first piece sent, before the red piece of layer 1
+// that starts at the fifth vertex.
+[[nodiscard]] bool blue_square_of_layer_0_before_the_red_piece() {
+    return sent_vertex(0, 6) == 1.0F && sent_vertex(4, 4) == 1.0F && sent_vertex(4, 6) == 0.0F;
+}
+
+constexpr double k_large_radius = 20000.0;
+
+} // namespace
+
+GLINTFX_TEST(renderer_2d_impl_a_filled_ellipse_is_painted_in_its_layer) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_ellipse(k_circle, k_red, k_layer_1);
+    renderer->fill_rect(rect(95.0, 95.0, 10.0, 10.0), k_blue, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(blue_square_of_layer_0_before_the_red_piece());
+    GLINTFX_CHECK_EQ(sent_vertex(4, 0), 100.0F); // the centre of the circle
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_an_outlined_ellipse_is_painted_in_its_layer) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_ellipse(k_circle, world_stroke(2.0), k_red, k_layer_1);
+    renderer->fill_rect(rect(105.0, 95.0, 10.0, 10.0), k_blue, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(blue_square_of_layer_0_before_the_red_piece());
+    GLINTFX_CHECK_EQ(sent_vertex(4, 0), 111.0F); // the outer point of the ring at angle 0
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_large_ellipse_below_the_rows_of_the_surface_is_its_four_chords) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_ellipse(
+        glintfx::gltfx_ellipse_world{{400.0, 20605.0}, k_large_radius, k_large_radius, {0.0}},
+        k_red, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK_EQ(sent_vertex_count(), std::size_t{5});
+    GLINTFX_CHECK_EQ(first_draw_count(), 12);
+    GLINTFX_CHECK_EQ(sent_vertex(1, 0), 20400.0F); // t = 0, the point at +x
+    GLINTFX_CHECK_EQ(sent_vertex(1, 1), 20605.0F);
+    renderer_2d_impl::destroy(renderer);
+}
+
+GLINTFX_TEST(renderer_2d_impl_a_large_ellipse_within_the_columns_of_the_surface_is_cut_finer) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_ellipse(
+        glintfx::gltfx_ellipse_world{{20700.0, 300.0}, k_large_radius, k_large_radius, {0.0}},
+        k_red, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK(sent_vertex_count() > std::size_t{5});
+    GLINTFX_CHECK_EQ(first_draw_count(), static_cast<int>(3U * (sent_vertex_count() - 1U)));
+    renderer_2d_impl::destroy(renderer);
+}

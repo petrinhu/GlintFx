@@ -77,6 +77,13 @@
 //     (200,120), (205,120), (210,120), (218,120) and (225,120), the same value as at (160,110), the
 //     middle of the top of the band, within one level per channel, neither black nor white (no
 //     pixel covered twice); the hole (160,119) and the outside (160,100) and (230,120) are black.
+//   - the layer of an ellipse (fatia S5-C1-fix1): a white circle of radius 30 centred at (80,60)
+//     and a white outline 8 pixels thick in pixel unit around the circle of radius 30 centred at
+//     (220,120), both in layer 1, then a blue square in layer 0 over each, submitted AFTER them:
+//     the centre (80,60) and the band (250,120) stay white, and (115,75) and (268,128), in the
+//     squares but off both ellipses, are blue;
+//   - open() checks the context before the curve distance: a context that is not open, with a
+//     NaN curve_max_error_pixels, is refused naming "context".
 // Geometry assumes a scale factor of 1: pixels are the numbers written below (as in
 // draw2d_parity_test.cpp). The surface is 320 by 240.
 
@@ -543,6 +550,43 @@ void cell_ellipse_outline_once(const session &s) {
          "C15 o buraco (160,119) e o lado de fora (160,100) e (230,120) pretos");
 }
 
+// C16: each ellipse is painted in its layer (S5-C1-fix1): the two ellipses of layer 1 over the
+// blue squares of layer 0 submitted after them.
+void cell_ellipse_layers(const session &s) {
+    constexpr glintfx::gltfx_draw_layer top{1};
+    constexpr glintfx::gltfx_rgba blue{0.0F, 0.0F, 1.0F, 1.0F};
+    s.renderer.begin_frame(glintfx::gltfx_frame_2d_desc{});
+    s.renderer.fill_ellipse(glintfx::gltfx_ellipse_world{{80.0, 60.0}, 30.0, 30.0, {0.0}}, k_white,
+                            top);
+    s.renderer.stroke_ellipse(glintfx::gltfx_ellipse_world{{220.0, 120.0}, 30.0, 30.0, {0.0}},
+                              glintfx::gltfx_stroke{8.0, glintfx::gltfx_stroke_unit::pixel},
+                              k_white, top);
+    s.renderer.fill_rect(glintfx::gltfx_rect_world{{60.0, 40.0}, {60.0, 40.0}}, blue);
+    s.renderer.fill_rect(glintfx::gltfx_rect_world{{240.0, 110.0}, {30.0, 20.0}}, blue);
+    const auto finished = s.renderer.finish_frame();
+    cell(finished.has_value() && is_exact(read_at(s, 115, 75), 0, 0, 255) &&
+             is_exact(read_at(s, 268, 128), 0, 0, 255),
+         "C16 os quadrados azuis da camada 0 pintam (115,75) e (268,128), fora das elipses");
+    cell(is_exact(read_at(s, 80, 60), 255, 255, 255),
+         "C16 o circulo cheio da camada 1 cobre o quadrado azul enviado depois: (80,60) branco");
+    cell(is_exact(read_at(s, 250, 120), 255, 255, 255),
+         "C16 o contorno da camada 1 cobre o quadrado azul enviado depois: (250,120) branco");
+}
+
+// C17: open() checks the context before the curve distance (S5-C1-fix1). The context that is not
+// open is the moved-from handle (the technique of loop_parity_test.cpp, P10): the live context
+// goes to `alive` and comes back after the call, so the cells after this one find it unchanged.
+void cell_open_checks_the_context_first(glintfx::gltfx_gl_context &context) {
+    glintfx::gltfx_gl_context alive = std::move(context);
+    glintfx::gltfx_renderer_2d_desc desc{};
+    desc.curve_max_error_pixels = std::numeric_limits<double>::quiet_NaN();
+    const auto opened = glintfx::gltfx_renderer_2d::open(context, desc);
+    context = std::move(alive);
+    cell(opened.has_error() && opened.err().code() == glintfx::gltfx_err_code::invalid_argument &&
+             opened.err().rejected_value() == "context",
+         "C17 open() com o contexto fechado e a distancia NaN recusa \"context\", nao a distancia");
+}
+
 // Every cell, in order: the triangles, the lines, the rectangle outlines and the ellipses.
 void run_all_cells(const session &s, glintfx::gltfx_gl_context &context) {
     cell_triangle_and_order(s);
@@ -560,13 +604,15 @@ void run_all_cells(const session &s, glintfx::gltfx_gl_context &context) {
     cell_ellipse_fill(s);
     cell_ellipse_curve_error(s, context);
     cell_ellipse_outline_once(s);
+    cell_ellipse_layers(s);
+    cell_open_checks_the_context_first(context);
 }
 
 // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
 int verdict() {
     std::fprintf(stdout, "draw2d_shapes_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
                  g_cells, g_failures);
-    if (g_cells < 40) {
+    if (g_cells < 44) {
         std::fprintf(stderr, "draw2d_shapes_parity_test: menos celulas do que o piso\n");
         return EXIT_FAILURE;
     }

@@ -10384,3 +10384,15 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - 13 declarações heavy.
   - **Despachado o implementador** (devops-sre novo). Agentes vivos: ele e o CTO da S5-C1-fix1.
   - **INBOX:** ORACLE-SELFTEST-EXPORT-IO (D-W8-807) e CI-HEAVY-WATCH-WIN (D-W8-808). Resíduos do CTO para a limpeza do fim da onda: `/var/tmp/cto-w8/ciheavy-work/ci-logs/` (131M) e um `.pyc` de root em `ciheavy-work/site/__pycache__/`.
+- **21/10 03:3x: CTO devolveu a ordem da S5-C1-fix1** (D-W8-786 a 800; `/var/tmp/cto-w8/ordem-s5c1-fix1.md`, md5 80fe3bf5; anexos.md5 b48fed11, 59 de 59 OK). Ele estava esperando a trava pesada quando recebeu o ping das 03:22.
+  - **O que a ordem cobre:** um commit novo `test(draw2d):`, sem amend de 40bcafa0, que só troca os dois testes.
+    - I-1 nas duas portas: 2 casos no renderer_2d_impl_test e a célula C16 de pixel na paridade.
+    - I-2: 2 casos, com 5 vértices e 12 índices tirados da geometria, mais "cortada mais fina".
+    - Metade do I-3: C17, contexto movido recusa "context". O piso da paridade passa de 40 para 44 células.
+  - **Pré-execução:** 10 de 10 rodadas iguais ao esperado. Os mutantes MR1, MR1X, MR1Y, MR2, MR2S, MI3, MR9 e MR9F morrem pelo nome, e compilam com -Werror, então quem mata é o teste. MSVC 8 de 8. preci --fast 383/383 e --sanitizer-only 193/193. Commit de prova num clone: rc 0, e rc 3 na segunda tentativa.
+  - **Correção de achado:** o C-1 da revisão da S5-C1 NÃO é defeito. O pixel_box é declarado em src/draw2d/arc_parameters.hpp:85 e usado em renderer_2d_impl_ellipses.cpp:19; o main conferiu.
+  - **Armadilha medida pelo CTO, que vale para toda revisão por fixture:** dois mutantes seguidos no mesmo arquivo e com o mesmo tamanho fizeram o docker build reaproveitar o cache. O MR9F rodou o binário do MR9 (chegou=0); o confere.py barrou e a rodada foi refeita. Que o mecanismo seja o mtime em segundos é inferência.
+  - **Desvios declarados pelo CTO, sem efeito:** o esperado.txt foi gravado depois dos logs green, MR1 e MR1X, com os números já fixados na D-W8-789; o base-tree recebeu os blocos depois das medições. A régua L-17 do anexo da S5-C1 contava zero fora da raiz; a versão nova conta os erros (33 e 1 antigos, iguais antes e depois).
+  - **Verificação do main:** os md5 dos dois testes no HEAD batem com os .anc (29f72306, a82320e5). Nenhum commit nos dois testes depois de 40bcafa0. Não há colisão de arquivo com a CI-HEAVY-RULER-WIN, que só toca tests/CMakeLists.txt e o portão de política.
+  - **Despachado o implementador** (backend-engineer novo). Agentes vivos: os dois implementadores (S5-C1-fix1 e CI-HEAVY-RULER-WIN). A trava pesada serializa os dois.
+  - **INBOX:** S5C-OPEN-NOTHING-MADE (a metade do I-3 sem is_current() público), S5C-SHAPE-OOM-COUNT (H-1), S5C-OUTSIDE-BEFORE-REFUSAL (H-2), S5C-COMMENT-OUTLINE (C-2).

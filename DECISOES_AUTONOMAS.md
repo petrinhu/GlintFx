@@ -10364,3 +10364,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **FATO:** o commit só mexe em tests/textured_quad_corners_test.cpp, que nenhum desses dois testes usa. A régua mede o tempo da máquina do runner, e no run anterior (39538394875, sobre 40bcafa0) os 26 jobs saíram verdes.
   - O rerun é recusado (memória feedback_rerun_guard), e o conserto vem por commit. Foi para a INBOX como CI-HEAVY-RULER-WIN.
   - **Fica para o próximo slot de agente, com um CTO**: diagnosticar antes de só acrescentar a trava (L-49: falha da ferramenta e falha do produto pedem consertos opostos). O CI-VERDE-W8 fica aberto até isso fechar.
+- **21/10 02:2x: revisão N1 da T4b-A-FLOAT-fix1 (e23b0d06): LIMPA** (aa0be55d, /var/tmp/cto-w8/rev-t4bafloatfix1.txt). Sem CRÍTICO e sem IMPORTANTE.
+  - O IMPORTANTE-1 da FLOAT foi resolvido sem fragmentação: os três predicados têm nome honesto e uma lei cada, e a régua dá 0.
+  - **MT4 medido com WERROR:** rc_build=1, por unused-function. É equivalente por construção, e o verde com WERROR sai sem nenhum aviso.
+  - Matriz 16/16 iguais e MSVC sem falha. Os cosméticos foram para a INBOX como FLOATFIX1-COSMETICS.
+  - **A cadeia T4b-A-FLOAT está fechada no código e nos testes:** c3df4dd5 e e23b0d06, revisada LIMPA. O CI dela saiu vermelho só pela régua de pesados do Windows, que não toca esse código; esse ponto é o CI-HEAVY-RULER-WIN.
+- **21/10 02:2x: CTO despachado para o CI-HEAVY-RULER-WIN** (D-W8-801 a 815): diagnosticar primeiro, com a série histórica de durações, e depois a ordem do conserto. Ele e o CTO da S5-C1-fix1 são os 2 agentes.

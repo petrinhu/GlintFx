@@ -10438,3 +10438,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **CI 39566472244 disparado.**
   - **Revisor N1 despachado** (qa-engineer novo, pela seção 9 da ordem e pela errata). O prazo duro dele é 05:50, por causa da pausa do líder às 06:00.
   - **TODO.md:** não foi tocado; o R2D-SHAPES segue 🔄 até a S5-C2.
+- **21/10 05:0x: o main verificou o plano da T5-A contra a árvore** (L-16, passo 3). A ordem `/var/tmp/cto-w8/ordem-t5.md` tem md5 0bc50387 e os anexos `ordens-anexos/t5/` batem 100% OK.
+  - **Conferência de início:** nenhum dos 15 arquivos da BLOCKED_OWNED_A (os átomos triangle_batch, triangle_store, piece_list, triangle_pixel_vertices e triangle_list_check, com os testes deles) mudou em ff4c1377..HEAD. O ff4c1377 é ancestral do HEAD, e `git status` de src/draw2d e tests sai vazio.
+  - **A ordem vale sem regenerar:** a T5-A não toca o tests/renderer_2d_impl_test.cpp; quem toca é a T5-B.
+  - **Decisão autônoma, a ratificar:** a T5-A NÃO foi despachada agora. Ela disputaria a heavy.lock com o revisor da S5-C1-fix1 a 50 minutos da pausa das 06:00. Na volta, é a primeira da fila: um implementador haiku novo começa direto pela ordem.

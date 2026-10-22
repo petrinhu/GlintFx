@@ -72,6 +72,13 @@
 //   - THE TINT: an opaque white texel tinted white with alpha 0.5, over black: 128 +- 2 when the
 //     surface does not encode, 188 +- 2 when it does (the premultiplied edge of
 //     draw2d_parity_test).
+//   - THE TEXTURED TRIANGLES (R2D-TEXTURE T5, D-W8-678): two indexed triangles of opposite
+//     orientations over a 40 x 40 square, reading the whole of the 2 x 2 texture of the mirrors,
+//     put each texel in its quarter, exactly, texel (0, 0) at the top left (TT1); one triangle
+//     whose three vertices are white with alpha 0.5, over an opaque white texel and black, reads
+//     the value of the tint cell, 128 or 188 +- 2 (TT2); a rectangle and a triangle of the same
+//     texture, one after the other, read the texture (red, exact) and the report says draw_calls 1
+//     and texture_switches 1 (TT3).
 // MEASURED, PRINTED, NEVER ASSERTED EQUAL: the value read at k = 100 of filter_linear_srgb_order in
 // each mode, and whether the ON mode was absent.
 //
@@ -625,6 +632,99 @@ void cell_tint(const cells_context &c) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
+// R2D-TEXTURE T5 (D-W8-678): textured triangles on a real surface.
+// ---------------------------------------------------------------------------------------------------------
+constexpr glintfx::gltfx_rgba k_opaque_white{1.0F, 1.0F, 1.0F, 1.0F};
+
+// A vertex at (x, y) reading the texel (u, v), with the opaque white tint.
+glintfx::gltfx_textured_vertex_2d textured_vertex(double x, double y, double u, double v) {
+    return glintfx::gltfx_textured_vertex_2d{{x, y}, k_opaque_white, {u, v}};
+}
+
+// TT1: two indexed triangles covering a 40 x 40 square and reading the whole of a 2 x 2 texture put
+// each texel in its quarter, as the rectangle without mirror does (cell M, "none"): texel (0, 0),
+// the first texel of the first row, at the top left. The two triangles have OPPOSITE orientations
+// on the screen (0, 1, 2 one way, 0, 3, 2 the other): neither is dropped for its orientation.
+void cell_textured_triangles_quarters(const cells_context &c) {
+    const auto texture = make_texture(c, 2, 2, {k_px_red, k_px_green, k_px_blue, k_px_white},
+                                      glintfx::gltfx_texture_filter::nearest);
+    if (!texture.has_value()) {
+        return;
+    }
+    const std::array<glintfx::gltfx_textured_vertex_2d, 4> corners{
+        textured_vertex(100, 100, 0, 0), textured_vertex(140, 100, 2, 0),
+        textured_vertex(140, 140, 2, 2), textured_vertex(100, 140, 0, 2)};
+    const std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 0U, 3U, 2U};
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    c.renderer.fill_indexed_textured_triangles(*texture, corners, indices);
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    constexpr std::array<std::array<int, 2>, 4> offsets{{{10, 10}, {30, 10}, {10, 30}, {30, 30}}};
+    const std::array<rgba, 4> quarters{k_px_red, k_px_green, k_px_blue, k_px_white};
+    int right = 0;
+    for (std::size_t q = 0; q < 4; ++q) {
+        const pixel got = read_at(c, 100 + offsets[q][0], 100 + offsets[q][1]);
+        right += is_exact(got, quarters[q][0], quarters[q][1], quarters[q][2]) ? 1 : 0;
+    }
+    report(c, "TT1 triangulos indexados: cada texel no seu quarto",
+           finished.has_value() && right == 4, std::to_string(right) + "/4");
+}
+
+// TT2: the tint of each vertex multiplies the texel: an opaque white texel under one triangle
+// whose three vertices are white with alpha 0.5, over black, reads what the tint cell (TN) reads.
+void cell_textured_triangles_tint(const cells_context &c) {
+    const auto texture =
+        make_texture(c, 1, 1, {k_px_white}, glintfx::gltfx_texture_filter::nearest);
+    if (!texture.has_value()) {
+        return;
+    }
+    std::array<glintfx::gltfx_textured_vertex_2d, 3> triangle{textured_vertex(200, 100, 0, 0),
+                                                              textured_vertex(260, 100, 1, 0),
+                                                              textured_vertex(200, 160, 0, 1)};
+    for (glintfx::gltfx_textured_vertex_2d &vertex : triangle) {
+        vertex.tint = glintfx::gltfx_rgba{1.0F, 1.0F, 1.0F, 0.5F};
+    }
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    c.renderer.fill_textured_triangles(*texture, triangle);
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    const pixel got = read_at(c, 210, 110);
+    const double want = c.srgb ? 188.0 : 128.0;
+    report(c, "TT2 tinta por vertice branca com alfa 0,5 sobre preto",
+           finished.has_value() && within(got.red, want, 2.0) && within(got.green, want, 2.0) &&
+               within(got.blue, want, 2.0),
+           text_of(got));
+}
+
+// TT3: a sprite and a mesh of the same texture, one after the other, are ONE draw call and one
+// switch; the mesh reads the texture (red), never the white of its vertices.
+void cell_sprite_and_mesh_share_a_draw_call(const cells_context &c) {
+    const auto red = make_texture(c, 1, 1, {k_px_red}, glintfx::gltfx_texture_filter::nearest);
+    if (!red.has_value()) {
+        return;
+    }
+    const std::array<glintfx::gltfx_textured_vertex_2d, 3> mesh{textured_vertex(60, 150, 0, 0),
+                                                                textured_vertex(100, 150, 1, 0),
+                                                                textured_vertex(60, 190, 0, 1)};
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    c.renderer.draw_texture(*red, whole(1, 1), rect(20, 150, 30, 30));
+    c.renderer.fill_textured_triangles(*red, mesh);
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    const pixel got = read_at(c, 65, 155);
+    report(c, "TT3 a malha le a textura (vermelho)", is_exact(got, 255, 0, 0), text_of(got));
+    const bool counted = finished.has_value() && finished.value().draw_calls == 1 &&
+                         finished.value().texture_switches == 1;
+    report(c, "TT3 sprite e malha da mesma textura: draw_calls = 1 e texture_switches = 1", counted,
+           finished.has_value() ? std::to_string(finished.value().draw_calls) + " e " +
+                                      std::to_string(finished.value().texture_switches)
+                                : std::string("sem valor"));
+}
+
+// ---------------------------------------------------------------------------------------------------------
 // One mode: a window, a context with srgb_framebuffer as asked, a renderer, and every cell.
 // ---------------------------------------------------------------------------------------------------------
 enum class mode_result { ran, absent, fatal };
@@ -665,6 +765,9 @@ void run_cells(const cells_context &cells) {
     cell_switches_to_and_from_none(cells);
     cell_mirrors(cells);
     cell_tint(cells);
+    cell_textured_triangles_quarters(cells);
+    cell_textured_triangles_tint(cells);
+    cell_sprite_and_mesh_share_a_draw_call(cells);
 }
 
 mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
@@ -739,7 +842,7 @@ int main() {
     // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
     std::fprintf(stdout, "draw2d_texture_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
                  g_cells, g_failures);
-    if (g_cells < 20) {
+    if (g_cells < 24) {
         return fail("menos celulas do que o piso (varredura quebrada)");
     }
     return g_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

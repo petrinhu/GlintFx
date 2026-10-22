@@ -44,6 +44,7 @@
 - **Errata da T4b-B2 (CTO, 19/10/2026; D-W8-475 a 480 e D-W8-545 a 550):** nasce `tests/parity/draw2d_texture_parity_test.cpp`, a prova por pixel do desenho com textura, e com ele entram os textos que o citam. (1) O parágrafo FILTERING AND COLOUR de `texture_2d_desc.hpp` entra como a cerca acima o fixa, linha por linha (errata da T2b, D-W8-374). (2) `draw_texture`, `draw_texture_quad`, a leitura de cada espelho e a tinta (`texture_region.hpp`) ganham o `Proved by:` de `draw2d_texture_parity_test`; o nome `texture_region_mirror_test` não existe, a leitura em pixels dos espelhos é célula desse teste (errata da fix1); e a promessa do halo, que a fix1 deixou para cá (D-W8-499), passa a citar as células do halo e da tinta (D-W8-549). (3) As cercas de `draw_texture`, `draw_texture_quad` e `texture_region.hpp` são reescritas NO LUGAR com o texto do cabeçalho publicado (D-W8-545, como a errata da fix1 fez): a cerca de `draw_texture` ainda trazia "each change of the bound texture between two calls", o gêmeo da frase velha que a B1-fix1 trocou no cabeçalho (revisão N1 da B1-fix1, I-1). (4) A errata da B1-fix1 cita D-W8-501 a 508, as que existem (D-W8-546). (5) A frase "(each flush starts with none bound)" descrevia o modelo do contador e não o GL, onde o consumidor pode deixar uma textura ligada entre dois flushes; passa a ser "(the count starts again from no texture at every flush)" (D-W8-547). (6) A célula `filter_linear_no_dark_halo` da D-W8-305 espera o valor DA FÓRMULA em cada modo: em x = 100 o texel vermelho pesa 1 - 0,505 = 0,495; com a superfície que codifica, 255 * srgb(0,495) = 186,7; com a que não codifica, 255 * 0,495 = 126,2; a tabela da D-W8-305 dizia 188,3, o peso do BRANCO de `filter_linear_srgb_order` em x = 100. (7) PONTO DE RATIFICAÇÃO DO LÍDER, sem decisão aqui (D-W8-548): um flush cujo desenho termina em erro GL não soma as suas trocas de textura (nem as suas chamadas de desenho) ao relatório, e as frases públicas não ressalvavam esse caso: a de `draw_texture` (`renderer_2d.hpp`, "Each texture the library binds to draw counts once in texture_switches") e as de `texture_switches` e `draw_calls` (`frame_2d_report.hpp`), lidas sem exceção, prometiam a contagem também no erro (revisão N1 da T4b-B2, IMPORTANTE-1; corrigido no lugar pela errata da T4b-B2-fix1, que decide). Porta de mão única: as frases públicas vão à ratificação do líder.
 - **Errata da T4b-B2-fix1 (CTO, 20/10/2026; D-W8-581 a 585; revisão N1 da T4b-B2, IMPORTANTE-1 e COSMÉTICOS 1 a 3):** (1) D-W8-548 decidida pelo CTO, para a ratificação do líder (D-W8-581): os dois contadores do que a placa paga, `draw_calls` e `texture_switches`, contam só o flush que a placa aceitou; um flush cujos dados ou cujo desenho a placa recusa não soma nenhuma das suas chamadas de desenho nem das suas trocas, e as suas peças contam em `pieces_dropped_graphics_failure`, como já contavam. O código não muda; três frases públicas passam a dizer isso: a de `draw_texture` (`renderer_2d.hpp`) e as de `draw_calls` e `texture_switches` (`frame_2d_report.hpp`). A razão: no relatório, "reached the graphics card" já quer dizer "a placa aceitou" (`pieces_drawn` e `pieces_dropped_graphics_failure`), e contar no erro daria a um flush sem nenhuma peça desenhada chamadas de desenho que "chegaram à placa". Alternativa nomeada, não adotada: contar no erro, como o sokol (`sg_frame_stats`), o bgfx (`bgfx::Stats::numDraw`) e o three.js (`renderer.info.render.calls`) contam na submissão; nenhum deles lê erro GL fora do modo de depuração, e contar no erro exigiria mudar o retorno de `draw_batch`. (2) A prova é o caso novo `renderer_2d_impl_a_refused_flush_adds_no_draw_call_and_no_switch`, citado no `Proved by:` de `draw_texture`; o vermelho dele é o dos mutantes que implementam a alternativa (D-W8-583). (3) O item (7) da errata da T4b-B2 é corrigido no lugar: ele dizia que nenhuma frase pública tratava do erro, e as três, sem ressalva, prometiam a contagem nele. (4) A cerca de `draw_texture`, abaixo, é reescrita NO LUGAR com o texto do cabeçalho (D-W8-545). Gêmeos que NÃO mudam (D-W8-582): a cerca de `draw_calls` em `docs/auditoria-api-draw2d.md` é o layout da B0, sem os contadores da W8; o texto de `texture_switches` em `docs/auditoria-api-shapes.md` é a proposta da S0, já corrigida pela errata da T4b-B1. (5) O trecho de `renderer_2d.hpp` da seção 2 traz, além dos quatro métodos que o cabeçalho já publica e que são iguais a ele, o `#include` de `texture_atlas.hpp`, `draw_atlas_image`, `fill_textured_triangles` e `fill_indexed_textured_triangles`: são a proposta da T0 para as fatias seguintes, e ainda não estão no cabeçalho (COSMÉTICO-2). (6) A seção 3 dizia "Dois dos novos" e listava seis nomes; passa a dizer seis (COSMÉTICO-3, D-W8-584). Porta de mão única: as três frases vão à ratificação do líder.
 - **Errata da T4b-A-PHRASE (CTO, 20/10/2026; D-W8-653 a 660; decisão do líder sobre a D-W8-555 por AskUserQuestion, "Frase completa (Recomendado)"):** a cerca de `draw_texture_quad`, mais abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). (1) A frase de exatidão que a T4b-A-fix4 cortou volta: se os cantos definem um mapeamento projetivo é decidido de forma exata, para quaisquer cantos finitos, em qualquer tamanho, lugar e mistura de magnitudes (T4b-A-fix4, D-W8-551 a 553; com o filtro da T4b-A-FILTER, o caminho exato continua sendo o árbitro de todo sinal que o filtro não certifica). (2) A única recusa de um quadrilátero que TEM mapeamento passa a ser dita: as diagonais se cruzam tão perto de um canto (a menos de cerca de 2^-1025 do comprimento da diagonal) que um peso projetivo, arredondado a double, passaria do maior double; conta como `degenerate_quad`, como já contava. Era a lacuna que fez a D-W8-555 cortar a frase na fix4: exatidão dita ao lado de uma recusa que depende de arredondamento e que o texto público não citava. (3) O `Proved by:` ganha `projective_quad_test` (a decisão nos kites de magnitude mista e em todo quadrilátero pequeno de cantos inteiros; o quadrilátero cujo peso passaria do maior double, recusado). Os gêmeos mudam junto (L-17 global): o comentário do motivo `degenerate_quad` e o de `pieces_refused` em `frame_2d_report.hpp`, e três comentários internos (`texture_region_check.hpp`, `textured_quad_corners.hpp`, `renderer_2d_impl_textures.cpp`). Nenhum código muda. A wiki não tem página de textura e não muda.
+- **Errata da T5 (CTO, 20/10/2026; D-W8-671 a D-W8-680 e D-W8-740; etapas T5-A e T5-B):** `fill_textured_triangles` e `fill_indexed_textured_triangles` entram em `renderer_2d.hpp`, e a cerca deles, abaixo, é reescrita NO LUGAR com o texto do cabeçalho (D-W8-545). Diferenças contra a proposta da T0: (1) a ordem das recusas fica escrita por inteiro, sete passos, a do `fill_triangles` com a coordenada do texel na regra dos valores (D-W8-673), depois as duas da textura, depois `region_out_of_range` para a coordenada fora de 0..largura por 0..altura, bordas dentro (D-W8-672: recusada, nunca grampeada nem repetida; a repetição é a `R2D-TEXTURE-TILED`), depois a faixa de pixel; a proposta não tinha a recusa da faixa da textura nem a da faixa de pixel; (2) a leitura é AFIM em cada triângulo (q = 1), e o texto diz que o quadrilátero projetivo é `draw_texture_quad()`; (3) a chamada vazia não é peça, qualquer que seja a textura (D-W8-287); (4) o par textura e região do `draw_texture` não se aplica: cada vértice traz a própria coordenada; (5) a peça de triângulos texturizada conta a textura em `texture_switches` como o `draw_texture`, e logo depois de uma peça texturizada da mesma textura sai na mesma chamada de desenho; (6) pela D-W8-740 (pesquisa de 20/10: a documentação de SDL3, Dear ImGui, raylib, sokol_gl, SFML, Skia, NanoVG, pixi.js e Godot, e quinze queixas de usuários delas), a cerca diz também o que a proposta e essas nove bibliotecas calam: onde fica o texel (0, 0) e o centro do primeiro texel; que nenhum triângulo é descartado pela ordem dos seus vértices (face culling desligado, o estado de `flush()`), provado na TT1 com dois triângulos de orientações opostas; que a mistura é a de toda peça; e o custo, linear no número de vértices e índices (mais o custo fixo de toda peça), com a checagem e a cópia na própria chamada. A frase do custo é a única sem teste que meça o tempo: ela descreve o que as checagens e a cópia fazem, e o `Proved by:` dela prova só a cópia. O comentário de `gltfx_textured_vertex_2d` (cerca de `texture_region.hpp`, acima) ganha a faixa do texel e o `Proved by:`; a frase de `region_out_of_range` e a de `pieces_refused` em `frame_2d_report.hpp` ganham o gêmeo do texel do triângulo, e "WHAT A PIECE IS" ganha os dois métodos. O item (5) da errata da T4b-B2-fix1 ("ainda não estão no cabeçalho") deixa de valer para estes dois; `draw_atlas_image` continua proposta da T6. Porta de mão única: a frase pública e a recusa da D-W8-672 vão à ratificação do líder.
 - **Errata da T4b-A-FLOAT (CTO, 20/10/2026; D-W8-716 a 735; revisão N1 da T4b-A-PHRASE, CRÍTICO-1, IMPORTANTE-1 e COSMÉTICO-1):** a cerca de `draw_texture_quad`, mais abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). (1) O desenho converte o peso projetivo para float (`textured_quad_corners.cpp`, T4b-B1-fix1), e a frase da T4b-A-PHRASE dava como fronteira o maior double: entre o maior float e o maior double o quadrilátero era aceito e chegava ao vértice com peso infinito, contado como desenhado (a revisão mediu 3563 de 5623 quadriláteros aceitos numa amostra de escalas sorteadas). (2) Os quatro pesos de todo quadrilátero desenhado passam a chegar ao vértice multiplicados por UMA potência de dois, que não muda o mapeamento (o programa divide u q e v q por q): 1 enquanto o maior peso está abaixo de 2^32; acima, a que o traz para baixo de 2^32. Cada peso fica entre 2^-32 e 2^32 (o OpenGL 3.3, seção 2.1.1, promete coordenada de textura até 2^32 em magnitude), e nenhum chega à conversão para float fora da faixa do float. (3) A única recusa de um quadrilátero que TEM mapeamento passa a ser a do maior peso de 2^63 ou mais (as diagonais se cruzam a menos de cerca de 2^-64 do comprimento da diagonal, perto de um canto), que inclui a do peso acima do maior double; conta como `degenerate_quad`, como já contava. (4) A frase fala de uma família de quadriláteros, no plural (COSMÉTICO-1). (5) O `Proved by:` ganha `textured_quad_corners_test`, com os casos de maior peso 2^64/3 levado e de 2^65/3, 2^201/3 e 2^1030 recusados (IMPORTANTE-1). Os gêmeos mudam junto (L-17 global): o motivo `degenerate_quad` e `pieces_refused` em `frame_2d_report.hpp`, e dois comentários internos (`texture_region_check.hpp`, `renderer_2d_impl_textures.cpp`); `projective_quad.hpp` não muda, porque fala da recusa da função dele, que continua a do maior double. As linhas desta página com o critério antigo (IMP-T11 e Q-T01) são registro de achado e não mudam. Porta de mão única: a frase pública vai à ratificação do líder.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
@@ -324,8 +325,15 @@ struct gltfx_texture_paint {
 // tint in two parts: the colour by `tint` times `tint.alpha`, and the alpha
 // by `tint.alpha`. So a tint of alpha 0.5 over a texel of partial alpha
 // gives the right colour and the right alpha, not a dark halo.
-// `texel` is in texel units of the texture being drawn. The tint you do not
-// choose is opaque white, as in gltfx_texture_paint (D-W8-464).
+// `texel` is in texel units of the texture being drawn, from 0 to its width
+// and height (the edges are inside); fill_textured_triangles() and
+// fill_indexed_textured_triangles() refuse a coordinate outside that, never
+// clamp nor repeat it (renderer_2d.hpp).
+// The tint you do not choose is opaque white, as in gltfx_texture_paint
+// (D-W8-464).
+// Proved by: draw2d_texture_parity_test (on a real context: a vertex tint of
+// alpha 0.5 over an opaque white texel and black reads as the tint of
+// draw_texture()).
 struct gltfx_textured_vertex_2d {
     gltfx_vec2_world position{};
     gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
@@ -800,16 +808,68 @@ class gltfx_texture_atlas {
                                       gltfx_atlas_paint paint, gltfx_rect_world rect,
                                       gltfx_draw_layer layer = {}) noexcept;
 
-    // Filled triangles textured from `texture`. Each vertex carries its
-    // own texel coordinate and tint. Without indices, the vertices are read
-    // in order, three at a time; with indices, each three indices name three
-    // vertices (the same split as fill_triangles and fill_indexed_triangles).
-    // Refusals as in fill_triangles, plus a texel coordinate that is not a
-    // finite number (not_a_number), plus the two texture refusals of
-    // draw_texture (texture_not_open, texture_other_renderer).
+    // Filled triangles textured from `texture`, each vertex with its own position (world space,
+    // like fill_triangles), tint and texel coordinate (gltfx_textured_vertex_2d,
+    // texture_region.hpp). `vertices` and `indices` are read only during this call
+    // (docs/api-conventions.md R5). `fill_textured_triangles` reads the vertices in order, three at
+    // a time; `fill_indexed_textured_triangles` reads each three indices as three vertices of the
+    // span (two names, as fill_triangles and fill_indexed_triangles, D-W8-282). The texture is read
+    // AFFINELY across each triangle, with the filter of the texture (draw_texture_quad() is the
+    // projective reading), and each texel is multiplied by the tint of its vertex, interpolated
+    // across the triangle, as texture_region.hpp says.
+    //
+    // Texel (0, 0) is the top-left corner of the texture: the outer corner of the first texel of
+    // its first row, the first row of the image it was made from. x grows along the row and y
+    // grows DOWN, from one row to the next. The edges of a texel lie on whole numbers, so the
+    // center of the first texel is (0.5, 0.5), as PIXELS says for the surface.
+    // A triangle is drawn whatever the order of its three vertices, clockwise or counter-clockwise
+    // on the screen: none is dropped for its orientation, because face culling is off whenever the
+    // renderer draws (flush() lists the state it sets).
+    // The triangles are blended over what the surface already holds as every piece is: the color
+    // premultiplied, (ONE, ONE_MINUS_SRC_ALPHA), as COLOR and flush() say.
+    // The call checks each vertex and each index a fixed number of times and copies the vertices,
+    // their texel coordinates and the indices into the frame's storage (renderer_2d_desc.hpp says
+    // how that storage is reserved); its work and the memory it takes grow linearly with the
+    // number of vertices and indices, and the checking and the copying happen in this call, before
+    // the frame is sent.
+    //
+    // One call is one piece (D-W8-287). An empty call (no vertices, or no indices) does nothing and
+    // is not a piece, whatever the texture. Refused WHOLE, counted once in the report, never an
+    // exception, for the first of these reasons, in this order:
+    //   1. more than 2^32 vertices, which a 32-bit index cannot address: too_many_vertices;
+    //   2. a vertex count (no indices) or an index count that is not a multiple of three:
+    //      count_not_multiple_of_three;
+    //   3. an index that is not a vertex of this span: index_out_of_range;
+    //   4. a NaN in any position, tint or texel coordinate: not_a_number; then an infinity in
+    //      any of them: infinite;
+    //   5. texture_not_open, then texture_other_renderer, as for draw_texture();
+    //   6. a texel coordinate outside 0..width by 0..height of the texture (its edges are inside):
+    //      region_out_of_range. A coordinate past an edge is refused, never clamped nor repeated;
+    //   7. a position that the batch transform turns into a pixel coordinate larger in magnitude
+    //      than about 1.7e38, where the vertex program would overflow: pixel_position_out_of_range.
+    // A textured triangle piece is painted in the same order as every other piece and counts its
+    // texture in texture_switches as draw_texture() says; right after a textured piece of the same
+    // texture, it is drawn in the same draw call.
+    // Proved by: renderer_2d_impl_test (each reason in this order, over a fake GL; an empty call
+    // asks nothing of the texture; each vertex reaches the card with its texel coordinate divided
+    // by the texture's size, q = 1 and the tint premultiplied; a rectangle and a triangle of one
+    // texture are one draw call).
+    // Proved by: draw2d_texture_parity_test (on a real context, in both values of
+    // srgb_framebuffer: two indexed triangles of opposite orientations put each texel of a 2 x 2
+    // texture in its quarter, the first texel of the first row at the top left; a vertex tint of
+    // alpha 0.5 over black reads as the tint of draw_texture(); a rectangle and a triangle of one
+    // texture are one draw call and one switch).
+    // Proved by: draw2d_parity_test (front faces culled before the frame, and face culling read
+    // back off after flush()).
+    // Proved by: piece_list_test and triangle_store_test (a textured triangle piece keeps its
+    // texture and one read per vertex in the frame's storage; an untextured one grows no read
+    // storage).
     GLINTFX_API void fill_textured_triangles(const gltfx_texture_2d &texture,
                                              std::span<const gltfx_textured_vertex_2d> vertices,
                                              gltfx_draw_layer layer = {}) noexcept;
+    GLINTFX_API void fill_indexed_textured_triangles(
+        const gltfx_texture_2d &texture, std::span<const gltfx_textured_vertex_2d> vertices,
+        std::span<const std::uint32_t> indices, gltfx_draw_layer layer = {}) noexcept;
     GLINTFX_API void fill_indexed_textured_triangles(
         const gltfx_texture_2d &texture,
         std::span<const gltfx_textured_vertex_2d> vertices,

@@ -2,14 +2,17 @@
 #include <glintfx/draw2d/renderer_2d.hpp>
 
 #include <cassert>
+#include <cstdint>
+#include <span>
 
 #include "draw2d/renderer_2d_impl.hpp"
 #include "draw2d/texture_2d_impl.hpp"
 #include "draw2d/texture_upload.hpp"
 
-// renderer_2d_facade_textures.cpp - R2D-TEXTURE, fatias T2a, T3 and T4b-B1: the public methods that
-// make a texture (create_texture), overwrite a part of one (update_texture) and draw one
-// (draw_texture, draw_texture_quad), in their own file as the renderer's texture family opened.
+// renderer_2d_facade_textures.cpp - R2D-TEXTURE, fatias T2a, T3, T4b-B1 and T5: the public methods
+// that make a texture (create_texture), overwrite a part of one (update_texture) and draw one
+// (draw_texture, draw_texture_quad, fill_textured_triangles, fill_indexed_textured_triangles), in
+// their own file as the renderer's texture family opened.
 // They only forward: the renderer's context and GL table are read from the frame machine, the
 // making is texture_upload.hpp's, the writing texture_update.hpp's and the drawing the frame
 // machine's (renderer_2d_impl_textures.cpp). Their refusals reach the caller as they came.
@@ -69,5 +72,23 @@ void gltfx_renderer_2d::draw_texture_quad(const gltfx_texture_2d &texture,
     impl->draw_texture_quad(texture.impl, paint, corners, layer);
 }
 // cppcheck-suppress-end passedByValue
+
+void gltfx_renderer_2d::fill_textured_triangles(const gltfx_texture_2d &texture,
+                                                std::span<const gltfx_textured_vertex_2d> vertices,
+                                                gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr &&
+           "gltfx_renderer_2d::fill_textured_triangles() called on a moved-from renderer - the "
+           "object no longer owns its drawing state");
+    impl->fill_textured_triangles(texture.impl, vertices, layer);
+}
+
+void gltfx_renderer_2d::fill_indexed_textured_triangles(
+    const gltfx_texture_2d &texture, std::span<const gltfx_textured_vertex_2d> vertices,
+    std::span<const std::uint32_t> indices, gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr &&
+           "gltfx_renderer_2d::fill_indexed_textured_triangles() called on a moved-from renderer - "
+           "the object no longer owns its drawing state");
+    impl->fill_indexed_textured_triangles(texture.impl, vertices, indices, layer);
+}
 
 } // namespace glintfx

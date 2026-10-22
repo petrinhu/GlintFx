@@ -85,8 +85,15 @@ struct gltfx_texture_paint {
 // tint in two parts: the colour by `tint` times `tint.alpha`, and the alpha
 // by `tint.alpha`. So a tint of alpha 0.5 over a texel of partial alpha
 // gives the right colour and the right alpha, not a dark halo.
-// `texel` is in texel units of the texture being drawn. The tint you do not
-// choose is opaque white, as in gltfx_texture_paint (D-W8-464).
+// `texel` is in texel units of the texture being drawn, from 0 to its width
+// and height (the edges are inside); fill_textured_triangles() and
+// fill_indexed_textured_triangles() refuse a coordinate outside that, never
+// clamp nor repeat it (renderer_2d.hpp).
+// The tint you do not choose is opaque white, as in gltfx_texture_paint
+// (D-W8-464).
+// Proved by: draw2d_texture_parity_test (on a real context: a vertex tint of
+// alpha 0.5 over an opaque white texel and black reads as the tint of
+// draw_texture()).
 struct gltfx_textured_vertex_2d {
     gltfx_vec2_world position{};
     gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};

@@ -553,6 +553,69 @@ class gltfx_renderer_2d {
                                        gltfx_quad_world corners,
                                        gltfx_draw_layer layer = {}) noexcept;
 
+    // Filled triangles textured from `texture`, each vertex with its own position (world space,
+    // like fill_triangles), tint and texel coordinate (gltfx_textured_vertex_2d,
+    // texture_region.hpp). `vertices` and `indices` are read only during this call
+    // (docs/api-conventions.md R5). `fill_textured_triangles` reads the vertices in order, three at
+    // a time; `fill_indexed_textured_triangles` reads each three indices as three vertices of the
+    // span (two names, as fill_triangles and fill_indexed_triangles, D-W8-282). The texture is read
+    // AFFINELY across each triangle, with the filter of the texture (draw_texture_quad() is the
+    // projective reading), and each texel is multiplied by the tint of its vertex, interpolated
+    // across the triangle, as texture_region.hpp says.
+    //
+    // Texel (0, 0) is the top-left corner of the texture: the outer corner of the first texel of
+    // its first row, the first row of the image it was made from. x grows along the row and y
+    // grows DOWN, from one row to the next. The edges of a texel lie on whole numbers, so the
+    // center of the first texel is (0.5, 0.5), as PIXELS says for the surface.
+    // A triangle is drawn whatever the order of its three vertices, clockwise or counter-clockwise
+    // on the screen: none is dropped for its orientation, because face culling is off whenever the
+    // renderer draws (flush() lists the state it sets).
+    // The triangles are blended over what the surface already holds as every piece is: the color
+    // premultiplied, (ONE, ONE_MINUS_SRC_ALPHA), as COLOR and flush() say.
+    // The call checks each vertex and each index a fixed number of times and copies the vertices,
+    // their texel coordinates and the indices into the frame's storage (renderer_2d_desc.hpp says
+    // how that storage is reserved); its work and the memory it takes grow linearly with the
+    // number of vertices and indices, and the checking and the copying happen in this call, before
+    // the frame is sent.
+    //
+    // One call is one piece (D-W8-287). An empty call (no vertices, or no indices) does nothing and
+    // is not a piece, whatever the texture. Refused WHOLE, counted once in the report, never an
+    // exception, for the first of these reasons, in this order:
+    //   1. more than 2^32 vertices, which a 32-bit index cannot address: too_many_vertices;
+    //   2. a vertex count (no indices) or an index count that is not a multiple of three:
+    //      count_not_multiple_of_three;
+    //   3. an index that is not a vertex of this span: index_out_of_range;
+    //   4. a NaN in any position, tint or texel coordinate: not_a_number; then an infinity in
+    //      any of them: infinite;
+    //   5. texture_not_open, then texture_other_renderer, as for draw_texture();
+    //   6. a texel coordinate outside 0..width by 0..height of the texture (its edges are inside):
+    //      region_out_of_range. A coordinate past an edge is refused, never clamped nor repeated;
+    //   7. a position that the batch transform turns into a pixel coordinate larger in magnitude
+    //      than about 1.7e38, where the vertex program would overflow: pixel_position_out_of_range.
+    // A textured triangle piece is painted in the same order as every other piece and counts its
+    // texture in texture_switches as draw_texture() says; right after a textured piece of the same
+    // texture, it is drawn in the same draw call.
+    // Proved by: renderer_2d_impl_test (each reason in this order, over a fake GL; an empty call
+    // asks nothing of the texture; each vertex reaches the card with its texel coordinate divided
+    // by the texture's size, q = 1 and the tint premultiplied; a rectangle and a triangle of one
+    // texture are one draw call).
+    // Proved by: draw2d_texture_parity_test (on a real context, in both values of
+    // srgb_framebuffer: two indexed triangles of opposite orientations put each texel of a 2 x 2
+    // texture in its quarter, the first texel of the first row at the top left; a vertex tint of
+    // alpha 0.5 over black reads as the tint of draw_texture(); a rectangle and a triangle of one
+    // texture are one draw call and one switch).
+    // Proved by: draw2d_parity_test (front faces culled before the frame, and face culling read
+    // back off after flush()).
+    // Proved by: piece_list_test and triangle_store_test (a textured triangle piece keeps its
+    // texture and one read per vertex in the frame's storage; an untextured one grows no read
+    // storage).
+    GLINTFX_API void fill_textured_triangles(const gltfx_texture_2d &texture,
+                                             std::span<const gltfx_textured_vertex_2d> vertices,
+                                             gltfx_draw_layer layer = {}) noexcept;
+    GLINTFX_API void fill_indexed_textured_triangles(
+        const gltfx_texture_2d &texture, std::span<const gltfx_textured_vertex_2d> vertices,
+        std::span<const std::uint32_t> indices, gltfx_draw_layer layer = {}) noexcept;
+
     // A filled ellipse (core/ellipse.hpp; a circle when its two radii are
     // equal): `ellipse.radius_x` and `ellipse.radius_y` turned by
     // `ellipse.rotation` about `ellipse.center`, in the world, then placed by

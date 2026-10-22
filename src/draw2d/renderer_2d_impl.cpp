@@ -332,8 +332,13 @@ void renderer_2d_impl::drop_pending_without_context() noexcept {
 
 bool renderer_2d_impl::add_piece_to_batch(const draw2d::pending_piece &piece) noexcept {
     if (piece.kind == draw2d::piece_kind::triangles) {
-        return batch.add_triangles(pieces.triangle_vertices(piece), pieces.triangle_indices(piece),
-                                   draw2d::batch_state{program.program, 0, 0});
+        // A triangle piece carries its texture (0 for none) and one read per vertex (T5): a change
+        // of texture starts another run, in paint order, as for a quad.
+        return batch.add_textured_triangles(
+            draw2d::textured_triangles{pieces.triangle_vertices(piece),
+                                       pieces.triangle_reads(piece),
+                                       pieces.triangle_indices(piece)},
+            draw2d::batch_state{program.program, piece.texture, 0});
     }
     // A quad carries its texture (0 for none) and where its corners read it (T4b-B1, D-W8-470):
     // a change of texture between two pieces starts another run, in paint order, never reordered.

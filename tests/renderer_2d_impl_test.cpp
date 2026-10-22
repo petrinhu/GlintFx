@@ -2348,6 +2348,167 @@ GLINTFX_TEST(renderer_2d_impl_a_filled_ellipse_of_radius_zero_is_a_drawn_piece_o
     renderer_2d_impl::destroy(renderer);
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// R2D-TEXTURE T5 (D-W8-671 a D-W8-679): the textured triangles in the frame machine, over a fake
+// GL. The textures of texture_of() are 2 x 2 texels.
+// ---------------------------------------------------------------------------------------------------------
+namespace {
+
+using glintfx::gltfx_textured_vertex_2d;
+
+[[nodiscard]] gltfx_textured_vertex_2d textured_at(double x, double y, double u, double v) {
+    return gltfx_textured_vertex_2d{{x, y}, gltfx_rgba{1.0F, 1.0F, 1.0F, 1.0F}, {u, v}};
+}
+
+// The square (0, 0) to (8, 8) reading the whole 2 x 2 texture, its corners by role.
+[[nodiscard]] std::array<gltfx_textured_vertex_2d, 4> textured_square() {
+    return {textured_at(0, 0, 0, 0), textured_at(8, 0, 2, 0), textured_at(8, 8, 2, 2),
+            textured_at(0, 8, 0, 2)};
+}
+
+} // namespace
+
+// An indexed textured call reaches the card as one piece, in one draw call with its texture on
+// unit 0 and u_textured 1: each vertex with its texel coordinate divided by the texture's size
+// (2 texels: 1 reads 0.5), q = 1, the tint premultiplied, in the order the indices name them.
+GLINTFX_TEST(renderer_2d_impl_textured_triangles_reach_the_card_with_their_reads) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *texture = texture_of(renderer, 77U);
+    const std::array<gltfx_textured_vertex_2d, 4> vertices{
+        textured_at(0, 0, 0, 0), textured_at(8, 0, 2, 0), textured_at(8, 8, 2, 2),
+        gltfx_textured_vertex_2d{{0.0, 8.0}, gltfx_rgba{1.0F, 0.5F, 0.25F, 0.5F}, {1.0, 0.5}}};
+    const std::array<std::uint32_t, 6> indices{3U, 1U, 2U, 0U, 1U, 3U};
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_indexed_textured_triangles(texture, vertices, indices, k_layer_0);
+    const glintfx::gltfx_frame_2d_report r = report_or_empty(renderer->finish_frame());
+    GLINTFX_CHECK_EQ(r.pieces_drawn, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(r.draw_calls, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(r.texture_switches, std::uint64_t{1});
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{77U}));
+    GLINTFX_CHECK((card.textured_at_draw == std::vector<int>{1}));
+    GLINTFX_CHECK((card.draw_counts == std::vector<int>{6}));
+    GLINTFX_CHECK(sent_vertex(1, 2) == 1.0F && sent_vertex(1, 3) == 0.0F &&
+                  sent_vertex(1, 8) == 1.0F);
+    GLINTFX_CHECK(sent_vertex(2, 2) == 1.0F && sent_vertex(2, 3) == 1.0F &&
+                  sent_vertex(2, 8) == 1.0F);
+    GLINTFX_CHECK(sent_vertex(3, 2) == 0.5F && sent_vertex(3, 3) == 0.25F &&
+                  sent_vertex(3, 8) == 1.0F);
+    GLINTFX_CHECK(sent_vertex(3, 4) == 0.5F && sent_vertex(3, 5) == 0.25F &&
+                  sent_vertex(3, 6) == 0.125F && sent_vertex(3, 7) == 0.5F);
+    GLINTFX_CHECK(sent_vertex(2, 0) == 8.0F && sent_vertex(2, 1) == 8.0F);
+    glintfx::draw2d::release_texture_object(texture);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// A rectangle and a triangle call of the same texture, one after the other, are ONE draw call and
+// one switch; a triangle call of another texture after them starts another (T5, D-W8-679).
+GLINTFX_TEST(renderer_2d_impl_a_rectangle_and_a_triangle_call_of_one_texture_are_one_draw_call) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    glintfx::texture_2d_impl *first = texture_of(renderer, 77U);
+    glintfx::texture_2d_impl *second = texture_of(renderer, 78U);
+    const std::array<gltfx_textured_vertex_2d, 3> triangle{
+        textured_at(0, 0, 0, 0), textured_at(4, 0, 2, 0), textured_at(0, 4, 0, 2)};
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_texture(first, paint_of(whole()), rect(10, 0, 4, 4), k_layer_0);
+    renderer->fill_textured_triangles(first, triangle, k_layer_0);
+    renderer->fill_textured_triangles(second, triangle, k_layer_0);
+    const glintfx::gltfx_frame_2d_report r = report_or_empty(renderer->finish_frame());
+    GLINTFX_CHECK_EQ(r.pieces_drawn, std::uint64_t{3});
+    GLINTFX_CHECK_EQ(r.draw_calls, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(r.texture_switches, std::uint64_t{2});
+    GLINTFX_CHECK((card.texture_at_draw == std::vector<GLuint>{77U, 78U}));
+    GLINTFX_CHECK((card.draw_counts == std::vector<int>{9, 3}));
+    glintfx::draw2d::release_texture_object(second);
+    glintfx::draw2d::release_texture_object(first);
+    renderer_2d_impl::destroy(renderer);
+}
+
+namespace {
+
+// One textured triangle call of the table below: its texture, its vertices, its indices (none: the
+// unindexed method) and the reason it must give.
+struct triangle_case {
+    const glintfx::texture_2d_impl *texture = nullptr;
+    std::span<const gltfx_textured_vertex_2d> vertices;
+    std::span<const std::uint32_t> indices;
+    gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
+};
+
+// The square with one value changed, kept alive for the table.
+struct triangle_inputs {
+    std::array<gltfx_textured_vertex_2d, 4> square = textured_square();
+    std::array<gltfx_textured_vertex_2d, 4> nan_texel = textured_square();
+    std::array<gltfx_textured_vertex_2d, 4> outside = textured_square();
+    std::array<gltfx_textured_vertex_2d, 4> far = textured_square();
+    std::array<std::uint32_t, 3> bad_index{0U, 1U, 4U};
+    std::array<std::uint32_t, 3> fine{0U, 1U, 2U};
+    triangle_inputs() {
+        nan_texel[1].texel.y = std::numeric_limits<double>::quiet_NaN();
+        outside[2].texel.x = 2.5;
+        far[0].position.x = 1e300;
+    }
+};
+
+// The rows in the order of the header: the structure, the values (a NaN texel before the texture
+// is asked), the texture, the texel range, the pixel range, and a call that passes them all.
+std::array<triangle_case, 8> triangle_cases(const triangle_inputs &in, const two_owners &owners) {
+    using enum gltfx_draw_2d_refusal;
+    const auto tri = std::span<const gltfx_textured_vertex_2d>(in.square).first(3);
+    return {{
+        {owners.mine, in.square, {}, count_not_multiple_of_three},
+        {nullptr, in.square, in.bad_index, index_out_of_range},
+        {nullptr, in.nan_texel, in.fine, not_a_number},
+        {nullptr, in.outside, in.fine, texture_not_open},
+        {owners.theirs, in.outside, in.fine, texture_other_renderer},
+        {owners.mine, in.outside, in.fine, region_out_of_range},
+        {owners.mine, in.far, in.fine, pixel_position_out_of_range},
+        {owners.mine, tri, {}, none},
+    }};
+}
+
+} // namespace
+
+// The reasons of a textured triangle call, each alone in a frame, in the order of the header
+// (T5, D-W8-673); only the last row is drawn.
+GLINTFX_TEST(renderer_2d_impl_textured_triangles_are_refused_for_the_first_reason_in_order) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    const triangle_inputs inputs;
+    const auto draw = [&](const triangle_case &row) {
+        if (row.indices.empty()) {
+            renderer->fill_textured_triangles(row.texture, row.vertices, k_layer_0);
+        } else {
+            renderer->fill_indexed_textured_triangles(row.texture, row.vertices, row.indices,
+                                                      k_layer_0);
+        }
+    };
+    GLINTFX_CHECK_EQ(rows_right(renderer, triangle_cases(inputs, owners), draw), 8);
+    GLINTFX_CHECK((card.draw_counts == std::vector<int>{3})); // only the last row was drawn
+    close_two_owners(owners);
+}
+
+// An empty textured call is nothing, whatever the texture: no piece, no refusal, not counted
+// outside a frame either; a call with vertices outside a frame is counted there (T5, D-W8-287).
+GLINTFX_TEST(renderer_2d_impl_an_empty_textured_triangle_call_is_nothing_whatever_the_texture) {
+    reset();
+    renderer_2d_impl *renderer = make_with_textures();
+    const auto square = textured_square();
+    const auto tri = std::span<const gltfx_textured_vertex_2d>(square).first(3);
+    renderer->fill_textured_triangles(nullptr, {}, k_layer_0);  // outside, empty
+    renderer->fill_textured_triangles(nullptr, tri, k_layer_0); // outside, counted
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_textured_triangles(nullptr, {}, k_layer_0);
+    renderer->fill_indexed_textured_triangles(nullptr, square, {}, k_layer_0);
+    const glintfx::gltfx_frame_2d_report r = report_or_empty(renderer->finish_frame());
+    GLINTFX_CHECK_EQ(r.pieces_submitted, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(r.pieces_refused, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(r.pieces_dropped_outside_frame, std::uint64_t{1});
+    renderer_2d_impl::destroy(renderer);
+}
+
 // ---- R2D-SHAPES S5-C1-fix1 (revisao N1 da S5-C1, IMPORTANTE-1 e IMPORTANTE-2) ------------------
 // The layer: an ellipse is painted in ITS layer, as the rectangle outline is (S4-fix1). A red
 // ellipse in layer 1, then a blue square in layer 0 submitted after it: the square is painted first

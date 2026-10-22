@@ -61,6 +61,16 @@ struct textured_submission {
     gltfx_quad_world corners{};
     bool projective = false;
 };
+
+// What one textured triangle call submits (T5): the texture, the vertices and the indices (read
+// only during the call), and whether the call is indexed. Grouped so submit_textured_triangles()
+// stays within four parameters.
+struct textured_triangle_call {
+    const texture_2d_impl *texture = nullptr;
+    std::span<const gltfx_textured_vertex_2d> vertices;
+    std::span<const std::uint32_t> indices;
+    bool indexed = false;
+};
 } // namespace draw2d
 
 // What the renderer asks of its context (D-API-07: it makes ITS OWN context current before it
@@ -137,6 +147,18 @@ struct renderer_2d_impl {
                       const gltfx_rect_world &rect, gltfx_draw_layer layer) noexcept;
     void draw_texture_quad(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
                            const gltfx_quad_world &corners, gltfx_draw_layer layer) noexcept;
+    // The textured triangles (T5, renderer_2d_impl_textures.cpp): an empty call is nothing; the
+    // rest is checked in the order of triangle_list_check.hpp (the counts, the indices, the values
+    // with the texel coordinates), then the texture (not open, another renderer's, a texel
+    // coordinate outside it), then the pixel range; refused whole and counted once, or kept as one
+    // textured triangle piece, which reads the texture affinely (q = 1).
+    void fill_textured_triangles(const texture_2d_impl *texture,
+                                 std::span<const gltfx_textured_vertex_2d> vertices,
+                                 gltfx_draw_layer layer) noexcept;
+    void fill_indexed_textured_triangles(const texture_2d_impl *texture,
+                                         std::span<const gltfx_textured_vertex_2d> vertices,
+                                         std::span<const std::uint32_t> indices,
+                                         gltfx_draw_layer layer) noexcept;
     void flush() noexcept;
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
     [[nodiscard]] gltfx_frame_2d_report last_frame_report() const noexcept;
@@ -181,6 +203,14 @@ struct renderer_2d_impl {
     // texture (none when they pass); the shape and the pixel range are asked here.
     void submit_textured(const draw2d::textured_submission &submission,
                          gltfx_draw_2d_refusal refusal, gltfx_draw_layer layer) noexcept;
+    // The one path of both textured triangle methods (T5): an empty call is nothing; the rest is
+    // checked, refused whole and counted once, or kept as one piece in the paint order.
+    void submit_textured_triangles(const draw2d::textured_triangle_call &call,
+                                   gltfx_draw_layer layer) noexcept;
+    // One accepted textured triangle call kept as one piece (T5): its pixel vertices and their
+    // reads (triangle_pixel_vertices) go into the piece list with the texture's GL name.
+    void keep_textured_triangle_call(const draw2d::textured_triangle_call &call,
+                                     gltfx_draw_layer layer) noexcept;
     // The one path of both triangle methods: an empty call is nothing; the rest is checked, refused
     // whole and counted once, or kept as one piece in the paint order (S2b).
     void submit_triangles(std::span<const gltfx_vertex_2d_world> vertices,

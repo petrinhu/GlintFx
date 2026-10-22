@@ -17,7 +17,8 @@
 //
 // WHAT A "PIECE" IS: one call of a drawing method (fill_rect(), fill_quad(),
 // fill_triangles(), fill_indexed_triangles(), stroke_line(), stroke_rect(),
-// fill_ellipse(), stroke_ellipse(), draw_texture() or draw_texture_quad()),
+// fill_ellipse(), stroke_ellipse(), draw_texture(), draw_texture_quad(),
+// fill_textured_triangles() or fill_indexed_textured_triangles()),
 // whatever the
 // method: a triangle call with a hundred triangles is one piece, and a
 // refusal refuses the whole call, once. A call that does nothing (no
@@ -65,7 +66,8 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     pixel_position_out_of_range = 8,
     // Appended by R2D-TEXTURE T4b-A (D-W8-290, the one list of the texture
     // reasons): the texture of a drawing call is released or was never
-    // opened; it belongs to another renderer; the source region reaches
+    // opened; it belongs to another renderer; the source region, or a texel
+    // coordinate of a textured triangle (R2D-TEXTURE T5), reaches
     // outside the texture; or the four corners of a textured quadrilateral
     // define no projective mapping (three on one line, edges that cross, or
     // a corner pointing inward; decided exactly), or define one with a
@@ -102,6 +104,7 @@ struct gltfx_frame_2d_report {
     // multiple of three, an unknown option, too many vertices, a position
     // whose pixel coordinate is out of the range the vertex program can
     // scale, a texture that is not open or belongs to another renderer, a
+    // texel coordinate of a textured triangle outside its texture, a
     // source region outside its texture, or a textured quadrilateral with no
     // projective mapping or with a projective weight of 2^63 or more.
     // The frame goes on without them; this is not an error of the

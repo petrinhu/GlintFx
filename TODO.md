@@ -206,6 +206,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage CTO-T5B 22/10] `TEXEL-ORIGIN-RECT-DOC`: a origem do texel (canto de cima à esquerda, centro do texel) falta na documentação de gltfx_rect_texel em draw_texture e draw_texture_quad, que já usam "texture's top-left" sem defini-la. Origem: /var/tmp/cto-w8/t5b-regen-relatorio.txt (D-W8-862).
 - [triage CTO-T5AFIX1 22/10] `T5-READS-COUNT-GUARD`: a pré-condição de que há uma leitura de textura por vértice fica só em assert (triangle_batch.cpp:109, piece_list.cpp:66 e 114, triangle_store.cpp:67); decidir se vira guarda real quando um segundo produtor de leituras aparecer. Origem: /var/tmp/cto-w8/ordem-t5a-fix1.md e /var/tmp/cto-w8/rev-t5a.txt C3 (D-W8-863).
 - [triage CTO-S5C2 22/10] `ARC-HALF-SWEEP`: o erro da ponta redonda na tela está provado com um raio só (50000); varrer raios e espessuras. Origem: /var/tmp/cto-w8/ordem-s5c2.md (D-W8-863).
+- [triage main 22/10] `SELFTEST-TMP-LEAK`: os autotestes dos portões (glintfx-singlereg, glintfx-ignfix, glintfx-ci-systems-selftest, glintfx-uniformity-selftest-* e outros) deixam pastas temporárias em /var/tmp; em 22/10 havia 37 mil, somando 3,3 GiB, e o disco desta máquina chegou a 20,6 GiB com piso de 20. Cada teste precisa apagar a própria pasta, inclusive quando falha. Origem: limpeza do main, D-W8-865.
 
 
 

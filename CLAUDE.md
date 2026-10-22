@@ -166,7 +166,7 @@ Comandos provados verdes em 21/08/2026 (FUND-3), na forma exata usada pelo job `
 - Um único teste: `ctest --test-dir build -R <nome> --output-on-failure` (ex.: `-R version_test`)
 - Lint / análise estática: `<a definir>`
 
-Sempre com `export TMPDIR=/var/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs). **Número de casos por modo não é fixo aqui** — meça com `ctest --test-dir build -N` (shared) e `ctest --test-dir build-static -N` (estático); os dois modos diferem só por `visibility_test`, que exige `BUILD_SHARED_LIBS=ON` em Unix (é `nm -D` numa `.a`, não faz sentido no modo estático). Esta linha já gravou "3/2" e depois "9/8" como se fossem constantes; as duas versões apodreceram em dias — não repita o erro.
+Sempre com `export TMPDIR=<projeto>/.trabalho/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs; emenda de 22/10/2026 na L-09: fora da partição `/`). **Número de casos por modo não é fixo aqui** — meça com `ctest --test-dir build -N` (shared) e `ctest --test-dir build-static -N` (estático); os dois modos diferem só por `visibility_test`, que exige `BUILD_SHARED_LIBS=ON` em Unix (é `nm -D` numa `.a`, não faz sentido no modo estático). Esta linha já gravou "3/2" e depois "9/8" como se fossem constantes; as duas versões apodreceram em dias — não repita o erro.
 
 ## Isolamento obrigatório de teste (teclado, mouse, tela)
 
@@ -218,7 +218,7 @@ Estado em 21/08/2026: `inbox/glintfx/` **vazia**, 28 mensagens no `archive/`. As
 
 Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e um framework 2D bate em todas elas.
 
-- **Build pesado vai para `/var/tmp`, com `export TMPDIR=/var/tmp`.** `/tmp` aqui é tmpfs (sai da RAM); build C++ grande enche o tmpfs e o link falha com "no space on device".
+- **Build pesado, temporários e provas vão para `<projeto>/.trabalho/`, com `export TMPDIR=<projeto>/.trabalho/tmp`** (emenda de 22/10/2026 na L-09 do `GODS_LAWS.md`: tirar da partição `/`, que tem só ~21 GiB; a pasta do projeto fica na partição `home`). `/tmp` aqui é tmpfs (sai da RAM) e continua proibido. As pastas antigas de `/var/tmp` deste projeto são atalhos para `.trabalho/`, para as ordens congeladas seguirem válidas. O orquestrador limpa `.trabalho/` depois de cada uso.
 - **Espaço em disco se mede com `btrfs filesystem usage /`** (sem `sudo`), lendo `Device unallocated` e o `min` de `Free (estimated)`. O `df` mente em btrfs.
 - **Teste que toca teclado, mouse ou tela roda em container, com compositor Wayland aninhado dentro dele.** Ver a seção "Isolamento obrigatório de teste" acima; é regra, não preferência. Injetor de input X11 ou de kernel está fora.
 - **Verificação de entregável visual é do `qa-engineer`**, independente de quem implementou, e o orquestrador reconfere o relatório do QA.

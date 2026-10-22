@@ -105,3 +105,8 @@ tests/container/_arch_ports_examples/
 # Copias de trabalho (git worktree) do projeto: moram em subpasta (GODS_LAWS.md
 # L-55, condicao 2), so o codigo; o build fica em /var/tmp.
 /worktrees/
+
+# Pasta de trabalho local fora da partição / (ordem do líder, 22/10/2026):
+# builds, temporários, provas dos CTOs e cache de compilação deste projeto.
+# Nunca versionada; o orquestrador a higieniza depois de cada uso.
+/.trabalho/

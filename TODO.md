@@ -209,7 +209,6 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage CTO-T5BFIX1 22/10] `PUBLIC-HEADER-INTERNAL-CODES`: 29 linhas com códigos internos D-W8- ainda nos cabeçalhos públicos em include/; texto público não deve citar código interno (L-21 do projeto). Origem: /var/tmp/cto-w8/ordem-t5b-fix1.md (D-W8-866).
 - [triage CTO-T5BFIX1 22/10] `API-CONV-BORROWED-SPAN`: a remissão à regra R5 de docs/api-conventions.md em três cercas (renderer_2d.hpp:281, :371 e :559) não trata de leitura de span emprestado; decidir se a R5 ganha essa cláusula ou se as cercas citam outra regra. Origem: /var/tmp/cto-w8/rev-t5b.txt (D-W8-866).
 - [triage CTO-T5BFIX1 22/10] `TT2-COMMENT`: o comentário em tests/parity/draw2d_texture_parity_test.cpp:675 diz "reads TN" e a conta ao lado (:694) compara com constante; alinhar o comentário ao que o teste faz. Origem: /var/tmp/cto-w8/rev-t5b.txt (D-W8-866).
-- [triage CTO-T5BFIX2 22/10] `TOO-MANY-VERTICES-SPAN-PROOF`: decisão do líder: provar no teste do desenhador a recusa por excesso de vértices com um span de mais de 2^32 vértices sustentado por reserva de endereço sem uso de memória (a sonda do revisor fez isso no Linux com ~206 GB reservados); o CTO não fez agora porque a reserva depende do sistema (overcommit modo 2, 32 bits, Windows não medido). Origem: /var/tmp/cto-w8/rev-t5bfix1.txt e /var/tmp/cto-w8/ordem-t5b-fix2.md (D-W8-869).
 
 
 

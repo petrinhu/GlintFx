@@ -813,7 +813,7 @@ class gltfx_texture_atlas {
     // texture_region.hpp). `vertices` and `indices` are read only during this call
     // (docs/api-conventions.md R5). `fill_textured_triangles` reads the vertices in order, three at
     // a time; `fill_indexed_textured_triangles` reads each three indices as three vertices of the
-    // span (two names, as fill_triangles and fill_indexed_triangles, D-W8-282). The texture is read
+    // span (two names, as fill_triangles and fill_indexed_triangles). The texture is read
     // AFFINELY across each triangle, with the filter of the texture (draw_texture_quad() is the
     // projective reading), and each texel is multiplied by the tint of its vertex, interpolated
     // across the triangle, as texture_region.hpp says.
@@ -828,12 +828,11 @@ class gltfx_texture_atlas {
     // The triangles are blended over what the surface already holds as every piece is: the color
     // premultiplied, (ONE, ONE_MINUS_SRC_ALPHA), as COLOR and flush() say.
     // The call checks each vertex and each index a fixed number of times and copies the vertices,
-    // their texel coordinates and the indices into the frame's storage (renderer_2d_desc.hpp says
-    // how that storage is reserved); its work and the memory it takes grow linearly with the
-    // number of vertices and indices, and the checking and the copying happen in this call, before
-    // the frame is sent.
+    // their texel coordinates and the indices into the frame's storage; its work and the memory it
+    // takes grow linearly with the number of vertices and indices, and the checking and the
+    // copying happen in this call, before the frame is sent.
     //
-    // One call is one piece (D-W8-287). An empty call (no vertices, or no indices) does nothing and
+    // One call is one piece. An empty call (no vertices, or no indices) does nothing and
     // is not a piece, whatever the texture. Refused WHOLE, counted once in the report, never an
     // exception, for the first of these reasons, in this order:
     //   1. more than 2^32 vertices, which a 32-bit index cannot address: too_many_vertices;
@@ -850,15 +849,18 @@ class gltfx_texture_atlas {
     // A textured triangle piece is painted in the same order as every other piece and counts its
     // texture in texture_switches as draw_texture() says; right after a textured piece of the same
     // texture, it is drawn in the same draw call.
-    // Proved by: renderer_2d_impl_test (each reason in this order, over a fake GL; an empty call
-    // asks nothing of the texture; each vertex reaches the card with its texel coordinate divided
-    // by the texture's size, q = 1 and the tint premultiplied; a rectangle and a triangle of one
-    // texture are one draw call).
+    // Proved by: renderer_2d_impl_test (each reason in this order but too_many_vertices, over a
+    // fake GL; an empty call asks nothing of the texture; each vertex reaches the card with its
+    // texel coordinate divided by the texture's size, q = 1 and the tint premultiplied; a
+    // rectangle and a triangle of one texture are one draw call).
+    // Proved by: triangle_list_check_test (too_many_vertices, which needs a span of more than
+    // 2^32 vertices that no test can hold: the counts alone refuse 2^32 + 1 vertices, before the
+    // multiple of three; and, within one call, a NaN before an infinity).
     // Proved by: draw2d_texture_parity_test (on a real context, in both values of
     // srgb_framebuffer: two indexed triangles of opposite orientations put each texel of a 2 x 2
     // texture in its quarter, the first texel of the first row at the top left; a vertex tint of
-    // alpha 0.5 over black reads as the tint of draw_texture(); a rectangle and a triangle of one
-    // texture are one draw call and one switch).
+    // alpha 0.5 over black reads the value the tint of draw_texture() is held to; a rectangle and
+    // a triangle of one texture are one draw call and one switch).
     // Proved by: draw2d_parity_test (front faces culled before the frame, and face culling read
     // back off after flush()).
     // Proved by: piece_list_test and triangle_store_test (a textured triangle piece keeps its

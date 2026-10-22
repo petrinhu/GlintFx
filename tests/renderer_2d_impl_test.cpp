@@ -2440,26 +2440,31 @@ struct triangle_case {
 struct triangle_inputs {
     std::array<gltfx_textured_vertex_2d, 4> square = textured_square();
     std::array<gltfx_textured_vertex_2d, 4> nan_texel = textured_square();
+    std::array<gltfx_textured_vertex_2d, 4> infinite_texel = textured_square();
     std::array<gltfx_textured_vertex_2d, 4> outside = textured_square();
     std::array<gltfx_textured_vertex_2d, 4> far = textured_square();
     std::array<std::uint32_t, 3> bad_index{0U, 1U, 4U};
     std::array<std::uint32_t, 3> fine{0U, 1U, 2U};
     triangle_inputs() {
         nan_texel[1].texel.y = std::numeric_limits<double>::quiet_NaN();
+        infinite_texel[1].texel.x = std::numeric_limits<double>::infinity();
         outside[2].texel.x = 2.5;
         far[0].position.x = 1e300;
     }
 };
 
-// The rows in the order of the header: the structure, the values (a NaN texel before the texture
-// is asked), the texture, the texel range, the pixel range, and a call that passes them all.
-std::array<triangle_case, 8> triangle_cases(const triangle_inputs &in, const two_owners &owners) {
+// The rows in the order of the header: the structure, the values (a NaN texel, then an infinite
+// one, each before the texture is asked), the texture, the texel range, the pixel range, and a
+// call that passes them all. too_many_vertices has no row: it needs a span of more than 2^32
+// vertices, which no test can hold; triangle_list_check_test refuses that count.
+std::array<triangle_case, 9> triangle_cases(const triangle_inputs &in, const two_owners &owners) {
     using enum gltfx_draw_2d_refusal;
     const auto tri = std::span<const gltfx_textured_vertex_2d>(in.square).first(3);
     return {{
         {owners.mine, in.square, {}, count_not_multiple_of_three},
         {nullptr, in.square, in.bad_index, index_out_of_range},
         {nullptr, in.nan_texel, in.fine, not_a_number},
+        {nullptr, in.infinite_texel, in.fine, infinite},
         {nullptr, in.outside, in.fine, texture_not_open},
         {owners.theirs, in.outside, in.fine, texture_other_renderer},
         {owners.mine, in.outside, in.fine, region_out_of_range},
@@ -2485,7 +2490,7 @@ GLINTFX_TEST(renderer_2d_impl_textured_triangles_are_refused_for_the_first_reaso
                                                       k_layer_0);
         }
     };
-    GLINTFX_CHECK_EQ(rows_right(renderer, triangle_cases(inputs, owners), draw), 8);
+    GLINTFX_CHECK_EQ(rows_right(renderer, triangle_cases(inputs, owners), draw), 9);
     GLINTFX_CHECK((card.draw_counts == std::vector<int>{3})); // only the last row was drawn
     close_two_owners(owners);
 }

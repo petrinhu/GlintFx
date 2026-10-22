@@ -41,11 +41,26 @@ class triangle_store {
                               std::span<const std::uint32_t> local_indices,
                               triangle_position &where) noexcept;
 
+    // Room for `count` more texture reads (R2D-TEXTURE T5): the store holds reads only for the
+    // TEXTURED triangle pieces, so an untextured piece asks for none and its path through the
+    // allocator is the one of before. False, the store unchanged, when memory ran out or the size
+    // would overflow.
+    [[nodiscard]] bool room_for_reads(std::size_t count) noexcept;
+
+    // Copies the reads of one textured piece in at the end, and says where they start. False, the
+    // store unchanged, when memory ran out. The caller's array may change after the call.
+    [[nodiscard]] bool append_reads(std::span<const triangle_texture_read> reads,
+                                    std::size_t &first) noexcept;
+
     // The `count` vertices, and the `count` indices, that start at `first`.
     [[nodiscard]] std::span<const colored_pixel_vertex> vertices(std::size_t first,
                                                                  std::size_t count) const noexcept;
     [[nodiscard]] std::span<const std::uint32_t> indices(std::size_t first,
                                                          std::size_t count) const noexcept;
+
+    // The `count` reads that start at `first` (T5).
+    [[nodiscard]] std::span<const triangle_texture_read> reads(std::size_t first,
+                                                               std::size_t count) const noexcept;
 
     // Empties the store and KEEPS its capacity.
     void clear() noexcept;
@@ -54,6 +69,7 @@ class triangle_store {
     batch_allocator allocator;
     pod_buffer<colored_pixel_vertex> vertex_store;
     pod_buffer<std::uint32_t> index_store;
+    pod_buffer<triangle_texture_read> read_store;
 };
 
 } // namespace glintfx::draw2d

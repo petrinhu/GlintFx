@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/triangle_batch.hpp"
 
+#include <cassert>
 #include <limits>
 
 namespace glintfx::draw2d {
@@ -100,18 +101,25 @@ void triangle_batch::record_run(batch_state state, std::size_t first_index, std:
 bool triangle_batch::add_triangles(std::span<const colored_pixel_vertex> vertices,
                                    std::span<const std::uint32_t> local_indices,
                                    batch_state state) noexcept {
-    if (vertices.empty()) {
+    return add_textured_triangles(textured_triangles{vertices, {}, local_indices}, state);
+}
+
+bool triangle_batch::add_textured_triangles(const textured_triangles &piece,
+                                            batch_state state) noexcept {
+    assert(piece.reads.empty() || piece.reads.size() == piece.vertices.size());
+    if (piece.vertices.empty()) {
         return true; // nothing to draw: a piece with no vertices adds nothing, and is not dropped
     }
-    const std::size_t index_count = local_indices.empty() ? vertices.size() : local_indices.size();
+    const std::size_t index_count =
+        piece.local_indices.empty() ? piece.vertices.size() : piece.local_indices.size();
     const bool starts_a_run =
         run_store.size == 0 || !(run_store.data[run_store.size - 1].state == state);
-    if (!make_room_for_triangles(vertices.size(), index_count, starts_a_run)) {
+    if (!make_room_for_triangles(piece.vertices.size(), index_count, starts_a_run)) {
         ++dropped;
         return false;
     }
     const std::size_t first_index = index_store.size;
-    write_triangles(vertices, local_indices);
+    write_triangles(piece);
     record_run(state, first_index, index_count, starts_a_run);
     return true;
 }
@@ -125,24 +133,28 @@ bool triangle_batch::make_room_for_triangles(std::size_t vertex_count, std::size
 }
 
 // Called only with the room made. Each vertex keeps its position and gets its color premultiplied
-// (one by one, so a half-transparent vertex never grows a dark fringe); the texture coordinate of a
-// triangle is inert (0).
-void triangle_batch::write_triangles(std::span<const colored_pixel_vertex> vertices,
-                                     std::span<const std::uint32_t> local_indices) noexcept {
+// (one by one, so a half-transparent vertex never grows a dark fringe); the texture coordinate is
+// the vertex's read (T5), and inert (0, 0) for an untextured piece, as before. q is 1: a triangle
+// is drawn affinely.
+void triangle_batch::write_triangles(const textured_triangles &piece) noexcept {
     const auto base = static_cast<std::uint32_t>(vertex_store.size);
-    for (const colored_pixel_vertex &vertex : vertices) {
+    for (std::size_t i = 0; i < piece.vertices.size(); ++i) {
+        const colored_pixel_vertex &vertex = piece.vertices[i];
+        const triangle_texture_read read =
+            piece.reads.empty() ? triangle_texture_read{} : piece.reads[i];
         const glintfx::gltfx_rgba premultiplied = glintfx::gltfx_rgba_premultiplied(vertex.color);
         vertex_store.data[vertex_store.size++] = batch_vertex{vertex.position.x,
                                                               vertex.position.y,
-                                                              0.0F,
-                                                              0.0F,
+                                                              read.u,
+                                                              read.v,
                                                               premultiplied.red,
                                                               premultiplied.green,
                                                               premultiplied.blue,
                                                               premultiplied.alpha,
                                                               1.0F};
     }
-    const std::size_t count = local_indices.empty() ? vertices.size() : local_indices.size();
+    const std::span<const std::uint32_t> local_indices = piece.local_indices;
+    const std::size_t count = local_indices.empty() ? piece.vertices.size() : local_indices.size();
     for (std::size_t i = 0; i < count; ++i) {
         const std::uint32_t local =
             local_indices.empty() ? static_cast<std::uint32_t>(i) : local_indices[i];

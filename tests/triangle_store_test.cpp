@@ -119,3 +119,55 @@ GLINTFX_TEST(triangle_store_clear_empties_it_and_keeps_the_capacity) {
     GLINTFX_CHECK_EQ(again.first_vertex, std::size_t{0});
     GLINTFX_CHECK_EQ(g_armed.calls, calls_before_clear); // the capacity was kept: nothing to grow
 }
+
+// R2D-TEXTURE T5 (D-W8-674): the reads of the textured pieces are kept apart, copied, and each
+// append says where its reads start; clear() empties them with the rest.
+GLINTFX_TEST(triangle_store_reads_are_copied_and_say_where_they_start) {
+    triangle_store store;
+    std::array<glintfx::draw2d::triangle_texture_read, 3> first{
+        {{0.25F, 0.5F}, {0.75F, 0.5F}, {0.5F, 1.0F}}};
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> second{
+        {{1.0F, 0.0F}, {0.0F, 1.0F}, {0.125F, 0.25F}}};
+    std::size_t at_first = 99;
+    std::size_t at_second = 99;
+    GLINTFX_CHECK(store.append_reads(first, at_first));
+    GLINTFX_CHECK(store.append_reads(second, at_second));
+    first[0] = {0.0F, 0.0F}; // the caller's array changes after the call
+    GLINTFX_CHECK_EQ(at_first, std::size_t{0});
+    GLINTFX_CHECK_EQ(at_second, std::size_t{3});
+    const auto kept = store.reads(0, 6);
+    GLINTFX_CHECK(kept[0].u == 0.25F && kept[0].v == 0.5F);
+    GLINTFX_CHECK(kept[5].u == 0.125F && kept[5].v == 0.25F);
+    store.clear();
+    std::size_t again = 99;
+    GLINTFX_CHECK(store.append_reads(second, again));
+    GLINTFX_CHECK_EQ(again, std::size_t{0});
+}
+
+// An untextured piece asks the read store for nothing: appending three vertices and three indices
+// grows exactly two buffers, as before the reads existed (T5).
+GLINTFX_TEST(triangle_store_an_untextured_append_grows_no_read_buffer) {
+    g_armed = armed_state{};
+    triangle_store store(armed());
+    const std::array<colored_pixel_vertex, 3> vertices{vertex_at(1.0F), vertex_at(2.0F),
+                                                       vertex_at(3.0F)};
+    const std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
+    triangle_position where{};
+    GLINTFX_CHECK(store.append(vertices, indices, where));
+    GLINTFX_CHECK_EQ(g_armed.calls, 2);
+}
+
+// A refused room for reads leaves the store as it was; the next call works again (T5).
+GLINTFX_TEST(triangle_store_refused_reads_leave_the_store_unchanged) {
+    g_armed = armed_state{};
+    triangle_store store(armed());
+    const std::array<glintfx::draw2d::triangle_texture_read, 2> reads{{{0.5F, 0.5F}, {1.0F, 1.0F}}};
+    g_armed.refuse_all = true;
+    std::size_t first = 99;
+    GLINTFX_CHECK(!store.append_reads(reads, first));
+    GLINTFX_CHECK_EQ(first, std::size_t{99});
+    g_armed.refuse_all = false;
+    GLINTFX_CHECK(store.append_reads(reads, first));
+    GLINTFX_CHECK_EQ(first, std::size_t{0});
+    GLINTFX_CHECK(store.reads(0, 2)[1].u == 1.0F);
+}

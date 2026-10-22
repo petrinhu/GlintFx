@@ -96,6 +96,22 @@ using quad_texture_corners = std::array<quad_texture_corner, 4>;
 inline constexpr quad_texture_corners k_role_texture_corners{
     {{0.0F, 0.0F, 1.0F}, {1.0F, 0.0F, 1.0F}, {1.0F, 1.0F, 1.0F}, {0.0F, 1.0F, 1.0F}}};
 
+// Where one vertex of a TEXTURED triangle piece reads its texture (R2D-TEXTURE T5, D-W8-675): u and
+// v in 0..1 across the texture. A triangle is drawn affinely, so its q is 1 and is not carried.
+struct triangle_texture_read {
+    float u = 0.0F;
+    float v = 0.0F;
+};
+
+// One triangle piece as the batch takes it (T5): its pixel vertices, where each one reads its
+// texture (as many reads as vertices, or none for an untextured piece), and its local indices
+// (empty means 0..n-1). Grouped so the calls that carry it stay within four parameters.
+struct textured_triangles {
+    std::span<const colored_pixel_vertex> vertices;
+    std::span<const triangle_texture_read> reads;
+    std::span<const std::uint32_t> local_indices;
+};
+
 // One draw call: `index_count` indices starting at `first_index`, all with `state`.
 struct draw_run {
     batch_state state;
@@ -133,6 +149,14 @@ class triangle_batch {
                                      std::span<const std::uint32_t> local_indices,
                                      batch_state state) noexcept;
 
+    // The same triangle piece, TEXTURED (R2D-TEXTURE T5, D-W8-675): each vertex reads its texture
+    // at the read of the same position in `piece.reads` (stored as (u, v) with q = 1), and its
+    // color is the tint, stored premultiplied like every color. `piece.reads` holds as many reads
+    // as vertices, or none: add_triangles() is this call with no reads, each vertex at (0, 0). The
+    // same atomicity and the same count of drops.
+    [[nodiscard]] bool add_textured_triangles(const textured_triangles &piece,
+                                              batch_state state) noexcept;
+
     // Makes room, in one go, for `pieces` MORE pieces (4 vertices and 6 indices each, plus a
     // run each, the worst case), so the fill that follows allocates nothing: what the public
     // `reserve_pieces` hint asks for at open(). True when the room is there; false when memory ran
@@ -153,9 +177,9 @@ class triangle_batch {
     // add_quad() in two steps (D-B7-1): the vertices and indices of one piece, and its run.
     void write_quad(const quad_corners_pixel &corners, const quad_texture_corners &texture_corners,
                     glintfx::gltfx_rgba premultiplied) noexcept;
-    // The triangles of one piece (S2a): the vertices and the indices, shifted by the base.
-    void write_triangles(std::span<const colored_pixel_vertex> vertices,
-                         std::span<const std::uint32_t> local_indices) noexcept;
+    // The triangles of one piece (S2a): the vertices with their reads (T5; none reads (0, 0)), and
+    // the indices, shifted by the base.
+    void write_triangles(const textured_triangles &piece) noexcept;
     [[nodiscard]] bool make_room_for_triangles(std::size_t vertex_count, std::size_t index_count,
                                                bool starts_a_run) noexcept;
     void record_run(batch_state state, std::size_t first_index, std::size_t index_count,

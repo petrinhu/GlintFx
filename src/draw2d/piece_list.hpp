@@ -52,15 +52,28 @@ struct pending_piece {
     std::size_t vertex_count = 0;
     std::size_t first_index = 0; // triangles only: where its LOCAL indices start in the index store
     std::size_t index_count = 0; // 0 when the piece came with no indices (0..n-1 in order)
-    // Quads only (T4b-B1, D-W8-470): the GL name of the texture, 0 for an untextured quad, and
-    // where each corner reads it. An untextured quad carries the coordinates by role and q = 1.
-    // Inline, so the sort keeps copying one plain value: a texture name and four corners more per
-    // piece, paid by every piece.
+    // Textured triangles only (R2D-TEXTURE T5, D-W8-674): where the reads of its vertices start in
+    // the read store, one read per vertex. Paid by every piece, as the texture fields below are.
+    std::size_t first_read = 0;
+    // The GL name of the texture, 0 for an untextured piece: a quad's (T4b-B1, D-W8-470) or a
+    // triangle piece's (T5). Quads only: where each corner reads it; an untextured quad carries the
+    // coordinates by role and q = 1. Inline, so the sort keeps copying one plain value: a texture
+    // name and four corners more per piece, paid by every piece.
     std::uint32_t texture = 0;
     quad_texture_corners texture_corners = k_role_texture_corners;
 };
 static_assert(std::is_trivially_copyable_v<pending_piece>,
               "a pending piece is copied by value through the sort (D-B4-2)");
+
+// One TEXTURED triangle piece for the list (R2D-TEXTURE T5): its geometry (pixel vertices, one read
+// per vertex, local indices) and the GL name of its texture (not zero). Grouped so
+// add_textured_triangles() stays within four parameters. The field is not called `triangles`: the
+// list's own triangle store has that name, and tests/tools/check_noexcept_alloc.py resolves a
+// receiver by NAME across the tree (measured: the second type made append() look allocating).
+struct textured_triangle_piece {
+    textured_triangles geometry;
+    std::uint32_t texture = 0;
+};
 
 class piece_list {
   public:
@@ -97,11 +110,22 @@ class piece_list {
                                      std::span<const std::uint32_t> local_indices,
                                      std::int32_t layer) noexcept;
 
+    // Adds one TEXTURED triangle piece (T5): its vertices, its reads and its local indices are
+    // COPIED into the list, with the texture's GL name. add_triangles() is this call with no reads
+    // and texture 0. The same bound and the same refusal: every store the piece needs grows BEFORE
+    // anything is written, and an untextured piece asks the read store for nothing.
+    [[nodiscard]] bool add_textured_triangles(const textured_triangle_piece &piece,
+                                              std::int32_t layer) noexcept;
+
     // The vertices and the local indices of a TRIANGLE piece of THIS list (empty for a quad).
     [[nodiscard]] std::span<const colored_pixel_vertex>
     triangle_vertices(const pending_piece &piece) const noexcept;
     [[nodiscard]] std::span<const std::uint32_t>
     triangle_indices(const pending_piece &piece) const noexcept;
+    // Where each vertex of a TEXTURED triangle piece of THIS list reads its texture (T5): one read
+    // per vertex; empty for a quad and for an untextured triangle piece.
+    [[nodiscard]] std::span<const triangle_texture_read>
+    triangle_reads(const pending_piece &piece) const noexcept;
 
     // Puts the pieces in paint order, in place. Allocates nothing and cannot fail. Every piece on
     // one layer (the common case) is already in paint order and costs nothing.
@@ -118,9 +142,8 @@ class piece_list {
     // Keeps `one_layer` true only while every piece is on the layer of the first one.
     void note_layer(std::int32_t layer) noexcept;
     // Room in one go for a triangle piece with these counts, in the piece store and in the triangle
-    // store; false when refused, nothing written.
-    [[nodiscard]] bool room_for_triangle_piece(std::size_t vertex_count,
-                                               std::size_t index_count) noexcept;
+    // store (its reads included, T5); false when refused, nothing written.
+    [[nodiscard]] bool room_for_triangle_piece(const textured_triangles &piece) noexcept;
 
     batch_allocator allocator;
     std::size_t bound;

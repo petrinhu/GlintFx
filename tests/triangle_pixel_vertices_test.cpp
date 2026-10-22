@@ -158,3 +158,63 @@ GLINTFX_TEST(triangle_pixel_vertices_a_pixel_position_out_of_range_is_not_conver
                   triangle_pixels_outcome::pixel_position_out_of_range);
     deny = false;
 }
+
+// R2D-TEXTURE T5 (D-W8-675): a textured call keeps each tint as the vertex's colour, turns each
+// position like an untextured call, and divides each texel coordinate by the size of the texture:
+// on a texture of 4 by 2 texels, the texel (1, 0.5) reads (0.25, 0.25) and (4, 2) reads (1, 1).
+GLINTFX_TEST(triangle_pixel_vertices_textured_reads_are_the_texel_over_the_texture_size) {
+    deny = false;
+    triangle_pixel_vertices pixels(k_test_allocator);
+    using glintfx::gltfx_textured_vertex_2d;
+    const std::array<gltfx_textured_vertex_2d, 3> call{
+        gltfx_textured_vertex_2d{{1.0, 2.0}, k_half_green, {1.0, 0.5}},
+        gltfx_textured_vertex_2d{{3.0, 4.0}, k_red, {4.0, 2.0}},
+        gltfx_textured_vertex_2d{{5.0, 6.0}, k_red, {0.0, 0.0}}};
+    GLINTFX_CHECK(pixels.convert_textured(call, scale_two_then_move(10.0, 20.0),
+                                          glintfx::draw2d::texture_extent{4U, 2U}) ==
+                  triangle_pixels_outcome::converted);
+    const auto got = pixels.converted();
+    const auto reads = pixels.reads();
+    GLINTFX_CHECK_EQ(got.size(), std::size_t{3});
+    GLINTFX_CHECK_EQ(reads.size(), std::size_t{3});
+    GLINTFX_CHECK(reads.size() == 3 && reads[0].u == 0.25F && reads[0].v == 0.25F);
+    GLINTFX_CHECK(reads.size() == 3 && reads[1].u == 1.0F && reads[1].v == 1.0F);
+    GLINTFX_CHECK(reads.size() == 3 && reads[2].u == 0.0F && reads[2].v == 0.0F);
+    GLINTFX_CHECK(got.size() == 3 && got[0].position.x == 12.0F && got[0].position.y == 24.0F);
+    GLINTFX_CHECK(got.size() == 3 && got[0].color.alpha == 0.5F && got[0].color.green == 1.0F);
+}
+
+// An untextured convert() after a textured one holds no reads (T5): the reads belong to one call.
+GLINTFX_TEST(triangle_pixel_vertices_an_untextured_call_holds_no_reads) {
+    deny = false;
+    triangle_pixel_vertices pixels(k_test_allocator);
+    const std::array<glintfx::gltfx_textured_vertex_2d, 3> textured{};
+    GLINTFX_CHECK(pixels.convert_textured(textured, scale_two_then_move(0.0, 0.0),
+                                          glintfx::draw2d::texture_extent{1U, 1U}) ==
+                  triangle_pixels_outcome::converted);
+    GLINTFX_CHECK_EQ(pixels.reads().size(), std::size_t{3});
+    const std::array<gltfx_vertex_2d_world, 3> plain{};
+    GLINTFX_CHECK(pixels.convert(plain, scale_two_then_move(0.0, 0.0)) ==
+                  triangle_pixels_outcome::converted);
+    GLINTFX_CHECK_EQ(pixels.reads().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(pixels.converted().size(), std::size_t{3});
+}
+
+// A textured position out of the pixel range is refused BEFORE any memory, as an untextured one;
+// with the memory refused, a call in range is out_of_memory and holds nothing (T5).
+GLINTFX_TEST(triangle_pixel_vertices_textured_range_comes_before_memory) {
+    triangle_pixel_vertices pixels(k_test_allocator);
+    std::array<glintfx::gltfx_textured_vertex_2d, 3> call{};
+    call[1].position.x = 1e300;
+    deny = true;
+    GLINTFX_CHECK(pixels.convert_textured(call, scale_two_then_move(0.0, 0.0),
+                                          glintfx::draw2d::texture_extent{1U, 1U}) ==
+                  triangle_pixels_outcome::pixel_position_out_of_range);
+    call[1].position.x = 1.0;
+    GLINTFX_CHECK(pixels.convert_textured(call, scale_two_then_move(0.0, 0.0),
+                                          glintfx::draw2d::texture_extent{1U, 1U}) ==
+                  triangle_pixels_outcome::out_of_memory);
+    GLINTFX_CHECK_EQ(pixels.reads().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(pixels.converted().size(), std::size_t{0});
+    deny = false;
+}

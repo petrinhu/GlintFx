@@ -399,3 +399,46 @@ GLINTFX_TEST(piece_list_add_textured_honors_the_bound_and_the_memory_refusal) {
         GLINTFX_CHECK_EQ(list.painted(0).texture, std::uint32_t{7});
     }
 }
+
+// R2D-TEXTURE T5 (D-W8-674): a textured triangle piece keeps its texture's name and one read per
+// vertex through the sort; an untextured triangle piece has texture 0 and no reads.
+GLINTFX_TEST(piece_list_a_textured_triangle_piece_keeps_its_texture_and_its_reads) {
+    const std::array<colored_pixel_vertex, 3> tri = triangle_marked(30.0F);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{
+        {{0.25F, 0.5F}, {0.75F, 0.5F}, {0.5F, 1.0F}}};
+    piece_list list;
+    GLINTFX_CHECK(list.add_triangles(triangle_marked(10.0F), {}, 4));
+    GLINTFX_CHECK(list.add_textured_triangles(
+        glintfx::draw2d::textured_triangle_piece{
+            glintfx::draw2d::textured_triangles{tri, reads, {}}, 42U},
+        1));
+    list.sort();
+    const auto &textured = list.painted(0); // the layer-1 piece
+    GLINTFX_CHECK(textured.kind == piece_kind::triangles);
+    GLINTFX_CHECK_EQ(textured.texture, std::uint32_t{42});
+    const auto kept = list.triangle_reads(textured);
+    GLINTFX_CHECK_EQ(kept.size(), std::size_t{3});
+    GLINTFX_CHECK(kept.size() == 3 && kept[1].u == 0.75F && kept[2].v == 1.0F);
+    GLINTFX_CHECK(list.triangle_vertices(textured)[0].position.x == 30.0F);
+    const auto &plain = list.painted(1);
+    GLINTFX_CHECK_EQ(plain.texture, std::uint32_t{0});
+    GLINTFX_CHECK_EQ(list.triangle_reads(plain).size(), std::size_t{0});
+}
+
+// add_textured_triangles() has the refusal of add_triangles(): with the read store refused it adds
+// nothing (no piece, no vertex) and says false; the next call works again (T5).
+GLINTFX_TEST(piece_list_textured_triangles_refused_by_the_read_store_add_nothing) {
+    const std::array<colored_pixel_vertex, 3> tri = triangle_marked(5.0F);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{};
+    const glintfx::draw2d::textured_triangle_piece piece{
+        glintfx::draw2d::textured_triangles{tri, reads, {}}, 7U};
+    g_armed = armed_state{};
+    g_armed.fail_at = 3; // the piece store, the vertex store, then the read store
+    piece_list list(armed());
+    GLINTFX_CHECK(!list.add_textured_triangles(piece, 0));
+    GLINTFX_CHECK_EQ(list.size(), std::size_t{0});
+    GLINTFX_CHECK(list.add_textured_triangles(piece, 0));
+    GLINTFX_CHECK_EQ(list.size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(list.triangle_vertices(list.painted(0)).size(), std::size_t{3});
+    GLINTFX_CHECK_EQ(list.triangle_reads(list.painted(0)).size(), std::size_t{3});
+}

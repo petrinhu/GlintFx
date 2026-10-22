@@ -11,6 +11,7 @@ triangle_store::triangle_store(batch_allocator allocator_in) noexcept : allocato
 triangle_store::~triangle_store() {
     allocator.release(vertex_store.data);
     allocator.release(index_store.data);
+    allocator.release(read_store.data);
 }
 
 // The vertices are asked for first, then the indices: the order the allocator is called in.
@@ -34,6 +35,21 @@ bool triangle_store::append(std::span<const colored_pixel_vertex> vertices,
     return true;
 }
 
+bool triangle_store::room_for_reads(std::size_t count) noexcept {
+    return ensure_room<triangle_texture_read>(allocator, read_store, count);
+}
+
+bool triangle_store::append_reads(std::span<const triangle_texture_read> reads,
+                                  std::size_t &first) noexcept {
+    if (!room_for_reads(reads.size())) {
+        return false;
+    }
+    first = read_store.size;
+    std::copy(reads.begin(), reads.end(), read_store.data + read_store.size);
+    read_store.size += reads.size();
+    return true;
+}
+
 std::span<const colored_pixel_vertex> triangle_store::vertices(std::size_t first,
                                                                std::size_t count) const noexcept {
     assert(first <= vertex_store.size && count <= vertex_store.size - first);
@@ -46,9 +62,16 @@ std::span<const std::uint32_t> triangle_store::indices(std::size_t first,
     return std::span<const std::uint32_t>(index_store.data + first, count);
 }
 
+std::span<const triangle_texture_read> triangle_store::reads(std::size_t first,
+                                                             std::size_t count) const noexcept {
+    assert(first <= read_store.size && count <= read_store.size - first);
+    return std::span<const triangle_texture_read>(read_store.data + first, count);
+}
+
 void triangle_store::clear() noexcept {
     vertex_store.size = 0;
     index_store.size = 0;
+    read_store.size = 0;
 }
 
 } // namespace glintfx::draw2d

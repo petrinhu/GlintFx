@@ -288,3 +288,103 @@ GLINTFX_TEST(triangle_list_check_the_vertex_limit_is_two_to_the_32_inclusive) {
     GLINTFX_CHECK(refusal_of_triangle_counts(triangle_call_counts{two_to_the_32 + 1U, 3U, true}) ==
                   gltfx_draw_2d_refusal::too_many_vertices);
 }
+
+// ---------------------------------------------------------------------------------------------
+// R2D-TEXTURE T5 (D-W8-672, D-W8-673): the textured call. Rules 1 to 3 as for an untextured call;
+// rule 4 reads the texel coordinate with the position and the tint; rule 5 is the texel range.
+
+namespace {
+
+using glintfx::gltfx_textured_vertex_2d;
+using glintfx::gltfx_vec2_texel;
+using glintfx::draw2d::refusal_of_texel_range;
+using glintfx::draw2d::refusal_of_textured_triangle_call;
+using glintfx::draw2d::texture_extent;
+
+[[nodiscard]] gltfx_textured_vertex_2d textured_at(double x, double y, gltfx_vec2_texel texel) {
+    return gltfx_textured_vertex_2d{gltfx_vec2_world{x, y}, k_white, texel};
+}
+
+[[nodiscard]] std::array<gltfx_textured_vertex_2d, 3> textured_triangle(gltfx_vec2_texel last) {
+    return {textured_at(0.0, 0.0, {0.0, 0.0}), textured_at(1.0, 0.0, {1.0, 0.0}),
+            textured_at(1.0, 1.0, last)};
+}
+
+} // namespace
+
+// Each value of a textured vertex is looked at: a NaN in the texel x, the texel y, the position or
+// the tint is not_a_number; an infinity in the texel is infinite; a NaN anywhere comes before an
+// infinity anywhere, whatever vertex holds which.
+GLINTFX_TEST(triangle_list_check_textured_values_in_the_order_of_the_vocabulary) {
+    const auto none = std::span<const std::uint32_t>{};
+    auto call = textured_triangle({1.0, 1.0});
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::none);
+    call[2].texel.x = k_nan;
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::not_a_number);
+    call = textured_triangle({1.0, k_nan});
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::not_a_number);
+    call = textured_triangle({static_cast<double>(k_infinity), 1.0});
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::infinite);
+    call[0].tint.green = std::numeric_limits<float>::quiet_NaN(); // a NaN before the infinity
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::not_a_number);
+    call = textured_triangle({1.0, 1.0});
+    call[1].position.y = k_nan;
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::not_a_number);
+}
+
+// The structure comes before the values, as for an untextured call: the counts, then the index
+// range, then the values.
+GLINTFX_TEST(triangle_list_check_textured_structure_comes_before_the_values) {
+    const auto bad_texel = textured_triangle({k_nan, 1.0});
+    const std::array<gltfx_textured_vertex_2d, 4> four{bad_texel[0], bad_texel[1], bad_texel[2],
+                                                       bad_texel[2]};
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(four, {}, false) ==
+                  gltfx_draw_2d_refusal::count_not_multiple_of_three);
+    const std::array<std::uint32_t, 3> out_of_range{0U, 1U, 3U};
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(bad_texel, out_of_range, true) ==
+                  gltfx_draw_2d_refusal::index_out_of_range);
+    const std::array<std::uint32_t, 2> two{0U, 1U};
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(bad_texel, two, true) ==
+                  gltfx_draw_2d_refusal::count_not_multiple_of_three);
+    const std::array<std::uint32_t, 3> fine{2U, 1U, 0U};
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(bad_texel, fine, true) ==
+                  gltfx_draw_2d_refusal::not_a_number);
+}
+
+// The texel range, a closed table on a texture of 4 by 2 texels: the edges are inside (0 and the
+// size, and minus zero), the next double past either edge is outside, on each axis.
+GLINTFX_TEST(triangle_list_check_texel_range_closed_table) {
+    struct cell {
+        gltfx_vec2_texel texel{};
+        bool inside = false;
+    };
+    const double below_zero = std::nextafter(0.0, -1.0);
+    const std::array<cell, 10> table{{{{0.0, 0.0}, true},
+                                      {{4.0, 2.0}, true},
+                                      {{-0.0, -0.0}, true},
+                                      {{2.5, 1.25}, true},
+                                      {{below_zero, 1.0}, false},
+                                      {{1.0, below_zero}, false},
+                                      {{std::nextafter(4.0, 5.0), 1.0}, false},
+                                      {{1.0, std::nextafter(2.0, 3.0)}, false},
+                                      {{2.0, 4.0}, false},
+                                      {{-1e300, 1.0}, false}}};
+    int right = 0;
+    for (const cell &c : table) {
+        const auto call = textured_triangle(c.texel);
+        const bool inside =
+            refusal_of_texel_range(call, texture_extent{4U, 2U}) == gltfx_draw_2d_refusal::none;
+        right += inside == c.inside ? 1 : 0;
+    }
+    std::println("triangle_list_check_texel_range: {} de {} celulas certas", right, table.size());
+    GLINTFX_CHECK_EQ(right, 10);
+    const auto outside = textured_triangle({5.0, 1.0});
+    GLINTFX_CHECK(refusal_of_texel_range(outside, texture_extent{4U, 2U}) ==
+                  gltfx_draw_2d_refusal::region_out_of_range);
+}

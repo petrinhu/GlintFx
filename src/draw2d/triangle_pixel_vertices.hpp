@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <span>
 
+#include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
+#include "draw2d/texture_extent.hpp"
 #include "draw2d/triangle_batch.hpp"
 
 // draw2d/triangle_pixel_vertices.hpp - R2D-SHAPES, S2b-fix1 (N1 review of 00cdbb4e, finding I-8):
@@ -42,12 +44,27 @@ class triangle_pixel_vertices {
     [[nodiscard]] triangle_pixels_outcome convert(std::span<const gltfx_vertex_2d_world> vertices,
                                                   const pixel_affine &affine) noexcept;
 
-    // The vertices of the last convert(); empty when it did not answer `converted`.
+    // The same for a TEXTURED call (R2D-TEXTURE T5, D-W8-675): each position turned by `affine`,
+    // each tint kept as given as the vertex's colour, and each texel coordinate divided by the size
+    // of the texture in texels, so reads() holds u and v in 0..1 across it, one per vertex (the
+    // division in double, then narrowed to float). The pixel range is asked first, as in convert().
+    // `extent` has no zero side (a texture of zero size is never made).
+    [[nodiscard]] triangle_pixels_outcome
+    convert_textured(std::span<const gltfx_textured_vertex_2d> vertices, const pixel_affine &affine,
+                     texture_extent extent) noexcept;
+
+    // The vertices of the last convert() or convert_textured(); empty when it did not answer
+    // `converted`.
     [[nodiscard]] std::span<const colored_pixel_vertex> converted() const noexcept;
+
+    // The reads of the last convert_textured(), one per vertex (T5); empty after convert(), and
+    // when it did not answer `converted`.
+    [[nodiscard]] std::span<const triangle_texture_read> reads() const noexcept;
 
   private:
     batch_allocator allocator;
     pod_buffer<colored_pixel_vertex> buffer;
+    pod_buffer<triangle_texture_read> read_buffer;
 };
 
 } // namespace glintfx::draw2d

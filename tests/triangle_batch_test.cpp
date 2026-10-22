@@ -599,3 +599,80 @@ GLINTFX_TEST(triangle_batch_textures_a_b_a_are_three_runs_in_order) {
     GLINTFX_CHECK(runs[1].state.texture == 9U && runs[1].first_index == 6U);
     GLINTFX_CHECK(runs[2].state.texture == 7U && runs[2].first_index == 12U);
 }
+
+// R2D-TEXTURE T5 (D-W8-675): a TEXTURED triangle piece stores, at each vertex, the read of the same
+// position (u, v) and q = 1 (a triangle is drawn affinely), and the tint premultiplied like every
+// colour. The reads are powers of two, so each one is compared with ==.
+GLINTFX_TEST(triangle_batch_textured_triangles_store_each_read_with_q_of_one) {
+    const auto tri = triangle_at(0.0F, 0.0F, k_half_red);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{
+        {{0.25F, 0.5F}, {0.75F, 0.5F}, {0.5F, 1.0F}}};
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}},
+                                               batch_state{1, 7, 0}));
+    const auto v = batch.vertices();
+    GLINTFX_CHECK_EQ(v.size(), std::size_t{3});
+    GLINTFX_CHECK(v[0].u == 0.25F && v[0].v == 0.5F && v[0].q == 1.0F);
+    GLINTFX_CHECK(v[1].u == 0.75F && v[1].v == 0.5F && v[1].q == 1.0F);
+    GLINTFX_CHECK(v[2].u == 0.5F && v[2].v == 1.0F && v[2].q == 1.0F);
+    GLINTFX_CHECK(v[1].r == 0.5F && v[1].g == 0.0F && v[1].a == 0.5F); // the tint, premultiplied
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(batch.runs()[0].state.texture, 7U);
+}
+
+// add_triangles() is add_textured_triangles() with no reads, bit for bit: what keeps every
+// untextured triangle piece drawn exactly as before the textured triangles came (T5).
+GLINTFX_TEST(triangle_batch_add_triangles_is_the_textured_call_with_no_reads) {
+    const auto tri = triangle_at(3.0F, 4.0F, k_half_red);
+    const std::array<std::uint32_t, 3> local{2U, 0U, 1U};
+    triangle_batch plain;
+    triangle_batch textured;
+    GLINTFX_CHECK(plain.add_triangles(tri, local, k_state_a));
+    GLINTFX_CHECK(textured.add_textured_triangles(
+        glintfx::draw2d::textured_triangles{tri, {}, local}, k_state_a));
+    using vertex_words = std::array<std::uint32_t, 9>;
+    int equal_bits = 0;
+    for (std::size_t i = 0; i < plain.vertices().size() && i < textured.vertices().size(); ++i) {
+        const bool same = std::bit_cast<vertex_words>(plain.vertices()[i]) ==
+                          std::bit_cast<vertex_words>(textured.vertices()[i]);
+        equal_bits += same ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(equal_bits, 3);
+    GLINTFX_CHECK(textured.vertices()[0].u == 0.0F && textured.vertices()[0].v == 0.0F);
+    GLINTFX_CHECK(plain.indices()[0] == textured.indices()[0] && textured.indices()[0] == 2U);
+}
+
+// A textured triangle piece with the texture of the textured quad before it joins its run: one
+// draw call for a sprite and a mesh from the same texture; another texture starts another run (T5).
+GLINTFX_TEST(triangle_batch_textured_triangles_join_the_run_of_a_quad_with_the_same_texture) {
+    const batch_state a{1, 7, 0};
+    const batch_state b{1, 9, 0};
+    const auto tri = triangle_at(5.0F, 0.0F, k_white);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{
+        {{0.0F, 0.0F}, {1.0F, 0.0F}, {1.0F, 1.0F}}};
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(0, 0, 1),
+                                          glintfx::draw2d::k_role_texture_corners, k_white, a));
+    GLINTFX_CHECK(
+        batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}}, a));
+    GLINTFX_CHECK(
+        batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}}, b));
+    const auto runs = batch.runs();
+    GLINTFX_CHECK_EQ(runs.size(), std::size_t{2});
+    GLINTFX_CHECK(runs[0].state.texture == 7U && runs[0].index_count == 9U);
+    GLINTFX_CHECK(runs[1].state.texture == 9U && runs[1].first_index == 9U);
+}
+
+// Memory as for every piece: a refused growth leaves the batch as it was and counts the drop (T5).
+GLINTFX_TEST(triangle_batch_textured_triangles_out_of_memory_leave_the_batch_as_it_was) {
+    g_armed = armed_state{};
+    g_armed.fail_at = 1;
+    const auto tri = triangle_at(0.0F, 0.0F, k_white);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{};
+    triangle_batch batch(armed());
+    GLINTFX_CHECK(!batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}},
+                                                k_state_a));
+    GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(batch.pieces_dropped_out_of_memory(), std::size_t{1});
+}

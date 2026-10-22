@@ -2,6 +2,7 @@
 #include "draw2d/piece_list.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 namespace glintfx::draw2d {
 
@@ -55,24 +56,35 @@ void piece_list::note_layer(std::int32_t layer) noexcept {
 bool piece_list::add_triangles(std::span<const colored_pixel_vertex> vertices,
                                std::span<const std::uint32_t> local_indices,
                                std::int32_t layer) noexcept {
-    if (piece_store.size >= bound ||
-        !room_for_triangle_piece(vertices.size(), local_indices.size())) {
+    return add_textured_triangles(
+        textured_triangle_piece{textured_triangles{vertices, {}, local_indices}, 0}, layer);
+}
+
+bool piece_list::add_textured_triangles(const textured_triangle_piece &piece,
+                                        std::int32_t layer) noexcept {
+    const textured_triangles &data = piece.geometry;
+    assert(piece.texture == 0 || data.reads.size() == data.vertices.size());
+    if (piece_store.size >= bound || !room_for_triangle_piece(data)) {
         return false;
     }
     triangle_position where{};
-    if (!triangles.append(vertices, local_indices, where)) {
+    std::size_t first_read = 0;
+    if (!triangles.append(data.vertices, data.local_indices, where) ||
+        !triangles.append_reads(data.reads, first_read)) {
         return false; // the room was made above, so this is not reached; nothing was written
     }
-    const pending_piece piece{
+    const pending_piece added{
         .layer = layer,
         .submission = static_cast<std::uint32_t>(piece_store.size),
         .kind = piece_kind::triangles,
         .first_vertex = where.first_vertex,
-        .vertex_count = vertices.size(),
+        .vertex_count = data.vertices.size(),
         .first_index = where.first_index,
-        .index_count = local_indices.size(),
+        .index_count = data.local_indices.size(),
+        .first_read = first_read,
+        .texture = piece.texture,
     };
-    piece_store.data[piece_store.size] = piece;
+    piece_store.data[piece_store.size] = added;
     note_layer(layer);
     ++piece_store.size;
     return true;
@@ -94,11 +106,20 @@ piece_list::triangle_indices(const pending_piece &piece) const noexcept {
     return triangles.indices(piece.first_index, piece.index_count);
 }
 
-// The piece store grows first, then the triangle store; nothing is written before both have room.
-bool piece_list::room_for_triangle_piece(std::size_t vertex_count,
-                                         std::size_t index_count) noexcept {
+std::span<const triangle_texture_read>
+piece_list::triangle_reads(const pending_piece &piece) const noexcept {
+    if (piece.kind != piece_kind::triangles || piece.texture == 0) {
+        return {};
+    }
+    return triangles.reads(piece.first_read, piece.vertex_count);
+}
+
+// The piece store grows first, then the triangle store (the reads last, and only a textured piece
+// asks for any); nothing is written before all have room.
+bool piece_list::room_for_triangle_piece(const textured_triangles &piece) noexcept {
     return ensure_room<pending_piece>(allocator, piece_store, 1) &&
-           triangles.room_for(vertex_count, index_count);
+           triangles.room_for(piece.vertices.size(), piece.local_indices.size()) &&
+           triangles.room_for_reads(piece.reads.size());
 }
 
 std::size_t piece_list::size() const noexcept { return piece_store.size; }

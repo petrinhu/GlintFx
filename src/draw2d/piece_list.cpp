@@ -71,7 +71,7 @@ bool piece_list::add_textured_triangles(const textured_triangle_piece &piece,
     std::size_t first_read = 0;
     if (!triangles.append(data.vertices, data.local_indices, where) ||
         !triangles.append_reads(data.reads, first_read)) {
-        return false; // the room was made above, so this is not reached; nothing was written
+        return false; // not reached: room_for_triangle_piece() made room in every store above
     }
     const pending_piece added{
         .layer = layer,

@@ -441,4 +441,35 @@ GLINTFX_TEST(piece_list_textured_triangles_refused_by_the_read_store_add_nothing
     GLINTFX_CHECK_EQ(list.size(), std::size_t{1});
     GLINTFX_CHECK_EQ(list.triangle_vertices(list.painted(0)).size(), std::size_t{3});
     GLINTFX_CHECK_EQ(list.triangle_reads(list.painted(0)).size(), std::size_t{3});
+    // No vertex was left behind by the refusal: the accepted piece starts at the first vertex.
+    GLINTFX_CHECK_EQ(list.painted(0).first_vertex, std::size_t{0});
+}
+
+// Each textured triangle piece reads its OWN reads (T5-A-fix1): the reads of the second one start
+// where those of the first one end, an untextured piece between them takes none, and the link
+// survives a sort that paints them out of their submission order.
+GLINTFX_TEST(piece_list_each_textured_triangle_piece_reads_its_own_reads) {
+    const std::array<colored_pixel_vertex, 3> tri = triangle_marked(30.0F);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> first{
+        {{0.0F, 0.0F}, {0.0F, 0.25F}, {0.25F, 0.0F}}};
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> second{
+        {{0.5F, 0.5F}, {0.75F, 0.5F}, {0.5F, 1.0F}}};
+    piece_list list;
+    GLINTFX_CHECK(list.add_textured_triangles(
+        glintfx::draw2d::textured_triangle_piece{
+            glintfx::draw2d::textured_triangles{tri, first, {}}, 1U},
+        1));
+    GLINTFX_CHECK(list.add_triangles(triangle_marked(10.0F), {}, 0));
+    GLINTFX_CHECK(list.add_textured_triangles(
+        glintfx::draw2d::textured_triangle_piece{
+            glintfx::draw2d::textured_triangles{tri, second, {}}, 2U},
+        0));
+    list.sort(); // painted: the untextured piece, the second textured one, then the first (layer 1)
+    GLINTFX_CHECK_EQ(list.painted(1).texture, std::uint32_t{2});
+    const auto later = list.triangle_reads(list.painted(1));
+    GLINTFX_CHECK(later.size() == 3 && later[0].u == 0.5F && later[1].u == 0.75F &&
+                  later[2].v == 1.0F);
+    GLINTFX_CHECK_EQ(list.painted(2).texture, std::uint32_t{1});
+    const auto earlier = list.triangle_reads(list.painted(2));
+    GLINTFX_CHECK(earlier.size() == 3 && earlier[1].v == 0.25F && earlier[2].u == 0.25F);
 }

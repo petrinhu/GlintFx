@@ -10505,3 +10505,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - PER-CALL-TOLERANCE: "Depois da W8, com pesquisa".
   - TEX-UNTEXTURED-IN-BATCH: "Recusar de vez". TEX-WEIGHT-RANGE-IEEE: "Recusar". As duas saem da lista sem arquivo (L-67 global: o que o líder revoga é apagado).
   As sete aceitas viraram itens da tabela (W9-B, e TEX-PHRASE-SUCH na W8). INBOX vazia.
+- **22/10 22:3x: o líder RETOMOU a W8**, verbatim: "continue w8. Máximo 2 agentes em paralelo sem concorrencia" e "decisoes com clevel, de modo costumeiro do projeto. Se não resolver, chamar advisor". `parada_do_lider` apagado; modo autônomo até 23/10 22:20. Despachados: CTO para a errata 1 da T5-B-fix2 (dois coautores, emenda de 22/10 da L-21; e a frase TEX-PHRASE-SUCH) e CTO para planejar a T6 (alocador e atlas), que não colide com a fix2 pelo plano (src/core/CMakeLists.txt, header_hygiene_test.cpp). Trabalho pesado um por vez pela trava.

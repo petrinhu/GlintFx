@@ -10496,3 +10496,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **22/10 05:2x: mais duas ratificações do líder (AskUserQuestion):**
   - **Assinatura dos commits:** ele escolheu "Assinar os dois modelos (Recomendado)"; depois de a alteração ser argumentada contra (LEI DAS LEIS), confirmou a emenda da L-21 (GODS_LAWS.md, item 5 da forma obrigatória). Um Co-Authored-By por modelo que contribuiu. A ordem pronta da T5-B-fix2 tem um coautor só no msg.txt: antes do despacho, o CTO emite errata da mensagem com as duas linhas (Opus, que escreveu; Haiku, que aplica).
   - **"2 sem concorrencia":** ele confirmou a leitura do main, "Está certo assim (Recomendado)": até 2 agentes vivos nesta sessão, e o trabalho pesado passa um de cada vez pela trava.
+- **22/10 22:4x: DECISÕES DO LÍDER sobre as 9 entradas que o dreno deixou para ele (AskUserQuestion, com a pesquisa de cada uma):**
+  - NODISCARD-R2-PRACTICE: "Mudar o texto da regra" (a R2 passa a aceitar [[nodiscard]] por função nas consultas; as 46 ficam).
+  - API-CONV-BORROWED-SPAN: "Regra nova para empréstimo" (regra própria nas convenções, as três cercas passam a citá-la).
+  - S5C-OPEN-NOTHING-MADE: "Mudar a promessa" (sem função pública nova).
+  - TEX-PHRASE-SUCH: "Reescrever mais claro" (entra na T5-B-fix2: o CTO põe na errata antes do despacho).
+  - R2D-TEXTURE-CARD-STATE e R2D-TEXTURE-KEPT-BYTES: "Depois da W8, com revisão de API".
+  - PER-CALL-TOLERANCE: "Depois da W8, com pesquisa".
+  - TEX-UNTEXTURED-IN-BATCH: "Recusar de vez". TEX-WEIGHT-RANGE-IEEE: "Recusar". As duas saem da lista sem arquivo (L-67 global: o que o líder revoga é apagado).
+  As sete aceitas viraram itens da tabela (W9-B, e TEX-PHRASE-SUCH na W8). INBOX vazia.

@@ -152,6 +152,15 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage líder 23/10, opção C] PRECI-TMPDIR-IN-REPO: com TMPDIR=<projeto>/.trabalho/tmp (emenda de 22/10 da L-09), cinco autotestes (check_spdx, check_vendor_purity, check_dash_pubdoc, check_version_matches_tag, check_format) reprovam o controle NÃO-É-REPO, porque o mkdtemp em TMPDIR cai dentro do repositório; contornado por GIT_CEILING_DIRECTORIES (D-W8-906). O líder decidiu manter a lei e consertar a suíte. Evidência: /var/tmp/cto-w8/ordens-anexos/t5bfix2-errata1/evidencia/preci_1_sem_ceiling.log.
+- [triage líder 23/10, opção C] WIRE-RELAY-SOCKET-UNDER-TMPDIR: wire_relay_selftest monta o socket AF_UNIX dentro de TMPDIR (tests/container/wire_relay/wire_relay_a3c_selftest.cpp:75-79, wire_shm_test_support.hpp:118-126); com TMPDIR longo o caminho passa de 107 bytes e o bind falha. Conserto na suíte (diretório curto ou espaço abstrato, como na prática da comunidade); bloqueia o preci e, por ele, a T5-B-fix2. Evidência: evidencia/preci_2_ceiling.log.
+- [triage líder 23/10, opção C] WIN-VM-LAB-SANDBOX-SYMLINK: os seis win_vm_lab_* e o armadilha_selftest falham quando a árvore ou o TMPDIR chegam por atalho (a sandbox monta /var/tmp vazio e só a raiz física). Medida da opção C: as ordens usam caminhos físicos (INFERÊNCIA, ainda não medido que isso basta). Evidência: evidencia/preci_2_ceiling.log e evidencia/preci_3_curto.log.
+- [triage CTO-T6 23/10] W8-PUBLIC-LAYOUT-TESTS: teste de layout congelado (sizeof e deslocamento) para os valores públicos novos da W8 (gltfx_texture_region, gltfx_textured_vertex_2d, gltfx_texture_paint, e o recibo e o retângulo do atlas); hoje nenhum em tests/ (D-W8-930).
+- [triage CTO-T6 23/10] CORE-POD-BUFFER: a terceira cópia do bloco que cresce por realloc leva o pod_buffer do draw2d para o núcleo, servindo aos dois (D-W8-917).
+- [triage CTO-T6 23/10] ATLAS-USAGE-QUERY: consulta de quanto do atlas está ocupado, para quem decide despejo (FONT-ATLAS) (D-W8-927).
+- [triage CTO-T6 23/10] ATLAS-GROW: crescer o atlas sem perder os recibos; barato no núcleo, exige cópia na placa na textura.
+- [triage CTO-T6 23/10] ATLAS-WIKI: página da wiki para o alocador e o atlas de textura, junto com a T7.
+
 
 
 

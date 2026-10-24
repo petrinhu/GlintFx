@@ -152,6 +152,10 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage CTO-suíte 24/10] SANDBOX-SYMLINK-CONSUMER: a sandbox bwrap do laboratório Windows (tests/tools/armadilha/run_com_armadilha.sh:28-44) só enxerga a raiz física; um consumidor externo que rode a suíte por um caminho com atalho (árvore ou TMPDIR) vê os seis win_vm_lab_* e o armadilha_selftest vermelhos. A SUITE-TMPDIR-PATHS só registrou a regra de caminho físico (decisão C do líder); a opção completa, a sandbox resolver o atalho como fazem BuildStream e hey-cli (pesquisa: .trabalho/cto-w8/ordens-anexos/suite-tmpdir/evidencia/pesquisa.txt, ficha 3), é decisão do líder.
+- [triage CTO-suíte 24/10] RELAY-SUN-PATH-TRUNCATION: o relé de verdade copia o caminho do socket com strncpy, que corta calado acima de 107 bytes (tests/container/wire_relay/wire_relay_main.cpp:72, a escuta; wire_relay_connection_set.cpp:143, a conexão ao compositor); hoje os caminhos no contêiner são curtos, mas um caminho longo vira bind/connect num endereço cortado em vez de recusa nomeada (libwayland e systemd recusam com ENAMETOOLONG). Fora da SUITE-TMPDIR-PATHS por escopo.
+- [triage CTO-suíte 24/10] PRECI-PS1-NOGIT-TEMP: tools/preci.ps1:574 cria o controle 'diretório sem repositório' em GetTempPath() (TEMP), o mesmo desenho que a SUITE-TMPDIR-PATHS cercou no preci.sh (D-W8-952); com TEMP dentro de um checkout no Windows, o controle deve reprovar sem defeito. NÃO medido (Windows); medir na VM ou no CI antes de consertar.
+
 - [triage CTO-T6 23/10] W8-PUBLIC-LAYOUT-TESTS: teste de layout congelado (sizeof e deslocamento) para os valores públicos novos da W8 (gltfx_texture_region, gltfx_textured_vertex_2d, gltfx_texture_paint, e o recibo e o retângulo do atlas); hoje nenhum em tests/ (D-W8-930).
 - [triage CTO-T6 23/10] CORE-POD-BUFFER: a terceira cópia do bloco que cresce por realloc leva o pod_buffer do draw2d para o núcleo, servindo aos dois (D-W8-917).
 - [triage CTO-T6 23/10] ATLAS-USAGE-QUERY: consulta de quanto do atlas está ocupado, para quem decide despejo (FONT-ATLAS) (D-W8-927).

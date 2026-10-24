@@ -8,8 +8,10 @@
 #include "harness/check.hpp"
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include <cstdint>
@@ -119,22 +121,49 @@ inline void remove_tree(const std::string &path) {
 // (sub-directories included).
 class scratch_dir {
   public:
-    scratch_dir() {
-        const char *tmpdir = std::getenv("TMPDIR");
-        std::string pattern = (tmpdir != nullptr && tmpdir[0] != '\0') ? tmpdir : "/tmp";
-        pattern += "/glintfx-shm-selftest-XXXXXX";
+    scratch_dir() : scratch_dir(tmpdir_or_tmp()) {}
+    // Under `parent` instead of TMPDIR (the long-TMPDIR case of
+    // wire_relay_a3c_selftest.cpp builds one under a long parent).
+    explicit scratch_dir(const std::string &parent) {
+        std::string pattern = parent + "/glintfx-shm-selftest-XXXXXX";
         std::vector<char> buffer(pattern.begin(), pattern.end());
         buffer.push_back('\0');
         GLINTFX_CHECK(::mkdtemp(buffer.data()) != nullptr);
         m_path = buffer.data();
+        m_dir_fd = ::open(m_path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+        GLINTFX_CHECK(m_dir_fd >= 0);
     }
     scratch_dir(const scratch_dir &) = delete;
     scratch_dir &operator=(const scratch_dir &) = delete;
-    ~scratch_dir() { remove_tree(m_path); }
+    ~scratch_dir() {
+        if (m_dir_fd >= 0) {
+            (void)::close(m_dir_fd);
+        }
+        remove_tree(m_path);
+    }
     [[nodiscard]] const std::string &path() const { return m_path; }
 
+    // Where a unix socket called `name` is bound or reached inside this
+    // directory. The path goes through this directory's own descriptor,
+    // /proc/self/fd/<n>/<name> (proc(5)), so it stays short whatever
+    // the length of TMPDIR: a socket path has to fit in the 108 bytes of
+    // sun_path, terminating null included (unix(7)), and a long TMPDIR
+    // alone already passes that. A name that would still not fit is
+    // refused here, by name, never cut short by strncpy.
+    [[nodiscard]] std::string socket_path(const std::string &name) const {
+        const std::string path = "/proc/self/fd/" + std::to_string(m_dir_fd) + "/" + name;
+        GLINTFX_CHECK(path.size() < sizeof(sockaddr_un{}.sun_path));
+        return path;
+    }
+
   private:
+    [[nodiscard]] static std::string tmpdir_or_tmp() {
+        const char *tmpdir = std::getenv("TMPDIR");
+        return (tmpdir != nullptr && tmpdir[0] != '\0') ? tmpdir : "/tmp";
+    }
+
     std::string m_path;
+    int m_dir_fd = -1;
 };
 
 // One relay connection driven by hand: the test writes as the client

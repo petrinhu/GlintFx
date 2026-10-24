@@ -47,8 +47,10 @@ inline int connect_unix(const std::string &path) {
 // fake compositor behind it, capture on, in a private directory.
 struct relay_rig {
     relay_rig()
-        : listen_fd(listen_unix(dir.path() + "/down")), fake_kwin(listen_unix(dir.path() + "/up")),
-          endpoints{listen_fd.get(), dir.path() + "/up", capture}, client(-1), compositor_side(-1) {
+        : listen_fd(listen_unix(dir.socket_path("down"))),
+          fake_kwin(listen_unix(dir.socket_path("up"))),
+          endpoints{listen_fd.get(), dir.socket_path("up"), capture}, client(-1),
+          compositor_side(-1) {
         GLINTFX_CHECK(::mkdir(capture.c_str(), 0755) == 0);
         connect_client();
     }
@@ -57,7 +59,7 @@ struct relay_rig {
     // upstream connection, which the fake compositor accepts). Call
     // again after finish() for a second, consecutive client.
     void connect_client() {
-        client.reset(connect_unix(dir.path() + "/down"));
+        client.reset(connect_unix(dir.socket_path("down")));
         run_relay_cycle(endpoints, connections); // accept
         GLINTFX_CHECK_EQ(connections.size(), std::size_t{1});
         compositor_side.reset(::accept(fake_kwin.get(), nullptr, nullptr));

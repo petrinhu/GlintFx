@@ -19,16 +19,17 @@
 // basta para provar que o RELE consegue abrir uma conexao a montante
 // por cliente sem precisar de um KWin falso que responda nada.
 #include "wire_relay_connection_set.hpp"
+#include "wire_shm_test_support.hpp"
 #include "wire_test_encoders.hpp"
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
-#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -72,17 +73,12 @@ int connect_unix(const std::string &path) {
     return fd;
 }
 
-std::string temp_socket_path(const char *suffix) {
-    const char *tmpdir = std::getenv("TMPDIR");
-    const std::string base = (tmpdir != nullptr && tmpdir[0] != '\0') ? tmpdir : "/tmp";
-    return base + "/glintfx-wire-relay-a3c-" + std::to_string(::getpid()) + "-" + suffix;
-}
-
 } // namespace
 
 GLINTFX_TEST(wire_relay_a3c_second_client_accepted_before_first_closes) {
-    const std::string downstream_path = temp_socket_path("down");
-    const std::string upstream_path = temp_socket_path("up");
+    const scratch_dir dir;
+    const std::string downstream_path = dir.socket_path("down");
+    const std::string upstream_path = dir.socket_path("up");
     const int listen_fd = listen_unix(downstream_path);
     GLINTFX_CHECK(listen_fd >= 0);
     const int fake_kwin_fd = listen_unix(upstream_path); // nunca aceita de proposito
@@ -127,6 +123,43 @@ GLINTFX_TEST(wire_relay_a3c_second_client_accepted_before_first_closes) {
     ::close(connections[1]->upstream_fd);
     ::close(client_a);
     ::close(client_b);
+    ::close(listen_fd);
+    ::close(fake_kwin_fd);
+}
+
+// WIRE-RELAY-SOCKET-UNDER-TMPDIR: a TMPDIR so long that a socket named
+// under it would pass the 108 bytes of sun_path (unix(7)). The relay
+// still listens, accepts the client and opens its connection upstream,
+// because scratch_dir::socket_path() goes through the directory's
+// descriptor. The long parent is built here, so this case bites on
+// every machine, not only on one whose TMPDIR happens to be long.
+GLINTFX_TEST(wire_relay_a3c_sockets_work_under_a_tmpdir_longer_than_sun_path) {
+    const scratch_dir outer;
+    const std::string long_parent = outer.path() + "/" + std::string(100, 'd');
+    GLINTFX_CHECK(::mkdir(long_parent.c_str(), 0700) == 0);
+    const scratch_dir dir(long_parent);
+    // Only meaningful if the plain path would not have fit.
+    GLINTFX_CHECK(dir.path().size() + std::strlen("/down") >= sizeof(sockaddr_un{}.sun_path));
+
+    const std::string downstream_path = dir.socket_path("down");
+    const std::string upstream_path = dir.socket_path("up");
+    const int listen_fd = listen_unix(downstream_path);
+    GLINTFX_CHECK(listen_fd >= 0);
+    const int fake_kwin_fd = listen_unix(upstream_path); // never accepts, on purpose
+    GLINTFX_CHECK(fake_kwin_fd >= 0);
+
+    const relay_endpoints endpoints{listen_fd, upstream_path, ""};
+    connection_list connections;
+    const int client = connect_unix(downstream_path);
+    GLINTFX_CHECK(client >= 0);
+    run_relay_cycle(endpoints, connections);
+    GLINTFX_CHECK_EQ(connections.size(), 1u);
+
+    for (const auto &connection : connections) {
+        ::close(connection->client_fd);
+        ::close(connection->upstream_fd);
+    }
+    ::close(client);
     ::close(listen_fd);
     ::close(fake_kwin_fd);
 }

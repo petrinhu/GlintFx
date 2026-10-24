@@ -1892,7 +1892,14 @@ run_selftest_untracked_guard_git_failure_control() {
     log "selftest: guarda de untracked - varredura vazia por falha real do comando (nao presumida)"
     nogit_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-untracked-nogit.XXXXXX")"
     rc=0
-    out="$(bash -c "
+    # The same fence the five Python gates put over their scratch folder
+    # (SUITE-TMPDIR-PATHS, fence_outer_repository in check_spdx.py): git
+    # must not walk up out of nogit_dir into a repository around TMPDIR
+    # (a TMPDIR inside a checkout). The ceiling is the PARENT of
+    # nogit_dir: a ceiling equal to the starting directory does not stop
+    # git (git(1), ENVIRONMENT, GIT_CEILING_DIRECTORIES). Only this
+    # subshell sees it; run_selftest already dropped GIT_DIR and siblings.
+    out="$(GIT_CEILING_DIRECTORIES="${nogit_dir%/*}" bash -c "
         $(declare -f fail)
         $(declare -f enumerate_untracked_cpp_hpp)
         FILES=()
@@ -2376,6 +2383,14 @@ run_selftest_cache_state_controls() {
 }
 
 run_selftest() {
+    # Variables that pin a repository whatever directory git runs in, and
+    # that GIT_CEILING_DIRECTORIES does not reach (git(1), ENVIRONMENT).
+    # Inherited from a caller (a git hook, say), they would send the git
+    # calls of the fixtures below into the caller's repository instead of
+    # the fixture's own (SUITE-TMPDIR-PATHS). This process is --selftest
+    # only, so dropping them here touches nothing else.
+    unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+        GIT_ALTERNATE_OBJECT_DIRECTORIES
     run_selftest_positive_control
     run_selftest_negative_control
     run_selftest_empty_scan_control

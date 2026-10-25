@@ -209,7 +209,7 @@ Complete enumeration, not a targeted search (`GODS_LAWS.md` L-27/L-40, "enumerat
 
 ### Enumerators of `gltfx_err_code`
 
-`unknown`, `out_of_memory`, `io_failure`, `not_found`, `invalid_argument`, `parse_failure`, `unsupported`, `platform_failure`: none collides with a system macro (the preprocessor expands token by token, independent of `enum class` scoping, which is exactly why each one was checked individually, not just the type name). None is a name already used by the standard library.
+`unknown`, `out_of_memory`, `io_failure`, `not_found`, `invalid_argument`, `parse_failure`, `unsupported`, `platform_failure`, `no_free_space`: none collides with a system macro (the preprocessor expands token by token, independent of `enum class` scoping, which is exactly why each one was checked individually, not just the type name). None is a name already used by the standard library.
 
 ### Free functions
 

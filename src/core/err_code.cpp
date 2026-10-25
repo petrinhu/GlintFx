@@ -25,7 +25,7 @@ struct err_code_entry {
 // THE table. Adding a v2 value means adding its enumerator in
 // err_code.hpp plus exactly one row here; nothing else in this file
 // changes shape (append-only, see the header's own contract comment).
-constexpr std::array<err_code_entry, 8> k_table{{
+constexpr std::array<err_code_entry, 9> k_table{{
     {gltfx_err_code::unknown, "unknown"},
     {gltfx_err_code::out_of_memory, "out_of_memory"},
     {gltfx_err_code::io_failure, "io_failure"},
@@ -34,6 +34,7 @@ constexpr std::array<err_code_entry, 8> k_table{{
     {gltfx_err_code::parse_failure, "parse_failure"},
     {gltfx_err_code::unsupported, "unsupported"},
     {gltfx_err_code::platform_failure, "platform_failure"},
+    {gltfx_err_code::no_free_space, "no_free_space"},
 }};
 
 } // namespace

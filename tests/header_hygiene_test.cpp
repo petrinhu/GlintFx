@@ -123,6 +123,7 @@
 #include <vector>
 
 #include <glintfx/core/angle.hpp>
+#include <glintfx/core/atlas_allocator.hpp>
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err.hpp>

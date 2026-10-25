@@ -72,8 +72,11 @@
 // missed the first time - `error`, `error_code`, `error_condition`,
 // `result`, `expected`. `gltfx_err_code`, `unknown`, `out_of_memory`,
 // `io_failure`, `not_found`, `invalid_argument`, `parse_failure`,
-// `unsupported`, `platform_failure` and `gltfx_err_code_name` match
-// none of either list.
+// `unsupported`, `platform_failure`, `no_free_space` and
+// `gltfx_err_code_name` match none of either list (`no_free_space`
+// checked when it was added, R2D-TEXTURE: no system macro and no
+// standard-library name has that spelling, and the
+// public_name_collision gate scans it with every other name here).
 
 namespace glintfx {
 
@@ -88,10 +91,11 @@ enum class gltfx_err_code : std::uint32_t { // NOLINT(performance-enum-size) rea
                                             // decision, not an oversight
     unknown = 0,
 
-    // Generic band (1..999). v1 carries exactly these seven; adding an
-    // eighth means adding both the enumerator here and its row in
-    // err_code.cpp's table - the two never drift because the table is
-    // the only place a name is produced from a value.
+    // Generic band (1..999). v1 carried exactly the first seven; each
+    // value added since is appended after them, with both the
+    // enumerator here and its row in err_code.cpp's table - the two
+    // never drift because the table is the only place a name is
+    // produced from a value.
     out_of_memory = 1,
     io_failure = 2,
     not_found = 3,
@@ -99,6 +103,14 @@ enum class gltfx_err_code : std::uint32_t { // NOLINT(performance-enum-size) rea
     parse_failure = 5,
     unsupported = 6,
     platform_failure = 7,
+
+    // A fixed-size store has no free place of the size asked for, NOW:
+    // freeing what it holds, or a second store, can make room. Not a
+    // shortage of process memory (that is out_of_memory). First user:
+    // the atlas allocator (core/atlas_allocator.hpp), rejected_value()
+    // "atlas_full". Appended in R2D-TEXTURE; adding a value is
+    // compatible (APPEND-ONLY CONTRACT above).
+    no_free_space = 8,
 };
 
 // Returns the IDENTIFIER of `code` (e.g. "out_of_memory"), not a

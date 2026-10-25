@@ -31,3 +31,10 @@ target_sources(glintfx_library PRIVATE projected_shadow.cpp projected_shadow_val
 # put on ground vertices (light_tint.hpp); the refusals by name live in their own atom,
 # light_tint_validation.cpp (GODS_LAWS.md L-17).
 target_sources(glintfx_library PRIVATE light_tint.cpp light_tint_validation.cpp)
+
+# R2D-TEXTURE (core/atlas_allocator.hpp): the atlas allocator. The public handle
+# (atlas_allocator.cpp) forwards to its interior (atlas_allocator_impl.cpp), which carries each
+# call out on three atoms: the shelves and free runs (atlas_geometry.cpp), the numbers of the cells
+# (atlas_slots.cpp) and the refusals by name (atlas_request_check.cpp) (GODS_LAWS.md L-17).
+target_sources(glintfx_library PRIVATE atlas_allocator.cpp atlas_allocator_impl.cpp
+                                       atlas_geometry.cpp atlas_slots.cpp atlas_request_check.cpp)

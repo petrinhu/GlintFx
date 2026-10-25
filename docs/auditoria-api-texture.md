@@ -46,6 +46,7 @@
 - **Errata da T4b-A-PHRASE (CTO, 20/10/2026; D-W8-653 a 660; decisão do líder sobre a D-W8-555 por AskUserQuestion, "Frase completa (Recomendado)"):** a cerca de `draw_texture_quad`, mais abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). (1) A frase de exatidão que a T4b-A-fix4 cortou volta: se os cantos definem um mapeamento projetivo é decidido de forma exata, para quaisquer cantos finitos, em qualquer tamanho, lugar e mistura de magnitudes (T4b-A-fix4, D-W8-551 a 553; com o filtro da T4b-A-FILTER, o caminho exato continua sendo o árbitro de todo sinal que o filtro não certifica). (2) A única recusa de um quadrilátero que TEM mapeamento passa a ser dita: as diagonais se cruzam tão perto de um canto (a menos de cerca de 2^-1025 do comprimento da diagonal) que um peso projetivo, arredondado a double, passaria do maior double; conta como `degenerate_quad`, como já contava. Era a lacuna que fez a D-W8-555 cortar a frase na fix4: exatidão dita ao lado de uma recusa que depende de arredondamento e que o texto público não citava. (3) O `Proved by:` ganha `projective_quad_test` (a decisão nos kites de magnitude mista e em todo quadrilátero pequeno de cantos inteiros; o quadrilátero cujo peso passaria do maior double, recusado). Os gêmeos mudam junto (L-17 global): o comentário do motivo `degenerate_quad` e o de `pieces_refused` em `frame_2d_report.hpp`, e três comentários internos (`texture_region_check.hpp`, `textured_quad_corners.hpp`, `renderer_2d_impl_textures.cpp`). Nenhum código muda. A wiki não tem página de textura e não muda.
 - **Errata da T5 (CTO, 20/10/2026; D-W8-671 a D-W8-680 e D-W8-740; etapas T5-A e T5-B):** `fill_textured_triangles` e `fill_indexed_textured_triangles` entram em `renderer_2d.hpp`, e a cerca deles, abaixo, é reescrita NO LUGAR com o texto do cabeçalho (D-W8-545). Diferenças contra a proposta da T0: (1) a ordem das recusas fica escrita por inteiro, sete passos, a do `fill_triangles` com a coordenada do texel na regra dos valores (D-W8-673), depois as duas da textura, depois `region_out_of_range` para a coordenada fora de 0..largura por 0..altura, bordas dentro (D-W8-672: recusada, nunca grampeada nem repetida; a repetição é a `R2D-TEXTURE-TILED`), depois a faixa de pixel; a proposta não tinha a recusa da faixa da textura nem a da faixa de pixel; (2) a leitura é AFIM em cada triângulo (q = 1), e o texto diz que o quadrilátero projetivo é `draw_texture_quad()`; (3) a chamada vazia não é peça, qualquer que seja a textura (D-W8-287); (4) o par textura e região do `draw_texture` não se aplica: cada vértice traz a própria coordenada; (5) a peça de triângulos texturizada conta a textura em `texture_switches` como o `draw_texture`, e logo depois de uma peça texturizada da mesma textura sai na mesma chamada de desenho; (6) pela D-W8-740 (pesquisa de 20/10: a documentação de SDL3, Dear ImGui, raylib, sokol_gl, SFML, Skia, NanoVG, pixi.js e Godot, e quinze queixas de usuários delas), a cerca diz também o que a proposta e essas nove bibliotecas calam: onde fica o texel (0, 0) e o centro do primeiro texel; que nenhum triângulo é descartado pela ordem dos seus vértices (face culling desligado, o estado de `flush()`), provado na TT1 com dois triângulos de orientações opostas; que a mistura é a de toda peça; e o custo, linear no número de vértices e índices (mais o custo fixo de toda peça), com a checagem e a cópia na própria chamada. A frase do custo é a única sem teste que meça o tempo: ela descreve o que as checagens e a cópia fazem, e o `Proved by:` dela prova só a cópia. O comentário de `gltfx_textured_vertex_2d` (cerca de `texture_region.hpp`, acima) ganha a faixa do texel e o `Proved by:`; a frase de `region_out_of_range` e a de `pieces_refused` em `frame_2d_report.hpp` ganham o gêmeo do texel do triângulo, e "WHAT A PIECE IS" ganha os dois métodos. O item (5) da errata da T4b-B2-fix1 ("ainda não estão no cabeçalho") deixa de valer para estes dois; `draw_atlas_image` continua proposta da T6. Porta de mão única: a frase pública e a recusa da D-W8-672 vão à ratificação do líder.
 - **Errata da T4b-A-FLOAT (CTO, 20/10/2026; D-W8-716 a 735; revisão N1 da T4b-A-PHRASE, CRÍTICO-1, IMPORTANTE-1 e COSMÉTICO-1):** a cerca de `draw_texture_quad`, mais abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). (1) O desenho converte o peso projetivo para float (`textured_quad_corners.cpp`, T4b-B1-fix1), e a frase da T4b-A-PHRASE dava como fronteira o maior double: entre o maior float e o maior double o quadrilátero era aceito e chegava ao vértice com peso infinito, contado como desenhado (a revisão mediu 3563 de 5623 quadriláteros aceitos numa amostra de escalas sorteadas). (2) Os quatro pesos de todo quadrilátero desenhado passam a chegar ao vértice multiplicados por UMA potência de dois, que não muda o mapeamento (o programa divide u q e v q por q): 1 enquanto o maior peso está abaixo de 2^32; acima, a que o traz para baixo de 2^32. Cada peso fica entre 2^-32 e 2^32 (o OpenGL 3.3, seção 2.1.1, promete coordenada de textura até 2^32 em magnitude), e nenhum chega à conversão para float fora da faixa do float. (3) A única recusa de um quadrilátero que TEM mapeamento passa a ser a do maior peso de 2^63 ou mais (as diagonais se cruzam a menos de cerca de 2^-64 do comprimento da diagonal, perto de um canto), que inclui a do peso acima do maior double; conta como `degenerate_quad`, como já contava. (4) A frase fala de uma família de quadriláteros, no plural (COSMÉTICO-1). (5) O `Proved by:` ganha `textured_quad_corners_test`, com os casos de maior peso 2^64/3 levado e de 2^65/3, 2^201/3 e 2^1030 recusados (IMPORTANTE-1). Os gêmeos mudam junto (L-17 global): o motivo `degenerate_quad` e `pieces_refused` em `frame_2d_report.hpp`, e dois comentários internos (`texture_region_check.hpp`, `renderer_2d_impl_textures.cpp`); `projective_quad.hpp` não muda, porque fala da recusa da função dele, que continua a do maior double. As linhas desta página com o critério antigo (IMP-T11 e Q-T01) são registro de achado e não mudam. Porta de mão única: a frase pública vai à ratificação do líder.
+- **Errata da T6-A (CTO, 22/10/2026, e errata 1 da ordem, 24/10/2026; D-W8-910 a D-W8-930 e D-W8-960 a D-W8-977):** `include/glintfx/core/atlas_allocator.hpp` entra no repositório, e a cerca dele, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). Diferenças contra a proposta da T0: (1) `open(width, height)`: o atlas tem largura e altura, não um lado só (D-W8-912; imgui #327, shelf-pack #93); o gêmeo `gltfx_texture_atlas_desc::side`, na cerca de `texture_atlas.hpp`, é da T6-B e não muda aqui; (2) o retângulo maior que o atlas é `invalid_argument` com "width" ou "height", não `no_free_space` (D-W8-911): `no_free_space` passa a dizer "cheio agora", e um laço que abre outro atlas ao receber `no_free_space` não gira para sempre num retângulo que não cabe em nenhum (bevy #25224, fontstash #18, nanovg #431); (3) o recibo ganha `owner`, o número do alocador, e `release()` recusa o recibo de outro alocador como `slot_other_allocator`, antes de olhar se ele é velho (D-W8-913): a promessa da T0 de recusar o recibo "de outro atlas" não tinha dado que a cumprisse, porque dois alocadores novos entregam o mesmo número e a mesma geração; o recibo com `owner` 0 (o padrão, nunca entregue) é `stale_slot`; (4) `release_all()`, `is_open()`, `width()` e `height()` (D-W8-914; nanovg #114 e #431, fórum do Cesium); (5) o número que chega à geração 4294967295 nunca mais é entregue, e o recibo velho nunca volta a valer (D-W8-915); (6) os quatro passos da colocação, a regra de uma vez e meia e a promessa de posições iguais em todo sistema, dentro da mesma versão da biblioteca, ficam escritos (D-W8-916; etagere #35 e #36, SDL_ttf #643); (7) o código `no_free_space` entra com o número 8, no fim da faixa genérica, com os gêmeos em `err_code.cpp`, `err_code_test.cpp`, `docs/api-conventions.md` e `docs/wiki/API-Core.md` (D-W8-291 confirmada; D-W8-920); (8) a memória sem exceção vem de um par de funções no formato do `realloc`, e a falta dela é `out_of_memory` com o alocador intacto, provada em cada pedido de memória (D-W8-917, D-W8-918); (9) da errata 1 da ordem, depois do ataque ao plano: a ordem das recusas de `release()` escrita como o código a confere (o recibo de dono 0 antes do recibo de outro alocador), a falta de número livre entre as causas de `out_of_memory`, e a atribuição por movimento descrita (o alocador que recebe outro devolve antes a própria área); o `Proved by:` passa a citar os casos novos (cada campo do recibo alterado, a corrida livre mais à esquerda nos passos 1 e 3, o retângulo maior que o atlas com o atlas cheio, a atribuição por movimento, liberar sem pedir memória, o segundo crescimento da tabela de números, o dono depois do último) (D-W8-961 a D-W8-973). A cerca de `texture_atlas.hpp` e o trecho de `renderer_2d.hpp` com `draw_atlas_image` continuam proposta da T6-B. Porta de mão única: o texto público e os nomes novos vão à ratificação do líder.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -421,36 +422,100 @@ class gltfx_texture_2d {
 #include <glintfx/core/err.hpp>
 #include <glintfx/export.hpp>
 
-// core/atlas_allocator.hpp - R2D-TEXTURE. A PURE
-// packing allocator: it decides WHERE a rectangle goes inside a fixed
-// square of pixels, and it takes space BACK when the rectangle is
-// released. It knows no texture, no GL and no operating system, so it is
-// testable without a graphics card (CONTRACT.md, core layer).
+// core/atlas_allocator.hpp - R2D-TEXTURE. Decides WHERE a rectangle goes inside a fixed area of
+// pixels (an atlas), and takes the space BACK when the rectangle is released. It knows no texture,
+// no graphics card and no operating system: it only hands out positions, so a texture atlas, a
+// glyph cache or a sprite sheet can be built on top of it, and it works without a graphics card.
 //
-// WHY RELEASE EXISTS: a dynamic atlas (a glyph, a sprite loaded and
-// unloaded) must reuse the space of what left. An allocator without
-// release fills up for good.
+// HOW A RECTANGLE IS PLACED, in this version of the library. The area is cut into horizontal
+// shelves, each a band of rows as tall as the rectangle that opened it; a shelf holds rectangles
+// side by side, each at most as tall as the shelf. allocate() looks, in this order, for:
+//   1. a shelf that already holds a rectangle, at least as tall as the new one and at most one and
+//      a half times as tall, with a free run at least as wide: the shortest such shelf, then the
+//      topmost, and the leftmost run on it;
+//   2. otherwise, the topmost free band at least as tall: a new shelf exactly as tall as the
+//      rectangle is opened at the top of that band;
+//   3. otherwise, any shelf that already holds a rectangle, is at least as tall and has a free run
+//      at least as wide: the shortest, then the topmost, and the leftmost run on it;
+//   4. otherwise the call is refused as `no_free_space` (see the refusals below).
+// The rectangle takes the left end of the free run. Shelves pack well when many rectangles have
+// similar heights (the glyphs of one font size, tiles, the frames of a sprite sheet); a rectangle
+// much shorter than the shelf it lands on leaves the rows below it unused until that shelf is
+// empty again.
 //
-// STALE SLOTS (the ABA problem): a slot that was released can hand its
-// space to a new allocation. A second release of the OLD slot would then
-// free the NEW owner's space. Every slot therefore carries a generation,
-// and release() refuses a slot whose generation is no longer current
-// (invalid_argument, rejected_value() "stale_slot"). Proved by:
-// atlas_allocator_test (release, reallocate into the hole, then release
-// the old slot: refused, the new owner's space untouched).
+// THE SIZE ASKED IS THE SIZE GIVEN. The slot's rect is always exactly `width` by `height`, also
+// when it lands in a larger free run; the rest of the run stays free for the next allocation.
 //
-// NO ROOM is a result, never a null or an empty optional (R1): allocate()
-// returns gltfx_rslt<gltfx_atlas_slot>. The error code for "no room" is
-// `no_free_space`, appended to the end of gltfx_err_code, with
-// rejected_value() "atlas_full". It says what is missing and does not read as
-// a shortage of process memory (out_of_memory would say that).
+// RELEASE GIVES THE SPACE BACK. release() frees the slot's rect; free runs that touch on a shelf
+// become one; a shelf left with no rectangle becomes a free band again and joins the free bands
+// right above and below it, so the space can take a taller rectangle. Once every slot is released,
+// the whole area is one free band, as after open(). release_all() does the same for every slot at
+// once.
 //
-// Proved by: atlas_allocator_test (allocate, release, reallocate into the
-// hole, full atlas refused, a rectangle larger than the atlas refused).
+// THE SAME CALLS GIVE THE SAME POSITIONS. Positions are computed with whole numbers only: with the
+// same version of the library, the same sequence of calls on an allocator of the same size gives
+// the same rects on every system and with every compiler. A later version may place differently;
+// the steps above are this version's.
+//
+// A SLOT IS A RECEIPT. allocate() returns a gltfx_atlas_slot: the rect, the number of the cell
+// (`id`), how many times that number was handed out (`generation`) and the number of the
+// allocator that handed it out (`owner`). release() accepts only the slot of a cell that is in use
+// now, exactly as allocate() returned it, and frees nothing otherwise:
+//   - a slot whose `owner` is another allocator's is refused (invalid_argument, rejected_value()
+//     "slot_other_allocator");
+//   - a slot whose cell was already released, a slot never handed out (the default
+//     gltfx_atlas_slot, whose owner is 0, among them) and a slot whose rect, id or generation was
+//     changed are refused (invalid_argument, rejected_value() "stale_slot"); so releasing an old
+//     slot again can never free the space of the cell that took its number later.
+// Each time a number is handed out again, its generation grows by one. A number whose generation
+// reached 4294967295 is never handed out again, so an old slot can never become current again.
+// `owner` is a number of its own for each allocator a process opens (never 0); it repeats only
+// after 4294967295 allocators were opened in the same process.
+//
+// THE REFUSALS, each a gltfx_err with the code and rejected_value() named here, in the order in
+// which they are checked:
+//   - open(width, height): a zero `width` or `height` (invalid_argument, "width" or "height");
+//     the library ran out of memory (out_of_memory, "atlas_open").
+//   - allocate(width, height): a moved-from allocator (invalid_argument, "allocator"); a zero
+//     `width` or `height` (invalid_argument, "width" or "height"); a `width` wider or a `height`
+//     taller than the atlas, which no release can ever make fit (invalid_argument, "width" or
+//     "height"); no free place of that size now (no_free_space, "atlas_full"); the library ran
+//     out of memory, or no number is left for a new cell, all 4294967295 being in use or retired
+//     (out_of_memory, "atlas_allocate"). A refused call changes nothing.
+//   - release(slot): a moved-from allocator (invalid_argument, "allocator"); a slot whose `owner`
+//     is 0, which no allocator hands out ("stale_slot"); a slot of another allocator
+//     ("slot_other_allocator"); any other stale slot ("stale_slot").
+// `no_free_space` says the atlas is full NOW: releasing slots, or a second atlas, can make room.
+// A rectangle larger than the atlas is `invalid_argument` instead, so a loop that opens a new
+// atlas on `no_free_space` never runs forever on a rectangle that cannot fit in any.
+//
+// COST. allocate() and release() take time that grows linearly with the number of shelves and
+// free runs, and the allocator's memory grows with them; release() and release_all() never ask
+// for memory.
+//
+// A MOVED-FROM ALLOCATOR holds nothing: is_open() is false, width() and height() are 0, allocate()
+// and release() are refused as above, and release_all() does nothing. An allocator that receives
+// another by move assignment gives its own area back first: the slots it handed out before are
+// then another allocator's. One allocator must not be used from two threads at the same time; two
+// allocators are independent.
+//
+// Proved by: atlas_allocator_test (each refusal by name in this order but out_of_memory, which
+// atlas_allocator_impl_test proves; a fixed sequence of calls with the position of every rect
+// written in the test, on every system of the build; the size asked kept in a larger free run; the
+// rectangle as large as the atlas, and a larger one refused by name on a full atlas; a shelf of bad
+// fits still used; release, reuse of the space and of the number, the full area after every
+// release and after release_all(); the stale, default, foreign slots and a slot with each of its
+// fields changed; a moved-from allocator; the move assignment).
+// Proved by: atlas_geometry_test (the four steps of the placement, the leftmost free run in steps
+// 1 and 3, and the joining of free runs and bands); atlas_slots_test (the generation, each field
+// of the rect, and the number never handed out again); atlas_allocator_impl_test (out_of_memory at
+// each request for memory, with the allocator unchanged after it; release() and release_all()
+// asking for none; the move assignment giving the old area back; the owner after the last one).
 
 namespace glintfx {
 
-// A rectangle of pixels inside the atlas, in whole pixels. Trivial value.
+// A rectangle of whole pixels inside the atlas: the left column `x`, the top row `y`, and the
+// size. Trivial value.
 struct gltfx_atlas_rect {
     std::uint32_t x = 0;
     std::uint32_t y = 0;
@@ -458,20 +523,21 @@ struct gltfx_atlas_rect {
     std::uint32_t height = 0;
 };
 
-// The receipt of one allocation: where it is, and which generation of
-// the allocator handed it out.
+// The receipt of one allocation (see A SLOT IS A RECEIPT above). Trivial value.
 struct gltfx_atlas_slot {
     gltfx_atlas_rect rect{};
     std::uint32_t id = 0;
     std::uint32_t generation = 0;
+    std::uint32_t owner = 0;
 };
+
+struct atlas_allocator_impl;
 
 class gltfx_atlas_allocator {
   public:
-    // A square atlas of `side` pixels per edge. Zero is refused with
-    // invalid_argument, rejected_value() "side".
+    // An atlas of `width` by `height` pixels, all free. Refusals: see above.
     [[nodiscard]] GLINTFX_API static gltfx_rslt<gltfx_atlas_allocator>
-    open(std::uint32_t side) noexcept;
+    open(std::uint32_t width, std::uint32_t height) noexcept;
 
     gltfx_atlas_allocator(const gltfx_atlas_allocator &) = delete;
     gltfx_atlas_allocator &operator=(const gltfx_atlas_allocator &) = delete;
@@ -479,20 +545,27 @@ class gltfx_atlas_allocator {
     GLINTFX_API gltfx_atlas_allocator &operator=(gltfx_atlas_allocator &&other) noexcept;
     GLINTFX_API ~gltfx_atlas_allocator();
 
-    // A rectangle of `width` by `height` pixels. Zero is refused
-    // (invalid_argument, "width" or "height"); larger than the atlas, or no
-    // free place of that size, is refused as described above.
-    [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_atlas_slot>
-    allocate(std::uint32_t width, std::uint32_t height) noexcept;
+    // False only for a moved-from allocator.
+    [[nodiscard]] GLINTFX_API bool is_open() const noexcept;
 
-    // Gives the space of `slot` back. A stale slot is refused (see above).
-    [[nodiscard]] GLINTFX_API gltfx_rslt<void>
-    release(gltfx_atlas_slot slot) noexcept;
+    // The size given to open(); 0 for a moved-from allocator.
+    [[nodiscard]] GLINTFX_API std::uint32_t width() const noexcept;
+    [[nodiscard]] GLINTFX_API std::uint32_t height() const noexcept;
+
+    // A rectangle of `width` by `height` pixels, placed as described above. Refusals: see above.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_atlas_slot> allocate(std::uint32_t width,
+                                                                    std::uint32_t height) noexcept;
+
+    // Gives the space of `slot` back. Refusals: see above.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void> release(gltfx_atlas_slot slot) noexcept;
+
+    // Gives the space of every slot in use back, as if each were released: every slot handed out
+    // before this call is refused by release() after it.
+    GLINTFX_API void release_all() noexcept;
 
   private:
-    explicit gltfx_atlas_allocator(struct atlas_allocator_impl *interior) noexcept
-        : impl(interior) {}
-    struct atlas_allocator_impl *impl = nullptr;
+    explicit gltfx_atlas_allocator(atlas_allocator_impl *interior) noexcept : impl(interior) {}
+    atlas_allocator_impl *impl = nullptr;
 };
 
 } // namespace glintfx

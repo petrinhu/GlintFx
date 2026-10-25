@@ -29,11 +29,12 @@
 
 namespace {
 
-constexpr std::array<glintfx::gltfx_err_code, 8> k_all_codes{
+constexpr std::array<glintfx::gltfx_err_code, 9> k_all_codes{
     glintfx::gltfx_err_code::unknown,          glintfx::gltfx_err_code::out_of_memory,
     glintfx::gltfx_err_code::io_failure,       glintfx::gltfx_err_code::not_found,
     glintfx::gltfx_err_code::invalid_argument, glintfx::gltfx_err_code::parse_failure,
     glintfx::gltfx_err_code::unsupported,      glintfx::gltfx_err_code::platform_failure,
+    glintfx::gltfx_err_code::no_free_space,
 };
 
 bool any_value_repeated(const std::array<std::uint32_t, k_all_codes.size()> &values) {
@@ -86,6 +87,15 @@ GLINTFX_TEST(every_code_has_a_distinct_name_and_value) {
     // green is the defect this project's gates exist to never ship.
     std::println("err_code_test: {} enumerator(s) checked, all names and values distinct",
                  k_all_codes.size());
+}
+
+// R2D-TEXTURE: no_free_space is appended after the seven of v1, with the next number, and it is
+// named by the table (append-only contract, err_code.hpp). The number is part of the ABI: a
+// consumer's compiled comparison against 8 must keep meaning "no free space".
+GLINTFX_TEST(no_free_space_is_appended_as_number_eight) {
+    GLINTFX_CHECK_EQ(static_cast<std::uint32_t>(glintfx::gltfx_err_code::no_free_space), 8U);
+    GLINTFX_CHECK(glintfx::gltfx_err_code_name(glintfx::gltfx_err_code::no_free_space) ==
+                  std::string_view{"no_free_space"});
 }
 
 GLINTFX_TEST(value_outside_the_table_degrades_to_unknown) {

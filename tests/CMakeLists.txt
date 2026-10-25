@@ -60,6 +60,27 @@ glintfx_add_test(projected_shadow_test)
 # put on ground vertices, a pure function of the core - see light_tint_test.cpp's own header comment.
 glintfx_add_test(light_tint_test)
 
+# R2D-TEXTURE (core/atlas_allocator.hpp): the atlas allocator through its public API
+# (atlas_allocator_test), and its interior and two of its atoms alone, each recompiled straight
+# into its own test - none has a GLINTFX_API symbol, so an armed memory reaches every request on
+# every system, Windows/SHARED included, with no DLL hook (the loop_open_alloc_failure_test
+# technique). See each file's own header comment.
+glintfx_add_test(atlas_allocator_test)
+glintfx_add_test(atlas_geometry_test)
+target_include_directories(atlas_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src/core/atlas_geometry.cpp")
+glintfx_add_test(atlas_slots_test)
+target_include_directories(atlas_slots_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_slots_test PRIVATE "${PROJECT_SOURCE_DIR}/src/core/atlas_slots.cpp")
+glintfx_add_test(atlas_allocator_impl_test)
+target_include_directories(atlas_allocator_impl_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_allocator_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_allocator_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_slots.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_request_check.cpp"
+)
+
 # R2D-SHAPES, S1-fix1 (review N1 of S1, achado A1): the public defaults and the enumerator values of
 # draw2d/stroke.hpp, each as the parecer fixes them - see stroke_test.cpp's own header comment.
 glintfx_add_test(stroke_test)

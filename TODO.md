@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage CTO-suíte-fix2 24/10] SUITE-TEMP-BEFORE-PROTECT: a varredura .trabalho/cto-w8/ordens-anexos/suite-fix2/scripts/varre_gemeos.py acusa 70 sítios da suíte (33 em Python, 37 em shell, a parte de shell por heurística) em que um temporário é criado e, antes de a proteção dele começar (try/finally, with, trap), roda um passo que pode falhar: a mesma classe da I-N1 e da C-2 da SUITE-TMPDIR-PATHS. Lista em evidencia/gemeos_new_suite.txt. INFERÊNCIA: parte é inofensiva (passo que na prática não falha); medir cada um antes de consertar, e considerar o script como portão da suíte (com sabotagem de estreia, L-36 global).
+
 - [triage CTO-t5bfix3 24/10] TLC-HEADER-INFINITY: o comentário do topo de tests/triangle_list_check_test.cpp:30-32 diz que os seis valores do ponto são conferidos com NaN "and the colour ones with an infinity too", mas a tabela do caso every_value_of_a_vertex_is_looked_at (:208) confere infinito também na posição x e y (os slots 0 e 1) (COSMÉTICO-1 de .trabalho/cto-w8/rev-t5bfix2/relatorio.txt, desde a S2b-fix1). Comentário só; muda o md5 do arquivo, que a T6-A confere (errata1.md:252): fazer depois da T6-A.
 
 - [triage CTO-suíte-fix1 24/10] SUITE-FENCE-NOT-IN-CI: a cerca do git dos cinco autotestes (tests/tools/selftest_git_fence.py) só é exercitada pelo prova_ct.sh do contêiner das ordens; no ctest e no CI o TMPDIR é curto, fora de repositório e sem GIT_DIR, então uma regressão da cerca passa verde. Um ctest que rode os cinco --selftest com TMPDIR dentro de um repositório descartável e com GIT_DIR exportado fecharia isso (ordem .trabalho/cto-w8/ordem-suite-fix1.md, D-W8-998).

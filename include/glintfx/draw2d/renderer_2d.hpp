@@ -534,7 +534,8 @@ class gltfx_renderer_2d {
     // that does define a mapping and is drawn carries its four weights to
     // the graphics card multiplied by one common power of two, which leaves
     // the mapping as it is, so that each weight lies between 2^-32 and 2^32
-    // (OpenGL promises texture coordinates up to 2^32 in magnitude).
+    // (OpenGL 3.3 core profile specification, section 2.1.1: the largest
+    // magnitude a texture coordinate can hold must be at least 2^32).
     // D-W8-354: four parameters at most.
     // Proved by: renderer_2d_impl_test (degenerate_quad after the texture's
     // reasons; the projective weight of each corner reaches the vertex).

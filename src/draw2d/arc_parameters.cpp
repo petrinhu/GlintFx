@@ -34,13 +34,17 @@ struct arc_piece {
 
 using piece_stack = std::array<arc_piece, k_piece_stack_size>;
 
-// What to cut: the ellipse, the surface grown by the margin and the reach, the number of top-level
-// pieces (4 for a whole curve, 2 for a half) and the level the error asks for.
+// What to cut: the ellipse, the surface grown by the margin and the reach, the near box (that one
+// grown again by k_arc_near_surface_pixels), the number of top-level pieces (4 for a whole curve, 2
+// for a half), the level the error asks for, and whether a piece on the surface is cut on until
+// its ends are in the near box.
 struct cut_plan {
     pixel_ellipse ellipse;
     pixel_box grown;
+    pixel_box near;
     std::uint32_t quarters{0};
     std::uint32_t level{0};
+    bool ends_near{true};
 };
 
 bool is_finite_position(const pixel_position_wide &p) noexcept {
@@ -133,18 +137,42 @@ pixel_position_wide apex_of(const pixel_ellipse &e, double from, double to) noex
                                e.center.y + (offset.y * stretch)};
 }
 
-// True when the box of the hull (the two ends and the apex) lies wholly to one side of the grown
-// surface. Then the piece is drawn as its chord, and no pixel of the surface changes.
-bool hull_misses(const cut_plan &plan, const arc_piece &piece) noexcept {
+// The two ends of a piece and the apex of its hull.
+struct piece_points {
+    pixel_position_wide from;
+    pixel_position_wide to;
+    pixel_position_wide apex;
+};
+
+piece_points points_of(const cut_plan &plan, const arc_piece &piece) noexcept {
     const double from = parameter_of(piece.numerator, piece.level);
     const double to = parameter_of(piece.numerator + 1U, piece.level);
-    const pixel_position_wide a = point_at(plan.ellipse, from);
-    const pixel_position_wide b = point_at(plan.ellipse, to);
-    const pixel_position_wide apex = apex_of(plan.ellipse, from, to);
-    const auto [low_x, high_x] = std::minmax({a.x, b.x, apex.x});
-    const auto [low_y, high_y] = std::minmax({a.y, b.y, apex.y});
+    return piece_points{point_at(plan.ellipse, from), point_at(plan.ellipse, to),
+                        apex_of(plan.ellipse, from, to)};
+}
+
+// True when the box of the hull (the two ends and the apex) lies wholly to one side of the grown
+// surface. Then the piece is drawn as its chord, and no pixel of the surface changes.
+bool hull_misses(const cut_plan &plan, const piece_points &points) noexcept {
+    const auto [low_x, high_x] = std::minmax({points.from.x, points.to.x, points.apex.x});
+    const auto [low_y, high_y] = std::minmax({points.from.y, points.to.y, points.apex.y});
     return high_x < plan.grown.min_x || low_x > plan.grown.max_x || high_y < plan.grown.min_y ||
            low_y > plan.grown.max_y;
+}
+
+bool is_inside(const pixel_box &box, const pixel_position_wide &p) noexcept {
+    return p.x >= box.min_x && p.x <= box.max_x && p.y >= box.min_y && p.y <= box.max_y;
+}
+
+// A piece on the surface is fine when it is as fine as e needs and, while the plan keeps the ends
+// near, both ends of its chord lie in the near box or the level is the deepest: its ends then
+// become single precision close to the surface.
+bool is_fine(const cut_plan &plan, const arc_piece &piece, const piece_points &points) noexcept {
+    if (piece.level < plan.level) {
+        return false;
+    }
+    return !plan.ends_near || piece.level >= k_max_arc_cut_level ||
+           (is_inside(plan.near, points.from) && is_inside(plan.near, points.to));
 }
 
 void push_piece(piece_stack &stack, std::size_t &depth, arc_piece piece) noexcept {
@@ -175,7 +203,8 @@ std::size_t cut_parameters(const cut_plan &plan, std::span<double> out) noexcept
     std::size_t count = 1U;
     while (depth > 0U && count <= out.size()) {
         const arc_piece piece = stack[--depth];
-        if (piece.level == plan.level || hull_misses(plan, piece)) {
+        const piece_points points = points_of(plan, piece);
+        if (hull_misses(plan, points) || is_fine(plan, piece, points)) {
             if (count < out.size()) {
                 out[count] = parameter_of(piece.numerator + 1U, piece.level);
             }
@@ -193,16 +222,26 @@ pixel_box grown_surface(const pixel_box &surface, double grow) noexcept {
                      surface.max_y + grow};
 }
 
-// The cut for a curve the uniform regime cannot meet: the deepest level, from the one the error
-// asks for down to 8, whose count fits the room. Level 7 when none does; it always fits, because
-// the room holds at least fewest_arc_parameters(extent) and level 7 needs at most that many.
+// The cut for a curve the uniform regime cannot meet. First the level the error asks for with the
+// ends kept near the surface. When that does not fit the room, the cut of before, with no ends
+// kept near: the deepest level, from the one the error asks for down to 8, whose count fits the
+// room; level 7 when none does, which always fits, because the room holds at least
+// fewest_arc_parameters(extent) and level 7 needs at most that many.
 std::size_t write_cut(const arc_request &request, double radius, const pixel_box &surface,
                       std::span<double> out) noexcept {
     const double grow = k_arc_surface_margin_pixels + request.reach_pixels;
-    cut_plan plan{request.ellipse, grown_surface(surface, grow),
+    cut_plan plan{request.ellipse,
+                  grown_surface(surface, grow),
+                  grown_surface(surface, grow + k_arc_near_surface_pixels),
                   request.extent == arc_extent::whole ? 4U : 2U,
-                  level_for(radius, request.max_error_pixels)};
+                  level_for(radius, request.max_error_pixels),
+                  true};
     const std::span<double> room = out.first(std::min(out.size(), k_max_arc_parameters));
+    const std::size_t near_count = cut_parameters(plan, room);
+    if (near_count <= room.size()) {
+        return near_count;
+    }
+    plan.ends_near = false;
     for (std::uint32_t level = plan.level; level >= k_first_cut_level; --level) {
         plan.level = level;
         const std::size_t count = cut_parameters(plan, room);

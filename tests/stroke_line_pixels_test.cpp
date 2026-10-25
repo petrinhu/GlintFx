@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <limits>
 #include <memory>
 #include <numbers>
 #include <span>
@@ -20,6 +19,7 @@
 #include "draw2d/stroke_line_pixels.hpp"
 
 #include "harness/check.hpp"
+#include "harness/sweep_lcg.hpp"
 #include "harness/test_registry.hpp"
 
 // stroke_line_pixels_test.cpp - R2D-SHAPES, fatia S3: one accepted stroke_line() call as pixel
@@ -335,18 +335,13 @@ namespace {
 
 constexpr double k_pi = std::numbers::pi;
 
-// The fixed integer generator of the sweeps below (the same numbers on every system): the one of
-// arc_parameters_test.cpp, with seeds of its own.
-struct lcg {
-    std::uint64_t state = 0U;
-    double next() {
-        state = (state * 6364136223846793005ULL) + 1442695040888963407ULL;
-        return static_cast<double>(state >> 11U) * 0x1.0p-53;
-    }
-};
+// The fixed integer generator of the sweeps below (the same numbers on every system), shared with
+// arc_parameters_test.cpp and ellipse_pixels_test.cpp, with seeds of its own.
+using glintfx::test_support::lcg;
 
-// A batch transform turned by a drawn angle and scaled unevenly, the scale of each axis from 1/8 to
-// 8 and the two up to 64 apart, with no translation yet: scale first, then rotation, as
+// A batch transform turned by a drawn angle and scaled unevenly, the larger scale from 1/8 to 8 and
+// the other up to 64 times smaller (down to 1/512; the review of fatia S5-C2-fix1, C-1), with no
+// translation yet: scale first, then rotation, as
 // pixel_affine_from_transform builds it (quad_vertices.cpp). `larger` is its largest stretch, the
 // larger of the two scales.
 struct drawn_linear {
@@ -469,21 +464,23 @@ GLINTFX_TEST(stroke_line_pixels_the_uniform_cap_is_counted_by_the_formula_of_bef
     GLINTFX_CHECK(failures == 0);
 }
 
-// THE SWEEP OF THE CAP ON THE SURFACE (fatia S5-C2-fix1; the S5-C2 review, I1). 400 lines of a
-// fixed generator, in both units, under a batch transform turned and scaled unevenly, with the
-// largest error from 1/16 to 8 pixels and the cap's larger radius on the screen from 1 to 2^20
-// pixels (both regimes); each line puts one of its caps (the end on half the cases, the start on
-// the other half) across the 800 x 600 surface, through a point drawn on it. For every chord of
-// that cap whose hull touches the surface grown by half a pixel (the code grows it by one: the half
-// left over absorbs the test's reading of the parameters back from float vertices): the largest
-// distance from the true half ellipse, built by hand from the line's own frame, to the chord
-// between the two FLOAT vertices is within the error, plus a thousandth of it (the rounding of
-// the double evaluation, as in arc_parameters_test), plus the narrowing of PRECISION
-// (renderer_2d.hpp): half a unit in the last place of a float moves each end by at most sqrt(2)
-// times half its larger coordinate's unit. The radii are kept to 2^20 so that the ends of every
-// chord on the surface stay below 16384 pixels and that narrowing below 7e-4 pixel; it is
-// printed, and checked to stay there. The floor (GODS_LAWS.md L-40): every case has at least one
-// chord on the surface, or it measured nothing.
+// THE SWEEP OF THE CAP ON THE SURFACE (fatia S5-C2-fix1, the S5-C2 review, I1; up to 2^40 since
+// fatia CURVE-FLOAT-NARROW). 400 lines of a fixed generator, in both units, under a batch transform
+// turned and scaled unevenly, with the largest error from 1/16 to 8 pixels and the cap's larger
+// radius on the screen from 1 to 2^40 pixels (both regimes); each line puts one of its caps (the
+// end on half the cases, the start on the other half) across the 800 x 600 surface, through a point
+// drawn on it. For every chord of that cap whose hull touches the surface grown by half a pixel
+// (the code grows it by one: the half left over absorbs the test's reading of the parameters back
+// from float vertices): the largest distance from the true half ellipse, built by hand from the
+// line's own frame (in pixel unit with the cap at the end, the error put at the edge of its level,
+// so that the chords of that level are as far from the curve as asked), to the chord between the
+// two FLOAT vertices is within the error, plus a thousandth of it (the rounding of the double
+// evaluation, as in arc_parameters_test), plus the rounding the public text of fill_ellipse()
+// allows (renderer_2d.hpp): 2^-24 of the distance from the origin of the farthest point the ends
+// may reach, the surface grown by 1 + 1024 pixels, or by 1 + 652 times the error when that is more
+// (a cap is the edge itself: no thickness to add). And every end of those chords lies within that
+// reach (the mechanism behind the bound). The floor (GODS_LAWS.md L-40): every case has at least
+// one chord on the surface, or it measured nothing.
 namespace {
 
 struct cap_sweep_case {
@@ -491,6 +488,7 @@ struct cap_sweep_case {
     gltfx_line_style style{};
     ellipse_screen screen{};
     pixel_ellipse cap{}; // the true half ellipse of the cap that crosses the surface
+    double radius = 0.0; // the larger radius of the cap on the screen, as drawn
 };
 
 // The two axes of a cap on the screen, across then along, for a line heading `heading` in the
@@ -511,10 +509,30 @@ std::array<pixel_position_wide, 2> cap_axes(const pixel_affine &linear, double h
     return {pixel_position_wide{-uy * half, ux * half}, pixel_position_wide{ux * half, uy * half}};
 }
 
+// The error that puts the chords of a pixel-unit cap (a circle of `radius` on the screen) right at
+// the edge of their level: the sagitta 2 r sin^2(w / 4) of a piece w = (pi / 2) / 2^j wide, plus
+// 1e-9 of it, for the first level j from 8 whose pieces are no wider than the drawn error allows.
+// Then the chords of that level are as far from the curve as asked, and the rounding of their
+// corners is what is left to show (fatia CURVE-FLOAT-NARROW: the probe of the S5-C2-fix1 found the
+// excess there). In the uniform regime there is no level, and the drawn error stays.
+double error_at_level_edge(double radius, double drawn) {
+    if (!(radius > drawn) || k_pi / std::acos(1.0 - (drawn / radius)) <= 512.0) {
+        return drawn;
+    }
+    const double widest = 2.0 * std::acos(1.0 - (drawn / radius));
+    double width = k_pi / 512.0;
+    for (int level = 8; level < 40 && width > widest; ++level) {
+        width *= 0.5;
+    }
+    const double s = std::sin(0.25 * width);
+    return 2.0 * radius * s * s * (1.0 + 1.0e-9);
+}
+
 cap_sweep_case drawn_cap_case(lcg &g, bool world, bool at_end) {
     const drawn_linear linear = drawn_linear_part(g);
-    const double error = std::exp2(-4.0 + (7.0 * g.next()));
-    const double radius = std::exp2(20.0 * g.next());
+    const double drawn_error = std::exp2(-4.0 + (7.0 * g.next()));
+    const double radius = std::exp2(40.0 * g.next());
+    const double error = world || !at_end ? drawn_error : error_at_level_edge(radius, drawn_error);
     const double heading = 2.0 * k_pi * g.next();
     const double t0 = k_pi * (0.02 + (0.96 * g.next()));
     const pixel_position_wide target{800.0 * g.next(), 600.0 * g.next()};
@@ -541,7 +559,7 @@ cap_sweep_case drawn_cap_case(lcg &g, bool world, bool at_end) {
     const gltfx_stroke_unit unit = world ? gltfx_stroke_unit::world : gltfx_stroke_unit::pixel;
     return cap_sweep_case{segment, style_of(2.0 * half, unit, gltfx_line_cap::rounded),
                           screen_of(affine, error),
-                          pixel_ellipse{centre, unplaced.axis_u, unplaced.axis_v}};
+                          pixel_ellipse{centre, unplaced.axis_u, unplaced.axis_v}, radius};
 }
 
 // A point of the cap read back from a float vertex: the coordinates of p - centre in the basis of
@@ -618,31 +636,45 @@ double chord_error(const pixel_ellipse &cap, const cap_chord &chord) {
     return static_cast<double>(largest);
 }
 
-// How far the narrowing to float of PRECISION (renderer_2d.hpp) can have moved `vertex`: half a
-// unit in the last place of its larger coordinate, on each axis.
-double narrowing_of(const colored_pixel_vertex &vertex) {
-    const float larger = std::max(std::fabs(vertex.position.x), std::fabs(vertex.position.y));
-    const float unit = std::nextafter(larger, std::numeric_limits<float>::infinity()) - larger;
-    return std::sqrt(2.0) * 0.5 * static_cast<double>(unit);
+// How far the ends of a chord on the surface may lie from the 800 x 600 surface grown by the
+// margin of one pixel: 1024 pixels, or 652 times the error when that is more (fill_ellipse() in
+// renderer_2d.hpp, written by hand here, never read from the code).
+double near_reach(double e) { return std::max(1024.0, 652.0 * e); }
+
+// The rounding the public text allows on the 800 x 600 surface: 2^-24 of the distance from the
+// origin of the farthest point the ends may reach.
+double allowed_rounding(double e) {
+    const double grow = 1.0 + near_reach(e);
+    return 0x1.0p-24 * std::hypot(800.0 + grow, 600.0 + grow);
+}
+
+// How far `vertex` lies outside the surface grown by the margin, on the farther axis, in multiples
+// of the reach the ends may have.
+double outside_fraction(const colored_pixel_vertex &vertex, double e) {
+    const double x = vertex.position.x;
+    const double y = vertex.position.y;
+    const double dx = std::max({-1.0 - x, x - 801.0, 0.0});
+    const double dy = std::max({-1.0 - y, y - 601.0, 0.0});
+    return std::max(dx, dy) / near_reach(e);
 }
 
 // What one case measured: the chords of the cap on the surface, the largest error past the asked
-// distance, the largest narrowing, and whether every chord held.
+// distance, the farthest end (a fraction of its reach), and whether every chord held.
 struct cap_measure {
     std::size_t chords = 0U;
     double excess = -1.0e300;
-    double narrowing = 0.0;
+    double farthest = 0.0;
     bool holds = true;
 };
 
 void measure_chord(const cap_sweep_case &c, const cap_chord &chord, cap_measure &m) {
-    const double narrowing = std::max(narrowing_of(*chord.a), narrowing_of(*chord.b));
-    const double error = chord_error(c.cap, chord);
     const double e = c.screen.max_error_pixels;
+    const double error = chord_error(c.cap, chord);
+    const double farthest = std::max(outside_fraction(*chord.a, e), outside_fraction(*chord.b, e));
     ++m.chords;
     m.excess = std::max(m.excess, error - e);
-    m.narrowing = std::max(m.narrowing, narrowing);
-    m.holds = m.holds && error <= (e * (1.0 + 1.0e-3)) + narrowing;
+    m.farthest = std::max(m.farthest, farthest);
+    m.holds = m.holds && error <= (e * (1.0 + 1.0e-3)) + allowed_rounding(e) && farthest <= 1.0;
 }
 
 cap_measure measured_cap(const cap_sweep_case &c, std::span<const colored_pixel_vertex> vertices) {
@@ -665,14 +697,16 @@ GLINTFX_TEST(stroke_line_pixels_the_cap_meets_the_error_on_the_surface_swept) {
     lcg g{20261027U};
     int failures = 0;
     cap_measure all{};
+    double largest_radius = 0.0;
     for (int i = 0; i < 400; ++i) {
         const cap_sweep_case c = drawn_cap_case(g, i % 2 == 1, (i / 2) % 2 == 0);
+        largest_radius = std::max(largest_radius, c.radius);
         const bool built =
             pixels->build(c.segment, c.style, k_half_red, c.screen) == stroke_pixels_outcome::built;
         const cap_measure m = built ? measured_cap(c, pixels->vertices()) : cap_measure{};
         all.chords += m.chords;
         all.excess = std::max(all.excess, m.excess);
-        all.narrowing = std::max(all.narrowing, m.narrowing);
+        all.farthest = std::max(all.farthest, m.farthest);
         if (!built || m.chords == 0U || !m.holds) {
             ++failures;
             std::printf("[FAIL CAP SWEEP] case %d: built=%d chords=%zu excess=%.6g\n", i,
@@ -680,8 +714,10 @@ GLINTFX_TEST(stroke_line_pixels_the_cap_meets_the_error_on_the_surface_swept) {
         }
     }
     std::printf("varredura da ponta casos=400 cordas_medidas=%zu maior_excesso=%.6g "
-                "maior_arredondamento=%.6g falhas=%d\n",
-                all.chords, all.excess, all.narrowing, failures);
+                "maior_fracao_da_ponta=%.6g maior_raio=%.6g falhas=%d\n",
+                all.chords, all.excess, all.farthest, largest_radius, failures);
     GLINTFX_CHECK(failures == 0);
-    GLINTFX_CHECK(all.narrowing <= 1.0e-3);
+    // The range the public text cites is reached, not only allowed by the generator (the review of
+    // fatia S5-C2-fix1, C-2: drawn up to 2^10 instead, the sweep stayed green).
+    GLINTFX_CHECK(largest_radius >= 0x1p39);
 }

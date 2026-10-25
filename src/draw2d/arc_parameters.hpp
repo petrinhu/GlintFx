@@ -50,6 +50,21 @@
 //       that size, never do: the whole curve at the default 0.25 pixel, and the half curve of a
 //       rounded cap at errors from 1/16 to 8 pixels (fatia S5-C2-fix1).
 //   (2) Above 2^40, the rounding of the double arithmetic, and not the count, sets the error.
+//
+// THE ENDS NEAR THE SURFACE (fatia CURVE-FLOAT-NARROW; renderer_2d.hpp, fill_ellipse(), "THE
+// ROUNDING OF THE CORNERS"). The ends of the segments become single precision last, and rounding
+// moves a point by at most 2^-24 of its distance from the origin: an end millions of pixels away
+// moves the part of its chord on the surface by a visible fraction of e (measured by the probe of
+// fatia S5-C2-fix1: 0.083 pixel at a radius of 2^40). So in the CUT regime a piece whose hull
+// touches the grown surface, once as fine as e needs, is cut on until both ends of its chord lie in
+// the NEAR BOX, the grown surface grown again by k_arc_near_surface_pixels, or until the level is
+// k_max_arc_cut_level (a piece of that level is a pixel or two long up to 2^40). That is tried
+// first, at the level e asks for; when it does not fit the room, the cut is the one of (1), with
+// no end kept near, so it never takes more room than before. In the UNIFORM regime nothing is
+// cut, and a piece is never longer than 652 e (its chord is at most 2 r sin(pi / 512), with r at
+// most e / (1 - cos(pi / 512))): its ends lie that near. Proved by the sweep of the ends in
+// arc_parameters_test, and end to end, with float vertices, by the sweeps of
+// stroke_line_pixels_test (the rounded cap) and ellipse_pixels_test (the fill).
 namespace glintfx::draw2d {
 
 inline constexpr std::size_t k_max_arc_parameters = 1025U;
@@ -57,6 +72,7 @@ inline constexpr std::size_t k_fewest_whole_arc_parameters = 513U;
 inline constexpr std::size_t k_fewest_half_arc_parameters = 257U;
 inline constexpr std::uint32_t k_max_arc_cut_level = 40U;
 inline constexpr double k_arc_surface_margin_pixels = 1.0;
+inline constexpr double k_arc_near_surface_pixels = 1024.0;
 inline constexpr double k_largest_exact_arc_radius_pixels = 1099511627776.0; // 2^40
 
 enum class arc_extent : std::uint8_t {

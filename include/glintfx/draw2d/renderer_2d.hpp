@@ -317,14 +317,15 @@ class gltfx_renderer_2d {
     // a zero-length line is aligned with the axes of the space of its unit: the
     // world's (turned and scaled with the batch) or the screen's. A rounded cap
     // is half a disc of radius half the thickness: on the screen, half an
-    // ellipse when a world-unit line is scaled unevenly. Its edge is made of
-    // straight segments at most `curve_max_error_pixels` (renderer_2d_desc.hpp,
-    // default 0.25) away from the true curve on the screen, under the two
-    // conditions of fill_ellipse(): its larger radius on the screen is at
-    // most 2^40 pixels, and the 1024 segments one cap may use are enough for
-    // that distance. The part of a cap that lies off the surface may be drawn
-    // coarser; no pixel on the surface changes for that. Refused, counted in
-    // the report, never an exception.
+    // ellipse when a world-unit line is scaled unevenly. On the surface, its
+    // edge is made of straight segments at most `curve_max_error_pixels`
+    // (renderer_2d_desc.hpp, default 0.25) away from the true curve on the
+    // screen, plus the rounding of their corners that fill_ellipse() states,
+    // under the two conditions of fill_ellipse(): its larger radius on the
+    // screen is at most 2^40 pixels, and the 1024 segments one cap may use
+    // are enough for that distance. The part of a cap that lies off the
+    // surface may be drawn coarser; no pixel on the surface changes for that.
+    // Refused, counted in the report, never an exception.
     // The first rule that applies names the reason:
     //   1. a NaN in the start, the end, the thickness or the colour:
     //      not_a_number; then an infinity in any of them: infinite;
@@ -337,16 +338,20 @@ class gltfx_renderer_2d {
     // Proved by: stroke_geometry_test (the outline of each cap and unit).
     // Proved by: stroke_line_check_test (the order of the refusals).
     // Proved by: stroke_line_pixels_test (caps in both units, under a
-    // turned and unevenly scaled transform, of radius 1 to 2^20 pixels on
-    // the screen and distance 1/16 to 8 pixels, swept within the distance
-    // on the surface; a cap of radius 50000 pixels; the distance read by the
+    // turned and unevenly scaled transform, of radius 1 to 2^40 pixels on
+    // the screen and distance 1/16 to 8 pixels, swept on a surface of 800 by
+    // 600 pixels with their float corners within the distance plus the
+    // rounding, and the ends of every segment on it within their reach, the
+    // largest radius drawn checked to pass 2^39; a cap of radius 50000
+    // pixels; the distance read by the
     // cap; a cap just off the surface cut with no reach; the cap that cannot
     // be measured, refused).
     // Proved by: renderer_2d_impl_test (the distance given to open() sets the
     // segments of a cap).
     // Proved by: arc_parameters_test (the two conditions of the distance; the
     // half curve of a cap swept from radius 1 to 2^40 pixels and distance
-    // 1/16 to 8 pixels; the coarser edge off the surface).
+    // 1/16 to 8 pixels on its parameters, in double, before any rounding to
+    // single precision; the coarser edge off the surface).
     GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
                                  gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 
@@ -644,14 +649,27 @@ class gltfx_renderer_2d {
     // at most.
     //
     // One call is one piece, painted as a fan of triangles from the centre.
-    // Its edge is made of straight segments at most `curve_max_error_pixels`
-    // (renderer_2d_desc.hpp, default 0.25) away from the true edge on the
-    // screen, while two conditions hold: the larger radius on the screen is at
-    // most 2^40 pixels, and the 1024 segments one call may use are enough for
-    // that distance. A very small distance on a very large surface can need
-    // more, and then the distance drawn is larger than asked for. The part of
-    // the edge that lies off the surface may be drawn coarser; no pixel on the
-    // surface changes for that. A radius of zero is not refused: with one or
+    // On the surface, its edge is made of straight segments at most
+    // `curve_max_error_pixels` (renderer_2d_desc.hpp, default 0.25) away from
+    // the true edge on the screen, plus the rounding of their corners, while
+    // two conditions hold: the larger radius on the screen is at most 2^40
+    // pixels, and the 1024 segments one call may use are enough for that
+    // distance. A very small distance on a very large surface can need more,
+    // and then the distance drawn is larger than asked for. The part of the
+    // edge that lies off the surface may be drawn coarser; no pixel on the
+    // surface changes for that. THE ROUNDING OF THE CORNERS: every position
+    // becomes single precision last (PRECISION, above), and rounding moves a
+    // corner by at most 2^-24 of its distance from the origin of the screen,
+    // or by 2^-149 pixel, whichever is more.
+    // So the library ends every segment that reaches the surface within 1024
+    // pixels of it, or 652 times the distance when that is more, and the
+    // rounding added to the distance is at most 2^-24 of the distance from
+    // the origin of the farthest point that reach allows: with the default
+    // distance, less than 1/4000 of a pixel on a surface of 1920 by 1080
+    // pixels, and less than 1/600 on one of 16384 by 16384. When the 1024
+    // segments are enough for the distance but not for ending them that near,
+    // the segments are cut for the distance alone, and their corners are
+    // rounded where they lie. A radius of zero is not refused: with one or
     // both radii zero, the filled ellipse is a piece of zero area, drawn,
     // covering no pixel. Refused, counted in the report, never an exception.
     // The first rule that applies names the reason:
@@ -663,9 +681,17 @@ class gltfx_renderer_2d {
     //      program would overflow: pixel_position_out_of_range.
     // Proved by: ellipse_check_test (the order of the refusals).
     // Proved by: ellipse_pixels_test (the edge within the distance on the
-    // surface).
+    // surface; 400 ellipses of radius 512 to 2^39.5 pixels on the screen, under
+    // a turned and unevenly scaled transform, at distances of 1/16 to 8
+    // pixels, swept on a surface of 800 by 600 pixels with their float
+    // corners within the distance plus the rounding, and the ends of every
+    // segment on it within their reach, the largest radius drawn checked to
+    // pass 2^39).
     // Proved by: arc_parameters_test (the two conditions of the distance; the
-    // coarser edge off the surface).
+    // coarser edge off the surface; the ends of every segment on the surface
+    // within their reach, swept on 400 whole and half curves of radius 1 to
+    // 2^39.5 pixels, at distances of 1/16 to 8 pixels, with reaches up to
+    // 4096 pixels, on surfaces of 1920 by 1080 and 16384 by 16384 pixels).
     // Proved by: renderer_2d_impl_test (one call is one piece; the distance
     // given to open() sets the segments).
     // Proved by: draw2d_shapes_parity_test (a filled circle read back as
@@ -683,7 +709,9 @@ class gltfx_renderer_2d {
     // in pixel unit it is built on the screen, half the thickness away from
     // the screen ellipse across its curve, at every zoom. On the surface, its
     // two edges are within `curve_max_error_pixels` of their true curves,
-    // under the two conditions of fill_ellipse(). Where the curve bends
+    // plus the rounding of their corners that fill_ellipse() states, with the
+    // reach of the ends grown by the thickness, under the two conditions of
+    // fill_ellipse(). Where the curve bends
     // tighter than half the thickness, the inner edge is the true boundary of
     // the points farther than half the thickness from the curve, so it never
     // folds over itself, and a half-transparent outline covers each pixel
@@ -710,6 +738,8 @@ class gltfx_renderer_2d {
     // Proved by: ellipse_pixels_test (the outline of each unit; the shapes of
     // radius zero).
     // Proved by: renderer_2d_impl_test (one call is one piece).
+    // Proved by: arc_parameters_test (the ends of every segment on the
+    // surface within their reach, the half thickness of the band included).
     // Proved by: draw2d_shapes_parity_test (a half-transparent outline of a
     // long ellipse, bent tighter than half its thickness, reads the same
     // value along its band and black in its hole).

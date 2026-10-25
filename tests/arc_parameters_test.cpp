@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <numbers>
@@ -12,6 +11,7 @@
 #include "draw2d/arc_parameters.hpp"
 #include "draw2d/quad_vertices.hpp"
 #include "harness/check.hpp"
+#include "harness/sweep_lcg.hpp"
 #include "harness/test_registry.hpp"
 
 // arc_parameters_test.cpp - R2D-SHAPES, fatia S5-A (TODO.md ARC-VIEWPORT-TESSELLATION; decisions
@@ -147,7 +147,10 @@ arc_request with_reach(arc_request r, double reach) {
 
 } // namespace
 
-// THE CLOSED CASES OF THE CUT REGIME, each count from the model (D-W8-377).
+// THE CLOSED CASES OF THE CUT REGIME, each count from the model (D-W8-377). The circle of radius
+// 2^40 gives 65 since fatia CURVE-FLOAT-NARROW (47 before): its pieces on the screen are cut on
+// until their ends lie within 1024 pixels of it (curvefloat-cto/modelo_caso_2e40.py, the same model
+// with the rule, run before the count was changed here).
 GLINTFX_TEST(arc_parameters_cut_counts_of_the_closed_cases) {
     const double crossing = 540.0 + 20000.0 - 300.0; // the top of the circle at y = 240
     const std::array<count_case, 12> cases{
@@ -174,10 +177,10 @@ GLINTFX_TEST(arc_parameters_cut_counts_of_the_closed_cases) {
                    circle(960.0, -0.5 - 20000.0, 20000.0), 1025U, 21U},
         count_case{"curve 1.5 pixels off the screen (beyond the margin)",
                    circle(960.0, -1.5 - 20000.0, 20000.0), 1025U, 5U},
-        count_case{"radius 2^40 crossing the screen",
+        count_case{"radius 2^40 crossing the screen, the ends kept near it",
                    circle(960.0, 540.0 + k_largest_exact_arc_radius_pixels - 300.0,
                           k_largest_exact_arc_radius_pixels),
-                   1025U, 47U},
+                   1025U, 65U},
     };
     int failures = 0;
     parameters t{};
@@ -372,13 +375,7 @@ GLINTFX_TEST(arc_parameters_cuts_every_finite_radius) {
 // surface is within the error of the curve).
 namespace {
 
-struct lcg {
-    std::uint64_t state = 20261014U;
-    double next() {
-        state = (state * 6364136223846793005ULL) + 1442695040888963407ULL;
-        return static_cast<double>(state >> 11U) * 0x1.0p-53;
-    }
-};
+using glintfx::test_support::lcg;
 
 pixel_position_wide point_on(const pixel_ellipse &e, double t) {
     return pixel_position_wide{e.center.x + (e.axis_u.x * std::cos(t)) + (e.axis_v.x * std::sin(t)),
@@ -512,7 +509,7 @@ GLINTFX_TEST(arc_parameters_sweep_meets_the_error_on_the_surface) {
     int failures = 0;
     std::size_t largest = 0U;
     parameters t{};
-    lcg g;
+    lcg g{20261014U};
     for (const pixel_box &surface : {k_screen, k_large_screen}) {
         for (int i = 0; i < 200; ++i) {
             const arc_request request = drawn_curve(g, surface);
@@ -545,6 +542,7 @@ struct half_sweep_tally {
     int failures = 0;
     std::size_t measured = 0U;
     std::size_t largest = 0U;
+    double largest_axis = 0.0;
 };
 
 // One half curve of the generator, cut and checked on `surface`, counted into `tally`.
@@ -556,6 +554,8 @@ void check_one_half_curve(lcg &g, const pixel_box &surface, half_sweep_tally &ta
     const std::size_t touching = pieces_on_surface(request, surface, answer);
     ++tally.checked;
     tally.largest = std::max(tally.largest, n);
+    tally.largest_axis = std::max(tally.largest_axis,
+                                  std::hypot(request.ellipse.axis_u.x, request.ellipse.axis_u.y));
     tally.measured += touching;
     if (touching == 0U || !answer_holds(request, surface, answer)) {
         ++tally.failures;
@@ -573,8 +573,115 @@ GLINTFX_TEST(arc_parameters_sweep_of_the_half_curve_meets_the_error_on_the_surfa
             check_one_half_curve(g, surface, tally);
         }
     }
-    std::printf("varredura da meia curva casos=%d pecas_medidas=%zu maior=%zu falhas=%d\n",
-                tally.checked, tally.measured, tally.largest, tally.failures);
+    std::printf("varredura da meia curva casos=%d pecas_medidas=%zu maior=%zu maior_eixo=%.6g "
+                "falhas=%d\n",
+                tally.checked, tally.measured, tally.largest, tally.largest_axis, tally.failures);
     GLINTFX_CHECK(tally.checked == 400);
     GLINTFX_CHECK(tally.failures == 0);
+    // The range the public text cites is reached, not only allowed by the generator (the review of
+    // fatia S5-C2-fix1, C-2).
+    GLINTFX_CHECK(tally.largest_axis >= 0x1p39);
+}
+
+// THE ENDS NEAR THE SURFACE (fatia CURVE-FLOAT-NARROW). The ends of the segments become single
+// precision last (renderer_2d.hpp, PRECISION), and the rounding of an end grows with its distance
+// from the origin. So every piece whose hull touches the surface grown by the margin and the reach
+// must END near it: in the CUT regime the cut goes on until both ends lie within 1024 pixels of
+// that grown surface; in the UNIFORM regime nothing is cut, and a piece is never longer than 652
+// times the error (its chord is at most 2 r sin(pi / 512), with r at most e / (1 - cos(pi / 512))).
+// The bound checked is the larger of the two, for every piece of 400 curves of a generator of its
+// own: whole and half curves, the two regimes (larger axis from 1 to 2^39.5 pixels), axes up to
+// 1e4 apart in length and 0.1 pi to 0.9 pi apart in direction, errors from 1/16 to 8 pixels, a
+// reach of 0 on half of them and from 1 to 4096 pixels on the other half, each crossing one of the
+// two surfaces at a point drawn on it. The floor (GODS_LAWS.md L-40): every curve has at least one
+// piece on the surface.
+namespace {
+
+// How far the ends of a piece on the surface may lie from the surface grown by the margin and the
+// reach: 1024 pixels, or 652 times the error when that is more.
+double near_bound(double error) { return std::max(1024.0, 652.0 * error); }
+
+// How far `p` lies outside `surface` grown by `grow`, on the farther axis; 0 inside.
+double outside_by(const pixel_box &surface, double grow, const pixel_position_wide &p) {
+    const double dx = std::max({surface.min_x - grow - p.x, p.x - surface.max_x - grow, 0.0});
+    const double dy = std::max({surface.min_y - grow - p.y, p.y - surface.max_y - grow, 0.0});
+    return std::max(dx, dy);
+}
+
+// What the sweep of the ends counted: the curves, the failures, the pieces on the surface and the
+// farthest end of one of them, in multiples of its bound.
+struct near_tally {
+    int checked = 0;
+    int failures = 0;
+    std::size_t measured = 0U;
+    double farthest = 0.0;
+    double largest_axis = 0.0;
+};
+
+arc_request drawn_near_curve(lcg &g, const pixel_box &surface, int index) {
+    const double a = std::exp2(39.5 * g.next());
+    const double b = a * std::pow(10.0, -4.0 * g.next());
+    const double turn = 2.0 * k_pi * g.next();
+    const double apart = k_pi * (0.1 + (0.8 * g.next()));
+    const pixel_position_wide u{a * std::cos(turn), a * std::sin(turn)};
+    const pixel_position_wide v{b * std::cos(turn + apart), b * std::sin(turn + apart)};
+    const double error = std::exp2(-4.0 + (7.0 * g.next()));
+    const double reach = index % 4 < 2 ? 0.0 : std::exp2(12.0 * g.next());
+    const arc_extent extent = index % 2 == 0 ? arc_extent::whole : arc_extent::half;
+    const double t0 = (extent == arc_extent::whole ? 2.0 * k_pi : k_pi) * g.next();
+    const double px = surface.max_x * g.next();
+    const double py = surface.max_y * g.next();
+    const pixel_position_wide center{px - ((u.x * std::cos(t0)) + (v.x * std::sin(t0))),
+                                     py - ((u.y * std::cos(t0)) + (v.y * std::sin(t0)))};
+    return arc_request{pixel_ellipse{center, u, v}, extent, error, reach};
+}
+
+// One curve of the generator, cut on `surface`: each piece whose hull touches the grown surface has
+// both ends within the bound, counted into `tally`.
+void check_one_near_curve(lcg &g, const pixel_box &surface, int index, near_tally &tally) {
+    parameters t{};
+    const arc_request request = drawn_near_curve(g, surface, index);
+    const std::size_t n = run(request, surface, t, 1025U);
+    const double grow = 1.0 + request.reach_pixels;
+    const double bound = near_bound(request.max_error_pixels);
+    std::size_t touching = 0U;
+    double farthest = 0.0;
+    for (std::size_t k = 1U; k < n; ++k) {
+        if (!piece_misses(request, surface, t[k - 1U], t[k])) {
+            ++touching;
+            const double a = outside_by(surface, grow, point_on(request.ellipse, t[k - 1U]));
+            const double b = outside_by(surface, grow, point_on(request.ellipse, t[k]));
+            farthest = std::max({farthest, a / bound, b / bound});
+        }
+    }
+    ++tally.checked;
+    tally.measured += touching;
+    tally.farthest = std::max(tally.farthest, farthest);
+    tally.largest_axis = std::max(tally.largest_axis,
+                                  std::hypot(request.ellipse.axis_u.x, request.ellipse.axis_u.y));
+    if (n < 2U || touching == 0U || farthest > 1.0) {
+        ++tally.failures;
+        std::printf("[FAIL NEAR SWEEP] case %d: n=%zu touching=%zu farthest=%.6g\n", index, n,
+                    touching, farthest);
+    }
+}
+
+} // namespace
+
+GLINTFX_TEST(arc_parameters_the_ends_of_every_piece_on_the_surface_stay_near_it_swept) {
+    near_tally tally{};
+    lcg g{20261028U};
+    int index = 0;
+    for (const pixel_box &surface : {k_screen, k_large_screen}) {
+        for (int i = 0; i < 200; ++i) {
+            check_one_near_curve(g, surface, index, tally);
+            ++index;
+        }
+    }
+    std::printf("pontas perto casos=%d pecas_medidas=%zu maior_fracao=%.6g maior_eixo=%.6g "
+                "falhas=%d\n",
+                tally.checked, tally.measured, tally.farthest, tally.largest_axis, tally.failures);
+    GLINTFX_CHECK(tally.checked == 400);
+    GLINTFX_CHECK(tally.failures == 0);
+    GLINTFX_CHECK(tally.largest_axis >= 0x1p39); // the cited range is reached (S5-C2-fix1, C-2)
 }

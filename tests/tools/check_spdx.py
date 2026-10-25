@@ -322,15 +322,13 @@ def real_main(args):
 
 
 def make_scratch_workdir():
-    scratch = tempfile.mkdtemp(prefix="glintfx-spdx-selftest-")
-    # Imported here, on the --selftest path only: the check mode of this
-    # gate keeps running as a single file (check_vendor_purity.py's escape
-    # control runs an edited copy of that file from its scratch folder,
-    # where no sibling module exists).
+    # Imported here, on the --selftest path only, so the check mode of
+    # this gate still runs when the file is copied and called on its own.
+    # The import comes before anything is created: a copy without the
+    # sibling module fails here and leaves nothing in the temporary folder.
     import selftest_git_fence
 
-    selftest_git_fence.fence_outer_repository(scratch)
-    return scratch
+    return selftest_git_fence.make_fenced_scratch_dir("glintfx-spdx-selftest-")
 
 
 def _clear_readonly_and_retry(func, path, _exc_info_or_exc):
@@ -731,21 +729,25 @@ def selftest_readonly_cleanup_control():
     even on Linux. A read-only directory blocks deletion on every
     platform this gate targets."""
     root = tempfile.mkdtemp(prefix="glintfx-spdx-readonly-selftest-")
-    locked_dir = os.path.join(root, "locked")
-    os.makedirs(locked_dir)
-    with open(os.path.join(locked_dir, "readonly.txt"), "w", encoding="utf-8") as handle:
-        handle.write("locked\n")
-    os.chmod(locked_dir, 0o555)
     try:
-        remove_tree_tolerant(root)
-    except OSError as exc:
-        print(f"selftest: controle READONLY-CLEANUP FALHOU (remove_tree_tolerant levantou: {exc})", file=sys.stderr)
-        os.chmod(locked_dir, 0o755)
+        locked_dir = os.path.join(root, "locked")
+        os.makedirs(locked_dir)
+        with open(os.path.join(locked_dir, "readonly.txt"), "w", encoding="utf-8") as handle:
+            handle.write("locked\n")
+        os.chmod(locked_dir, 0o555)
+        try:
+            remove_tree_tolerant(root)
+        except OSError as exc:
+            print(f"selftest: controle READONLY-CLEANUP FALHOU (remove_tree_tolerant levantou: {exc})", file=sys.stderr)
+            os.chmod(locked_dir, 0o755)
+            return False
+        if os.path.exists(root):
+            print("selftest: controle READONLY-CLEANUP FALHOU (diretorio ainda em disco apos a remocao)", file=sys.stderr)
+            return False
+    finally:
+        # The setup above can fail after the folder exists; the folder
+        # goes in every case (a no-op when the control removed it).
         remove_tree_tolerant(root, ignore_errors=True)
-        return False
-    if os.path.exists(root):
-        print("selftest: controle READONLY-CLEANUP FALHOU (diretorio ainda em disco apos a remocao)", file=sys.stderr)
-        return False
     print("selftest: controle READONLY-CLEANUP OK (subdiretorio somente-leitura removido, arvore realmente sumiu)")
     return True
 
@@ -778,8 +780,10 @@ def _make_capture():
 
 
 def selftest_main():
-    scratch = make_scratch_workdir()
+    # Nothing that can fail runs between creating the scratch folder
+    # and the try whose finally removes it.
     capture = _make_capture()
+    scratch = make_scratch_workdir()
     try:
         controls = [
             selftest_positive_control(scratch),

@@ -416,15 +416,13 @@ DIRTY_CXX = (
 
 
 def make_scratch_workdir():
-    scratch = tempfile.mkdtemp(prefix="glintfx-format-selftest-")
-    # Imported here, on the --selftest path only: the check mode of this
-    # gate keeps running as a single file (check_vendor_purity.py's escape
-    # control runs an edited copy of that file from its scratch folder,
-    # where no sibling module exists).
+    # Imported here, on the --selftest path only, so the check mode of
+    # this gate still runs when the file is copied and called on its own.
+    # The import comes before anything is created: a copy without the
+    # sibling module fails here and leaves nothing in the temporary folder.
     import selftest_git_fence
 
-    selftest_git_fence.fence_outer_repository(scratch)
-    return scratch
+    return selftest_git_fence.make_fenced_scratch_dir("glintfx-format-selftest-")
 
 
 def init_fixture_repo(root):
@@ -629,14 +627,19 @@ def selftest_readonly_cleanup_control():
     apenas ENGOLE, sem remover, no Windows - ver o header daquele
     controle nos outros dois arquivos para o incidente MEDIDO)."""
     scratch = tempfile.mkdtemp(prefix="glintfx-format-selftest-readonly-")
-    target = os.path.join(scratch, "readonly.txt")
-    with open(target, "w", encoding="utf-8") as handle:
-        handle.write("conteudo\n")
-    os.chmod(target, stat.S_IREAD)
-    remove_tree_tolerant(scratch, ignore_errors=True)
-    if os.path.exists(scratch):
-        print("selftest: controle de LIMPEZA READ-ONLY FALHOU (arvore com arquivo read-only nao foi removida)", file=sys.stderr)
-        return False
+    try:
+        target = os.path.join(scratch, "readonly.txt")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("conteudo\n")
+        os.chmod(target, stat.S_IREAD)
+        remove_tree_tolerant(scratch, ignore_errors=True)
+        if os.path.exists(scratch):
+            print("selftest: controle de LIMPEZA READ-ONLY FALHOU (arvore com arquivo read-only nao foi removida)", file=sys.stderr)
+            return False
+    finally:
+        # The setup above can fail after the folder exists; the folder
+        # goes in every case (a no-op when the control removed it).
+        remove_tree_tolerant(scratch, ignore_errors=True)
     print("selftest: controle de LIMPEZA READ-ONLY OK")
     return True
 
@@ -653,8 +656,10 @@ def selftest_main():
         print(SELFTEST_SKIP_BANNER, file=sys.stderr)
         sys.exit(GATE_SKIP_RETURN_CODE)
 
-    scratch = make_scratch_workdir()
+    # Nothing that can fail runs between creating the scratch folder
+    # and the try whose finally removes it.
     capture = _make_capture()
+    scratch = make_scratch_workdir()
     try:
         controls = [
             selftest_positive_control(scratch, capture),

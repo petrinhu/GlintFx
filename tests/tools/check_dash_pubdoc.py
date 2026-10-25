@@ -57,7 +57,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 
 # GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md, mesmo remedio de
 # tests/tools/check_measured_parity.py/check_test_parity.py/check_plan_
@@ -328,15 +327,13 @@ def real_main(args):
 
 
 def make_scratch_workdir():
-    scratch = tempfile.mkdtemp(prefix="glintfx-dash-pubdoc-selftest-")
-    # Imported here, on the --selftest path only: the check mode of this
-    # gate keeps running as a single file (check_vendor_purity.py's escape
-    # control runs an edited copy of that file from its scratch folder,
-    # where no sibling module exists).
+    # Imported here, on the --selftest path only, so the check mode of
+    # this gate still runs when the file is copied and called on its own.
+    # The import comes before anything is created: a copy without the
+    # sibling module fails here and leaves nothing in the temporary folder.
     import selftest_git_fence
 
-    selftest_git_fence.fence_outer_repository(scratch)
-    return scratch
+    return selftest_git_fence.make_fenced_scratch_dir("glintfx-dash-pubdoc-selftest-")
 
 
 def _clear_readonly_and_retry(func, path, _exc_info_or_exc):

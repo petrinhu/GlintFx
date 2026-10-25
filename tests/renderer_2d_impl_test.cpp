@@ -2455,8 +2455,8 @@ struct triangle_inputs {
 
 // The rows in the order of the header: the structure, the values (a NaN texel, then an infinite
 // one, each before the texture is asked), the texture, the texel range, the pixel range, and a
-// call that passes them all. too_many_vertices has no row: it needs a span of more than 2^32
-// vertices, which no test can hold; triangle_list_check_test refuses that count.
+// call that passes them all. too_many_vertices has no row: this table builds no span of more
+// than 2^32 vertices; triangle_list_check_test refuses that count, handed to it as a number.
 std::array<triangle_case, 9> triangle_cases(const triangle_inputs &in, const two_owners &owners) {
     using enum gltfx_draw_2d_refusal;
     const auto tri = std::span<const gltfx_textured_vertex_2d>(in.square).first(3);

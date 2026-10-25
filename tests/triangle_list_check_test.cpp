@@ -313,8 +313,8 @@ using glintfx::draw2d::texture_extent;
 } // namespace
 
 // Each value of a textured vertex is looked at: a NaN in the texel x, the texel y, the position or
-// the tint is not_a_number; an infinity in the texel is infinite; a NaN anywhere comes before an
-// infinity anywhere, whatever vertex holds which.
+// the tint is not_a_number; an infinity in the texel x, the texel y, the position or the tint is
+// infinite; a NaN anywhere comes before an infinity anywhere, whatever vertex holds which.
 GLINTFX_TEST(triangle_list_check_textured_values_in_the_order_of_the_vocabulary) {
     const auto none = std::span<const std::uint32_t>{};
     auto call = textured_triangle({1.0, 1.0});
@@ -336,6 +336,17 @@ GLINTFX_TEST(triangle_list_check_textured_values_in_the_order_of_the_vocabulary)
     call[1].position.y = k_nan;
     GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
                   gltfx_draw_2d_refusal::not_a_number);
+    call = textured_triangle({1.0, static_cast<double>(k_infinity)});
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::infinite);
+    call = textured_triangle({1.0, 1.0});
+    call[1].position.x = static_cast<double>(k_infinity);
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::infinite);
+    call = textured_triangle({1.0, 1.0});
+    call[2].tint.alpha = k_infinity;
+    GLINTFX_CHECK(refusal_of_textured_triangle_call(call, none, false) ==
+                  gltfx_draw_2d_refusal::infinite);
 }
 
 // The structure comes before the values, as for an untextured call: the counts, then the index

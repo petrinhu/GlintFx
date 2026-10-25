@@ -777,11 +777,11 @@ class gltfx_texture_atlas {
     // answer. Quads that do define a mapping are refused as
     // `degenerate_quad` in one case only: when the diagonals cross so close
     // to one corner (closer than about 2^-64 of the diagonal's length) that
-    // a projective weight of the quad would be 2^63 or more. Every such quad
-    // that is drawn carries its four weights to the graphics card multiplied
-    // by one common power of two, which leaves the mapping as it is, so that
-    // each lies between 2^-32 and 2^32 (OpenGL promises texture coordinates
-    // up to 2^32 in magnitude).
+    // a projective weight of the quad would be 2^63 or more. Every quad
+    // that does define a mapping and is drawn carries its four weights to
+    // the graphics card multiplied by one common power of two, which leaves
+    // the mapping as it is, so that each weight lies between 2^-32 and 2^32
+    // (OpenGL promises texture coordinates up to 2^32 in magnitude).
     // D-W8-354: four parameters at most.
     // Proved by: renderer_2d_impl_test (degenerate_quad after the texture's
     // reasons; the projective weight of each corner reaches the vertex).
@@ -853,9 +853,10 @@ class gltfx_texture_atlas {
     // fake GL; an empty call asks nothing of the texture; each vertex reaches the card with its
     // texel coordinate divided by the texture's size, q = 1 and the tint premultiplied; a
     // rectangle and a triangle of one texture are one draw call).
-    // Proved by: triangle_list_check_test (too_many_vertices, which needs a span of more than
-    // 2^32 vertices that no test can hold: the counts alone refuse 2^32 + 1 vertices, before the
-    // multiple of three; and, within one call, a NaN before an infinity).
+    // Proved by: triangle_list_check_test (too_many_vertices, from a count handed to the check
+    // and not from a span: the counts alone refuse 2^32 + 1 vertices, before the multiple of
+    // three; an infinity in a position, a tint or either texel coordinate is infinite; and,
+    // within one call, a NaN before an infinity).
     // Proved by: draw2d_texture_parity_test (on a real context, in both values of
     // srgb_framebuffer: two indexed triangles of opposite orientations put each texel of a 2 x 2
     // texture in its quarter, the first texel of the first row at the top left; a vertex tint of

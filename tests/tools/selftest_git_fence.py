@@ -43,13 +43,16 @@ def _fence_git_under(parent):
 
 
 def make_fenced_scratch_dir(prefix, parent=None):
-    """Creates the scratch folder of a --selftest, under `parent` (the
-    temporary folder when None, as tempfile.mkdtemp() does), with git
-    already fenced around it. The fence goes on first and the folder is
-    created last: nothing that can fail runs after the folder exists,
-    so a failure here leaves nothing behind in the caller's temporary
-    folder. Removing the folder is the caller's job, in the `finally`
-    that has to come right after this call."""
+    """Creates the scratch folder of a --selftest, under `parent`, with
+    git already fenced around it. With no `parent`, or an empty one
+    (what the caller reads from an empty TMPDIR), the folder goes to
+    tempfile.gettempdir(), which skips an empty TMPDIR the same way;
+    tempfile.mkdtemp(dir="") would make it in the current directory
+    instead, and that can be inside a checkout. The fence goes on first
+    and the folder is created last: nothing that can fail runs after
+    the folder exists, so a failure here leaves nothing behind in the
+    caller's temporary folder. Removing the folder is the caller's job,
+    in the `finally` that has to come right after this call."""
     base = parent if parent else tempfile.gettempdir()
     _fence_git_under(base)
     return tempfile.mkdtemp(prefix=prefix, dir=base)

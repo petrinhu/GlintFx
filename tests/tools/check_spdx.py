@@ -712,7 +712,7 @@ def selftest_untracked_header_present_control(scratch, capture):
     return True
 
 
-def selftest_readonly_cleanup_control():
+def selftest_readonly_cleanup_control(parent=None, removal=remove_tree_tolerant):
     """DUPLICATED from check_dep_zero.py's own control of the same
     name - see that file for the full MEASURED account (CI server
     run 33878869418, commit 9288916). This gate's own
@@ -727,8 +727,9 @@ def selftest_readonly_cleanup_control():
     bit, so a read-only FILE inside a normal directory deletes fine
     there, and the control would silently pass under the OLD code
     even on Linux. A read-only directory blocks deletion on every
-    platform this gate targets."""
-    root = tempfile.mkdtemp(prefix="glintfx-spdx-readonly-selftest-")
+    platform this gate targets. `parent` and `removal` let the
+    on-failure control below make this one fail half way."""
+    root = tempfile.mkdtemp(prefix="glintfx-spdx-readonly-selftest-", dir=parent)
     try:
         locked_dir = os.path.join(root, "locked")
         os.makedirs(locked_dir)
@@ -736,7 +737,7 @@ def selftest_readonly_cleanup_control():
             handle.write("locked\n")
         os.chmod(locked_dir, 0o555)
         try:
-            remove_tree_tolerant(root)
+            removal(root)
         except OSError as exc:
             print(f"selftest: controle READONLY-CLEANUP FALHOU (remove_tree_tolerant levantou: {exc})", file=sys.stderr)
             os.chmod(locked_dir, 0o755)
@@ -749,6 +750,39 @@ def selftest_readonly_cleanup_control():
         # goes in every case (a no-op when the control removed it).
         remove_tree_tolerant(root, ignore_errors=True)
     print("selftest: controle READONLY-CLEANUP OK (subdiretorio somente-leitura removido, arvore realmente sumiu)")
+    return True
+
+
+class _InjectedRemovalFault(Exception):
+    """Raised by the stand-in removal of the on-failure control. Not an
+    OSError, so the read-only control's own except clause lets it
+    through and only that control's finally can clean up."""
+
+
+def _removal_that_fails(_path):
+    raise _InjectedRemovalFault()
+
+
+def selftest_readonly_cleanup_on_failure_control(scratch):
+    """Proves that the read-only control leaves nothing behind when it
+    fails half way: the subfolder is already read-only when the removal
+    under test raises, and the folder must still go. Counted in a folder
+    this control owns, never in the shared temporary folder, where other
+    runs leave their own entries."""
+    parent = os.path.join(scratch, "readonly-cleanup-on-failure")
+    os.makedirs(parent)
+    try:
+        selftest_readonly_cleanup_control(parent, _removal_that_fails)
+    except _InjectedRemovalFault:
+        pass
+    else:
+        print("selftest: controle READONLY-CLEANUP-ON-FAILURE FALHOU (a falha injetada nao chegou ao controle read-only)", file=sys.stderr)
+        return False
+    left = sorted(os.listdir(parent))
+    if left:
+        print(f"selftest: controle READONLY-CLEANUP-ON-FAILURE FALHOU ({len(left)} pasta(s) sobraram depois da falha: {left})", file=sys.stderr)
+        return False
+    print("selftest: controle READONLY-CLEANUP-ON-FAILURE OK (o controle read-only falhou no meio e nada sobrou)")
     return True
 
 
@@ -797,6 +831,7 @@ def selftest_main():
             selftest_untracked_header_missing_control(scratch, capture),
             selftest_untracked_header_present_control(scratch, capture),
             selftest_readonly_cleanup_control(),
+            selftest_readonly_cleanup_on_failure_control(scratch),
         ]
         if not all(controls):
             print("check_spdx.py --selftest: FALHOU (ver acima)", file=sys.stderr)

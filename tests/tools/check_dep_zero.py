@@ -329,6 +329,19 @@ SO_HEADER_ALLOWLIST = frozenset(
         # `windows` job).
         "execinfo.h",
         "link.h",
+        # SUITE-TMPDIR-PATHS fix1 (D-W8-995, GODS_LAWS.md L-07):
+        # sys/resource.h (setrlimit(), RLIMIT_NOFILE) and sys/wait.h
+        # (waitpid(), WIFEXITED/WEXITSTATUS) are POSIX, shipped by glibc
+        # - the same "API do sistema" category unistd.h/fcntl.h already
+        # are, never a third-party library. Used ONLY by tests/container/
+        # wire_relay/wire_scratch_dir_selftest.cpp (Linux-only, inside
+        # the if(UNIX) wire_relay_selftest target), which forks a child,
+        # takes every free file descriptor away from it (RLIMIT_NOFILE
+        # at zero: EMFILE even for root) and waits for it - the one way
+        # to make scratch_dir's open() fail right after its mkdtemp()
+        # succeeded, the same on every system.
+        "sys/resource.h",
+        "sys/wait.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own

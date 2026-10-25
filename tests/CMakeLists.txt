@@ -7766,6 +7766,9 @@ if(UNIX)
         # WIRE-RELAY-FD-PASSTHROUGH (D-W8-F07): a message with a descriptor reaches the other
         # side with it, in both directions, even on an interface the relay does not model.
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_fd_passthrough_selftest.cpp"
+        # SUITE-TMPDIR-PATHS (fix1): scratch_dir itself, the test-only folder the cases above use,
+        # leaves nothing behind in TMPDIR when it cannot open its own descriptor.
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_scratch_dir_selftest.cpp"
     )
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)

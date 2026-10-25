@@ -417,44 +417,14 @@ DIRTY_CXX = (
 
 def make_scratch_workdir():
     scratch = tempfile.mkdtemp(prefix="glintfx-format-selftest-")
-    fence_outer_repository(scratch)
+    # Imported here, on the --selftest path only: the check mode of this
+    # gate keeps running as a single file (check_vendor_purity.py's escape
+    # control runs an edited copy of that file from its scratch folder,
+    # where no sibling module exists).
+    import selftest_git_fence
+
+    selftest_git_fence.fence_outer_repository(scratch)
     return scratch
-
-
-# Git variables that pin a repository whatever directory git runs in.
-# git(1), ENVIRONMENT: GIT_CEILING_DIRECTORIES "will not exclude the
-# current working directory or a GIT_DIR set on the command line or in
-# the environment", so the fence below drops these as well.
-REPOSITORY_PINNING_GIT_VARIABLES = (
-    "GIT_DIR",
-    "GIT_WORK_TREE",
-    "GIT_COMMON_DIR",
-    "GIT_INDEX_FILE",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-)
-
-
-def fence_outer_repository(scratch):
-    """Keeps every git call of this --selftest inside `scratch`, the way
-    git's own t/test-lib.sh fences its trash directory: the ceiling is
-    the PARENT of `scratch`, because git will not "chdir up into" a
-    ceiling but does leave a starting directory that is itself the
-    ceiling (git(1), ENVIRONMENT). Without it, a TMPDIR that lives
-    inside a git work tree (a temporary folder inside a checkout, for
-    example) lets the not-a-repository control find that outer
-    repository and fail. A ceiling the caller already set is kept,
-    after this one. DUPLICATED in the five gates that carry a
-    not-a-repository control (check_spdx.py, check_vendor_purity.py,
-    check_dash_pubdoc.py, check_version_matches_tag.py,
-    check_format.py), the house convention for small standalone-script
-    helpers (see _clear_readonly_and_retry). Changes the environment
-    of this process only."""
-    for name in REPOSITORY_PINNING_GIT_VARIABLES:
-        os.environ.pop(name, None)
-    ceiling = os.path.dirname(os.path.abspath(scratch))
-    previous = os.environ.get("GIT_CEILING_DIRECTORIES")
-    os.environ["GIT_CEILING_DIRECTORIES"] = ceiling if not previous else ceiling + os.pathsep + previous
 
 
 def init_fixture_repo(root):

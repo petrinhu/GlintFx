@@ -1888,18 +1888,25 @@ run_selftest_untracked_guard_ignored_control() {
 # aborting loud. Runs enumerate_untracked_cpp_hpp in an isolated
 # subshell (own process, like run_selftest_rootdir_cd_failure_control
 # above) against a directory that is not a git repository at all.
+# Prints the GIT_CEILING_DIRECTORIES value that fences git inside the
+# directory $1: the PARENT of $1 first (a ceiling equal to the starting
+# directory does not stop git; git(1), ENVIRONMENT), then the ceiling the
+# caller already set, kept after ours. The same rule as
+# tests/tools/selftest_git_fence.py, the fence of the five Python gates.
+git_ceiling_fencing() {
+    printf '%s' "${1%/*}${GIT_CEILING_DIRECTORIES:+:$GIT_CEILING_DIRECTORIES}"
+}
+
 run_selftest_untracked_guard_git_failure_control() {
     log "selftest: guarda de untracked - varredura vazia por falha real do comando (nao presumida)"
     nogit_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-untracked-nogit.XXXXXX")"
     rc=0
     # The same fence the five Python gates put over their scratch folder
-    # (SUITE-TMPDIR-PATHS, fence_outer_repository in check_spdx.py): git
-    # must not walk up out of nogit_dir into a repository around TMPDIR
-    # (a TMPDIR inside a checkout). The ceiling is the PARENT of
-    # nogit_dir: a ceiling equal to the starting directory does not stop
-    # git (git(1), ENVIRONMENT, GIT_CEILING_DIRECTORIES). Only this
+    # (SUITE-TMPDIR-PATHS, tests/tools/selftest_git_fence.py): git must
+    # not walk up out of nogit_dir into a repository around TMPDIR (a
+    # TMPDIR inside a checkout); see git_ceiling_fencing. Only this
     # subshell sees it; run_selftest already dropped GIT_DIR and siblings.
-    out="$(GIT_CEILING_DIRECTORIES="${nogit_dir%/*}" bash -c "
+    out="$(GIT_CEILING_DIRECTORIES="$(git_ceiling_fencing "$nogit_dir")" bash -c "
         $(declare -f fail)
         $(declare -f enumerate_untracked_cpp_hpp)
         FILES=()
@@ -1967,12 +1974,30 @@ run_selftest_untracked_guard_newline_name_control() {
     echo "selftest: guarda de untracked - controle de nome com quebra de linha OK (arquivo hostil reportado pelo caminho real, GATE-DEPZERO-NOFORK)"
 }
 
+# The composition rule of git_ceiling_fencing, on fixed paths (no git
+# runs here): without a caller ceiling, only the parent; with one, the
+# parent first and the caller's kept after it. The not-a-repository
+# control above cannot see the difference (git runs only inside
+# nogit_dir, where the parent is already the strictest ceiling), so the
+# rule is proved here, on the function's own output.
+run_selftest_git_ceiling_fencing_control() {
+    log "selftest: guarda de untracked - cerca do git preserva a de quem chama"
+    got="$(unset GIT_CEILING_DIRECTORIES; git_ceiling_fencing /fixture/tmp/nogit)"
+    [ "$got" = "/fixture/tmp" ] \
+        || fail "controle da cerca do git FALHOU: sem cerca de quem chama esperava '/fixture/tmp', teve '$got'"
+    got="$(GIT_CEILING_DIRECTORIES=/caller/a:/caller/b git_ceiling_fencing /fixture/tmp/nogit)"
+    [ "$got" = "/fixture/tmp:/caller/a:/caller/b" ] \
+        || fail "controle da cerca do git FALHOU: com cerca de quem chama esperava '/fixture/tmp:/caller/a:/caller/b', teve '$got'"
+    echo "selftest: guarda de untracked - cerca do git preserva a de quem chama OK (pai primeiro, a de quem chama depois)"
+}
+
 run_selftest_untracked_guard_controls() {
     log "selftest: guarda de arquivo novo nao rastreado (stage_untracked_guard)"
     run_selftest_untracked_guard_positive_control
     run_selftest_untracked_guard_negative_control
     run_selftest_untracked_guard_ignored_control
     run_selftest_untracked_guard_git_failure_control
+    run_selftest_git_ceiling_fencing_control
     run_selftest_untracked_guard_accented_name_control
     run_selftest_untracked_guard_newline_name_control
 }

@@ -131,6 +131,12 @@ class scratch_dir {
         GLINTFX_CHECK(::mkdtemp(buffer.data()) != nullptr);
         m_path = buffer.data();
         m_dir_fd = ::open(m_path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+        if (m_dir_fd < 0) {
+            // The check below throws out of the constructor, so the
+            // destructor never runs: the directory mkdtemp() just made
+            // goes now, or it stays behind in the caller's TMPDIR.
+            (void)::rmdir(m_path.c_str());
+        }
         GLINTFX_CHECK(m_dir_fd >= 0);
     }
     scratch_dir(const scratch_dir &) = delete;

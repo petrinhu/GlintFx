@@ -90,8 +90,9 @@
 // fits still used; release, reuse of the space and of the number, the full area after every
 // release and after release_all(); the stale, default, foreign slots and a slot with each of its
 // fields changed; a moved-from allocator; the move assignment).
-// Proved by: atlas_geometry_test (the four steps of the placement, the leftmost free run in steps
-// 1 and 3, and the joining of free runs and bands); atlas_slots_test (the generation, each field
+// Proved by: atlas_geometry_test (the four steps of the placement, the limit of one and a half
+// times at its exact edge for an even and an odd height, the leftmost free run in steps 1 and 3,
+// and the joining of free runs and bands); atlas_slots_test (the generation, each field
 // of the rect, and the number never handed out again); atlas_allocator_impl_test (out_of_memory at
 // each request for memory, with the allocator unchanged after it; release() and release_all()
 // asking for none; the move assignment giving the old area back; the owner after the last one).

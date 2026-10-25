@@ -119,6 +119,25 @@ GLINTFX_TEST(atlas_geometry_step_one_passes_over_a_shelf_over_one_and_a_half_tim
     GLINTFX_CHECK(placed_at(geometry, {4, 0, 4, 6}));
 }
 
+// The limit of step 1 at its exact edge, with a free band below that step 2 would take: a shelf
+// h + h / 2 rows tall (whole numbers, the half rounded down) is a good fit and is taken; a shelf
+// one row taller is passed over. An even height, 8 (12 taken, 13 passed over), and an odd one, 7
+// (10 taken, 11 passed over). Each atlas is 16 by 64, its shelf opened by a first rectangle 4 wide.
+GLINTFX_TEST(atlas_geometry_step_one_takes_a_shelf_exactly_one_and_a_half_times_as_tall) {
+    open_geometry even_edge(16, 64);
+    open_geometry even_past(16, 64);
+    open_geometry odd_edge(16, 64);
+    open_geometry odd_past(16, 64);
+    GLINTFX_CHECK(placed_at(even_edge.geometry, {0, 0, 4, 12}));
+    GLINTFX_CHECK(placed_at(even_edge.geometry, {4, 0, 4, 8})); // 12 = 8 + 4: on the shelf
+    GLINTFX_CHECK(placed_at(even_past.geometry, {0, 0, 4, 13}));
+    GLINTFX_CHECK(placed_at(even_past.geometry, {0, 13, 4, 8})); // 13: a new shelf in the band
+    GLINTFX_CHECK(placed_at(odd_edge.geometry, {0, 0, 4, 10}));
+    GLINTFX_CHECK(placed_at(odd_edge.geometry, {4, 0, 4, 7})); // 10 = 7 + 3: on the shelf
+    GLINTFX_CHECK(placed_at(odd_past.geometry, {0, 0, 4, 11}));
+    GLINTFX_CHECK(placed_at(odd_past.geometry, {0, 11, 4, 7})); // 11: a new shelf in the band
+}
+
 // Step 2: the topmost free band tall enough. Three full shelves 8 tall, the middle one freed: two
 // free bands, at rows 8 and 24.
 GLINTFX_TEST(atlas_geometry_step_two_opens_a_shelf_in_the_topmost_band_tall_enough) {
@@ -196,6 +215,23 @@ GLINTFX_TEST(atlas_geometry_freed_shelf_joins_the_bands_above_and_below) {
     glintfx::free_in_atlas(geometry, {0, 16, 16, 8});
     GLINTFX_CHECK_EQ(geometry.runs.size, std::size_t{2});
     GLINTFX_CHECK(same_run(geometry.runs.data[1], atlas_run{8, 24, 0, 16, false}));
+}
+
+// free_in_atlas() frees only a rect that starts a taken run, and ignores any other. Two cells 8 by
+// 8 on the top shelf of a 16 by 16 atlas and one 16 by 8 below: a rect whose column is inside the
+// first cell, and one whose row is inside the top shelf, leave the three runs as they were.
+GLINTFX_TEST(atlas_geometry_free_of_a_rect_that_starts_no_taken_run_touches_nothing) {
+    open_geometry open(16, 16);
+    atlas_geometry &geometry = open.geometry;
+    GLINTFX_CHECK(placed_at(geometry, {0, 0, 8, 8}));
+    GLINTFX_CHECK(placed_at(geometry, {8, 0, 8, 8}));
+    GLINTFX_CHECK(placed_at(geometry, {0, 8, 16, 8}));
+    glintfx::free_in_atlas(geometry, {4, 0, 8, 8});  // column 4: inside the first cell
+    glintfx::free_in_atlas(geometry, {0, 4, 16, 8}); // row 4: inside the top shelf
+    GLINTFX_CHECK_EQ(geometry.runs.size, std::size_t{3});
+    GLINTFX_CHECK(same_run(geometry.runs.data[0], atlas_run{0, 8, 0, 8, true}));
+    GLINTFX_CHECK(same_run(geometry.runs.data[1], atlas_run{0, 8, 8, 8, true}));
+    GLINTFX_CHECK(same_run(geometry.runs.data[2], atlas_run{8, 8, 0, 16, true}));
 }
 
 GLINTFX_TEST(atlas_geometry_clear_makes_the_whole_atlas_one_band) {

@@ -123,6 +123,9 @@ gltfx_rslt<gltfx_atlas_slot> allocate_in_atlas(atlas_allocator_impl *impl, std::
     if (!reserve_atlas_number(impl->slots)) {
         return refused_with<gltfx_atlas_slot>(gltfx_err_code::out_of_memory, "atlas_allocate");
     }
+    // place_in_atlas() cannot answer no_room here: find_atlas_spot() found a spot on this same
+    // geometry above, and reserve_atlas_number() does not touch the geometry. What reaches the
+    // branch below is the memory refused for a new run (no_memory).
     const atlas_placement placement = place_in_atlas(impl->geometry, width, height);
     if (placement.outcome != atlas_place_outcome::placed) {
         return refused_with<gltfx_atlas_slot>(gltfx_err_code::out_of_memory, "atlas_allocate");
@@ -141,6 +144,8 @@ gltfx_rslt<void> release_from_atlas(atlas_allocator_impl *impl,
     if (!is_current_atlas_slot(impl->slots, slot)) {
         return refused_with<void>(gltfx_err_code::invalid_argument, "stale_slot");
     }
+    // is_current_atlas_slot() compared the whole rect with the one handed out, so slot.rect starts
+    // a taken run of this geometry and free_in_atlas() never ignores it here.
     free_in_atlas(impl->geometry, slot.rect);
     take_back_atlas_number(impl->slots, slot.id);
     return gltfx_rslt<void>::ok();

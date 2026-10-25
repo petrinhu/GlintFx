@@ -74,7 +74,8 @@ struct atlas_spot_search {
                                              std::uint32_t height) noexcept;
 
 // Frees `rect`, which place_in_atlas() returned and which is still taken (checked by the caller,
-// core/atlas_slots.hpp), and joins it with its free neighbours. Asks for no memory.
+// core/atlas_slots.hpp), and joins it with its free neighbours. Asks for no memory. A rect that
+// does not start a taken run is ignored, and nothing is touched.
 void free_in_atlas(atlas_geometry &geometry, const gltfx_atlas_rect &rect) noexcept;
 
 // Makes the whole atlas one free band again. Asks for no memory.

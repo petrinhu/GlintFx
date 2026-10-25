@@ -336,13 +336,17 @@ class gltfx_renderer_2d {
     //      screen passes the largest double: pixel_position_out_of_range.
     // Proved by: stroke_geometry_test (the outline of each cap and unit).
     // Proved by: stroke_line_check_test (the order of the refusals).
-    // Proved by: stroke_line_pixels_test (a cap of radius 50000 pixels
-    // within the distance on the surface; the distance read by the cap; the
-    // cap that cannot be measured, refused).
+    // Proved by: stroke_line_pixels_test (caps in both units, under a
+    // turned and unevenly scaled transform, of radius 1 to 2^20 pixels on
+    // the screen and distance 1/16 to 8 pixels, swept within the distance
+    // on the surface; a cap of radius 50000 pixels; the distance read by the
+    // cap; a cap just off the surface cut with no reach; the cap that cannot
+    // be measured, refused).
     // Proved by: renderer_2d_impl_test (the distance given to open() sets the
     // segments of a cap).
     // Proved by: arc_parameters_test (the two conditions of the distance; the
-    // coarser edge off the surface).
+    // half curve of a cap swept from radius 1 to 2^40 pixels and distance
+    // 1/16 to 8 pixels; the coarser edge off the surface).
     GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
                                  gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 

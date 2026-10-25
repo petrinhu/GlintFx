@@ -4,8 +4,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <limits>
 #include <memory>
+#include <numbers>
 #include <span>
+#include <utility>
 
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/segment.hpp>
@@ -27,6 +31,9 @@
 // the 13280 pixels of before on the surface, and is refused when its arc cannot be measured. The
 // counts come from n = ceil(pi / acos(1 - e / r)) for the whole circle, half of it rounded up for
 // a cap, 4 + 2 (half - 1) points (computed outside the code, python, before it was run).
+// Fatia S5-C2-fix1 (the S5-C2 review: I1, C2, C3, C4): the cap is swept on the surface across
+// radii, units, transforms and errors; the cap just off the surface is cut with no reach; and the
+// uniform count of a cap is swept against the formula of before.
 
 using glintfx::gltfx_line_cap;
 using glintfx::gltfx_line_style;
@@ -41,6 +48,8 @@ using glintfx::draw2d::k_max_stroke_points;
 using glintfx::draw2d::pixel_affine;
 using glintfx::draw2d::pixel_affine_from_transform;
 using glintfx::draw2d::pixel_box;
+using glintfx::draw2d::pixel_ellipse;
+using glintfx::draw2d::pixel_position_wide;
 using glintfx::draw2d::stroke_line_pixels;
 using glintfx::draw2d::stroke_pixels_outcome;
 
@@ -220,7 +229,7 @@ GLINTFX_TEST(stroke_line_pixels_the_rounded_cap_reads_the_largest_error_of_the_s
 // at least r - 0.25), and at least two touch it (the floor, L-40: none would prove nothing). The
 // start cap, off the surface, is cut on its own (D-W8-831): its two quarters miss the surface, so
 // each is its chord, and three points lie on its circle (its two corners and t = pi / 2).
-GLINTFX_TEST(stroke_line_pixels_a_cap_past_13280_pixels_stays_within_the_error_on_the_surface) {
+GLINTFX_TEST(stroke_line_pixels_a_cap_of_radius_50000_stays_within_the_error_on_the_surface) {
     const auto pixels = fresh();
     const gltfx_segment_world down{{400.0, -100000.0}, {400.0, -49700.0}};
     GLINTFX_CHECK(
@@ -298,4 +307,381 @@ GLINTFX_TEST(stroke_line_pixels_zero_thickness_is_built_with_zero_area) {
     const auto vertices = pixels->vertices();
     GLINTFX_CHECK_EQ(vertices.size(), std::size_t{4});
     GLINTFX_CHECK_EQ(count_on_row(vertices, 10.0F), std::size_t{4});
+}
+
+// THE REACH OF A CAP IS ZERO (fatia S5-C2-fix1; the S5-C2 review, C2 and its mutant RC). The edge
+// of a cap is the edge of the shape, so its cut grows the surface by the margin of
+// arc_parameters.hpp only, never by half the thickness. A cap of radius 20000 pixels whose far
+// point stops 30 pixels above the 800 x 600 surface misses it: its two quarters are chords, one
+// point between its corners, 6 points for the line (the other cap lies 100000 pixels away). Grown
+// by the half thickness it would touch the surface and be cut into 512 pieces: 516 points (python
+// model modelo_arco2.py, outside the code, before it was run). Both caps: the line, and the same
+// line drawn the other way.
+GLINTFX_TEST(stroke_line_pixels_a_cap_just_off_the_surface_is_cut_with_no_reach) {
+    const auto pixels = fresh();
+    const gltfx_line_style wide =
+        style_of(40000.0, gltfx_stroke_unit::pixel, gltfx_line_cap::rounded);
+    const gltfx_segment_world down{{400.0, -100000.0}, {400.0, -20030.0}};
+    const gltfx_segment_world up{{400.0, -20030.0}, {400.0, -100000.0}};
+    GLINTFX_CHECK(pixels->build(down, wide, k_half_red, screen_of(pixel_affine{})) ==
+                  stroke_pixels_outcome::built);
+    GLINTFX_CHECK_EQ(pixels->vertices().size(), std::size_t{6});
+    GLINTFX_CHECK(pixels->build(up, wide, k_half_red, screen_of(pixel_affine{})) ==
+                  stroke_pixels_outcome::built);
+    GLINTFX_CHECK_EQ(pixels->vertices().size(), std::size_t{6});
+}
+
+namespace {
+
+constexpr double k_pi = std::numbers::pi;
+
+// The fixed integer generator of the sweeps below (the same numbers on every system): the one of
+// arc_parameters_test.cpp, with seeds of its own.
+struct lcg {
+    std::uint64_t state = 0U;
+    double next() {
+        state = (state * 6364136223846793005ULL) + 1442695040888963407ULL;
+        return static_cast<double>(state >> 11U) * 0x1.0p-53;
+    }
+};
+
+// A batch transform turned by a drawn angle and scaled unevenly, the scale of each axis from 1/8 to
+// 8 and the two up to 64 apart, with no translation yet: scale first, then rotation, as
+// pixel_affine_from_transform builds it (quad_vertices.cpp). `larger` is its largest stretch, the
+// larger of the two scales.
+struct drawn_linear {
+    pixel_affine affine{};
+    double larger = 1.0;
+};
+
+drawn_linear drawn_linear_part(lcg &g) {
+    const double turn = 2.0 * k_pi * g.next();
+    double sx = std::exp2((6.0 * g.next()) - 3.0);
+    double sy = sx * std::exp2(-6.0 * g.next());
+    if (g.next() < 0.5) {
+        std::swap(sx, sy);
+    }
+    const pixel_affine linear{sx * std::cos(turn),
+                              sx * std::sin(turn),
+                              -sy * std::sin(turn),
+                              sy * std::cos(turn),
+                              0.0,
+                              0.0};
+    return drawn_linear{linear, std::max(sx, sy)};
+}
+
+// The linear part of `affine` applied to (x, y).
+pixel_position_wide linear_of(const pixel_affine &affine, double x, double y) {
+    return pixel_position_wide{(affine.column0_x * x) + (affine.column1_x * y),
+                               (affine.column0_y * x) + (affine.column1_y * y)};
+}
+
+} // namespace
+
+// THE UNIFORM CAP IS COUNTED AS BEFORE (fatia S5-C2-fix1; the S5-C2 review, C3). Below the cut, the
+// count of a cap is the one of fatia S3 at the screen's error: n = ceil(pi / acos(1 - e / r))
+// segments for the whole circle (4 at least, and 4 when r does not exceed e), half of it rounded up
+// for the cap, 4 + 2 (half - 1) points, with r half the thickness in pixel unit and half the
+// thickness times the larger scale in world unit (the largest stretch of a turned, scaled
+// transform). Fatia S5-C2 measures r from the cap's two axes on the screen instead; this sweep
+// checks that the count did not move: 400 lines of a fixed generator, both units, turned and scaled
+// unevenly, errors from 1/16 to 8 pixels, r drawn below the cut. A case whose n lies within 1e-9 of
+// a whole number would let the last bit of the radius decide it: it is skipped and counted.
+namespace {
+
+// The count of fatia S3 for a cap of radius r at error e, written out (never read from the code).
+std::size_t points_of_the_uniform_cap(double r, double e) {
+    if (!(r > e)) {
+        return 6U; // 4 segments for the circle, 2 for the cap: 4 + 2 (2 - 1) points
+    }
+    const long double quotient = std::numbers::pi_v<long double> / std::acos(1.0L - (e / r));
+    const auto whole = std::max<std::size_t>(4U, static_cast<std::size_t>(std::ceil(quotient)));
+    const std::size_t half = (whole + 1U) / 2U;
+    return 4U + (2U * (half - 1U));
+}
+
+// True when r is near enough to a boundary of the count (r = e, or n a whole number) for the last
+// bit of the radius to decide it.
+bool near_a_boundary_of_the_count(double r, double e) {
+    if (std::fabs(r - e) <= 1.0e-9 * e) {
+        return true;
+    }
+    if (!(r > e)) {
+        return false;
+    }
+    const long double quotient = std::numbers::pi_v<long double> / std::acos(1.0L - (e / r));
+    return std::fabs(quotient - std::round(quotient)) <= 1.0e-9L * quotient;
+}
+
+struct uniform_cap_case {
+    gltfx_segment_world segment{};
+    gltfx_line_style style{};
+    ellipse_screen screen{};
+    double radius = 0.0; // the cap's radius on the screen, by the formula of before
+};
+
+uniform_cap_case drawn_uniform_cap(lcg &g, bool world) {
+    const drawn_linear linear = drawn_linear_part(g);
+    const double error = std::exp2(-4.0 + (7.0 * g.next()));
+    const double below_the_cut = 0.999 * error / (1.0 - std::cos(k_pi / 512.0));
+    const double radius = below_the_cut * std::exp2(-20.0 * g.next());
+    const double heading = 2.0 * k_pi * g.next();
+    const double half_thickness = world ? radius / linear.larger : radius;
+    const gltfx_segment_world segment{{0.0, 0.0},
+                                      {50.0 * std::cos(heading), 50.0 * std::sin(heading)}};
+    pixel_affine affine = linear.affine;
+    affine.translation_x = 400.0;
+    affine.translation_y = 300.0;
+    return uniform_cap_case{segment,
+                            style_of(2.0 * half_thickness,
+                                     world ? gltfx_stroke_unit::world : gltfx_stroke_unit::pixel,
+                                     gltfx_line_cap::rounded),
+                            screen_of(affine, error), radius};
+}
+
+} // namespace
+
+GLINTFX_TEST(stroke_line_pixels_the_uniform_cap_is_counted_by_the_formula_of_before) {
+    const auto pixels = fresh();
+    lcg g{20261026U};
+    int checked = 0;
+    int skipped = 0;
+    int failures = 0;
+    for (int i = 0; i < 400; ++i) {
+        const uniform_cap_case c = drawn_uniform_cap(g, i % 2 == 1);
+        if (near_a_boundary_of_the_count(c.radius, c.screen.max_error_pixels)) {
+            ++skipped;
+            continue;
+        }
+        ++checked;
+        const std::size_t want = points_of_the_uniform_cap(c.radius, c.screen.max_error_pixels);
+        const bool built =
+            pixels->build(c.segment, c.style, k_half_red, c.screen) == stroke_pixels_outcome::built;
+        if (!built || pixels->vertices().size() != want) {
+            ++failures;
+            std::printf("[FAIL UNIFORM CAP] case %d: r=%.17g e=%.17g points=%zu, expected %zu\n", i,
+                        c.radius, c.screen.max_error_pixels, pixels->vertices().size(), want);
+        }
+    }
+    std::printf("ponta uniforme casos=%d pulados=%d falhas=%d\n", checked, skipped, failures);
+    GLINTFX_CHECK(checked + skipped == 400);
+    GLINTFX_CHECK(checked >= 396);
+    GLINTFX_CHECK(failures == 0);
+}
+
+// THE SWEEP OF THE CAP ON THE SURFACE (fatia S5-C2-fix1; the S5-C2 review, I1). 400 lines of a
+// fixed generator, in both units, under a batch transform turned and scaled unevenly, with the
+// largest error from 1/16 to 8 pixels and the cap's larger radius on the screen from 1 to 2^20
+// pixels (both regimes); each line puts one of its caps (the end on half the cases, the start on
+// the other half) across the 800 x 600 surface, through a point drawn on it. For every chord of
+// that cap whose hull touches the surface grown by half a pixel (the code grows it by one: the half
+// left over absorbs the test's reading of the parameters back from float vertices): the largest
+// distance from the true half ellipse, built by hand from the line's own frame, to the chord
+// between the two FLOAT vertices is within the error, plus a thousandth of it (the rounding of
+// the double evaluation, as in arc_parameters_test), plus the narrowing of PRECISION
+// (renderer_2d.hpp): half a unit in the last place of a float moves each end by at most sqrt(2)
+// times half its larger coordinate's unit. The radii are kept to 2^20 so that the ends of every
+// chord on the surface stay below 16384 pixels and that narrowing below 7e-4 pixel; it is
+// printed, and checked to stay there. The floor (GODS_LAWS.md L-40): every case has at least one
+// chord on the surface, or it measured nothing.
+namespace {
+
+struct cap_sweep_case {
+    gltfx_segment_world segment{};
+    gltfx_line_style style{};
+    ellipse_screen screen{};
+    pixel_ellipse cap{}; // the true half ellipse of the cap that crosses the surface
+};
+
+// The two axes of a cap on the screen, across then along, for a line heading `heading` in the
+// world, half the thickness `half`: in world unit the world's two vectors carried by the linear
+// part; in pixel unit the direction of the line on the screen, turned a quarter, at half the
+// thickness.
+std::array<pixel_position_wide, 2> cap_axes(const pixel_affine &linear, double heading, double half,
+                                            bool world) {
+    const double cx = std::cos(heading);
+    const double cy = std::sin(heading);
+    if (world) {
+        return {linear_of(linear, -cy * half, cx * half), linear_of(linear, cx * half, cy * half)};
+    }
+    const pixel_position_wide d = linear_of(linear, cx, cy);
+    const double length = std::hypot(d.x, d.y);
+    const double ux = d.x / length;
+    const double uy = d.y / length;
+    return {pixel_position_wide{-uy * half, ux * half}, pixel_position_wide{ux * half, uy * half}};
+}
+
+cap_sweep_case drawn_cap_case(lcg &g, bool world, bool at_end) {
+    const drawn_linear linear = drawn_linear_part(g);
+    const double error = std::exp2(-4.0 + (7.0 * g.next()));
+    const double radius = std::exp2(20.0 * g.next());
+    const double heading = 2.0 * k_pi * g.next();
+    const double t0 = k_pi * (0.02 + (0.96 * g.next()));
+    const pixel_position_wide target{800.0 * g.next(), 600.0 * g.next()};
+    const double half = world ? radius / linear.larger : radius;
+    const pixel_position_wide on_screen =
+        linear_of(linear.affine, std::cos(heading), std::sin(heading));
+    // The other end lies 8 half thicknesses back along the line, measured in the space of its unit.
+    const double length = world ? 8.0 * half : 8.0 * half / std::hypot(on_screen.x, on_screen.y);
+    const std::array<pixel_position_wide, 2> axes = cap_axes(linear.affine, heading, half, world);
+    const double sign = at_end ? 1.0 : -1.0;
+    const pixel_ellipse unplaced{
+        {}, {sign * axes[0].x, sign * axes[0].y}, {sign * axes[1].x, sign * axes[1].y}};
+    const pixel_position_wide centre{
+        target.x - ((unplaced.axis_u.x * std::cos(t0)) + (unplaced.axis_v.x * std::sin(t0))),
+        target.y - ((unplaced.axis_u.y * std::cos(t0)) + (unplaced.axis_v.y * std::sin(t0)))};
+    // The capped end is the world origin, which the translation carries to `centre`.
+    const double ox = length * std::cos(heading) * (at_end ? -1.0 : 1.0);
+    const double oy = length * std::sin(heading) * (at_end ? -1.0 : 1.0);
+    const gltfx_segment_world segment = at_end ? gltfx_segment_world{{ox, oy}, {0.0, 0.0}}
+                                               : gltfx_segment_world{{0.0, 0.0}, {ox, oy}};
+    pixel_affine affine = linear.affine;
+    affine.translation_x = centre.x;
+    affine.translation_y = centre.y;
+    const gltfx_stroke_unit unit = world ? gltfx_stroke_unit::world : gltfx_stroke_unit::pixel;
+    return cap_sweep_case{segment, style_of(2.0 * half, unit, gltfx_line_cap::rounded),
+                          screen_of(affine, error),
+                          pixel_ellipse{centre, unplaced.axis_u, unplaced.axis_v}};
+}
+
+// A point of the cap read back from a float vertex: the coordinates of p - centre in the basis of
+// the two axes are (cos t, sin t). `on` when the point lies on the ellipse within a thousandth of
+// its size (the other points of the outline lie 8 half thicknesses away); t from 0 to pi, a sine
+// below zero by rounding read as zero.
+struct cap_point {
+    bool on = false;
+    long double t = 0.0L;
+};
+
+cap_point read_on_cap(const pixel_ellipse &cap, const colored_pixel_vertex &vertex) {
+    const long double px = static_cast<long double>(vertex.position.x) - cap.center.x;
+    const long double py = static_cast<long double>(vertex.position.y) - cap.center.y;
+    const long double ux = cap.axis_u.x;
+    const long double uy = cap.axis_u.y;
+    const long double vx = cap.axis_v.x;
+    const long double vy = cap.axis_v.y;
+    const long double det = (ux * vy) - (vx * uy);
+    const long double c = ((px * vy) - (py * vx)) / det;
+    const long double s = ((py * ux) - (px * uy)) / det;
+    return cap_point{std::fabs(std::hypot(c, s) - 1.0L) <= 1.0e-3L,
+                     std::atan2(std::max(s, 0.0L), c)};
+}
+
+pixel_position_wide point_of_cap(const pixel_ellipse &cap, long double t, long double stretch) {
+    const long double c = std::cos(t) * stretch;
+    const long double s = std::sin(t) * stretch;
+    return pixel_position_wide{
+        static_cast<double>(cap.center.x + (cap.axis_u.x * c) + (cap.axis_v.x * s)),
+        static_cast<double>(cap.center.y + (cap.axis_u.y * c) + (cap.axis_v.y * s))};
+}
+
+// True when the hull of the piece from ta to tb (its ends and the apex where their tangents meet)
+// touches the 800 x 600 surface grown by half a pixel.
+bool hull_touches_surface(const pixel_ellipse &cap, long double ta, long double tb) {
+    const pixel_position_wide a = point_of_cap(cap, ta, 1.0L);
+    const pixel_position_wide b = point_of_cap(cap, tb, 1.0L);
+    const pixel_position_wide apex =
+        point_of_cap(cap, 0.5L * (ta + tb), 1.0L / std::cos(0.5L * (tb - ta)));
+    const auto [low_x, high_x] = std::minmax({a.x, b.x, apex.x});
+    const auto [low_y, high_y] = std::minmax({a.y, b.y, apex.y});
+    return !(high_x < -0.5 || low_x > 800.5 || high_y < -0.5 || low_y > 600.5);
+}
+
+// The chord between two float vertices of the cap, with the parameters read back from them.
+struct cap_chord {
+    const colored_pixel_vertex *a = nullptr;
+    const colored_pixel_vertex *b = nullptr;
+    long double ta = 0.0L;
+    long double tb = 0.0L;
+};
+
+// The largest distance from 15 points of the true half ellipse between the two ends of `chord` to
+// the line through its two float vertices, in long double.
+double chord_error(const pixel_ellipse &cap, const cap_chord &chord) {
+    const long double ax = chord.a->position.x;
+    const long double ay = chord.a->position.y;
+    const long double dx = static_cast<long double>(chord.b->position.x) - ax;
+    const long double dy = static_cast<long double>(chord.b->position.y) - ay;
+    const long double length = std::hypot(dx, dy);
+    long double largest = 0.0L;
+    for (int i = 1; i < 16; ++i) {
+        const long double t =
+            chord.ta + ((chord.tb - chord.ta) * static_cast<long double>(i) / 16.0L);
+        const long double c = std::cos(t);
+        const long double s = std::sin(t);
+        const long double px = cap.center.x + (cap.axis_u.x * c) + (cap.axis_v.x * s) - ax;
+        const long double py = cap.center.y + (cap.axis_u.y * c) + (cap.axis_v.y * s) - ay;
+        const long double d =
+            length > 0.0L ? std::fabs((dx * py) - (dy * px)) / length : std::hypot(px, py);
+        largest = std::max(largest, d);
+    }
+    return static_cast<double>(largest);
+}
+
+// How far the narrowing to float of PRECISION (renderer_2d.hpp) can have moved `vertex`: half a
+// unit in the last place of its larger coordinate, on each axis.
+double narrowing_of(const colored_pixel_vertex &vertex) {
+    const float larger = std::max(std::fabs(vertex.position.x), std::fabs(vertex.position.y));
+    const float unit = std::nextafter(larger, std::numeric_limits<float>::infinity()) - larger;
+    return std::sqrt(2.0) * 0.5 * static_cast<double>(unit);
+}
+
+// What one case measured: the chords of the cap on the surface, the largest error past the asked
+// distance, the largest narrowing, and whether every chord held.
+struct cap_measure {
+    std::size_t chords = 0U;
+    double excess = -1.0e300;
+    double narrowing = 0.0;
+    bool holds = true;
+};
+
+void measure_chord(const cap_sweep_case &c, const cap_chord &chord, cap_measure &m) {
+    const double narrowing = std::max(narrowing_of(*chord.a), narrowing_of(*chord.b));
+    const double error = chord_error(c.cap, chord);
+    const double e = c.screen.max_error_pixels;
+    ++m.chords;
+    m.excess = std::max(m.excess, error - e);
+    m.narrowing = std::max(m.narrowing, narrowing);
+    m.holds = m.holds && error <= (e * (1.0 + 1.0e-3)) + narrowing;
+}
+
+cap_measure measured_cap(const cap_sweep_case &c, std::span<const colored_pixel_vertex> vertices) {
+    cap_measure m{};
+    const std::size_t n = vertices.size();
+    for (std::size_t k = 0U; k < n; ++k) {
+        const cap_point a = read_on_cap(c.cap, vertices[k]);
+        const cap_point b = read_on_cap(c.cap, vertices[(k + 1U) % n]);
+        if (a.on && b.on && hull_touches_surface(c.cap, a.t, b.t)) {
+            measure_chord(c, cap_chord{&vertices[k], &vertices[(k + 1U) % n], a.t, b.t}, m);
+        }
+    }
+    return m;
+}
+
+} // namespace
+
+GLINTFX_TEST(stroke_line_pixels_the_cap_meets_the_error_on_the_surface_swept) {
+    const auto pixels = fresh();
+    lcg g{20261027U};
+    int failures = 0;
+    cap_measure all{};
+    for (int i = 0; i < 400; ++i) {
+        const cap_sweep_case c = drawn_cap_case(g, i % 2 == 1, (i / 2) % 2 == 0);
+        const bool built =
+            pixels->build(c.segment, c.style, k_half_red, c.screen) == stroke_pixels_outcome::built;
+        const cap_measure m = built ? measured_cap(c, pixels->vertices()) : cap_measure{};
+        all.chords += m.chords;
+        all.excess = std::max(all.excess, m.excess);
+        all.narrowing = std::max(all.narrowing, m.narrowing);
+        if (!built || m.chords == 0U || !m.holds) {
+            ++failures;
+            std::printf("[FAIL CAP SWEEP] case %d: built=%d chords=%zu excess=%.6g\n", i,
+                        built ? 1 : 0, m.chords, m.excess);
+        }
+    }
+    std::printf("varredura da ponta casos=400 cordas_medidas=%zu maior_excesso=%.6g "
+                "maior_arredondamento=%.6g falhas=%d\n",
+                all.chords, all.excess, all.narrowing, failures);
+    GLINTFX_CHECK(failures == 0);
+    GLINTFX_CHECK(all.narrowing <= 1.0e-3);
 }

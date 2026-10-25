@@ -10,10 +10,10 @@
 // draw2d/stroke_line_pixels.cpp - R2D-SHAPES, fatia S3: the build of stroke_line_pixels.hpp.
 namespace glintfx::draw2d {
 
-bool stroke_line_pixels::write_cap_parameters(const stroke_frame &frame,
-                                              glintfx::gltfx_line_cap cap,
-                                              const ellipse_screen &screen,
-                                              stroke_cap_parameters &caps) noexcept {
+bool stroke_line_pixels::measure_cap_parameters(const stroke_frame &frame,
+                                                glintfx::gltfx_line_cap cap,
+                                                const ellipse_screen &screen,
+                                                stroke_cap_parameters &caps) noexcept {
     caps = stroke_cap_parameters{};
     if (cap != glintfx::gltfx_line_cap::rounded) {
         return true;
@@ -39,7 +39,7 @@ stroke_pixels_outcome stroke_line_pixels::build(const glintfx::gltfx_segment_wor
     index_count = 0;
     const stroke_frame frame = stroke_frame_of(segment, style.stroke, screen.affine);
     stroke_cap_parameters caps{};
-    if (!write_cap_parameters(frame, style.cap, screen, caps)) {
+    if (!measure_cap_parameters(frame, style.cap, screen, caps)) {
         return stroke_pixels_outcome::pixel_position_out_of_range; // a cap not measured (D-W8-833)
     }
     const std::size_t count = stroke_outline_point_count(style.cap, caps);

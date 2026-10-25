@@ -73,12 +73,14 @@ class stroke_line_pixels {
     [[nodiscard]] std::span<const std::uint32_t> indices() const noexcept;
 
   private:
-    // The parameters of both caps of `frame`, into end_parameters and start_parameters, from
-    // arc_parameters.hpp on `screen`; empty spans for `flat` and `square`. False when a rounded
-    // cap's arc cannot be measured (D-W8-833).
-    [[nodiscard]] bool write_cap_parameters(const stroke_frame &frame, glintfx::gltfx_line_cap cap,
-                                            const ellipse_screen &screen,
-                                            stroke_cap_parameters &caps) noexcept;
+    // Measures both caps of `frame` on `screen` (arc_parameters.hpp): their parameters go into
+    // end_parameters and start_parameters, seen through `caps`; empty spans for `flat` and
+    // `square`. False when a rounded cap's arc cannot be measured (D-W8-833). (Named
+    // write_cap_parameters until fatia S5-C2-fix1: the answer is whether the measure succeeded.)
+    [[nodiscard]] bool measure_cap_parameters(const stroke_frame &frame,
+                                              glintfx::gltfx_line_cap cap,
+                                              const ellipse_screen &screen,
+                                              stroke_cap_parameters &caps) noexcept;
 
     std::array<double, k_max_arc_parameters> end_parameters{};
     std::array<double, k_max_arc_parameters> start_parameters{};

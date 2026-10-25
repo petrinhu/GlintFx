@@ -46,8 +46,9 @@
 //       call. When the level e asks for would give more, the call takes the deepest level, down to
 //       7, that fits, and the error on the surface then passes e: with e = 1e-9 and r = 1e6 it is
 //       about 1100 times e. A tolerance far below what a screen needs, or a surface much larger
-//       than 16384 pixels on a side, comes to that; the sweep of arc_parameters_test, at the
-//       default 0.25 pixel and up to that size, never does.
+//       than 16384 pixels on a side, comes to that; the two sweeps of arc_parameters_test, up to
+//       that size, never do: the whole curve at the default 0.25 pixel, and the half curve of a
+//       rounded cap at errors from 1/16 to 8 pixels (fatia S5-C2-fix1).
 //   (2) Above 2^40, the rounding of the double arithmetic, and not the count, sets the error.
 namespace glintfx::draw2d {
 

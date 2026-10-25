@@ -24,10 +24,11 @@
 // 0.015 pixel to its edge (the model prints that slack), so the last bit of cos and sin on each
 // system cannot change a count (GODS_LAWS.md L-04).
 //
-// The sweep at the end does not fix counts: it checks the contract itself on 400 curves made by a
-// fixed integer generator (the same numbers on every system), and prints how many it checked. Its
-// error oracle is GEOMETRIC (fix1, I-6): the largest distance from points of the true curve to the
-// chord, in long double, never the sagitta formula the implementation uses to choose a level.
+// The two sweeps at the end do not fix counts: they check the contract itself on 400 curves each,
+// made by fixed integer generators (the same numbers on every system), and print how many they
+// checked: the whole curve, and the half curve of a rounded cap (fatia S5-C2-fix1). Their error
+// oracle is GEOMETRIC (fix1, I-6): the largest distance from points of the true curve to the chord,
+// in long double, never the sagitta formula the implementation uses to choose a level.
 //
 // Every call runs in a buffer larger than the room it is given, and the slot right after the room
 // must stay untouched (fix1, I-3): a write past the room fails here, not only under a sanitizer.
@@ -415,7 +416,10 @@ double largest_distance_to_chord(const pixel_ellipse &e, double from, double to)
     return static_cast<double>(largest);
 }
 
-bool piece_holds(const arc_request &request, const pixel_box &surface, double from, double to) {
+// True when the box of the piece's hull (its two ends and the apex where their tangents meet)
+// misses the surface grown by the margin and the reach: the rule of arc_parameters.hpp, under which
+// the piece is drawn as its chord and the contract does not look at it.
+bool piece_misses(const arc_request &request, const pixel_box &surface, double from, double to) {
     const pixel_ellipse &e = request.ellipse;
     const double stretch = 1.0 / std::cos(0.5 * (to - from));
     const pixel_position_wide a = point_on(e, from);
@@ -426,17 +430,35 @@ bool piece_holds(const arc_request &request, const pixel_box &surface, double fr
     const double grow = 1.0 + request.reach_pixels;
     const auto [low_x, high_x] = std::minmax({a.x, b.x, apex.x});
     const auto [low_y, high_y] = std::minmax({a.y, b.y, apex.y});
-    const bool misses = high_x < surface.min_x - grow || low_x > surface.max_x + grow ||
-                        high_y < surface.min_y - grow || low_y > surface.max_y + grow;
-    // A thousandth of the error covers the rounding of the double evaluation of curves up to
-    // 1.3e12 pixels of radius on a system whose long double is a double.
-    return misses ||
-           largest_distance_to_chord(e, from, to) <= request.max_error_pixels * (1.0 + 1.0e-3);
+    return high_x < surface.min_x - grow || low_x > surface.max_x + grow ||
+           high_y < surface.min_y - grow || low_y > surface.max_y + grow;
 }
 
+bool piece_holds(const arc_request &request, const pixel_box &surface, double from, double to) {
+    // A thousandth of the error covers the rounding of the double evaluation of curves up to
+    // 1.3e12 pixels of radius on a system whose long double is a double.
+    return piece_misses(request, surface, from, to) ||
+           largest_distance_to_chord(request.ellipse, from, to) <=
+               request.max_error_pixels * (1.0 + 1.0e-3);
+}
+
+// The pieces of an answer whose hull touches the grown surface: the ones the contract is checked
+// on. The floor of a sweep (GODS_LAWS.md L-40): none would prove nothing.
+std::size_t pieces_on_surface(const arc_request &request, const pixel_box &surface,
+                              std::span<const double> t) {
+    std::size_t touching = 0U;
+    for (std::size_t k = 1U; k < t.size(); ++k) {
+        touching += piece_misses(request, surface, t[k - 1U], t[k]) ? 0U : 1U;
+    }
+    return touching;
+}
+
+// The ends, the order, the room and the contract piece by piece; the last parameter is 2 pi for the
+// whole curve and pi for the half.
 bool answer_holds(const arc_request &request, const pixel_box &surface, std::span<const double> t) {
+    const double end = request.extent == arc_extent::whole ? 2.0 * k_pi : k_pi;
     if (t.size() < 2U || t.size() > k_max_arc_parameters || t[0] != 0.0 ||
-        !within_four_ulps(t.back(), 2.0 * k_pi, 2.0 * k_pi) || !strictly_increasing(t)) {
+        !within_four_ulps(t.back(), end, end) || !strictly_increasing(t)) {
         return false;
     }
     for (std::size_t k = 1U; k < t.size(); ++k) {
@@ -459,6 +481,28 @@ arc_request drawn_curve(lcg &g, const pixel_box &surface) {
     const pixel_position_wide center{px - ((u.x * std::cos(t0)) + (v.x * std::sin(t0))),
                                      py - ((u.y * std::cos(t0)) + (v.y * std::sin(t0)))};
     return curve(center, u, v, arc_extent::whole);
+}
+
+// A half curve of the second generator (fatia S5-C2-fix1): the half ellipse of a rounded cap. Its
+// two axes have lengths a and b, a from 1 to 2^39.5 pixels (both regimes) and b from a down to a
+// ten-thousandth of it, in two directions 0.1 pi to 0.9 pi apart: a world line under an uneven
+// scale gives two axes that are not at right angles. The larger radius stays within 2^40 (it is at
+// most a times the square root of 2). The error is drawn from 1/16 to 8 pixels, and the curve
+// crosses the surface at a point drawn on it, at a parameter t0 of the half, from 0 to pi.
+arc_request drawn_half_curve(lcg &g, const pixel_box &surface) {
+    const double a = std::exp2(39.5 * g.next());
+    const double b = a * std::pow(10.0, -4.0 * g.next());
+    const double turn = 2.0 * k_pi * g.next();
+    const double apart = k_pi * (0.1 + (0.8 * g.next()));
+    const pixel_position_wide u{a * std::cos(turn), a * std::sin(turn)};
+    const pixel_position_wide v{b * std::cos(turn + apart), b * std::sin(turn + apart)};
+    const double error = std::exp2(-4.0 + (7.0 * g.next()));
+    const double t0 = k_pi * g.next();
+    const double px = surface.max_x * g.next();
+    const double py = surface.max_y * g.next();
+    const pixel_position_wide center{px - ((u.x * std::cos(t0)) + (v.x * std::sin(t0))),
+                                     py - ((u.y * std::cos(t0)) + (v.y * std::sin(t0)))};
+    return arc_request{pixel_ellipse{center, u, v}, arc_extent::half, error, 0.0};
 }
 
 } // namespace
@@ -484,4 +528,53 @@ GLINTFX_TEST(arc_parameters_sweep_meets_the_error_on_the_surface) {
     std::printf("varredura casos=%d maior=%zu falhas=%d\n", checked, largest, failures);
     GLINTFX_CHECK(checked == 400);
     GLINTFX_CHECK(failures == 0);
+}
+
+// THE SWEEP OF THE HALF CURVE (fatia S5-C2-fix1; the S5-C2 review, I1). The rounded cap of a line
+// is a half curve (stroke_line_pixels.hpp), and the sweep above draws only whole ones. This one
+// draws 200 half curves on each of the two surfaces from a generator of its own (drawn_half_curve):
+// the same contract piece by piece, with the end at pi, and the floor: every curve crosses the
+// surface, so at least one of its pieces touches it, or the sweep measured nothing (GODS_LAWS.md
+// L-40).
+namespace {
+
+// What the half sweep counted: the curves checked, the ones that failed, the pieces measured on the
+// surface and the largest answer.
+struct half_sweep_tally {
+    int checked = 0;
+    int failures = 0;
+    std::size_t measured = 0U;
+    std::size_t largest = 0U;
+};
+
+// One half curve of the generator, cut and checked on `surface`, counted into `tally`.
+void check_one_half_curve(lcg &g, const pixel_box &surface, half_sweep_tally &tally) {
+    parameters t{};
+    const arc_request request = drawn_half_curve(g, surface);
+    const std::size_t n = run(request, surface, t, 1025U);
+    const std::span<const double> answer = std::span<const double>(t).first(n);
+    const std::size_t touching = pieces_on_surface(request, surface, answer);
+    ++tally.checked;
+    tally.largest = std::max(tally.largest, n);
+    tally.measured += touching;
+    if (touching == 0U || !answer_holds(request, surface, answer)) {
+        ++tally.failures;
+        std::printf("[FAIL HALF SWEEP] case %d: n=%zu touching=%zu\n", tally.checked, n, touching);
+    }
+}
+
+} // namespace
+
+GLINTFX_TEST(arc_parameters_sweep_of_the_half_curve_meets_the_error_on_the_surface) {
+    half_sweep_tally tally{};
+    lcg g{20261025U};
+    for (const pixel_box &surface : {k_screen, k_large_screen}) {
+        for (int i = 0; i < 200; ++i) {
+            check_one_half_curve(g, surface, tally);
+        }
+    }
+    std::printf("varredura da meia curva casos=%d pecas_medidas=%zu maior=%zu falhas=%d\n",
+                tally.checked, tally.measured, tally.largest, tally.failures);
+    GLINTFX_CHECK(tally.checked == 400);
+    GLINTFX_CHECK(tally.failures == 0);
 }

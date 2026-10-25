@@ -53,14 +53,8 @@ enum class ellipse_pixels_outcome : std::uint8_t {
     pixel_position_out_of_range,
 };
 
-// The screen of one call: the batch transform, the surface in pixels, and the largest error
-// (gltfx_renderer_2d_desc::curve_max_error_pixels, read since fatia S5-C1; open() refuses it unless
-// it is finite and above zero).
-struct ellipse_screen {
-    pixel_affine affine{};
-    pixel_box surface{};
-    double max_error_pixels = 0.25;
-};
+// The screen of one call, ellipse_screen, lives in arc_parameters.hpp since fatia S5-C2: the
+// rounded cap of a line reads it too.
 
 class ellipse_pixels {
   public:

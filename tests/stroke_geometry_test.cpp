@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numbers>
 #include <print>
+#include <vector>
 
 #include <glintfx/core/segment.hpp>
 #include <glintfx/core/transform.hpp>
@@ -20,6 +23,9 @@
 // (50,10) with thickness 4 unless a case says otherwise. Every expected point is computed BEFORE
 // the code and outside it (by hand for the axis-aligned ones; python, cos and sin of k pi / m, for
 // the half discs and the turned square), never read from the code's output. No GL, no window.
+// Fatia S5-C2 (D-W8-830, D-W8-831): a rounded cap is written at the parameters it is given, one set
+// per cap; here the sets are the uniform ones of arc_parameters.hpp, t_k = pi k / n, so the points
+// of before are the same.
 
 using glintfx::gltfx_line_cap;
 using glintfx::gltfx_segment_world;
@@ -29,9 +35,12 @@ using glintfx::gltfx_transform;
 using glintfx::draw2d::fan_index_count;
 using glintfx::draw2d::pixel_affine;
 using glintfx::draw2d::pixel_affine_from_transform;
+using glintfx::draw2d::pixel_ellipse;
 using glintfx::draw2d::pixel_offset;
 using glintfx::draw2d::pixel_position_wide;
-using glintfx::draw2d::stroke_cap_radius_pixels;
+using glintfx::draw2d::stroke_cap_ellipse;
+using glintfx::draw2d::stroke_cap_parameters;
+using glintfx::draw2d::stroke_end;
 using glintfx::draw2d::stroke_frame;
 using glintfx::draw2d::stroke_frame_of;
 using glintfx::draw2d::stroke_outline_point_count;
@@ -80,15 +89,37 @@ struct point {
     double y = 0.0;
 };
 
-// The outline of the identity frame of k_line with `cap`, compared point by point with `want`.
+// The uniform parameters of a half of `segments` steps: t_k = pi k / segments, k = 0 .. segments
+// (arc_parameters.hpp, the uniform regime, in the same order of operations).
+[[nodiscard]] std::vector<double> uniform_half(std::uint32_t segments) {
+    std::vector<double> parameters;
+    for (std::uint32_t k = 0U; k <= segments; ++k) {
+        parameters.push_back(std::numbers::pi * static_cast<double>(k) /
+                             static_cast<double>(segments));
+    }
+    return parameters;
+}
+
+// `count` parameters, whatever their values: only the sizes are read by the count.
+[[nodiscard]] std::vector<double> sized(std::size_t count) { return std::vector<double>(count); }
+
+[[nodiscard]] bool axes_are(const pixel_ellipse &got, const std::array<double, 6> &want) {
+    return at(got.center, want[0], want[1]) && at(got.axis_u, want[2], want[3]) &&
+           at(got.axis_v, want[4], want[5]);
+}
+
+// The outline of the identity frame of k_line with `cap`, compared point by point with `want`;
+// both caps at the uniform parameters of `segments` steps.
 template <std::size_t N>
 [[nodiscard]] bool outline_is(const stroke_frame &frame, gltfx_line_cap cap, std::uint32_t segments,
                               const std::array<point, N> &want) {
-    if (stroke_outline_point_count(cap, segments) != N) {
+    const std::vector<double> half = uniform_half(segments);
+    const stroke_cap_parameters caps{half, half};
+    if (stroke_outline_point_count(cap, caps) != N) {
         return false;
     }
     std::array<pixel_position_wide, N> got{};
-    write_stroke_outline(frame, cap, segments, got);
+    write_stroke_outline(frame, cap, caps, got);
     for (std::size_t i = 0; i < N; ++i) {
         if (!at(got[i], want[i].x, want[i].y)) {
             std::println("stroke_geometry_test: ponto {} veio ({}, {}), esperado ({}, {})", i,
@@ -147,23 +178,69 @@ GLINTFX_TEST(stroke_frame_direction_does_not_overflow_on_a_finite_line) {
     GLINTFX_CHECK(is(frame.across, 0.0, 2.0));
 }
 
-GLINTFX_TEST(stroke_cap_radius_is_half_the_thickness_on_the_screen) {
-    GLINTFX_CHECK(near(
-        stroke_cap_radius_pixels(stroke_of(4.0, gltfx_stroke_unit::pixel), scaled(3.0, 1.0)), 2.0));
-    GLINTFX_CHECK(near(
-        stroke_cap_radius_pixels(stroke_of(4.0, gltfx_stroke_unit::world), pixel_affine{}), 2.0));
-    GLINTFX_CHECK(near(
-        stroke_cap_radius_pixels(stroke_of(4.0, gltfx_stroke_unit::world), scaled(3.0, 1.0)), 6.0));
+// The cap is a half ellipse on the screen centred on its end: axis_u = across and axis_v = along
+// around the end, both negated around the start. k_line, thickness 4: across (0, 2), along (2, 0);
+// world unit under the scale (3, 1): along (6, 0), a half ellipse; pixel unit under it: (2, 0).
+GLINTFX_TEST(stroke_cap_ellipse_is_the_half_ellipse_of_across_and_along_on_the_screen) {
+    const stroke_frame world =
+        stroke_frame_of(k_line, stroke_of(4.0, gltfx_stroke_unit::world), pixel_affine{});
+    GLINTFX_CHECK(
+        axes_are(stroke_cap_ellipse(world, stroke_end::end), {50.0, 10.0, 0.0, 2.0, 2.0, 0.0}));
+    GLINTFX_CHECK(
+        axes_are(stroke_cap_ellipse(world, stroke_end::start), {10.0, 10.0, 0.0, -2.0, -2.0, 0.0}));
+    const stroke_frame stretched =
+        stroke_frame_of(k_line, stroke_of(4.0, gltfx_stroke_unit::world), scaled(3.0, 1.0));
+    GLINTFX_CHECK(axes_are(stroke_cap_ellipse(stretched, stroke_end::end),
+                           {150.0, 10.0, 0.0, 2.0, 6.0, 0.0}));
+    const stroke_frame pixel =
+        stroke_frame_of(k_line, stroke_of(4.0, gltfx_stroke_unit::pixel), scaled(3.0, 1.0));
+    GLINTFX_CHECK(
+        axes_are(stroke_cap_ellipse(pixel, stroke_end::start), {30.0, 10.0, 0.0, -2.0, -2.0, 0.0}));
 }
 
+// Each cap adds its parameters strictly between 0 and pi, on its own: sizes (5, 5) give 3 + 3
+// points over the 4 corners, (5, 3) give 3 + 1, a cap of 2 or none adds nothing; the largest, two
+// caps of 1025 (arc_parameters.hpp), gives 4 + 2 x 1023 = 2050. Flat and square never read them.
 GLINTFX_TEST(stroke_outline_point_count_closed_table) {
-    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::flat, 7U), std::size_t{4});
-    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::square, 7U), std::size_t{4});
-    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, 4U), std::size_t{10});
-    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, 2U), std::size_t{6});
-    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, 1U), std::size_t{4});
-    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, 0U), std::size_t{4});
-    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, 256U), std::size_t{514});
+    const std::vector<double> five = sized(5U);
+    const std::vector<double> three = sized(3U);
+    const std::vector<double> two = sized(2U);
+    const std::vector<double> largest = sized(1025U);
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::flat, {five, five}),
+                     std::size_t{4});
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::square, {five, five}),
+                     std::size_t{4});
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, {five, five}),
+                     std::size_t{10});
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, {five, three}),
+                     std::size_t{8});
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, {three, three}),
+                     std::size_t{6});
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, {two, two}),
+                     std::size_t{4});
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, {}), std::size_t{4});
+    GLINTFX_CHECK_EQ(stroke_outline_point_count(gltfx_line_cap::rounded, {largest, largest}),
+                     std::size_t{2050});
+}
+
+// The two caps are written each at its own parameters (D-W8-831): the end at 0, pi/2, pi (one
+// point, the far point end + along = (52, 10)), the start at the uniform 4 steps (three points).
+// Hand-computed: start - across = (10, 8), then the start's half disc of radius 2 from (10, 8)
+// through (8, 10) to (10, 12).
+GLINTFX_TEST(stroke_outline_writes_each_cap_at_its_own_parameters) {
+    const stroke_frame frame =
+        stroke_frame_of(k_line, stroke_of(4.0, gltfx_stroke_unit::world), pixel_affine{});
+    const std::vector<double> end_half = uniform_half(2U);
+    const std::vector<double> start_half = uniform_half(4U);
+    std::array<pixel_position_wide, 8> got{};
+    write_stroke_outline(frame, gltfx_line_cap::rounded, {end_half, start_half}, got);
+    GLINTFX_CHECK(at(got[1], 50.0, 12.0));
+    GLINTFX_CHECK(at(got[2], 52.0, 10.0));
+    GLINTFX_CHECK(at(got[3], 50.0, 8.0));
+    GLINTFX_CHECK(at(got[4], 10.0, 8.0));
+    GLINTFX_CHECK(at(got[5], 8.5857864376269042, 8.5857864376269042));
+    GLINTFX_CHECK(at(got[6], 8.0, 10.0));
+    GLINTFX_CHECK(at(got[7], 8.5857864376269042, 11.414213562373096));
 }
 
 GLINTFX_TEST(stroke_outline_of_each_cap_on_the_identity) {
@@ -206,7 +283,8 @@ GLINTFX_TEST(stroke_outline_of_a_point_with_the_rounded_cap_is_a_disc) {
     const stroke_frame frame =
         stroke_frame_of(point, stroke_of(4.0, gltfx_stroke_unit::pixel), pixel_affine{});
     std::array<pixel_position_wide, 10> got{};
-    write_stroke_outline(frame, gltfx_line_cap::rounded, 4U, got);
+    const std::vector<double> half = uniform_half(4U);
+    write_stroke_outline(frame, gltfx_line_cap::rounded, {half, half}, got);
     std::size_t on_circle = 0;
     for (const pixel_position_wide &p : got) {
         if (near(std::hypot(p.x - 10.0, p.y - 10.0), 2.0)) {
@@ -220,13 +298,10 @@ GLINTFX_TEST(stroke_outline_of_the_wrong_size_writes_nothing) {
     const stroke_frame frame =
         stroke_frame_of(k_line, stroke_of(4.0, gltfx_stroke_unit::world), pixel_affine{});
     std::array<pixel_position_wide, 5> got{};
-    for (pixel_position_wide &p : got) {
-        p = pixel_position_wide{-7.0, -7.0};
-    }
-    write_stroke_outline(frame, gltfx_line_cap::flat, 4U, got);
-    for (const pixel_position_wide &p : got) {
-        GLINTFX_CHECK(p.x == -7.0 && p.y == -7.0);
-    }
+    got.fill(pixel_position_wide{-7.0, -7.0});
+    write_stroke_outline(frame, gltfx_line_cap::flat, {}, got);
+    GLINTFX_CHECK(std::ranges::all_of(
+        got, [](const pixel_position_wide &p) { return p.x == -7.0 && p.y == -7.0; }));
 }
 
 GLINTFX_TEST(stroke_fan_of_a_convex_polygon) {

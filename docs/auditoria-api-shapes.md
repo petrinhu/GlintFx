@@ -23,6 +23,7 @@
 - **Errata da S4 (CTO, 12/10/2026; uma cerca e uma fonte):** a cerca de `stroke_rect` passa a ser o texto que a S4 publica: o parágrafo da cerca, sem mudar uma linha, mais o que a D-W8-271, a D-W8-285 e a D-W8-287 já tinham decidido e o cabeçalho tem de dizer (uma chamada é uma peça; cantos retos, cada lado encontrando o seguinte em ângulo reto; o limiar do furo, corrigido na S4-fix1 (errata abaixo); retângulo sem largura ou sem altura, sem buraco, com o resultado dito por alinhamento (centrado, a barra da espessura em volta do segmento; dentro, peça de área zero, desenhada; fora, o retângulo crescido, cheio), porque as fontes divergem aqui (o Skia desenha a barra, o SVG não desenha nada, o canvas desenha uma linha); espessura zero é peça de área zero, desenhada; as quatro regras de recusa, na ordem do vocabulário) e os três `Proved by`; a assinatura em duas linhas, como o `clang-format` do projeto a escreve. A junção, quando entrar, é do estilo do traço e vale para toda forma, como no canvas, no Skia, no Cairo, no NanoVG e no SVG: vai em `gltfx_stroke`, ao lado da ponta, e o `stroke_rect` a lê de lá, com o padrão de cantos retos (décima consulta ao advisor; linha R2D-STROKE-PATH).
 - **Errata da S4-fix1 (CTO, 13/10/2026; achado IMPORTANTE-1 da revisão N1 da S4):** a cerca de `stroke_rect` dava um limiar de furo que só valia para o alinhamento dentro, sem dizer isso. A regra do código (`stroke_rect_geometry.hpp`, THE HOLE) é por lado: o furo some quando a parte do contorno que cresce para DENTRO alcança o meio do lado menor (os lados medidos na unidade da espessura: no mundo, ou na tela com a unidade pixel). Centrado, o padrão, isso é espessura de pelo menos o lado menor inteiro; dentro, de pelo menos a metade; fora, nunca (só o retângulo sem largura ou sem altura, que a frase seguinte da cerca já trata). Conta do revisor: retângulo 40 x 20, centrado, espessura 10 (a metade da altura) ainda tem furo de altura 10. A cerca e o cabeçalho passam a dizer o limiar por alinhamento, e a tabela do furo ganha uma célula de cada lado de cada limiar que faltava (centrado 10 e 20, fora 10). Promessa pública: vai à ratificação do líder como errata.
 - **Errata da S5-C1 (CTO, 20/10/2026; D-W8-565 a D-W8-570; duas cercas e o campo):** as cercas de `fill_ellipse` e `stroke_ellipse` passam a ser o texto que a S5-C1 publica, e a do campo do descritor também. Três divergências do texto da S0 com decisões já tomadas e com o código ficam corrigidas: (1) raio zero NÃO é "nada, não contado": é peça de área zero, desenhada e contada, e o contorno é o contínuo (disco ou barra de pontas redondas), pela D-W8-414 (desempate do advisor de 14/10, na lista de ratificação do líder) e por `src/draw2d/ellipse_check.hpp`; (2) o teto de custo não é mais "512 segmentos, 1e-12 dá 512": desde a S5-A são até 1024 segmentos por chamada no preenchimento e até 2048 pontos em cada borda do contorno, e a garantia de distância tem as duas condições da D-W8-398 (o nível cabe nos 1024 segmentos, raio na tela até 2^40), ditas no texto público; (3) `ellipse_tessellation_test` não existe: os `Proved by:` citam os testes que existem. **O campo muda de nome, de `ellipse_max_error_pixels` para `curve_max_error_pixels` (D-W8-568),** porque a ponta redonda de `stroke_line` passa a lê-lo na S5-C2 (Q4, D-W8-417) e as curvas de `R2D-STROKE-PATH` e `R2D-CORNER-SHAPE` vêm depois: o nome antigo mentiria para eles. O campo nunca entrou no repositório antes desta errata (custo de ABI zero). `open()` o recusa logo depois do contexto, antes de qualquer coisa ser feita, com `invalid_argument` e `rejected_value()` "curve_max_error_pixels" (D-W8-566). Porta de mão única: o nome e as frases vão ao advisor e à ratificação do líder.
+- **Errata da S5-C2 (CTO, 22/10/2026; D-W8-830 a D-W8-840; a cerca de `stroke_line` e o campo):** a ponta redonda de `stroke_line` passa a ler `curve_max_error_pixels` (Q4, D-W8-572) e a ser cortada por `arc_parameters`, como a elipse: cada ponta é meia elipse na tela, com os seus próprios parâmetros, e a garantia de distância é a de `fill_ellipse`, com as mesmas duas condições (o nível que a distância pede cabe nos 1024 segmentos de uma ponta; o raio maior na tela até 2^40 pixels). Sai do texto público a condição "while its radius there is at most 13280 pixels; above that, the distance is not guaranteed", que vinha do teto de 512 segmentos da D-W8-269 (errata da S3-fix1, acima), e o comentário do campo deixa de dizer que a ponta "does not read it yet". A recusa 4 de `stroke_line` ganha a ponta cujo raio maior na tela passa o maior double (D-W8-833), que antes era recusada pelos pontos fora da faixa e que, sem esta regra, sairia sem a ponta. Os `Proved by:` citam `stroke_line_pixels_test`, `renderer_2d_impl_test` e `arc_parameters_test`. Fecha o texto de `ARC-VIEWPORT-TESSELLATION`.
 - **Achados de texto:** IMP-08 (`measured` sai de `fill_ellipse`) e COS-01 (`planned for fatia S3` sai de `stroke.hpp`) aplicados no texto da seção 2. IMP-02 (quatro sítios de contrato desatualizados) não está nos trechos da seção 2: é corrigido nos commits da S2b e da S5, como manda a r2 §12.
 
 ---
@@ -247,10 +248,15 @@ struct gltfx_ellipse_world {
     // `flat`, is a piece of zero area: drawn, covering no pixel. The square of
     // a zero-length line is aligned with the axes of the space of its unit: the
     // world's (turned and scaled with the batch) or the screen's. A rounded cap
-    // is made of straight segments at most 0.25 pixel away from the true half
-    // circle on the screen while its radius there is at most 13280 pixels;
-    // above that, the distance is not guaranteed. Refused, counted in the
-    // report, never an exception.
+    // is half a disc of radius half the thickness: on the screen, half an
+    // ellipse when a world-unit line is scaled unevenly. Its edge is made of
+    // straight segments at most `curve_max_error_pixels` (renderer_2d_desc.hpp,
+    // default 0.25) away from the true curve on the screen, under the two
+    // conditions of fill_ellipse(): its larger radius on the screen is at
+    // most 2^40 pixels, and the 1024 segments one cap may use are enough for
+    // that distance. The part of a cap that lies off the surface may be drawn
+    // coarser; no pixel on the surface changes for that. Refused, counted in
+    // the report, never an exception.
     // The first rule that applies names the reason:
     //   1. a NaN in the start, the end, the thickness or the colour:
     //      not_a_number; then an infinity in any of them: infinite;
@@ -258,9 +264,17 @@ struct gltfx_ellipse_world {
     //   3. a thickness unit or a cap outside its enumeration: unknown_option;
     //   4. a point of the outline that the batch transform turns into a pixel
     //      coordinate larger in magnitude than about 1.7e38, where the vertex
-    //      program would overflow: pixel_position_out_of_range.
+    //      program would overflow, or a rounded cap whose larger radius on the
+    //      screen passes the largest double: pixel_position_out_of_range.
     // Proved by: stroke_geometry_test (the outline of each cap and unit).
     // Proved by: stroke_line_check_test (the order of the refusals).
+    // Proved by: stroke_line_pixels_test (a cap of radius 50000 pixels
+    // within the distance on the surface; the distance read by the cap; the
+    // cap that cannot be measured, refused).
+    // Proved by: renderer_2d_impl_test (the distance given to open() sets the
+    // segments of a cap).
+    // Proved by: arc_parameters_test (the two conditions of the distance; the
+    // coarser edge off the surface).
     GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
                                  gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 
@@ -385,9 +399,8 @@ struct gltfx_ellipse_world {
 
     // The largest distance, in PHYSICAL pixels of the surface, between a
     // true curve and the straight segments drawn in its place. Read by
-    // fill_ellipse() and stroke_ellipse() (renderer_2d.hpp). The rounded cap
-    // of stroke_line() does not read it yet: it keeps the fixed 0.25 pixel its
-    // own comment states. A method added later that draws a curve says in its
+    // fill_ellipse(), stroke_ellipse() and the rounded cap of stroke_line()
+    // (renderer_2d.hpp). A method added later that draws a curve says in its
     // own comment whether it reads it.
     // Smaller is smoother and costs more triangles. Must be a finite number
     // greater than zero; anything else is refused by open() as
@@ -395,7 +408,8 @@ struct gltfx_ellipse_world {
     // anything is made. There is no other interval (D-W8-284). The cost has
     // a ceiling whatever the value: one ellipse is drawn with at most 1024
     // straight segments for its fill, and its outline with at most 2048
-    // points on each edge. A value so small that the ceiling is reached is
+    // points on each edge; each rounded cap of a line with at most 1024
+    // segments. A value so small that the ceiling is reached is
     // still drawn, with a distance larger than asked for (renderer_2d.hpp,
     // fill_ellipse(), says when the distance is kept). Default 0.25.
     double curve_max_error_pixels = 0.25;

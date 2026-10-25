@@ -120,9 +120,9 @@ struct renderer_2d_impl {
     void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
                                 std::span<const std::uint32_t> indices,
                                 gltfx_draw_layer layer) noexcept;
-    // A straight line (S3): checked (stroke_line_check.hpp), turned into pixel triangles by the
-    // batch transform in force (stroke_line_pixels.hpp) and kept as one piece; refused whole and
-    // counted once otherwise.
+    // A straight line (S3): checked (stroke_line_check.hpp), turned into pixel triangles on the
+    // screen of this frame (stroke_line_pixels.hpp; the rounded cap reads the surface and the curve
+    // distance since S5-C2) and kept as one piece; refused whole and counted once otherwise.
     void stroke_line(const gltfx_segment_world &segment, const gltfx_line_style &style,
                      gltfx_rgba color, gltfx_draw_layer layer) noexcept;
     // A rectangle outline (S4): checked (stroke_rect_check.hpp), turned into pixel triangles by
@@ -196,8 +196,8 @@ struct renderer_2d_impl {
     void keep_shape_triangles(bool built, std::span<const draw2d::colored_pixel_vertex> vertices,
                               std::span<const std::uint32_t> indices,
                               gltfx_draw_layer layer) noexcept;
-    // The screen an ellipse is built on: the batch transform in force, the surface of the frame and
-    // the curve distance given to create().
+    // The screen an ellipse, or the rounded cap of a line (a half ellipse, S5-C2), is built on: the
+    // batch transform in force, the surface of the frame and the curve distance given to create().
     [[nodiscard]] draw2d::ellipse_screen ellipse_screen_now() const noexcept;
     // The one path of both textured methods: `refusal` is the first reason of the values and the
     // texture (none when they pass); the shape and the pixel range are asked here.

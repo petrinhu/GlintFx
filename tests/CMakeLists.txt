@@ -1683,6 +1683,7 @@ target_include_directories(stroke_line_pixels_test PRIVATE "${PROJECT_SOURCE_DIR
 target_sources(stroke_line_pixels_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_pixels.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )

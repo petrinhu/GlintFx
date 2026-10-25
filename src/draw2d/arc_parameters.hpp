@@ -10,8 +10,8 @@
 // draw2d/arc_parameters.hpp - R2D-SHAPES, fatia S5-A (TODO.md ARC-VIEWPORT-TESSELLATION; decisions
 // D-W8-269, D-W8-377 and D-W8-378): WHERE the straight segments that stand in for an arc on the
 // SCREEN begin and end, as values of the arc's parameter t. Pure: no GL, no window, allocates
-// nothing. Born for the ellipse of fatia S5, and for the rounded line cap, which fatia S5-C moves
-// onto it.
+// nothing. Born for the ellipse of fatia S5; the rounded line cap moved onto it in fatia S5-C2
+// (stroke_line_pixels.hpp).
 //
 // THE ARC is the screen ellipse p(t) = center + axis_u cos t + axis_v sin t, in pixels, for t from
 // 0 to 2 pi (the whole curve) or from 0 to pi (half of it). axis_u and axis_v are OFFSETS from the
@@ -87,6 +87,16 @@ struct pixel_box {
     double min_y = 0.0;
     double max_x = 0.0;
     double max_y = 0.0;
+};
+
+// The screen of one call that draws a curve: the batch transform, the surface in pixels, and the
+// largest error (gltfx_renderer_2d_desc::curve_max_error_pixels; open() refuses it unless it is
+// finite and above zero). Read by the ellipse (ellipse_pixels.hpp, since fatia S5-C1) and by the
+// rounded cap of a line, a half ellipse on the screen (stroke_line_pixels.hpp, since fatia S5-C2).
+struct ellipse_screen {
+    pixel_affine affine{};
+    pixel_box surface{};
+    double max_error_pixels = 0.25;
 };
 
 // The fewest parameters `out` must hold for `extent`: one more than the most segments of the

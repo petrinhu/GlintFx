@@ -238,8 +238,8 @@ void renderer_2d_impl::stroke_line(const gltfx_segment_world &segment,
     if (!shape_call_goes_on(draw2d::refusal_of_stroke_line(segment, style, color))) {
         return; // the whole line, once
     }
-    const bool built =
-        stroke_pixels.build(segment, style, color, affine) == draw2d::stroke_pixels_outcome::built;
+    const bool built = stroke_pixels.build(segment, style, color, ellipse_screen_now()) ==
+                       draw2d::stroke_pixels_outcome::built;
     keep_shape_triangles(built, stroke_pixels.vertices(), stroke_pixels.indices(), layer);
 }
 

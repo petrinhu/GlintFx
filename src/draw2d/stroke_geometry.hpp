@@ -8,6 +8,7 @@
 #include <glintfx/core/segment.hpp>
 #include <glintfx/draw2d/stroke.hpp>
 
+#include "draw2d/arc_parameters.hpp"
 #include "draw2d/quad_vertices.hpp"
 
 // draw2d/stroke_geometry.hpp - R2D-SHAPES, fatia S3 (D-W8-269, D-W8-270, D-W8-273): the outline of
@@ -33,9 +34,12 @@
 //   [the half disc around the start],
 // where `flat` ends at the end points (`butt` in SVG and the canvas), `square` moves both ends out
 // by `along` (half the thickness, as SVG, the canvas, Cairo, Skia and NanoVG do), and `rounded`
-// adds a half disc of radius half the thickness, of `cap_segments` straight segments, around each
-// end. A line of zero thickness, or of zero length with `flat`, has an outline of zero area: it is
-// drawn and covers no pixel (frame_2d_report.hpp, the same rule as a quad of zero area).
+// adds a half disc of radius half the thickness around each end: the half ellipse of
+// stroke_cap_ellipse() at each of the cap's own parameters strictly between 0 and pi (fatia S5-C2,
+// D-W8-831; the parameters come from arc_parameters.hpp, one set per cap, because the surface may
+// cut one cap and not the other). A line of zero thickness, or of zero length with `flat`, has an
+// outline of zero area: it is drawn and covers no pixel (frame_2d_report.hpp, the same rule as a
+// quad of zero area).
 //
 // THE TRIANGLES are a fan from the first point, (0, k, k + 1): the polygon is convex, so they do
 // not overlap, and a half-transparent line has no darker seam.
@@ -59,20 +63,38 @@ struct stroke_frame {
                                            const glintfx::gltfx_stroke &stroke,
                                            const pixel_affine &affine) noexcept;
 
-// Half the thickness as a radius on the screen, in pixels: itself in pixel unit; in world unit,
-// by the largest stretch of the transform (arc_segments.hpp, screen_radius()).
-[[nodiscard]] double stroke_cap_radius_pixels(const glintfx::gltfx_stroke &stroke,
-                                              const pixel_affine &affine) noexcept;
+// Which end of a line a rounded cap is around.
+enum class stroke_end : std::uint8_t {
+    start,
+    end,
+};
 
-// How many points the outline has: 4 for `flat` and `square`; 4 + 2 (cap_segments - 1) for
-// `rounded` (a cap of one segment, or of none, adds no point).
+// The rounded cap around one end, as the half ellipse of arc_parameters.hpp on the screen (fatia
+// S5-C2, D-W8-830): centred on that end, axis_u = across and axis_v = along around the end, and
+// both negated around the start, so t from 0 to pi runs from the side of `across` to the other
+// one, through the far point of the cap. In pixel unit it is a half circle of radius half the
+// thickness; in world unit, the world half disc carried by the batch transform (a half ellipse
+// under a non-uniform scale).
+[[nodiscard]] pixel_ellipse stroke_cap_ellipse(const stroke_frame &frame,
+                                               stroke_end around) noexcept;
+
+// The parameters of the two rounded caps, each increasing from 0 to pi, both ends included
+// (arc_parameters.hpp, the half extent). A cap of fewer than three parameters adds no point. Not
+// read for `flat` and `square`.
+struct stroke_cap_parameters {
+    std::span<const double> end;
+    std::span<const double> start;
+};
+
+// How many points the outline has: 4 for `flat` and `square`; for `rounded`, 4 plus the
+// parameters of each cap strictly between 0 and pi (size - 2 for each cap of three or more).
 [[nodiscard]] std::size_t stroke_outline_point_count(glintfx::gltfx_line_cap cap,
-                                                     std::uint32_t cap_segments) noexcept;
+                                                     const stroke_cap_parameters &caps) noexcept;
 
 // Writes the outline of `frame`, in the order above. Writes NOTHING when `points` does not have
-// exactly stroke_outline_point_count(cap, cap_segments) points.
+// exactly stroke_outline_point_count(cap, caps) points.
 void write_stroke_outline(const stroke_frame &frame, glintfx::gltfx_line_cap cap,
-                          std::uint32_t cap_segments,
+                          const stroke_cap_parameters &caps,
                           std::span<pixel_position_wide> points) noexcept;
 
 // The indices of the fan of a convex polygon of `point_count` points: 3 (point_count - 2), or none

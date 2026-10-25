@@ -2250,6 +2250,30 @@ GLINTFX_TEST(renderer_2d_impl_the_curve_distance_given_to_create_sets_the_segmen
     renderer_2d_impl::destroy(renderer);
 }
 
+// S5-C2 (Q4, D-W8-572, D-W8-830): the rounded cap of a line reads the same curve distance. A line
+// 40 thick has caps of radius 20: n = ceil(pi / acos(1 - e / 20)) is 20 at 0.25 (10 per cap, 4 + 2
+// x 9 = 22 points, 60 indices) and 4 at 8 (2 per cap, 6 points, 12 indices).
+GLINTFX_TEST(renderer_2d_impl_the_curve_distance_given_to_create_sets_the_segments_of_a_cap) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_line(k_line, line_style(40.0, glintfx::gltfx_line_cap::rounded), k_red,
+                          k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK_EQ(sent_vertex_count(), std::size_t{22});
+    GLINTFX_CHECK_EQ(first_draw_count(), 60);
+    renderer_2d_impl::destroy(renderer);
+    reset();
+    renderer = make_with_curve_error(8.0);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->stroke_line(k_line, line_style(40.0, glintfx::gltfx_line_cap::rounded), k_red,
+                          k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK_EQ(sent_vertex_count(), std::size_t{6});
+    GLINTFX_CHECK_EQ(first_draw_count(), 12);
+    renderer_2d_impl::destroy(renderer);
+}
+
 GLINTFX_TEST(renderer_2d_impl_an_ellipse_is_placed_by_the_batch_transform_in_force) {
     reset();
     renderer_2d_impl *renderer = make(true);

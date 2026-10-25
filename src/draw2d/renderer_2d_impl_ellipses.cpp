@@ -10,7 +10,8 @@
 // ellipse_check.hpp, turned into pixel triangles by ellipse_pixels.hpp on the screen of this frame
 // (the batch transform in force, the surface read at begin_frame() and the curve distance given to
 // create()), and kept as one piece through the head and the tail every shape call shares. This file
-// only asks and keeps.
+// only asks and keeps. ellipse_screen_now() also serves the rounded cap of stroke_line(), a half
+// ellipse on the screen (fatia S5-C2, D-W8-832).
 namespace glintfx {
 
 draw2d::ellipse_screen renderer_2d_impl::ellipse_screen_now() const noexcept {

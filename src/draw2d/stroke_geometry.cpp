@@ -3,9 +3,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numbers>
-
-#include "draw2d/arc_segments.hpp"
 
 // draw2d/stroke_geometry.cpp - R2D-SHAPES, fatia S3: the frame, the outline and the fan of
 // stroke_geometry.hpp.
@@ -39,24 +36,21 @@ struct unit_direction {
                         (affine.column0_y * vector_x) + (affine.column1_y * vector_y)};
 }
 
-// Half a disc around `centre`: the points k = 1 .. segments - 1, from `across` to `-across`, on
-// the side the offset `along` points to.
-struct half_disc {
-    pixel_position_wide centre{};
-    pixel_offset across{};
-    pixel_offset along{};
-    std::uint32_t segments = 0U;
-};
+// The points of a cap: its parameters strictly between 0 and pi, as many as there are; none for a
+// cap of fewer than three.
+[[nodiscard]] std::size_t cap_point_count(std::span<const double> parameters) noexcept {
+    return parameters.size() < 3U ? 0U : parameters.size() - 2U;
+}
 
-void write_half_disc(const half_disc &disc, std::span<pixel_position_wide> out) noexcept {
-    for (std::uint32_t k = 1U; k < disc.segments; ++k) {
-        const double angle =
-            std::numbers::pi * static_cast<double>(k) / static_cast<double>(disc.segments);
-        const double cosine = std::cos(angle);
-        const double sine = std::sin(angle);
-        out[k - 1U] =
-            pixel_position_wide{disc.centre.x + (disc.across.x * cosine) + (disc.along.x * sine),
-                                disc.centre.y + (disc.across.y * cosine) + (disc.along.y * sine)};
+// The half ellipse `disc` at parameters[1] .. parameters[size - 2], into `out`, one point each.
+void write_half_disc(const pixel_ellipse &disc, std::span<const double> parameters,
+                     std::span<pixel_position_wide> out) noexcept {
+    for (std::size_t k = 0U; k < out.size(); ++k) {
+        const double cosine = std::cos(parameters[k + 1U]);
+        const double sine = std::sin(parameters[k + 1U]);
+        out[k] =
+            pixel_position_wide{disc.center.x + (disc.axis_u.x * cosine) + (disc.axis_v.x * sine),
+                                disc.center.y + (disc.axis_u.y * cosine) + (disc.axis_v.y * sine)};
     }
 }
 
@@ -83,27 +77,27 @@ stroke_frame stroke_frame_of(const glintfx::gltfx_segment_world &segment,
     return frame;
 }
 
-double stroke_cap_radius_pixels(const glintfx::gltfx_stroke &stroke,
-                                const pixel_affine &affine) noexcept {
-    const double half_thickness = 0.5 * stroke.thickness;
-    if (stroke.unit == glintfx::gltfx_stroke_unit::pixel) {
-        return half_thickness;
+pixel_ellipse stroke_cap_ellipse(const stroke_frame &frame, stroke_end around) noexcept {
+    if (around == stroke_end::end) {
+        return pixel_ellipse{
+            frame.end, {frame.across.x, frame.across.y}, {frame.along.x, frame.along.y}};
     }
-    return screen_radius(half_thickness, affine);
+    return pixel_ellipse{
+        frame.start, {-frame.across.x, -frame.across.y}, {-frame.along.x, -frame.along.y}};
 }
 
 std::size_t stroke_outline_point_count(glintfx::gltfx_line_cap cap,
-                                       std::uint32_t cap_segments) noexcept {
-    if (cap != glintfx::gltfx_line_cap::rounded || cap_segments < 2U) {
+                                       const stroke_cap_parameters &caps) noexcept {
+    if (cap != glintfx::gltfx_line_cap::rounded) {
         return 4U;
     }
-    return 4U + (2U * (static_cast<std::size_t>(cap_segments) - 1U));
+    return 4U + cap_point_count(caps.end) + cap_point_count(caps.start);
 }
 
 void write_stroke_outline(const stroke_frame &frame, glintfx::gltfx_line_cap cap,
-                          std::uint32_t cap_segments,
+                          const stroke_cap_parameters &caps,
                           std::span<pixel_position_wide> points) noexcept {
-    if (points.size() != stroke_outline_point_count(cap, cap_segments)) {
+    if (points.size() != stroke_outline_point_count(cap, caps)) {
         return;
     }
     const double reach = cap == glintfx::gltfx_line_cap::square ? 1.0 : 0.0;
@@ -114,19 +108,16 @@ void write_stroke_outline(const stroke_frame &frame, glintfx::gltfx_line_cap cap
     const pixel_offset across = frame.across;
     points[0] = pixel_position_wide{start.x + across.x, start.y + across.y};
     points[1] = pixel_position_wide{end.x + across.x, end.y + across.y};
-    if (cap != glintfx::gltfx_line_cap::rounded || cap_segments < 2U) {
-        points[2] = pixel_position_wide{end.x - across.x, end.y - across.y};
-        points[3] = pixel_position_wide{start.x - across.x, start.y - across.y};
-        return;
-    }
-    const std::size_t half = static_cast<std::size_t>(cap_segments) - 1U;
-    write_half_disc(half_disc{end, across, frame.along, cap_segments}, points.subspan(2U, half));
-    points[2U + half] = pixel_position_wide{end.x - across.x, end.y - across.y};
-    points[3U + half] = pixel_position_wide{start.x - across.x, start.y - across.y};
-    const pixel_offset back{-across.x, -across.y};
-    const pixel_offset back_along{-frame.along.x, -frame.along.y};
-    write_half_disc(half_disc{start, back, back_along, cap_segments},
-                    points.subspan(4U + half, half));
+    // Flat and square have no cap points: both counts are 0 and the two writes below write nothing.
+    const bool rounded = cap == glintfx::gltfx_line_cap::rounded;
+    const std::size_t at_end = rounded ? cap_point_count(caps.end) : 0U;
+    const std::size_t at_start = rounded ? cap_point_count(caps.start) : 0U;
+    write_half_disc(stroke_cap_ellipse(frame, stroke_end::end), caps.end,
+                    points.subspan(2U, at_end));
+    points[2U + at_end] = pixel_position_wide{end.x - across.x, end.y - across.y};
+    points[3U + at_end] = pixel_position_wide{start.x - across.x, start.y - across.y};
+    write_half_disc(stroke_cap_ellipse(frame, stroke_end::start), caps.start,
+                    points.subspan(4U + at_end, at_start));
 }
 
 std::size_t fan_index_count(std::size_t point_count) noexcept {

@@ -316,10 +316,15 @@ class gltfx_renderer_2d {
     // `flat`, is a piece of zero area: drawn, covering no pixel. The square of
     // a zero-length line is aligned with the axes of the space of its unit: the
     // world's (turned and scaled with the batch) or the screen's. A rounded cap
-    // is made of straight segments at most 0.25 pixel away from the true half
-    // circle on the screen while its radius there is at most 13280 pixels;
-    // above that, the distance is not guaranteed. Refused, counted in the
-    // report, never an exception.
+    // is half a disc of radius half the thickness: on the screen, half an
+    // ellipse when a world-unit line is scaled unevenly. Its edge is made of
+    // straight segments at most `curve_max_error_pixels` (renderer_2d_desc.hpp,
+    // default 0.25) away from the true curve on the screen, under the two
+    // conditions of fill_ellipse(): its larger radius on the screen is at
+    // most 2^40 pixels, and the 1024 segments one cap may use are enough for
+    // that distance. The part of a cap that lies off the surface may be drawn
+    // coarser; no pixel on the surface changes for that. Refused, counted in
+    // the report, never an exception.
     // The first rule that applies names the reason:
     //   1. a NaN in the start, the end, the thickness or the colour:
     //      not_a_number; then an infinity in any of them: infinite;
@@ -327,9 +332,17 @@ class gltfx_renderer_2d {
     //   3. a thickness unit or a cap outside its enumeration: unknown_option;
     //   4. a point of the outline that the batch transform turns into a pixel
     //      coordinate larger in magnitude than about 1.7e38, where the vertex
-    //      program would overflow: pixel_position_out_of_range.
+    //      program would overflow, or a rounded cap whose larger radius on the
+    //      screen passes the largest double: pixel_position_out_of_range.
     // Proved by: stroke_geometry_test (the outline of each cap and unit).
     // Proved by: stroke_line_check_test (the order of the refusals).
+    // Proved by: stroke_line_pixels_test (a cap of radius 50000 pixels
+    // within the distance on the surface; the distance read by the cap; the
+    // cap that cannot be measured, refused).
+    // Proved by: renderer_2d_impl_test (the distance given to open() sets the
+    // segments of a cap).
+    // Proved by: arc_parameters_test (the two conditions of the distance; the
+    // coarser edge off the surface).
     GLINTFX_API void stroke_line(gltfx_segment_world segment, gltfx_line_style style,
                                  gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
 

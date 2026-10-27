@@ -19,6 +19,7 @@
 #include "draw2d/stroke_line_pixels.hpp"
 
 #include "harness/check.hpp"
+#include "harness/curve_oracle.hpp"
 #include "harness/sweep_lcg.hpp"
 #include "harness/test_registry.hpp"
 
@@ -585,25 +586,21 @@ cap_point read_on_cap(const pixel_ellipse &cap, const colored_pixel_vertex &vert
                      std::atan2(std::max(s, 0.0L), c)};
 }
 
-pixel_position_wide point_of_cap(const pixel_ellipse &cap, long double t, long double stretch) {
-    const long double c = std::cos(t) * stretch;
-    const long double s = std::sin(t) * stretch;
-    return pixel_position_wide{
-        static_cast<double>(cap.center.x + (cap.axis_u.x * c) + (cap.axis_v.x * s)),
-        static_cast<double>(cap.center.y + (cap.axis_u.y * c) + (cap.axis_v.y * s))};
-}
+using glintfx::test_support::allowed_rounding;
+using glintfx::test_support::chord_on_curve;
+using glintfx::test_support::hull_touches;
+using glintfx::test_support::larger_radius;
+using glintfx::test_support::largest_distance_to_chord;
+using glintfx::test_support::near_bound;
+using glintfx::test_support::offset_wide;
+using glintfx::test_support::outside_of;
 
-// True when the hull of the piece from ta to tb (its ends and the apex where their tangents meet)
-// touches the 800 x 600 surface grown by half a pixel.
-bool hull_touches_surface(const pixel_ellipse &cap, long double ta, long double tb) {
-    const pixel_position_wide a = point_of_cap(cap, ta, 1.0L);
-    const pixel_position_wide b = point_of_cap(cap, tb, 1.0L);
-    const pixel_position_wide apex =
-        point_of_cap(cap, 0.5L * (ta + tb), 1.0L / std::cos(0.5L * (tb - ta)));
-    const auto [low_x, high_x] = std::minmax({a.x, b.x, apex.x});
-    const auto [low_y, high_y] = std::minmax({a.y, b.y, apex.y});
-    return !(high_x < -0.5 || low_x > 800.5 || high_y < -0.5 || low_y > 600.5);
-}
+// The 800 x 600 surface of the sweep, the band of a cap (one pixel: a cap has no reach), and the
+// box a chord is measured in: the surface grown by half a pixel, inside the band, so that the
+// oracle's own rounding never counts a piece the library drew coarse (harness/curve_oracle.hpp).
+constexpr pixel_box k_sweep_surface{0.0, 0.0, 800.0, 600.0};
+constexpr pixel_box k_cap_band{-1.0, -1.0, 801.0, 601.0};
+constexpr pixel_box k_measured_box{-0.5, -0.5, 800.5, 600.5};
 
 // The chord between two float vertices of the cap, with the parameters read back from them.
 struct cap_chord {
@@ -613,49 +610,23 @@ struct cap_chord {
     long double tb = 0.0L;
 };
 
-// The largest distance from 15 points of the true half ellipse between the two ends of `chord` to
-// the line through its two float vertices, in long double.
+offset_wide offset_of_vertex(const pixel_ellipse &cap, const colored_pixel_vertex &vertex) {
+    return offset_wide{static_cast<long double>(vertex.position.x) - cap.center.x,
+                       static_cast<long double>(vertex.position.y) - cap.center.y};
+}
+
+// The largest distance from the true half ellipse between the two ends of `chord` to the line
+// through its two float vertices (harness/curve_oracle.hpp).
 double chord_error(const pixel_ellipse &cap, const cap_chord &chord) {
-    const long double ax = chord.a->position.x;
-    const long double ay = chord.a->position.y;
-    const long double dx = static_cast<long double>(chord.b->position.x) - ax;
-    const long double dy = static_cast<long double>(chord.b->position.y) - ay;
-    const long double length = std::hypot(dx, dy);
-    long double largest = 0.0L;
-    for (int i = 1; i < 16; ++i) {
-        const long double t =
-            chord.ta + ((chord.tb - chord.ta) * static_cast<long double>(i) / 16.0L);
-        const long double c = std::cos(t);
-        const long double s = std::sin(t);
-        const long double px = cap.center.x + (cap.axis_u.x * c) + (cap.axis_v.x * s) - ax;
-        const long double py = cap.center.y + (cap.axis_u.y * c) + (cap.axis_v.y * s) - ay;
-        const long double d =
-            length > 0.0L ? std::fabs((dx * py) - (dy * px)) / length : std::hypot(px, py);
-        largest = std::max(largest, d);
-    }
-    return static_cast<double>(largest);
+    return largest_distance_to_chord(cap, chord_on_curve{chord.ta, chord.tb,
+                                                         offset_of_vertex(cap, *chord.a),
+                                                         offset_of_vertex(cap, *chord.b)});
 }
 
-// How far the ends of a chord on the surface may lie from the 800 x 600 surface grown by the
-// margin of one pixel: 1024 pixels, or 652 times the error when that is more (fill_ellipse() in
-// renderer_2d.hpp, written by hand here, never read from the code).
-double near_reach(double e) { return std::max(1024.0, 652.0 * e); }
-
-// The rounding the public text allows on the 800 x 600 surface: 2^-24 of the distance from the
-// origin of the farthest point the ends may reach.
-double allowed_rounding(double e) {
-    const double grow = 1.0 + near_reach(e);
-    return 0x1.0p-24 * std::hypot(800.0 + grow, 600.0 + grow);
-}
-
-// How far `vertex` lies outside the surface grown by the margin, on the farther axis, in multiples
-// of the reach the ends may have.
+// How far `vertex` lies outside the band of the cap, in multiples of the reach the ends may have.
 double outside_fraction(const colored_pixel_vertex &vertex, double e) {
-    const double x = vertex.position.x;
-    const double y = vertex.position.y;
-    const double dx = std::max({-1.0 - x, x - 801.0, 0.0});
-    const double dy = std::max({-1.0 - y, y - 601.0, 0.0});
-    return std::max(dx, dy) / near_reach(e);
+    const pixel_position_wide p{vertex.position.x, vertex.position.y};
+    return outside_of(k_cap_band, p) / near_bound(e);
 }
 
 // What one case measured: the chords of the cap on the surface, the largest error past the asked
@@ -674,7 +645,9 @@ void measure_chord(const cap_sweep_case &c, const cap_chord &chord, cap_measure 
     ++m.chords;
     m.excess = std::max(m.excess, error - e);
     m.farthest = std::max(m.farthest, farthest);
-    m.holds = m.holds && error <= (e * (1.0 + 1.0e-3)) + allowed_rounding(e) && farthest <= 1.0;
+    m.holds = m.holds &&
+              error <= (e * (1.0 + 1.0e-3)) + allowed_rounding(k_sweep_surface, 0.0, e) &&
+              farthest <= 1.0;
 }
 
 cap_measure measured_cap(const cap_sweep_case &c, std::span<const colored_pixel_vertex> vertices) {
@@ -683,7 +656,9 @@ cap_measure measured_cap(const cap_sweep_case &c, std::span<const colored_pixel_
     for (std::size_t k = 0U; k < n; ++k) {
         const cap_point a = read_on_cap(c.cap, vertices[k]);
         const cap_point b = read_on_cap(c.cap, vertices[(k + 1U) % n]);
-        if (a.on && b.on && hull_touches_surface(c.cap, a.t, b.t)) {
+        if (a.on && b.on &&
+            hull_touches(c.cap, static_cast<double>(a.t), static_cast<double>(b.t),
+                         k_measured_box)) {
             measure_chord(c, cap_chord{&vertices[k], &vertices[(k + 1U) % n], a.t, b.t}, m);
         }
     }
@@ -700,7 +675,7 @@ GLINTFX_TEST(stroke_line_pixels_the_cap_meets_the_error_on_the_surface_swept) {
     double largest_radius = 0.0;
     for (int i = 0; i < 400; ++i) {
         const cap_sweep_case c = drawn_cap_case(g, i % 2 == 1, (i / 2) % 2 == 0);
-        largest_radius = std::max(largest_radius, c.radius);
+        largest_radius = std::max(largest_radius, larger_radius(c.cap));
         const bool built =
             pixels->build(c.segment, c.style, k_half_red, c.screen) == stroke_pixels_outcome::built;
         const cap_measure m = built ? measured_cap(c, pixels->vertices()) : cap_measure{};

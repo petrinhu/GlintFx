@@ -11,6 +11,7 @@
 #include "draw2d/arc_parameters.hpp"
 #include "draw2d/quad_vertices.hpp"
 #include "harness/check.hpp"
+#include "harness/curve_oracle.hpp"
 #include "harness/sweep_lcg.hpp"
 #include "harness/test_registry.hpp"
 
@@ -377,66 +378,32 @@ namespace {
 
 using glintfx::test_support::lcg;
 
-pixel_position_wide point_on(const pixel_ellipse &e, double t) {
-    return pixel_position_wide{e.center.x + (e.axis_u.x * std::cos(t)) + (e.axis_v.x * std::sin(t)),
-                               e.center.y + (e.axis_u.y * std::cos(t)) +
-                                   (e.axis_v.y * std::sin(t))};
-}
+using glintfx::test_support::chord_on_curve;
+using glintfx::test_support::grown_by;
+using glintfx::test_support::hull_touches;
+using glintfx::test_support::larger_radius;
+using glintfx::test_support::largest_distance_to_chord;
+using glintfx::test_support::offset_on;
+using glintfx::test_support::point_on;
 
-// The largest distance, in long double, from 15 points of the true curve inside the piece (the
-// middle among them) to the line of its chord: the geometric error of the piece (fix1, I-6). The
-// centre cancels out, so the offsets from it are used.
-double largest_distance_to_chord(const pixel_ellipse &e, double from, double to) {
-    const auto offset = [&e](long double t) {
-        return std::array<long double, 2>{(static_cast<long double>(e.axis_u.x) * std::cos(t)) +
-                                              (static_cast<long double>(e.axis_v.x) * std::sin(t)),
-                                          (static_cast<long double>(e.axis_u.y) * std::cos(t)) +
-                                              (static_cast<long double>(e.axis_v.y) * std::sin(t))};
-    };
-    const std::array<long double, 2> a = offset(from);
-    const std::array<long double, 2> b = offset(to);
-    const long double cx = b[0] - a[0];
-    const long double cy = b[1] - a[1];
-    const long double length = std::hypot(cx, cy);
-    long double largest = 0.0L;
-    for (int i = 1; i < 16; ++i) {
-        const long double t = static_cast<long double>(from) +
-                              ((static_cast<long double>(to) - static_cast<long double>(from)) *
-                               static_cast<long double>(i) / 16.0L);
-        const std::array<long double, 2> p = offset(t);
-        const long double px = p[0] - a[0];
-        const long double py = p[1] - a[1];
-        const long double d =
-            length > 0.0L ? std::fabs((cx * py) - (cy * px)) / length : std::hypot(px, py);
-        largest = std::max(largest, d);
-    }
-    return static_cast<double>(largest);
-}
-
-// True when the box of the piece's hull (its two ends and the apex where their tangents meet)
-// misses the surface grown by the margin and the reach: the rule of arc_parameters.hpp, under which
-// the piece is drawn as its chord and the contract does not look at it.
+// True when the box of the piece's hull misses the surface grown by the margin and the reach: the
+// band of arc_parameters.hpp, under which the piece is drawn as its chord and the contract does not
+// look at it. The oracle (harness/curve_oracle.hpp) is the one the two float sweeps read too.
 bool piece_misses(const arc_request &request, const pixel_box &surface, double from, double to) {
-    const pixel_ellipse &e = request.ellipse;
-    const double stretch = 1.0 / std::cos(0.5 * (to - from));
-    const pixel_position_wide a = point_on(e, from);
-    const pixel_position_wide b = point_on(e, to);
-    const pixel_position_wide m = point_on(e, 0.5 * (from + to));
-    const pixel_position_wide apex{e.center.x + ((m.x - e.center.x) * stretch),
-                                   e.center.y + ((m.y - e.center.y) * stretch)};
-    const double grow = 1.0 + request.reach_pixels;
-    const auto [low_x, high_x] = std::minmax({a.x, b.x, apex.x});
-    const auto [low_y, high_y] = std::minmax({a.y, b.y, apex.y});
-    return high_x < surface.min_x - grow || low_x > surface.max_x + grow ||
-           high_y < surface.min_y - grow || low_y > surface.max_y + grow;
+    return !hull_touches(request.ellipse, from, to, grown_by(surface, 1.0 + request.reach_pixels));
+}
+
+// The geometric error of the piece from `from` to `to`: its chord is the curve's own two points.
+double cut_chord_error(const pixel_ellipse &e, double from, double to) {
+    return largest_distance_to_chord(
+        e, chord_on_curve{from, to, offset_on(e, from), offset_on(e, to)});
 }
 
 bool piece_holds(const arc_request &request, const pixel_box &surface, double from, double to) {
     // A thousandth of the error covers the rounding of the double evaluation of curves up to
     // 1.3e12 pixels of radius on a system whose long double is a double.
     return piece_misses(request, surface, from, to) ||
-           largest_distance_to_chord(request.ellipse, from, to) <=
-               request.max_error_pixels * (1.0 + 1.0e-3);
+           cut_chord_error(request.ellipse, from, to) <= request.max_error_pixels * (1.0 + 1.0e-3);
 }
 
 // The pieces of an answer whose hull touches the grown surface: the ones the contract is checked
@@ -480,19 +447,29 @@ arc_request drawn_curve(lcg &g, const pixel_box &surface) {
     return curve(center, u, v, arc_extent::whole);
 }
 
-// A half curve of the second generator (fatia S5-C2-fix1): the half ellipse of a rounded cap. Its
-// two axes have lengths a and b, a from 1 to 2^39.5 pixels (both regimes) and b from a down to a
-// ten-thousandth of it, in two directions 0.1 pi to 0.9 pi apart: a world line under an uneven
-// scale gives two axes that are not at right angles. The larger radius stays within 2^40 (it is at
-// most a times the square root of 2). The error is drawn from 1/16 to 8 pixels, and the curve
-// crosses the surface at a point drawn on it, at a parameter t0 of the half, from 0 to pi.
-arc_request drawn_half_curve(lcg &g, const pixel_box &surface) {
-    const double a = std::exp2(39.5 * g.next());
-    const double b = a * std::pow(10.0, -4.0 * g.next());
+// The two axes of a curve of the two generators below: in two directions 0.1 pi to 0.9 pi apart (a
+// world line under an uneven scale gives two axes that are not at right angles), the second one 1
+// to 1e4 times shorter, scaled so that the larger radius of the curve is `radius`. Since
+// CURVE-FLOAT-NARROW-fix2 the generators draw the LARGER RADIUS, the quantity the public text
+// names, from 1 to 2^40 pixels (both regimes, up to the bound of the promise), where they drew the
+// axis a to 2^39.5 (the review of CURVE-FLOAT-NARROW, IMPORTANT-5).
+std::array<pixel_position_wide, 2> drawn_axes(lcg &g, double radius) {
+    const double ratio = std::pow(10.0, -4.0 * g.next());
     const double turn = 2.0 * k_pi * g.next();
     const double apart = k_pi * (0.1 + (0.8 * g.next()));
-    const pixel_position_wide u{a * std::cos(turn), a * std::sin(turn)};
-    const pixel_position_wide v{b * std::cos(turn + apart), b * std::sin(turn + apart)};
+    const pixel_position_wide u{std::cos(turn), std::sin(turn)};
+    const pixel_position_wide v{ratio * std::cos(turn + apart), ratio * std::sin(turn + apart)};
+    const double scale = radius / larger_radius(pixel_ellipse{{}, u, v});
+    return {pixel_position_wide{u.x * scale, u.y * scale},
+            pixel_position_wide{v.x * scale, v.y * scale}};
+}
+
+// A half curve of the second generator (fatia S5-C2-fix1): the half ellipse of a rounded cap, its
+// axes from drawn_axes(). The error is drawn from 1/16 to 8 pixels, and the curve crosses the
+// surface at a point drawn on it, at a parameter t0 of the half, from 0 to pi.
+arc_request drawn_half_curve(lcg &g, const pixel_box &surface) {
+    const double radius = std::exp2(40.0 * g.next());
+    const auto [u, v] = drawn_axes(g, radius);
     const double error = std::exp2(-4.0 + (7.0 * g.next()));
     const double t0 = k_pi * g.next();
     const double px = surface.max_x * g.next();
@@ -542,7 +519,7 @@ struct half_sweep_tally {
     int failures = 0;
     std::size_t measured = 0U;
     std::size_t largest = 0U;
-    double largest_axis = 0.0;
+    double largest_radius = 0.0;
 };
 
 // One half curve of the generator, cut and checked on `surface`, counted into `tally`.
@@ -554,8 +531,7 @@ void check_one_half_curve(lcg &g, const pixel_box &surface, half_sweep_tally &ta
     const std::size_t touching = pieces_on_surface(request, surface, answer);
     ++tally.checked;
     tally.largest = std::max(tally.largest, n);
-    tally.largest_axis = std::max(tally.largest_axis,
-                                  std::hypot(request.ellipse.axis_u.x, request.ellipse.axis_u.y));
+    tally.largest_radius = std::max(tally.largest_radius, larger_radius(request.ellipse));
     tally.measured += touching;
     if (touching == 0U || !answer_holds(request, surface, answer)) {
         ++tally.failures;
@@ -573,40 +549,33 @@ GLINTFX_TEST(arc_parameters_sweep_of_the_half_curve_meets_the_error_on_the_surfa
             check_one_half_curve(g, surface, tally);
         }
     }
-    std::printf("varredura da meia curva casos=%d pecas_medidas=%zu maior=%zu maior_eixo=%.6g "
+    std::printf("varredura da meia curva casos=%d pecas_medidas=%zu maior=%zu maior_raio=%.6g "
                 "falhas=%d\n",
-                tally.checked, tally.measured, tally.largest, tally.largest_axis, tally.failures);
+                tally.checked, tally.measured, tally.largest, tally.largest_radius, tally.failures);
     GLINTFX_CHECK(tally.checked == 400);
     GLINTFX_CHECK(tally.failures == 0);
-    // The range the public text cites is reached, not only allowed by the generator (the review of
-    // fatia S5-C2-fix1, C-2).
-    GLINTFX_CHECK(tally.largest_axis >= 0x1p39);
+    // The range the public text cites is reached, measured as the text names it: the larger radius
+    // on the screen passes 2^39.5 (fatia S5-C2-fix1, C-2; CURVE-FLOAT-NARROW, IMPORTANT-5).
+    GLINTFX_CHECK(tally.largest_radius >= 0x1.6a09e667f3bcdp+39);
 }
 
 // THE ENDS NEAR THE SURFACE (fatia CURVE-FLOAT-NARROW). The ends of the segments become single
 // precision last (renderer_2d.hpp, PRECISION), and the rounding of an end grows with its distance
 // from the origin. So every piece whose hull touches the surface grown by the margin and the reach
 // must END near it: in the CUT regime the cut goes on until both ends lie within 1024 pixels of
-// that grown surface; in the UNIFORM regime nothing is cut, and a piece is never longer than 652
+// that grown surface, the band (or the 1024 segments are too few for it: the closed case after this
+// sweep); in the UNIFORM regime nothing is cut, and a piece is never longer than 652
 // times the error (its chord is at most 2 r sin(pi / 512), with r at most e / (1 - cos(pi / 512))).
 // The bound checked is the larger of the two, for every piece of 400 curves of a generator of its
-// own: whole and half curves, the two regimes (larger axis from 1 to 2^39.5 pixels), axes up to
-// 1e4 apart in length and 0.1 pi to 0.9 pi apart in direction, errors from 1/16 to 8 pixels, a
-// reach of 0 on half of them and from 1 to 4096 pixels on the other half, each crossing one of the
-// two surfaces at a point drawn on it. The floor (GODS_LAWS.md L-40): every curve has at least one
-// piece on the surface.
+// own: whole and half curves, the two regimes (the larger radius from 1 to 2^40 pixels, checked to
+// pass 2^39.5, drawn_axes()), axes up to 1e4 apart in length and 0.1 pi to 0.9
+// pi apart in direction, errors from 1/16 to 8 pixels, a reach of 0 on half of them and from 1 to
+// 4096 pixels on the other half, each crossing one of the two surfaces at a point drawn on it. The
+// floor (GODS_LAWS.md L-40): every curve has at least one piece on the surface.
 namespace {
 
-// How far the ends of a piece on the surface may lie from the surface grown by the margin and the
-// reach: 1024 pixels, or 652 times the error when that is more.
-double near_bound(double error) { return std::max(1024.0, 652.0 * error); }
-
-// How far `p` lies outside `surface` grown by `grow`, on the farther axis; 0 inside.
-double outside_by(const pixel_box &surface, double grow, const pixel_position_wide &p) {
-    const double dx = std::max({surface.min_x - grow - p.x, p.x - surface.max_x - grow, 0.0});
-    const double dy = std::max({surface.min_y - grow - p.y, p.y - surface.max_y - grow, 0.0});
-    return std::max(dx, dy);
-}
+using glintfx::test_support::near_bound;
+using glintfx::test_support::outside_of;
 
 // What the sweep of the ends counted: the curves, the failures, the pieces on the surface and the
 // farthest end of one of them, in multiples of its bound.
@@ -615,16 +584,12 @@ struct near_tally {
     int failures = 0;
     std::size_t measured = 0U;
     double farthest = 0.0;
-    double largest_axis = 0.0;
+    double largest_radius = 0.0;
 };
 
 arc_request drawn_near_curve(lcg &g, const pixel_box &surface, int index) {
-    const double a = std::exp2(39.5 * g.next());
-    const double b = a * std::pow(10.0, -4.0 * g.next());
-    const double turn = 2.0 * k_pi * g.next();
-    const double apart = k_pi * (0.1 + (0.8 * g.next()));
-    const pixel_position_wide u{a * std::cos(turn), a * std::sin(turn)};
-    const pixel_position_wide v{b * std::cos(turn + apart), b * std::sin(turn + apart)};
+    const double radius = std::exp2(40.0 * g.next());
+    const auto [u, v] = drawn_axes(g, radius);
     const double error = std::exp2(-4.0 + (7.0 * g.next()));
     const double reach = index % 4 < 2 ? 0.0 : std::exp2(12.0 * g.next());
     const arc_extent extent = index % 2 == 0 ? arc_extent::whole : arc_extent::half;
@@ -642,23 +607,22 @@ void check_one_near_curve(lcg &g, const pixel_box &surface, int index, near_tall
     parameters t{};
     const arc_request request = drawn_near_curve(g, surface, index);
     const std::size_t n = run(request, surface, t, 1025U);
-    const double grow = 1.0 + request.reach_pixels;
+    const pixel_box band = grown_by(surface, 1.0 + request.reach_pixels);
     const double bound = near_bound(request.max_error_pixels);
     std::size_t touching = 0U;
     double farthest = 0.0;
     for (std::size_t k = 1U; k < n; ++k) {
         if (!piece_misses(request, surface, t[k - 1U], t[k])) {
             ++touching;
-            const double a = outside_by(surface, grow, point_on(request.ellipse, t[k - 1U]));
-            const double b = outside_by(surface, grow, point_on(request.ellipse, t[k]));
+            const double a = outside_of(band, point_on(request.ellipse, t[k - 1U]));
+            const double b = outside_of(band, point_on(request.ellipse, t[k]));
             farthest = std::max({farthest, a / bound, b / bound});
         }
     }
     ++tally.checked;
     tally.measured += touching;
     tally.farthest = std::max(tally.farthest, farthest);
-    tally.largest_axis = std::max(tally.largest_axis,
-                                  std::hypot(request.ellipse.axis_u.x, request.ellipse.axis_u.y));
+    tally.largest_radius = std::max(tally.largest_radius, larger_radius(request.ellipse));
     if (n < 2U || touching == 0U || farthest > 1.0) {
         ++tally.failures;
         std::printf("[FAIL NEAR SWEEP] case %d: n=%zu touching=%zu farthest=%.6g\n", index, n,
@@ -678,10 +642,59 @@ GLINTFX_TEST(arc_parameters_the_ends_of_every_piece_on_the_surface_stay_near_it_
             ++index;
         }
     }
-    std::printf("pontas perto casos=%d pecas_medidas=%zu maior_fracao=%.6g maior_eixo=%.6g "
+    std::printf("pontas perto casos=%d pecas_medidas=%zu maior_fracao=%.6g maior_raio=%.6g "
                 "falhas=%d\n",
-                tally.checked, tally.measured, tally.farthest, tally.largest_axis, tally.failures);
+                tally.checked, tally.measured, tally.farthest, tally.largest_radius,
+                tally.failures);
     GLINTFX_CHECK(tally.checked == 400);
     GLINTFX_CHECK(tally.failures == 0);
-    GLINTFX_CHECK(tally.largest_axis >= 0x1p39); // the cited range is reached (S5-C2-fix1, C-2)
+    // The cited range is reached, measured as the text names it (S5-C2-fix1, C-2; IMPORTANT-5).
+    GLINTFX_CHECK(tally.largest_radius >= 0x1.6a09e667f3bcdp+39);
+}
+
+// THE CUT FOR THE DISTANCE ALONE (fatia CURVE-FLOAT-NARROW-fix2; the review of CURVE-FLOAT-NARROW,
+// IMPORTANT-3). When the cut the distance asks for fits the room but ending its pieces near the
+// band does not, the cut is the one for the distance alone (arc_parameters.hpp). The probe of the
+// fix2 met that branch in none of 8000 curves of the generator of the sweep above; this half curve
+// was built for it: a stroke whose reach is about 1.2e9 pixels, on the 16384 x 16384 surface, for
+// which a copy of the cut outside the library, with no room limit, needs 1015 parameters for the
+// distance alone and 1038 with the ends near (so a last bit of cos or sin on another system cannot
+// move it across the room of 1025). What the public text promises is checked, never a count: the
+// answer fits the room, every piece on the band is within the distance, and an end of a piece on
+// the band lies far past 1024 pixels from it, so the ends were not brought near.
+GLINTFX_TEST(arc_parameters_the_cut_for_the_distance_alone_when_the_ends_do_not_fit) {
+    const arc_request request{pixel_ellipse{{0x1.f61024567c8b2p+37, -0x1.32d41b98cc98p+38},
+                                            {-0x1.37409f874f027p+38, 0x1.dfd76edc200c8p+38},
+                                            {-0x1.28c257463781p+35, -0x1.d8d2b08506f7cp+35}},
+                              arc_extent::half, 0x1.6dfdf6cc79125p+1, 0x1.1c34faba0e35cp+30};
+    parameters t{};
+    const std::size_t n = run(request, k_large_screen, t, 1025U);
+    const std::span<const double> answer = std::span<const double>(t).first(n);
+    const pixel_box band = grown_by(k_large_screen, 1.0 + request.reach_pixels);
+    double farthest = 0.0;
+    for (std::size_t k = 1U; k < n; ++k) {
+        if (!piece_misses(request, k_large_screen, t[k - 1U], t[k])) {
+            farthest = std::max({farthest, outside_of(band, point_on(request.ellipse, t[k - 1U])),
+                                 outside_of(band, point_on(request.ellipse, t[k]))});
+        }
+    }
+    const std::size_t touching = pieces_on_surface(request, k_large_screen, answer);
+    std::printf("so a distancia n=%zu tocando=%zu mais_longe=%.6g\n", n, touching, farthest);
+    GLINTFX_CHECK(answer_holds(request, k_large_screen, answer));
+    GLINTFX_CHECK(touching >= 1U);
+    GLINTFX_CHECK(farthest > 0x1p20);
+}
+
+// THE LARGER RADIUS OF THE ORACLE (fatia CURVE-FLOAT-NARROW-fix2). The sweeps draw and check the
+// larger radius by harness/curve_oracle.hpp, so the function is pinned here on values worked by
+// hand: a circle, two axes at right angles, two equal parallel axes (a segment, cos t + sin t at
+// most the square root of 2) and two unit axes 60 degrees apart (the larger radius squared is
+// 1 + cos 60 degrees).
+GLINTFX_TEST(arc_parameters_the_larger_radius_of_the_oracle_on_values_worked_by_hand) {
+    GLINTFX_CHECK(larger_radius(pixel_ellipse{{5.0, 7.0}, {3.0, 0.0}, {0.0, 3.0}}) == 3.0);
+    GLINTFX_CHECK(larger_radius(pixel_ellipse{{}, {0.0, 2.0}, {3.0, 0.0}}) == 3.0);
+    GLINTFX_CHECK(std::fabs(larger_radius(pixel_ellipse{{}, {1.0, 0.0}, {1.0, 0.0}}) -
+                            std::sqrt(2.0)) <= 1.0e-15);
+    const double r = larger_radius(pixel_ellipse{{}, {1.0, 0.0}, {0.5, std::sqrt(0.75)}});
+    GLINTFX_CHECK(std::fabs(r - std::sqrt(1.5)) <= 1.0e-15);
 }

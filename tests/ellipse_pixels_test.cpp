@@ -22,6 +22,7 @@
 #include "draw2d/triangle_batch.hpp"
 
 #include "harness/check.hpp"
+#include "harness/curve_oracle.hpp"
 #include "harness/sweep_lcg.hpp"
 #include "harness/test_registry.hpp"
 
@@ -405,8 +406,10 @@ GLINTFX_TEST(ellipse_pixels_the_cut_keeps_the_band_on_the_surface) {
 
 // THE FILL'S EDGE IN FLOAT ON THE SURFACE (fatia CURVE-FLOAT-NARROW). 400 filled ellipses of a
 // fixed generator, under a batch transform turned and scaled unevenly (the larger scale from 1/8 to
-// 8, the other up to 64 times smaller), with the larger world radius carried to 512 to 2^39.5
-// pixels on the screen (both regimes), the smaller one down to an eighth of it, a rotation drawn,
+// 8, the other up to 64 times smaller), with the larger world radius times the larger stretch drawn
+// from 512 to 2^39.5 pixels (both regimes), the smaller one down to an eighth of it, a rotation
+// drawn: so the larger radius on the screen lies from 64 to 2^39.5 pixels, and the sweep measures
+// it from the true ellipse (the review of CURVE-FLOAT-NARROW, IMPORTANT-5, its twin here),
 // and the largest error from 1/16 to 8 pixels; each crosses the 800 x 600 surface at a point drawn
 // on it. The smaller screen radius stays above one pixel (512 / 8 / 64): below that, reading a
 // parameter back from a float vertex is no longer well conditioned (measured: 22 of 400 ellipses of
@@ -430,7 +433,6 @@ struct fill_sweep_case {
     gltfx_ellipse_world ellipse{};
     ellipse_screen screen{};
     pixel_ellipse truth{}; // the true ellipse on the screen
-    double radius = 0.0;   // its larger radius on the screen, as drawn
 };
 
 // A linear part turned by a drawn angle and scaled unevenly, scale first and then rotation, as
@@ -477,7 +479,7 @@ fill_sweep_case drawn_fill_case(lcg &g) {
     affine.translation_y = centre.y;
     return fill_sweep_case{gltfx_ellipse_world{{0.0, 0.0}, rx, ry, gltfx_angle{rotation}},
                            ellipse_screen{affine, pixel_box{0.0, 0.0, 800.0, 600.0}, error},
-                           pixel_ellipse{centre, u, v}, radius};
+                           pixel_ellipse{centre, u, v}};
 }
 
 // A rim point read back from a float vertex: the coordinates of p - centre in the basis of the two
@@ -498,25 +500,20 @@ rim_point read_on_rim(const pixel_ellipse &e, const colored_pixel_vertex &vertex
     return rim_point{std::fabs(std::hypot(c, s) - 1.0L) <= 1.0e-3L, std::atan2(s, c)};
 }
 
-pixel_position_wide point_of(const pixel_ellipse &e, long double t, long double stretch) {
-    const long double c = std::cos(t) * stretch;
-    const long double s = std::sin(t) * stretch;
-    return pixel_position_wide{
-        static_cast<double>(e.center.x + (e.axis_u.x * c) + (e.axis_v.x * s)),
-        static_cast<double>(e.center.y + (e.axis_u.y * c) + (e.axis_v.y * s))};
-}
+using glintfx::test_support::allowed_rounding;
+using glintfx::test_support::chord_on_curve;
+using glintfx::test_support::hull_touches;
+using glintfx::test_support::largest_distance_to_chord;
+using glintfx::test_support::near_bound;
+using glintfx::test_support::offset_wide;
+using glintfx::test_support::outside_of;
 
-// True when the hull of the piece from ta to tb (its ends and the apex where their tangents meet)
-// touches the 800 x 600 surface grown by half a pixel.
-bool rim_hull_touches_surface(const pixel_ellipse &e, long double ta, long double tb) {
-    const pixel_position_wide a = point_of(e, ta, 1.0L);
-    const pixel_position_wide b = point_of(e, tb, 1.0L);
-    const pixel_position_wide apex =
-        point_of(e, 0.5L * (ta + tb), 1.0L / std::cos(0.5L * (tb - ta)));
-    const auto [low_x, high_x] = std::minmax({a.x, b.x, apex.x});
-    const auto [low_y, high_y] = std::minmax({a.y, b.y, apex.y});
-    return !(high_x < -0.5 || low_x > 800.5 || high_y < -0.5 || low_y > 600.5);
-}
+// The 800 x 600 surface of the sweep, the band of a fill (one pixel: a fill has no reach), and the
+// box a chord is measured in: the surface grown by half a pixel, inside the band, so that the
+// oracle's own rounding never counts a piece the library drew coarse (harness/curve_oracle.hpp).
+constexpr pixel_box k_fill_surface{0.0, 0.0, 800.0, 600.0};
+constexpr pixel_box k_fill_band{-1.0, -1.0, 801.0, 601.0};
+constexpr pixel_box k_rim_measured_box{-0.5, -0.5, 800.5, 600.5};
 
 // The chord between two float rim vertices, with the parameters read back from them.
 struct rim_chord {
@@ -526,49 +523,31 @@ struct rim_chord {
     long double tb = 0.0L;
 };
 
-// The largest distance from 15 points of the true ellipse between the two ends of `chord` to the
-// line through its two float vertices, in long double.
+offset_wide rim_offset(const pixel_ellipse &e, const colored_pixel_vertex &vertex) {
+    return offset_wide{static_cast<long double>(vertex.position.x) - e.center.x,
+                       static_cast<long double>(vertex.position.y) - e.center.y};
+}
+
+// The largest distance from the true ellipse between the two ends of `chord` to the line through
+// its two float vertices (harness/curve_oracle.hpp).
 double rim_chord_error(const pixel_ellipse &e, const rim_chord &chord) {
-    const long double ax = chord.a->position.x;
-    const long double ay = chord.a->position.y;
-    const long double dx = static_cast<long double>(chord.b->position.x) - ax;
-    const long double dy = static_cast<long double>(chord.b->position.y) - ay;
-    const long double length = std::hypot(dx, dy);
-    long double largest = 0.0L;
-    for (int i = 1; i < 16; ++i) {
-        const long double t =
-            chord.ta + ((chord.tb - chord.ta) * static_cast<long double>(i) / 16.0L);
-        const long double px =
-            e.center.x + (e.axis_u.x * std::cos(t)) + (e.axis_v.x * std::sin(t)) - ax;
-        const long double py =
-            e.center.y + (e.axis_u.y * std::cos(t)) + (e.axis_v.y * std::sin(t)) - ay;
-        const long double d =
-            length > 0.0L ? std::fabs((dx * py) - (dy * px)) / length : std::hypot(px, py);
-        largest = std::max(largest, d);
-    }
-    return static_cast<double>(largest);
+    return largest_distance_to_chord(
+        e, chord_on_curve{chord.ta, chord.tb, rim_offset(e, *chord.a), rim_offset(e, *chord.b)});
 }
 
-// How far the ends of a chord on the surface may lie from the 800 x 600 surface grown by the margin
-// of one pixel, and the rounding the public text allows there (fill_ellipse() in renderer_2d.hpp,
-// written by hand here, never read from the code).
-double rim_near_reach(double e) { return std::max(1024.0, 652.0 * e); }
-
-double rim_allowed_rounding(double e) {
-    const double grow = 1.0 + rim_near_reach(e);
-    return 0x1.0p-24 * std::hypot(800.0 + grow, 600.0 + grow);
-}
-
+// How far `vertex` lies outside the band of the fill, in multiples of the reach the ends may have.
 double rim_outside_fraction(const colored_pixel_vertex &vertex, double e) {
-    const double x = vertex.position.x;
-    const double y = vertex.position.y;
-    const double dx = std::max({-1.0 - x, x - 801.0, 0.0});
-    const double dy = std::max({-1.0 - y, y - 601.0, 0.0});
-    return std::max(dx, dy) / rim_near_reach(e);
+    const pixel_position_wide p{vertex.position.x, vertex.position.y};
+    return outside_of(k_fill_band, p) / near_bound(e);
 }
 
+// What one case measured: the chords on the surface, the rim vertices not read back on the ellipse
+// (every rim vertex is a point of it, so none may be; the review of CURVE-FLOAT-NARROW, COSMETIC-3:
+// they used to be skipped without a count), the largest error past the asked distance, the
+// farthest end, and whether every chord held.
 struct fill_measure {
     std::size_t chords = 0U;
+    std::size_t off_rim = 0U;
     double excess = -1.0e300;
     double farthest = 0.0;
     bool holds = true;
@@ -582,7 +561,8 @@ void measure_rim_chord(const fill_sweep_case &c, const rim_chord &chord, fill_me
     ++m.chords;
     m.excess = std::max(m.excess, error - e);
     m.farthest = std::max(m.farthest, farthest);
-    m.holds = m.holds && error <= (e * (1.0 + 1.0e-3)) + rim_allowed_rounding(e) && farthest <= 1.0;
+    m.holds = m.holds && error <= (e * (1.0 + 1.0e-3)) + allowed_rounding(k_fill_surface, 0.0, e) &&
+              farthest <= 1.0;
 }
 
 fill_measure measured_fill(const fill_sweep_case &c, std::span<const colored_pixel_vertex> v) {
@@ -593,8 +573,11 @@ fill_measure measured_fill(const fill_sweep_case &c, std::span<const colored_pix
         const colored_pixel_vertex &b = v[1U + ((k + 1U) % rim)];
         const rim_point pa = read_on_rim(c.truth, a);
         const rim_point pb = read_on_rim(c.truth, b);
+        m.off_rim += pa.on ? 0U : 1U;
         const long double tb = pb.t < pa.t ? pb.t + (2.0L * std::numbers::pi_v<long double>) : pb.t;
-        if (pa.on && pb.on && rim_hull_touches_surface(c.truth, pa.t, tb)) {
+        if (pa.on && pb.on &&
+            hull_touches(c.truth, static_cast<double>(pa.t), static_cast<double>(tb),
+                         k_rim_measured_box)) {
             measure_rim_chord(c, rim_chord{&a, &b, pa.t, tb}, m);
         }
     }
@@ -611,24 +594,70 @@ GLINTFX_TEST(ellipse_pixels_the_fill_edge_in_float_meets_the_error_on_the_surfac
     double largest_radius = 0.0;
     for (int i = 0; i < 400; ++i) {
         const fill_sweep_case c = drawn_fill_case(g);
-        largest_radius = std::max(largest_radius, c.radius);
+        largest_radius = std::max(largest_radius, glintfx::test_support::larger_radius(c.truth));
         const bool ok =
             built->build_fill(c.ellipse, k_red, c.screen) == ellipse_pixels_outcome::built;
         const fill_measure m = ok ? measured_fill(c, built->vertices()) : fill_measure{};
         all.chords += m.chords;
+        all.off_rim += m.off_rim;
         all.excess = std::max(all.excess, m.excess);
         all.farthest = std::max(all.farthest, m.farthest);
-        if (!ok || m.chords == 0U || !m.holds) {
+        if (!ok || m.chords == 0U || m.off_rim != 0U || !m.holds) {
             ++failures;
             std::println("[FAIL FILL SWEEP] case {}: built={} chords={} excess={:.6g}", i,
                          ok ? 1 : 0, m.chords, m.excess);
         }
     }
-    std::println("borda float casos=400 cordas_medidas={} maior_excesso={:.6g} "
+    std::println("borda float casos=400 cordas_medidas={} fora_do_aro={} maior_excesso={:.6g} "
                  "maior_fracao_da_ponta={:.6g} maior_raio={:.6g} falhas={}",
-                 all.chords, all.excess, all.farthest, largest_radius, failures);
+                 all.chords, all.off_rim, all.excess, all.farthest, largest_radius, failures);
     GLINTFX_CHECK(failures == 0);
-    // The range the public text cites is reached, not only allowed by the generator (the review of
-    // fatia S5-C2-fix1, C-2).
+    // The range the public text cites is reached, measured on the true ellipse (fatia S5-C2-fix1,
+    // C-2; CURVE-FLOAT-NARROW, IMPORTANT-5).
     GLINTFX_CHECK(largest_radius >= 0x1p39);
+}
+
+// THE ROUNDING OF A CORNER (fatia CURVE-FLOAT-NARROW-fix2; the review of CURVE-FLOAT-NARROW, its
+// mutant R5). The public text of fill_ellipse() says that rounding moves a corner by at most 2^-24
+// of its distance from the origin of the screen, or by 2^-149 pixel, whichever is more. The sweeps
+// above only bound the rounding from above, so a bound twice as loose passed them. This case pins
+// the constant from both sides on the library's one narrowing (narrowed_to_pixel): corners whose
+// two coordinates lie at a tie between two floats, (1 + 2^-24) 2^k, and their neighbours one
+// double away, for k from -100 to 100, and the subnormal ties 2^-150 and 3 2^-150. The largest move
+// is at most the bound and, at the ties, within a millionth of it (IEEE 754: round to nearest moves
+// a tie by half a unit in the last place, the bound itself).
+namespace {
+
+double rounding_move(const pixel_position_wide &p) {
+    const glintfx::gltfx_vec2_screen q = glintfx::draw2d::narrowed_to_pixel(p);
+    return static_cast<double>(
+        std::hypot(static_cast<long double>(q.x) - p.x, static_cast<long double>(q.y) - p.y));
+}
+
+} // namespace
+
+GLINTFX_TEST(ellipse_pixels_a_corner_rounds_by_at_most_the_bound_and_by_all_of_it_at_a_tie) {
+    double largest = 0.0;
+    int checked = 0;
+    int over = 0;
+    for (int k = -100; k <= 100; ++k) {
+        const double tie = std::ldexp(1.0 + 0x1p-24, k);
+        for (const double x : {std::nextafter(tie, 0.0), tie, std::nextafter(tie, 2.0 * tie)}) {
+            const pixel_position_wide p{x, -tie};
+            const double distance = std::hypot(p.x, p.y);
+            const double ratio = rounding_move(p) / distance;
+            ++checked;
+            over += ratio > glintfx::test_support::k_single_rounding ? 1 : 0;
+            largest = std::max(largest, ratio / glintfx::test_support::k_single_rounding);
+        }
+    }
+    for (const double x : {0x1p-150, 0x3p-150}) {
+        ++checked;
+        over += rounding_move(pixel_position_wide{x, 0.0}) > 0x1p-149 ? 1 : 0;
+    }
+    std::println("arredondamento cantos={} acima={} maior_fracao_da_cota={:.9g}", checked, over,
+                 largest);
+    GLINTFX_CHECK(checked == 605);
+    GLINTFX_CHECK(over == 0);
+    GLINTFX_CHECK(largest >= 1.0 - 1.0e-6);
 }

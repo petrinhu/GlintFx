@@ -16,3 +16,4 @@ if(NOT TARGET glintfx::glintfx)
 endif()
 
 add_subdirectory(first_window)
+add_subdirectory(shapes)

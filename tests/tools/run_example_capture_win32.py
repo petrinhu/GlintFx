@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # run_example_capture_win32.py - DEMO-1 D5b (D-W8-75, and D-W8-125 to D-W8-128 of
-# /var/tmp/cto-w8/plano-d5b.md): the DRIVER of the Windows capture of the example first_window. Test
-# tooling, not product code. Standard library only (L-07). Python, not sh: the Windows CI has no sh.
+# /var/tmp/cto-w8/plano-d5b.md), opened to every example by R2D-SHAPES S6 (D-W8-1081): the DRIVER of the
+# Windows capture of one example, named on the command line and looked up in the closed table EXAMPLES
+# below. Test tooling, not product code. Standard library only (L-07). Python, not sh: the Windows CI has
+# no sh.
 #
 # It runs tests/tools/win32_window_capture.cpp's tool, which launches the example, waits for the
 # example's ready line, reads the window by PrintWindow and by BitBlt of the screen and leaves one
@@ -12,20 +14,21 @@
 #      with a rejection line, or with no line, is INCOERENTE; exit 10 to 15 is the verdict it names, or
 #      INCOERENTE when the line says another; 1, 2, 124 and 127 are failures; any other code is
 #      CODIGO_DESCONHECIDO. Only exit 0 with an agreeing line goes on to the captures;
-#   2. exactly ONE pair per mechanism under <out>/first_window/capture/;
+#   2. exactly ONE pair per mechanism under <out>/<example>/capture/;
 #   3. per mechanism: the size read from the pair's .meta (by raw_to_png.py's own parser) must be 640x480
-#      (D-W8-72); raw_to_png.py turns the pair into a PNG under <out>/first_window/png/ (the artifact a
-#      human looks at); ONLY with the right size, image_probe.py probes that PNG with the static probe
-#      file and must report exactly 12 probes, none failed;
+#      (D-W8-72); raw_to_png.py turns the pair into a PNG under <out>/<example>/png/ (the artifact a
+#      human looks at); ONLY with the right size, image_probe.py probes that PNG with the example's static
+#      probe file and must report exactly the count the table fixes, none failed (first_window 12,
+#      D-W8-72; shapes 62, D-W8-1083);
 #   4. the alpha: the screen capture is XRGB8888 and carries none; raw_to_png.py gives it 255, so the
 #      probes' FF passes without measuring anything. The driver prints
-#      `MEASURED first_window.capture_alpha_compared=0` on EVERY run, so the absence is counted.
-# The window title and the ready line are facts the EXAMPLE owns (examples/first_window/first_window.cpp,
-# born in D6-red); the selftest control that reads them in the example's source arrives with it.
+#      `MEASURED <example>.capture_alpha_compared=0` on EVERY run, so the absence is counted.
+# The window title and the ready line are facts the EXAMPLE owns (examples/<example>/<example>.cpp); the
+# selftest reads them in each example's source.
 #
-# USAGE: run_example_capture_win32.py <win32_window_capture.exe> <first_window.exe> <out_dir>
+# USAGE: run_example_capture_win32.py <win32_window_capture.exe> <example> <example.exe> <out_dir>
 #        run_example_capture_win32.py --selftest
-# Exit 0 only when the capture passed.
+# An example missing from the table is bad usage (exit 2). Exit 0 only when the capture passed.
 #
 # WHAT THIS DOES NOT PROVE (declared, L-43): the alpha of the screen capture (absent, counted); that the
 # two captures show the same frame (the green square moves between them, so they are never compared);
@@ -57,34 +60,59 @@ from win32_capture_process import KILL_GRACE_SECONDS, PROCESS_TIMEOUT_SECONDS, r
 SCRIPT_NAME = "run_example_capture_win32.py"
 TOOLS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TOOLS_DIR.parent.parent
-# The example's name: the directory its captures go to (D-W8-90) and the owner of its MEASURED line.
-EXAMPLE_NAME = "first_window"
-# Facts the example owns (D-W8-72, D-W8-73): its window title and the line it prints when its first frame
-# is presented. The control that reads them in the example's source comes with the example (D6-red).
-WINDOW_TITLE = "GlintFx example: first window"
-READY_LINE = "first_window: first frame presented"
+FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
 # THE BUDGETS: this driver owns them and hands them to the tool, so no default of the tool hides here.
 PRESENT_BUDGET_MS = 30000
 EXIT_BUDGET_MS = 10000
-# The scene, pre-registered (D-W8-72): the capture is 640x480 and the static probe file holds 12 probes.
+# Every scene is pre-registered at 640x480 (D-W8-72, D-W8-1083).
 CAPTURE_SIZE = (640, 480)
-PROBE_COUNT = 12
-PROBES_FILE = REPO_ROOT / "tests" / "fixtures" / "first_window_probes.txt"
 OPTIONS_SOURCE = TOOLS_DIR / "window_capture_options.cpp"
 PROBE_SUMMARY = re.compile(r"^image_probe\.py: probes=(\d+) failed=(\d+)$", re.MULTILINE)
-MEASURED_ALPHA_LINE = f"MEASURED {EXAMPLE_NAME}.capture_alpha_compared=0"
+
+
+@dataclass(frozen=True)
+class example_facts:
+    """Facts an example owns (D-W8-72, D-W8-73, D-W8-1083): its window title, the line it prints when its
+    first frame is presented, its static probe file and the number of probes that file holds."""
+    window_title: str
+    ready_line: str
+    probes_file: Path
+    probe_count: int
+
+
+# The closed table of the examples this driver captures (D-W8-1081). The name is the directory the
+# captures go to (D-W8-90) and the owner of the MEASURED line.
+EXAMPLES = {
+    "first_window": example_facts("GlintFx example: first window", "first_window: first frame presented",
+                                  FIXTURES_DIR / "first_window_probes.txt", 12),
+    "shapes": example_facts("GlintFx example: shapes", "shapes: first frame presented",
+                            FIXTURES_DIR / "shapes_probes.txt", 62),
+}
 MOTIVO_BY_STATUS = {"ran": "PRONTA", "failed": "FALHA_DE_EXEMPLO_OU_FERRAMENTA", "incoherent": "INCOERENTE",
                     "unknown": "CODIGO_DESCONHECIDO"}
 
 
 @dataclass
 class run_config:
+    name: str
     tool: str
     example: str
     out_dir: Path
-    probes_file: Path = PROBES_FILE
-    probe_count: int = PROBE_COUNT
+    window_title: str
+    ready_line: str
+    probes_file: Path
+    probe_count: int
     capture_size: tuple = CAPTURE_SIZE
+
+
+def config_for(name, tool, example, out_dir):
+    """The run of the example `name` of the table; None when the table has no such example."""
+    facts = EXAMPLES.get(name)
+    if facts is None:
+        return None
+    return run_config(name=name, tool=tool, example=example, out_dir=Path(out_dir),
+                      window_title=facts.window_title, ready_line=facts.ready_line,
+                      probes_file=facts.probes_file, probe_count=facts.probe_count)
 
 
 @dataclass
@@ -107,11 +135,15 @@ def report(output):
 
 
 def example_dir(config):
-    return config.out_dir / EXAMPLE_NAME
+    return config.out_dir / config.name
+
+
+def measured_alpha_line(config):
+    return f"MEASURED {config.name}.capture_alpha_compared=0"
 
 
 def clean_example_output(config):
-    """A reused out directory would hand the judge the PREVIOUS run's captures: first_window/ is removed
+    """A reused out directory would hand the judge the PREVIOUS run's captures: <example>/ is removed
     before the tool runs, and nothing else under out_dir is touched (GODS_LAWS.md L-53)."""
     shutil.rmtree(example_dir(config), ignore_errors=True)
 
@@ -120,8 +152,8 @@ def tool_command(config):
     """The tool's own options (title, output, the two budgets, the ready line), then `--` and the example
     ALONE: no --frames, the example runs until the tool's WM_CLOSE (D-W8-73, D-W8-75)."""
     budgets = ["--present-budget-ms", str(PRESENT_BUDGET_MS), "--exit-budget-ms", str(EXIT_BUDGET_MS)]
-    return [config.tool, "--title", WINDOW_TITLE, "--out", example_dir(config) / "capture", *budgets,
-            "--ready-line", READY_LINE, "--", config.example]
+    return [config.tool, "--title", config.window_title, "--out", example_dir(config) / "capture", *budgets,
+            "--ready-line", config.ready_line, "--", config.example]
 
 
 def success_line_agrees(output):
@@ -159,7 +191,7 @@ def read_capture_size(capture_dir):
 
 def probe_verdict(code, output, expected):
     """0 only when image_probe.py exited 0 AND reported exactly `expected` probes, none failed: the count is
-    the one D-W8-72 fixed, so a shorter or a longer probe file is a failure, never a pass."""
+    the one the table fixes, so a shorter or a longer probe file is a failure, never a pass."""
     summary = PROBE_SUMMARY.search(output)
     if code != 0 or summary is None:
         return code or 1
@@ -211,23 +243,23 @@ def run_example(config, run=run_process):
     result = example_result(status, code, motivo_of(status, code))
     if status == "ran":
         judge_captures(config, run, result.checks)
-    print(f"{SCRIPT_NAME}: verdict exemplo={EXAMPLE_NAME} motivo={result.motivo} codigo={code} status={status} "
+    print(f"{SCRIPT_NAME}: verdict exemplo={config.name} motivo={result.motivo} codigo={code} status={status} "
           f"checks={result.checks} {'OK' if result.passed() else 'REPROVADO'}")
-    print(MEASURED_ALPHA_LINE)
+    print(measured_alpha_line(config))
     return result.passed()
 
 
 def parse_args(args):
-    if len(args) != 3 or not all(args):
+    if len(args) != 4 or not all(args):
         return None
-    return run_config(tool=args[0], example=args[1], out_dir=Path(args[2]))
+    return config_for(args[1], args[0], args[2], args[3])
 
 
 def real_main(args):
     config = parse_args(args)
     if config is None:
-        print(f"usage: {SCRIPT_NAME} <win32_window_capture.exe> <first_window.exe> <out_dir>  |  --selftest",
-              file=sys.stderr)
+        print(f"usage: {SCRIPT_NAME} <win32_window_capture.exe> <example> <example.exe> <out_dir>  |  --selftest"
+              f"  (examples: {', '.join(EXAMPLES)})", file=sys.stderr)
         return 2
     config.out_dir.mkdir(parents=True, exist_ok=True)
     return 0 if run_example(config) else 1

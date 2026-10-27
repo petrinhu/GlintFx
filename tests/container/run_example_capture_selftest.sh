@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # run_example_capture_selftest.sh - DEMO-1 D3 (D-W8-138 of /var/tmp/cto-w8/plano-d3.md): the controls of
 # run_example_capture.sh, loaded once with `.` by that driver's own --selftest (CAPTURE-DRIVER-SELFTEST-SPLIT, D-W8-137:
-# a driver's controls live beside it, never inside it). It has no main and no dispatch of its own.
+# a driver's controls live beside it, never inside it). It has no main and no dispatch of its own. R2D-SHAPES S6
+# (D-W8-1081): the table of examples, its probe files and the command line of a second example have controls here.
 #
 # No container and no docker daemon: the selftest puts DOUBLES of `docker` and of the example on PATH, and runs the REAL
 # exec_fixture.sh, the REAL `timeout`, and the REAL tests/tools/raw_to_png.py and image_probe.py. The container
 # functions of the relay session are stubbed in the wiring controls; they are proved by the real run in the CI (D6-red),
 # never by these stubs. Expected values are LITERALS written here from the decisions (D-W8-72, D-W8-79, D-W8-81,
-# D-W8-90).
+# D-W8-90, D-W8-1081, D-W8-1083).
 
 SELFTEST_CHECKS=0
 
@@ -41,10 +42,11 @@ EOF
     chmod +x "$1/docker"
 }
 
-# write_example_double <bin-dir> <body>: a `first_window` whose body is the given sh text.
+# write_example_double <bin-dir> <body> [<name>]: an example (first_window unless named) whose body is the given sh
+# text.
 write_example_double() {
-    printf '#!/bin/sh\n%s\n' "$2" >"$1/first_window"
-    chmod +x "$1/first_window"
+    printf '#!/bin/sh\n%s\n' "$2" >"$1/${3:-first_window}"
+    chmod +x "$1/${3:-first_window}"
 }
 
 # with_doubles <root>: PATH gets <root>/bin first, and exec_fixture.sh appends its log under <root> (never in the
@@ -87,9 +89,10 @@ judge_setup() {
     write_probes "$JUDGE_ROOT/frames30.txt" 9 "1 1 0D0E0FFF"
 }
 
-# judge_on <size>: judge_example over JUDGE_ROOT's files, quiet; removes JUDGE_ROOT and returns the judge's status.
+# judge_on <size>: judge_example over JUDGE_ROOT's two files (the sets of first_window), quiet; removes JUDGE_ROOT and
+# returns the judge's status.
 judge_on() {
-    judge_example "$JUDGE_ROOT/static.txt" "$JUDGE_ROOT/frames30.txt" "$1" >/dev/null 2>&1
+    judge_example "$1" "$JUDGE_ROOT" estaticas:static.txt:12 frames30:frames30.txt:9 >/dev/null 2>&1
     rc=$?
     rm -rf "${JUDGE_ROOT:?}"
     return "$rc"
@@ -114,18 +117,58 @@ selftest_exit_0_needs_every_part_clean() {
         [ "$(example_exit_code 0 1 0)" = 1 ] && [ "$(example_exit_code 0 0 1)" = 1 ]
 }
 
-selftest_decided_name_frames_and_budget() {
-    [ "$EXAMPLE_NAME" = first_window ] && [ "$EXAMPLE_FRAMES" = 30 ] && [ "$EXAMPLE_BUDGET_SECONDS" = 60 ]
+# The table of examples (D-W8-1081), each row against the literals of its decision (D-W8-72, D-W8-79, D-W8-1083).
+selftest_table_first_window() {
+    example_facts first_window && [ "$EXAMPLE_NAME" = first_window ] && [ "$EXAMPLE_FRAMES" = 30 ] &&
+        [ "$PROBE_SETS" = "estaticas:first_window_probes.txt:12 frames30:first_window_probes_frames30.txt:9" ] &&
+        [ "$EXAMPLE_BUDGET_SECONDS" = 60 ]
+}
+
+selftest_table_shapes() {
+    example_facts shapes && [ "$EXAMPLE_NAME" = shapes ] && [ "$EXAMPLE_FRAMES" = 30 ] &&
+        [ "$PROBE_SETS" = "estaticas:shapes_probes.txt:62" ]
+}
+
+# A name outside the table returns 1 and changes nothing.
+selftest_table_refuses_an_unknown_example() {
+    EXAMPLE_NAME=antes
+    ! example_facts first_windows && [ "$EXAMPLE_NAME" = antes ] && ! example_facts "" && [ "$EXAMPLE_NAME" = antes ]
+}
+
+# count_probe_lines <file>: the probes of a file the way image_probe.py reads them (what is left of a line before '#').
+count_probe_lines() {
+    sed 's/#.*//' "$1" | grep -c '[^[:space:]]' || true
+}
+
+# Every probe file the table names exists in tests/fixtures and holds exactly the count the table fixes: the table and
+# the files cannot drift apart (L-40). Prints the scan, always.
+selftest_table_probe_files_hold_their_counts() {
+    found=0
+    matched=0
+    for name in first_window shapes; do
+        example_facts "$name" || return 1
+        for probe_set in $PROBE_SETS; do
+            rest="${probe_set#*:}"
+            found=$((found + 1))
+            [ -f "$FIXTURES_DIR/${rest%%:*}" ] &&
+                [ "$(count_probe_lines "$FIXTURES_DIR/${rest%%:*}")" = "${rest#*:}" ] && matched=$((matched + 1))
+        done
+    done
+    echo "selftest: arquivos de sonda da tabela encontrados=$found conferidos=$matched" >&2
+    [ "$found" -eq 3 ] && [ "$matched" -eq 3 ]
 }
 
 # -- the example's command, through the REAL exec_fixture.sh and timeout -----------------------------------------------
 
 # The docker double records the command line exec_fixture.sh built; the example double records its own arguments.
+# selftest_example_command_reaches_the_container <example>: the row of the table decides the binary, the socket and
+# the frames.
 selftest_example_command_reaches_the_container() {
+    example_facts "$1" || return 1
     root="$(mktemp -d)" || return 1
     with_doubles "$root"
     write_docker_double "$root/bin" "$root/docker.argv"
-    write_example_double "$root/bin" "printf '%s\\n' \"\$*\" >'$root/example.argv'; echo 'first_window: duble rodou'"
+    write_example_double "$root/bin" "printf '%s\\n' \"\$*\" >'$root/example.argv'; echo '$1: duble rodou'" "$1"
     CONTAINER=glintfx-teste
     run_example 60 >/dev/null 2>&1
     rc=$?
@@ -134,7 +177,7 @@ selftest_example_command_reaches_the_container() {
     rm -rf "${root:?}"
     [ "$rc" -eq 0 ] || return 1
     case "$argv" in
-        *" -e WAYLAND_DISPLAY=glintfx-cap-first_window glintfx-teste timeout -k 5 60 first_window --frames 30") ;;
+        *" -e WAYLAND_DISPLAY=glintfx-cap-$1 glintfx-teste timeout -k 5 60 $1 --frames 30") ;;
         *) echo "$argv" >&2; return 1 ;;
     esac
     [ "$example_argv" = "--frames 30" ]
@@ -164,8 +207,8 @@ selftest_judge_rejects_two_images() {
 # A 2x2 capture judged against the decided 640x480 is refused BEFORE any probe: no probe rc file is ever written.
 selftest_judge_rejects_wrong_size_before_probes() {
     judge_setup
-    static_rc="$OUT_DIR/first_window/static.rc"
-    judge_example "$JUDGE_ROOT/static.txt" "$JUDGE_ROOT/frames30.txt" 640x480 >/dev/null 2>&1 && return 1
+    static_rc="$OUT_DIR/first_window/estaticas.rc"
+    judge_example 640x480 "$JUDGE_ROOT" estaticas:static.txt:12 frames30:frames30.txt:9 >/dev/null 2>&1 && return 1
     [ ! -e "$static_rc" ]
     rc=$?
     rm -rf "${JUDGE_ROOT:?}"
@@ -194,6 +237,15 @@ selftest_judge_rejects_a_failed_probe() {
     judge_setup
     write_probes "$JUDGE_ROOT/frames30.txt" 9 "1 1 0D0E10FF"
     ! judge_on 2x2
+}
+
+# A judge given no probe set judges nothing: it fails, with a good frame of the right size (L-40).
+selftest_judge_rejects_no_probe_set() {
+    judge_setup
+    judge_example 2x2 "$JUDGE_ROOT" >/dev/null 2>&1
+    rc=$?
+    rm -rf "${JUDGE_ROOT:?}"
+    [ "$rc" -ne 0 ]
 }
 
 # -- the wiring of capture_example -------------------------------------------------------------------------------------
@@ -247,12 +299,12 @@ selftest_overrun_exits_3_with_the_budget_message() {
 }
 
 # expected_clean_calls: the calls of a clean run, in the driver's order, all with the run name first_window. The judge
-# gets the two decided probe files and the decided size.
+# gets the decided size, the fixtures directory and the two decided probe sets.
 expected_clean_calls() {
     fixtures="$REPO_ROOT/tests/fixtures"
     printf '%s\n' "start_capture_relay first_window" "wait_for_socket first_window" "run_example 60" \
         "wait_for_capture_files first_window" "stop_capture_relay first_window" "copy_out first_window" \
-        "judge_example $fixtures/first_window_probes.txt $fixtures/first_window_probes_frames30.txt 640x480"
+        "judge_example 640x480 $fixtures estaticas:first_window_probes.txt:12 frames30:first_window_probes_frames30.txt:9"
 }
 
 selftest_clean_run_calls_in_order_and_passes() {
@@ -312,6 +364,20 @@ selftest_no_arguments_is_usage() {
     return 1
 }
 
+# An example outside the table is bad usage too, before any container is touched (the old two-argument form, with no
+# example, is one of them).
+selftest_unknown_example_is_usage() {
+    out="$(sh "$0" first_windows glintfx-teste saida 2>&1)"
+    rc=$?
+    out_old="$(sh "$0" glintfx-teste saida 2>&1)"
+    rc_old=$?
+    [ "$rc" -eq 2 ] && [ "$rc_old" -eq 2 ] || return 1
+    case "$out" in
+        *"uso: run_example_capture.sh"*"(exemplos: first_window, shapes)"*) return 0 ;;
+    esac
+    return 1
+}
+
 # run_control must contain what a control leaves behind: a stub defined inside one run_control never reaches the code
 # after it (the class of rev-d2bfix IMP-2). The expected answer is the literal name of the socket, never read from code.
 selftest_run_control_contains_a_stub() {
@@ -351,10 +417,16 @@ selftest_main() {
     [ -z "${SELFTEST_MAIN_STARTED:-}" ] || { echo "selftest: selftest_main chamado duas vezes" >&2; exit 1; }
     readonly SELFTEST_MAIN_STARTED=1
     CALLS_LOG="${TMPDIR:-/tmp}/run_example_capture.selftest.calls.$$"
+    # The wiring controls below run first_window, the row the D3 controls were written for.
+    example_facts first_window
     selftest_check selftest_overrun_is_exit_3
     selftest_check selftest_exit_0_needs_every_part_clean
-    selftest_check selftest_decided_name_frames_and_budget
-    selftest_check selftest_example_command_reaches_the_container
+    selftest_check selftest_table_first_window
+    selftest_check selftest_table_shapes
+    selftest_check selftest_table_refuses_an_unknown_example
+    selftest_check selftest_table_probe_files_hold_their_counts
+    selftest_check selftest_example_command_reaches_the_container first_window
+    selftest_check selftest_example_command_reaches_the_container shapes
     selftest_check selftest_judge_passes_a_good_frame
     selftest_check selftest_judge_rejects_zero_images
     selftest_check selftest_judge_rejects_two_images
@@ -363,12 +435,14 @@ selftest_main() {
     selftest_check selftest_judge_rejects_empty_probe_file
     selftest_check selftest_judge_rejects_a_wrong_probe_count
     selftest_check selftest_judge_rejects_a_failed_probe
+    selftest_check selftest_judge_rejects_no_probe_set
     selftest_check selftest_overrun_exits_3_with_the_budget_message
     selftest_check selftest_clean_run_calls_in_order_and_passes
     selftest_check selftest_socket_failure_skips_the_example
     selftest_check selftest_failed_example_fails_the_run
     selftest_check selftest_stale_output_is_removed_first
     selftest_check selftest_no_arguments_is_usage
+    selftest_check selftest_unknown_example_is_usage
     selftest_check selftest_run_control_contains_a_stub
     selftest_gate_fails_a_failing_control
     rm -f "$CALLS_LOG"

@@ -1216,7 +1216,8 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp
 
-# DEMO-1 D6-red (D-W8-74, D-W8-86, D-W8-186, D-W8-187): the example first_window, built by ITS OWN CMakeLists.txt
+# DEMO-1 D6-red (D-W8-74, D-W8-86, D-W8-186, D-W8-187): the examples (first_window; shapes since R2D-SHAPES S6),
+# each built by ITS OWN CMakeLists.txt
 # (examples/ configured on its own: the find_package branch) against the library installed above, the way a consumer
 # builds it. The test allocation counter reaches it through CMAKE_PROJECT_INCLUDE (inject_alloc_counter.cmake), never
 # through a line of the example. Warnings and sanitizer are the fixtures' own. Last in this stage on purpose: a change
@@ -1288,6 +1289,7 @@ COPY --from=arch-ports-builder /build/loop_hidden_test /usr/local/bin/loop_hidde
 COPY --from=arch-ports-builder /build/surface_size_policy_adapter_test /usr/local/bin/surface_size_policy_adapter_test
 COPY --from=arch-ports-builder /build/wire_relay_bin /usr/local/bin/wire_relay
 COPY --from=arch-ports-builder /build/examples-build/first_window/first_window /usr/local/bin/first_window
+COPY --from=arch-ports-builder /build/examples-build/shapes/shapes /usr/local/bin/shapes
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \

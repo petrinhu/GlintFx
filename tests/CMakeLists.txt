@@ -4984,16 +4984,17 @@ add_test(
 )
 set_tests_properties(check_examples_consume_selftest PROPERTIES LABELS selftest)
 
-# DEMO-1 D5b (D-W8-75, D-W8-125): the DRIVER of the Windows capture of the example first_window
-# (tests/tools/run_example_capture_win32.py). Its --selftest needs no Windows, no tool and no window:
-# a tool double writes the capture files and the REAL helpers (raw_to_png.py, image_probe.py) judge
-# them. Python, so it runs on every system (no parity exception). The executor requires exit 0 and the
-# exact line with the control count: dropping a control is a visible change, never a silent one. The
-# real run (first_window on Windows) is registered by D6-red; this is only the selftest.
+# DEMO-1 D5b (D-W8-75, D-W8-125): the DRIVER of the Windows capture of one example, first_window or
+# shapes (tests/tools/run_example_capture_win32.py, its table opened by R2D-SHAPES S6, D-W8-1081). Its
+# --selftest needs no Windows, no tool and no window: a tool double writes the capture files and the
+# REAL helpers (raw_to_png.py, image_probe.py) judge them. Python, so it runs on every system (no parity
+# exception). The executor requires exit 0 and the exact line with the control count: dropping a control
+# is a visible change, never a silent one. The real runs (first_window and shapes on Windows) are
+# registered further down; this is only the selftest.
 add_test(
     NAME run_example_capture_win32_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 37 controles OK"
+        "-DEXPECT_LINE=selftest: 41 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
@@ -7461,8 +7462,9 @@ if(UNIX)
     set_tests_properties(check_isolation_selftest PROPERTIES LABELS selftest)
 endif()
 
-# DEMO-1 D3 (D-W8-74, D-W8-81, D-W8-138): the DRIVER of the Linux capture of the example first_window
-# (tests/container/run_example_capture.sh); its controls live in run_example_capture_selftest.sh, loaded by the
+# DEMO-1 D3 (D-W8-74, D-W8-81, D-W8-138): the DRIVER of the Linux capture of one example, first_window or shapes
+# (tests/container/run_example_capture.sh, its table opened by R2D-SHAPES S6, D-W8-1081); its controls live in
+# run_example_capture_selftest.sh, loaded by the
 # driver's own --selftest. No container and no docker daemon: doubles of docker and of the example on PATH, the REAL
 # exec_fixture.sh and timeout, and the REAL raw_to_png.py and image_probe.py. The executor requires exit 0 and the exact
 # line. if(UNIX): POSIX sh, mktemp and timeout do not exist on the Windows CI; the Windows side is declared in
@@ -7471,7 +7473,7 @@ if(UNIX)
     add_test(
         NAME run_example_capture_selftest
         COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-            "-DEXPECT_LINE=selftest: 20 controles OK"
+            "-DEXPECT_LINE=selftest: 26 controles OK"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
             sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_example_capture.sh" --selftest
     )
@@ -7496,13 +7498,28 @@ if(WIN32 AND TARGET first_window)
         NAME first_window
         COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
-            "$<TARGET_FILE:win32_window_capture>" "$<TARGET_FILE:first_window>"
+            "$<TARGET_FILE:win32_window_capture>" first_window "$<TARGET_FILE:first_window>"
             "${CMAKE_CURRENT_BINARY_DIR}/first_window_capture_out"
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:first_window>"
     )
     # LABELS unit, not consume (D-W8-60, the same reason as capture_known_color_smoke): the example is built through
     # the root's options, sanitized in the sanitizer job, so the job's `ctest -L '^unit$'` reaches it.
     set_tests_properties(first_window PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
+# R2D-SHAPES S6 (D-W8-1081, D-W8-1084): the Windows side of the example shapes, registered exactly as first_window
+# above (the same driver, the same reasons for every line), judged with its 62 static probes
+# (tests/fixtures/shapes_probes.txt, D-W8-1083). The SAME name as the Linux capture in the container inventory.
+if(WIN32 AND TARGET shapes)
+    add_test(
+        NAME shapes
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" shapes "$<TARGET_FILE:shapes>"
+            "${CMAKE_CURRENT_BINARY_DIR}/shapes_capture_out"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:shapes>"
+    )
+    set_tests_properties(shapes PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
 endif()
 
 # QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of

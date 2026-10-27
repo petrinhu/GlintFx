@@ -1,18 +1,21 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # run_example_capture_win32_selftest.py - the controls of run_example_capture_win32.py, loaded only by that driver's
-# own --selftest (CAPTURE-DRIVER-SPLIT, D-W8-178, D-W8-185: a driver's controls live beside it). A pure move: the same
-# names, the same count. Standard library only (L-07).
+# own --selftest (CAPTURE-DRIVER-SPLIT, D-W8-178, D-W8-185: a driver's controls live beside it). Standard library only
+# (L-07). R2D-SHAPES S6 (D-W8-1081): the table of examples, its probe files, its sources and the command line of the
+# second example have controls here.
 
 from pathlib import Path
 import ast
 from run_example_capture_win32 import *  # the driver's names, unqualified, as before the move
+from image_probe import ProbeError, parse_probes
 from selftest_controls import CHECKS, check
 
 DRIVER_SCRIPT = Path(__file__).resolve().parent / "run_example_capture_win32.py"
 
-# The example's source: the control below reads its title and its ready line there (D-W8-127).
-EXAMPLE_SOURCE = REPO_ROOT / "examples" / "first_window" / "first_window.cpp"
+# Each example's source: the control below reads its title and its ready line there (D-W8-127).
+def example_source(name):
+    return REPO_ROOT / "examples" / name / f"{name}.cpp"
 
 
 # -- selftest ---------------------------------------------------------
@@ -84,12 +87,15 @@ def altered_raw():
     return bytes(altered)
 
 
-def make_config(root, probes=PROBES, probe_count=2):
-    """A config over a temporary root, with the 2x2 frame's size; probes None leaves the file absent."""
+def make_config(root, probes=PROBES, probe_count=2, name="first_window"):
+    """A config of the table's `name` over a temporary root, with the 2x2 frame's size; probes None leaves the file
+    absent."""
     probes_file = Path(root) / "probes.txt"
     if probes is not None:
         probes_file.write_text(probes)
-    return run_config(tool="TOOL", example="EXAMPLE", out_dir=Path(root) / "out", probes_file=probes_file,
+    facts = EXAMPLES[name]
+    return run_config(name=name, tool="TOOL", example="EXAMPLE", out_dir=Path(root) / "out",
+                      window_title=facts.window_title, ready_line=facts.ready_line, probes_file=probes_file,
                       probe_count=probe_count, capture_size=(2, 2))
 
 
@@ -132,6 +138,12 @@ def selftest_tool_command():
               and command[command.index("--exit-budget-ms") + 1] == "10000"
               and command.index("--present-budget-ms") < separator
               and command.index("--exit-budget-ms") < separator)
+        shapes = tool_command(make_config(tmp, name="shapes"))
+        check("comando do shapes: titulo 'GlintFx example: shapes', --ready-line 'shapes: first frame presented' e a "
+              "saida <out>/shapes/capture, pela linha da tabela",
+              shapes[shapes.index("--title") + 1] == "GlintFx example: shapes"
+              and shapes[shapes.index("--ready-line") + 1] == "shapes: first frame presented"
+              and shapes[shapes.index("--out") + 1] == Path(tmp) / "out" / "shapes" / "capture")
 
 
 def selftest_grammar_text():
@@ -256,25 +268,57 @@ def selftest_budgets_fit():
 def selftest_process_level():
     script = str(DRIVER_SCRIPT)
     with tempfile.TemporaryDirectory() as tmp:
-        missing = [str(Path(tmp) / "no-such-tool.exe"), str(Path(tmp) / "no-such-example.exe"), str(Path(tmp) / "out")]
+        missing = [str(Path(tmp) / "no-such-tool.exe"), "first_window", str(Path(tmp) / "no-such-example.exe"),
+                   str(Path(tmp) / "out")]
         proc = subprocess.run([sys.executable, script, *missing], capture_output=True, text=True, check=False)
         check("processo: ferramenta inexistente sai 1, com motivo=FALHA_DE_EXEMPLO_OU_FERRAMENTA codigo=127 e a "
               "linha MEASURED uma vez",
               proc.returncode == 1 and "motivo=FALHA_DE_EXEMPLO_OU_FERRAMENTA codigo=127 " in proc.stdout
               and proc.stdout.splitlines().count(MEASURED_TEXT) == 1)
     no_args = subprocess.run([sys.executable, script], capture_output=True, text=True, check=False)
-    empty_arg = subprocess.run([sys.executable, script, "T", "E", ""], capture_output=True, text=True, check=False)
+    empty_arg = subprocess.run([sys.executable, script, "T", "first_window", "E", ""], capture_output=True, text=True,
+                               check=False)
     check("processo: sem argumentos, ou com um argumento vazio, sai 2",
           no_args.returncode == 2 and empty_arg.returncode == 2)
+    unknown = subprocess.run([sys.executable, script, "T", "first_windows", "E", "O"], capture_output=True, text=True,
+                             check=False)
+    old_form = subprocess.run([sys.executable, script, "T", "E", "O"], capture_output=True, text=True, check=False)
+    check("processo: um exemplo fora da tabela, ou a forma antiga de tres argumentos, sai 2 com a lista dos exemplos",
+          unknown.returncode == 2 and old_form.returncode == 2
+          and "(examples: first_window, shapes)" in unknown.stderr)
 
 
 def selftest_decided_scene_constants():
-    check("as constantes decididas da cena: 12 sondas estaticas e captura de 640x480 (D-W8-72)",
-          PROBE_COUNT == 12 and CAPTURE_SIZE == (640, 480))
+    check("a tabela decidida: first_window com 12 sondas estaticas (D-W8-72), shapes com 62 (D-W8-1083), os dois "
+          "arquivos em tests/fixtures/, e captura de 640x480",
+          sorted(EXAMPLES) == ["first_window", "shapes"] and CAPTURE_SIZE == (640, 480)
+          and EXAMPLES["first_window"].probe_count == 12 and EXAMPLES["shapes"].probe_count == 62
+          and EXAMPLES["first_window"].probes_file == REPO_ROOT / "tests" / "fixtures" / "first_window_probes.txt"
+          and EXAMPLES["shapes"].probes_file == REPO_ROOT / "tests" / "fixtures" / "shapes_probes.txt")
+
+
+def probes_in(path):
+    """How many probes the REAL reader (image_probe.parse_probes) finds in the file; None when it cannot read it."""
+    try:
+        return len(parse_probes(Path(path).read_text(encoding="utf-8")))
+    except (OSError, ProbeError, UnicodeDecodeError):
+        return None
+
+
+def selftest_table_probe_files_hold_their_counts():
+    found = {name: probes_in(facts.probes_file) for name, facts in EXAMPLES.items()}
+    check("cada arquivo de sondas da tabela existe e tem, pelo leitor real, exatamente a contagem da tabela: "
+          + ", ".join(f"{name}={found[name]}/{EXAMPLES[name].probe_count}" for name in EXAMPLES),
+          len(found) == 2 and all(found[name] == EXAMPLES[name].probe_count for name in EXAMPLES))
+
+
 def selftest_example_source_matches():
-    text = EXAMPLE_SOURCE.read_text(encoding="utf-8", errors="replace") if EXAMPLE_SOURCE.is_file() else ""
-    check("o fonte do exemplo existe e da a janela o titulo que o driver passa a ferramenta, e imprime a linha de "
-          "prontidao que o driver espera (D-W8-127)", f'"{WINDOW_TITLE}"' in text and f'"{READY_LINE}"' in text)
+    for name, facts in EXAMPLES.items():
+        source = example_source(name)
+        text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
+        check(f"o fonte de {name} existe e da a janela o titulo que o driver passa a ferramenta, e imprime a linha de "
+              "prontidao que o driver espera (D-W8-127)",
+              f'"{facts.window_title}"' in text and f'"{facts.ready_line}"' in text)
 
 
 
@@ -422,6 +466,7 @@ def selftest_main():
     selftest_budgets_fit()
     selftest_process_level()
     selftest_decided_scene_constants()
+    selftest_table_probe_files_hold_their_counts()
     selftest_example_source_matches()
     selftest_driver_keeps_no_controls()
     print(f"selftest: {len(CHECKS)} controles OK")

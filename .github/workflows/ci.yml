@@ -1298,6 +1298,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
+      - name: Publicar a captura do exemplo shapes no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-shapes-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/shapes_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
       # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN:
       # tools/ci/check-dep-zero-win.ps1, check-port-privacy-win.ps1 e
       # check-exports-win.ps1 (dumpbin.exe contra glintfx.dll) eram
@@ -2352,9 +2362,24 @@ jobs:
           echo "first_window" >> parity_inventory.txt
           codigo=0
           inicio=$(date +%s)
-          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} first_window glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
           echo "first_window: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, regra 12, D-W8-81)"
           printf 'first_window\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # R2D-SHAPES S6 (D-W8-1081, D-W8-1084): o exemplo shapes, irmao do passo de cima (mesmo driver, mesma imagem,
+      # mesmo capture_out, subdiretorio shapes/), julgado pelas 62 sondas de tests/fixtures/shapes_probes.txt
+      # (D-W8-1083). Roda mesmo com o first_window vermelho: cada exemplo tem o seu veredito.
+      - name: R2D-SHAPES - exemplo shapes capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "shapes" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} shapes glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "shapes: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, D-W8-81)"
+          printf 'shapes\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
       # QA-SCREEN-CAPTURE P3 (S3 da revisao): as imagens da captura (PNG, raw, meta, log do rele) saem como artefato,
@@ -3946,6 +3971,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
+      - name: Publicar a captura do exemplo shapes no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-shapes-windows-sanitizer
+          path: build-shared/tests/shapes_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
     runs-on: ubuntu-latest
@@ -4297,6 +4332,16 @@ jobs:
         with:
           name: capture-out-first-window-windows-debug
           path: build-debug/tests/first_window_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
+      - name: Publicar a captura do exemplo shapes no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-shapes-windows-debug
+          path: build-debug/tests/shapes_capture_out
           if-no-files-found: warn
           retention-days: 7
 

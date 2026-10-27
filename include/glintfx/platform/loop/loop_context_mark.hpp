@@ -84,8 +84,8 @@ inline constexpr std::uint32_t k_gltfx_loop_context_mark_live = 0x584C5447;
 //     base class is empty, and the empty-base-class optimization
 //     every compiler this project targets already applies makes a
 //     derived object's size identical to one that never inherited
-//     from this class at all (F19, tests/loop_context_mark_test.cpp's
-//     own static_assert).
+//     from this class at all (F19; proved by the static_assert of
+//     loop_context_mark_test, in tests/loop_context_mark_test.cpp).
 // ============================================================
 // WHAT THIS LAYER DOES NOT SOLVE - stated so nobody has to infer it
 // from an absence (docs/plano-loop-callbacks.md sec. 3.4):

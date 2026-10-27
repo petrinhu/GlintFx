@@ -26,38 +26,71 @@
 # deste projeto tem data, e' o assunto do arquivo, nao prova de nada).
 #
 # FORMA "TESTE CITADO" (CLAIM-CITATIONS E2-E4, docs/plano-w7c.md sec.
-# 3.E, docs/plano-w7c-adendo-revalidacao.md sec. 3.E): uma alegacao de
-# medicao/igualdade-entre-sistemas num comentario e' citada quando o
-# MESMO bloco de comentario tem uma frase-gatilho ("Proved by:",
-# "proven by", "see") E o nome de um teste que EXISTE no inventario
-# fechado (tests/tools/test_name_inventory.py, E1). has_cited_test_
-# reference() recebe DUAS juncoes do mesmo bloco - separadas por
-# espaco (o caso comum: uma frase que o reflow do comentario quebrou
-# numa fronteira de palavra de verdade) e concatenadas sem separador
-# (GODS_LAWS.md memoria feedback_referencia_quebrada_pela_linha: um
-# identificador longo, sem espaco nenhum no ponto onde o reflow
-# quebrou, como "window_desc_" + "\n" + "validation_test.cpp's own" -
-# so a juncao SEM separador reconstroi "window_desc_validation_test")
-# - porque o chamador (extrator de bloco) nao sabe, so olhando o
-# texto, qual dos dois casos aconteceu em cada quebra de linha.
+# 3.E; CITATION-COMMON-WORD, TODO.md): uma alegacao de medicao/
+# igualdade-entre-sistemas num comentario e' citada quando uma
+# frase-gatilho do bloco e' SEGUIDA, NA MESMA FRASE, pelo nome de um
+# teste que EXISTE no inventario fechado (tests/tools/test_name_
+# inventory.py, E1). Tres regras, cada uma com o proprio vermelho no
+# --selftest:
 #
-# O QUE ISTO NAO VE (GODS_LAWS.md L-40): um nome de teste citado sem
-# NENHUMA das tres frases-gatilho por perto (prosa que so MENCIONA um
-# teste, sem alegar que ele PROVA a alegacao corrente, nao conta -
-# nome sozinho no bloco nunca e citacao); a busca e por SUBSTRING com
-# fronteira de palavra (`\bnome\b`) no bloco inteiro, nunca ancorada a
-# uma distancia fixa da frase-gatilho - um bloco muito longo com um
-# nome de teste em outro paragrafo, sem relacao com a frase-gatilho
-# deste, pode aceitar por coincidencia; o risco e aceito porque os
-# nomes de teste deste projeto sao longos e descritivos (varias
-# palavras coladas por "_"), tornando colisao por acaso rara na
-# pratica, e o cabeçalho do portao que consome esta funcao
-# (check_claim_citations.py) declara este limite tambem.
+#   1. FRASES-GATILHO (fechadas): "see"; e "proved"/"proven" seguido
+#      de "by", com ate QUATRO palavras no meio, separadas por espaco
+#      ou virgula ("Proved by:", "proven by", "proved live by", "Proved
+#      at compile time by", "proven, not promised, by" - as formas que
+#      a arvore real escreve, medidas em 27/10/2026). Cinco palavras ou
+#      mais ja nao sao a mesma locucao.
+#   2. ESCOPO DE FRASE: o nome tem de vir DEPOIS da frase-gatilho e
+#      ANTES do fim da frase dela. Fim de frase: ".", "!" ou "?",
+#      seguidos (depois de fechamentos opcionais ")", "]", aspas) do
+#      comeco da frase seguinte - letra MAIUSCULA, crase, "(" ou aspas,
+#      com ou sem espaco antes (a juncao sem separador cola as linhas)
+#      - ou do fim do texto. Por isso o ponto de "math2d_test.cpp", de
+#      "GODS_LAWS.md" ou de "e.g. the" nao fecha a frase (minuscula
+#      depois). Antes desta regra, qualquer
+#      nome do inventario em QUALQUER lugar do bloco contava se uma
+#      frase-gatilho existisse em qualquer outro lugar dele: medido na
+#      pre-execucao da S6 (D-W8-1086), o exemplo `shapes` entrou no
+#      inventario e a prosa "three parallel {magnitude, unit} shapes"
+#      de include/glintfx/gfss/value.hpp passou a contar como citacao,
+#      por causa de um "see" de outro paragrafo.
+#   3. FORMA DE IDENTIFICADOR: um nome feito SO de letras minusculas
+#      ("shapes", "textures") se le como palavra comum, e so conta
+#      ENTRE CRASES (`shapes`). Nome com qualquer outro caractere
+#      ("_", digito, maiuscula) e' identificador por si. E' a regra do
+#      Doxygen para link automatico ("words that contain at least one
+#      non-lower case character", e "\ref" para nome todo minusculo):
+#      sem ela, "Proved by: the shapes it draws" na MESMA frase seria
+#      citacao falsa.
+#
+# has_cited_test_reference() recebe DUAS juncoes do mesmo bloco -
+# separadas por espaco (o caso comum: uma frase que o reflow do
+# comentario quebrou numa fronteira de palavra de verdade) e
+# concatenadas sem separador (GODS_LAWS.md memoria feedback_referencia_
+# quebrada_pela_linha: um identificador longo, sem espaco nenhum no
+# ponto onde o reflow quebrou, como "window_desc_" + "\n" +
+# "validation_test.cpp's own" - so a juncao SEM separador reconstroi
+# "window_desc_validation_test") - porque o chamador (extrator de
+# bloco) nao sabe, so olhando o texto, qual dos dois casos aconteceu
+# em cada quebra de linha. As tres regras valem nas duas juncoes.
+#
+# O QUE ISTO NAO VE (GODS_LAWS.md L-40, declarado): um nome de teste
+# sem NENHUMA frase-gatilho antes dele na mesma frase ("Exercised by
+# `x`", "`x` proves this") nao conta - escreva a citacao numa das
+# formas acima; o fim de frase e' uma regra de texto, nao gramatica:
+# uma frase que comeca por minuscula depois de um ponto continua a
+# anterior (o escopo fica MAIS LARGO), "e.g. `x`" fecha a frase antes
+# do `x` (o escopo fica mais curto: escreva "e.g. the `x`" ou tire o
+# "e.g."), e um paragrafo sem ponto final emenda no seguinte, porque
+# o extrator une as linhas sem guardar a linha em branco; e a juncao
+# sem separador perde a frase-gatilho que o reflow partiu ao meio
+# ("Proved" no fim de uma linha, "by:" no comeco da outra) - nesse
+# caso so a juncao com espaco ve a frase-gatilho.
 # PLAN-SCOPE-COLUMNS (F, fora desta fatia) reusa este modulo.
 #
 # Usage:
 #   citation_grammar.py --selftest
 
+import functools
 import re
 import sys
 
@@ -95,39 +128,75 @@ def has_dated_measurement_citation(text):
     return False
 
 
-# --- forma "teste citado" (CLAIM-CITATIONS E2-E4) -----------------------
+# --- forma "teste citado" (CLAIM-CITATIONS E2-E4, CITATION-COMMON-WORD) --
 
-_PROVED_BY_RE = re.compile(r"\bproved\s+by\b\s*:?", re.IGNORECASE)
-_PROVEN_BY_RE = re.compile(r"\bproven\s+by\b", re.IGNORECASE)
+# Regra 1: "proved"/"proven", ate quatro palavras (letras e hifen)
+# separadas por espaco ou virgula, "by", e o ":" opcional de "Proved
+# by:". O {0,4}? preguicoso pega o "by" mais proximo.
+_PROVED_BY_RE = re.compile(r"\bprov(?:ed|en)(?:[ ,]+[A-Za-z][A-Za-z-]*){0,4}?[ ,]+by\b:?", re.IGNORECASE)
 _SEE_RE = re.compile(r"\bsee\b", re.IGNORECASE)
 
+# Regra 2: o fim de frase, ver o comentario do topo.
+_SENTENCE_END_RE = re.compile(r"[.!?][)\]\"']*(?=\s*[A-Z`(\"]|\s*$)")
 
-def has_citation_trigger_phrase(spaced_text):
-    """True quando `spaced_text` contem alguma das tres frases-gatilho
-    de citacao de teste ("Proved by:"/"proven by"/"see"). Funcao
-    separada de has_cited_test_reference() porque um chamador (por
-    exemplo, uma exceptions.txt) pode precisar saber que HAVIA
-    intencao de citar, mesmo quando o nome citado nao existe."""
-    return bool(_PROVED_BY_RE.search(spaced_text) or _PROVEN_BY_RE.search(spaced_text) or _SEE_RE.search(spaced_text))
+# Regra 3: nome feito so de letras minusculas.
+_LOWERCASE_WORD_RE = re.compile(r"[a-z]+")
+
+
+@functools.lru_cache(maxsize=4)
+def _names_pattern(frozen_names):
+    """Uma expressao so com todos os nomes, com a mesma fronteira de
+    palavra (\\b) dos dois lados que a busca nome a nome usava. Com a
+    fronteira, a ordem das alternativas nao muda o resultado (um nome
+    que e' prefixo de outro so casa onde o outro nao cabe); a ordem
+    fixa so faz o padrao compilado ser o mesmo em toda execucao."""
+    alternatives = "|".join(re.escape(name) for name in sorted(frozen_names))
+    return re.compile(r"\b(?:" + alternatives + r")\b")
+
+
+def _sentence_scopes(text):
+    """Para cada frase-gatilho de `text`, o par (inicio, fim): do fim
+    da frase-gatilho ao fim da frase dela (regra 2), ou ao fim do texto
+    quando a frase nao fecha."""
+    scopes = []
+    for trigger in list(_PROVED_BY_RE.finditer(text)) + list(_SEE_RE.finditer(text)):
+        end = _SENTENCE_END_RE.search(text, trigger.end())
+        scopes.append((trigger.end(), end.start() if end else len(text)))
+    return sorted(scopes)
+
+
+def _is_enveloped(text, match):
+    return text[match.start() - 1 : match.start()] == "`" and text[match.end() : match.end() + 1] == "`"
+
+
+def _cited_name_in(text, pattern):
+    """O primeiro nome do inventario (pela posicao) que aparece dentro
+    do escopo de alguma frase-gatilho de `text` e passa a regra 3, ou
+    None."""
+    for start, end in _sentence_scopes(text):
+        for match in pattern.finditer(text, start, end):
+            name = match.group(0)
+            if _LOWERCASE_WORD_RE.fullmatch(name) and not _is_enveloped(text, match):
+                continue
+            return name
+    return None
 
 
 def has_cited_test_reference(spaced_text, tight_text, known_test_names):
     """True quando o bloco (as duas juncoes do MESMO texto - ver o
     comentario do topo deste modulo para o porque das duas) tem uma
-    frase-gatilho E o nome de um teste que EXISTE em
-    `known_test_names` em qualquer uma das duas juncoes. Devolve o
-    nome citado (o primeiro achado, ordem de `known_test_names`), ou
-    None quando nao ha frase-gatilho, ou o nome citado nao existe no
-    inventario (a mesma "citacao de teste que nao existe reprova" da
-    tabela E3 - devolver None aqui e' o que faz o chamador tratar como
-    NAO citado, nunca aceitar uma citacao fantasma)."""
-    if not has_citation_trigger_phrase(spaced_text):
+    frase-gatilho SEGUIDA, na mesma frase, pelo nome de um teste que
+    EXISTE em `known_test_names`, na forma de identificador (as tres
+    regras do comentario do topo). Devolve o nome citado (o primeiro
+    pela posicao, na juncao com espaco antes da juncao sem separador),
+    ou None quando nenhuma frase-gatilho e' seguida por um nome valido
+    na frase dela (a mesma "citacao de teste que nao existe reprova"
+    da tabela E3 - devolver None aqui e' o que faz o chamador tratar
+    como NAO citado, nunca aceitar uma citacao fantasma)."""
+    if not known_test_names:
         return None
-    for name in known_test_names:
-        pattern = re.compile(r"\b" + re.escape(name) + r"\b")
-        if pattern.search(spaced_text) or pattern.search(tight_text):
-            return name
-    return None
+    pattern = _names_pattern(frozenset(known_test_names))
+    return _cited_name_in(spaced_text, pattern) or _cited_name_in(tight_text, pattern)
 
 
 # --- controles do --selftest -------------------------------------------
@@ -255,6 +324,131 @@ def _selftest_cited_test_reference_reconstructs_wrapped_identifier():
     return True
 
 
+# VERMELHO da regra 2 (escopo de frase): a frase-gatilho e o nome real
+# estao no MESMO bloco, mas em frases diferentes - o nome nao e' a
+# citacao daquela frase-gatilho. Mutante que mata: escopo ate o fim do
+# texto (sem _SENTENCE_END_RE).
+def _selftest_name_in_another_sentence_rejected():
+    known = {"window_parity_test"}
+    spaced = "The refusal is identical on every platform (see the table above). Unrelated: window_parity_test opens a window."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got is not None:
+        print(f"selftest: OUTRA-FRASE FALHOU (nome de outra frase foi aceito como citacao): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: OUTRA-FRASE OK (nome fora da frase da frase-gatilho nunca e citacao)")
+    return True
+
+
+# VERDE da regra 2: o ponto de uma extensao de arquivo e o de uma
+# abreviatura nao fecham a frase (minuscula depois deles), entao o
+# nome depois de "tests/math2d_test.cpp's" ainda e' da frase do
+# gatilho. Mutante que mata: qualquer ponto fecha a frase.
+def _selftest_extension_dot_does_not_end_the_sentence():
+    known = {"lerp_endpoint_case"}
+    spaced = "Measured live: see tests/math2d_test.cpp, e.g. the case lerp_endpoint_case, which reproduces it."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got != "lerp_endpoint_case":
+        print(f"selftest: PONTO-DE-EXTENSAO FALHOU (o ponto de '.cpp'/'e.g.' fechou a frase): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: PONTO-DE-EXTENSAO OK (ponto seguido de minuscula nao fecha a frase)")
+    return True
+
+
+# VERMELHO da regra 2: uma frase nova que comeca por crase (o nome de
+# um identificador, comum nos cabecalhos: "`noexcept`: proven ...")
+# fecha a anterior. Mutante que mata: tirar a crase do comeco de frase
+# em _SENTENCE_END_RE.
+def _selftest_sentence_starting_with_backtick_ends_the_previous():
+    known = {"window_parity_test"}
+    spaced = "The refusal is identical on every platform (see the table above). `window_parity_test` opens a window."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got is not None:
+        print(f"selftest: FRASE-COM-CRASE FALHOU (o nome da frase seguinte, aberta por crase, foi aceito): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: FRASE-COM-CRASE OK (frase aberta por crase depois de um ponto e frase nova)")
+    return True
+
+
+# VERMELHO da regra 3 (forma de identificador): na MESMA frase do
+# gatilho, um nome do inventario feito so de minusculas, sem crase, e'
+# palavra comum. Mutante que mata: tirar a conferencia de
+# _LOWERCASE_WORD_RE.
+def _selftest_bare_lowercase_word_rejected():
+    known = {"shapes"}
+    spaced = "Measured on both platforms. Proved by: the shapes it draws, compared pixel by pixel."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got is not None:
+        print(f"selftest: PALAVRA-COMUM FALHOU (palavra comum sem crase foi aceita como citacao): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: PALAVRA-COMUM OK (nome so de minusculas, sem crase, nunca e citacao)")
+    return True
+
+
+# VERDE da regra 3: o MESMO nome, entre crases, e' citacao. Mutante que
+# mata: exigir "_" no nome em vez de aceitar o envelope.
+def _selftest_enveloped_lowercase_name_accepted():
+    known = {"shapes"}
+    spaced = "Measured on both platforms. Proved by: `shapes`, compared pixel by pixel."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got != "shapes":
+        print(f"selftest: PALAVRA-ENTRE-CRASES FALHOU (nome entre crases deveria ser citacao): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: PALAVRA-ENTRE-CRASES OK (nome so de minusculas entre crases e citacao)")
+    return True
+
+
+# VERDE da regra 1: "proved" + ate quatro palavras + "by", as formas
+# que a arvore real escreve. Mutante que mata: voltar a "proved by"
+# colado.
+def _selftest_widened_trigger_accepted():
+    known = {"loop_bind_test"}
+    for spaced in (
+        "Measured: proved live by `loop_bind_test`'s own case.",
+        "Measured: proven, not promised, by loop_bind_test.",
+        "Measured: Proved at compile time by loop_bind_test (both directions).",
+    ):
+        got = has_cited_test_reference(spaced, spaced, known)
+        if got != "loop_bind_test":
+            print(f"selftest: GATILHO-LARGO FALHOU (deveria aceitar): {spaced!r} -> {got!r}", file=sys.stderr)
+            return False
+    print("selftest: GATILHO-LARGO OK ('proved'/'proven' + ate 4 palavras + 'by' e frase-gatilho)")
+    return True
+
+
+# VERMELHO da regra 1: cinco palavras entre "proved" e "by" ja nao sao
+# a locucao. Mutante que mata: tirar o limite {0,4}.
+def _selftest_five_words_between_rejected():
+    known = {"loop_bind_test"}
+    spaced = "Measured: proved over many long years and by loop_bind_test too."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got is not None:
+        print(f"selftest: GATILHO-LONGE FALHOU (cinco palavras entre 'proved' e 'by' foi aceito): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: GATILHO-LONGE OK (cinco palavras ou mais entre 'proved' e 'by' nao e frase-gatilho)")
+    return True
+
+
+# VERMELHO de regressao (S6, D-W8-1086): o bloco de include/glintfx/
+# gfss/value.hpp com a palavra "shapes" de volta, reduzido as duas
+# frases que importam - o "see" de um paragrafo e a prosa do outro.
+# Com o codigo de antes desta regra, o nome "shapes" do inventario
+# virava citacao; agora as regras 2 e 3 recusam, cada uma sozinha.
+def _selftest_s6_common_word_in_prose_rejected():
+    known = {"shapes", "draw2d_shapes_parity_test"}
+    lines = [
+        "a six-member time-unit enum (see gltfx_gfss_time_unit's own comment",
+        "below for the semantics the leader defined for it).",
+        "The cost of three parallel {magnitude, unit} shapes instead of one",
+        "shared one is three enums, on all five platforms laid out identically.",
+    ]
+    got = has_cited_test_reference(" ".join(lines), "".join(lines), known)
+    if got is not None:
+        print(f"selftest: S6-PALAVRA-COMUM FALHOU (a prosa de value.hpp virou citacao): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: S6-PALAVRA-COMUM OK (a palavra 'shapes' da prosa nao e citacao)")
+    return True
+
+
 def selftest_main():
     controls = [
         _selftest_run_citation_accepted(),
@@ -267,6 +461,14 @@ def selftest_main():
         _selftest_cited_test_reference_rejected_unknown_name(),
         _selftest_cited_test_reference_requires_trigger_phrase(),
         _selftest_cited_test_reference_reconstructs_wrapped_identifier(),
+        _selftest_name_in_another_sentence_rejected(),
+        _selftest_extension_dot_does_not_end_the_sentence(),
+        _selftest_sentence_starting_with_backtick_ends_the_previous(),
+        _selftest_bare_lowercase_word_rejected(),
+        _selftest_enveloped_lowercase_name_accepted(),
+        _selftest_widened_trigger_accepted(),
+        _selftest_five_words_between_rejected(),
+        _selftest_s6_common_word_in_prose_rejected(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

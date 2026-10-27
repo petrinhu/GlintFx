@@ -82,7 +82,7 @@
 //     collision-check gate's own awk scanner
 //     (tests/tools/check_public_name_collision.sh) has never been
 //     exercised against an operator declaration either. Staying inside
-//     the pattern already proven correct is the smaller, better
+//     the pattern already in use everywhere is the smaller, better
 //     understood surface - GODS_LAWS.md L-17's "monolito nasce por
 //     conveniencia local" cuts the other way just as well against
 //     "just this once, an operator is nicer to read".

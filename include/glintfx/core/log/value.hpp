@@ -85,10 +85,11 @@ struct gltfx_log_value {
     // (`as_text.size`) genuinely indeterminate - reading it back
     // through `text()` below, on a `kind == unknown` object, was
     // Undefined Behavior R4 promises never happens, not a compiler
-    // false positive (tests/log_field_test.cpp's own
-    // `log_value_default_construction_defines_every_union_byte` proves
-    // this by poisoning the raw bytes first and checking every one of
-    // them, not just the ones a particular read happens to touch).
+    // false positive (proved by
+    // `log_value_default_construction_defines_every_union_byte`, in
+    // tests/log_field_test.cpp, which poisons the raw bytes first and
+    // checks every one of them, not just the ones a particular read
+    // happens to touch).
     // The default member initializer belongs on the union's LARGEST
     // alternative, because writing that one is the only way to cover
     // every byte the union's OWN footprint spans - `as_text` is that

@@ -15,7 +15,6 @@
 
 #include <dirent.h>
 #include <fcntl.h>
-#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -165,9 +164,12 @@ constexpr gid_t k_unprivileged_group = 65534;
 // fork() still succeeds at a limit of zero; as any other user it fails with EAGAIN). So a helper
 // that starts as root gives up its group and user first (the limit reads the real user only, so
 // the supplementary groups stay: setgroups() would need <grp.h>, outside the gate of
-// tests/tools/check_dep_zero.py), and keeps /proc/self readable (a change of user clears the
-// dumpable flag, which hands /proc/self/fd to root). True when the helper now runs as a user the
-// limit binds.
+// tests/tools/check_dep_zero.py), and then checks that its real and effective group and user ids
+// all hold the new values, so a drop that only half worked stops the case here instead of passing
+// unseen. The change of user also resets the dumpable flag to fs.suid_dumpable, which hands the
+// files of /proc/self to root; the helper still lists /proc/self/fd, because fs/proc/fd.c
+// (proc_fd_permission) lets a process into the fd folder of its own thread group whoever owns it.
+// True when the helper now runs as a user the limit binds.
 bool run_as_a_user_the_limit_binds() {
     if (::geteuid() != 0) {
         return true;
@@ -175,7 +177,8 @@ bool run_as_a_user_the_limit_binds() {
     if (::setgid(k_unprivileged_group) != 0 || ::setuid(k_unprivileged_user) != 0) {
         return false;
     }
-    return ::prctl(PR_SET_DUMPABLE, 1L, 0L, 0L, 0L) == 0;
+    return ::getgid() == k_unprivileged_group && ::getegid() == k_unprivileged_group &&
+           ::getuid() == k_unprivileged_user && ::geteuid() == k_unprivileged_user;
 }
 
 // Leaves this helper with no process left to start: as a user the limit binds, with RLIMIT_NPROC

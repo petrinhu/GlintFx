@@ -185,6 +185,12 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage CTO-T6 23/10] ATLAS-USAGE-QUERY: consulta de quanto do atlas está ocupado, para quem decide despejo (FONT-ATLAS) (D-W8-927).
 - [triage CTO-T6 23/10] ATLAS-GROW: crescer o atlas sem perder os recibos; barato no núcleo, exige cópia na placa na textura.
 - [triage CTO-T6 23/10] ATLAS-WIKI: página da wiki para o alocador e o atlas de textura, junto com a T7.
+- [triage CTO-s6fix1 27/10] T7-TEXTURED-TRIANGLES: o exemplo textures da T7 mostra fill_textured_triangles e fill_indexed_textured_triangles (além de draw_texture e draw_texture_quad), com sondas; quando ele entrar, o topo de examples/shapes/shapes.cpp e a frase do README apontam para ele (D-W8-1130). Antes da T7.
+- [triage CTO-s6fix1 27/10] ANGLE-SENSE-DOC: nenhum cabeçalho público diz o sentido de um gltfx_angle positivo na tela (core/angle.hpp, core/ellipse.hpp, core/transform.hpp); só a matriz de tests/math2d_test.cpp:449-476 o prende, para o transform. Frase pública ("from +x toward +y: clockwise on the screen, where y grows down", a forma do Cairo e da SDL3) com Proved by, e um teste de pixel que prenda o giro da elipse. Hoje o exemplo shapes é o único texto que diz isso (D-W8-1133). Porta de mão única? (é promessa de API)
+- [triage CTO-s6fix1 27/10] SHAPES-PROBES-POSITIONS: as sondas do exemplo shapes não prendem os vértices de B e C nem os centros de D, H, K e L (varre_calibrada.py da S6-fix1: legíveis a 5 px, não presos); prendê-los muda o contrato da cena (D-W8-1132).
+- [triage CTO-s6fix1 27/10] FIRST-WINDOW-CLEAR-TEXT: examples/first_window/first_window.cpp:9 diz "cleared by the CPU", o mesmo texto que a S6-fix1 corrigiu no shapes (C-1 da rev-s6); o clear é glClear, o CPU só codifica a cor.
+- [triage CTO-s6fix1 27/10] EXAMPLE-STATE-SHAPE: a struct example_state dos exemplos junta o contrato da linha de prontidão e a contagem de perdas do quadro (C-4 da rev-s6); nota para o CTO da T7, que decide o cabeçalho comum de exemplos pela regra de três (D-W8-1081); e o círculo K sem função própria contra a D-W8-1089.
+- [triage CTO-citation-fix1 27/10] CITATION-GRAMMAR-SPLIT: separar a gramática da citação de teste (as três regras, has_cited_test_reference e os controles dela) de tests/tools/citation_grammar.py num módulo próprio em tests/tools/, com o autoteste registrado em tests/CMakeLists.txt (o check_selftest_orphan.py exige); antes da PLAN-SCOPE-COLUMNS e da T7, que aterrissariam no mesmo arquivo (L-17 do projeto, pergunta 5; C-6 da revisão N1; D-W8-1158).
 
 
 

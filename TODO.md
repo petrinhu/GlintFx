@@ -194,6 +194,11 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage main 30/10] MOLD-LOCAL-LINK: o líder mandou instalar o mold (2.40.4) em 30/10 para poupar CPU e RAM. Decidir como os builds locais (tools/preci.sh e os clones dos agentes) passam a ligar com ele, por opção que nunca vira exigência para o consumidor (L-07) nem muda o CI; medir antes e depois o tempo e a memória do link. Nas ordens novas, depois da S6-fix1 e da CITATION-COMMON-WORD-fix1.
 - [triage main 30/10] BUILD-NICE-IONICE: o líder pediu (30/10) que as compilações e suítes locais do GlintFx (tools/preci.sh e os comandos das ordens) rodem com prioridade baixa de processador e de disco (nice e ionice classe idle ou best-effort baixa), para a máquina não ficar lenta para o líder nem para o outro projeto que a divide. Decidir a forma e medir que o resultado não muda. Junto com MOLD-LOCAL-LINK.
 - [triage main 30/10] BUILD-SPLIT-DWARF: o líder pediu (30/10) avaliar -gsplit-dwarf nas compilações locais de depuração e de sanitizer (o ligador lê menos e usa menos memória); só local, nunca exigência para o consumidor nem mudança no artefato instalado; medir tempo e memória do link antes e depois; conferir que ASan, UBSan e o gdb continuam funcionando. Junto com MOLD-LOCAL-LINK.
+- [triage CTO-h3a 30/10] H2-CLOSE-RECORD: a H2 (sombra projetada) entrou junto com a H1 (`aab52de6`; `tests/projected_shadow_test.cpp:181-199`), mas não tem registro de fechamento no plano nem na tabela; registrar.
+- [triage CTO-h3a 30/10] STENCIL-DEFAULTS-PUBLIC: a frase pública de que cada descarga devolve o stencil aos valores padrão do GL (D-W8-1184) vai para a H3b, em `include/glintfx/draw2d/renderer_2d.hpp:241`, com teste.
+- [triage CTO-h3a 30/10] H3B-SCOPE-GROWS: a lista de arquivos da H3b cresce (`vertex_stream.*` e o teste dele, `piece_list.hpp`, `renderer_2d_impl.cpp`, `frame_report_tally.*`) e há a decisão sobre o sentido de `draw_calls`; replanejar a H3b.
+- [triage CTO-h3a 30/10] DISCARD-TILED-COST: o custo do `discard` em GPU de ladrilhos (a queixa NanoVG 214); medir ou declarar.
+- [triage CTO-h3a 30/10] STENCIL-BITS-ZERO: ler os bits de stencil reais do alvo e decidir o que a sombra faz com 0 bits; decisão da H3b com o líder.
 
 
 

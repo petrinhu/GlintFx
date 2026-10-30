@@ -24,6 +24,7 @@
 #include "draw2d/ellipse_pixels.hpp"
 #include "draw2d/embedded_program.hpp"
 #include "draw2d/frame_report_tally.hpp"
+#include "draw2d/image_resolution.hpp"
 #include "draw2d/piece_list.hpp"
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
@@ -174,6 +175,10 @@ struct renderer_2d_impl {
                                                   std::uint32_t y,
                                                   const gltfx_image_view &image) noexcept;
 
+    // Installs the image resolver of this renderer and returns the one installed before
+    // (image_resolution.hpp; R2b). In this version no draw call asks it (D-W8-328).
+    gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;
+
     renderer_2d_impl(const renderer_2d_impl &) = delete;
     renderer_2d_impl &operator=(const renderer_2d_impl &) = delete;
 
@@ -273,6 +278,8 @@ struct renderer_2d_impl {
     // by every call; it lives inside this interior, which create() puts on the heap, as
     // ellipse_pixels.hpp asks. The piece list copies them.
     draw2d::ellipse_pixels ellipse_triangles;
+    // The image resolver the consumer installed (R2b): kept here, asked by nobody in this version.
+    draw2d::installed_image_resolver image_resolver;
 };
 
 } // namespace glintfx

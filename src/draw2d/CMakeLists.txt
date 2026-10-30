@@ -32,6 +32,9 @@ target_sources(glintfx_library PRIVATE
     renderer_2d_impl_textures.cpp
     textured_quad_corners.cpp
     renderer_2d_facade.cpp
+    image_resolution.cpp
+    renderer_2d_impl_image_resolver.cpp
+    renderer_2d_facade_image_resolver.cpp
     texture_upload.cpp
     texture_release.cpp
     texture_release_queue.cpp

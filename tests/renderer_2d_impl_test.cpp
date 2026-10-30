@@ -2612,3 +2612,28 @@ GLINTFX_TEST(renderer_2d_impl_a_large_ellipse_within_the_columns_of_the_surface_
     GLINTFX_CHECK_EQ(first_draw_count(), static_cast<int>(3U * (sent_vertex_count() - 1U)));
     renderer_2d_impl::destroy(renderer);
 }
+
+namespace {
+
+glintfx::gltfx_image_resolution
+impl_test_resolver(void *, const glintfx::gltfx_image_reference *) noexcept {
+    return {};
+}
+
+} // namespace
+
+// R2D-IMAGE-RESOLVER R2b: the frame machine keeps the resolver it was given and hands back the one
+// installed before; the question itself is image_resolution_test's.
+GLINTFX_TEST(renderer_2d_impl_keeps_the_installed_image_resolver) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    int resolver_context = 0; // not `context`: the fixture's fake_context is a global of that name
+    const glintfx::gltfx_image_resolver none =
+        renderer->set_image_resolver({impl_test_resolver, &resolver_context});
+    GLINTFX_CHECK(none.function == nullptr);
+    GLINTFX_CHECK(none.context == nullptr);
+    const glintfx::gltfx_image_resolver previous = renderer->set_image_resolver({});
+    GLINTFX_CHECK(previous.function == &impl_test_resolver);
+    GLINTFX_CHECK(previous.context == static_cast<void *>(&resolver_context));
+    renderer_2d_impl::destroy(renderer);
+}

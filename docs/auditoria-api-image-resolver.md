@@ -20,6 +20,7 @@
 - **D-W8-337 (Q-R08):** a ponte pinta cada camada em chamada própria.
 - **D-W8-338:** respostas de Q-R01 a Q-R08, marcadas na seção 7.
 - **D-W8-339:** o comentário da cerca de `image_resolver.hpp` que dizia que o motivo era contado já agora passa a dizer que nenhuma chamada pergunta ao resolvedor nesta versão. Os marcadores de planejamento da cerca (`[PENDENTE ...]`, `[PROPOSTA ...]` e `planned for fatia R2`) saem do texto.
+- **D-W8-1161 (completa a D-W8-339 na R2b):** a frase velha da cerca ("the piece is refused and counted in the frame report") sai; o comentário de `gltfx_image_reference` ganha a condição de redação da seção 3; o de `gltfx_image_resolution` diz "the picture does not paint"; e o `using` de `gltfx_image_resolver_fn` passa a ter a quebra de linha que o `clang-format` do projeto exige (o cabeçalho é cópia byte a byte da cerca, e o portão de formatação o lê).
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha.
 
@@ -56,13 +57,12 @@ Cabeçalho NOVO e o trecho do existente, como ficam na cópia de sonda `fixture`
 // The library never opens a file and never decodes an image. A stylesheet
 // writes url("...") and the library keeps that text. When a picture is
 // needed, the library ASKS the consumer which texture answers that text.
-// If nobody answers, the picture does not paint: the piece is refused and
-// counted in the frame report as image_without_owner, and the first unowned
-// reference of a frame is reported through the log sink (event below). In
-// this version no draw call asks the resolver: the first call that asks is the
-// one of the first paint bridge (GFSS-OBJECT-FIT or R2D-NINEPATCH), and the
-// counter and the event are born there. Each paint layer is its own call, so
-// a picture without an owner refuses only the picture, never the box behind it.
+// If nobody answers, the picture does not paint. In this version no draw
+// call asks the resolver: the first call that asks is the one of the first
+// paint bridge (GFSS-OBJECT-FIT or R2D-NINEPATCH), and the refusal reason,
+// the frame report counter and the log event image_without_owner are born
+// there (event below). Each paint layer is its own call, so a picture
+// without an owner refuses only the picture, never the box behind it.
 //
 // The question is asked at every paint. The answer is used inside that
 // paint call only: the library copies what it needs (the GL name and the
@@ -96,13 +96,14 @@ namespace glintfx {
 // What the library hands the resolver. The library builds it on its own
 // stack, once per question. The consumer reads it and never builds it. The
 // text is valid only during the resolver call: copy what you keep before you
-// return.
+// return. Never copy this struct, never take its size, and never keep a
+// pointer to it after the call: later versions add fields at its end.
 struct gltfx_image_reference {
     std::string_view text{};
 };
 
 // What the consumer answers. texture == nullptr means "no owner": the
-// piece is refused. The texture is borrowed for that one paint call and
+// picture does not paint. The texture is borrowed for that one paint call and
 // must stay alive through it, as in the texture drawing calls.
 struct gltfx_image_resolution {
     const gltfx_texture_2d *texture = nullptr;
@@ -112,8 +113,8 @@ struct gltfx_image_resolution {
 // A plain function pointer and an opaque context, never std::function (R8).
 // noexcept is part of the type: a resolver that is not noexcept does not
 // convert to this type (R8, reason 4).
-using gltfx_image_resolver_fn = gltfx_image_resolution (*)(
-    void *context, const gltfx_image_reference *reference) noexcept;
+using gltfx_image_resolver_fn =
+    gltfx_image_resolution (*)(void *context, const gltfx_image_reference *reference) noexcept;
 
 // The registration. The context is BORROWED (R10, layer 1): the library never
 // destroys it, and the consumer keeps it alive while the resolver is

@@ -151,6 +151,7 @@
 #include <glintfx/draw2d/draw_layer.hpp>
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
+#include <glintfx/draw2d/image_resolver.hpp>
 #include <glintfx/draw2d/renderer_2d.hpp>
 #include <glintfx/draw2d/renderer_2d_desc.hpp>
 #include <glintfx/draw2d/stroke.hpp>

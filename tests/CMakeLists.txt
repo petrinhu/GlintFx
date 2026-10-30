@@ -1961,6 +1961,15 @@ target_sources(pixel_premultiply_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
 )
 
+# R2D-IMAGE-RESOLVER R2b: the resolver installed in a renderer, asked directly (in this version no draw call asks it,
+# D-W8-328): install and swap, a null function is "no owner", the context and the text reach the resolver untouched,
+# the answer comes back unchanged, and a resolver that is not noexcept does not convert (static_assert matrix).
+glintfx_add_test(image_resolution_test)
+target_include_directories(image_resolution_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(image_resolution_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/image_resolution.cpp"
+)
+
 # R2D-BATCH B3b: the embedded drawing program against a table of FAKE GL functions. The test needs the
 # generated loader header (gl_functions.hpp, build tree) and the hand-written gl_abi.hpp (src/render), and
 # log_emit() from the library (exported, core/log/emit.hpp).
@@ -2010,6 +2019,12 @@ target_include_directories(renderer_2d_desc_check_test PRIVATE "${PROJECT_SOURCE
 # R2D-BATCH B4: the frame machine behind the public handle, against a FAKE host and a table of FAKE GL functions.
 glintfx_add_test(renderer_2d_impl_test)
 add_dependencies(renderer_2d_impl_test glintfx_gl_functions_generated)
+# R2D-IMAGE-RESOLVER R2b: renderer_2d_impl keeps the installed resolver (renderer_2d_impl_image_resolver.cpp and
+# image_resolution.cpp).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_image_resolver.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/image_resolution.cpp"
+)
 target_include_directories(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/render"

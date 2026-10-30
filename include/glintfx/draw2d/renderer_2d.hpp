@@ -15,6 +15,7 @@
 #include <glintfx/draw2d/draw_layer.hpp>
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
+#include <glintfx/draw2d/image_resolver.hpp>
 #include <glintfx/draw2d/renderer_2d_desc.hpp>
 #include <glintfx/draw2d/stroke.hpp>
 #include <glintfx/draw2d/texture_2d.hpp>
@@ -762,6 +763,15 @@ class gltfx_renderer_2d {
     // value along its band and black in its hole).
     GLINTFX_API void stroke_ellipse(gltfx_ellipse_world ellipse, gltfx_stroke stroke,
                                     gltfx_rgba color, gltfx_draw_layer layer = {}) noexcept;
+
+    // Installs the resolver of this renderer. Returns the one installed before,
+    // for whoever wants to put it back. Not [[nodiscard]]: almost everyone
+    // installs once and does not use the previous one (the same criterion as
+    // gltfx_log_set_sink, core/log/sink.hpp). A null function removes it. The
+    // swap is valid from the next paint call. A call that reenters the resolver
+    // (the resolver asks a paint, or installs another resolver) is a refusal,
+    // counted in the frame report, and it is born with the first paint bridge.
+    GLINTFX_API gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;
 
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}

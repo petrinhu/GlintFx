@@ -191,6 +191,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 - [triage CTO-s6fix1 27/10] FIRST-WINDOW-CLEAR-TEXT: examples/first_window/first_window.cpp:9 diz "cleared by the CPU", o mesmo texto que a S6-fix1 corrigiu no shapes (C-1 da rev-s6); o clear é glClear, o CPU só codifica a cor.
 - [triage CTO-s6fix1 27/10] EXAMPLE-STATE-SHAPE: a struct example_state dos exemplos junta o contrato da linha de prontidão e a contagem de perdas do quadro (C-4 da rev-s6); nota para o CTO da T7, que decide o cabeçalho comum de exemplos pela regra de três (D-W8-1081); e o círculo K sem função própria contra a D-W8-1089.
 - [triage CTO-citation-fix1 27/10] CITATION-GRAMMAR-SPLIT: separar a gramática da citação de teste (as três regras, has_cited_test_reference e os controles dela) de tests/tools/citation_grammar.py num módulo próprio em tests/tools/, com o autoteste registrado em tests/CMakeLists.txt (o check_selftest_orphan.py exige); antes da PLAN-SCOPE-COLUMNS e da T7, que aterrissariam no mesmo arquivo (L-17 do projeto, pergunta 5; C-6 da revisão N1; D-W8-1158).
+- [triage main 30/10] MOLD-LOCAL-LINK: o líder mandou instalar o mold (2.40.4) em 30/10 para poupar CPU e RAM. Decidir como os builds locais (tools/preci.sh e os clones dos agentes) passam a ligar com ele, por opção que nunca vira exigência para o consumidor (L-07) nem muda o CI; medir antes e depois o tempo e a memória do link. Nas ordens novas, depois da S6-fix1 e da CITATION-COMMON-WORD-fix1.
 
 
 

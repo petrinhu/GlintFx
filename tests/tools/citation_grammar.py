@@ -21,7 +21,8 @@
 # sozinha, sem numero (nao aponta pra evento nenhum); um SHA-formato
 # fora de crase (indistinguivel de prosa comum sem o envelope que
 # marca "isto e' um identificador tecnico", a mesma razao que faz
-# `docs/api-conventions.md` exigir crase em nome de teste); uma data
+# `docs/api-conventions.md` exigir crase num nome de teste feito so de
+# letras minusculas); uma data
 # sozinha (nao e' um identificador de execucao - toda linha datada
 # deste projeto tem data, e' o assunto do arquivo, nao prova de nada).
 #
@@ -55,12 +56,27 @@
 #      por causa de um "see" de outro paragrafo.
 #   3. FORMA DE IDENTIFICADOR: um nome feito SO de letras minusculas
 #      ("shapes", "textures") se le como palavra comum, e so conta
-#      ENTRE CRASES (`shapes`). Nome com qualquer outro caractere
-#      ("_", digito, maiuscula) e' identificador por si. E' a regra do
+#      ENTRE CRASES, uma colada antes e outra colada depois (`shapes`).
+#      Uma crase de um lado so e' caractere comum, como no CommonMark
+#      ("When a backtick string is not closed by a matching backtick
+#      string, we just have literal backticks"). Nome com qualquer
+#      outro caractere ("_", digito, maiuscula) e' identificador por
+#      si. E' a regra do
 #      Doxygen para link automatico ("words that contain at least one
 #      non-lower case character", e "\ref" para nome todo minusculo):
 #      sem ela, "Proved by: the shapes it draws" na MESMA frase seria
 #      citacao falsa.
+#
+# O NOME CONTA INTEIRO, nas tres regras: o nome do inventario so casa
+# entre fronteiras de palavra (\b) dos dois lados, e "_" e digito sao
+# parte da palavra. "wire_relay" (nome real) nao casa dentro de
+# "wire_relay_inventado_test" (que nao existe), nem "relay_test" no fim
+# de "wire_relay_test" - a mesma familia do link automatico que pegava
+# parte de uma palavra (Trac, ticket 322: "AlaBamA" linkava "AlaBam").
+# O "." e o "-" sao fronteira: "math2d_test.cpp" cita math2d_test, a
+# forma que a arvore escreve; pela mesma regra "wire_relay-x" citaria
+# wire_relay (perda declarada, L-40: hifen nao e' forma de nome de
+# teste deste projeto, que e' snake_case pela L-21).
 #
 # has_cited_test_reference() recebe DUAS juncoes do mesmo bloco -
 # separadas por espaco (o caso comum: uma frase que o reflow do
@@ -132,7 +148,14 @@ def has_dated_measurement_citation(text):
 
 # Regra 1: "proved"/"proven", ate quatro palavras (letras e hifen)
 # separadas por espaco ou virgula, "by", e o ":" opcional de "Proved
-# by:". O {0,4}? preguicoso pega o "by" mais proximo.
+# by:". O {0,4}? preguicoso pega o "by" mais proximo. Com os nomes
+# que um teste pode ter aqui, preguicoso e guloso dao o mesmo
+# resultado: so um nome feito so de letras caberia entre dois "by"
+# (o "_", o digito e a crase interrompem a palavra), o nome so de
+# minusculas precisa de crase, e a L-21 do projeto da' nome snake_case
+# a todo teste. Um nome de letras com maiuscula mudaria isso, e o
+# guloso passaria a pular o nome que esta entre dois "by" (revisao N1
+# da CITATION-COMMON-WORD, cosmetico C-5).
 _PROVED_BY_RE = re.compile(r"\bprov(?:ed|en)(?:[ ,]+[A-Za-z][A-Za-z-]*){0,4}?[ ,]+by\b:?", re.IGNORECASE)
 _SEE_RE = re.compile(r"\bsee\b", re.IGNORECASE)
 
@@ -166,6 +189,8 @@ def _sentence_scopes(text):
 
 
 def _is_enveloped(text, match):
+    """True quando o nome tem uma crase colada antes E outra colada
+    depois (regra 3); uma crase de um lado so nao e' envelope."""
     return text[match.start() - 1 : match.start()] == "`" and text[match.end() : match.end() + 1] == "`"
 
 
@@ -449,6 +474,61 @@ def _selftest_s6_common_word_in_prose_rejected():
     return True
 
 
+
+# VERMELHO da regra 3, o envelope de DOIS lados (CITATION-COMMON-WORD-
+# fix1, revisao N1, I-1): uma crase so de um lado nao e' envelope, e a
+# palavra comum continua palavra comum. docs/api-conventions.md promete
+# a crase colada antes E depois. Mutantes que matam: _is_enveloped sem
+# a conferencia da crase da direita (MRV1 da revisao) ou da esquerda.
+def _selftest_one_sided_backtick_rejected():
+    known = {"shapes"}
+    for spaced in (
+        "Measured on both platforms. Proved by: `shapes it draws, compared pixel by pixel.",
+        "Measured on both platforms. Proved by: the shapes` it draws, compared pixel by pixel.",
+    ):
+        got = has_cited_test_reference(spaced, spaced, known)
+        if got is not None:
+            print(f"selftest: CRASE-DE-UM-LADO FALHOU (crase de um lado so foi aceita como envelope): {spaced!r} -> {got!r}", file=sys.stderr)
+            return False
+    print("selftest: CRASE-DE-UM-LADO OK (nome so de minusculas com crase de um lado so nunca e citacao)")
+    return True
+
+
+# VERMELHO da tabela E3 com um nome que CONTEM um nome real (revisao N1,
+# I-2): o nome conta inteiro. "wire_relay_inventado_test" nao existe, e
+# o nome real "wire_relay" no comeco dele nao vira citacao; o espelho e'
+# o nome real "relay_test" no fim de "wire_relay_test". Mutantes que
+# matam: _names_pattern sem a fronteira \b da direita (MRV2 da revisao)
+# ou da esquerda.
+def _selftest_name_inside_longer_name_rejected():
+    for known, spaced in (
+        ({"wire_relay"}, "Measured live: proved by wire_relay_inventado_test on both platforms."),
+        ({"relay_test"}, "Measured live: proved by wire_relay_test on both platforms."),
+    ):
+        got = has_cited_test_reference(spaced, spaced, known)
+        if got is not None:
+            print(f"selftest: NOME-DENTRO-DE-OUTRO FALHOU (parte de um nome mais longo foi aceita como citacao): {spaced!r} -> {got!r}", file=sys.stderr)
+            return False
+    print("selftest: NOME-DENTRO-DE-OUTRO OK (so o nome inteiro conta; comeco ou fim de outro nome nunca e citacao)")
+    return True
+
+
+# VERMELHO da regra 2, o fechamento DEPOIS do ponto (revisao N1, C-4; a
+# regra das frases do Unicode, UAX #29, SB9 a SB11: o terminador, os
+# fechamentos, e so entao o espaco e a frase seguinte): em "(see the
+# table above.)" o ")" ainda e' da frase que o ponto fechou. Mutante que
+# mata: _SENTENCE_END_RE sem o grupo de fechamentos (MRV3 da revisao).
+def _selftest_closer_after_period_ends_the_sentence():
+    known = {"window_parity_test"}
+    spaced = "The refusal is identical on every platform (see the table above.) Unrelated: window_parity_test opens a window."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got is not None:
+        print(f"selftest: FECHAMENTO-DEPOIS-DO-PONTO FALHOU (o nome da frase seguinte foi aceito): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: FECHAMENTO-DEPOIS-DO-PONTO OK (ponto seguido de fechamento e de frase nova fecha a frase)")
+    return True
+
+
 def selftest_main():
     controls = [
         _selftest_run_citation_accepted(),
@@ -469,6 +549,9 @@ def selftest_main():
         _selftest_widened_trigger_accepted(),
         _selftest_five_words_between_rejected(),
         _selftest_s6_common_word_in_prose_rejected(),
+        _selftest_one_sided_backtick_rejected(),
+        _selftest_name_inside_longer_name_rejected(),
+        _selftest_closer_after_period_ends_the_sentence(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -77,13 +77,14 @@
 //     their own timing code, which is exactly the shape that turns an
 //     unqualified name into a silent wrong pick.
 //   - `gltfx_duration_between(earlier, later)` as a NAMED free
-//     function, not `operator-`: every other public function in this
-//     project today is named, not an operator overload: the
-//     collision-check gate's own awk scanner
-//     (tests/tools/check_public_name_collision.sh) has never been
-//     exercised against an operator declaration either. Staying inside
-//     the pattern already in use everywhere is the smaller, better
-//     understood surface - GODS_LAWS.md L-17's "monolito nasce por
+//     function, not `operator-`: when this header was written
+//     (28/08/2026), the only operator overloads any public header
+//     declared were the copy and move assignments of gltfx_err, every
+//     other public function was named, and the collision-check gate
+//     (tests/tools/check_public_name_collision.py since 04/09/2026)
+//     had never been exercised against an operator declaration
+//     either. A named function is the smaller, better understood
+//     surface - GODS_LAWS.md L-17's "monolito nasce por
 //     conveniencia local" cuts the other way just as well against
 //     "just this once, an operator is nicer to read".
 //   - field names `nanoseconds` (gltfx_duration) and `ticks`

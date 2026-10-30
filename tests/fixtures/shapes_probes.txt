@@ -1,10 +1,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# shapes_probes.txt - R2D-SHAPES S6 (D-W8-1083): the 62 probes of the example shapes, read on both systems (the Linux
-# capture in the protocol and the two Windows captures). Format: tests/tools/image_probe.py ("<x> <y> <RRGGBBAA>
-# [<tol>]", origin top-left, alpha included). Fixed BEFORE the data existed (GODS_LAWS.md L-43): every value comes
-# from the geometry of the scene and the sRGB formula, never from a capture. No probe lies within 2 pixels of a curved
-# or a slanted edge, so none depends on how a curve is cut into segments. The scene is in the header comment of
+# shapes_probes.txt - R2D-SHAPES S6 (D-W8-1083) and S6-fix1: the probes of the example shapes, read on both systems
+# (the Linux capture in the protocol and the two Windows captures); the drivers' tables fix how many. Format:
+# tests/tools/image_probe.py ("<x> <y> <RRGGBBAA> [<tol>]", origin top-left, alpha included). Fixed BEFORE the data
+# existed (GODS_LAWS.md L-43): every value comes from the geometry of the scene and the sRGB formula, never from a
+# capture. No probe lies within 2 pixels of a curved or a slanted edge, so none depends on how a curve is cut into
+# segments; the edges between the triangles of the hexagon D are not edges of the shape (two triangles that share an
+# edge leave no pixel of it uncovered, OpenGL 3.3 core, 3.6.1). The scene is in the header comment of
 # examples/shapes/shapes.cpp.
+#
+# WHAT THE PROBES PROVE: every piece is drawn, with its colour, where the scene puts it (to the limit below); where
+# two probes straddle an edge along the axes, one pixel inside and the next outside, that edge to the pixel; the three
+# caps, the three alignments, the two units, the two curve distances and the layer of the path; each of the six
+# triangles of D; the radii of D, H and K to 3 pixels each way and the radius of L to 5; the way H turns. WHAT THEY DO
+# NOT PROVE: a change that moves a curved or slanted edge less than about 2.5 pixels (2 pixels of margin from the true
+# edge, plus half a pixel past the changed one), and, past that, what no probe was put to read: the corners of B and
+# of C, the thickness of H and of the lines of I, and an up or down move of the centre of D, H, K or L.
 #
 # the background: the four corners and a point between the pieces; 0.2 encoded by the CPU = 124 = 0x7C
 0 0 7C7C7CFF 1
@@ -33,14 +43,26 @@
 400 27 1AF31FFF 24
 455 136 181CF5FF 23
 #
-# D, fill_indexed_triangles (the hexagon): the shared centre, a point near the corner at +x, a point outside
+# D, fill_indexed_triangles (the hexagon): the shared centre, a point near the corner at +x, a point outside; the
+#  centre of each of the six triangles the 18 indices name, in the order of the list, each more than 2 pixels from its
+#  three edges, so a triangle lost from the list fails its own probe; a point 2 pixels inside the left corner and one
+#  2 pixels outside it (the radius, 60, held to 3 pixels each way)
 560 80 FFFF00FF 0
 612 80 FFFF00FF 0
 612 30 7C7C7CFF 1
+590 97 FFFF00FF 0
+560 114 FFFF00FF 0
+530 97 FFFF00FF 0
+530 62 FFFF00FF 0
+560 45 FFFF00FF 0
+590 62 FFFF00FF 0
+505 85 FFFF00FF 0
+498 81 7C7C7CFF 1
 #
-# E, stroke_rect centered, white at alpha 0.5 over the background: 0.5 * 255 + 0.5 * 124 = 189.5; the band on both
-#  sides of the left edge (x 30), the top-left corner (covered ONCE, so the same value), the column before the band,
-#  the first column of the hole, the middle of the hole
+# E, stroke_rect centered, white at alpha 0.5 over the background, blended in the encoded values (renderer_2d.hpp):
+#  0.5 * 255 + 0.5 * 123.55 = 189.28, the byte 189 = 0xBD; the band on both sides of the left edge (x 30), the
+#  top-left corner (covered ONCE, so the same value), the column before the band, the first column of the hole, the
+#  middle of the hole
 27 240 BDBDBDFF 2
 33 240 BDBDBDFF 2
 27 187 BDBDBDFF 2
@@ -65,14 +87,23 @@
 351 240 7C7C7CFF 1
 #
 # H, stroke_ellipse (radii 55 and 30, turned 30 degrees, 10 thick): the band where it crosses the horizontal and the
-#  vertical line through the centre, the centre (the hole), a point above and one right of the band; each is valid
-#  whichever way the turn goes on the screen
+#  vertical line through the centre, the centre (the hole), a point above and one right of the band, each valid
+#  whichever way the turn goes; then the way it turns: a positive angle turns from +x toward +y, clockwise on the
+#  screen, so the far end of the long axis is down to the right (covered) and not up to the right (background); then
+#  the radii, each held to 3 pixels each way: the long one near the end of the long axis, the short one near the band
+#  above and below the centre
 602 240 0000FFFF 0
 518 240 0000FFFF 0
 560 240 7C7C7CFF 1
 560 207 0000FFFF 0
 560 193 7C7C7CFF 1
 625 240 7C7C7CFF 1
+607 267 0000FFFF 0
+607 212 7C7C7CFF 1
+612 262 0000FFFF 0
+616 264 7C7C7CFF 1
+574 210 0000FFFF 0
+527 262 7C7C7CFF 1
 #
 # I, stroke_line 28 thick, x 30 to 110: the body of the flat line off its black axis, and on each line a point on its
 #  axis 5.5 pixels past the end (flat: background; square and rounded: covered) and the point 11.5 pixels past the end
@@ -93,18 +124,24 @@
 240 417 7C7C7CFF 1
 #
 # K, fill_ellipse at the default curve distance: the centre, the point 49.5 pixels left of the centre (inside the
-#  circle of radius 55), a point above the circle
+#  circle of radius 55), a point above the circle; a point 52.50 pixels from the centre (inside) and one 57.28 pixels
+#  from it (outside): the radius held to 3 pixels each way
 400 400 00FF00FF 0
 350 400 00FF00FF 0
 400 340 7C7C7CFF 1
+452 400 00FF00FF 0
+440 359 7C7C7CFF 1
 #
 # L, the same circle from the renderer opened with a curve distance of 12 pixels: ceil(pi / acos(1 - 12 / 55)) = 5
 #  sides, a corner at +x (as draw2d_shapes_parity_test, C14), so its left side is the vertical line 44.5 pixels left
 #  of the centre: the point 49.5 pixels left is OUTSIDE the pentagon. The centre and a point near the corner at +x are
-#  covered
+#  covered. On the same line, 2.5 pixels inside the left side and 3.5 pixels outside it: the radius held to 5 pixels
+#  each way (3 pixels move a side of the pentagon only 2.43 pixels, less than a probe can read under the margins)
 560 400 00FF00FF 0
 510 400 7C7C7CFF 1
 607 400 00FF00FF 0
+518 400 00FF00FF 0
+512 400 7C7C7CFF 1
 #
 # M, the path that was asked for, drawn over the shapes in black, 2 pixels in pixel unit, on layer 1: on the left edge
 #  of E (over its half-transparent band), of F and of G, and on the axis of the flat line

@@ -19,7 +19,7 @@
 #      (D-W8-72); raw_to_png.py turns the pair into a PNG under <out>/<example>/png/ (the artifact a
 #      human looks at); ONLY with the right size, image_probe.py probes that PNG with the example's static
 #      probe file and must report exactly the count the table fixes, none failed (first_window 12,
-#      D-W8-72; shapes 62, D-W8-1083);
+#      D-W8-72; shapes: the count of EXAMPLES below, D-W8-1083);
 #   4. the alpha: the screen capture is XRGB8888 and carries none; raw_to_png.py gives it 255, so the
 #      probes' FF passes without measuring anything. The driver prints
 #      `MEASURED <example>.capture_alpha_compared=0` on EVERY run, so the absence is counted.
@@ -86,7 +86,7 @@ EXAMPLES = {
     "first_window": example_facts("GlintFx example: first window", "first_window: first frame presented",
                                   FIXTURES_DIR / "first_window_probes.txt", 12),
     "shapes": example_facts("GlintFx example: shapes", "shapes: first frame presented",
-                            FIXTURES_DIR / "shapes_probes.txt", 62),
+                            FIXTURES_DIR / "shapes_probes.txt", 80),
 }
 MOTIVO_BY_STATUS = {"ran": "PRONTA", "failed": "FALHA_DE_EXEMPLO_OU_FERRAMENTA", "incoherent": "INCOERENTE",
                     "unknown": "CODIGO_DESCONHECIDO"}
@@ -138,7 +138,7 @@ def example_dir(config):
     return config.out_dir / config.name
 
 
-def measured_alpha_line(config):
+def alpha_not_compared_line(config):
     return f"MEASURED {config.name}.capture_alpha_compared=0"
 
 
@@ -245,7 +245,7 @@ def run_example(config, run=run_process):
         judge_captures(config, run, result.checks)
     print(f"{SCRIPT_NAME}: verdict exemplo={config.name} motivo={result.motivo} codigo={code} status={status} "
           f"checks={result.checks} {'OK' if result.passed() else 'REPROVADO'}")
-    print(measured_alpha_line(config))
+    print(alpha_not_compared_line(config))
     return result.passed()
 
 

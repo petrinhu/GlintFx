@@ -2368,8 +2368,8 @@ jobs:
           exit "$codigo"
 
       # R2D-SHAPES S6 (D-W8-1081, D-W8-1084): o exemplo shapes, irmao do passo de cima (mesmo driver, mesma imagem,
-      # mesmo capture_out, subdiretorio shapes/), julgado pelas 62 sondas de tests/fixtures/shapes_probes.txt
-      # (D-W8-1083). Roda mesmo com o first_window vermelho: cada exemplo tem o seu veredito.
+      # mesmo capture_out, subdiretorio shapes/), julgado pelas sondas de tests/fixtures/shapes_probes.txt (D-W8-1083;
+      # a contagem e a da tabela do driver). Roda mesmo com o first_window vermelho: cada exemplo tem o seu veredito.
       - name: R2D-SHAPES - exemplo shapes capturado no protocolo dentro do container
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |

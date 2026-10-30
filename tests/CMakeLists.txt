@@ -7508,8 +7508,9 @@ if(WIN32 AND TARGET first_window)
 endif()
 
 # R2D-SHAPES S6 (D-W8-1081, D-W8-1084): the Windows side of the example shapes, registered exactly as first_window
-# above (the same driver, the same reasons for every line), judged with its 62 static probes
-# (tests/fixtures/shapes_probes.txt, D-W8-1083). The SAME name as the Linux capture in the container inventory.
+# above (the same driver, the same reasons for every line), judged with its static probes
+# (tests/fixtures/shapes_probes.txt, D-W8-1083; the count is the driver's table). The SAME name as the Linux capture
+# in the container inventory.
 if(WIN32 AND TARGET shapes)
     add_test(
         NAME shapes

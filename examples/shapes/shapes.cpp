@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // shapes.cpp - the GlintFx example of the 2D shapes (R2D-SHAPES): every shape the 2D renderer
-// draws, side by side, in one fixed scene drawn in every frame. A living proof, not a product: it
-// uses only the public API, and nothing here becomes a rule of the library. Read
-// examples/first_window/ first: it explains the window, the context and the loop, which this
-// example repeats with less comment.
+// fills or outlines with a plain colour, side by side, in one fixed scene drawn in every frame.
+// Drawing with a texture (draw_texture, draw_texture_quad, fill_textured_triangles and
+// fill_indexed_textured_triangles) is not in this example: it needs a texture made first, with
+// create_texture(). A living proof, not a product: it uses only the public API, and nothing here
+// becomes a rule of the library. Read examples/first_window/ first: it explains the window, the
+// context and the loop, which this example repeats with less comment.
 //
 // THE SCENE, in pixels of the buffer (origin at the top-left corner, y grows DOWN; a rectangle is
 // its corner and its size). The shapes are on layer 0 and none covers another; the black path
-// markers (M) are on layer 1, over them. The background is (0.2, 0.2, 0.2), cleared by the CPU.
+// markers (M) are on layer 1, over them. The background is the colour the first renderer clears
+// the frame with, (0.2, 0.2, 0.2).
 // Colours are linear light, alpha 1 unless said.
 //
 //   Row 1, filled shapes:
@@ -22,7 +25,9 @@
 //        each side of the edge, and no corner darker than a side.
 //     F  stroke_rect, inside: magenta, square at (190, 190); the whole thickness inside.
 //     G  stroke_rect, outside: cyan, square at (350, 190); the whole thickness outside.
-//     H  stroke_ellipse: blue, centre (560, 240), radii 55 and 30, turned by 30 degrees.
+//     H  stroke_ellipse: blue, centre (560, 240), radii 55 and 30, turned by 30 degrees. A
+//        positive angle turns from +x toward +y; y grows down, so the long axis goes down to the
+//        right: clockwise on the screen.
 //   Row 3:
 //     I  stroke_line, 28 thick: white, from x 30 to x 110, one line with each cap. Flat at y 350
 //        (it ends where the line ends), square at y 400 (half the thickness past each end),
@@ -38,10 +43,11 @@
 //        (the square each outline was given) and over I (the line from x 30 to x 110). It shows
 //        where each outline grows and how far each cap goes past the end.
 //
-// The CI reads 62 pixels of this scene (tests/fixtures/shapes_probes.txt says the expected colour
-// of each pixel and why). SCALE 1 IS ASSUMED AND DECLARED: the window is 640x480 logical pixels
-// and the scene is in physical pixels (renderer_2d.hpp), so a scaled desktop would move it. The
-// capture drivers refuse a capture that is not 640x480.
+// The CI reads pixels of this scene: tests/fixtures/shapes_probes.txt says the expected colour of
+// each pixel, why, and what the probes prove and what they do not. SCALE 1 IS ASSUMED AND
+// DECLARED: the window is 640x480 logical pixels and the scene is in physical pixels
+// (renderer_2d.hpp), so a scaled desktop would move it. The capture drivers refuse a capture that
+// is not 640x480.
 //
 // USAGE: shapes [--frames N]
 //   no argument: runs until the system asks to close the window, and exits 0;

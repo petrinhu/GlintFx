@@ -289,10 +289,10 @@ def selftest_process_level():
 
 
 def selftest_decided_scene_constants():
-    check("a tabela decidida: first_window com 12 sondas estaticas (D-W8-72), shapes com 62 (D-W8-1083), os dois "
+    check("a tabela decidida: first_window com 12 sondas estaticas (D-W8-72), shapes com 80 (D-W8-1083, S6-fix1), os dois "
           "arquivos em tests/fixtures/, e captura de 640x480",
           sorted(EXAMPLES) == ["first_window", "shapes"] and CAPTURE_SIZE == (640, 480)
-          and EXAMPLES["first_window"].probe_count == 12 and EXAMPLES["shapes"].probe_count == 62
+          and EXAMPLES["first_window"].probe_count == 12 and EXAMPLES["shapes"].probe_count == 80
           and EXAMPLES["first_window"].probes_file == REPO_ROOT / "tests" / "fixtures" / "first_window_probes.txt"
           and EXAMPLES["shapes"].probes_file == REPO_ROOT / "tests" / "fixtures" / "shapes_probes.txt")
 

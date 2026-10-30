@@ -12,8 +12,8 @@
 #   3. tests/tools/image_probe.py over that image, once per probe file of the example, each with exactly the number
 #      of probes the table fixes and none failed. first_window: the 12 static probes
 #      (tests/fixtures/first_window_probes.txt) and the 9 edge probes of the 30th drawn frame
-#      (tests/fixtures/first_window_probes_frames30.txt). shapes: the 62 probes of its static scene
-#      (tests/fixtures/shapes_probes.txt, D-W8-1083).
+#      (tests/fixtures/first_window_probes_frames30.txt). shapes: the probes of its static scene
+#      (tests/fixtures/shapes_probes.txt, D-W8-1083; the count is in the table below).
 # Output under <out-directory>/<example>/ (D-W8-90). The verdict line is always printed.
 #
 # USAGE: run_example_capture.sh [--env NAME=VALUE ...] <example> <container> <out-directory>
@@ -54,8 +54,10 @@ example_facts() {
             EXAMPLE_FRAMES=30  # D-W8-79: the 30th drawn frame is the one the edge probes read
             PROBE_SETS="estaticas:first_window_probes.txt:12 frames30:first_window_probes_frames30.txt:9" ;;
         shapes)
-            EXAMPLE_FRAMES=30  # D-W8-1083: the scene is the same in every frame; 30 frames prove the clear of each
-            PROBE_SETS="estaticas:shapes_probes.txt:62" ;;
+            # D-W8-1083: the scene is the same in every frame. The probes read the one image the capture keeps, the
+            # 30th drawn frame, as for first_window (D-W8-79): they prove that frame, not each of the 30.
+            EXAMPLE_FRAMES=30
+            PROBE_SETS="estaticas:shapes_probes.txt:80" ;;
         *) return 1 ;;
     esac
     EXAMPLE_NAME="$1"

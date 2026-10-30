@@ -126,7 +126,7 @@ selftest_table_first_window() {
 
 selftest_table_shapes() {
     example_facts shapes && [ "$EXAMPLE_NAME" = shapes ] && [ "$EXAMPLE_FRAMES" = 30 ] &&
-        [ "$PROBE_SETS" = "estaticas:shapes_probes.txt:62" ]
+        [ "$PROBE_SETS" = "estaticas:shapes_probes.txt:80" ]
 }
 
 # A name outside the table returns 1 and changes nothing.

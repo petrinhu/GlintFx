@@ -10720,3 +10720,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - o implementador da R2b v2 entra na árvore viva (o único implementador nela);
   - a revisão N1 da CITATION-COMMON-WORD-fix1 sai para um `qa-engineer` haiku novo, que lê o blob commitado e muta cópias fora da árvore;
   - a revisão N1 da S6-fix1 e o CTO da T6-B seguem nas cópias deles.
+- **30/10 20:23: o CI 41140372726 (cabeça `09791f6c`, a S6-fix1) saiu verde:** 25 trabalhos com sucesso e 1 pulado, inclusive as capturas reais do Windows. Em seguida o main empurrou até `89ce1c05` (a CITATION-COMMON-WORD-fix1 e os registros) e disparou o CI 41144184715. O próximo push espera esse CI terminar.

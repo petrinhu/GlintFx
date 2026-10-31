@@ -10743,3 +10743,16 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Sem porta de mão única. Pedem o olho do líder: o caractere tirado do portão, a linha 7 reescrita e a frase de `time.hpp`.
 - **D-W8-1007 (main):** a CITATION-COMMON-WORD-fix2 entra DEPOIS da R2b-fix1, como o CTO sugeriu: com o tronco vermelho no Clang, o passo 6b dela pararia por um defeito que não é dela. A ordem de entrada fica R2b-fix1, CITATION-COMMON-WORD-fix2, H3a e T6-B.
 - **D-W8-1008 (main), 30/10 23:47:** o furo PRECI-LINT-JOBS voltou a aparecer, agora no `preci` do CTO da R2b-fix1: carga de 24,5, com 41 processos de compilação e análise do GlintFx contra 4 do NotaLivre. Ele se repete em todo `preci` de pré-execução, de implementação e de revisão. Por isso a PRECI-LINT-JOBS sobe na fila: ela entra logo depois da R2b-fix1, como fatia própria e pequena, com ordem de um CTO, antes da CITATION-COMMON-WORD-fix2. O pico curto foi aceito pela nfse às 20:45.
+- **31/10 00:05: o CTO congelou a ordem da R2b-fix1** (`.trabalho/cto-w8/ordem-r2b-fix1.md`, md5 `ed3068db8683f152b22fb47d15453fa2`; anexos `ordens-anexos/r2b-fix1/anexos.md5`, md5 `24bd5176e6efe1f6c37b591e62865954`, 92 arquivos, `md5sum -c` rc 0, conferido pelo main).
+  - **Escopo:** etapa RF, 1 commit, 5 arquivos (`image_resolver.hpp` e `image_resolution_test.cpp` inteiros; trechos de `renderer_2d.hpp`, `renderer_2d_impl_test.cpp` e do parecer).
+  - **Pré-execução:** o Clang na árvore inteira reprova o tronco só em `image_resolution_test.cpp:74`, igual ao CI, e passa na árvore nova; 8 de 8 rodadas iguais ao pré-registro (22:52:03), inclusive o X2, que agora morre; MSVC 2/2; `preci --fast` 388/0 e `--sanitizer-only` 198/0.
+  - **Decisões D-W8-1240 a 1259:**
+    - C1 corrigido com `[[maybe_unused]]`, como no gêmeo;
+    - I4 ganha um caso com dois desenhadores;
+    - I1 separa no cabeçalho o que vale hoje do que vale no futuro;
+    - I2 diz que noexcept é promessa;
+    - I3 tira a frase "later versions add fields at its end";
+    - o estágio Clang do `preci` fica para fatia própria, e a ordem dita os passos Clang ao implementador e ao revisor.
+  - **Porta de mão única a ratificar pelo líder, D-W8-1247 (I3):** como a struct de pedido evolui. A recomendada é a (b): congelar o layout e trazer dado novo por tipo novo, como faz o Vulkan. As outras são (c') marcador de tamanho e (a) crescer no fim. A ordem aplica a (b), em modo autônomo.
+  - A H3a não precisa de errata (D-W8-1255): as duas fatias comutam, e a rodada verde dela sobre a fix1 deu 5 de 5.
+- **D-W8-1009 (main):** o implementador da R2b-fix1 entra na árvore viva agora, como o único implementador nela. Em paralelo, num clone, um CTO novo escreve uma fatia de `tools/preci.sh` que junta PRECI-LINT-JOBS (cota de núcleos no clang-tidy e no cppcheck) e PRECI-CLANG-BUILD (estágio Clang), porque as duas mexem no mesmo arquivo. Ela entra depois da R2b-fix1.

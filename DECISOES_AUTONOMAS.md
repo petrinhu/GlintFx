@@ -10862,3 +10862,22 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **INFERÊNCIA declarada:** quando a leitura dos bits de stencil dá erro de GL, o código confia no pedido de 8 bits.
   - **Pela pausa (D-W8-1027),** nada é despachado. Fila da retomada: H3a-fix1, depois H3b-1, depois a H3b-2 e a H3b-3.
 - **D-W8-1031 (main, 31/10 10:2x):** o CI 41203280428 do atlas (`80e51366`) fechou verde: 25 sucessos e 1 pulado, o normal.
+- **Ordem do líder, 31/10 11:1x, verbatim:** "Quando der a pausa, autorizo rm para limpar builds e tmp seus desnecessários."
+  - **Como o main lê essa ordem:** quando a T7 entregar, o main apaga os builds, os clones e os snapshots das pastas de trabalho, e também o `TMPDIR` do projeto.
+  - **O que fica:** ordens, anexos, relatórios, logs e arquivos `.rc`, porque as revisões N1 que estão na fila os leem; e a pasta `r21/`, que nunca se toca (D-W8-1021).
+- **D-W8-1032 (main, 31/10 11:2x):** o CTO da T7 entregou a ordem congelada `ordem-t7.md`, md5 `ea4aa8be`, anexos `1eeba863` (266 arquivos). O main conferiu: `md5sum -c` com rc 0.
+  - **Dois commits:** a etapa E, um harness comum para os exemplos (4 arquivos), e a etapa T, o exemplo `textures` (14 arquivos).
+  - **Camada (D-W8-1340):** N1 para o C++ dos exemplos e para as sondas; N3 para o resto.
+  - **Pré-execução:** 14 de 14 iguais ao pré-registrado; o PNG do `shapes` saiu byte a byte igual ao aprovado na S6; `preci --fast` verde com 392 testes, nas duas etapas; sanitizer verde com 202; MSVC 5 de 5.
+  - **Partida conferida pelo main:** os 11 arquivos novos da T6-B1, que a T7 conta, batem com o commit real `80e51366`.
+  - **Decisões:** D-W8-1340 a 1355; nenhuma é porta de mão única.
+  - **Pedem o olho do líder:** 1341 (a cena), 1340 (a camada), 1342 (o harness comum muda os dois exemplos de antes), 1345 (a sonda J1), 1346 (o nome do caso) e 1348 (o Windows só é provado pelo CI).
+  - **DISCOVERED_WORK, para a INBOX na retomada:** TEXTURE-EDGE-SAMPLING-DOC, PREMULTIPLIED-OVER-ALPHA-DOC, EXAMPLE-OPEN-SEQUENCE, README-RENDERER-PARAGRAPH, o gêmeo do `first_window` em SHAPES-LINUX-ARTIFACT-NAME e o nome do caso na linha do plano.
+  - **A pausa (D-W8-1027) está completa:** o atlas foi commitado e os dois CTOs entregaram. Nenhum agente está vivo. Fila da retomada, na ordem:
+    1. a revisão N1 da R2b-fix2;
+    2. a PRECI-FIX1;
+    3. a revisão N1 da T6-B1;
+    4. a H3a-fix1 e depois a H3b-1;
+    5. a T7, com o QA dela;
+    6. a ordem da T6-B2;
+    7. a H5, a G3 e a G4.

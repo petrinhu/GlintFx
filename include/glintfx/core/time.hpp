@@ -80,13 +80,13 @@
 //     function, not `operator-`: when this header was written
 //     (28/08/2026), the only operator overloads any public header
 //     declared were the copy and move assignments of gltfx_err, every
-//     other public function was named, and the collision-check gate
-//     (tests/tools/check_public_name_collision.py since 04/09/2026)
-//     had never been exercised against an operator declaration
-//     either. A named function is the smaller, better understood
-//     surface - GODS_LAWS.md L-17's "monolito nasce por
-//     conveniencia local" cuts the other way just as well against
-//     "just this once, an operator is nicer to read".
+//     other public function was named, and no self-test case of the
+//     collision-check gate (tests/tools/check_public_name_collision.sh
+//     then, tests/tools/check_public_name_collision.py since
+//     04/09/2026) declared an operator. A named function is the
+//     smaller, better understood surface - GODS_LAWS.md L-17's
+//     "monolito nasce por conveniencia local" cuts the other way just
+//     as well against "just this once, an operator is nicer to read".
 //   - field names `nanoseconds` (gltfx_duration) and `ticks`
 //     (gltfx_time_point), deliberately DIFFERENT words for the same
 //     underlying integer scale: `gltfx_duration::nanoseconds` is a

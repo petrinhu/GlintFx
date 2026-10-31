@@ -42,12 +42,18 @@
 #      mais ja nao sao a mesma locucao.
 #   2. ESCOPO DE FRASE: o nome tem de vir DEPOIS da frase-gatilho e
 #      ANTES do fim da frase dela. Fim de frase: ".", "!" ou "?",
-#      seguidos (depois de fechamentos opcionais ")", "]", aspas) do
-#      comeco da frase seguinte - letra MAIUSCULA, crase, "(" ou aspas,
-#      com ou sem espaco antes (a juncao sem separador cola as linhas)
-#      - ou do fim do texto. Por isso o ponto de "math2d_test.cpp", de
-#      "GODS_LAWS.md" ou de "e.g. the" nao fecha a frase (minuscula
-#      depois). Antes desta regra, qualquer
+#      seguidos (depois de fechamentos opcionais ")", "]" ou "'") do
+#      comeco da frase seguinte - letra MAIUSCULA de A a Z, crase, "("
+#      ou aspas duplas, com ou sem espaco antes (a juncao sem
+#      separador cola as linhas) - ou do fim do texto. As aspas duplas
+#      logo depois do terminador SEMPRE abrem a frase seguinte, mesmo
+#      com minuscula depois delas: por isso elas nao estao entre os
+#      fechamentos, onde seriam letra morta (o lookahead ja as aceita
+#      como abertura; a retirada foi provada equivalente por
+#      enumeracao na CITATION-COMMON-WORD-fix2). Cada caractere das
+#      tres classes tem o proprio vermelho no --selftest. Por isso o
+#      ponto de "math2d_test.cpp", de "GODS_LAWS.md" ou de "e.g. the"
+#      nao fecha a frase (minuscula depois). Antes desta regra, qualquer
 #      nome do inventario em QUALQUER lugar do bloco contava se uma
 #      frase-gatilho existisse em qualquer outro lugar dele: medido na
 #      pre-execucao da S6 (D-W8-1086), o exemplo `shapes` entrou no
@@ -94,10 +100,16 @@
 # `x`", "`x` proves this") nao conta - escreva a citacao numa das
 # formas acima; o fim de frase e' uma regra de texto, nao gramatica:
 # uma frase que comeca por minuscula depois de um ponto continua a
-# anterior (o escopo fica MAIS LARGO), "e.g. `x`" fecha a frase antes
-# do `x` (o escopo fica mais curto: escreva "e.g. the `x`" ou tire o
-# "e.g."), e um paragrafo sem ponto final emenda no seguinte, porque
-# o extrator une as linhas sem guardar a linha em branco; e a juncao
+# anterior (o escopo fica MAIS LARGO), "e.g. `x`", "e.g. (x" e
+# 'e.g. "x"' fecham a frase antes do x (o escopo fica mais curto:
+# escreva "e.g. the `x`" ou tire o "e.g."); aspas tipograficas e
+# maiuscula fora de A a Z nao abrem nem fecham frase (medido em
+# 30/10/2026: nenhum cabecalho publico tem uma depois de terminador);
+# os controles provam que cada caractere das tres classes faz o seu
+# papel, nao que um caractere de fora fica de fora (so a minuscula
+# depois do ponto tem controle, PONTO-DE-EXTENSAO); um paragrafo sem
+# ponto final emenda no seguinte, porque o extrator une as linhas sem
+# guardar a linha em branco; e a juncao
 # sem separador perde a frase-gatilho que o reflow partiu ao meio
 # ("Proved" no fim de uma linha, "by:" no comeco da outra) - nesse
 # caso so a juncao com espaco ve a frase-gatilho.
@@ -108,6 +120,7 @@
 
 import functools
 import re
+import string
 import sys
 
 SCRIPT_NAME = "citation_grammar.py"
@@ -160,7 +173,7 @@ _PROVED_BY_RE = re.compile(r"\bprov(?:ed|en)(?:[ ,]+[A-Za-z][A-Za-z-]*){0,4}?[ ,
 _SEE_RE = re.compile(r"\bsee\b", re.IGNORECASE)
 
 # Regra 2: o fim de frase, ver o comentario do topo.
-_SENTENCE_END_RE = re.compile(r"[.!?][)\]\"']*(?=\s*[A-Z`(\"]|\s*$)")
+_SENTENCE_END_RE = re.compile(r"[.!?][)\]']*(?=\s*[A-Z`(\"]|\s*$)")
 
 # Regra 3: nome feito so de letras minusculas.
 _LOWERCASE_WORD_RE = re.compile(r"[a-z]+")
@@ -474,7 +487,6 @@ def _selftest_s6_common_word_in_prose_rejected():
     return True
 
 
-
 # VERMELHO da regra 3, o envelope de DOIS lados (CITATION-COMMON-WORD-
 # fix1, revisao N1, I-1): uma crase so de um lado nao e' envelope, e a
 # palavra comum continua palavra comum. docs/api-conventions.md promete
@@ -529,6 +541,80 @@ def _selftest_closer_after_period_ends_the_sentence():
     return True
 
 
+# VERMELHO da regra 2, os TRES terminadores (CITATION-COMMON-WORD-fix2,
+# revisao N1 da fix1, I-A): docs/api-conventions.md promete ".", "!" e
+# "?". Mutantes que matam: tirar "!" ou "?" da classe (MREV-PONTO da
+# revisao tira os dois).
+def _selftest_every_terminator_ends_the_sentence():
+    known = {"window_parity_test"}
+    for terminator in ".!?":
+        spaced = f"The refusal is identical on every platform (see the table above){terminator} Unrelated: window_parity_test opens a window."
+        got = has_cited_test_reference(spaced, spaced, known)
+        if got is not None:
+            print(f"selftest: TERMINADORES FALHOU (o terminador {terminator!r} nao fechou a frase): {got!r}", file=sys.stderr)
+            return False
+    print("selftest: TERMINADORES OK ('.', '!' e '?' fecham a frase)")
+    return True
+
+
+# VERMELHO da regra 2, os fechamentos "]" e "'" e mais de um seguido
+# (revisao N1 da fix1, I-B; o ")" sozinho e' o de FECHAMENTO-DEPOIS-DO-
+# PONTO), e o VERDE do lado oposto: um fechamento seguido de minuscula
+# continua a frase. Mutantes que matam: tirar "]" ou "'" da classe
+# (MREV-FECHA da revisao tira os dois), ou aceitar um fechamento so.
+def _selftest_every_closer_after_the_terminator_ends_the_sentence():
+    known = {"window_parity_test"}
+    for closers in ("]", "'", "])"):
+        spaced = f"The refusal is identical on every platform [see the table above.{closers} Unrelated: window_parity_test opens a window."
+        got = has_cited_test_reference(spaced, spaced, known)
+        if got is not None:
+            print(f"selftest: FECHAMENTOS FALHOU (o fechamento {closers!r} nao fechou a frase): {got!r}", file=sys.stderr)
+            return False
+    spaced = "Measured live: see the 'frame.' window_parity_test reproduces it."
+    if has_cited_test_reference(spaced, spaced, known) != "window_parity_test":
+        print(f"selftest: FECHAMENTOS FALHOU (fechamento seguido de minuscula fechou a frase): {spaced!r}", file=sys.stderr)
+        return False
+    print("selftest: FECHAMENTOS OK (']', \"'\" e varios seguidos ficam na frase que o ponto fechou)")
+    return True
+
+
+# VERMELHO da regra 2, as aberturas (revisao N1 da fix1, I-C e I-D):
+# toda maiuscula de A a Z, "(" e aspas duplas abrem a frase seguinte
+# (a crase e' a de FRASE-COM-CRASE); e aspas duplas logo depois do
+# ponto abrem a frase mesmo com minuscula depois (o lado oposto do
+# VERDE de FECHAMENTOS). Mutantes que matam: tirar "(" (MREV-PARABERT)
+# ou as aspas (MREV-ASPAS) da classe, ou estreitar a faixa A-Z.
+def _selftest_every_opener_starts_a_new_sentence():
+    known = {"window_parity_test"}
+    starts = [letter + ":" for letter in string.ascii_uppercase] + ["(Unrelated:", '"Unrelated:']
+    texts = [f"The refusal is identical on every platform (see the table above). {start} window_parity_test opens a window." for start in starts]
+    texts.append('Measured live: see the "frame." window_parity_test reproduces it.')
+    for spaced in texts:
+        got = has_cited_test_reference(spaced, spaced, known)
+        if got is not None:
+            print(f"selftest: ABERTURAS FALHOU (o nome da frase seguinte foi aceito): {spaced!r} -> {got!r}", file=sys.stderr)
+            return False
+    print("selftest: ABERTURAS OK (maiuscula de A a Z, '(' e aspas duplas abrem a frase seguinte)")
+    return True
+
+
+# VERMELHO da regra 2 na juncao sem separador: o fim de frase vale sem
+# espaco nenhum entre o terminador e a frase seguinte (o reflow cola as
+# linhas). Mutante que mata: exigir espaco antes da abertura.
+def _selftest_sentence_end_without_space_in_tight_join():
+    known = {"window_parity_test"}
+    lines = [
+        "The refusal is identical on every platform (see the table above).",
+        "Unrelated: window_parity_test opens a window.",
+    ]
+    got = has_cited_test_reference(" ".join(lines), "".join(lines), known)
+    if got is not None:
+        print(f"selftest: JUNCAO-SEM-ESPACO FALHOU (o fim de frase sem espaco nao fechou a frase): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: JUNCAO-SEM-ESPACO OK (terminador colado na frase seguinte fecha a frase)")
+    return True
+
+
 def selftest_main():
     controls = [
         _selftest_run_citation_accepted(),
@@ -552,6 +638,10 @@ def selftest_main():
         _selftest_one_sided_backtick_rejected(),
         _selftest_name_inside_longer_name_rejected(),
         _selftest_closer_after_period_ends_the_sentence(),
+        _selftest_every_terminator_ends_the_sentence(),
+        _selftest_every_closer_after_the_terminator_ends_the_sentence(),
+        _selftest_every_opener_starts_a_new_sentence(),
+        _selftest_sentence_end_without_space_in_tight_join(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

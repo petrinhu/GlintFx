@@ -10849,3 +10849,16 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Desvios declarados:** o `draw2d_parity_test` marca 111 células contra as 106 da ordem (autorizado pela D-W8-1018), e o `erros_total` do Clang é 0 contra 1 do anexo, porque a correção da R2b já está no tronco.
   - **Achado de L-17, para o revisor:** o `texture_atlas_impl.cpp` junta três razões de mudar: a memória do interior, os recibos e a escrita na placa.
   - **Pela pausa (D-W8-1027),** a revisão N1 da T6-B NÃO é despachada; fica na fila da retomada. O status vai a 🔍 na retomada, junto com o TODO.
+- **D-W8-1030 (main, 31/10 09:57):** o CTO da H3b entregou duas ordens congeladas, provadas em clone. O main conferiu as duas: md5 iguais ao relatório e `md5sum -c` com rc 0.
+  - **`ordem-h3a-fix1.md`:** md5 `5878a8a1`, anexos `fc360eb0` (107 linhas). Etapa HF, camada N1, 1 commit, 9 arquivos.
+    - Conserta os dois achados da revisão da H3a: o nome do caso que prometia mais do que provava, e o `gl_stencil_contract` separado do `gl_state_contract`.
+    - Decisões D-W8-1320 a 1326.
+  - **`ordem-h3b.md` (a H3b-1, sem nada público):** md5 `7d821f3a`, anexos `eeff2d2b` (302 linhas). Etapa HB, camada N1, 1 commit, 12 arquivos. Entra depois da H3a-fix1.
+    - Decisões D-W8-1327 a 1339.
+    - A H3b vira três partes (D-W8-1327). A H3b-2 traz a fachada `fill_shadow`, `shadow_segments` e a leitura dos bits de stencil; a H3b-3 traz `draw_shadow_texture`.
+  - **Pré-execução da H3a-fix1:** 10 de 10 iguais ao pré-registrado; `preci --fast` verde com 389 testes; sanitizer verde com 199.
+  - **Pré-execução da H3b-1:** 13 de 13 iguais ao pré-registrado; fixtures verdes; `preci --fast` verde com 392 testes; sanitizer verde com 202.
+  - **Pedem o olho do líder:** o corte da H3b em três; o token `stencil_unavailable` e o contador dele; a frase de `draw_calls`; a frase dos padrões do stencil (H3b-2); os casos de stencil no mesmo arquivo de teste da fix1.
+  - **INFERÊNCIA declarada:** quando a leitura dos bits de stencil dá erro de GL, o código confia no pedido de 8 bits.
+  - **Pela pausa (D-W8-1027),** nada é despachado. Fila da retomada: H3a-fix1, depois H3b-1, depois a H3b-2 e a H3b-3.
+- **D-W8-1031 (main, 31/10 10:2x):** o CI 41203280428 do atlas (`80e51366`) fechou verde: 25 sucessos e 1 pulado, o normal.

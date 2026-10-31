@@ -70,8 +70,14 @@ gltfx_image_resolution resolver_b(void *context, const gltfx_image_reference *) 
 }
 
 // Not noexcept: the type of the resolver refuses it (image_resolver.hpp, "noexcept is part of the
-// type"). Never called; it exists only for the static_assert below.
-gltfx_image_resolution resolver_that_may_throw(void *, const gltfx_image_reference *) { return {}; }
+// type"). Never called; it exists only for the static_assert below, which reads it through
+// decltype, an operand that is never evaluated. [[maybe_unused]] says that on purpose, as in
+// loop_callbacks_type_test.cpp: without it, Clang sees that nothing will ever emit this body and
+// refuses it under -Werror,-Wunneeded-internal-declaration (the second compiler job of the CI).
+[[maybe_unused]] gltfx_image_resolution resolver_that_may_throw(void *,
+                                                                const gltfx_image_reference *) {
+    return {};
+}
 
 // The static_assert matrix: a noexcept function converts to the resolver type, one that is not
 // noexcept does not, and installing never throws, in the interior and in the public method.

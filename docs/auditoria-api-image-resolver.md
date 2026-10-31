@@ -21,6 +21,7 @@
 - **D-W8-338:** respostas de Q-R01 a Q-R08, marcadas na seção 7.
 - **D-W8-339:** o comentário da cerca de `image_resolver.hpp` que dizia que o motivo era contado já agora passa a dizer que nenhuma chamada pergunta ao resolvedor nesta versão. Os marcadores de planejamento da cerca (`[PENDENTE ...]`, `[PROPOSTA ...]` e `planned for fatia R2`) saem do texto.
 - **D-W8-1161 (completa a D-W8-339 na R2b):** a frase velha da cerca ("the piece is refused and counted in the frame report") sai; o comentário de `gltfx_image_reference` ganha a condição de redação da seção 3; o de `gltfx_image_resolution` diz "the picture does not paint"; e o `using` de `gltfx_image_resolver_fn` passa a ter a quebra de linha que o `clang-format` do projeto exige (o cabeçalho é cópia byte a byte da cerca, e o portão de formatação o lê).
+- **D-W8-1243, D-W8-1244, D-W8-1247, D-W8-1248 e D-W8-1249 (R2b-fix1, depois da revisão N1 da R2b v2):** a cerca separa o que esta versão faz do que nasce com a primeira ponte de pintura (a pergunta a cada pintura e a cópia do nome GL e da região passam a ser da ponte; o `Proved by:` cobre só o presente e cita também `renderer_2d_impl_test`); a camada 1 da R10 ganha a verdade de que `noexcept` é promessa, não prova (`std::terminate`); o contexto emprestado passa a citar a camada 2 da R10, não a 1; a frase "later versions add fields at its end" sai, e a condição de redação da seção 3 fica como estava (como a struct de pedido evolui é decisão do líder, D-W8-1247); e o trecho de `renderer_2d.hpp` diz que cada desenhador guarda o seu resolvedor e que, nesta versão, a biblioteca nunca o chama, então nada o reentra.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha.
 
@@ -64,12 +65,12 @@ Cabeçalho NOVO e o trecho do existente, como ficam na cópia de sonda `fixture`
 // there (event below). Each paint layer is its own call, so a picture
 // without an owner refuses only the picture, never the box behind it.
 //
-// The question is asked at every paint. The answer is used inside that
-// paint call only: the library copies what it needs (the GL name and the
-// region) before the call returns, and it never keeps the texture pointer.
-// The texture belongs to the consumer, and so does its lifetime (GODS_LAWS.md
-// L-19). The resolver runs on the renderer's own thread, the only thread
-// renderer_2d.hpp allows to use that renderer.
+// From the first paint bridge on, the question is asked at every paint, on
+// the renderer's own thread (the only thread renderer_2d.hpp allows to use
+// that renderer), and the answer is used inside that paint call only: the
+// library copies what it needs (the GL name and the region) before the call
+// returns, and it never keeps the texture pointer. The texture belongs to
+// the consumer, and so does its lifetime (GODS_LAWS.md L-19).
 //
 // The reference is the text the stylesheet wrote between the quotes, kept
 // VERBATIM (D3): the reader in gfss decodes nothing, and the CSS escapes
@@ -89,7 +90,11 @@ Cabeçalho NOVO e o trecho do existente, como ficam na cópia de sonda `fixture`
 // previous frame reported. A frame with no unowned reference clears that
 // memory, so "A, nothing, A" emits twice.
 //
-// Proved by: image_resolution_test.
+// Proved by: image_resolution_test (what this version does, asked
+// directly: install and swap, the null function, the context, the text and
+// the answer) and renderer_2d_impl_test (each renderer keeps its own
+// resolver). The paint, the refusal, the counter and the event above are not
+// in this version, and no test stands for them yet.
 
 namespace glintfx {
 
@@ -97,7 +102,7 @@ namespace glintfx {
 // stack, once per question. The consumer reads it and never builds it. The
 // text is valid only during the resolver call: copy what you keep before you
 // return. Never copy this struct, never take its size, and never keep a
-// pointer to it after the call: later versions add fields at its end.
+// pointer to it after the call.
 struct gltfx_image_reference {
     std::string_view text{};
 };
@@ -112,14 +117,18 @@ struct gltfx_image_resolution {
 
 // A plain function pointer and an opaque context, never std::function (R8).
 // noexcept is part of the type: a resolver that is not noexcept does not
-// convert to this type (R8, reason 4).
+// convert to this type (R8, reason 4). That noexcept is a PROMISE, not a
+// proof (R10, layer 1): a resolver declared noexcept that throws anyway ends
+// the consumer's process (std::terminate) the instant the exception tries to
+// leave it, and nothing in this library, or on either side of this boundary,
+// can stop that.
 using gltfx_image_resolver_fn =
     gltfx_image_resolution (*)(void *context, const gltfx_image_reference *reference) noexcept;
 
-// The registration. The context is BORROWED (R10, layer 1): the library never
-// destroys it, and the consumer keeps it alive while the resolver is
-// installed. function == nullptr means "no resolver": every reference is
-// then unowned.
+// The registration. The context is BORROWED (R10, layer 2: there is no
+// destroy function): the library never destroys it, and the consumer keeps
+// it alive while the resolver is installed. function == nullptr means "no
+// resolver": every reference is then unowned.
 struct gltfx_image_resolver {
     gltfx_image_resolver_fn function = nullptr;
     void *context = nullptr;
@@ -136,10 +145,15 @@ struct gltfx_image_resolver {
     // Installs the resolver of this renderer. Returns the one installed before,
     // for whoever wants to put it back. Not [[nodiscard]]: almost everyone
     // installs once and does not use the previous one (the same criterion as
-    // gltfx_log_set_sink, core/log/sink.hpp). A null function removes it. The
-    // swap is valid from the next paint call. A call that reenters the resolver
+    // gltfx_log_set_sink, core/log/sink.hpp). A null function removes it. Each
+    // renderer keeps its own: installing in one never changes another. In this
+    // version no draw call asks the resolver, so the library never calls it
+    // and nothing can reenter it. From the first paint bridge on, the swap is
+    // valid from the next paint call, and a call that reenters the resolver
     // (the resolver asks a paint, or installs another resolver) is a refusal,
-    // counted in the frame report, and it is born with the first paint bridge.
+    // counted in the frame report.
+    // Proved by: renderer_2d_impl_test (the interior this method forwards to:
+    // the previous one comes back, and two renderers keep their own).
     GLINTFX_API gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;
 ```
 

@@ -2637,3 +2637,36 @@ GLINTFX_TEST(renderer_2d_impl_keeps_the_installed_image_resolver) {
     GLINTFX_CHECK(previous.context == static_cast<void *>(&resolver_context));
     renderer_2d_impl::destroy(renderer);
 }
+
+namespace {
+
+glintfx::gltfx_image_resolution
+impl_test_other_resolver(void *, const glintfx::gltfx_image_reference *) noexcept {
+    return {};
+}
+
+} // namespace
+
+// R2D-IMAGE-RESOLVER R2b-fix1: the resolver belongs to ONE renderer (renderer_2d.hpp, "the resolver
+// of this renderer"). Two renderers alive at once: installing in the first never reaches the
+// second, and each hands back the one installed in it, never the other's.
+GLINTFX_TEST(renderer_2d_impl_two_renderers_keep_their_own_image_resolver) {
+    reset();
+    renderer_2d_impl *first_renderer = make(true);
+    renderer_2d_impl *second_renderer = make(true);
+    int first_resolver_context = 0;
+    int second_resolver_context = 0;
+    (void)first_renderer->set_image_resolver({impl_test_resolver, &first_resolver_context});
+    const glintfx::gltfx_image_resolver second_none =
+        second_renderer->set_image_resolver({impl_test_other_resolver, &second_resolver_context});
+    GLINTFX_CHECK(second_none.function == nullptr);
+    GLINTFX_CHECK(second_none.context == nullptr);
+    const glintfx::gltfx_image_resolver first_back = first_renderer->set_image_resolver({});
+    GLINTFX_CHECK(first_back.function == &impl_test_resolver);
+    GLINTFX_CHECK(first_back.context == static_cast<void *>(&first_resolver_context));
+    const glintfx::gltfx_image_resolver second_back = second_renderer->set_image_resolver({});
+    GLINTFX_CHECK(second_back.function == &impl_test_other_resolver);
+    GLINTFX_CHECK(second_back.context == static_cast<void *>(&second_resolver_context));
+    renderer_2d_impl::destroy(second_renderer);
+    renderer_2d_impl::destroy(first_renderer);
+}

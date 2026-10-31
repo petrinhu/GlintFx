@@ -767,10 +767,15 @@ class gltfx_renderer_2d {
     // Installs the resolver of this renderer. Returns the one installed before,
     // for whoever wants to put it back. Not [[nodiscard]]: almost everyone
     // installs once and does not use the previous one (the same criterion as
-    // gltfx_log_set_sink, core/log/sink.hpp). A null function removes it. The
-    // swap is valid from the next paint call. A call that reenters the resolver
+    // gltfx_log_set_sink, core/log/sink.hpp). A null function removes it. Each
+    // renderer keeps its own: installing in one never changes another. In this
+    // version no draw call asks the resolver, so the library never calls it
+    // and nothing can reenter it. From the first paint bridge on, the swap is
+    // valid from the next paint call, and a call that reenters the resolver
     // (the resolver asks a paint, or installs another resolver) is a refusal,
-    // counted in the frame report, and it is born with the first paint bridge.
+    // counted in the frame report.
+    // Proved by: renderer_2d_impl_test (the interior this method forwards to:
+    // the previous one comes back, and two renderers keep their own).
     GLINTFX_API gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;
 
   private:

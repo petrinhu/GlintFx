@@ -19,12 +19,12 @@
 // there (event below). Each paint layer is its own call, so a picture
 // without an owner refuses only the picture, never the box behind it.
 //
-// The question is asked at every paint. The answer is used inside that
-// paint call only: the library copies what it needs (the GL name and the
-// region) before the call returns, and it never keeps the texture pointer.
-// The texture belongs to the consumer, and so does its lifetime (GODS_LAWS.md
-// L-19). The resolver runs on the renderer's own thread, the only thread
-// renderer_2d.hpp allows to use that renderer.
+// From the first paint bridge on, the question is asked at every paint, on
+// the renderer's own thread (the only thread renderer_2d.hpp allows to use
+// that renderer), and the answer is used inside that paint call only: the
+// library copies what it needs (the GL name and the region) before the call
+// returns, and it never keeps the texture pointer. The texture belongs to
+// the consumer, and so does its lifetime (GODS_LAWS.md L-19).
 //
 // The reference is the text the stylesheet wrote between the quotes, kept
 // VERBATIM (D3): the reader in gfss decodes nothing, and the CSS escapes
@@ -44,7 +44,11 @@
 // previous frame reported. A frame with no unowned reference clears that
 // memory, so "A, nothing, A" emits twice.
 //
-// Proved by: image_resolution_test.
+// Proved by: image_resolution_test (what this version does, asked
+// directly: install and swap, the null function, the context, the text and
+// the answer) and renderer_2d_impl_test (each renderer keeps its own
+// resolver). The paint, the refusal, the counter and the event above are not
+// in this version, and no test stands for them yet.
 
 namespace glintfx {
 
@@ -52,7 +56,7 @@ namespace glintfx {
 // stack, once per question. The consumer reads it and never builds it. The
 // text is valid only during the resolver call: copy what you keep before you
 // return. Never copy this struct, never take its size, and never keep a
-// pointer to it after the call: later versions add fields at its end.
+// pointer to it after the call.
 struct gltfx_image_reference {
     std::string_view text{};
 };
@@ -67,14 +71,18 @@ struct gltfx_image_resolution {
 
 // A plain function pointer and an opaque context, never std::function (R8).
 // noexcept is part of the type: a resolver that is not noexcept does not
-// convert to this type (R8, reason 4).
+// convert to this type (R8, reason 4). That noexcept is a PROMISE, not a
+// proof (R10, layer 1): a resolver declared noexcept that throws anyway ends
+// the consumer's process (std::terminate) the instant the exception tries to
+// leave it, and nothing in this library, or on either side of this boundary,
+// can stop that.
 using gltfx_image_resolver_fn =
     gltfx_image_resolution (*)(void *context, const gltfx_image_reference *reference) noexcept;
 
-// The registration. The context is BORROWED (R10, layer 1): the library never
-// destroys it, and the consumer keeps it alive while the resolver is
-// installed. function == nullptr means "no resolver": every reference is
-// then unowned.
+// The registration. The context is BORROWED (R10, layer 2: there is no
+// destroy function): the library never destroys it, and the consumer keeps
+// it alive while the resolver is installed. function == nullptr means "no
+// resolver": every reference is then unowned.
 struct gltfx_image_resolver {
     gltfx_image_resolver_fn function = nullptr;
     void *context = nullptr;

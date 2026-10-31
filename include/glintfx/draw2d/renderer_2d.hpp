@@ -774,6 +774,10 @@ class gltfx_renderer_2d {
     // valid from the next paint call, and a call that reenters the resolver
     // (the resolver asks a paint, or installs another resolver) is a refusal,
     // counted in the frame report.
+    // Proved by: draw2d_parity_test (this method on two renderers open at
+    // once, each on its own real context, on both systems: the first install
+    // in each hands back none, neither gets the other's, emptying each hands
+    // back the one installed in it, and emptying again hands back none).
     // Proved by: renderer_2d_impl_test (the interior this method forwards to:
     // the previous one comes back, and two renderers keep their own).
     GLINTFX_API gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;

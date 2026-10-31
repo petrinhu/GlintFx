@@ -11,9 +11,11 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/draw2d/image_resolver.hpp>
 #include <glintfx/draw2d/renderer_2d.hpp>
 #include <glintfx/draw2d/texture_2d.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
+#include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
 #include <glintfx/platform/window/display.hpp>
@@ -60,6 +62,10 @@
 //     skips 0, no texture bound, unit 0 active and no GL error; an empty update has a value and
 //     leaves no GL error; a rectangle past the texture is refused as "rect", a texture made without
 //     updatable as "updatable" and a moved-from handle as "texture".
+//   - set_image_resolver() (R2D-IMAGE-RESOLVER R2b-fix2) through the PUBLIC handle, on the two
+//     renderers of the two-window cell, alive at once: the first install in each hands back none,
+//     the second never gets the first one's resolver, emptying each hands back the one installed
+//     in it (function AND context), and emptying again hands back none.
 // The surface encoding is read in BOTH modes: two contexts opened in sequence, because
 // srgb_framebuffer is open_only. A driver that does not support the option is a DECLARED and
 // COUNTED absence (printed, and a MEASURED key, listed per platform in
@@ -1049,7 +1055,7 @@ bool switch_to(drawing_window &w, const char *name) {
     const auto current = w.context->make_current();
     const std::string what = std::string("make_current do teste na janela ") + name;
     if (current.has_error()) {
-        report(cells_of(w), what.c_str(), false); // only a FAILURE is a cell: the count stays at 10
+        report(cells_of(w), what.c_str(), false); // only a FAILURE is a cell, never a success
     }
     return current.has_value();
 }
@@ -1100,6 +1106,46 @@ void check_window_pixels(drawing_window &w, const char *name, const pixel (&want
     }
 }
 
+// The two resolvers of cell RS (R2D-IMAGE-RESOLVER R2b-fix2). The library never calls them in this
+// version (renderer_2d.hpp). Their bodies differ on purpose: "/OPT:ICF can cause the same address
+// to be assigned to different functions" (MSVC, /OPT documentation), and two empty bodies could
+// share one. The cell compares the context too, which no linker folds.
+glintfx::gltfx_image_resolution
+resolver_of_window_a(void *, const glintfx::gltfx_image_reference *) noexcept {
+    return {};
+}
+glintfx::gltfx_image_resolution
+resolver_of_window_b(void *, const glintfx::gltfx_image_reference *) noexcept {
+    return {nullptr, {{}, glintfx::gltfx_texture_mirror::flip_left_right}};
+}
+
+bool resolver_is(glintfx::gltfx_image_resolver got, glintfx::gltfx_image_resolver_fn want_function,
+                 void *want_context) {
+    return got.function == want_function && got.context == want_context;
+}
+
+// Cell RS: set_image_resolver() through the PUBLIC handle, on the two renderers of this cell, alive
+// at once. renderer_2d_impl_test proves the interior; this cell proves the handle forwards to it
+// and hands back what the interior hands back, renderer by renderer.
+void cell_image_resolver_per_renderer(drawing_window &a, drawing_window &b) {
+    int context_of_a = 0;
+    int context_of_b = 0;
+    const cells_context ca = cells_of(a);
+    const cells_context cb = cells_of(b);
+    report(ca, "RS1 A instala e recebe nenhum",
+           resolver_is(a.renderer->set_image_resolver({resolver_of_window_a, &context_of_a}),
+                       nullptr, nullptr));
+    report(cb, "RS2 B instala e recebe nenhum, nunca o de A",
+           resolver_is(b.renderer->set_image_resolver({resolver_of_window_b, &context_of_b}),
+                       nullptr, nullptr));
+    report(ca, "RS3 A esvaziado devolve o de A",
+           resolver_is(a.renderer->set_image_resolver({}), resolver_of_window_a, &context_of_a));
+    report(cb, "RS4 B esvaziado devolve o de B",
+           resolver_is(b.renderer->set_image_resolver({}), resolver_of_window_b, &context_of_b));
+    report(ca, "RS5 A esvaziado de novo devolve nenhum",
+           resolver_is(a.renderer->set_image_resolver({}), nullptr, nullptr));
+}
+
 // Both renderers die before either context, and both contexts before either window.
 void close_in_order(drawing_window &a, drawing_window &b) {
     a.renderer.reset();
@@ -1138,6 +1184,7 @@ bool cell_two_windows(glintfx::gltfx_display &display) {
             check_window_pixels(b, "B", want_b);
         }
     }
+    cell_image_resolver_per_renderer(a, b);
     close_in_order(a, b);
     return true;
 }

@@ -46,9 +46,10 @@
 //
 // Proved by: image_resolution_test (what this version does, asked
 // directly: install and swap, the null function, the context, the text and
-// the answer) and renderer_2d_impl_test (each renderer keeps its own
-// resolver). The paint, the refusal, the counter and the event above are not
-// in this version, and no test stands for them yet.
+// the answer), renderer_2d_impl_test (each renderer keeps its own resolver)
+// and draw2d_parity_test (the same through gltfx_renderer_2d, two renderers
+// open at once on real contexts). The paint, the refusal, the counter and
+// the event above are not in this version, and no test stands for them yet.
 
 namespace glintfx {
 

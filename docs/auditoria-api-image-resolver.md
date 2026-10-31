@@ -22,6 +22,7 @@
 - **D-W8-339:** o comentário da cerca de `image_resolver.hpp` que dizia que o motivo era contado já agora passa a dizer que nenhuma chamada pergunta ao resolvedor nesta versão. Os marcadores de planejamento da cerca (`[PENDENTE ...]`, `[PROPOSTA ...]` e `planned for fatia R2`) saem do texto.
 - **D-W8-1161 (completa a D-W8-339 na R2b):** a frase velha da cerca ("the piece is refused and counted in the frame report") sai; o comentário de `gltfx_image_reference` ganha a condição de redação da seção 3; o de `gltfx_image_resolution` diz "the picture does not paint"; e o `using` de `gltfx_image_resolver_fn` passa a ter a quebra de linha que o `clang-format` do projeto exige (o cabeçalho é cópia byte a byte da cerca, e o portão de formatação o lê).
 - **D-W8-1243, D-W8-1244, D-W8-1247, D-W8-1248 e D-W8-1249 (R2b-fix1, depois da revisão N1 da R2b v2):** a cerca separa o que esta versão faz do que nasce com a primeira ponte de pintura (a pergunta a cada pintura e a cópia do nome GL e da região passam a ser da ponte; o `Proved by:` cobre só o presente e cita também `renderer_2d_impl_test`); a camada 1 da R10 ganha a verdade de que `noexcept` é promessa, não prova (`std::terminate`); o contexto emprestado passa a citar a camada 2 da R10, não a 1; a frase "later versions add fields at its end" sai, e a condição de redação da seção 3 fica como estava (como a struct de pedido evolui é decisão do líder, D-W8-1247); e o trecho de `renderer_2d.hpp` diz que cada desenhador guarda o seu resolvedor e que, nesta versão, a biblioteca nunca o chama, então nada o reentra.
+- **D-W8-1282 e D-W8-1283 (R2b-fix2, depois da revisão N1 da R2b-fix1):** o `Proved by:` do trecho de `renderer_2d.hpp` passa a citar primeiro `draw2d_parity_test`, o caso que chama o próprio `set_image_resolver` pela alça pública em dois desenhadores abertos ao mesmo tempo, cada um sobre um contexto GL de verdade, nos dois sistemas (antes, nenhum teste executava a fachada, e um mutante que deixava de devolver o anterior passava); e o `Proved by:` da cerca cita o mesmo caso para "cada desenhador guarda o seu".
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha.
 
@@ -92,9 +93,10 @@ Cabeçalho NOVO e o trecho do existente, como ficam na cópia de sonda `fixture`
 //
 // Proved by: image_resolution_test (what this version does, asked
 // directly: install and swap, the null function, the context, the text and
-// the answer) and renderer_2d_impl_test (each renderer keeps its own
-// resolver). The paint, the refusal, the counter and the event above are not
-// in this version, and no test stands for them yet.
+// the answer), renderer_2d_impl_test (each renderer keeps its own resolver)
+// and draw2d_parity_test (the same through gltfx_renderer_2d, two renderers
+// open at once on real contexts). The paint, the refusal, the counter and
+// the event above are not in this version, and no test stands for them yet.
 
 namespace glintfx {
 
@@ -152,6 +154,10 @@ struct gltfx_image_resolver {
     // valid from the next paint call, and a call that reenters the resolver
     // (the resolver asks a paint, or installs another resolver) is a refusal,
     // counted in the frame report.
+    // Proved by: draw2d_parity_test (this method on two renderers open at
+    // once, each on its own real context, on both systems: the first install
+    // in each hands back none, neither gets the other's, emptying each hands
+    // back the one installed in it, and emptying again hands back none).
     // Proved by: renderer_2d_impl_test (the interior this method forwards to:
     // the previous one comes back, and two renderers keep their own).
     GLINTFX_API gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;

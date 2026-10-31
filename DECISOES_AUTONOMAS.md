@@ -10792,3 +10792,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A ratificar pelo líder:** D-W8-1280 a 1299. Portas de mão única: D-W8-1282 (a prova da fachada fica no teste de paridade, sem costura de teste no cabeçalho público) e D-W8-1283 (as linhas `Proved by:` de dois cabeçalhos públicos mudam por decisão de agente; nenhum tipo nem assinatura muda).
   - **Desvio do CTO, declarado por ele:** editou `clang_ct.sh` durante a rodada estática da BASE, e o fim daquele log veio da versão nova. Os números da árvore NOVA saíram de scripts já congelados.
   - **Trabalho descoberto (INBOX quando a TODO estiver livre):** FACADE-FORWARD-COVERAGE (os 3 ou 4 métodos de fachada sem chamador, e fazer o `check_claim_citations.py` exigir que o teste citado chame o método pela fachada, que é o furo por onde a família passou duas vezes); R2D-NULL-CONTEXT (contexto público que não desenha; decisão do líder, porta de mão única); IMPL-TEST-SPLIT (`renderer_2d_impl_test.cpp` com 2672 linhas); ICF do MSVC no caso de dois desenhadores do interior (inferência, não medida).
+- **D-W8-1019 (main, 31/10 04:5x):** a revisão N1 da H3a (`6061a219`) saiu **NÃO LIMPA**, sem CRÍTICO. Veredito em `.trabalho/cto-w8/rev-h3a.txt`.
+  - **I-1:** o nome do caso `tests/embedded_program_test.cpp:568` promete "discards only in the two stencil passes", e o caso só confere o texto do GLSL. Régua (a); é a família do rótulo que não corresponde ao conteúdo.
+  - **I-2 (L-17):** `gl_state_contract.cpp` tem duas razões de mudar. O revisor sugere extrair `gl_stencil_contract`.
+  - **Cosméticos:** `shadow_group.hpp` diz o futuro no presente; `gl_state_contract.hpp:71-73`; a D-W8-1185 incompleta.
+  - **Medido:** o Clang da árvore inteira deu 0 erros nos dois modos; 20 de 20 mutantes iguais ao pré-registro (o M11 com o SIGSEGV previsto às 04:35:17).
+
+  Os achados vão ao CTO da H3b, já em execução, que decide pela régua se viram uma H3a-fix1 separada (recomendação do main) ou se entram na H3b. O CI 41179808464 da H3a ainda roda (24 verdes, 1 pulado, falta o lint do Windows).

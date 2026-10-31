@@ -10831,3 +10831,21 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Desvio do main, registrado:** o push do registro D-W8-1025, às 07:14, levou junto o `98883ec3`, antes de o main ler o relatório do implementador. Isso fere a regra do próprio main (empurrar commit de produto só depois do relatório e do `git show --stat`). O relatório, lido em seguida, não tem divergência. Daqui em diante, antes de empurrar um registro, o main confere `git log origin/onda-w8..HEAD`.
   - **CI disparado.** Próximo na árvore viva: a T6-B. A revisão N1 da R2b-fix2 entra quando abrir uma vaga.
 - **D-W8-1027 (main, 31/10 08:2x): ORDEM DO LÍDER DE PAUSA.** Verbatim: "Commit e pause quando acabar essa fatia." Perguntado por AskUserQuestion sobre os 3 CTOs em execução (H3b/H3a-fix1, T7 e PRECI-FIX1), o líder escolheu "Deixar terminarem": cada um termina a ordem que está escrevendo e entrega o relatório, e o main não despacha nada novo. A fatia em curso é a T6-B1 (atlas de textura). Quando ela commitar, o main confere o relatório e o `git show --stat`, empurra, dispara o CI, registra e para. A pausa fica gravada em `~/.config/olhe_agentes/GlintFx/parada_do_lider`, e só o líder retoma. A revisão N1 da R2b-fix2 e as da T6-B, da H3a-fix1 e da PRECI-FIX1 não são despachadas.
+  - **Complemento do líder, verbatim:** "Depois avise @nfse que a máquina fica livre pra ele". Quando a pausa estiver completa (atlas commitado e os 3 CTOs entregues), o main avisa a sessão do NotaLivre de que a cota do GlintFx (8 núcleos, 15 GiB e a trava de trabalho pesado) fica livre para ele.
+- **D-W8-1028 (main, 31/10 09:1x):** a ordem PRECI-FIX1 (a rodada única do N2) está congelada e foi conferida pelo main: `ordem-preci-fix1.md` md5 `bee4a3e1`, anexos `0519d49c` (178 arquivos, `md5sum -c` rc 0). Um commit, só o `tools/preci.sh`.
+  - **O que a ordem faz:**
+    - o `GOMAXPROCS` passa a seguir o grau, e o gitleaks cai de 16 a 17 para no máximo 9 tarefas;
+    - o número gigante é contido por uma guarda de 18 dígitos, e o pedido vira o teto (como no Ninja);
+    - um controle novo mata os mutantes M-R1 e M-R4;
+    - as funções acima de 40 linhas são divididas, e a contagem do Clang ganha função própria;
+    - o gêmeo `pick_ctest_jobs` ganha a mesma guarda.
+  - **Pré-execução:** 20 de 20 mutantes mortos; o vermelho do Clang foi visto; `--fast` e `--sanitizer-only` verdes (389 e 199 testes). A versão 2 do esperado foi gravada antes da rodada 2, com a mudança declarada.
+  - **INBOX:** PRECI-SH-SPLIT (o arquivo vai a 3339 linhas) e PRECI-SELFTEST-CI-GRAU.
+  - **Pedem o olho do líder:** as D-W8-1361, 1362, 1365 e 1369.
+  - **Pela pausa (D-W8-1027), esta ordem NÃO é despachada;** fica pronta para a retomada.
+- **D-W8-1029 (main, 31/10 09:5x):** a T6-B1 (atlas de textura) entrou: `80e51366`, 21 arquivos (2123 a mais e 67 a menos), igual ao numstat da ordem, com os trailers do Opus e do Haiku.
+  - **Conferido pelo main:** `preci --fast` rc 0, com 392 de 392 testes; `--sanitizer-only` rc 0, com 202 de 202, lidos dos arquivos `.rc`. Push com `ls-remote` igual ao HEAD. CI 41203280428 disparado.
+  - **O que o implementador relatou:** 18 casos vermelhos antes do verde; 10 de 10 mutantes mortos; Clang com 0 erros desta fatia; fixtures verdes; MSVC 11 de 11.
+  - **Desvios declarados:** o `draw2d_parity_test` marca 111 células contra as 106 da ordem (autorizado pela D-W8-1018), e o `erros_total` do Clang é 0 contra 1 do anexo, porque a correção da R2b já está no tronco.
+  - **Achado de L-17, para o revisor:** o `texture_atlas_impl.cpp` junta três razões de mudar: a memória do interior, os recibos e a escrita na placa.
+  - **Pela pausa (D-W8-1027),** a revisão N1 da T6-B NÃO é despachada; fica na fila da retomada. O status vai a 🔍 na retomada, junto com o TODO.

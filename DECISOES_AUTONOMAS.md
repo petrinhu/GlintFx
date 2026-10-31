@@ -10799,3 +10799,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Medido:** o Clang da árvore inteira deu 0 erros nos dois modos; 20 de 20 mutantes iguais ao pré-registro (o M11 com o SIGSEGV previsto às 04:35:17).
 
   Os achados vão ao CTO da H3b, já em execução, que decide pela régua se viram uma H3a-fix1 separada (recomendação do main) ou se entram na H3b. O CI 41179808464 da H3a ainda roda (24 verdes, 1 pulado, falta o lint do Windows).
+- **D-W8-1020 (main, 31/10 05:2x):** dois commits entraram e foram empurrados.
+  - **A fatia do `preci`:** `7cd56283` (3 arquivos, +462/−18). A célula Status de PRECI-ESTAGIO-CLANG foi de ⏳ para 🔍. O vermelho do Clang foi visto com a linha do CI (`image_resolution_test.cpp:77:24`); o verde teve 389/389 e 387/387 sob Clang. O `--fast` limitou o clang-tidy a 8 fios e levou 11 min 19 s. O implementador declarou o estágio 5c (gitleaks) com 14 rodando, fora da cota; a revisão (N2/N3) decide. CI 41183712053.
+  - **A CITATION-COMMON-WORD-fix3:** `f9820c2e` (só comentário, +20/−4). O main fez a reconferência N4 da seção 9 da ordem:
+    - (1) numstat `20 4` e md5 do blob `d61cda96`;
+    - (2) `so_comentario.py` deu `codigo=0 ast_igual=1`;
+    - (3) `TODO.md` e `DECISOES_AUTONOMAS.md` intocados (rc 0);
+    - (4) a mensagem crua do commit é igual a `blocos/msg.txt` (`cmp` rc 0; o `%B` do `git log` só acrescenta uma quebra de linha no fim);
+    - (5) o CI que contém o commit ainda não rodou: o 41183712053 do `preci` está em curso, e o `cancel-in-progress` proíbe disparar outro por cima.
+    
+    Com o (5) verde, a CITATION-COMMON-WORD vai a ✅ e a linha nova CITATION-SENTENCE-TABLE nasce no mesmo registro.
+  - **Próximo na árvore viva:** a R2b-fix2, como única implementadora. A revisão da fatia do `preci` corre em paralelo, numa cópia.

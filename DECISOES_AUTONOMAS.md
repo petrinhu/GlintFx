@@ -10862,10 +10862,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **INFERÊNCIA declarada:** quando a leitura dos bits de stencil dá erro de GL, o código confia no pedido de 8 bits.
   - **Pela pausa (D-W8-1027),** nada é despachado. Fila da retomada: H3a-fix1, depois H3b-1, depois a H3b-2 e a H3b-3.
 - **D-W8-1031 (main, 31/10 10:2x):** o CI 41203280428 do atlas (`80e51366`) fechou verde: 25 sucessos e 1 pulado, o normal.
-- **Ordem do líder, 31/10 11:1x, verbatim:** "Quando der a pausa, autorizo rm para limpar builds e tmp seus desnecessários."
+- **Ordem do líder, 31/10 11:10, verbatim:** "Quando der a pausa, autorizo rm para limpar builds e tmp seus desnecessários."
   - **Como o main lê essa ordem:** quando a T7 entregar, o main apaga os builds, os clones e os snapshots das pastas de trabalho, e também o `TMPDIR` do projeto.
   - **O que fica:** ordens, anexos, relatórios, logs e arquivos `.rc`, porque as revisões N1 que estão na fila os leem; e a pasta `r21/`, que nunca se toca (D-W8-1021).
-- **D-W8-1032 (main, 31/10 11:2x):** o CTO da T7 entregou a ordem congelada `ordem-t7.md`, md5 `ea4aa8be`, anexos `1eeba863` (266 arquivos). O main conferiu: `md5sum -c` com rc 0.
+- **D-W8-1032 (main, 31/10 11:14):** o CTO da T7 entregou a ordem congelada `ordem-t7.md`, md5 `ea4aa8be`, anexos `1eeba863` (266 arquivos). O main conferiu: `md5sum -c` com rc 0.
   - **Dois commits:** a etapa E, um harness comum para os exemplos (4 arquivos), e a etapa T, o exemplo `textures` (14 arquivos).
   - **Camada (D-W8-1340):** N1 para o C++ dos exemplos e para as sondas; N3 para o resto.
   - **Pré-execução:** 14 de 14 iguais ao pré-registrado; o PNG do `shapes` saiu byte a byte igual ao aprovado na S6; `preci --fast` verde com 392 testes, nas duas etapas; sanitizer verde com 202; MSVC 5 de 5.
@@ -10881,3 +10881,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     5. a T7, com o QA dela;
     6. a ordem da T6-B2;
     7. a H5, a G3 e a G4.
+- **D-W8-1033 (main, 31/10 11:18), a limpeza que o líder autorizou:**
+  - **O que foi apagado:** 4159 pastas de build e cópias de trabalho em `.trabalho/`, o `TMPDIR` do projeto (4230 entradas), o conteúdo de `glintfx-preci-tempos` e as sobras dos testes de carga de arquivo em `/var/tmp`. Os comandos deram rc 0, com 0 erros.
+  - **O que ficou:** a pasta `cto-w8/r21/` (49 GiB, disco danificado, decisão do líder, D-W8-1021); `ccache-glintfx` (2,8 GiB); as 121 pastas de `ordens-anexos/`; ordens, relatórios, logs e o `classif-cto/decisao.md`; e a `rev-t4bafix1`, que só fica por ser uma cópia rasa que pode guardar evidência.
+  - **Depois da limpeza:** `.trabalho/` tem 55 GiB, dos quais 49 são da `r21/`. Em `/home`, `btrfs filesystem usage` dá `min` de 149,66 GiB livres.

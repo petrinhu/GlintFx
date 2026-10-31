@@ -56,6 +56,13 @@ allocate_in_atlas(atlas_allocator_impl *impl, std::uint32_t width, std::uint32_t
 [[nodiscard]] gltfx_rslt<void> release_from_atlas(atlas_allocator_impl *impl,
                                                   const gltfx_atlas_slot &slot) noexcept;
 
+// The checks release(slot) makes, in its order and with its names, and nothing freed: ok when
+// `slot` is the receipt of a cell in use in `impl` now (nullptr for a moved-from allocator). The
+// texture atlas (draw2d/texture_atlas_impl.hpp) reads a receipt through it, so the receipt has one
+// definition of "current".
+[[nodiscard]] gltfx_rslt<void> check_current_atlas_slot(const atlas_allocator_impl *impl,
+                                                        const gltfx_atlas_slot &slot) noexcept;
+
 // release_all() on `impl`; does nothing on nullptr.
 void release_everything_in_atlas(atlas_allocator_impl *impl) noexcept;
 

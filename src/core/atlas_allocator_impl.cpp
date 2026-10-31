@@ -135,14 +135,23 @@ gltfx_rslt<gltfx_atlas_slot> allocate_in_atlas(atlas_allocator_impl *impl, std::
     return gltfx_rslt<gltfx_atlas_slot>::ok(hand_out_atlas_number(impl->slots, rect, impl->owner));
 }
 
-gltfx_rslt<void> release_from_atlas(atlas_allocator_impl *impl,
-                                    const gltfx_atlas_slot &slot) noexcept {
+gltfx_rslt<void> check_current_atlas_slot(const atlas_allocator_impl *impl,
+                                          const gltfx_atlas_slot &slot) noexcept {
     gltfx_rslt<void> request = check_atlas_release(identity_of(impl), slot);
     if (request.has_error()) {
         return request;
     }
     if (!is_current_atlas_slot(impl->slots, slot)) {
         return refused_with<void>(gltfx_err_code::invalid_argument, "stale_slot");
+    }
+    return gltfx_rslt<void>::ok();
+}
+
+gltfx_rslt<void> release_from_atlas(atlas_allocator_impl *impl,
+                                    const gltfx_atlas_slot &slot) noexcept {
+    gltfx_rslt<void> current = check_current_atlas_slot(impl, slot);
+    if (current.has_error()) {
+        return current;
     }
     // is_current_atlas_slot() compared the whole rect with the one handed out, so slot.rect starts
     // a taken run of this geometry and free_in_atlas() never ignores it here.

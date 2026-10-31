@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <glintfx/core/atlas_allocator.hpp>
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
@@ -21,6 +22,7 @@
 #include <glintfx/draw2d/renderer_2d.hpp>
 #include <glintfx/draw2d/texture_2d.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
+#include <glintfx/draw2d/texture_atlas.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
@@ -79,6 +81,15 @@
 //     the value of the tint cell, 128 or 188 +- 2 (TT2); a rectangle and a triangle of the same
 //     texture, one after the other, read the texture (red, exact) and the report says draw_calls 1
 //     and texture_switches 1 (TT3).
+//   - THE ATLAS (R2D-TEXTURE T6-B1, texture_atlas.hpp): solid images in a linear atlas, each drawn
+//     alone from texture() and region_of(); every pixel whose centre lies in the rectangle is the
+//     image's colour EXACTLY (no neighbour's colour, no darker edge): a 4 x 4 red image next to a
+//     blue one, margin 1, magnified 1.5 times at (100.3, 50.3), 36 pixels (AT1); 8 x 8 red next to
+//     blue, one reduced level, margin 2, minified 0.5 times, 16 pixels (AT2); 8 x 8 red after a
+//     1 x 8 blue, two reduced levels, margin 4, minified 0.25 times at (200.45, 50.45), 4 pixels
+//     (AT3: without the rounding of the cells to a multiple of 4, a texel of level 2 would hold
+//     blue); a 2 x 2 green image in the place of a released 4 x 4 red one, magnified 1.5 times, 9
+//     pixels, and the new image in the released place (AT4).
 // MEASURED, PRINTED, NEVER ASSERTED EQUAL: the value read at k = 100 of filter_linear_srgb_order in
 // each mode, and whether the ON mode was absent.
 //
@@ -725,6 +736,177 @@ void cell_sprite_and_mesh_share_a_draw_call(const cells_context &c) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
+// R2D-TEXTURE T6-B1: the texture atlas (texture_atlas.hpp), drawn from texture() and region_of().
+// ---------------------------------------------------------------------------------------------------------
+std::optional<glintfx::gltfx_texture_atlas> make_atlas(const cells_context &c, std::uint32_t side,
+                                                       std::uint32_t margin, std::uint32_t levels) {
+    const glintfx::gltfx_texture_atlas_desc desc{.width = side,
+                                                 .height = side,
+                                                 .margin_pixels = margin,
+                                                 .filter = glintfx::gltfx_texture_filter::linear,
+                                                 .mipmap_levels = levels};
+    glintfx::gltfx_rslt<glintfx::gltfx_texture_atlas> opened =
+        glintfx::gltfx_texture_atlas::open(c.renderer, desc);
+    if (opened.has_error()) {
+        report(c, "gltfx_texture_atlas::open da celula", false, code_name(opened.err()));
+        return std::nullopt;
+    }
+    return std::move(opened.value());
+}
+
+// A solid image of `colour`, `width` x `height`, added to `atlas`: its receipt.
+std::optional<glintfx::gltfx_atlas_slot> add_solid(const cells_context &c,
+                                                   glintfx::gltfx_texture_atlas &atlas,
+                                                   std::pair<std::uint32_t, std::uint32_t> size,
+                                                   rgba colour) {
+    std::vector<std::byte> bytes;
+    for (std::uint32_t i = 0; i < size.first * size.second; ++i) {
+        for (const std::uint8_t channel : colour) {
+            bytes.push_back(static_cast<std::byte>(channel));
+        }
+    }
+    const glintfx::gltfx_image_view image{.pixels = bytes,
+                                          .width = size.first,
+                                          .height = size.second,
+                                          .bytes_per_row = static_cast<std::size_t>(size.first) * 4,
+                                          .pixel_format =
+                                              glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+    glintfx::gltfx_rslt<glintfx::gltfx_atlas_slot> added = atlas.add_image(image);
+    if (added.has_error()) {
+        report(c, "add_image da celula", false, code_name(added.err()));
+        return std::nullopt;
+    }
+    return added.value();
+}
+
+// What one atlas image drawn alone into `where` reads: every pixel whose centre lies inside
+// `where`.
+struct atlas_draw {
+    const glintfx::gltfx_texture_atlas &atlas;
+    glintfx::gltfx_atlas_slot slot{};
+    glintfx::gltfx_rect_world where{};
+};
+
+struct atlas_reading {
+    bool drawn = false;
+    int read = 0;
+    int wrong = 0;
+    pixel first_wrong{};
+};
+
+atlas_reading read_atlas_image(const cells_context &c, const atlas_draw &d, rgba want) {
+    atlas_reading out;
+    const glintfx::gltfx_rslt<glintfx::gltfx_rect_texel> region = d.atlas.region_of(d.slot);
+    if (region.has_error()) {
+        return out;
+    }
+    const glintfx::gltfx_texture_paint paint{{region.value(), glintfx::gltfx_texture_mirror::none},
+                                             {1.0F, 1.0F, 1.0F, 1.0F}};
+    out.drawn = draw_alone(c, d.atlas.texture(), paint, d.where).has_value();
+    // A pixel x is covered when its centre x + 0.5 lies in [left, right).
+    const int first_x = static_cast<int>(std::ceil(d.where.corner.x - 0.5));
+    const int end_x = static_cast<int>(std::ceil(d.where.corner.x + d.where.size.x - 0.5));
+    const int first_y = static_cast<int>(std::ceil(d.where.corner.y - 0.5));
+    const int end_y = static_cast<int>(std::ceil(d.where.corner.y + d.where.size.y - 0.5));
+    for (int y = first_y; y < end_y; ++y) {
+        for (int x = first_x; x < end_x; ++x) {
+            const pixel got = read_at(c, x, y);
+            const bool exact = is_exact(got, want[0], want[1], want[2]);
+            out.first_wrong = (exact || out.wrong > 0) ? out.first_wrong : got;
+            out.wrong += exact ? 0 : 1;
+            ++out.read;
+        }
+    }
+    return out;
+}
+
+std::string text_of(const atlas_reading &r) {
+    return "lidos " + std::to_string(r.read) + ", errados " + std::to_string(r.wrong) +
+           ", primeiro errado " + text_of(r.first_wrong);
+}
+
+// AT1: an image magnified 1.5 times at a fractional position, next to a cell of another colour,
+// reads only its own colour, the edge pixels included (the linear filter reads the extruded edge).
+void cell_atlas_magnified(const cells_context &c) {
+    auto atlas = make_atlas(c, 32, 1, 0);
+    if (!atlas.has_value()) {
+        return;
+    }
+    const auto red = add_solid(c, *atlas, {4, 4}, k_px_red);
+    const auto blue = add_solid(c, *atlas, {4, 4}, k_px_blue);
+    if (!red.has_value() || !blue.has_value()) {
+        return;
+    }
+    const atlas_reading r =
+        read_atlas_image(c, atlas_draw{*atlas, *red, rect(100.3, 50.3, 6, 6)}, k_px_red);
+    report(c, "AT1 atlas ampliado 1,5x: o quadro termina com valor", r.drawn);
+    report(c, "AT1 atlas ampliado 1,5x: 36 pixels, todos vermelho exato",
+           r.read == 36 && r.wrong == 0, text_of(r));
+}
+
+// AT2: one reduced level and margin 2, minified 0.5 times, next to a blue cell: only red.
+void cell_atlas_minified_half(const cells_context &c) {
+    auto atlas = make_atlas(c, 64, 2, 1);
+    if (!atlas.has_value()) {
+        return;
+    }
+    const auto red = add_solid(c, *atlas, {8, 8}, k_px_red);
+    const auto blue = add_solid(c, *atlas, {8, 8}, k_px_blue);
+    if (!red.has_value() || !blue.has_value()) {
+        return;
+    }
+    const atlas_reading r =
+        read_atlas_image(c, atlas_draw{*atlas, *red, rect(150.3, 50.3, 4, 4)}, k_px_red);
+    report(c, "AT2 atlas reduzido 0,5x com um nivel: o quadro termina com valor", r.drawn);
+    report(c, "AT2 atlas reduzido 0,5x com um nivel: 16 pixels, todos vermelho exato",
+           r.read == 16 && r.wrong == 0, text_of(r));
+}
+
+// AT3: two reduced levels and margin 4, minified 0.25 times. The blue neighbour is 1 texel wide, so
+// its cell is 9 texels before rounding: without the rounding to a multiple of 4, the red cell would
+// start at 9 and a texel of level 2 would hold blue and red. Only red, with the rounding.
+void cell_atlas_minified_quarter(const cells_context &c) {
+    auto atlas = make_atlas(c, 64, 4, 2);
+    if (!atlas.has_value()) {
+        return;
+    }
+    const auto blue = add_solid(c, *atlas, {1, 8}, k_px_blue);
+    const auto red = add_solid(c, *atlas, {8, 8}, k_px_red);
+    if (!blue.has_value() || !red.has_value()) {
+        return;
+    }
+    const atlas_reading r =
+        read_atlas_image(c, atlas_draw{*atlas, *red, rect(200.45, 50.45, 2, 2)}, k_px_red);
+    report(c, "AT3 atlas reduzido 0,25x com dois niveis: o quadro termina com valor", r.drawn);
+    report(c, "AT3 atlas reduzido 0,25x com dois niveis: 4 pixels, todos vermelho exato",
+           r.read == 4 && r.wrong == 0, text_of(r));
+}
+
+// AT4: a cell released and taken by a smaller image reads only the new image, never the texels the
+// old, larger image left around it.
+void cell_atlas_reused_place(const cells_context &c) {
+    auto atlas = make_atlas(c, 32, 1, 0);
+    if (!atlas.has_value()) {
+        return;
+    }
+    const auto red = add_solid(c, *atlas, {4, 4}, k_px_red);
+    const auto blue = add_solid(c, *atlas, {2, 2}, k_px_blue);
+    if (!red.has_value() || !blue.has_value() || atlas->release_slot(*red).has_error()) {
+        return;
+    }
+    const auto green = add_solid(c, *atlas, {2, 2}, k_px_green);
+    if (!green.has_value()) {
+        return;
+    }
+    report(c, "AT4 a imagem nova toma o lugar liberado", green->rect.x == 0 && green->rect.y == 0);
+    const atlas_reading r =
+        read_atlas_image(c, atlas_draw{*atlas, *green, rect(250.3, 50.3, 3, 3)}, k_px_green);
+    report(c, "AT4 lugar retomado: o quadro termina com valor", r.drawn);
+    report(c, "AT4 lugar retomado: 9 pixels, todos verde exato", r.read == 9 && r.wrong == 0,
+           text_of(r));
+}
+
+// ---------------------------------------------------------------------------------------------------------
 // One mode: a window, a context with srgb_framebuffer as asked, a renderer, and every cell.
 // ---------------------------------------------------------------------------------------------------------
 enum class mode_result { ran, absent, fatal };
@@ -768,6 +950,10 @@ void run_cells(const cells_context &cells) {
     cell_textured_triangles_quarters(cells);
     cell_textured_triangles_tint(cells);
     cell_sprite_and_mesh_share_a_draw_call(cells);
+    cell_atlas_magnified(cells);
+    cell_atlas_minified_half(cells);
+    cell_atlas_minified_quarter(cells);
+    cell_atlas_reused_place(cells);
 }
 
 mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
@@ -842,7 +1028,7 @@ int main() {
     // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
     std::fprintf(stdout, "draw2d_texture_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
                  g_cells, g_failures);
-    if (g_cells < 24) {
+    if (g_cells < 33) {
         return fail("menos celulas do que o piso (varredura quebrada)");
     }
     return g_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

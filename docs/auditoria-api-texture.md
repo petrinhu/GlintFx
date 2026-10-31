@@ -48,6 +48,7 @@
 - **Errata da T4b-A-FLOAT (CTO, 20/10/2026; D-W8-716 a 735; revisão N1 da T4b-A-PHRASE, CRÍTICO-1, IMPORTANTE-1 e COSMÉTICO-1):** a cerca de `draw_texture_quad`, mais abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). (1) O desenho converte o peso projetivo para float (`textured_quad_corners.cpp`, T4b-B1-fix1), e a frase da T4b-A-PHRASE dava como fronteira o maior double: entre o maior float e o maior double o quadrilátero era aceito e chegava ao vértice com peso infinito, contado como desenhado (a revisão mediu 3563 de 5623 quadriláteros aceitos numa amostra de escalas sorteadas). (2) Os quatro pesos de todo quadrilátero desenhado passam a chegar ao vértice multiplicados por UMA potência de dois, que não muda o mapeamento (o programa divide u q e v q por q): 1 enquanto o maior peso está abaixo de 2^32; acima, a que o traz para baixo de 2^32. Cada peso fica entre 2^-32 e 2^32 (o OpenGL 3.3, seção 2.1.1, promete coordenada de textura até 2^32 em magnitude), e nenhum chega à conversão para float fora da faixa do float. (3) A única recusa de um quadrilátero que TEM mapeamento passa a ser a do maior peso de 2^63 ou mais (as diagonais se cruzam a menos de cerca de 2^-64 do comprimento da diagonal, perto de um canto), que inclui a do peso acima do maior double; conta como `degenerate_quad`, como já contava. (4) A frase fala de uma família de quadriláteros, no plural (COSMÉTICO-1). (5) O `Proved by:` ganha `textured_quad_corners_test`, com os casos de maior peso 2^64/3 levado e de 2^65/3, 2^201/3 e 2^1030 recusados (IMPORTANTE-1). Os gêmeos mudam junto (L-17 global): o motivo `degenerate_quad` e `pieces_refused` em `frame_2d_report.hpp`, e dois comentários internos (`texture_region_check.hpp`, `renderer_2d_impl_textures.cpp`); `projective_quad.hpp` não muda, porque fala da recusa da função dele, que continua a do maior double. As linhas desta página com o critério antigo (IMP-T11 e Q-T01) são registro de achado e não mudam. Porta de mão única: a frase pública vai à ratificação do líder.
 - **Errata da T6-A (CTO, 22/10/2026, e errata 1 da ordem, 24/10/2026; D-W8-910 a D-W8-930 e D-W8-960 a D-W8-977):** `include/glintfx/core/atlas_allocator.hpp` entra no repositório, e a cerca dele, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). Diferenças contra a proposta da T0: (1) `open(width, height)`: o atlas tem largura e altura, não um lado só (D-W8-912; imgui #327, shelf-pack #93); o gêmeo `gltfx_texture_atlas_desc::side`, na cerca de `texture_atlas.hpp`, é da T6-B e não muda aqui; (2) o retângulo maior que o atlas é `invalid_argument` com "width" ou "height", não `no_free_space` (D-W8-911): `no_free_space` passa a dizer "cheio agora", e um laço que abre outro atlas ao receber `no_free_space` não gira para sempre num retângulo que não cabe em nenhum (bevy #25224, fontstash #18, nanovg #431); (3) o recibo ganha `owner`, o número do alocador, e `release()` recusa o recibo de outro alocador como `slot_other_allocator`, antes de olhar se ele é velho (D-W8-913): a promessa da T0 de recusar o recibo "de outro atlas" não tinha dado que a cumprisse, porque dois alocadores novos entregam o mesmo número e a mesma geração; o recibo com `owner` 0 (o padrão, nunca entregue) é `stale_slot`; (4) `release_all()`, `is_open()`, `width()` e `height()` (D-W8-914; nanovg #114 e #431, fórum do Cesium); (5) o número que chega à geração 4294967295 nunca mais é entregue, e o recibo velho nunca volta a valer (D-W8-915); (6) os quatro passos da colocação, a regra de uma vez e meia e a promessa de posições iguais em todo sistema, dentro da mesma versão da biblioteca, ficam escritos (D-W8-916; etagere #35 e #36, SDL_ttf #643); (7) o código `no_free_space` entra com o número 8, no fim da faixa genérica, com os gêmeos em `err_code.cpp`, `err_code_test.cpp`, `docs/api-conventions.md` e `docs/wiki/API-Core.md` (D-W8-291 confirmada; D-W8-920); (8) a memória sem exceção vem de um par de funções no formato do `realloc`, e a falta dela é `out_of_memory` com o alocador intacto, provada em cada pedido de memória (D-W8-917, D-W8-918); (9) da errata 1 da ordem, depois do ataque ao plano: a ordem das recusas de `release()` escrita como o código a confere (o recibo de dono 0 antes do recibo de outro alocador), a falta de número livre entre as causas de `out_of_memory`, e a atribuição por movimento descrita (o alocador que recebe outro devolve antes a própria área); o `Proved by:` passa a citar os casos novos (cada campo do recibo alterado, a corrida livre mais à esquerda nos passos 1 e 3, o retângulo maior que o atlas com o atlas cheio, a atribuição por movimento, liberar sem pedir memória, o segundo crescimento da tabela de números, o dono depois do último) (D-W8-961 a D-W8-973). A cerca de `texture_atlas.hpp` e o trecho de `renderer_2d.hpp` com `draw_atlas_image` continuam proposta da T6-B. Porta de mão única: o texto público e os nomes novos vão à ratificação do líder.
 - **Errata da T6-A-fix1 (CTO, 25/10/2026; D-W8-1060 a D-W8-1064; revisão N1 da T6-A, IMPORTANTE-1 e COSMÉTICOS 4 e 5):** a regra pública "at most one and a half times as tall" do passo 1 passa a ter caso na fronteira exata: uma prateleira de h + h / 2 linhas (divisão inteira) é tomada, e uma de uma linha a mais é deixada para o passo 2, com uma faixa livre disponível ao mesmo tempo, numa altura par (8: 12 e 13) e numa ímpar (7: 10 e 11); antes dele, trocar `<=` por `<` no limite não derrubava nenhuma das seis suítes. A cerca do cabeçalho, abaixo, é reescrita NO LUGAR com o texto publicado (precedente D-W8-545): o `Proved by:` de `atlas_geometry_test` passa a citar o limite na fronteira, para uma altura par e uma ímpar; a promessa não muda. A liberação de um retângulo que não começa uma corrida tomada, inalcançável pela API porque o recibo é conferido antes, ganha caso que prova que nada é tocado. Porta de mão única: o texto público vai à ratificação do líder.
+- **Errata da T6-B1 (CTO, 30/10/2026; D-W8-1200 a D-W8-1219):** `include/glintfx/draw2d/texture_atlas.hpp` entra no repositório, e a cerca dele, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). Diferenças contra a proposta da T0: (1) `width` e `height` no descritor, no lugar de `side` (o gêmeo da D-W8-912), e `filter` no descritor, com o padrão `linear` do descritor de textura; (2) a regra da margem fica `margin_pixels >= 2^k` (a saída "2^k passa" da D-W8-298), com o alinhamento que o IMP-T06 pedia: cada lado da célula é arredondado para múltiplo de 2^k, a largura e a altura do atlas têm de ser múltiplas de 2^k, e `2 * margin_pixels + 1` não passa de nenhum lado; 2^k é critério de segurança (meio texel do nível k de folga), não a menor margem que cabe no papel, e o texto público diz isso; a conta enumerada está em `atlas_cell_test`, e as células AT1 a AT4 de `draw2d_texture_parity_test` medem num driver que nada sangra; (3) `add_image()` devolve o recibo do alocador para a CÉLULA inteira, e `region_of()` dá o retângulo da IMAGEM (a cerca dizia que o recibo cobria só a imagem); (4) `release_slot()` recusa com os nomes do alocador (`stale_slot`, `slot_other_allocator`), não com `"slot"`; (5) `texture()` entrega a textura do atlas aos desenhos de `renderer_2d.hpp`; (6) `stale_region`, `gltfx_atlas_paint` (com a tinta branca opaca da D-W8-464) e `draw_atlas_image` NÃO entram nesta fatia: são da T6-B2, e a cerca de `draw_atlas_image`, na seção de `renderer_2d.hpp`, fica como está até lá. A cerca de `texture_2d.hpp` ganha a declaração antecipada de `gltfx_texture_atlas` e a linha `friend class gltfx_texture_atlas;`, como o cabeçalho. Porta de mão única: vai à ratificação do líder.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -388,6 +389,7 @@ struct gltfx_textured_vertex_2d {
 namespace glintfx {
 
 class gltfx_renderer_2d;
+class gltfx_texture_atlas;
 struct texture_2d_impl;
 
 class gltfx_texture_2d {
@@ -405,6 +407,8 @@ class gltfx_texture_2d {
 
   private:
     friend class gltfx_renderer_2d;
+    // The texture atlas makes and holds the texture its images go into (texture_atlas.hpp).
+    friend class gltfx_texture_atlas;
     explicit gltfx_texture_2d(texture_2d_impl *interior) noexcept : impl(interior) {}
     texture_2d_impl *impl = nullptr;
 };
@@ -584,68 +588,137 @@ class gltfx_atlas_allocator {
 #include <glintfx/core/atlas_allocator.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/draw2d/texture_2d.hpp>
+#include <glintfx/draw2d/texture_2d_desc.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/export.hpp>
 
-// draw2d/texture_atlas.hpp - R2D-TEXTURE.
-// A convenience over the pure allocator (core/atlas_allocator.hpp): one
-// texture, a packing allocator, and the upload of each image into its
-// place. The caller hands an image and gets back the slot of the cell that holds it.
+// draw2d/texture_atlas.hpp - R2D-TEXTURE. Many images in ONE texture: a texture of the renderer,
+// the allocator of core/atlas_allocator.hpp that decides where each image goes, and the writing of
+// each image into its place. The caller hands an image and gets back the receipt of the cell that
+// holds it; region_of() says where the image is in texture(), and the image is drawn from there by
+// the textured calls of renderer_2d.hpp, for example
+//     renderer.draw_texture(atlas.texture(), {{atlas.region_of(slot).value(), mirror}, tint},
+//     rect);
+// A drawing call that takes the receipt itself, and refuses one whose cell was given back, is not
+// part of this version.
 //
-// MARGIN AND EXTRUSION: each image is written with `margin_pixels` of
-// copied border on every side, so a sample near its edge reads the
-// image's own colour and never the neighbour's (the bleed of a linear
-// filter). The region returned covers the image only, not the
-// margin.
+// THE CELL. An image of w x h texels takes a cell of (w + 2 * margin_pixels) x
+// (h + 2 * margin_pixels) texels, each side rounded UP to a multiple of 2^k, k being
+// mipmap_levels. The image sits margin_pixels in from the cell's left and top edges, and every
+// other texel of the cell is a copy of the image texel nearest to it (the edge extruded): a sample
+// that reaches past the image's edge reads the image's own colour, never a neighbour's and never a
+// transparent border. Every cell side is a multiple of 2^k, and the allocator places each
+// rectangle at a sum of sides it was asked for, so every cell starts on a multiple of 2^k.
 //
-// MIPMAPS AND MARGIN: a mipmap level k averages 2^k pixels, so the margin
-// must cover it. The rule is:
-//     mipmap_levels == k  requires  margin_pixels >= 2^k
-// A request that breaks it is refused at open() with invalid_argument,
-// rejected_value() "margin_pixels". The rule and its refusal are proved
-// by atlas_extrude_test, which tests one step beyond the border, in a cell
-// that is NOT aligned to 2^k: margin 2^k - 1 must be refused (or must fail),
-// margin 2^k must pass. If the test refuses margin 2^k, the rule becomes
-// margin 2^(k+1) - 1. A cell at 0.5x minification must not bleed.
+// MARGIN AND REDUCED LEVELS. A texel of level j covers 2^j x 2^j texels of level 0 and is their
+// average (texture_2d_desc.hpp), and the linear filter reads, on each axis, the two texels of a
+// level nearest the sample. Because a cell starts on a multiple of 2^k, and the atlas width and
+// height are multiples of 2^k, every level up to k is made of whole texels of one cell. With
+//     margin_pixels >= 2^k
+// every sample of the image, at every level up to k, reads only texels of its own cell, with half a
+// texel of level k to spare. The spare is for what OpenGL leaves to the driver: how a texel
+// coordinate is rounded, and the precision the filter weighs the two texels with. With
+// 2^k - 1 the spare is less than half a texel of level k, and open() refuses it: the rule is 2^k,
+// not the least margin that fits on paper. With no reduced levels the rule reads
+// margin_pixels >= 1.
 //
-// THE CELL IS A SLOT, WITH A GENERATION. add_image() returns the
-// gltfx_atlas_slot of the cell (its place and its generation), not a region.
-// A drawing call that takes a cell receives that slot. The atlas checks the
-// generation: a slot whose cell was released is refused as `stale_region`.
-// The drawing call that takes a slot is draw_atlas_image (D-W8-353), which
-// receives a gltfx_atlas_paint (D-W8-354).
+// THE RECEIPT. add_image() returns the gltfx_atlas_slot the allocator handed out for the CELL: its
+// rect is the whole cell, margin and rounding included. region_of(slot) gives the rectangle of the
+// IMAGE in texels of texture(), which is what a drawing call reads. A receipt is current from
+// add_image() until release_slot(); region_of() and release_slot() refuse any other, with the
+// allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas
+// is "slot_other_allocator", a released, changed or never handed out one is "stale_slot".
+// A region is a value: one taken from region_of() before release_slot() still names the place, and
+// a drawing call reads whatever is there then.
 //
-// REMOVAL: `release_slot` gives the cell back to the allocator. The slot it
-// was handed is then STALE, and every drawing call refuses it as
-// `stale_region`. A second release of the same slot is refused as
-// `stale_slot` (see atlas_allocator.hpp).
+// NOT A BARRIER. add_image() writes into texture() as update_texture() writes (renderer_2d.hpp): it
+// does not send the batch, and the texture is read when the batch is sent. An image added into a
+// cell released earlier in the same frame changes what the pieces not yet sent show; call flush()
+// before add_image() to keep them as they were.
 //
-// Proved by: atlas_extrude_test (see above); atlas_allocator_test (the
-// allocator under the atlas, through release and reuse).
+// THE COST. texture() is made updatable (gltfx_texture_2d_desc::updatable): with no reduced
+// levels, the library keeps none of its texels; with k reduced levels, it keeps the texels of every
+// level, the count gltfx_texture_2d_desc::updatable gives (at least width x height x 4 bytes, less
+// than twice that). open() asks, while it makes the texture, for 4 bytes per texel of the empty
+// image the texture starts from, besides what create_texture() asks for an image of that size.
+// add_image() keeps, between calls, a block for the texels of a cell (at least 4 bytes per texel
+// of the largest cell written so far, grown by doubling, so less than twice that) and a table of
+// the image sizes (8 bytes per receipt number the allocator has handed out, plus one, grown the
+// same way), besides what update_texture() asks for the cell.
+//
+// THE REFUSALS, each a gltfx_err, in the order in which they are checked:
+//   - open(renderer, desc): invalid_argument, rejected_value() "width" or "height" when it is zero;
+//     "filter" when it is not a value of gltfx_texture_filter; "mipmap_levels" when it is more than
+//     floor(log2(max(width, height))) (gltfx_all_mipmap_levels among them: an atlas asks for an
+//     exact count); "margin_pixels" when it is less than 2^k, or when 2 * margin_pixels + 1 is
+//     more than the width or the height (no image would fit); "width" or "height" when it is not a
+//     multiple of 2^k; then out_of_memory, rejected_value() "atlas_open", when the library ran out
+//     of memory (os_error_code() zero); then what create_texture() returns for an image of this
+//     size, as it came (the context's error, unsupported "width" or "height", out_of_memory or
+//     platform_failure "texture_create"). Nothing is left behind by a refused open().
+//   - add_image(image): invalid_argument "atlas" for a moved-from atlas; "width" or "height" when
+//     the image has none; "pixel_format", "bytes_per_row" or "pixels" as create_texture() refuses
+//     them; "width" or "height" when the cell is wider or taller than the atlas, which no release
+//     can make fit; out_of_memory "atlas_add_image" when the library ran out of memory; then the
+//     allocator's: no_free_space "atlas_full" when no free place of the cell's size is left now
+//     (releasing cells, or a second atlas, can make room), out_of_memory "atlas_allocate"; then
+//     what update_texture() returns for the cell, as it came. A refused call takes no cell. Up to
+//     the allocator's refusals it touches nothing; after a refused write the cell is given back,
+//     what the card holds in it is unspecified (as update_texture() says), and the receipt number
+//     the call drew may later be handed out again with a larger generation.
+//   - region_of(slot) and release_slot(slot): invalid_argument "atlas" for a moved-from atlas;
+//     then the allocator's refusals of a receipt, in its order ("stale_slot" for an owner of 0,
+//     "slot_other_allocator", "stale_slot"). release_slot() gives the cell back to the allocator;
+//     its texels stay in the texture until a later cell is written over them.
+//
+// LIFETIME. The atlas belongs to the renderer it was opened on and does not outlive it, as a
+// texture does not (texture_2d.hpp, whose release rules texture() follows). A moved-from atlas
+// holds nothing: is_open() is false, texture() is a handle that is not open, and add_image(),
+// region_of() and release_slot() are refused as above. An atlas that receives another by move
+// assignment gives its own cells and texture back first. One atlas must not be used from two
+// threads at the same time.
+//
+// Proved by: atlas_cell_test (each refusal of open() by name and in this order; the margin at its
+// border, 2^k accepted and 2^k - 1 refused, for every k from 0 to 12; the multiple of 2^k at its
+// border; the side of a cell and the place of its image; and, on the bilinear rule of each level,
+// enumerated: every sample of an image keeps half a texel of level k from the neighbour's texels
+// with 2^k, less with 2^k - 1, and a cell that did not start on a multiple of 2^k reaches the
+// neighbour).
+// Proved by: atlas_extrude_test (every texel of a cell is the image texel nearest to it, the bytes
+// copied as they are, for every image side from 1 to 3, margin 1, 2 and 4 and rounding 1, 2 and 4).
+// Proved by: texture_atlas_test (over a fake GL: the texture made updatable with its levels from an
+// empty image; each cell written at its receipt's place with the extruded texels; region_of();
+// each refusal of add_image() by name, and nothing taken after one, the library's memory failing
+// at each request and a write the card refuses included; release, and a smaller image reusing the
+// place reading only itself; a receipt of another atlas; every cell of a long sequence on a
+// multiple of 2^k).
+// Proved by: draw2d_texture_parity_test (on a real context, in both values of srgb_framebuffer: a
+// cell magnified 1.5 times at a fractional position reads only its own colour, edge pixels
+// included; a cell minified 0.5 times with one reduced level and 0.25 times with two, next to a
+// cell of another colour, reads only its own; a cell released and taken by a smaller image reads
+// only the new image).
 
 namespace glintfx {
 
 class gltfx_renderer_2d;
+struct texture_atlas_impl;
 
 struct gltfx_texture_atlas_desc {
-    std::uint32_t side = 0;             // square edge in texels; zero refused
-    std::uint32_t margin_pixels = 1;    // copied border per side, see above
-    std::uint32_t mipmap_levels = 0;    // zero: no mipmap; k: exactly k levels
-};
-
-// What an atlas cell is painted with (D-W8-354): the slot that names the cell,
-// with its generation; the mirroring; and the tint.
-struct gltfx_atlas_paint {
-    gltfx_atlas_slot slot{};
-    gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
-    gltfx_rgba tint{};
+    // Size of the atlas texture in texels; zero refused (see above).
+    std::uint32_t width = 0;
+    std::uint32_t height = 0;
+    // Texels of extruded edge on every side of each image (see MARGIN AND REDUCED LEVELS).
+    std::uint32_t margin_pixels = 1;
+    // How texture() is sampled, as gltfx_texture_2d_desc::filter.
+    gltfx_texture_filter filter = gltfx_texture_filter::linear;
+    // The number of reduced levels of texture(), exactly; zero: none (see above).
+    std::uint32_t mipmap_levels = 0;
 };
 
 class gltfx_texture_atlas {
   public:
-    // Opens the atlas on `renderer`. Refusals: invalid_argument on
-    // "side", "margin_pixels" (the rule above) or "mipmap_levels" (more
-    // levels than `side` allows).
+    // An atlas on `renderer`, all free. Refusals: see above.
     [[nodiscard]] GLINTFX_API static gltfx_rslt<gltfx_texture_atlas>
     open(gltfx_renderer_2d &renderer, const gltfx_texture_atlas_desc &desc) noexcept;
 
@@ -655,21 +728,29 @@ class gltfx_texture_atlas {
     GLINTFX_API gltfx_texture_atlas &operator=(gltfx_texture_atlas &&other) noexcept;
     GLINTFX_API ~gltfx_texture_atlas();
 
-    // Places `image` in the atlas and returns the slot of the cell that
-    // holds it. No room: refused with the allocator's error (`no_free_space`,
-    // see atlas_allocator.hpp).
+    // False only for a moved-from atlas.
+    [[nodiscard]] GLINTFX_API bool is_open() const noexcept;
+
+    // The texture every image of this atlas is in (see above).
+    [[nodiscard]] GLINTFX_API const gltfx_texture_2d &texture() const noexcept;
+
+    // Writes `image` into a cell of its own and returns the receipt of the cell. The pixels are
+    // read only during this call. Refusals: see above.
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_atlas_slot>
     add_image(gltfx_image_view image) noexcept;
 
-    // Gives the cell of `slot` back. A slot already released, or from another
-    // atlas, is refused (invalid_argument, "slot").
-    [[nodiscard]] GLINTFX_API gltfx_rslt<void>
-    release_slot(gltfx_atlas_slot slot) noexcept;
+    // Where the image of `slot` is in texture(), in texels. Refusals: see above.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_rect_texel>
+    region_of(gltfx_atlas_slot slot) const noexcept;
+
+    // Gives the cell of `slot` back. Refusals: see above.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void> release_slot(gltfx_atlas_slot slot) noexcept;
 
   private:
-    explicit gltfx_texture_atlas(struct texture_atlas_impl *interior) noexcept
-        : impl(interior) {}
-    struct texture_atlas_impl *impl = nullptr;
+    gltfx_texture_atlas(texture_atlas_impl *interior, texture_2d_impl *made) noexcept
+        : impl(interior), atlas_texture(made) {}
+    texture_atlas_impl *impl = nullptr;
+    gltfx_texture_2d atlas_texture;
 };
 
 } // namespace glintfx

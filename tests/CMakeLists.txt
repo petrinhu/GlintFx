@@ -2126,6 +2126,48 @@ target_sources(texture_update_kept_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
 )
 
+# R2D-TEXTURE T6-B1: the texture atlas (draw2d/texture_atlas.hpp). Its arithmetic (atlas_cell_test: the refusals of
+# open(), the cell, and the bilinear rule of each level enumerated) and the texels of a cell (atlas_extrude_test),
+# pure; and the atlas itself over a FAKE context and FAKE GL (texture_atlas_test), with the allocator's interior and
+# the making and writing of a texture recompiled into it, as texture_update_test does.
+glintfx_add_test(atlas_cell_test)
+target_include_directories(atlas_cell_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_cell_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_cell.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+glintfx_add_test(atlas_extrude_test)
+target_include_directories(atlas_extrude_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_extrude_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_extrude.cpp")
+glintfx_add_test(texture_atlas_test)
+add_dependencies(texture_atlas_test glintfx_gl_functions_generated)
+target_include_directories(texture_atlas_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_atlas_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_atlas_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_cell.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_extrude.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_allocator_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_slots.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
 # R2D-TEXTURE T3, etapa C: a texture record now owns its kept texels (kept_texels.hpp), so every target that makes
 # or frees a record compiles their ownership; the making keeps them in one block (mipmap_chain.hpp); and the
 # frame machine forwards update_texture() to its check and its writing.

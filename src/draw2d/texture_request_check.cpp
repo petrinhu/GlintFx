@@ -41,15 +41,6 @@ using glintfx::gltfx_texture_filter;
     return gltfx_rslt<void>::ok();
 }
 
-[[nodiscard]] bool is_known_filter(gltfx_texture_filter filter) noexcept {
-    switch (filter) {
-    case gltfx_texture_filter::nearest:
-    case gltfx_texture_filter::linear:
-        return true;
-    }
-    return false;
-}
-
 // gltfx_all_mipmap_levels asks for the whole chain, so it is resolved to the limit and never
 // compared with it; any other count above the limit is refused by name.
 [[nodiscard]] gltfx_rslt<std::uint32_t>
@@ -82,10 +73,19 @@ gltfx_rslt<std::uint32_t> check_texture_request(const gltfx_image_view &image,
     if (view.has_error()) {
         return gltfx_rslt<std::uint32_t>::err(view.err());
     }
-    if (!is_known_filter(desc.filter)) {
+    if (!is_known_texture_filter(desc.filter)) {
         return gltfx_rslt<std::uint32_t>::err(refusal("filter"));
     }
     return resolve_mipmap_levels(image, desc);
+}
+
+bool is_known_texture_filter(gltfx_texture_filter filter) noexcept {
+    switch (filter) {
+    case gltfx_texture_filter::nearest:
+    case gltfx_texture_filter::linear:
+        return true;
+    }
+    return false;
 }
 
 } // namespace glintfx::draw2d

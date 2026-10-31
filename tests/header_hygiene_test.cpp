@@ -157,6 +157,7 @@
 #include <glintfx/draw2d/stroke.hpp>
 #include <glintfx/draw2d/texture_2d.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
+#include <glintfx/draw2d/texture_atlas.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
 #include <glintfx/draw2d/vertex_2d.hpp>
 #include <glintfx/gfss/keyword.hpp>

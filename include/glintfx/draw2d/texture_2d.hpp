@@ -38,6 +38,7 @@
 namespace glintfx {
 
 class gltfx_renderer_2d;
+class gltfx_texture_atlas;
 struct texture_2d_impl;
 
 class gltfx_texture_2d {
@@ -55,6 +56,8 @@ class gltfx_texture_2d {
 
   private:
     friend class gltfx_renderer_2d;
+    // The texture atlas makes and holds the texture its images go into (texture_atlas.hpp).
+    friend class gltfx_texture_atlas;
     explicit gltfx_texture_2d(texture_2d_impl *interior) noexcept : impl(interior) {}
     texture_2d_impl *impl = nullptr;
 };

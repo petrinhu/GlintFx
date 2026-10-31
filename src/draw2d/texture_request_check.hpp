@@ -32,4 +32,9 @@ namespace glintfx::draw2d {
 check_texture_request(const glintfx::gltfx_image_view &image,
                       const glintfx::gltfx_texture_2d_desc &desc) noexcept;
 
+// True for a value of gltfx_texture_filter this build knows. The one list of the known filters:
+// the texture request (above) and the texture atlas (atlas_cell.hpp) both ask it, so a value
+// appended to the enum is known to both once it is added here.
+[[nodiscard]] bool is_known_texture_filter(glintfx::gltfx_texture_filter filter) noexcept;
+
 } // namespace glintfx::draw2d

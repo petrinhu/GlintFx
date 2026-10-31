@@ -99,15 +99,31 @@
 # sem NENHUMA frase-gatilho antes dele na mesma frase ("Exercised by
 # `x`", "`x` proves this") nao conta - escreva a citacao numa das
 # formas acima; o fim de frase e' uma regra de texto, nao gramatica:
-# uma frase que comeca por minuscula depois de um ponto continua a
-# anterior (o escopo fica MAIS LARGO), "e.g. `x`", "e.g. (x" e
+# uma frase que comeca por minuscula depois de ".", "!" ou "?"
+# continua a anterior (o escopo fica MAIS LARGO; depois de "!" e de
+# "?", mais largo tambem que o da regra das frases do Unicode, UAX
+# #29, que so poupa o ponto antes de minuscula, SB8, e quebra depois
+# dos outros dois, SB11; medido em 31/10/2026 nas duas juncoes de
+# todo bloco dos cabecalhos publicos: nenhum "!" ou "?" seguido de
+# minuscula), "e.g. `x`", "e.g. (x" e
 # 'e.g. "x"' fecham a frase antes do x (o escopo fica mais curto:
-# escreva "e.g. the `x`" ou tire o "e.g."); aspas tipograficas e
+# escreva "e.g. the `x`" ou tire o "e.g."); a aspa dupla logo depois
+# do terminador abre a frase seguinte mesmo quando fecha uma citacao
+# ('("did the call succeed?") before', de core/err.hpp, fecha a frase
+# no "?"; o escopo fica mais curto, e a Punkt do NLTK, ao contrario,
+# le essa aspa como fechamento); aspas tipograficas e
 # maiuscula fora de A a Z nao abrem nem fecham frase (medido em
 # 30/10/2026: nenhum cabecalho publico tem uma depois de terminador);
 # os controles provam que cada caractere das tres classes faz o seu
 # papel, nao que um caractere de fora fica de fora (so a minuscula
-# depois do ponto tem controle, PONTO-DE-EXTENSAO); um paragrafo sem
+# depois do ponto tem controle, PONTO-DE-EXTENSAO); os fechamentos e
+# a aspa dupla so tem controle depois do ponto: depois de "!" e de
+# "?" eles valem porque os tres terminadores dividem uma classe so do
+# regex, e um mutante que separe os terminadores passa em todos os
+# controles (revisao N1 da CITATION-COMMON-WORD-fix2, I-1 e I-2;
+# limite declarado pela camada N3 da L-12 do projeto; a tabela
+# inteira do fim de frase e' o item CITATION-SENTENCE-TABLE do
+# TODO.md); um paragrafo sem
 # ponto final emenda no seguinte, porque o extrator une as linhas sem
 # guardar a linha em branco; e a juncao
 # sem separador perde a frase-gatilho que o reflow partiu ao meio

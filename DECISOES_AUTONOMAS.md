@@ -10817,3 +10817,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Dois achados de processo:** o `preve_mutantes.py` não marca INCERTA a sonda que passa com margem abaixo de 0,5 px; a régua D-W8-1110 não tem item para a lacuna declarada não equivalente.
   - **Próximo passo:** o QA visual da S6, por um `qa-engineer` novo, sobre os PNG do CI 41185494871, com a checklist gravada antes das imagens (critério 15 do `plano-demo1-v2.md`). Com ele aprovado, a R2D-SHAPES vai a ✅.
 - **D-W8-1024 (main, 31/10 06:2x):** o QA visual da S6 saiu **APROVADO**: C-01 a C-19 SIM nas 10 imagens (2 do Linux, 8 do Windows), e C-20 (exatidão de pixel) não julgado pelo olho, coberto pelas sondas (80 de 80). As D-W8-1130 (sem textura) e 1133 (giro horário) foram conferidas na imagem. O main reconferiu: a checklist foi gravada às 06:11:51, antes do primeiro PNG baixado (06:12:07); os 10 PNG do `shapes` têm o mesmo md5 `6f5fc23a`; o `diff` dos md5 de início e fim deu 0. Com a revisão LIMPA (D-W8-1023), o CI verde e o QA, a **R2D-SHAPES vai a ✅**. O achado de nome de artefato vai à INBOX (SHAPES-LINUX-ARTIFACT-NAME).
+- **D-W8-1025 (main, 31/10 07:1x):** a revisão da fatia do `preci` (`7cd56283`) saiu **NÃO LIMPA**: CRÍTICO 0, IMPORTANTE 8, COSMÉTICO 6. Veredito em `.trabalho/cto-w8/rev-preci-cotas-clang.txt`.
+  - **Os IMPORTANTES:**
+    - (1) o título e o fim do commit prometem cota universal, mas o estágio 5c (gitleaks) mediu 14 a 17 fios por 7 a 10 s; a alavanca medida é `GOMAXPROCS` (16 sem, 8 com);
+    - (2) `pick_preci_jobs` aceita um número gigante cru, sem teto;
+    - (3) os mutantes M-R1 e M-R4 sobrevivem ao `--selftest` e mudam o grau;
+    - (4) e (5): duas funções de controle passam de 40 linhas, e `clang_build_tree` compila e conta na mesma função (L-17);
+    - (6) `tools/preci.sh` foi de 2778 para 3213 linhas.
+  - **A camada decide o orçamento (L-12, emenda de 11/10):** o grau de núcleos é **N2**, com direito a **uma** rodada de conserto; o estágio Clang é **N3**, só leitura e um caso vermelho. Vai a um CTO a ordem PRECI-FIX1, como a rodada única do N2. Pela `:378`, o que não couber nela vira INBOX ou limite declarado, e a fatia fecha. O revisor escreveu que o conserto seria decisão do líder; no modo autônomo, a decisão dentro da onda é do C-level (L-15 global), registrada para ratificação.
+  - **Desvios:** o implementador cancelou o próprio `flock` (já registrado); a rodada C3 do revisor saiu inválida e foi refeita.

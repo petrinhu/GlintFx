@@ -3009,7 +3009,7 @@ jobs:
       - name: Instalar toolchain e ferramentas de lint
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck
+          wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck clang
 
       - uses: actions/checkout@v7
 
@@ -3078,6 +3078,9 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
+          # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
+          export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
           tools/preci.sh --lint-only
 
       # PARITY-LINT-INV (TODO.md, GODS_LAWS.md L-04/L-40, 09/09/2026):
@@ -3695,6 +3698,9 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
+          # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
+          export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
           tools/preci.sh --sanitizer-only
 
   # GATE-GL-CROSS-COVERAGE (achado 3 da revisao adversarial de
@@ -4069,6 +4075,9 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
+          # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
+          export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
           tools/preci.sh --debug-only
 
   # Item DEBUG-PARITY-WIN (TODO.md, GODS_LAWS.md L-04/L-40): o par

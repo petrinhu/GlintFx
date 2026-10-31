@@ -21,7 +21,11 @@
 #                                     requirement and its declared-
 #                                     exception shape).
 #   tools/preci.sh --fast            same, minus the sanitizer stage, the
-#                                     debug stage and the win32-link stage -
+#                                     debug stage, the win32-link stage, the
+#                                     container-link stage and stage 11 (the
+#                                     test suite of the Clang builds; stage
+#                                     3b, the Clang build itself, stays in
+#                                     --fast) -
 #                                     for a documentation-only push. Still
 #                                     runs GATE-PS-SYNTAX: it is cheap (no
 #                                     C++ build involved) and a
@@ -35,6 +39,15 @@
 #   tools/preci.sh --sanitizer-only  guard, then the sanitizer stage
 #                                     only (what the CI `sanitizer` job
 #                                     runs).
+#   tools/preci.sh --clang-only      guard, then the mirror of the CI
+#                                     `clang` job (PRECI-CLANG-BUILD): the
+#                                     WHOLE tree built with clang++ and
+#                                     -DGLINTFX_WERROR=ON, shared and
+#                                     static (stage 3b, also in the full
+#                                     pipeline and in --fast), then the
+#                                     full test suite of both builds
+#                                     (stage 11, also in the full
+#                                     pipeline). See stage_clang_build.
 #   tools/preci.sh --debug-only      guard, then the debug stage only
 #                                     (what the CI `debug` job runs):
 #                                     counts every real `assert()` in
@@ -166,6 +179,8 @@ readonly ROOT_DIR
 readonly BUILD_DIR="${ROOT_DIR}/build-preci"
 readonly SANITIZE_BUILD_DIR="${ROOT_DIR}/build-preci-sanitize"
 readonly DEBUG_BUILD_DIR="${ROOT_DIR}/build-preci-debug"
+readonly CLANG_BUILD_DIR="${ROOT_DIR}/build-preci-clang"
+readonly CLANG_STATIC_BUILD_DIR="${ROOT_DIR}/build-preci-clang-static"
 readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"
 
 # GODS_LAWS.md INBOX achado (rodada 2 da revisao do FUND-4, 24/08/2026):
@@ -564,6 +579,127 @@ stage_build() {
     cmake --build "$BUILD_DIR"
 }
 
+# PRECI-CLANG-BUILD (stage 3b): the local mirror of the CI `clang` job
+# (.github/workflows/ci.yml, "Clang (Fedora - segundo compilador, ...)").
+# The CI builds the whole tree twice with clang++ and -DGLINTFX_WERROR=ON,
+# shared and static, and runs the full test suite of each. Until this stage
+# existed the local mirror compiled only with GCC, and a Clang-only warning
+# reached the trunk with the mirror green at least three times between
+# 30/09 and 30/10/2026 (-Wunused-const-variable; a warning in
+# vertex_stream_test; -Wunneeded-internal-declaration in
+# image_resolution_test, CI run 41147749287). Stage 3b is the BUILD half
+# and runs in the full pipeline, in --fast and in --clang-only; the test
+# half is stage 11 (stage_clang_ctest), in the full pipeline and in
+# --clang-only only.
+#
+# What this mirror does NOT cover, on purpose:
+#  - the differential oracle of the layers gate, which the CI shared leg
+#    turns on: it runs only on the CI server, never on this machine
+#    (GODS_LAWS.md L-45 of the project); the guard O-13 of
+#    tests/tools/check_layers_oracle.py fails if this script so much as
+#    names the CMake option, so it is never named here;
+#  - the CI preparation steps (floor.sh, prova_checkout.sh, rerun_guard);
+#  - the environment: the CI job runs in fedora:latest as root, this stage
+#    runs the host clang++ as the current user, through ccache when it is
+#    on (the same clang 22.1.8 on 30/10/2026; a newer image can bring a
+#    newer clang, with new warnings, before the host gets it);
+#  - the test suite under Clang in --fast (stage 11).
+# What it does MORE than the CI: `-k 0` (Ninja stops at the first failed
+# edge by default, so one error could hide a second one in another
+# translation unit) and one summary line per mode that counts the errors
+# and names the files.
+#
+# No clang++ on PATH REFUSES by default; GLINTFX_PRECI_CLANG=skip turns
+# that one case into a declared, printed skip (GODS_LAWS.md L-02, the same
+# shape as GLINTFX_PRECI_WIN32=skip of stage 9).
+clang_compiler_present() {
+    command -v clang++ > /dev/null 2>&1
+}
+
+# Configures and builds <src> into <build> with clang++, -Werror and
+# `-k 0`. Prints the build output without Ninja's progress lines and ONE
+# summary line, always, even when it passes (GODS_LAWS.md L-40):
+#   clang[<mode>]: unidades=<entries of the compile database>
+#   rc_configure=<n> rc_build=<n> erros=<n> passos=<done>/<total>
+#   arquivos_com_erro=[<files>]
+# Returns 0 only with rc_configure=0, rc_build=0, erros=0 and unidades>0
+# (zero translation units is a broken scan, never a clean build). Never
+# calls fail: the selftest observes the red without leaving.
+clang_build_tree() {
+    _cl_src="$1"; _cl_build="$2"; _cl_mode="$3"
+    case "$_cl_mode" in
+        compartilhado) _cl_flags=() ;;
+        estatico) _cl_flags=(-DBUILD_SHARED_LIBS=OFF) ;;
+        *) echo "clang[$_cl_mode]: modo desconhecido (esperado compartilhado|estatico)"; return 1 ;;
+    esac
+    mkdir -p "$_cl_build" || { echo "clang[$_cl_mode]: mkdir '$_cl_build' falhou"; return 1; }
+    _cl_cfg_log="$_cl_build/preci-clang-configure.log"
+    _cl_log="$_cl_build/preci-clang-build.log"
+    : > "$_cl_log"
+    _cl_rc_cfg=0
+    cmake -S "$_cl_src" -B "$_cl_build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ "${_cl_flags[@]}" \
+        -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+        > "$_cl_cfg_log" 2>&1 || _cl_rc_cfg=$?
+    _cl_rc_build=nao-rodou
+    if [ "$_cl_rc_cfg" = 0 ]; then
+        _cl_rc_build=0
+        cmake --build "$_cl_build" -- -k 0 > "$_cl_log" 2>&1 || _cl_rc_build=$?
+        grep -v -E '^\[[0-9]+/[0-9]+\] ' "$_cl_log" || true
+    else
+        cat "$_cl_cfg_log"
+    fi
+    _cl_units=0
+    if [ -f "$_cl_build/compile_commands.json" ]; then
+        _cl_units="$(grep -c '"file":' "$_cl_build/compile_commands.json" || true)"
+    fi
+    _cl_errors="$(grep -c 'error:' "$_cl_log" || true)"
+    _cl_steps="$(grep -o -E '^\[[0-9]+/[0-9]+\]' "$_cl_log" | tail -n 1 | tr -d '[]' || true)"
+    _cl_files="$(grep -o -E '^[^ :]+\.(cpp|hpp|cc|h):[0-9]+:[0-9]+: (fatal )?error' "$_cl_log" \
+        | sed -E -e "s#^${_cl_src}/##" -e 's#^(\.\./)+##' -e 's#:[0-9]+:[0-9]+: (fatal )?error$##' \
+        | LC_ALL=C sort -u | tr '\n' ' ' || true)"
+    echo "clang[$_cl_mode]: unidades=$_cl_units rc_configure=$_cl_rc_cfg rc_build=$_cl_rc_build erros=$_cl_errors passos=${_cl_steps:-0/0} arquivos_com_erro=[${_cl_files% }]"
+    [ "$_cl_rc_cfg" = 0 ] && [ "$_cl_rc_build" = 0 ] && [ "$_cl_errors" = 0 ] && [ "$_cl_units" -gt 0 ]
+}
+
+# Absent clang++: refuses, or the declared skip. Prints which, every time.
+clang_presence_or_skip() {
+    if clang_compiler_present; then
+        return 0
+    fi
+    if [ "${GLINTFX_PRECI_CLANG:-}" = "skip" ]; then
+        echo "estagio $1: PULADO POR DECLARACAO (GLINTFX_PRECI_CLANG=skip, clang++ ausente) - a prova do segundo compilador fica so no servidor"
+        return 1
+    fi
+    fail "estagio $1 recusado: clang++ ausente do PATH - instalar o clang e' pedido ao lider (L-14 do projeto), ou defina GLINTFX_PRECI_CLANG=skip para um pulo DECLARADO (PRECI-CLANG-BUILD, GODS_LAWS.md L-02)"
+}
+
+stage_clang_build() {
+    clang_presence_or_skip 3b || return 0
+    _cs_version="$(clang++ --version 2>&1 | head -n 1 || true)"
+    echo "clang: $_cs_version"
+    _cs_bad=""
+    clang_build_tree "$ROOT_DIR" "$CLANG_BUILD_DIR" compartilhado || _cs_bad="$_cs_bad compartilhado"
+    clang_build_tree "$ROOT_DIR" "$CLANG_STATIC_BUILD_DIR" estatico || _cs_bad="$_cs_bad estatico"
+    [ -z "$_cs_bad" ] || fail "estagio 3b recusado (modo(s):${_cs_bad}): o segundo compilador do CI reprova esta arvore - ver os erros e as linhas clang[...] acima (PRECI-CLANG-BUILD)"
+    echo "estagio 3b: os dois modos compilam com clang++ -Werror"
+}
+
+# Stage 11: the full test suite of both Clang builds, serial, like the
+# `ctest` step of the CI `clang` job. Needs stage 3b first.
+stage_clang_ctest() {
+    clang_presence_or_skip 11 || return 0
+    _ck_bad=""
+    for _ck_mode in compartilhado estatico; do
+        if [ "$_ck_mode" = compartilhado ]; then _ck_dir="$CLANG_BUILD_DIR"; else _ck_dir="$CLANG_STATIC_BUILD_DIR"; fi
+        _ck_count="$(count_ctest_tests "$_ck_dir")"
+        require_nonempty_tests "ctest sob Clang ($_ck_mode)" "$_ck_count" \
+            || fail "estagio 11 recusado (varredura vazia de testes no build Clang $_ck_mode - o estagio 3b rodou?)"
+        ctest --test-dir "$_ck_dir" --output-on-failure || _ck_bad="$_ck_bad $_ck_mode"
+    done
+    [ -z "$_ck_bad" ] || fail "estagio 11 recusado (modo(s):${_ck_bad}): a suite reprova sob Clang - ver acima (PRECI-CLANG-BUILD)"
+}
+
 # PORTAO-DE-ESTILO-CONTA-O-QUE-NAO-ANALISA (TODO.md INBOX, medido em
 # 18/09/2026, passo 5 do plano da fatia F6 de NOEXCEPT-ALLOC-B8,
 # /var/tmp/glintfx-f6-plano/plano-f6-portao.md): antes deste conserto,
@@ -623,7 +759,29 @@ for entry in entries:
     if [ "${#in_bank[@]}" -eq 0 ]; then
         fail "estagio clang-tidy recusado: 0 arquivo(s) no banco de compilacao (GODS_LAWS.md L-40, piso de varredura nao-vazia)"
     fi
-    run-clang-tidy -p "$BUILD_DIR" -quiet "${in_bank[@]}"
+    run_tidy_batch "$BUILD_DIR" "$PRECI_JOBS" "${in_bank[@]}"
+}
+
+# The two batch calls of stages 4 and 5, with the degree as an explicit
+# argument (PRECI-LINT-JOBS): the selftest calls them against stub tools
+# and reads the -j that arrives.
+run_tidy_batch() {
+    _tb_build="$1"; _tb_jobs="$2"; shift 2
+    require_jobs "$_tb_jobs" "run_tidy_batch"
+    run-clang-tidy -p "$_tb_build" -quiet -j "$_tb_jobs" "$@"
+}
+
+# cppcheck -j: the same findings as the serial run, measured on
+# 31/10/2026 over the whole tracked tree and over the dirty fixture (this
+# stage never enables unusedFunction, the one check that needs to see
+# every file in one process; see the --enable note below).
+run_cppcheck_batch() {
+    _cb_build="$1"; _cb_jobs="$2"; shift 2
+    require_jobs "$_cb_jobs" "run_cppcheck_batch"
+    cppcheck -j "$_cb_jobs" --enable=warning,performance,portability --inline-suppr \
+        --error-exitcode=1 --suppress=missingIncludeSystem --std=c++20 \
+        -I "$ROOT_DIR/include" -I "$_cb_build/generated/include" -I "$ROOT_DIR/src" \
+        "$@"
 }
 
 # --enable is deliberately warning,performance,portability, NOT `all`:
@@ -662,10 +820,7 @@ for entry in entries:
 stage_cppcheck() {
     enumerate_tracked_cpp_hpp
     require_nonempty "cppcheck" || fail "estagio cppcheck recusado (varredura vazia)"
-    cppcheck --enable=warning,performance,portability --inline-suppr \
-        --error-exitcode=1 --suppress=missingIncludeSystem --std=c++20 \
-        -I "$ROOT_DIR/include" -I "$BUILD_DIR/generated/include" -I "$ROOT_DIR/src" \
-        "${FILES[@]}"
+    run_cppcheck_batch "$BUILD_DIR" "$PRECI_JOBS" "${FILES[@]}"
 }
 
 # .clang-tidy's own header comment states the policy: every
@@ -801,6 +956,67 @@ stage_gitleaks() {
 stage_container_link() {
     sh "${ROOT_DIR}/tests/container/prepare_arch_ports_fixture.sh" "$ROOT_DIR" ||
         fail "estagio container-link recusado: prepare_arch_ports_fixture.sh reprovou (ver acima) - GATE-CONT-LINK, GODS_LAWS.md L-17/L-36/L-40"
+}
+
+# PRECI-LINT-JOBS (GODS_LAWS.md L-11 global, section 5: at most 13 threads
+# and 3 cores always free on this machine; plus the leader's quota of 8
+# cores while the machine is shared with another project, which reaches
+# this script through the caller's CMAKE_BUILD_PARALLEL_LEVEL): ONE degree
+# for every parallel tool this script starts, picked once in main() by
+# apply_preci_jobs. Measured on 30/10/2026 before it existed: run-clang-tidy
+# started 16 workers whatever the caller exported (its default is Python's
+# cpu_count, which ignores the environment and the CPU affinity), cppcheck
+# ran on one core, and a `cmake --build` with the variable unset took
+# Ninja's own default (nproc + 2). The rule: CMAKE_BUILD_PARALLEL_LEVEL when
+# the caller set it (a positive integer, capped at nproc; the CI jobs set it
+# to the nproc of their runner); otherwise nproc - 3, at least 1 and at most
+# 13. Anything else is REFUSED, never replaced by a default in silence (the
+# same closed refusals as pick_ctest_jobs below). Pure function, for the
+# selftest: prints the degree, or "RECUSA: <reason>" with status 1.
+pick_preci_jobs() {
+    requested="$1"; nproc_now="$2"
+    case "$nproc_now" in
+        ''|*[!0-9]*|0) echo "RECUSA: nproc ilegivel ('$nproc_now')"; return 1 ;;
+    esac
+    case "$requested" in
+        '')
+            cap=$((nproc_now - 3))
+            [ "$cap" -gt 13 ] && cap=13
+            [ "$cap" -lt 1 ] && cap=1
+            echo "$cap"
+            return 0
+            ;;
+        *[!0-9]*|0*)
+            echo "RECUSA: CMAKE_BUILD_PARALLEL_LEVEL='$requested' nao e' um inteiro positivo sem zero a esquerda"
+            return 1
+            ;;
+    esac
+    if [ "$requested" -gt "$nproc_now" ]; then
+        echo "$nproc_now"
+    else
+        echo "$requested"
+    fi
+}
+
+# Picks the degree and EXPORTS it as CMAKE_BUILD_PARALLEL_LEVEL: that is
+# what makes every `cmake --build` of this script, and every nested build
+# the test suite starts, take it. Printed on every run, in every mode.
+apply_preci_jobs() {
+    _pj_requested="${CMAKE_BUILD_PARALLEL_LEVEL:-}"
+    _pj_nproc="$(nproc 2> /dev/null || true)"
+    PRECI_JOBS="$(pick_preci_jobs "$_pj_requested" "$_pj_nproc")" \
+        || fail "grau de paralelismo recusado: $PRECI_JOBS (PRECI-LINT-JOBS)"
+    export CMAKE_BUILD_PARALLEL_LEVEL="$PRECI_JOBS"
+    echo "paralelismo do preci: $PRECI_JOBS (CMAKE_BUILD_PARALLEL_LEVEL pedido=${_pj_requested:-<vazio>}, nproc=$_pj_nproc; vale para todo cmake --build, inclusive os aninhados, e e' o -j do run-clang-tidy e do cppcheck)"
+}
+
+# The degree is checked again where it is used: a caller that forgets it,
+# or passes garbage, fails loud instead of falling back to the tool's own
+# default (every core of the machine, for run-clang-tidy).
+require_jobs() {
+    case "$1" in
+        ''|*[!0-9]*|0*) fail "$2: grau de paralelismo invalido ('$1') - recusado, nunca o padrao da ferramenta (PRECI-LINT-JOBS)" ;;
+    esac
 }
 
 # A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): grau do ctest LOCAL. Padrao
@@ -2202,6 +2418,198 @@ run_selftest_ctest_jobs_controls() {
     echo "selftest: pick_ctest_jobs OK"
 }
 
+# PRECI-LINT-JOBS: the rule of pick_preci_jobs, the export of
+# apply_preci_jobs, and the -j that really reaches run-clang-tidy, cppcheck
+# and `cmake --build` (stub tools that only write down their arguments and
+# environment; the real ones are never called here).
+run_selftest_preci_jobs_controls() {
+    log "selftest: pick_preci_jobs e o grau que chega ao run-clang-tidy, ao cppcheck e ao cmake --build (PRECI-LINT-JOBS, L-11)"
+    esperar_grau() {
+        nome="$1"; esperado="$2"; shift 2
+        obtido="$(pick_preci_jobs "$@")" || true
+        if [ "$esperado" = RECUSA ]; then
+            case "$obtido" in "RECUSA:"*) echo "selftest: preci_jobs $nome OK" ; return 0 ;; esac
+        elif [ "$obtido" = "$esperado" ]; then
+            echo "selftest: preci_jobs $nome OK"
+            return 0
+        fi
+        fail "selftest preci_jobs $nome: esperado '$esperado', obtido '$obtido'"
+    }
+    # order: CMAKE_BUILD_PARALLEL_LEVEL nproc
+    esperar_grau "pedido 8 em 16 nucleos (a cota do lider)" 8 8 16
+    esperar_grau "sem pedido, 16 nucleos: 13 (3 livres)" 13 "" 16
+    esperar_grau "sem pedido, 32 nucleos: 13 (teto da L-11)" 13 "" 32
+    esperar_grau "sem pedido, 12 nucleos: 9 (3 livres)" 9 "" 12
+    esperar_grau "sem pedido, 4 nucleos: 1 (3 livres)" 1 "" 4
+    esperar_grau "sem pedido, 2 nucleos: piso 1" 1 "" 2
+    esperar_grau "pedido 4 em 4 nucleos (um executor do CI)" 4 4 4
+    esperar_grau "pedido acima do nproc vira o nproc" 16 32 16
+    esperar_grau "RECUSA pedido nao numerico" RECUSA abc 16
+    esperar_grau "RECUSA pedido zero" RECUSA 0 16
+    esperar_grau "RECUSA zero a esquerda" RECUSA 08 16
+    esperar_grau "RECUSA pedido negativo" RECUSA -2 16
+    esperar_grau "RECUSA nproc vazio" RECUSA 8 ""
+    esperar_grau "RECUSA nproc nao numerico" RECUSA 8 abc
+    stub="$(mktemp -d "${TMPDIR}/glintfx-preci-jobs-stub.XXXXXX")" \
+        || fail "selftest preci_jobs: mktemp falhou"
+    falhar() { rm -rf "$stub"; fail "$@"; }
+    for ferramenta in run-clang-tidy cppcheck cmake; do
+        printf '#!/bin/sh\necho "%s cbpl=${CMAKE_BUILD_PARALLEL_LEVEL:-} $*" >> "%s/calls.txt"\n' \
+            "$ferramenta" "$stub" > "$stub/$ferramenta"
+        chmod +x "$stub/$ferramenta"
+    done
+    printf '#!/bin/sh\necho 16\n' > "$stub/nproc"
+    chmod +x "$stub/nproc"
+    # Unset CMAKE_BUILD_PARALLEL_LEVEL on a 16-core stub: the export is what
+    # gives `cmake --build` 13 instead of Ninja's nproc + 2.
+    (
+        PATH="$stub:$PATH"
+        unset CMAKE_BUILD_PARALLEL_LEVEL
+        apply_preci_jobs > /dev/null
+        run_tidy_batch /selftest-build "$PRECI_JOBS" a.cpp b.cpp
+        run_cppcheck_batch /selftest-build "$PRECI_JOBS" a.cpp
+        stage_build
+    ) > /dev/null 2>&1 || falhar "selftest preci_jobs: a rodada com as ferramentas falsas falhou"
+    # The caller's 6 wins (the leader's quota reaches this script this way).
+    (
+        PATH="$stub:$PATH"
+        CMAKE_BUILD_PARALLEL_LEVEL=6
+        export CMAKE_BUILD_PARALLEL_LEVEL
+        apply_preci_jobs > /dev/null
+        run_tidy_batch /selftest-build "$PRECI_JOBS" c.cpp
+    ) > /dev/null 2>&1 || falhar "selftest preci_jobs: a rodada com o pedido 6 falhou"
+    chamadas="$(cat "$stub/calls.txt" 2> /dev/null || true)"
+    for esperado_linha in \
+        "run-clang-tidy cbpl=13 -p /selftest-build -quiet -j 13 a.cpp b.cpp" \
+        "cppcheck cbpl=13 -j 13 --enable=warning,performance,portability" \
+        "cmake cbpl=13 --build $BUILD_DIR" \
+        "run-clang-tidy cbpl=6 -p /selftest-build -quiet -j 6 c.cpp"; do
+        case "$chamadas" in
+            *"$esperado_linha"*) echo "selftest: preci_jobs chegou: '$esperado_linha' OK" ;;
+            *) falhar "selftest preci_jobs: esperado '$esperado_linha' entre as chamadas; obtido '$chamadas'" ;;
+        esac
+    done
+    n_chamadas="$(grep -c . "$stub/calls.txt" || true)"
+    [ "$n_chamadas" = 4 ] || falhar "selftest preci_jobs: esperado 4 chamadas registradas, obtido $n_chamadas"
+    # A missing or invalid degree never falls back to the tool's default:
+    # refused, and the tool is never called.
+    for grau_ruim in "" abc 0; do
+        if ( PATH="$stub:$PATH"; run_tidy_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
+            falhar "selftest preci_jobs: run_tidy_batch aceitou o grau '$grau_ruim'"
+        fi
+        if ( PATH="$stub:$PATH"; run_cppcheck_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
+            falhar "selftest preci_jobs: run_cppcheck_batch aceitou o grau '$grau_ruim'"
+        fi
+    done
+    if ( PATH="$stub:$PATH"; CMAKE_BUILD_PARALLEL_LEVEL=abc; export CMAKE_BUILD_PARALLEL_LEVEL; apply_preci_jobs ) > /dev/null 2>&1; then
+        falhar "selftest preci_jobs: apply_preci_jobs aceitou CMAKE_BUILD_PARALLEL_LEVEL=abc"
+    fi
+    n_depois="$(grep -c . "$stub/calls.txt" || true)"
+    [ "$n_depois" = 4 ] || falhar "selftest preci_jobs: um grau recusado chegou a chamar a ferramenta ($n_depois chamadas, esperado 4)"
+    rm -rf "$stub"
+    echo "selftest: preci_jobs OK (14 regras, 4 chamadas com o grau certo, 7 recusas sem chamar a ferramenta)"
+}
+
+# PRECI-CLANG-BUILD: clang_build_tree on three throwaway CMake projects
+# that honour GLINTFX_WERROR the way cmake/GlintfxCompileOptions.cmake does:
+# a clean one passes (both modes), one with the exact shape of the
+# R2b defect in TWO files (an internal function used only inside decltype;
+# Clang says -Wunneeded-internal-declaration, GCC says nothing) is REPROVED
+# with both errors counted and both files named, and one with zero
+# translation units is REPROVED (L-40).
+run_selftest_clang_stage_controls() {
+    log "selftest: estagio 3b (build com Clang): limpo passa, a forma do defeito do Clang de 30/10 reprova, projeto sem unidade reprova (PRECI-CLANG-BUILD, L-40)"
+    # The selftest is the ctest case preci_selftest wherever clang-format,
+    # clang-tidy and cppcheck exist (tests/CMakeLists.txt), and clang-tidy
+    # does not bring clang++ along (Fedora's clang-tools-extra pulls only
+    # clang-libs, measured in the CI lint log of 30/10/2026): refusing here
+    # would be the spurious ctest failure that registration rule exists to
+    # avoid. So this control declares itself not applicable, printed; the
+    # real stage 3b still REFUSES without clang++. The CI lint job installs
+    # clang, so the control runs there.
+    if ! clang_compiler_present; then
+        echo "selftest: estagio clang NAO APLICAVEL neste host (clang++ ausente do PATH) - declarado; o estagio 3b de verdade recusa sem ele, ou pula por GLINTFX_PRECI_CLANG=skip, declarado"
+        return 0
+    fi
+    proj="$(mktemp -d "${TMPDIR}/glintfx-preci-clang.XXXXXX")" || fail "selftest clang: mktemp falhou"
+    falhar() { rm -rf "$proj"; fail "$@"; }
+    for caso in limpo sujo vazio; do
+        mkdir -p "$proj/$caso" || falhar "selftest clang: mkdir falhou"
+        {
+            echo 'cmake_minimum_required(VERSION 4.1)'
+            echo 'project(preci_clang_fixture LANGUAGES CXX)'
+            echo 'set(CMAKE_CXX_STANDARD 23)'
+            echo 'set(CMAKE_CXX_STANDARD_REQUIRED ON)'
+            echo 'add_compile_options(-Wall -Wextra -Wpedantic)'
+            echo 'if(GLINTFX_WERROR)'
+            echo '  add_compile_options(-Werror)'
+            echo 'endif()'
+            case "$caso" in
+                vazio) echo 'add_custom_target(nothing_to_compile)' ;;
+                sujo) echo 'add_library(fixture STATIC fixture.cpp fixture2.cpp)' ;;
+                *) echo 'add_library(fixture STATIC fixture.cpp)' ;;
+            esac
+        } > "$proj/$caso/CMakeLists.txt"
+    done
+    {
+        echo 'int glintfx_preci_clang_fixture() { return 0; }'
+    } > "$proj/limpo/fixture.cpp"
+    {
+        echo '#include <type_traits>'
+        echo 'namespace {'
+        echo 'int only_in_decltype(int value) { return value; }'
+        echo '}'
+        echo 'static_assert(std::is_same_v<decltype(only_in_decltype(1)), int>);'
+        echo 'int glintfx_preci_clang_fixture() { return 0; }'
+    } > "$proj/sujo/fixture.cpp"
+    sed 's/glintfx_preci_clang_fixture/glintfx_preci_clang_fixture2/' "$proj/sujo/fixture.cpp" > "$proj/sujo/fixture2.cpp" \
+        || falhar "selftest clang: sed falhou"
+    saida="$(clang_build_tree "$proj/limpo" "$proj/limpo/b-compartilhado" compartilhado 2>&1)" \
+        || falhar "selftest clang: o projeto limpo foi reprovado (compartilhado): $saida"
+    case "$saida" in
+        *"clang[compartilhado]: unidades=1 rc_configure=0 rc_build=0 erros=0 "*) echo "selftest: clang limpo (compartilhado) OK" ;;
+        *) falhar "selftest clang: linha de resumo do limpo inesperada: $saida" ;;
+    esac
+    saida="$(clang_build_tree "$proj/limpo" "$proj/limpo/b-estatico" estatico 2>&1)" \
+        || falhar "selftest clang: o projeto limpo foi reprovado (estatico): $saida"
+    echo "selftest: clang limpo (estatico) OK"
+    # Two dirty files built ONE edge at a time: only `-k 0` reaches the
+    # second error (Ninja's default stops at the first failed edge).
+    if saida="$(CMAKE_BUILD_PARALLEL_LEVEL=1 clang_build_tree "$proj/sujo" "$proj/sujo/b" compartilhado 2>&1)"; then
+        falhar "selftest clang: a forma do defeito de 30/10 PASSOU (o estagio nao morde): $saida"
+    fi
+    case "$saida" in
+        *"Wunneeded-internal-declaration"*"clang[compartilhado]: unidades=2 rc_configure=0 rc_build="[1-9]*" erros=2 "*"arquivos_com_erro=[fixture.cpp fixture2.cpp]"*) echo "selftest: clang sujo reprovado pelo aviso certo, os dois arquivos nomeados (-k 0, um passo por vez) OK" ;;
+        *) falhar "selftest clang: o sujo reprovou, mas nao pelo aviso esperado, sem os dois erros (-k 0) ou sem nomear os arquivos: $saida" ;;
+    esac
+    if saida="$(clang_build_tree "$proj/vazio" "$proj/vazio/b" compartilhado 2>&1)"; then
+        falhar "selftest clang: o projeto SEM unidade de traducao passou (varredura vazia aprovada): $saida"
+    fi
+    case "$saida" in
+        *"clang[compartilhado]: unidades=0 "*) echo "selftest: clang sem unidade reprovado (piso de varredura) OK" ;;
+        *) falhar "selftest clang: o vazio reprovou sem dizer unidades=0: $saida" ;;
+    esac
+    if clang_build_tree "$proj/limpo" "$proj/limpo/b-x" outro > /dev/null 2>&1; then
+        falhar "selftest clang: modo desconhecido aceito"
+    fi
+    # The real stage without clang++ on PATH (GODS_LAWS.md L-02): refuses
+    # by default, and skips only when the caller declares it.
+    saida="$( PATH=/nonexistent; unset GLINTFX_PRECI_CLANG; clang_presence_or_skip 3b 2>&1 )" || true
+    case "$saida" in
+        *"PULADO"*) falhar "selftest clang: sem clang++ e sem declaracao, o estagio pulou (a ausencia passou calada): $saida" ;;
+        *"estagio 3b recusado: clang++ ausente do PATH"*) ;;
+        *) falhar "selftest clang: sem clang++ e sem declaracao, o estagio nao recusou: $saida" ;;
+    esac
+    saida="$( PATH=/nonexistent; GLINTFX_PRECI_CLANG=skip; clang_presence_or_skip 3b 2>&1 )" \
+        && falhar "selftest clang: com o pulo declarado, o estagio seguiu como se o clang++ existisse: $saida"
+    case "$saida" in
+        *"PULADO POR DECLARACAO (GLINTFX_PRECI_CLANG=skip, clang++ ausente)"*) echo "selftest: clang ausente recusa, e o pulo so com declaracao, impresso OK" ;;
+        *) falhar "selftest clang: o pulo declarado nao saiu impresso: $saida" ;;
+    esac
+    rm -rf "$proj"
+    echo "selftest: estagio clang OK (2 limpos, 1 sujo com 2 erros, 1 vazio, 1 modo desconhecido, ausencia recusada e pulo declarado)"
+}
+
 run_selftest_ccache_controls() {
     log "selftest: setup_ccache (ligado, desligado pela chave, ausente; o estado e' sempre impresso)"
     # Each case runs in a subshell: setup_ccache exports, and the real
@@ -2242,17 +2650,22 @@ run_selftest_ccache_mask_controls() {
     mask_root="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-mask.XXXXXX")" \
         || fail "selftest ccache mascara: mktemp falhou"
     falhar() { rm -rf "$mask_root"; fail "$@"; }
-    mkdir "$mask_root/bin" "$mask_root/mask" || falhar "selftest ccache mascara: mkdir falhou"
+    mkdir "$mask_root/bin" "$mask_root/mask" "$mask_root/maskclang" || falhar "selftest ccache mascara: mkdir falhou"
     printf '#!/bin/sh\nexit 0\n' > "$mask_root/bin/ccache"
     chmod +x "$mask_root/bin/ccache"
     for nome in c++ cc g++ gcc; do
         ln -s "$mask_root/bin/ccache" "$mask_root/mask/$nome" || falhar "selftest ccache mascara: ln falhou"
     done
+    # A second mask dir with ONLY clang++/clang (PRECI-CLANG-BUILD): stage 3b
+    # compiles with clang++, so this one has to leave PATH as well.
+    for nome in clang++ clang; do
+        ln -s "$mask_root/bin/ccache" "$mask_root/maskclang/$nome" || falhar "selftest ccache mascara: ln falhou"
+    done
     observar() {
         (
             unset CCACHE_DISABLE
             GLINTFX_PRECI_CCACHE="$1"
-            PATH="$mask_root/mask:$mask_root/bin:$PATH"
+            PATH="$mask_root/mask:$mask_root/maskclang:$mask_root/bin:$PATH"
             estado="$(setup_ccache /selftest-root)" || true
             # setup_ccache exports: re-run it in this shell for the environment.
             setup_ccache /selftest-root > /dev/null
@@ -2260,19 +2673,23 @@ run_selftest_ccache_mask_controls() {
                 *":$mask_root/mask:"*) echo "mascara=no-PATH" ;;
                 *) echo "mascara=fora-do-PATH" ;;
             esac
+            case ":$PATH:" in
+                *":$mask_root/maskclang:"*) echo "mascara_clang=no-PATH" ;;
+                *) echo "mascara_clang=fora-do-PATH" ;;
+            esac
             echo "disable=${CCACHE_DISABLE:-}"
             echo "$estado" | grep '^ccache: mascaras retiradas' || echo "mascaras retiradas: linha ausente"
         )
     }
     obtido="$(observar 0)"
     case "$obtido" in
-        *"mascara=fora-do-PATH"*"disable=1"*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave desligada OK" ;;
-        *) falhar "selftest ccache mascara (chave 0): esperado mascara fora do PATH, CCACHE_DISABLE=1 e '1' retirada; obtido '$obtido'" ;;
+        *"mascara=fora-do-PATH"*"mascara_clang=fora-do-PATH"*"disable=1"*"mascaras retiradas do PATH: 2"*) echo "selftest: ccache mascara com a chave desligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 0): esperado as duas mascaras fora do PATH, CCACHE_DISABLE=1 e '2' retiradas; obtido '$obtido'" ;;
     esac
     obtido="$(observar 1)"
     case "$obtido" in
-        *"mascara=fora-do-PATH"*"disable="*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave ligada OK" ;;
-        *) falhar "selftest ccache mascara (chave 1): esperado mascara fora do PATH e '1' retirada; obtido '$obtido'" ;;
+        *"mascara=fora-do-PATH"*"mascara_clang=fora-do-PATH"*"disable="*"mascaras retiradas do PATH: 2"*) echo "selftest: ccache mascara com a chave ligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 1): esperado as duas mascaras fora do PATH e '2' retiradas; obtido '$obtido'" ;;
     esac
     rm -rf "$mask_root"
 }
@@ -2427,6 +2844,8 @@ run_selftest() {
     run_selftest_noexcept_alloc_controls
     run_selftest_floor_controls
     run_selftest_ctest_jobs_controls
+    run_selftest_preci_jobs_controls
+    run_selftest_clang_stage_controls
     run_selftest_ccache_controls
     run_selftest_ccache_mask_controls
     run_selftest_ccache_preconfigured_controls
@@ -2453,6 +2872,13 @@ run_sanitizer_only() {
     timed_stage "7: sanitizer (ASan/UBSan)" stage_sanitizer
     report_stage_times
     echo "preci.sh --sanitizer-only: VERDE"
+}
+
+run_clang_only() {
+    timed_stage "3b: build com Clang (segundo compilador do CI, -Werror, -k 0, os dois modos)" stage_clang_build
+    timed_stage "11: ctest sob Clang (os dois modos, como o job clang do CI)" stage_clang_ctest
+    report_stage_times
+    echo "preci.sh --clang-only: VERDE"
 }
 
 run_debug_only() {
@@ -2604,6 +3030,7 @@ run_full_pipeline() {
     timed_stage "2: configure (-Werror)" stage_configure
     timed_stage "2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real" stage_blob
     timed_stage "3: build" stage_build
+    timed_stage "3b: build com Clang (segundo compilador do CI, -Werror, -k 0, os dois modos)" stage_clang_build
     timed_stage "4: clang-tidy" stage_tidy
     timed_stage "5: cppcheck" stage_cppcheck
     timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
@@ -2615,11 +3042,13 @@ run_full_pipeline() {
         echo "preci.sh --fast: estagio 8 (debug) PULADO"
         echo "preci.sh --fast: estagio 9 (win32-link) PULADO"
         echo "preci.sh --fast: estagio 10 (container-link) PULADO - custo medido ~3m30s, ver o cabecalho de stage_container_link()"
+        echo "preci.sh --fast: estagio 11 (ctest sob Clang) PULADO - o build com Clang (3b) rodou; a suite sob Clang roda em --clang-only e no servidor"
     else
         timed_stage "7: sanitizer (ASan/UBSan)" stage_sanitizer
         timed_stage "8: debug (NDEBUG indefinido, assert() de produto ligado)" stage_debug
         timed_stage "9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)" stage_win32_link strict
         timed_stage "10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)" stage_container_link
+        timed_stage "11: ctest sob Clang (os dois modos, como o job clang do CI)" stage_clang_ctest
     fi
     report_stage_times
     record_green_baseline
@@ -2663,7 +3092,9 @@ setup_ccache() {
     CCACHE_STATE="desligado"
     # Hosts that mask the compiler (Fedora: /usr/lib64/ccache on PATH via
     # /etc/profile.d) would make c++/cc BE ccache, so the switch could not
-    # turn it off. Drop every PATH component whose c++/cc/g++/gcc resolves to
+    # turn it off. Stage 3b runs clang++, so a mask dir holding only clang++/
+    # clang counts too (PRECI-CLANG-BUILD).
+    # Drop every PATH component whose c++/cc/g++/gcc/clang++/clang resolves to
     # the ccache binary; ccache then enters only through the explicit launcher.
     _cc_masks=0
     _cc_bin="$(command -v ccache 2> /dev/null)" || _cc_bin=""
@@ -2674,7 +3105,7 @@ setup_ccache() {
         IFS=:
         for _cc_dir in $PATH; do
             _cc_is_mask=0
-            for _cc_name in c++ cc g++ gcc; do
+            for _cc_name in c++ cc g++ gcc clang++ clang; do
                 if [ -n "$_cc_dir" ] && [ -e "$_cc_dir/$_cc_name" ] \
                     && [ "$(readlink -f "$_cc_dir/$_cc_name")" = "$_cc_bin" ]; then
                     _cc_is_mask=1
@@ -2714,13 +3145,13 @@ setup_ccache() {
     echo "ccache: ligado (dir=$CCACHE_DIR, limite=$CCACHE_MAXSIZE, basedir=$CCACHE_BASEDIR)"
 }
 
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
@@ -2731,6 +3162,7 @@ main() {
     fi
 
     setup_ccache "$ROOT_DIR"
+    apply_preci_jobs
 
     if [ "$mode" != "--selftest" ]; then
         case "$mode" in
@@ -2753,6 +3185,9 @@ main() {
             ;;
         --sanitizer-only)
             run_sanitizer_only
+            ;;
+        --clang-only)
+            run_clang_only
             ;;
         --debug-only)
             run_debug_only

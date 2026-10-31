@@ -191,6 +191,9 @@ GLint GLINTFX_GL_APIENTRY fake_get_uniform_location(GLuint, const GLchar *name) 
     if (std::strcmp(name, "u_texture") == 0) {
         return 10; // T4b-B1
     }
+    if (std::strcmp(name, "u_stencil_discard") == 0) {
+        return 11; // R2D-SPRITE-SHADE H3a
+    }
     return std::strcmp(name, "u_encode_srgb") == 0 ? 8 : -1;
 }
 
@@ -272,6 +275,7 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK_EQ(result.value().encode_srgb_location, 8);
     GLINTFX_CHECK_EQ(result.value().textured_location, 9); // T4b-B1: each uniform by its own name
     GLINTFX_CHECK_EQ(result.value().texture_location, 10);
+    GLINTFX_CHECK_EQ(result.value().stencil_discard_location, 11); // H3a: by its own name too
     GLINTFX_CHECK_EQ(driver.shaders_created, GLuint{2});
     GLINTFX_CHECK_EQ(driver.shader_type[1], k_vertex_shader);
     GLINTFX_CHECK_EQ(driver.shader_type[2], k_fragment_shader);
@@ -292,6 +296,7 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK_EQ(program.encode_srgb_location, -1);
     GLINTFX_CHECK_EQ(program.textured_location, -1);
     GLINTFX_CHECK_EQ(program.texture_location, -1);
+    GLINTFX_CHECK_EQ(program.stencil_discard_location, -1);
     disarm();
 }
 
@@ -552,4 +557,38 @@ GLINTFX_TEST(embedded_program_a_link_failure_says_program_link_failed) {
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(captured.third_field_text == "program_link_failed");
     disarm();
+}
+
+// R2D-SPRITE-SHADE H3a: the fragment discards only in the two stencil passes of shadow_group.hpp,
+// u_stencil_discard 1 (alpha below half an 8-bit level) and 2 (alpha below 1 minus half a level),
+// each condition with its own discard, AFTER the texel and BEFORE the sRGB encoding; every other
+// pass is 0 and discards nothing. The values are the literal ones, never the constants of the code.
+// Text, not behavior (see the interface case above): that a real driver discards these fragments
+// is for the pixel cells of H3b.
+GLINTFX_TEST(embedded_program_discards_only_in_the_two_stencil_passes) {
+    using glintfx::draw2d::stencil_discard_of;
+    using glintfx::draw2d::stencil_pass;
+    GLINTFX_CHECK_EQ(stencil_discard_of(stencil_pass::plain), 0);
+    GLINTFX_CHECK_EQ(stencil_discard_of(stencil_pass::mark_shadow), 1);
+    GLINTFX_CHECK_EQ(stencil_discard_of(stencil_pass::release_marks), 2);
+    const std::string_view fragment = glintfx::draw2d::embedded_fragment_shader_source();
+    constexpr std::string_view k_transparent =
+        "    if (u_stencil_discard == 1 && color.a < 0.5 / 255.0) {\n        discard;\n    }\n";
+    constexpr std::string_view k_not_opaque = "    if (u_stencil_discard == 2 && color.a < 1.0 - "
+                                              "0.5 / 255.0) {\n        discard;\n    }\n";
+    GLINTFX_CHECK(fragment.find("uniform int u_stencil_discard;") != std::string_view::npos);
+    const std::size_t sampled = fragment.find("color *= textureProj(u_texture, v_texcoord);");
+    const std::size_t transparent = fragment.find(k_transparent);
+    const std::size_t not_opaque = fragment.find(k_not_opaque);
+    const std::size_t encoded = fragment.find("if (u_encode_srgb != 0");
+    GLINTFX_CHECK(sampled != std::string_view::npos && transparent != std::string_view::npos &&
+                  not_opaque != std::string_view::npos && encoded != std::string_view::npos);
+    GLINTFX_CHECK(sampled < transparent && transparent < not_opaque && not_opaque < encoded);
+    // The statement, indented, so the uniform's own name ("u_stencil_discard;") is not counted.
+    std::size_t discards = 0;
+    for (std::size_t at = fragment.find("    discard;"); at != std::string_view::npos;
+         at = fragment.find("    discard;", at + 1)) {
+        ++discards;
+    }
+    GLINTFX_CHECK_EQ(discards, std::size_t{2});
 }

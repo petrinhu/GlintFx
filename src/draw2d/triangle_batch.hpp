@@ -11,6 +11,7 @@
 
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
+#include "draw2d/shadow_group.hpp"
 
 // draw2d/triangle_batch.hpp - R2D-BATCH, fatia B2c (docs/plano-w7d.md sec. 4.3, D-W7D-18): the PURE
 // atom that ASSEMBLES the batch of a frame as INDEXED TRIANGLES - the way SDL3
@@ -35,7 +36,8 @@
 // (top_left, top_right, bottom_right) and (top_left, bottom_right, bottom_left).
 //
 // RUNS: pieces are added in painting order; CONSECUTIVE pieces with the same STATE KEY (program,
-// texture, blend) are ONE run - one draw call - and a change in ANY of the three starts another.
+// texture, blend and the stencil role of shadow_group.hpp) are ONE run - one draw call - and a
+// change in ANY of the four starts another.
 // Reordering to merge more (sokol_gp) is a later unit, after textures exist.
 //
 // MEMORY, WITHOUT std::vector AND WITHOUT A FAILURE THAT THROWS (GODS_LAWS.md L-22, R3): the three
@@ -59,17 +61,20 @@ struct batch_vertex {
 };
 static_assert(sizeof(batch_vertex) == 36, "the vertex format is 36 bytes: 2 + 2 + 4 + 1 floats");
 
-// What has to be equal for two pieces to share one draw call.
+// What has to be equal for two pieces to share one draw call. A shadow never shares a run with an
+// ordinary piece, because the two use the stencil differently (shadow_group.hpp, R2D-SPRITE-SHADE
+// H3a).
 struct batch_state {
     std::uint32_t program = 0;
     std::uint32_t texture = 0;
     std::uint32_t blend = 0;
+    stencil_role stencil = stencil_role::ordinary;
 };
 
 [[nodiscard]] constexpr bool operator==(const batch_state &first,
                                         const batch_state &second) noexcept {
     return first.program == second.program && first.texture == second.texture &&
-           first.blend == second.blend;
+           first.blend == second.blend && first.stencil == second.stencil;
 }
 
 // One vertex of a TRIANGLE piece (S2a): its position in PIXELS and its color, LINEAR and straight

@@ -281,6 +281,10 @@ void GLINTFX_GL_APIENTRY f_color_mask(GLboolean, GLboolean, GLboolean, GLboolean
     GLINTFX_COUNT();
 }
 void GLINTFX_GL_APIENTRY f_pixel_store(GLenum, GLint) { GLINTFX_COUNT(); }
+// R2D-SPRITE-SHADE H3a: every flush leaves the stencil at the GL defaults (gl_state_contract.hpp).
+void GLINTFX_GL_APIENTRY f_stencil_func(GLenum, GLint, GLuint) { GLINTFX_COUNT(); }
+void GLINTFX_GL_APIENTRY f_stencil_op(GLenum, GLenum, GLenum) { GLINTFX_COUNT(); }
+void GLINTFX_GL_APIENTRY f_stencil_mask(GLuint) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_viewport(GLint x, GLint y, GLsizei w, GLsizei h) {
     GLINTFX_COUNT();
     card.viewport = {x, y, w, h};
@@ -330,6 +334,9 @@ gl_function_table fake_table() {
     t.glPixelStorei = &f_pixel_store;
     t.glPolygonMode = &f_enum_enum;
     t.glViewport = &f_viewport;
+    t.glStencilFunc = &f_stencil_func;
+    t.glStencilOp = &f_stencil_op;
+    t.glStencilMask = &f_stencil_mask;
     return t;
 }
 

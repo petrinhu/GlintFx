@@ -30,8 +30,9 @@
 //     LINEAR and PREMULTIPLIED (a half-transparent red of alpha 0.5 is stored as 0.5 in the red
 //     channel and 0.5 in alpha) - the mutant that stores the straight color is the one B7 repeats;
 //   - the index is 32 bits (a batch of more than 16 384 pieces does not wrap);
-//   - CONSECUTIVE pieces with the SAME state key (program, texture, blend) are ONE run, and a
-//     change in ANY of the three starts another - both directions of the raylib#6110/#4849 pain;
+//   - CONSECUTIVE pieces with the SAME state key (program, texture, blend, stencil role) are ONE
+//     run, and a change in ANY of the four starts another - both directions of the
+//     raylib#6110/#4849 pain;
 //   - MEMORY: an armed allocator that fails at EVERY possible point of a growing batch never
 //     throws, never leaves half a piece (vertices, indices and runs stay consistent), counts the
 //     dropped piece, and lets later pieces through once the allocator works again.
@@ -675,4 +676,25 @@ GLINTFX_TEST(triangle_batch_textured_triangles_out_of_memory_leave_the_batch_as_
     GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{0});
     GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{0});
     GLINTFX_CHECK_EQ(batch.pieces_dropped_out_of_memory(), std::size_t{1});
+}
+
+// A shadow never shares a run with an ordinary piece of the same program and texture, and two
+// shadows in a row are one run (R2D-SPRITE-SHADE H3a): the stencil role is the fourth part of the
+// state key, and the runs keep paint order.
+GLINTFX_TEST(triangle_batch_a_shadow_starts_its_own_run_and_shadows_in_a_row_share_one) {
+    batch_state shadow = k_state_a;
+    shadow.stencil = glintfx::draw2d::stencil_role::shadow;
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_white, k_state_a));
+    GLINTFX_CHECK(batch.add_quad(square_at(1, 0, 1), k_white, shadow));
+    GLINTFX_CHECK(batch.add_quad(square_at(2, 0, 1), k_white, shadow));
+    GLINTFX_CHECK(batch.add_quad(square_at(3, 0, 1), k_white, k_state_a));
+    const auto runs = batch.runs();
+    GLINTFX_CHECK_EQ(runs.size(), std::size_t{3});
+    GLINTFX_CHECK(runs[0].state.stencil == glintfx::draw2d::stencil_role::ordinary);
+    GLINTFX_CHECK(runs[1].state.stencil == glintfx::draw2d::stencil_role::shadow);
+    GLINTFX_CHECK(runs[2].state.stencil == glintfx::draw2d::stencil_role::ordinary);
+    GLINTFX_CHECK(runs[0].first_index == 0U && runs[0].index_count == 6U);
+    GLINTFX_CHECK(runs[1].first_index == 6U && runs[1].index_count == 12U);
+    GLINTFX_CHECK(runs[2].first_index == 18U && runs[2].index_count == 6U);
 }

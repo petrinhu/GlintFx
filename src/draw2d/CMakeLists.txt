@@ -15,6 +15,7 @@ target_sources(glintfx_library PRIVATE
     quad_vertices.cpp
     draw_order.cpp
     triangle_batch.cpp
+    shadow_group.cpp
     frame_report_tally.cpp
     piece_refusal.cpp
     embedded_program.cpp

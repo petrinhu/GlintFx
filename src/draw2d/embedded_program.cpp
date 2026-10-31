@@ -54,6 +54,8 @@ constexpr char k_vertex_source[] =
 // `srgb_framebuffer` ON the surface encodes for us and the color is written as it is; with it OFF
 // (`u_encode_srgb` = 1) the program encodes to sRGB before the blend does its work, which is what
 // most 2D libraries do (D-W7D-12): un-premultiply, encode the straight color, premultiply again.
+// After the texel and before the encoding, a stencil pass of shadow_group.hpp may discard the
+// fragment by its alpha (`u_stencil_discard`, embedded_program.hpp; R2D-SPRITE-SHADE H3a).
 constexpr char k_fragment_source[] =
     "#version 330 core\n"
     "in vec3 v_texcoord;\n"
@@ -61,11 +63,18 @@ constexpr char k_fragment_source[] =
     "uniform int u_encode_srgb;\n"
     "uniform int u_textured;\n"
     "uniform sampler2D u_texture;\n"
+    "uniform int u_stencil_discard;\n"
     "out vec4 frag_color;\n"
     "void main() {\n"
     "    vec4 color = v_color;\n"
     "    if (u_textured != 0) {\n"
     "        color *= textureProj(u_texture, v_texcoord);\n"
+    "    }\n"
+    "    if (u_stencil_discard == 1 && color.a < 0.5 / 255.0) {\n"
+    "        discard;\n"
+    "    }\n"
+    "    if (u_stencil_discard == 2 && color.a < 1.0 - 0.5 / 255.0) {\n"
+    "        discard;\n"
     "    }\n"
     "    if (u_encode_srgb != 0 && color.a > 0.0) {\n"
     "        vec3 straight = color.rgb / color.a;\n"
@@ -232,7 +241,18 @@ gltfx_rslt<embedded_program> create_embedded_program(const render::gl_function_t
     result.encode_srgb_location = gl.glGetUniformLocation(result.program, "u_encode_srgb");
     result.textured_location = gl.glGetUniformLocation(result.program, "u_textured");
     result.texture_location = gl.glGetUniformLocation(result.program, "u_texture");
+    result.stencil_discard_location = gl.glGetUniformLocation(result.program, "u_stencil_discard");
     return gltfx_rslt<embedded_program>::ok(result);
+}
+
+std::int32_t stencil_discard_of(stencil_pass pass) noexcept {
+    if (pass == stencil_pass::mark_shadow) {
+        return k_stencil_discard_transparent;
+    }
+    if (pass == stencil_pass::release_marks) {
+        return k_stencil_discard_not_opaque;
+    }
+    return k_stencil_discard_none;
 }
 
 void destroy_embedded_program(const render::gl_function_table &gl,

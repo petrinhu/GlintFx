@@ -1516,6 +1516,15 @@ target_sources(triangle_batch_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-SPRITE-SHADE H3a: the stencil sequence of a batch (draw2d/shadow_group.hpp), on pure data.
+glintfx_add_test(shadow_group_test)
+target_include_directories(shadow_group_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(shadow_group_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/shadow_group.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(frame_report_tally_test)
 target_include_directories(frame_report_tally_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(frame_report_tally_test PRIVATE

@@ -10885,3 +10885,17 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O que foi apagado:** 4159 pastas de build e cópias de trabalho em `.trabalho/`, o `TMPDIR` do projeto (4230 entradas), o conteúdo de `glintfx-preci-tempos` e as sobras dos testes de carga de arquivo em `/var/tmp`. Os comandos deram rc 0, com 0 erros.
   - **O que ficou:** a pasta `cto-w8/r21/` (49 GiB, disco danificado, decisão do líder, D-W8-1021); `ccache-glintfx` (2,8 GiB); as 121 pastas de `ordens-anexos/`; ordens, relatórios, logs e o `classif-cto/decisao.md`; e a `rev-t4bafix1`, que só fica por ser uma cópia rasa que pode guardar evidência.
   - **Depois da limpeza:** `.trabalho/` tem 55 GiB, dos quais 49 são da `r21/`. Em `/home`, `btrfs filesystem usage` dá `min` de 149,66 GiB livres.
+- **D-W8-1034 (main, 06/11 14:03): o líder ligou o modo autônomo e mandou retomar a W8.** Ordem verbatim: "ligue modo autonomo", válida até 07/11 14:01, escopos push e clean. Perguntado por AskUserQuestion se a pausa de 31/10 caía, ele escolheu "Retomar a W8". O main apagou o `parada_do_lider`.
+  - **FATO novo:** durante a pausa, a máquina do líder passou a Fedora 45 (GCC 16.2.1, Clang 23.1.4, CMake 4.3.0, Docker 29.9.2, KWin 6.8.2). As provas da fila foram feitas no Fedora 44.
+  - **Decisão do main:** antes de despachar a fila, um CTO mede a linha de base e o impacto nas quatro ordens congeladas e nas duas revisões pendentes, na faixa D-W8-1380 a 1399. CI 42257881026 disparado sobre `2020ea40`.
+  - **Continuam valendo:** a divisão da máquina com a nfse (8 núcleos e 15 GiB; a nfse foi avisada), o alerta 5x e o aval para a GeForce, e merge e tag só com a W8 fechada, CI verde e revisão limpa.
+- **D-W8-1035 (main, 06/11 18:01): o CTO mediu o Fedora 45, e o líder decidiu três pontos.** O relatório está em `.trabalho/cto-w8/f45-cto/relatorio.md`. Ordem `ordem-f45.md`, md5 `0c2bbe5a`, anexos `1def4e39` (137 arquivos); o main conferiu: `md5sum -c` com rc 0. Decisões D-W8-1380 a D-W8-1398, a ratificar.
+  - **O que o CTO mediu:** nenhuma falha é defeito do produto. O CI 42257881026 deu 19 verdes, 6 falhas e 1 pulado. Com a ordem aplicada num clone, `--fast` deu rc 0 (392), sanitizer rc 0 (202), `--clang-only` rc 0.
+  - **Impacto na fila:** nenhuma ordem precisa ser refeita. Erratas em `ordens-anexos/*-errata-f45/` para PRECI-FIX1, H3a-fix1, H3b, T7 e as duas revisões.
+  - **Decisões do líder, por AskUserQuestion:**
+    - **KWin 6.8:** "Prender e medir (Recommended)". Exceção temporária à L-04, registrada em `GODS_LAWS.md` e no `ESCOPO.md` §1. Item `KWIN-68-SEM-PLACA`, e a W8 só fecha com o resultado.
+    - **Clang-tidy:** "Desligar e triar (Recommended)". Item `CLANG-TIDY-23-TRIAGE`.
+    - **Defeito de confirmação:** "Dentro da W8 (Recommended)". Item `WL-ACK-CONFIGURE-SEGUINTES`, fatia própria logo depois da F45.
+  - **Pesquisa levada ao líder:** KDE MR 3981 e bug 471819; documentação do Weston; discussão 26614 da comunidade do GitHub; o `gpumanager.cpp` lido pelo CTO. **Limite declarado:** se o servidor do GitHub tem o `/dev/udmabuf` não foi medido.
+  - **SELinux das 17:17:** o CTO mediu que não é do GlintFx (`git ls-files` dá 0 para o arquivo). A sessão nfse foi avisada.
+  - **Fila:** F45 e revisão, push e CI; depois R2b-fix2, PRECI-FIX1, T6-B1, WL-ACK, H3a-fix1, H3b-1, T7 e as demais. Nada sai antes do CI da F45.

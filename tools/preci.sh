@@ -620,11 +620,12 @@ clang_compiler_present() {
 # `-k 0`. Prints the build output without Ninja's progress lines and ONE
 # summary line, always, even when it passes (GODS_LAWS.md L-40):
 #   clang[<mode>]: unidades=<entries of the compile database>
-#   rc_configure=<n> rc_build=<n> erros=<n> passos=<done>/<total>
+#   rc_configure=<n> rc_build=<n> erros=<n> passos=<last [k/n] printed>
 #   arquivos_com_erro=[<files>]
-# Returns 0 only with rc_configure=0, rc_build=0, erros=0 and unidades>0
-# (zero translation units is a broken scan, never a clean build). Never
-# calls fail: the selftest observes the red without leaving.
+# The counts come from clang_build_count. Returns 0 only with
+# rc_configure=0, rc_build=0, erros=0 and unidades>0 (zero translation
+# units is a broken scan, never a clean build). Never calls fail: the
+# selftest observes the red without leaving.
 clang_build_tree() {
     _cl_src="$1"; _cl_build="$2"; _cl_mode="$3"
     case "$_cl_mode" in
@@ -649,17 +650,29 @@ clang_build_tree() {
     else
         cat "$_cl_cfg_log"
     fi
-    _cl_units=0
-    if [ -f "$_cl_build/compile_commands.json" ]; then
-        _cl_units="$(grep -c '"file":' "$_cl_build/compile_commands.json" || true)"
-    fi
-    _cl_errors="$(grep -c 'error:' "$_cl_log" || true)"
-    _cl_steps="$(grep -o -E '^\[[0-9]+/[0-9]+\]' "$_cl_log" | tail -n 1 | tr -d '[]' || true)"
-    _cl_files="$(grep -o -E '^[^ :]+\.(cpp|hpp|cc|h):[0-9]+:[0-9]+: (fatal )?error' "$_cl_log" \
-        | sed -E -e "s#^${_cl_src}/##" -e 's#^(\.\./)+##' -e 's#:[0-9]+:[0-9]+: (fatal )?error$##' \
-        | LC_ALL=C sort -u | tr '\n' ' ' || true)"
+    clang_build_count "$_cl_src" "$_cl_build"
     echo "clang[$_cl_mode]: unidades=$_cl_units rc_configure=$_cl_rc_cfg rc_build=$_cl_rc_build erros=$_cl_errors passos=${_cl_steps:-0/0} arquivos_com_erro=[${_cl_files% }]"
     [ "$_cl_rc_cfg" = 0 ] && [ "$_cl_rc_build" = 0 ] && [ "$_cl_errors" = 0 ] && [ "$_cl_units" -gt 0 ]
+}
+
+# Counts what the Clang build of <src> in <build> left behind, into four
+# variables: _cl_units (entries of the compile database), _cl_errors
+# (lines with "error:" in the build log), _cl_steps and _cl_files (the
+# files named by an error, relative to <src>). _cl_steps is the LAST
+# "[k/n]" Ninja printed in that call, not a count of finished edges: a
+# build that succeeds can end at [n-1/n] (measured on 31/10/2026), and a
+# build directory that already exists prints only the edges it reran.
+clang_build_count() {
+    _cc_src="$1"; _cc_log="$2/preci-clang-build.log"
+    _cl_units=0
+    if [ -f "$2/compile_commands.json" ]; then
+        _cl_units="$(grep -c '"file":' "$2/compile_commands.json" || true)"
+    fi
+    _cl_errors="$(grep -c 'error:' "$_cc_log" || true)"
+    _cl_steps="$(grep -o -E '^\[[0-9]+/[0-9]+\]' "$_cc_log" | tail -n 1 | tr -d '[]' || true)"
+    _cl_files="$(grep -o -E '^[^ :]+\.(cpp|hpp|cc|h):[0-9]+:[0-9]+: (fatal )?error' "$_cc_log" \
+        | sed -E -e "s#^${_cc_src}/##" -e 's#^(\.\./)+##' -e 's#:[0-9]+:[0-9]+: (fatal )?error$##' \
+        | LC_ALL=C sort -u | tr '\n' ' ' || true)"
 }
 
 # Absent clang++: refuses, or the declared skip. Prints which, every time.
@@ -918,7 +931,9 @@ stage_noexcept_alloc() {
 # text describes ("por padrao, olha a arvore e nao o historico") - a
 # discrepancy reported alongside this slice, not silently absorbed.
 # .gitleaksignore carries the two known documentation false positives
-# (CONTRACT.md 7.1's deliberately-fake example key).
+# (CONTRACT.md 7.1's deliberately-fake example key). gitleaks has no
+# option for its own parallelism: it gets the degree through the
+# GOMAXPROCS that apply_preci_jobs exports.
 stage_gitleaks() {
     gitleaks detect --no-banner --source "$ROOT_DIR"
 }
@@ -962,8 +977,11 @@ stage_container_link() {
 # and 3 cores always free on this machine; plus the leader's quota of 8
 # cores while the machine is shared with another project, which reaches
 # this script through the caller's CMAKE_BUILD_PARALLEL_LEVEL): ONE degree
-# for every parallel tool this script starts, picked once in main() by
-# apply_preci_jobs. Measured on 30/10/2026 before it existed: run-clang-tidy
+# for every parallel tool this script starts (run-clang-tidy, cppcheck,
+# every `cmake --build`, the nested ones included, and gitleaks), picked
+# once in main() by apply_preci_jobs. The containers the test suite starts
+# are outside it: their processes belong to the docker daemon, not to this
+# script. Measured on 30/10/2026 before it existed: run-clang-tidy
 # started 16 workers whatever the caller exported (its default is Python's
 # cpu_count, which ignores the environment and the CPU affinity), cppcheck
 # ran on one core, and a `cmake --build` with the variable unset took
@@ -991,7 +1009,11 @@ pick_preci_jobs() {
             return 1
             ;;
     esac
-    if [ "$requested" -gt "$nproc_now" ]; then
+    # Past 18 digits the number may not fit the 64-bit integer of `[ -gt ]`,
+    # which then errors out (status 2), and the else branch below would hand
+    # the raw request on (measured on 31/10/2026 with 20 digits). A request
+    # that long is above any nproc, so it is capped like the others.
+    if [ "${#requested}" -gt 18 ] || [ "$requested" -gt "$nproc_now" ]; then
         echo "$nproc_now"
     else
         echo "$requested"
@@ -1000,14 +1022,20 @@ pick_preci_jobs() {
 
 # Picks the degree and EXPORTS it as CMAKE_BUILD_PARALLEL_LEVEL: that is
 # what makes every `cmake --build` of this script, and every nested build
-# the test suite starts, take it. Printed on every run, in every mode.
+# the test suite starts, take it. And as GOMAXPROCS, for gitleaks: it runs
+# a fixed 40 goroutines (semgroup.NewGroup(ctx, 40), detect/detect.go of
+# v8.30.0) with no option to change it, on as many threads as GOMAXPROCS,
+# whose default is every core (measured on 31/10/2026: 16 running threads
+# without it, 8 with GOMAXPROCS=8). A GOMAXPROCS the caller set is
+# replaced as well: there is one degree. Printed on every run, in every mode.
 apply_preci_jobs() {
     _pj_requested="${CMAKE_BUILD_PARALLEL_LEVEL:-}"
     _pj_nproc="$(nproc 2> /dev/null || true)"
     PRECI_JOBS="$(pick_preci_jobs "$_pj_requested" "$_pj_nproc")" \
         || fail "grau de paralelismo recusado: $PRECI_JOBS (PRECI-LINT-JOBS)"
     export CMAKE_BUILD_PARALLEL_LEVEL="$PRECI_JOBS"
-    echo "paralelismo do preci: $PRECI_JOBS (CMAKE_BUILD_PARALLEL_LEVEL pedido=${_pj_requested:-<vazio>}, nproc=$_pj_nproc; vale para todo cmake --build, inclusive os aninhados, e e' o -j do run-clang-tidy e do cppcheck)"
+    export GOMAXPROCS="$PRECI_JOBS"
+    echo "paralelismo do preci: $PRECI_JOBS (CMAKE_BUILD_PARALLEL_LEVEL pedido=${_pj_requested:-<vazio>}, nproc=$_pj_nproc; vale para todo cmake --build, inclusive os aninhados, e' o -j do run-clang-tidy e do cppcheck e o GOMAXPROCS do gitleaks)"
 }
 
 # The degree is checked again where it is used: a caller that forgets it,
@@ -1060,7 +1088,8 @@ pick_ctest_jobs() {
     cap=$((nproc_now - 3))
     [ "$cap" -gt 13 ] && cap=13
     [ "$cap" -lt 1 ] && cap=1
-    if [ "$requested" -gt "$cap" ]; then
+    # The 18-digit guard of pick_preci_jobs: past it `[ -gt ]` errors out.
+    if [ "${#requested}" -gt 18 ] || [ "$requested" -gt "$cap" ]; then
         echo "$cap"
     else
         echo "$requested"
@@ -2371,7 +2400,7 @@ run_selftest_floor_controls() {
 # A5 etapa 2: pick_ctest_jobs (funcao pura) - cada limite da L-11 recusa ou
 # recorta, e serial e' o padrao.
 run_selftest_ctest_jobs_controls() {
-    log "selftest: pick_ctest_jobs e count_project_builds (grau do ctest local limitado pela L-11, recusas fechadas)"
+    log "selftest: pick_ctest_jobs (grau do ctest local limitado pela L-11, recusas fechadas)"
     esperar() {
         nome="$1"; esperado="$2"; shift 2
         obtido="$(pick_ctest_jobs "$@")" || true
@@ -2397,6 +2426,14 @@ run_selftest_ctest_jobs_controls() {
     esperar "RECUSA com a varredura de processos falhando" "RECUSA" 8 16 0 20000000 erro
     esperar "RECUSA com contagem de builds vazia" "RECUSA" 8 16 0 20000000 ""
     esperar "RECUSA pedido nao numerico" "RECUSA" abc 16 0 20000000 0
+    esperar "pedido de 2^63, o primeiro que nao cabe no [ -gt ], vira o teto" 13 9223372036854775808 16 0 20000000 0
+    echo "selftest: pick_ctest_jobs OK"
+}
+
+# J2 (CTO 29/09): count_project_builds, the scan of the builds of the
+# machine that pick_ctest_jobs refuses to run alongside.
+run_selftest_count_project_builds_controls() {
+    log "selftest: count_project_builds (builds da maquina fora da arvore do preci)"
     # ordem das colunas: pid ppid args. J2 (CTO 29/09): conta QUALQUER cmake/ctest/
     # ninja/ninja-build da maquina, seja qual for o caminho, exceto a ARVORE do proprio preci.
     ps_fixture="    1     0 /sbin/init
@@ -2415,15 +2452,36 @@ run_selftest_ctest_jobs_controls() {
     [ "$(count_project_builds "    1     0 /sbin/init" 900)" = 0 ] || fail "selftest count_project_builds: listagem sem build deve ser 0"
     [ "$(count_project_builds "" 900)" = erro ] || fail "selftest count_project_builds: listagem vazia deve ser 'erro' (fechado)"
     echo "selftest: count_project_builds OK"
-    echo "selftest: pick_ctest_jobs OK"
 }
 
-# PRECI-LINT-JOBS: the rule of pick_preci_jobs, the export of
-# apply_preci_jobs, and the -j that really reaches run-clang-tidy, cppcheck
-# and `cmake --build` (stub tools that only write down their arguments and
-# environment; the real ones are never called here).
+# A selftest control that made a scratch directory removes it before it
+# fails (fail leaves the script).
+selftest_cleanup_fail() {
+    rm -rf "$1"
+    shift
+    fail "$@"
+}
+
+# PRECI-LINT-JOBS: the rule of pick_preci_jobs, the degree that really
+# reaches run-clang-tidy, cppcheck, `cmake --build` and gitleaks (stub
+# tools that only write down their arguments and environment; the real
+# ones are never called here), the refusals that never call a tool, and
+# the exports of apply_preci_jobs read back from a child process.
 run_selftest_preci_jobs_controls() {
-    log "selftest: pick_preci_jobs e o grau que chega ao run-clang-tidy, ao cppcheck e ao cmake --build (PRECI-LINT-JOBS, L-11)"
+    log "selftest: pick_preci_jobs e o grau que chega ao run-clang-tidy, ao cppcheck, ao cmake --build e ao gitleaks (PRECI-LINT-JOBS, L-11)"
+    run_selftest_preci_jobs_rule_controls
+    stub="$(mktemp -d "${TMPDIR}/glintfx-preci-jobs-stub.XXXXXX")" \
+        || fail "selftest preci_jobs: mktemp falhou"
+    preci_jobs_write_stubs "$stub"
+    run_selftest_preci_jobs_reach_controls "$stub"
+    run_selftest_preci_jobs_refusal_controls "$stub"
+    run_selftest_preci_jobs_export_controls "$stub"
+    rm -rf "$stub"
+    echo "selftest: preci_jobs OK (15 regras, 5 chamadas com o grau certo, 7 recusas sem chamar a ferramenta, 3 exportacoes lidas por um processo filho)"
+}
+
+# The rule of pick_preci_jobs, one row per case (a pure function).
+run_selftest_preci_jobs_rule_controls() {
     esperar_grau() {
         nome="$1"; esperado="$2"; shift 2
         obtido="$(pick_preci_jobs "$@")" || true
@@ -2450,64 +2508,99 @@ run_selftest_preci_jobs_controls() {
     esperar_grau "RECUSA pedido negativo" RECUSA -2 16
     esperar_grau "RECUSA nproc vazio" RECUSA 8 ""
     esperar_grau "RECUSA nproc nao numerico" RECUSA 8 abc
-    stub="$(mktemp -d "${TMPDIR}/glintfx-preci-jobs-stub.XXXXXX")" \
-        || fail "selftest preci_jobs: mktemp falhou"
-    falhar() { rm -rf "$stub"; fail "$@"; }
+    esperar_grau "pedido de 2^63, o primeiro que nao cabe no [ -gt ], vira o nproc" 16 9223372036854775808 16
+}
+
+# Stub tools in <dir>: run-clang-tidy, cppcheck, cmake and gitleaks only
+# write down their arguments and the degree they got, into <dir>/calls.txt;
+# nproc says 16.
+preci_jobs_write_stubs() {
     for ferramenta in run-clang-tidy cppcheck cmake; do
         printf '#!/bin/sh\necho "%s cbpl=${CMAKE_BUILD_PARALLEL_LEVEL:-} $*" >> "%s/calls.txt"\n' \
-            "$ferramenta" "$stub" > "$stub/$ferramenta"
-        chmod +x "$stub/$ferramenta"
+            "$ferramenta" "$1" > "$1/$ferramenta"
     done
-    printf '#!/bin/sh\necho 16\n' > "$stub/nproc"
-    chmod +x "$stub/nproc"
-    # Unset CMAKE_BUILD_PARALLEL_LEVEL on a 16-core stub: the export is what
-    # gives `cmake --build` 13 instead of Ninja's nproc + 2.
+    printf '#!/bin/sh\necho "gitleaks gmp=${GOMAXPROCS:-} $*" >> "%s/calls.txt"\n' "$1" > "$1/gitleaks"
+    printf '#!/bin/sh\necho 16\n' > "$1/nproc"
+    chmod +x "$1/run-clang-tidy" "$1/cppcheck" "$1/cmake" "$1/gitleaks" "$1/nproc" \
+        || selftest_cleanup_fail "$1" "selftest preci_jobs: chmod das ferramentas falsas falhou"
+}
+
+# The degree that reaches each tool, read in the stub calls of <stub>.
+run_selftest_preci_jobs_reach_controls() {
+    # Unset CMAKE_BUILD_PARALLEL_LEVEL and GOMAXPROCS on a 16-core stub: the
+    # exports are what give `cmake --build` 13 instead of Ninja's nproc + 2,
+    # and gitleaks 13 threads instead of every core.
     (
-        PATH="$stub:$PATH"
-        unset CMAKE_BUILD_PARALLEL_LEVEL
+        PATH="$1:$PATH"
+        unset CMAKE_BUILD_PARALLEL_LEVEL GOMAXPROCS
         apply_preci_jobs > /dev/null
         run_tidy_batch /selftest-build "$PRECI_JOBS" a.cpp b.cpp
         run_cppcheck_batch /selftest-build "$PRECI_JOBS" a.cpp
         stage_build
-    ) > /dev/null 2>&1 || falhar "selftest preci_jobs: a rodada com as ferramentas falsas falhou"
+        stage_gitleaks
+    ) > /dev/null 2>&1 || selftest_cleanup_fail "$1" "selftest preci_jobs: a rodada com as ferramentas falsas falhou"
     # The caller's 6 wins (the leader's quota reaches this script this way).
     (
-        PATH="$stub:$PATH"
+        PATH="$1:$PATH"
         CMAKE_BUILD_PARALLEL_LEVEL=6
         export CMAKE_BUILD_PARALLEL_LEVEL
         apply_preci_jobs > /dev/null
         run_tidy_batch /selftest-build "$PRECI_JOBS" c.cpp
-    ) > /dev/null 2>&1 || falhar "selftest preci_jobs: a rodada com o pedido 6 falhou"
-    chamadas="$(cat "$stub/calls.txt" 2> /dev/null || true)"
+    ) > /dev/null 2>&1 || selftest_cleanup_fail "$1" "selftest preci_jobs: a rodada com o pedido 6 falhou"
+    chamadas="$(cat "$1/calls.txt" 2> /dev/null || true)"
     for esperado_linha in \
         "run-clang-tidy cbpl=13 -p /selftest-build -quiet -j 13 a.cpp b.cpp" \
         "cppcheck cbpl=13 -j 13 --enable=warning,performance,portability" \
         "cmake cbpl=13 --build $BUILD_DIR" \
+        "gitleaks gmp=13 detect --no-banner --source $ROOT_DIR" \
         "run-clang-tidy cbpl=6 -p /selftest-build -quiet -j 6 c.cpp"; do
         case "$chamadas" in
             *"$esperado_linha"*) echo "selftest: preci_jobs chegou: '$esperado_linha' OK" ;;
-            *) falhar "selftest preci_jobs: esperado '$esperado_linha' entre as chamadas; obtido '$chamadas'" ;;
+            *) selftest_cleanup_fail "$1" "selftest preci_jobs: esperado '$esperado_linha' entre as chamadas; obtido '$chamadas'" ;;
         esac
     done
-    n_chamadas="$(grep -c . "$stub/calls.txt" || true)"
-    [ "$n_chamadas" = 4 ] || falhar "selftest preci_jobs: esperado 4 chamadas registradas, obtido $n_chamadas"
-    # A missing or invalid degree never falls back to the tool's default:
-    # refused, and the tool is never called.
+    n_chamadas="$(grep -c . "$1/calls.txt" || true)"
+    [ "$n_chamadas" = 5 ] || selftest_cleanup_fail "$1" "selftest preci_jobs: esperado 5 chamadas registradas, obtido $n_chamadas"
+}
+
+# A missing or invalid degree never falls back to the tool's default:
+# refused, and the tool is never called (the 5 calls of
+# run_selftest_preci_jobs_reach_controls stay 5).
+run_selftest_preci_jobs_refusal_controls() {
     for grau_ruim in "" abc 0; do
-        if ( PATH="$stub:$PATH"; run_tidy_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
-            falhar "selftest preci_jobs: run_tidy_batch aceitou o grau '$grau_ruim'"
+        if ( PATH="$1:$PATH"; run_tidy_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
+            selftest_cleanup_fail "$1" "selftest preci_jobs: run_tidy_batch aceitou o grau '$grau_ruim'"
         fi
-        if ( PATH="$stub:$PATH"; run_cppcheck_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
-            falhar "selftest preci_jobs: run_cppcheck_batch aceitou o grau '$grau_ruim'"
+        if ( PATH="$1:$PATH"; run_cppcheck_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
+            selftest_cleanup_fail "$1" "selftest preci_jobs: run_cppcheck_batch aceitou o grau '$grau_ruim'"
         fi
     done
-    if ( PATH="$stub:$PATH"; CMAKE_BUILD_PARALLEL_LEVEL=abc; export CMAKE_BUILD_PARALLEL_LEVEL; apply_preci_jobs ) > /dev/null 2>&1; then
-        falhar "selftest preci_jobs: apply_preci_jobs aceitou CMAKE_BUILD_PARALLEL_LEVEL=abc"
+    if ( PATH="$1:$PATH"; CMAKE_BUILD_PARALLEL_LEVEL=abc; export CMAKE_BUILD_PARALLEL_LEVEL; apply_preci_jobs ) > /dev/null 2>&1; then
+        selftest_cleanup_fail "$1" "selftest preci_jobs: apply_preci_jobs aceitou CMAKE_BUILD_PARALLEL_LEVEL=abc"
     fi
-    n_depois="$(grep -c . "$stub/calls.txt" || true)"
-    [ "$n_depois" = 4 ] || falhar "selftest preci_jobs: um grau recusado chegou a chamar a ferramenta ($n_depois chamadas, esperado 4)"
-    rm -rf "$stub"
-    echo "selftest: preci_jobs OK (14 regras, 4 chamadas com o grau certo, 7 recusas sem chamar a ferramenta)"
+    n_depois="$(grep -c . "$1/calls.txt" || true)"
+    [ "$n_depois" = 5 ] || selftest_cleanup_fail "$1" "selftest preci_jobs: um grau recusado chegou a chamar a ferramenta ($n_depois chamadas, esperado 5)"
+}
+
+# What apply_preci_jobs EXPORTS, read by a child process: the nproc it
+# reads (a 4-core runner with no request gets 1, not this machine's 13),
+# the nproc cap on a request above it, and the caller's GOMAXPROCS (99 in
+# every case) replaced by the one degree. The stub nproc of <stub> is
+# rewritten per case.
+run_selftest_preci_jobs_export_controls() {
+    stub_dir="$1"
+    esperar_exportado() {
+        nome="$1"; esperado="$2"; nucleos="$3"; pedido="$4"
+        printf '#!/bin/sh\necho %s\n' "$nucleos" > "$stub_dir/nproc"
+        obtido="$( PATH="$stub_dir:$PATH"; unset CMAKE_BUILD_PARALLEL_LEVEL; export GOMAXPROCS=99
+            [ "$pedido" = - ] || export CMAKE_BUILD_PARALLEL_LEVEL="$pedido"
+            apply_preci_jobs > /dev/null && sh -c 'echo "cbpl=${CMAKE_BUILD_PARALLEL_LEVEL:-} gmp=${GOMAXPROCS:-}"' )" || true
+        [ "$obtido" = "$esperado" ] && { echo "selftest: preci_jobs exporta, $nome OK"; return 0; }
+        selftest_cleanup_fail "$stub_dir" "selftest preci_jobs exporta, $nome: esperado '$esperado', obtido '$obtido'"
+    }
+    esperar_exportado "sem pedido, 4 nucleos (um executor do CI)" "cbpl=1 gmp=1" 4 -
+    esperar_exportado "pedido 32 em 16 nucleos" "cbpl=16 gmp=16" 16 32
+    esperar_exportado "sem pedido, 16 nucleos" "cbpl=13 gmp=13" 16 -
 }
 
 # PRECI-CLANG-BUILD: clang_build_tree on three throwaway CMake projects
@@ -2532,9 +2625,22 @@ run_selftest_clang_stage_controls() {
         return 0
     fi
     proj="$(mktemp -d "${TMPDIR}/glintfx-preci-clang.XXXXXX")" || fail "selftest clang: mktemp falhou"
-    falhar() { rm -rf "$proj"; fail "$@"; }
+    clang_fixture_write_projects "$proj"
+    run_selftest_clang_clean_control "$proj"
+    run_selftest_clang_dirty_control "$proj"
+    run_selftest_clang_empty_control "$proj"
+    run_selftest_clang_unknown_mode_control "$proj"
+    run_selftest_clang_absence_controls "$proj"
+    rm -rf "$proj"
+    echo "selftest: estagio clang OK (2 limpos, 1 sujo com 2 erros, 1 vazio, 1 modo desconhecido, ausencia recusada e pulo declarado)"
+}
+
+# The three throwaway CMake projects in <dir>: limpo (one clean file), sujo
+# (the shape of the defect in TWO files) and vazio (no translation unit).
+clang_fixture_write_projects() {
+    proj="$1"
     for caso in limpo sujo vazio; do
-        mkdir -p "$proj/$caso" || falhar "selftest clang: mkdir falhou"
+        mkdir -p "$proj/$caso" || selftest_cleanup_fail "$proj" "selftest clang: mkdir falhou"
         {
             echo 'cmake_minimum_required(VERSION 4.1)'
             echo 'project(preci_clang_fixture LANGUAGES CXX)'
@@ -2563,51 +2669,70 @@ run_selftest_clang_stage_controls() {
         echo 'int glintfx_preci_clang_fixture() { return 0; }'
     } > "$proj/sujo/fixture.cpp"
     sed 's/glintfx_preci_clang_fixture/glintfx_preci_clang_fixture2/' "$proj/sujo/fixture.cpp" > "$proj/sujo/fixture2.cpp" \
-        || falhar "selftest clang: sed falhou"
-    saida="$(clang_build_tree "$proj/limpo" "$proj/limpo/b-compartilhado" compartilhado 2>&1)" \
-        || falhar "selftest clang: o projeto limpo foi reprovado (compartilhado): $saida"
+        || selftest_cleanup_fail "$proj" "selftest clang: sed falhou"
+}
+
+# The clean project of <dir> passes in both modes, with its summary line.
+run_selftest_clang_clean_control() {
+    saida="$(clang_build_tree "$1/limpo" "$1/limpo/b-compartilhado" compartilhado 2>&1)" \
+        || selftest_cleanup_fail "$1" "selftest clang: o projeto limpo foi reprovado (compartilhado): $saida"
     case "$saida" in
         *"clang[compartilhado]: unidades=1 rc_configure=0 rc_build=0 erros=0 "*) echo "selftest: clang limpo (compartilhado) OK" ;;
-        *) falhar "selftest clang: linha de resumo do limpo inesperada: $saida" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: linha de resumo do limpo inesperada: $saida" ;;
     esac
-    saida="$(clang_build_tree "$proj/limpo" "$proj/limpo/b-estatico" estatico 2>&1)" \
-        || falhar "selftest clang: o projeto limpo foi reprovado (estatico): $saida"
+    saida="$(clang_build_tree "$1/limpo" "$1/limpo/b-estatico" estatico 2>&1)" \
+        || selftest_cleanup_fail "$1" "selftest clang: o projeto limpo foi reprovado (estatico): $saida"
     echo "selftest: clang limpo (estatico) OK"
-    # Two dirty files built ONE edge at a time: only `-k 0` reaches the
-    # second error (Ninja's default stops at the first failed edge).
-    if saida="$(CMAKE_BUILD_PARALLEL_LEVEL=1 clang_build_tree "$proj/sujo" "$proj/sujo/b" compartilhado 2>&1)"; then
-        falhar "selftest clang: a forma do defeito de 30/10 PASSOU (o estagio nao morde): $saida"
+}
+
+# The dirty project of <dir> is reproved by the right warning, with both
+# errors counted and both files named. Built ONE edge at a time: only
+# `-k 0` reaches the second error (Ninja's default stops at the first
+# failed edge).
+run_selftest_clang_dirty_control() {
+    if saida="$(CMAKE_BUILD_PARALLEL_LEVEL=1 clang_build_tree "$1/sujo" "$1/sujo/b" compartilhado 2>&1)"; then
+        selftest_cleanup_fail "$1" "selftest clang: a forma do defeito de 30/10 PASSOU (o estagio nao morde): $saida"
     fi
     case "$saida" in
         *"Wunneeded-internal-declaration"*"clang[compartilhado]: unidades=2 rc_configure=0 rc_build="[1-9]*" erros=2 "*"arquivos_com_erro=[fixture.cpp fixture2.cpp]"*) echo "selftest: clang sujo reprovado pelo aviso certo, os dois arquivos nomeados (-k 0, um passo por vez) OK" ;;
-        *) falhar "selftest clang: o sujo reprovou, mas nao pelo aviso esperado, sem os dois erros (-k 0) ou sem nomear os arquivos: $saida" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: o sujo reprovou, mas nao pelo aviso esperado, sem os dois erros (-k 0) ou sem nomear os arquivos: $saida" ;;
     esac
-    if saida="$(clang_build_tree "$proj/vazio" "$proj/vazio/b" compartilhado 2>&1)"; then
-        falhar "selftest clang: o projeto SEM unidade de traducao passou (varredura vazia aprovada): $saida"
+}
+
+# The project of <dir> with no translation unit is reproved (L-40).
+run_selftest_clang_empty_control() {
+    if saida="$(clang_build_tree "$1/vazio" "$1/vazio/b" compartilhado 2>&1)"; then
+        selftest_cleanup_fail "$1" "selftest clang: o projeto SEM unidade de traducao passou (varredura vazia aprovada): $saida"
     fi
     case "$saida" in
         *"clang[compartilhado]: unidades=0 "*) echo "selftest: clang sem unidade reprovado (piso de varredura) OK" ;;
-        *) falhar "selftest clang: o vazio reprovou sem dizer unidades=0: $saida" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: o vazio reprovou sem dizer unidades=0: $saida" ;;
     esac
-    if clang_build_tree "$proj/limpo" "$proj/limpo/b-x" outro > /dev/null 2>&1; then
-        falhar "selftest clang: modo desconhecido aceito"
+}
+
+# A mode other than compartilhado or estatico is refused.
+run_selftest_clang_unknown_mode_control() {
+    if clang_build_tree "$1/limpo" "$1/limpo/b-x" outro > /dev/null 2>&1; then
+        selftest_cleanup_fail "$1" "selftest clang: modo desconhecido aceito"
     fi
-    # The real stage without clang++ on PATH (GODS_LAWS.md L-02): refuses
-    # by default, and skips only when the caller declares it.
+}
+
+# The real stage without clang++ on PATH (GODS_LAWS.md L-02): refuses by
+# default, and skips only when the caller declares it. <dir> is the
+# scratch directory removed on failure.
+run_selftest_clang_absence_controls() {
     saida="$( PATH=/nonexistent; unset GLINTFX_PRECI_CLANG; clang_presence_or_skip 3b 2>&1 )" || true
     case "$saida" in
-        *"PULADO"*) falhar "selftest clang: sem clang++ e sem declaracao, o estagio pulou (a ausencia passou calada): $saida" ;;
+        *"PULADO"*) selftest_cleanup_fail "$1" "selftest clang: sem clang++ e sem declaracao, o estagio pulou (a ausencia passou calada): $saida" ;;
         *"estagio 3b recusado: clang++ ausente do PATH"*) ;;
-        *) falhar "selftest clang: sem clang++ e sem declaracao, o estagio nao recusou: $saida" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: sem clang++ e sem declaracao, o estagio nao recusou: $saida" ;;
     esac
     saida="$( PATH=/nonexistent; GLINTFX_PRECI_CLANG=skip; clang_presence_or_skip 3b 2>&1 )" \
-        && falhar "selftest clang: com o pulo declarado, o estagio seguiu como se o clang++ existisse: $saida"
+        && selftest_cleanup_fail "$1" "selftest clang: com o pulo declarado, o estagio seguiu como se o clang++ existisse: $saida"
     case "$saida" in
         *"PULADO POR DECLARACAO (GLINTFX_PRECI_CLANG=skip, clang++ ausente)"*) echo "selftest: clang ausente recusa, e o pulo so com declaracao, impresso OK" ;;
-        *) falhar "selftest clang: o pulo declarado nao saiu impresso: $saida" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: o pulo declarado nao saiu impresso: $saida" ;;
     esac
-    rm -rf "$proj"
-    echo "selftest: estagio clang OK (2 limpos, 1 sujo com 2 erros, 1 vazio, 1 modo desconhecido, ausencia recusada e pulo declarado)"
 }
 
 run_selftest_ccache_controls() {
@@ -2844,6 +2969,7 @@ run_selftest() {
     run_selftest_noexcept_alloc_controls
     run_selftest_floor_controls
     run_selftest_ctest_jobs_controls
+    run_selftest_count_project_builds_controls
     run_selftest_preci_jobs_controls
     run_selftest_clang_stage_controls
     run_selftest_ccache_controls

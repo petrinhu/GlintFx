@@ -85,6 +85,9 @@ bool g_force_alloc_failure = false;
 std::size_t g_calls_to_allow_before_failure = 0;
 std::size_t g_override_new_call_count = 0;
 
+// Measured for both inputs below: see this file's own header comment.
+constexpr std::size_t k_calls_allowed_before_the_armed_one = 5;
+
 [[nodiscard]] bool should_fail_this_allocation() noexcept {
     if (!g_force_alloc_failure) {
         return false;
@@ -181,9 +184,10 @@ GLINTFX_TEST(gfss_selector_parse_survives_an_armed_allocator_for_a_compound_chai
         return;
     }
 
+    const std::size_t calls_before = g_override_new_call_count;
     g_force_alloc_failure = true;
-    g_calls_to_allow_before_failure = 5; // measured: first allocation inside
-                                         // parse_compound_selector() for this text
+    // Measured: first allocation inside parse_compound_selector() for this text.
+    g_calls_to_allow_before_failure = k_calls_allowed_before_the_armed_one;
     glintfx::style::detail::selector_parse_result result{};
     bool caught = false;
     try {
@@ -200,6 +204,7 @@ GLINTFX_TEST(gfss_selector_parse_survives_an_armed_allocator_for_a_compound_chai
     // silently swallowed somewhere that never touched the allocator at
     // all - g_override_new_call_count moving past the armed point is
     // what tells the two apart.
+    GLINTFX_CHECK(g_override_new_call_count - calls_before > k_calls_allowed_before_the_armed_one);
     GLINTFX_CHECK(caught);
     GLINTFX_CHECK(!result.ok);
 }
@@ -221,9 +226,10 @@ GLINTFX_TEST(gfss_selector_parse_survives_an_armed_allocator_for_a_nested_not_ar
         return;
     }
 
+    const std::size_t calls_before = g_override_new_call_count;
     g_force_alloc_failure = true;
-    g_calls_to_allow_before_failure = 5; // measured: earliest allocation inside
-                                         // the nested :not() re-entry for this text
+    // Measured: earliest allocation inside the nested :not() re-entry for this text.
+    g_calls_to_allow_before_failure = k_calls_allowed_before_the_armed_one;
     glintfx::style::detail::selector_parse_result result{};
     bool caught = false;
     try {
@@ -233,6 +239,7 @@ GLINTFX_TEST(gfss_selector_parse_survives_an_armed_allocator_for_a_nested_not_ar
     }
     g_force_alloc_failure = false;
 
+    GLINTFX_CHECK(g_override_new_call_count - calls_before > k_calls_allowed_before_the_armed_one);
     GLINTFX_CHECK(caught);
     GLINTFX_CHECK(!result.ok);
 }

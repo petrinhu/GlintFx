@@ -27,7 +27,12 @@ Checks: >
   -cert-err58-cpp,
   -misc-non-private-member-variables-in-classes,
   -misc-include-cleaner,
-  -misc-use-anonymous-namespace
+  -misc-use-anonymous-namespace,
+  -bugprone-signed-bitwise
+# bugprone-signed-bitwise excluded on arrival (LLVM 23 removed the hicpp
+# module and moved its checks under bugprone-*, so this wildcard caught
+# it): 48 sites on 06/11/2026, 26 of them in src/ and include/. Each
+# needs its own look; that triage is a work item, not a verdict here.
 # cert-err58-cpp and bugprone-throwing-static-initialization excluded
 # together: both fire on the SAME static-init self-registration object
 # that tests/harness/test_registry.hpp's GLINTFX_TEST macro expands to
@@ -80,3 +85,11 @@ WarningsAsErrors: '*'
 # before/after diagnostic counts).
 HeaderFilterRegex: '(^|/)(include|src)/.*'
 FormatStyle: none
+# LLVM 23 widened misc-const-correctness to parameters, auto variables
+# and lambdas, all three on by default: 60 sites on 06/11/2026, 9 of
+# them in src/. Off until the same triage decides them, so the check
+# keeps exactly the coverage it had under LLVM 22.
+CheckOptions:
+  misc-const-correctness.AnalyzeParameters: false
+  misc-const-correctness.AnalyzeAutoVariables: false
+  misc-const-correctness.AnalyzeLambdas: false

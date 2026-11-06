@@ -1240,8 +1240,34 @@ FROM fedora:44
 # sanitizer report still needs `addr2line` (binutils) in the final
 # image to symbolize a stack trace either way, so static linking saves
 # nothing but makes every fixture binary bigger.
-RUN dnf -y install \
-        kwin \
+#
+# kwin is held at 6.7.5, by exact build, with the Plasma libraries it links
+# against, because KWin 6.8 stopped compositing in this container: without
+# /dev/dri and without /dev/udmabuf it logs "Found no render device!", keeps the
+# socket open and never paints, so no surface ever gets a frame callback
+# (measured 06/11/2026, kwin-6.8.2-3.fc44: first_window renders one frame and
+# then waits forever). This container runs with no --device at all, by design
+# (software rendering, CLAUDE.md "Isolamento" rule 4), and giving it /dev/udmabuf
+# was never decided, so the old build stays until the leader decides. Fedora 44's
+# own updates moved to 6.8.2 too: fedora:44 alone no longer holds this line.
+# The packages come by URL, so the check dnf skips for a local package is asked
+# for by name: an unsigned build fails here instead of installing.
+RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-primary \
+    && dnf -y --setopt=localpkg_gpgcheck=1 install \
+        https://kojipkgs.fedoraproject.org/packages/kwin/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwin-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/kwin/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwin-common-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/kwin/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwin-libs-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/aurorae/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/aurorae-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/kdecoration/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kdecoration-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/kglobalacceld/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kglobalacceld-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/knighttime/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/knighttime-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/kscreenlocker/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kscreenlocker-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/kwayland/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwayland-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/layer-shell-qt/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/layer-shell-qt-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/libkscreen/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/libkscreen-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/libplasma/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/libplasma-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/plasma-activities/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/plasma-activities-6.7.5-1.fc44.x86_64.rpm \
+        https://kojipkgs.fedoraproject.org/packages/plasma-activities-stats/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/plasma-activities-stats-6.7.5-1.fc44.x86_64.rpm \
         mesa-dri-drivers \
         mesa-libEGL \
         mesa-libgbm \

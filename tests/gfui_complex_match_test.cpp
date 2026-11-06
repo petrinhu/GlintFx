@@ -483,7 +483,7 @@ GLINTFX_TEST(match_complex_not_is_recursive_and_shares_the_nesting_budget) {
         std::string nested_text = ".zzz";
         for (int depth = 0; depth < 10; ++depth) {
             nested_text.insert(0, ":not(");
-            nested_text += ")";
+            nested_text += ')';
         }
         const gfss_complex_selector selector = parse_one_complex(nested_text);
         arena nest_tree;

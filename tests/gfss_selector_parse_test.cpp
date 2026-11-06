@@ -663,7 +663,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
 
     std::size_t swept = 0;
     for (const auto &sample : k_samples) {
-        const auto result = parse_selector_list(std::string(sample.text));
+        const auto result = parse_selector_list(sample.text);
         GLINTFX_CHECK(!result.ok);
         GLINTFX_CHECK(result.diagnostic.expected == sample.expected_diagnostic);
         ++swept;
@@ -908,7 +908,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_not_argument_input) 
 
     std::size_t swept = 0;
     for (const auto &sample : k_samples) {
-        const auto result = parse_selector_list(std::string(sample.text));
+        const auto result = parse_selector_list(sample.text);
         GLINTFX_CHECK(!result.ok);
         GLINTFX_CHECK(result.diagnostic.expected == sample.expected_diagnostic);
         ++swept;
@@ -937,9 +937,9 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_enforces_not_nesting_depth_limit) {
         for (int i = 0; i < nesting_count; ++i) {
             text += ":not(";
         }
-        text += "a";
+        text += 'a';
         for (int i = 0; i < nesting_count; ++i) {
-            text += ")";
+            text += ')';
         }
         return text;
     };
@@ -1036,7 +1036,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
 
     std::size_t swept = 0;
     for (const diagnostic_sample &sample : k_selector_diagnostic_samples) {
-        GLINTFX_CHECK(parse_selector_list(std::string(sample.source)).diagnostic.expected ==
+        GLINTFX_CHECK(parse_selector_list(sample.source).diagnostic.expected ==
                       sample.expected_identifier);
         ++swept;
     }

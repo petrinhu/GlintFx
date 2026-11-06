@@ -517,11 +517,17 @@ def rewrite_build_prefix(subcommand, build_dir):
 
 def run_subcommand(subcommand, build_dir):
     rewritten = rewrite_build_prefix(subcommand, build_dir)
+    # LC_ALL=C: the controls below read the linker's own words ("undefined reference"), and a
+    # translated ld says them in the machine's language (binutils 2.47, pt_BR, measured 06/11/2026).
+    # The same fence check_dep_zero.py and check_layers_oracle.py already have.
+    env = dict(os.environ)
+    env["LC_ALL"] = "C"
     result = subprocess.run(
         ["sh", "-c", rewritten],
         cwd=build_dir,
         capture_output=True,
         text=True,
+        env=env,
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -893,8 +899,8 @@ def selftest_positive_control(scratch, compiler):
 # sec. 4.2): prova que o portao continua ligando depois que o token
 # $GLINTFX_FIXTURE_SANITIZE entrou em toda linha g++ real do
 # Containerfile - este mesmo script (--exec) roda o texto literal do
-# estagio via `sh -c` SEM exportar essa variavel (run_subcommand() nao
-# passa `env=`), entao o token tem que expandir para vazio sem quebrar
+# estagio via `sh -c` SEM exportar essa variavel (run_subcommand() so
+# acrescenta LC_ALL ao ambiente herdado), entao o token tem que expandir para vazio sem quebrar
 # a linha. Sem este controle, um erro de sintaxe no ponto de insercao
 # do token (por exemplo um `$GLINTFX_FIXTURE_SANITIZE` colado sem
 # espaco, ou dentro de aspas que o engolissem) passaria despercebido

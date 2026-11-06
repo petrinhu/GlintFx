@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 // window_capture_options.cpp - QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1): the argument parsing of
@@ -93,7 +94,7 @@ bool parse_tool_options(const std::vector<std::string> &args, tool_options &opti
         !read_positive_int(exit_text, parsed.exit_budget_ms)) {
         return false;
     }
-    options = parsed; // only a whole, accepted command line reaches the caller's options
+    options = std::move(parsed); // only a whole, accepted command line reaches the caller's options
     return true;
 }
 

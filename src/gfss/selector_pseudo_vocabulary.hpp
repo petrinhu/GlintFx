@@ -224,9 +224,8 @@ inline constexpr std::size_t k_orphan_simple_pseudo_count = [] {
 inline constexpr std::array<std::string_view, k_orphan_simple_pseudo_count>
     k_orphan_simple_pseudo_names{
 #define GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_ARRAY_ONE(text) std::string_view{text},
-        GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST(GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_ARRAY_ONE)
+        GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST(GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_ARRAY_ONE)};
 #undef GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_ARRAY_ONE
-    };
 
 #undef GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST
 

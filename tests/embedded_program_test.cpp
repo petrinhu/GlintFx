@@ -565,7 +565,7 @@ GLINTFX_TEST(embedded_program_a_link_failure_says_program_link_failed) {
 // pass is 0 and discards nothing. The values are the literal ones, never the constants of the code.
 // Text, not behavior (see the interface case above): that a real driver discards these fragments
 // is for the pixel cells of H3b.
-GLINTFX_TEST(embedded_program_discards_only_in_the_two_stencil_passes) {
+GLINTFX_TEST(embedded_program_source_declares_a_discard_only_in_the_two_stencil_passes) {
     using glintfx::draw2d::stencil_discard_of;
     using glintfx::draw2d::stencil_pass;
     GLINTFX_CHECK_EQ(stencil_discard_of(stencil_pass::plain), 0);

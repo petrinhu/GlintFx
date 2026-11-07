@@ -2005,6 +2005,7 @@ target_include_directories(gl_state_contract_test PRIVATE
 )
 target_sources(gl_state_contract_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_stencil_contract.cpp"
 )
 
 glintfx_add_test(vertex_stream_test)
@@ -2046,6 +2047,7 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_stencil_contract.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"

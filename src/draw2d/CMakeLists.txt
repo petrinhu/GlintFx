@@ -20,6 +20,7 @@ target_sources(glintfx_library PRIVATE
     piece_refusal.cpp
     embedded_program.cpp
     gl_state_contract.cpp
+    gl_stencil_contract.cpp
     vertex_stream.cpp
     piece_list.cpp
     triangle_store.cpp

@@ -12,17 +12,19 @@
 // of the segment, drawn under one rule. It knows nothing of GL: it takes what a run is and whether
 // a shadow already came, and gives the passes, so it compiles and runs on all five systems.
 //
-// THE RULE (the contract of fill_shadow() in the audit, sec. 2): a pixel is darkened by the shadows
-// of a segment at most once, until an OPAQUE piece of that segment is drawn over it. Every piece of
-// the segment takes part, shadow or not, in paint order:
+// THE RULE these passes carry out (the contract of fill_shadow() in the audit, sec. 2): a pixel is
+// darkened by the shadows of a segment at most once, until an OPAQUE piece of that segment is drawn
+// over it. Every piece of the segment takes part, shadow or not, in paint order, once the drawing
+// of the shadows (H3b) hands each run of a segment to passes_of_run(); in H3a nothing calls it yet:
 //   - a shadow marks the pixels it darkens, and darkens only pixels not yet marked;
 //   - an ordinary piece drawn after the first shadow paints, and then releases the mark where it
 //     is opaque (alpha 1 on that pixel), so a later shadow darkens it again;
 //   - an ordinary piece drawn before the first shadow only paints: nothing is marked yet, so the
 //     stencil costs nothing until the first shadow of the segment (audit, sec. 4.2);
-//   - the stencil is cleared once, before the first shadow of the segment, so no mark crosses a
-//     barrier and nothing is assumed of what the consumer left in it.
-// How each pass sets GL is gl_state_contract.hpp's; which fragments it discards is
+//   - the stencil is cleared once, before the first shadow of the segment; with the caller starting
+//     every segment with `shadow_came` false (H3b), no mark crosses a barrier and nothing is
+//     assumed of what the consumer left in it.
+// How each pass sets GL is gl_stencil_contract.hpp's; which fragments it discards is
 // embedded_program.hpp's.
 namespace glintfx::draw2d {
 
@@ -47,7 +49,7 @@ struct run_passes {
 };
 
 // The passes of a run of `role`, when `shadow_came` says whether a shadow run came before it in the
-// same segment (false at the start of every segment).
+// same segment (the caller passes false at the start of every segment).
 [[nodiscard]] run_passes passes_of_run(stencil_role role, bool shadow_came) noexcept;
 
 // Whether a shadow has come once a run of `role` is drawn: the `shadow_came` of the next run.

@@ -4,6 +4,7 @@
 #include <print>
 
 #include "draw2d/gl_state_contract.hpp"
+#include "draw2d/gl_stencil_contract.hpp"
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
@@ -12,7 +13,9 @@
 // B0-I5). Proves the contract of gl_state_contract.hpp against a gl_function_table of FAKES that
 // keep a MODEL of the GL state: the state is planted HOSTILE (depth test on, blending swapped, a
 // one-pixel scissor, front faces culled, color mask off, a stray program, vertex array and buffers,
-// a 1x1 viewport), the function runs, and EVERY item of the closed list is read back.
+// a 1x1 viewport), the function runs, and EVERY item of the closed list is read back. The cases
+// named gl_stencil_contract_* prove, on the same model, the stencil passes of
+// gl_stencil_contract.hpp (R2D-SPRITE-SHADE H3a; their own file since H3a-fix1).
 //
 // A DECLARED DOWNGRADE (GODS_LAWS.md L-09): this proves that the layer asks GL for each item, in a
 // model. It does not prove what a real driver does with the calls; that is the pixel read of the
@@ -378,11 +381,12 @@ GLINTFX_TEST(gl_state_contract_a_frame_ends_in_the_closed_list_not_in_the_drawin
     GLINTFX_CHECK_EQ(model.element_buffer, GLuint{0});
 }
 
-// R2D-SPRITE-SHADE H3a: each pass of shadow_group.hpp, from a hostile start (stencil test on, color
-// mask off, a consumer's stencil), sets everything it needs. plain: test off, color on.
-// mark_shadow: EQUAL 0 with every bit, KEEP KEEP INCR, every bit writable, color on. release_marks:
-// ALWAYS 0 with every bit, KEEP KEEP ZERO, every bit writable, color OFF.
-GLINTFX_TEST(gl_state_contract_each_stencil_pass_sets_all_it_needs) {
+// R2D-SPRITE-SHADE H3a (gl_stencil_contract.hpp since H3a-fix1): each pass of shadow_group.hpp,
+// from a hostile start (stencil test on, color mask off, a consumer's stencil), sets everything it
+// needs. plain: test off, color on. mark_shadow: EQUAL 0 with every bit, KEEP KEEP INCR, every bit
+// writable, color on. release_marks: ALWAYS 0 with every bit, KEEP KEEP ZERO, every bit writable,
+// color OFF.
+GLINTFX_TEST(gl_stencil_contract_each_stencil_pass_sets_all_it_needs) {
     const gl_function_table table = fake_table();
     const std::array<bool, 4> color_on{true, true, true, true};
     std::size_t analyzed = 0;
@@ -413,9 +417,10 @@ GLINTFX_TEST(gl_state_contract_each_stencil_pass_sets_all_it_needs) {
                  analyzed);
 }
 
-// R2D-SPRITE-SHADE H3a: the clear writes 0 with every bit writable, whatever mask the consumer left
-// (a clear obeys the write mask: the fake records the mask of the moment of the clear).
-GLINTFX_TEST(gl_state_contract_clearing_the_stencil_makes_every_bit_writable_first) {
+// R2D-SPRITE-SHADE H3a (gl_stencil_contract.hpp since H3a-fix1): the clear writes 0 with every bit
+// writable, whatever mask the consumer left (a clear obeys the write mask: the fake records the
+// mask of the moment of the clear).
+GLINTFX_TEST(gl_stencil_contract_clearing_the_stencil_makes_every_bit_writable_first) {
     const gl_function_table table = fake_table();
     plant_hostile_state();
     plant_hostile_stencil();

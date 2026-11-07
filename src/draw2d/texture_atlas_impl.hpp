@@ -16,8 +16,8 @@
 
 // draw2d/texture_atlas_impl.hpp - R2D-TEXTURE, fatia T6-B1: the interior of the public handle
 // gltfx_texture_atlas (texture_atlas.hpp) and what it does: make, add an image, read a receipt,
-// release one, give everything back. Each call is checked first (atlas_cell.hpp, check_image_view()
-// of pixel_premultiply.hpp, the allocator's own checks) and then carried out on three things it
+// release one, give everything back. Each call is checked first (atlas_cell.hpp, the allocator's
+// own checks) and then carried out on three things it
 // does not own the rules of: the WHERE is the allocator's interior (core/atlas_allocator_impl.hpp,
 // reached through its internal functions, so a receipt has one definition and no copy of it is
 // kept here), the TEXELS of a cell are atlas_extrude.hpp's, and the WRITING is update_texture()'s

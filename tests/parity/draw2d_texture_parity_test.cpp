@@ -89,7 +89,11 @@
 //     1 x 8 blue, two reduced levels, margin 4, minified 0.25 times at (200.45, 50.45), 4 pixels
 //     (AT3: without the rounding of the cells to a multiple of 4, a texel of level 2 would hold
 //     blue); a 2 x 2 green image in the place of a released 4 x 4 red one, magnified 1.5 times, 9
-//     pixels, and the new image in the released place (AT4).
+//     pixels, and the new image in the released place (AT4); and the moves of LIFETIME through the
+//     library: a moved-from atlas is not open, its texture() is not open, and add_image(),
+//     region_of() and release_slot() are refused as "atlas"; the atlas moved into reads the
+//     receipt; one that receives another by assignment refuses the receipt it had as
+//     "slot_other_allocator" and reads the other's, and that other is left holding nothing (AT5).
 // MEASURED, PRINTED, NEVER ASSERTED EQUAL: the value read at k = 100 of filter_linear_srgb_order in
 // each mode, and whether the ON mode was absent.
 //
@@ -884,6 +888,54 @@ void cell_atlas_minified_quarter(const cells_context &c) {
 
 // AT4: a cell released and taken by a smaller image reads only the new image, never the texels the
 // old, larger image left around it.
+template <typename T> bool refused_by_name(const glintfx::gltfx_rslt<T> &got, const char *name) {
+    return got.has_error() && got.err().rejected_value() == name;
+}
+
+// What is true of a moved-from atlas (texture_atlas.hpp, LIFETIME), read on purpose: its state is
+// the promise under test.
+void report_holds_nothing(const cells_context &c, glintfx::gltfx_texture_atlas &gone) {
+    const std::vector<std::byte> pixel(4, std::byte{0xFF});
+    const glintfx::gltfx_image_view image{.pixels = pixel,
+                                          .width = 1,
+                                          .height = 1,
+                                          .bytes_per_row = 4,
+                                          .pixel_format =
+                                              glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+    report(c, "AT5 o movido nao esta aberto", !gone.is_open());
+    report(c, "AT5 a textura do movido nao esta aberta", !gone.texture().is_open());
+    report(c, "AT5 o movido recusa add_image por atlas",
+           refused_by_name(gone.add_image(image), "atlas"));
+    report(c, "AT5 o movido recusa region_of por atlas",
+           refused_by_name(gone.region_of(glintfx::gltfx_atlas_slot{}), "atlas"));
+    report(c, "AT5 o movido recusa release_slot por atlas",
+           refused_by_name(gone.release_slot(glintfx::gltfx_atlas_slot{}), "atlas"));
+}
+
+// AT5: the moves of the public handle, through the library, on a real context.
+void cell_atlas_moves(const cells_context &c) {
+    auto first = make_atlas(c, 32, 1, 0);
+    auto second = make_atlas(c, 32, 1, 0);
+    if (!first || !second) {
+        return;
+    }
+    const auto red = add_solid(c, *first, {2, 2}, {255, 0, 0, 255});
+    const auto green = add_solid(c, *second, {2, 2}, {0, 255, 0, 255});
+    if (!red || !green) {
+        return;
+    }
+    glintfx::gltfx_texture_atlas moved = std::move(*first);
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move) reason: see above
+    report_holds_nothing(c, *first);
+    report(c, "AT5 o destino le o recibo", moved.is_open() && moved.region_of(*red).has_value());
+    moved = std::move(*second);
+    report(c, "AT5 quem recebe recusa o recibo que tinha",
+           refused_by_name(moved.region_of(*red), "slot_other_allocator"));
+    report(c, "AT5 quem recebe le o recibo do outro", moved.region_of(*green).has_value());
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move) reason: see above
+    report(c, "AT5 o outro fica sem nada", !second->is_open());
+}
+
 void cell_atlas_reused_place(const cells_context &c) {
     auto atlas = make_atlas(c, 32, 1, 0);
     if (!atlas.has_value()) {
@@ -954,6 +1006,7 @@ void run_cells(const cells_context &cells) {
     cell_atlas_minified_half(cells);
     cell_atlas_minified_quarter(cells);
     cell_atlas_reused_place(cells);
+    cell_atlas_moves(cells);
 }
 
 mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {

@@ -61,9 +61,11 @@
 // than twice that). open() asks, while it makes the texture, for 4 bytes per texel of the empty
 // image the texture starts from, besides what create_texture() asks for an image of that size.
 // add_image() keeps, between calls, a block for the texels of a cell (at least 4 bytes per texel
-// of the largest cell written so far, grown by doubling, so less than twice that) and a table of
-// the image sizes (8 bytes per receipt number the allocator has handed out, plus one, grown the
-// same way), besides what update_texture() asks for the cell.
+// of the largest cell that has reached the allocator so far, one it refused included, grown by
+// doubling, so less than twice that) and a table of the image sizes (8 bytes per receipt number
+// the allocator has handed out, plus one, and never less than 128 bytes; past 128 bytes it is
+// grown by doubling, so less than twice that), besides what update_texture() asks for the cell and
+// what the allocator keeps (core/atlas_allocator.hpp, COST).
 //
 // THE REFUSALS, each a gltfx_err, in the order in which they are checked:
 //   - open(renderer, desc): invalid_argument, rejected_value() "width" or "height" when it is zero;
@@ -81,10 +83,11 @@
 //     can make fit; out_of_memory "atlas_add_image" when the library ran out of memory; then the
 //     allocator's: no_free_space "atlas_full" when no free place of the cell's size is left now
 //     (releasing cells, or a second atlas, can make room), out_of_memory "atlas_allocate"; then
-//     what update_texture() returns for the cell, as it came. A refused call takes no cell. Up to
-//     the allocator's refusals it touches nothing; after a refused write the cell is given back,
-//     what the card holds in it is unspecified (as update_texture() says), and the receipt number
-//     the call drew may later be handed out again with a larger generation.
+//     what update_texture() returns for the cell, as it came. A refused call takes no cell. A
+//     refusal before out_of_memory "atlas_add_image" changes nothing; from there on the block and
+//     the table of THE COST may stay grown; after a refused write the cell is given back, what the
+//     card holds in it is unspecified (as update_texture() says), and the receipt number the call
+//     drew may later be handed out again with a larger generation.
 //   - region_of(slot) and release_slot(slot): invalid_argument "atlas" for a moved-from atlas;
 //     then the allocator's refusals of a receipt, in its order ("stale_slot" for an owner of 0,
 //     "slot_other_allocator", "stale_slot"). release_slot() gives the cell back to the allocator;
@@ -93,9 +96,10 @@
 // LIFETIME. The atlas belongs to the renderer it was opened on and does not outlive it, as a
 // texture does not (texture_2d.hpp, whose release rules texture() follows). A moved-from atlas
 // holds nothing: is_open() is false, texture() is a handle that is not open, and add_image(),
-// region_of() and release_slot() are refused as above. An atlas that receives another by move
-// assignment gives its own cells and texture back first. One atlas must not be used from two
-// threads at the same time.
+// region_of() and release_slot() are refused as above; a reference taken from texture() before the
+// move reads that handle, not open, and the one to draw from is the atlas moved into's. An atlas
+// that receives another by move assignment gives its own cells and texture back first. One atlas
+// must not be used from two threads at the same time.
 //
 // Proved by: atlas_cell_test (each refusal of open() by name and in this order; the margin at its
 // border, 2^k accepted and 2^k - 1 refused, for every k from 0 to 12; the multiple of 2^k at its
@@ -110,12 +114,17 @@
 // each refusal of add_image() by name, and nothing taken after one, the library's memory failing
 // at each request and a write the card refuses included; release, and a smaller image reusing the
 // place reading only itself; a receipt of another atlas; every cell of a long sequence on a
-// multiple of 2^k).
+// multiple of 2^k; the block and the table of THE COST, in bytes, at each growth, a cell the
+// allocator refuses included).
+// Proved by: texture_atlas_facade_test (over a link seam, no window: a moved-from atlas holds
+// nothing and passes nothing on; move assignment gives the receiver's own interior and texture back
+// first, once each; nothing is given back twice; the layout of the descriptor and of the handle).
 // Proved by: draw2d_texture_parity_test (on a real context, in both values of srgb_framebuffer: a
 // cell magnified 1.5 times at a fractional position reads only its own colour, edge pixels
 // included; a cell minified 0.5 times with one reduced level and 0.25 times with two, next to a
 // cell of another colour, reads only its own; a cell released and taken by a smaller image reads
-// only the new image).
+// only the new image; a moved-from atlas is not open, nor is its texture(), and each call is
+// refused as above; an atlas that received another refuses the receipt it had).
 
 namespace glintfx {
 

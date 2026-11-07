@@ -49,6 +49,7 @@
 - **Errata da T6-A (CTO, 22/10/2026, e errata 1 da ordem, 24/10/2026; D-W8-910 a D-W8-930 e D-W8-960 a D-W8-977):** `include/glintfx/core/atlas_allocator.hpp` entra no repositório, e a cerca dele, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). Diferenças contra a proposta da T0: (1) `open(width, height)`: o atlas tem largura e altura, não um lado só (D-W8-912; imgui #327, shelf-pack #93); o gêmeo `gltfx_texture_atlas_desc::side`, na cerca de `texture_atlas.hpp`, é da T6-B e não muda aqui; (2) o retângulo maior que o atlas é `invalid_argument` com "width" ou "height", não `no_free_space` (D-W8-911): `no_free_space` passa a dizer "cheio agora", e um laço que abre outro atlas ao receber `no_free_space` não gira para sempre num retângulo que não cabe em nenhum (bevy #25224, fontstash #18, nanovg #431); (3) o recibo ganha `owner`, o número do alocador, e `release()` recusa o recibo de outro alocador como `slot_other_allocator`, antes de olhar se ele é velho (D-W8-913): a promessa da T0 de recusar o recibo "de outro atlas" não tinha dado que a cumprisse, porque dois alocadores novos entregam o mesmo número e a mesma geração; o recibo com `owner` 0 (o padrão, nunca entregue) é `stale_slot`; (4) `release_all()`, `is_open()`, `width()` e `height()` (D-W8-914; nanovg #114 e #431, fórum do Cesium); (5) o número que chega à geração 4294967295 nunca mais é entregue, e o recibo velho nunca volta a valer (D-W8-915); (6) os quatro passos da colocação, a regra de uma vez e meia e a promessa de posições iguais em todo sistema, dentro da mesma versão da biblioteca, ficam escritos (D-W8-916; etagere #35 e #36, SDL_ttf #643); (7) o código `no_free_space` entra com o número 8, no fim da faixa genérica, com os gêmeos em `err_code.cpp`, `err_code_test.cpp`, `docs/api-conventions.md` e `docs/wiki/API-Core.md` (D-W8-291 confirmada; D-W8-920); (8) a memória sem exceção vem de um par de funções no formato do `realloc`, e a falta dela é `out_of_memory` com o alocador intacto, provada em cada pedido de memória (D-W8-917, D-W8-918); (9) da errata 1 da ordem, depois do ataque ao plano: a ordem das recusas de `release()` escrita como o código a confere (o recibo de dono 0 antes do recibo de outro alocador), a falta de número livre entre as causas de `out_of_memory`, e a atribuição por movimento descrita (o alocador que recebe outro devolve antes a própria área); o `Proved by:` passa a citar os casos novos (cada campo do recibo alterado, a corrida livre mais à esquerda nos passos 1 e 3, o retângulo maior que o atlas com o atlas cheio, a atribuição por movimento, liberar sem pedir memória, o segundo crescimento da tabela de números, o dono depois do último) (D-W8-961 a D-W8-973). A cerca de `texture_atlas.hpp` e o trecho de `renderer_2d.hpp` com `draw_atlas_image` continuam proposta da T6-B. Porta de mão única: o texto público e os nomes novos vão à ratificação do líder.
 - **Errata da T6-A-fix1 (CTO, 25/10/2026; D-W8-1060 a D-W8-1064; revisão N1 da T6-A, IMPORTANTE-1 e COSMÉTICOS 4 e 5):** a regra pública "at most one and a half times as tall" do passo 1 passa a ter caso na fronteira exata: uma prateleira de h + h / 2 linhas (divisão inteira) é tomada, e uma de uma linha a mais é deixada para o passo 2, com uma faixa livre disponível ao mesmo tempo, numa altura par (8: 12 e 13) e numa ímpar (7: 10 e 11); antes dele, trocar `<=` por `<` no limite não derrubava nenhuma das seis suítes. A cerca do cabeçalho, abaixo, é reescrita NO LUGAR com o texto publicado (precedente D-W8-545): o `Proved by:` de `atlas_geometry_test` passa a citar o limite na fronteira, para uma altura par e uma ímpar; a promessa não muda. A liberação de um retângulo que não começa uma corrida tomada, inalcançável pela API porque o recibo é conferido antes, ganha caso que prova que nada é tocado. Porta de mão única: o texto público vai à ratificação do líder.
 - **Errata da T6-B1 (CTO, 30/10/2026; D-W8-1200 a D-W8-1219):** `include/glintfx/draw2d/texture_atlas.hpp` entra no repositório, e a cerca dele, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). Diferenças contra a proposta da T0: (1) `width` e `height` no descritor, no lugar de `side` (o gêmeo da D-W8-912), e `filter` no descritor, com o padrão `linear` do descritor de textura; (2) a regra da margem fica `margin_pixels >= 2^k` (a saída "2^k passa" da D-W8-298), com o alinhamento que o IMP-T06 pedia: cada lado da célula é arredondado para múltiplo de 2^k, a largura e a altura do atlas têm de ser múltiplas de 2^k, e `2 * margin_pixels + 1` não passa de nenhum lado; 2^k é critério de segurança (meio texel do nível k de folga), não a menor margem que cabe no papel, e o texto público diz isso; a conta enumerada está em `atlas_cell_test`, e as células AT1 a AT4 de `draw2d_texture_parity_test` medem num driver que nada sangra; (3) `add_image()` devolve o recibo do alocador para a CÉLULA inteira, e `region_of()` dá o retângulo da IMAGEM (a cerca dizia que o recibo cobria só a imagem); (4) `release_slot()` recusa com os nomes do alocador (`stale_slot`, `slot_other_allocator`), não com `"slot"`; (5) `texture()` entrega a textura do atlas aos desenhos de `renderer_2d.hpp`; (6) `stale_region`, `gltfx_atlas_paint` (com a tinta branca opaca da D-W8-464) e `draw_atlas_image` NÃO entram nesta fatia: são da T6-B2, e a cerca de `draw_atlas_image`, na seção de `renderer_2d.hpp`, fica como está até lá. A cerca de `texture_2d.hpp` ganha a declaração antecipada de `gltfx_texture_atlas` e a linha `friend class gltfx_texture_atlas;`, como o cabeçalho. Porta de mão única: vai à ratificação do líder.
+- **Errata da T6-B1-fix1 (CTO, 06/11/2026; D-W8-1404 a D-W8-1408; revisão N1 da T6-B1):** a cerca de `texture_atlas.hpp`, abaixo, é reescrita NO LUGAR com o texto do cabeçalho (precedente D-W8-545). (1) THE COST: a tabela de recibos nunca custa menos de 128 bytes, e o bloco de escrita acompanha a maior célula que chegou ao alocador, recusada ou não; o texto antigo era falso nos dois pontos, medido. (2) THE REFUSALS: a recusa antes de `out_of_memory` não muda nada, e daí em diante o bloco e a tabela podem ficar grandes. (3) LIFETIME: a referência tomada de `texture()` não acompanha um movimento. (4) Novos `Proved by:`: `texture_atlas_facade_test`, e os custos em bytes. (5) A revisão de API dedicada que faltou está na seção 9.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -643,9 +644,11 @@ class gltfx_atlas_allocator {
 // than twice that). open() asks, while it makes the texture, for 4 bytes per texel of the empty
 // image the texture starts from, besides what create_texture() asks for an image of that size.
 // add_image() keeps, between calls, a block for the texels of a cell (at least 4 bytes per texel
-// of the largest cell written so far, grown by doubling, so less than twice that) and a table of
-// the image sizes (8 bytes per receipt number the allocator has handed out, plus one, grown the
-// same way), besides what update_texture() asks for the cell.
+// of the largest cell that has reached the allocator so far, one it refused included, grown by
+// doubling, so less than twice that) and a table of the image sizes (8 bytes per receipt number
+// the allocator has handed out, plus one, and never less than 128 bytes; past 128 bytes it is
+// grown by doubling, so less than twice that), besides what update_texture() asks for the cell and
+// what the allocator keeps (core/atlas_allocator.hpp, COST).
 //
 // THE REFUSALS, each a gltfx_err, in the order in which they are checked:
 //   - open(renderer, desc): invalid_argument, rejected_value() "width" or "height" when it is zero;
@@ -663,10 +666,11 @@ class gltfx_atlas_allocator {
 //     can make fit; out_of_memory "atlas_add_image" when the library ran out of memory; then the
 //     allocator's: no_free_space "atlas_full" when no free place of the cell's size is left now
 //     (releasing cells, or a second atlas, can make room), out_of_memory "atlas_allocate"; then
-//     what update_texture() returns for the cell, as it came. A refused call takes no cell. Up to
-//     the allocator's refusals it touches nothing; after a refused write the cell is given back,
-//     what the card holds in it is unspecified (as update_texture() says), and the receipt number
-//     the call drew may later be handed out again with a larger generation.
+//     what update_texture() returns for the cell, as it came. A refused call takes no cell. A
+//     refusal before out_of_memory "atlas_add_image" changes nothing; from there on the block and
+//     the table of THE COST may stay grown; after a refused write the cell is given back, what the
+//     card holds in it is unspecified (as update_texture() says), and the receipt number the call
+//     drew may later be handed out again with a larger generation.
 //   - region_of(slot) and release_slot(slot): invalid_argument "atlas" for a moved-from atlas;
 //     then the allocator's refusals of a receipt, in its order ("stale_slot" for an owner of 0,
 //     "slot_other_allocator", "stale_slot"). release_slot() gives the cell back to the allocator;
@@ -675,9 +679,10 @@ class gltfx_atlas_allocator {
 // LIFETIME. The atlas belongs to the renderer it was opened on and does not outlive it, as a
 // texture does not (texture_2d.hpp, whose release rules texture() follows). A moved-from atlas
 // holds nothing: is_open() is false, texture() is a handle that is not open, and add_image(),
-// region_of() and release_slot() are refused as above. An atlas that receives another by move
-// assignment gives its own cells and texture back first. One atlas must not be used from two
-// threads at the same time.
+// region_of() and release_slot() are refused as above; a reference taken from texture() before the
+// move reads that handle, not open, and the one to draw from is the atlas moved into's. An atlas
+// that receives another by move assignment gives its own cells and texture back first. One atlas
+// must not be used from two threads at the same time.
 //
 // Proved by: atlas_cell_test (each refusal of open() by name and in this order; the margin at its
 // border, 2^k accepted and 2^k - 1 refused, for every k from 0 to 12; the multiple of 2^k at its
@@ -692,12 +697,17 @@ class gltfx_atlas_allocator {
 // each refusal of add_image() by name, and nothing taken after one, the library's memory failing
 // at each request and a write the card refuses included; release, and a smaller image reusing the
 // place reading only itself; a receipt of another atlas; every cell of a long sequence on a
-// multiple of 2^k).
+// multiple of 2^k; the block and the table of THE COST, in bytes, at each growth, a cell the
+// allocator refuses included).
+// Proved by: texture_atlas_facade_test (over a link seam, no window: a moved-from atlas holds
+// nothing and passes nothing on; move assignment gives the receiver's own interior and texture back
+// first, once each; nothing is given back twice; the layout of the descriptor and of the handle).
 // Proved by: draw2d_texture_parity_test (on a real context, in both values of srgb_framebuffer: a
 // cell magnified 1.5 times at a fractional position reads only its own colour, edge pixels
 // included; a cell minified 0.5 times with one reduced level and 0.25 times with two, next to a
 // cell of another colour, reads only its own; a cell released and taken by a smaller image reads
-// only the new image).
+// only the new image; a moved-from atlas is not open, nor is its texture(), and each call is
+// refused as above; an atlas that received another refuses the receipt it had).
 
 namespace glintfx {
 
@@ -1304,3 +1314,34 @@ Quem decide é o CTO, e o líder onde o item diz. O revisor não decide nenhum d
 
 md5 do corpo deste parecer, sem esta linha: `2e6c2e9be621144d285e5284391c864f` (corpo de origem, antes das errata; o texto desta cópia traz as errata e tem outro md5).
 Arquivo de origem: `/var/tmp/cto-w8/t0/auditoria-api-texture.md`, md5 `f8d6415d18fb06bb9707815ebafdc709`.
+
+---
+
+## 9. Revisão de API dedicada do atlas (T6-B1-fix1)
+
+**Por que esta seção existe.** A `TODO.md` manda que todo item `[PMU]` tenha revisão de API dedicada, conferindo a portabilidade da assinatura entre as plataformas, antes do commit da fatia. A seção 3 deste parecer revisou a PROPOSTA do atlas, sem portabilidade; o commit `80e51366` entrou assim, e a prova de portabilidade foi o CI depois do push. **Isso é desvio de processo, declarado.** A revisão abaixo veio depois daquele commit e antes do commit que congela de novo o texto do cabeçalho (T6-B1-fix1). A ratificação do líder da porta de mão única continua pendente, agora com esta revisão na mão.
+
+**O que foi revisado:** `include/glintfx/draw2d/texture_atlas.hpp` inteiro e a linha `friend class gltfx_texture_atlas;` de `include/glintfx/draw2d/texture_2d.hpp`. **Plataformas:** Fedora, Ubuntu, Arch e CachyOS (LP64: `long` e ponteiro de 8 bytes) e Windows (LLP64: `long` de 4 bytes, ponteiro de 8 bytes), mais as distros varridas pelo astrometrica (LP64). Nenhum alvo é de 32 bits.
+
+| O que congela | Tipo e forma | Nos dois modelos de dados | Prova |
+|---|---|---|---|
+| `gltfx_texture_atlas_desc` | `width` (0), `height` (4), `margin_pixels` (8): `std::uint32_t`; `filter` (12): `gltfx_texture_filter`, `enum class : std::uint8_t`; 3 bytes de preenchimento; `mipmap_levels` (16): `std::uint32_t`; 20 bytes | iguais: nenhum `long`, `size_t` ou ponteiro; alinhamento 4 | `static_assert` em `tests/texture_atlas_facade_test.cpp`, nos dois compiladores de Linux e no MSVC |
+| `gltfx_atlas_slot`, por valor em `region_of()` e `release_slot()`, por retorno em `add_image()` | sete `std::uint32_t`; 28 bytes | iguais | o mesmo teste |
+| `gltfx_texture_atlas` | dois ponteiros (`impl`, e a alça `atlas_texture`, que é um ponteiro); 16 bytes | iguais | o mesmo teste, `sizeof == 2 * sizeof(void *)`; os membros são privados, então não há `offsetof` |
+| `gltfx_image_view`, por valor em `add_image()` | `std::span`, dois `std::uint32_t`, `std::size_t`, o formato | congelado pela T2; o tamanho depende da biblioteca padrão, e a biblioteca e o programa usam a mesma em cada plataforma | não medido aqui (DISCOVERED_WORK da ordem) |
+| `gltfx_rslt<gltfx_texture_atlas>` e os outros retornos | molde só de cabeçalho, instanciado dos dois lados | a mesma regra de `gltfx_rslt` em todo o projeto (`docs/api-conventions.md` R1) | CI |
+
+| Pergunta de portabilidade | Resposta | Medida |
+|---|---|---|
+| Cada método fora de linha é exportado? | sim: 9 `GLINTFX_API` (`open`, os dois de movimento, destruidor, `is_open`, `texture`, `add_image`, `region_of`, `release_slot`); o construtor privado é inline e não cruza a DLL | Linux: `nm -DC` da biblioteca compartilhada lista os 9; Windows: a célula AT5 liga os 9 pela DLL real, e antes dela `is_open` e `operator=` não eram ligados por ninguém |
+| O nome colide com macro do sistema? | não | `pmu_probe.cpp` compila o cabeçalho DEPOIS de `windows.h`, com `/W4 /WX` (`open`, `near`, `far`, `min`, `max`), e depois de `fcntl.h` com `_FILE_OFFSET_BITS=64`, com GCC e Clang |
+| Todo o cabeçalho é ASCII? | sim: 0 bytes fora de ASCII (o MSVC lê conforme a página de código) | `LC_ALL=C grep -c -P '[^\x00-\x7F]'` |
+| Tudo que cruza a fronteira é `noexcept`? | sim, os 9, e o movimento é `is_nothrow` nos três compiladores | `static_assert` no teste |
+| `docs/api-conventions.md` R1 a R10 | R1, R2, R3, R5, R6 e R7 valem; R8 a R10 não se aplicam (não há função do consumidor) | o veredito da revisão N1 da T6-B1, item R1 a R7, conferido de novo pelo CTO |
+
+**Duas decisões da porta de mão única, ditas aqui para o líder.**
+
+1. **Os dois membros ficam.** A alternativa (a alça da textura dentro do interior, e a classe com um membro só) deixaria a referência de `texture()` estável através de um movimento, ao custo de uma alça vazia estática para o movido (com destruidor a rodar na saída do programa). A revisão não achou defeito de portabilidade em dois membros. O cabeçalho diz o que a referência faz (LIFETIME), e o caso prende.
+2. **A conta de bytes fica no texto.** Nenhuma das bibliotecas lidas (SDL3, raylib, sokol, LÖVE) promete essa conta; a LÖVE dá uma consulta estimada. Aqui a conta é promessa, porque ainda não existe a consulta (`ATLAS-USAGE-QUERY`, INBOX), e cada número tem caso em bytes em `texture_atlas_test`.
+
+**Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros (é o CI do push); o layout de `gltfx_image_view`; biblioteca padrão diferente da de cada alvo (nenhum alvo usa libc++).

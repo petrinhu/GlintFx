@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -189,10 +190,15 @@ struct armed_state {
     int requests = 0;
     int refuse_at = 0; // 0: never
     int blocks = 0;    // handed out and not taken back
+    // The bytes of each request since arm(), which is how THE COST of texture_atlas.hpp is read.
+    std::array<std::size_t, 64> asked{};
 };
 armed_state armed;
 
 void *armed_reallocate(void *block, std::size_t bytes) noexcept {
+    if (static_cast<std::size_t>(armed.requests) < armed.asked.size()) {
+        armed.asked[static_cast<std::size_t>(armed.requests)] = bytes;
+    }
     ++armed.requests;
     if (armed.refuse_at != 0 && armed.requests == armed.refuse_at) {
         return nullptr;
@@ -210,6 +216,7 @@ constexpr batch_allocator k_armed{&armed_reallocate, &armed_release};
 void arm(int refuse_at) {
     armed.requests = 0;
     armed.refuse_at = refuse_at;
+    armed.asked.fill(0U);
 }
 
 [[nodiscard]] gltfx_texture_atlas_desc desc_of(std::uint32_t side, std::uint32_t margin,
@@ -425,6 +432,73 @@ GLINTFX_TEST(texture_atlas_the_librarys_memory_failing_at_each_request_takes_no_
     GLINTFX_CHECK(requests_of_one_add >= 3);
     GLINTFX_CHECK(refused == requests_of_one_add);
     GLINTFX_CHECK(armed.blocks == blocks_before);
+}
+
+// THE COST of texture_atlas.hpp, the block of a cell and the table of image sizes, in bytes. Every
+// number is worked out by hand from the header: a cell of an image w x h with margin 1 is
+// (w + 2) x (h + 2) texels of 4 bytes. An add asks for its table and its block before anything
+// else, so they are the first requests of the add; a later one may be update_texture()'s, which
+// can ask for the same number of bytes, and THE COST puts that one apart.
+GLINTFX_TEST(texture_atlas_the_block_of_a_cell_costs_what_the_header_says) {
+    reset();
+    open_atlas a(desc_of(64, 1, 0));
+    arm(0);
+    GLINTFX_CHECK(add(a, image_of(1, 1, 1)).has_value());
+    GLINTFX_CHECK(armed.asked[1] == 36U); // 3 x 3: exactly its 36 bytes, after the table
+    arm(0);
+    GLINTFX_CHECK(add(a, image_of(4, 4, 1)).has_value());
+    GLINTFX_CHECK(armed.asked[0] == 144U); // 6 x 6: 144, more than twice 36, so exactly that
+    arm(0);
+    GLINTFX_CHECK(add(a, image_of(5, 5, 1)).has_value());
+    GLINTFX_CHECK(armed.asked[0] == 288U); // 7 x 7: 196, so 144 doubled, and 288 < 392
+    arm(0);
+    GLINTFX_CHECK(add(a, image_of(2, 2, 1)).has_value());
+    GLINTFX_CHECK(armed.asked[0] != 576U); // 4 x 4: 64 fits, so the block stays
+}
+
+GLINTFX_TEST(texture_atlas_the_block_grows_for_a_cell_the_allocator_refuses) {
+    reset();
+    open_atlas a(desc_of(16, 1, 0));
+    GLINTFX_CHECK(add(a, image_of(14, 1, 1)).has_value()); // 16 x 3, 192 bytes, the largest written
+    const std::size_t uploads = card.sub_uploads.size();
+    arm(0);
+    // 16 x 16 fits the atlas, so it reaches the allocator, which has no such place now.
+    GLINTFX_CHECK(
+        refused_as(add(a, image_of(14, 14, 1)), gltfx_err_code::no_free_space, "atlas_full"));
+    GLINTFX_CHECK(armed.asked[0] == 1024U); // 16 x 16 x 4: no such cell was ever written
+    GLINTFX_CHECK(card.sub_uploads.size() == uploads);
+    // A refusal before the allocator asks for nothing.
+    arm(0);
+    GLINTFX_CHECK(
+        refused_as(add(a, image_of(15, 1, 1)), gltfx_err_code::invalid_argument, "width"));
+    GLINTFX_CHECK(armed.requests == 0);
+}
+
+namespace {
+
+// `count` adds of a 1 x 1 image: how many asked for 256 bytes first, or failed.
+[[nodiscard]] int adds_with_a_larger_table(open_atlas &a, int count) {
+    int larger = 0;
+    for (int n = 0; n < count; ++n) {
+        arm(0);
+        const bool added = add(a, image_of(1, 1, 1)).has_value();
+        larger += (!added || armed.asked[0] == 256U) ? 1 : 0;
+    }
+    return larger;
+}
+
+} // namespace
+
+GLINTFX_TEST(texture_atlas_the_table_of_image_sizes_costs_what_the_header_says) {
+    reset();
+    open_atlas a(desc_of(64, 1, 0));
+    arm(0);
+    GLINTFX_CHECK(add(a, image_of(1, 1, 1)).has_value());
+    GLINTFX_CHECK(armed.asked[0] == 128U); // one number now, and 128 bytes: never less
+    GLINTFX_CHECK(adds_with_a_larger_table(a, 15) == 0); // up to 16 numbers: the same 128 bytes
+    arm(0);
+    GLINTFX_CHECK(add(a, image_of(1, 1, 1)).has_value());
+    GLINTFX_CHECK(armed.asked[0] == 256U); // the 17th number: 136 needed, 256 < 272
 }
 
 GLINTFX_TEST(texture_atlas_a_write_the_card_refuses_gives_the_cell_back) {

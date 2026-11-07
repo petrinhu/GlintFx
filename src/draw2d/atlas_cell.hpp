@@ -1,18 +1,30 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 #include <glintfx/core/atlas_allocator.hpp>
 #include <glintfx/core/err.hpp>
+#include <glintfx/core/err_code.hpp>
+#include <glintfx/core/image_view.hpp>
 #include <glintfx/draw2d/texture_atlas.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
 
 // draw2d/atlas_cell.hpp - R2D-TEXTURE, fatia T6-B1: the arithmetic of the texture atlas
-// (texture_atlas.hpp, THE CELL and MARGIN AND REDUCED LEVELS), pure: which descriptor open()
-// refuses and by which name, how large the cell of an image is, and where the image sits in its
-// cell. No GL, no memory, no allocator. NOT under include/glintfx/: internal, not frozen ABI.
+// (texture_atlas.hpp, THE CELL and MARGIN AND REDUCED LEVELS), pure: which descriptor open() and
+// which image add_image() refuse before anything is asked of memory or of the card, and by which
+// name; how large the cell of an image is, and where the image sits in its cell. No GL, no memory,
+// no allocator. NOT under include/glintfx/: internal, not frozen ABI.
 namespace glintfx::draw2d {
+
+// Bytes of one texel of the atlas texture: its empty image, and the texels of a cell.
+inline constexpr std::size_t k_atlas_texel_bytes = 4;
+
+// The error of a refusal of the atlas: this code, with `name` in rejected_value().
+[[nodiscard]] glintfx::gltfx_err atlas_refusal(glintfx::gltfx_err_code code,
+                                               std::string_view name) noexcept;
 
 // A descriptor that passed check_atlas_desc(): the extruded edge on each side of an image, the
 // number of reduced levels k, and 2^k, the multiple every cell side (and so every cell start) is
@@ -35,6 +47,20 @@ check_atlas_desc(const glintfx::gltfx_texture_atlas_desc &desc) noexcept;
 // atlas side.
 [[nodiscard]] std::uint64_t atlas_cell_side(std::uint32_t image_side,
                                             const atlas_layout &layout) noexcept;
+
+// The refusals of add_image() that need nothing but the image, in the order of texture_atlas.hpp:
+// "width", then "height", for an image with no texel; then the view itself, as create_texture()
+// refuses it (check_image_view(), pixel_premultiply.hpp).
+[[nodiscard]] glintfx::gltfx_rslt<void>
+check_atlas_image(const glintfx::gltfx_image_view &image) noexcept;
+
+// The rectangle to ask the allocator for: at (0, 0), of the sides of atlas_cell_side(). "width" or
+// "height" when it is wider or taller than the atlas. The allocator refuses such a cell by the same
+// names; the check is made here, in 64 bits, so that a side past 32 bits (an image near 2^32 texels
+// wide with its margins) is never cut to 32 bits.
+[[nodiscard]] glintfx::gltfx_rslt<glintfx::gltfx_atlas_rect>
+atlas_cell_rect(const glintfx::gltfx_image_view &image, const atlas_layout &layout,
+                std::uint32_t atlas_width, std::uint32_t atlas_height) noexcept;
 
 // What a cell holds: the image's size, in texels.
 struct atlas_image_size {

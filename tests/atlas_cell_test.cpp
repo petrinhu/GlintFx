@@ -43,11 +43,13 @@ using glintfx::gltfx_rect_texel;
 using glintfx::gltfx_rslt;
 using glintfx::gltfx_texture_atlas_desc;
 using glintfx::gltfx_texture_filter;
+using glintfx::draw2d::atlas_cell_rect;
 using glintfx::draw2d::atlas_cell_side;
 using glintfx::draw2d::atlas_image_region;
 using glintfx::draw2d::atlas_image_size;
 using glintfx::draw2d::atlas_layout;
 using glintfx::draw2d::check_atlas_desc;
+using glintfx::draw2d::check_atlas_image;
 
 [[nodiscard]] gltfx_texture_atlas_desc desc_of(std::uint32_t width, std::uint32_t height,
                                                std::uint32_t margin, std::uint32_t levels) {
@@ -207,6 +209,41 @@ GLINTFX_TEST(atlas_cell_side_is_image_and_margins_rounded_up_and_the_image_sits_
                                                        atlas_image_size{8U, 8U}, two_levels);
     GLINTFX_CHECK(region.corner.x == 16.0 && region.corner.y == 4.0);
     GLINTFX_CHECK(region.size.x == 8.0 && region.size.y == 8.0);
+}
+
+// add_image(), the two refusals that need nothing but the image, in the order of texture_atlas.hpp;
+// the view itself is check_image_view()'s, and only its first refusal is looked at here.
+GLINTFX_TEST(atlas_cell_image_with_no_texel_is_refused_by_name_before_the_view_is_read) {
+    const glintfx::gltfx_image_view both_zero{};
+    GLINTFX_CHECK(check_atlas_image(both_zero).has_error() &&
+                  check_atlas_image(both_zero).err().rejected_value() == "width");
+    const glintfx::gltfx_image_view no_height{.width = 1, .height = 0};
+    GLINTFX_CHECK(check_atlas_image(no_height).has_error() &&
+                  check_atlas_image(no_height).err().rejected_value() == "height");
+    const glintfx::gltfx_image_view no_bytes{.width = 1, .height = 1};
+    GLINTFX_CHECK(check_atlas_image(no_bytes).has_error() &&
+                  check_atlas_image(no_bytes).err().rejected_value() != "width" &&
+                  check_atlas_image(no_bytes).err().rejected_value() != "height");
+}
+
+// The cell against the atlas, at the border on each side, and a side past 32 bits, whose lower 32
+// bits (1) would fit if it were ever cut.
+GLINTFX_TEST(atlas_cell_wider_or_taller_than_the_atlas_is_refused_by_name_at_the_border) {
+    const atlas_layout margin_one{1U, 0U, 1U};
+    const auto rect_of = [&margin_one](std::uint32_t width, std::uint32_t height) {
+        return atlas_cell_rect(glintfx::gltfx_image_view{.width = width, .height = height},
+                               margin_one, 8U, 16U);
+    };
+    GLINTFX_CHECK(rect_of(6U, 14U).has_value());
+    GLINTFX_CHECK(rect_of(6U, 14U).value().x == 0U && rect_of(6U, 14U).value().y == 0U);
+    GLINTFX_CHECK(rect_of(6U, 14U).value().width == 8U && rect_of(6U, 14U).value().height == 16U);
+    GLINTFX_CHECK(rect_of(7U, 1U).has_error() && rect_of(7U, 1U).err().rejected_value() == "width");
+    GLINTFX_CHECK(rect_of(1U, 15U).has_error() &&
+                  rect_of(1U, 15U).err().rejected_value() == "height");
+    GLINTFX_CHECK(rect_of(0xFFFFFFFFU, 1U).has_error() &&
+                  rect_of(0xFFFFFFFFU, 1U).err().rejected_value() == "width");
+    GLINTFX_CHECK(rect_of(1U, 0xFFFFFFFFU).has_error() &&
+                  rect_of(1U, 0xFFFFFFFFU).err().rejected_value() == "height");
 }
 
 GLINTFX_TEST(atlas_cell_every_sample_keeps_half_a_texel_of_level_k_with_margin_two_to_the_k) {

@@ -2152,6 +2152,7 @@ target_include_directories(texture_atlas_test PRIVATE
 )
 target_sources(texture_atlas_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_atlas_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_atlas_cells.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_cell.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_extrude.cpp"
     "${PROJECT_SOURCE_DIR}/src/core/atlas_allocator_impl.cpp"
@@ -2169,6 +2170,22 @@ target_sources(texture_atlas_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
 )
+# R2D-TEXTURE T6-B1-fix1: the public handle of the atlas (texture_atlas_facade.cpp) over a link seam: the handle's own
+# two files, recompiled, and fakes of what they forward to, so that a move is counted without a window. The renderer
+# and the interior are the fakes in the test. Defines GLINTFX_API symbols, hence the same define as renderer_2d_impl_test.
+glintfx_add_test(texture_atlas_facade_test)
+add_dependencies(texture_atlas_facade_test glintfx_gl_functions_generated)
+target_include_directories(texture_atlas_facade_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_atlas_facade_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_atlas_facade.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_2d_facade.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+target_compile_definitions(texture_atlas_facade_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
 
 # R2D-TEXTURE T3, etapa C: a texture record now owns its kept texels (kept_texels.hpp), so every target that makes
 # or frees a record compiles their ownership; the making keeps them in one block (mipmap_chain.hpp); and the

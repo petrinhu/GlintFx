@@ -56,6 +56,7 @@ target_sources(glintfx_library PRIVATE
     atlas_cell.cpp
     atlas_extrude.cpp
     texture_atlas_impl.cpp
+    texture_atlas_cells.cpp
     texture_atlas_facade.cpp
     triangle_list_check.cpp
     renderer_2d_facade_shapes.cpp

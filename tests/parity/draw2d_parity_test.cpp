@@ -1144,6 +1144,8 @@ void cell_image_resolver_per_renderer(drawing_window &a, drawing_window &b) {
            resolver_is(b.renderer->set_image_resolver({}), resolver_of_window_b, &context_of_b));
     report(ca, "RS5 A esvaziado de novo devolve nenhum",
            resolver_is(a.renderer->set_image_resolver({}), nullptr, nullptr));
+    report(cb, "RS6 B esvaziado de novo devolve nenhum",
+           resolver_is(b.renderer->set_image_resolver({}), nullptr, nullptr));
 }
 
 // Both renderers die before either context, and both contexts before either window.

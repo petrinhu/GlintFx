@@ -17,6 +17,12 @@
 // named gl_stencil_contract_* prove, on the same model, the stencil passes of
 // gl_stencil_contract.hpp (R2D-SPRITE-SHADE H3a; their own file since H3a-fix1).
 //
+// THE RULE OF THE START (the N1 review of H3a-fix1): every item starts AWAY from what the function
+// under test is about to write. A model that already holds the value a call would write cannot
+// tell whether the call was made, so a hostile item is hostile only against the value asked of it.
+// And a fake never loses what it receives: a call it has no field for counts in dropped_calls, and
+// glClear keeps its whole mask.
+//
 // A DECLARED DOWNGRADE (GODS_LAWS.md L-09): this proves that the layer asks GL for each item, in a
 // model. It does not prove what a real driver does with the calls; that is the pixel read of the
 // live cells (tests/parity/draw2d_parity_test.cpp, with the renderer of B4). The literal
@@ -104,9 +110,13 @@ struct gl_model {
     std::array<GLenum, 3> stencil_op{k_keep, k_keep, k_keep}; // fail, depth fail, pass
     GLuint stencil_write_mask = k_every_bit;
     GLint stencil_clear_value = 0;
-    int stencil_clears = 0;
+    int clears = 0;
+    GLbitfield mask_at_clear = 0;
     GLuint write_mask_at_clear = 0;
     GLint value_at_clear = -1;
+    // H3a-fix2: every call a fake receives and has no field for (the reading of it is
+    // gl_state_contract_no_function_makes_a_call_the_model_would_drop).
+    int dropped_calls = 0;
 };
 
 gl_model model;
@@ -147,6 +157,22 @@ void plant_hostile_stencil() {
     model.stencil_clear_value = 9;
 }
 
+// The start of one pass: the stencil test and the color mask the other way round from what that
+// pass is about to set; the rest of the stencil is already away from every pass.
+void plant_the_opposite_of_a_pass(bool pass_tests_the_stencil, bool pass_writes_color) {
+    plant_hostile_state();
+    plant_hostile_stencil();
+    model.stencil_test = !pass_tests_the_stencil;
+    model.color_mask.fill(!pass_writes_color);
+}
+
+// The start of one round of the two sRGB modes: the hostile state, sRGB the other way round from
+// what the round asks.
+void plant_the_opposite_of_srgb(bool srgb) {
+    plant_hostile_state();
+    model.framebuffer_srgb = !srgb;
+}
+
 void set_cap(GLenum cap, bool value) {
     switch (cap) {
     case k_blend:
@@ -177,6 +203,7 @@ void set_cap(GLenum cap, bool value) {
         model.sample_alpha_to_coverage = value;
         break;
     default:
+        ++model.dropped_calls;
         break;
     }
 }
@@ -192,11 +219,15 @@ void GLINTFX_GL_APIENTRY fake_blend_equation_separate(GLenum rgb, GLenum alpha) 
 void GLINTFX_GL_APIENTRY fake_polygon_mode(GLenum face, GLenum mode) {
     if (face == k_front_and_back) {
         model.polygon_mode = {mode, mode};
+    } else {
+        ++model.dropped_calls;
     }
 }
 void GLINTFX_GL_APIENTRY fake_bind_framebuffer(GLenum target, GLuint framebuffer) {
     if (target == k_draw_framebuffer) {
         model.draw_framebuffer = framebuffer;
+    } else {
+        ++model.dropped_calls;
     }
 }
 void GLINTFX_GL_APIENTRY fake_color_mask(GLboolean r, GLboolean g, GLboolean b, GLboolean a) {
@@ -212,17 +243,23 @@ void GLINTFX_GL_APIENTRY fake_bind_buffer(GLenum target, GLuint buffer) {
         model.array_buffer = buffer;
     } else if (target == k_element_array_buffer) {
         model.element_buffer = buffer;
+    } else {
+        ++model.dropped_calls;
     }
 }
 void GLINTFX_GL_APIENTRY fake_active_texture(GLenum texture) { model.active_texture = texture; }
 void GLINTFX_GL_APIENTRY fake_bind_texture(GLenum target, GLuint texture) {
     if (target == k_texture_2d) {
         model.texture_2d = texture;
+    } else {
+        ++model.dropped_calls;
     }
 }
 void GLINTFX_GL_APIENTRY fake_pixel_storei(GLenum pname, GLint param) {
     if (pname == k_unpack_alignment) {
         model.unpack_alignment = param;
+    } else {
+        ++model.dropped_calls;
     }
 }
 
@@ -236,14 +273,14 @@ void GLINTFX_GL_APIENTRY fake_stencil_op(GLenum fail, GLenum depth_fail, GLenum 
 }
 void GLINTFX_GL_APIENTRY fake_stencil_mask(GLuint mask) { model.stencil_write_mask = mask; }
 void GLINTFX_GL_APIENTRY fake_clear_stencil(GLint value) { model.stencil_clear_value = value; }
-// A clear of the stencil writes the clear value through the write mask of that moment: the fake
-// records both, so a mask set after the clear does not count.
+// A clear does what its WHOLE mask says, and it writes the clear value through the write mask of
+// that moment: the fake records all three, so a bit beyond the stencil's shows, and a mask set
+// after the clear does not count.
 void GLINTFX_GL_APIENTRY fake_clear(GLbitfield mask) {
-    if ((mask & k_stencil_buffer_bit) != 0) {
-        ++model.stencil_clears;
-        model.write_mask_at_clear = model.stencil_write_mask;
-        model.value_at_clear = model.stencil_clear_value;
-    }
+    ++model.clears;
+    model.mask_at_clear = mask;
+    model.write_mask_at_clear = model.stencil_write_mask;
+    model.value_at_clear = model.stencil_clear_value;
 }
 
 gl_function_table fake_table() {
@@ -292,7 +329,7 @@ constexpr draw_state_request k_request{.program = 7,
 GLINTFX_TEST(gl_state_contract_setting_state_overrides_every_hostile_item) {
     const gl_function_table table = fake_table();
     for (const bool srgb : {false, true}) {
-        plant_hostile_state();
+        plant_the_opposite_of_srgb(srgb);
         draw_state_request request = k_request;
         request.srgb_framebuffer = srgb;
         set_gl_state_for_drawing(table, request);
@@ -338,7 +375,7 @@ GLINTFX_TEST(gl_state_contract_the_viewport_takes_the_size_it_is_given) {
 GLINTFX_TEST(gl_state_contract_leaving_state_reads_back_the_closed_list) {
     const gl_function_table table = fake_table();
     for (const bool srgb : {false, true}) {
-        plant_hostile_state();
+        plant_the_opposite_of_srgb(srgb);
         leave_gl_state_after_drawing(table, 800, 600, srgb);
         GLINTFX_CHECK_EQ(model.program, GLuint{0});
         GLINTFX_CHECK_EQ(model.vertex_array, GLuint{0});
@@ -382,21 +419,19 @@ GLINTFX_TEST(gl_state_contract_a_frame_ends_in_the_closed_list_not_in_the_drawin
 }
 
 // R2D-SPRITE-SHADE H3a (gl_stencil_contract.hpp since H3a-fix1): each pass of shadow_group.hpp,
-// from a hostile start (stencil test on, color mask off, a consumer's stencil), sets everything it
-// needs. plain: test off, color on. mark_shadow: EQUAL 0 with every bit, KEEP KEEP INCR, every bit
-// writable, color on. release_marks: ALWAYS 0 with every bit, KEEP KEEP ZERO, every bit writable,
-// color OFF.
+// from a start the other way round from what it sets (the test, the color mask, a consumer's
+// stencil), sets everything it needs. plain: test off, color on. mark_shadow: test ON, EQUAL 0 with
+// every bit, KEEP KEEP INCR, every bit writable, color on. release_marks: test ON, ALWAYS 0 with
+// every bit, KEEP KEEP ZERO, every bit writable, color OFF.
 GLINTFX_TEST(gl_stencil_contract_each_stencil_pass_sets_all_it_needs) {
     const gl_function_table table = fake_table();
     const std::array<bool, 4> color_on{true, true, true, true};
     std::size_t analyzed = 0;
-    plant_hostile_state();
-    plant_hostile_stencil();
+    plant_the_opposite_of_a_pass(false, true);
     set_stencil_pass(table, stencil_pass::plain);
     GLINTFX_CHECK(!model.stencil_test && model.color_mask == color_on);
     ++analyzed;
-    plant_hostile_state();
-    plant_hostile_stencil();
+    plant_the_opposite_of_a_pass(true, true);
     set_stencil_pass(table, stencil_pass::mark_shadow);
     GLINTFX_CHECK(model.stencil_test && model.color_mask == color_on);
     GLINTFX_CHECK(model.stencil_function == k_equal && model.stencil_reference == 0 &&
@@ -404,8 +439,7 @@ GLINTFX_TEST(gl_stencil_contract_each_stencil_pass_sets_all_it_needs) {
     GLINTFX_CHECK((model.stencil_op == std::array<GLenum, 3>{k_keep, k_keep, k_incr}));
     GLINTFX_CHECK_EQ(model.stencil_write_mask, k_every_bit);
     ++analyzed;
-    plant_hostile_state();
-    plant_hostile_stencil();
+    plant_the_opposite_of_a_pass(true, false);
     set_stencil_pass(table, stencil_pass::release_marks);
     GLINTFX_CHECK((model.stencil_test && model.color_mask == std::array<bool, 4>{}));
     GLINTFX_CHECK(model.stencil_function == k_always && model.stencil_reference == 0 &&
@@ -419,13 +453,15 @@ GLINTFX_TEST(gl_stencil_contract_each_stencil_pass_sets_all_it_needs) {
 
 // R2D-SPRITE-SHADE H3a (gl_stencil_contract.hpp since H3a-fix1): the clear writes 0 with every bit
 // writable, whatever mask the consumer left (a clear obeys the write mask: the fake records the
-// mask of the moment of the clear).
+// mask of the moment of the clear), and it clears the stencil ALONE: never the consumer's color or
+// depth.
 GLINTFX_TEST(gl_stencil_contract_clearing_the_stencil_makes_every_bit_writable_first) {
     const gl_function_table table = fake_table();
     plant_hostile_state();
     plant_hostile_stencil();
     clear_stencil(table);
-    GLINTFX_CHECK_EQ(model.stencil_clears, 1);
+    GLINTFX_CHECK_EQ(model.clears, 1);
+    GLINTFX_CHECK_EQ(model.mask_at_clear, k_stencil_buffer_bit);
     GLINTFX_CHECK_EQ(model.write_mask_at_clear, k_every_bit);
     GLINTFX_CHECK_EQ(model.value_at_clear, 0);
 }
@@ -447,4 +483,50 @@ GLINTFX_TEST(gl_state_contract_both_halves_leave_the_stencil_at_the_gl_defaults)
     set_gl_state_for_drawing(table, k_request);
     GLINTFX_CHECK(!model.stencil_test);
     GLINTFX_CHECK(stencil_at_gl_defaults());
+}
+
+// H3a-fix2: what the model has no field for would pass every case above unseen (a clear of the
+// shadow marks by a pass, the consumer's read framebuffer rebound, one capability too many). No
+// function of the two contracts makes such a call, in either sRGB mode, and only clear_stencil()
+// clears anything.
+GLINTFX_TEST(gl_state_contract_no_function_makes_a_call_the_model_would_drop) {
+    const gl_function_table table = fake_table();
+    plant_hostile_state();
+    plant_hostile_stencil();
+    for (const bool srgb : {false, true}) {
+        draw_state_request request = k_request;
+        request.srgb_framebuffer = srgb;
+        set_gl_state_for_drawing(table, request);
+        leave_gl_state_after_drawing(table, 320, 240, srgb);
+    }
+    for (const stencil_pass pass :
+         {stencil_pass::plain, stencil_pass::mark_shadow, stencil_pass::release_marks}) {
+        set_stencil_pass(table, pass);
+    }
+    GLINTFX_CHECK_EQ(model.clears, 0);
+    clear_stencil(table);
+    GLINTFX_CHECK_EQ(model.clears, 1);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 0);
+}
+
+// The instrument of the case above, seen counting: each of the seven fakes that filter by argument
+// counts what it leaves out (GODS_LAWS.md L-40: a count that never moved proves nothing).
+GLINTFX_TEST(gl_state_contract_each_fake_that_filters_counts_what_it_drops) {
+    const gl_function_table table = fake_table();
+    plant_hostile_state();
+    constexpr GLenum k_not_kept = 1;
+    table.glEnable(k_not_kept);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 1);
+    table.glDisable(k_not_kept);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 2);
+    table.glPolygonMode(k_not_kept, k_fill);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 3);
+    table.glBindFramebuffer(k_not_kept, 0);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 4);
+    table.glBindBuffer(k_not_kept, 0);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 5);
+    table.glBindTexture(k_not_kept, 0);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 6);
+    table.glPixelStorei(k_not_kept, 0);
+    GLINTFX_CHECK_EQ(model.dropped_calls, 7);
 }

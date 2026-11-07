@@ -241,7 +241,7 @@ class wayland_egl_context_adapter {
     // GAP (TODO.md, W6b): reads the REAL EGL surface geometry via
     // eglQuerySurface(EGL_WIDTH/EGL_HEIGHT) - the ONLY way a fixture
     // outside this adapter can confirm resize_surface_if_due() (private,
-    // called from swap_buffers() above) actually reached the driver
+    // reached from swap_buffers() above) actually reached the driver
     // through a real wl_egl_window_resize() call, rather than trusting
     // this adapter's OWN bookkeeping (m_buffer_width/m_buffer_height),
     // which resize_surface_if_due() itself writes and so cannot prove
@@ -284,7 +284,7 @@ class wayland_egl_context_adapter {
     // GL_RENDERER for gpu_kind_state's own "minimo honesto" (sec.
     // 10.3, D-W6b-13).
     [[nodiscard]] gltfx_rslt<void> create_context(void *config) noexcept;
-    void resize_surface_if_due() noexcept;
+    [[nodiscard]] bool resize_surface_if_due() noexcept;
 
     // EGL-DEAD-DISPLAY-GUARD S2 (docs/plano-egl-dead-display-guard.md
     // sec. 3, D-S2): the one presentation both branches of swap_buffers()

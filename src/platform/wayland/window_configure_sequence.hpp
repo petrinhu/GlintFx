@@ -34,6 +34,19 @@
 // reads AND clears it in the same call, so a second call before the
 // next configure returns std::nullopt - there is no way to read the
 // same serial back and ack it twice by accident.
+//
+// WHICH SERIAL A COMMIT ANSWERS (WL-ACK-CONFIGURE-SEGUINTES): every
+// configure after the first is acknowledged right before the commit that
+// answers it, never in the event handler. wl_egl_window_resize() applies to
+// the NEXT buffer, so the commit right after a resize still carries a buffer
+// drawn at the OLD size; an ack sent before it says "this commit answers the
+// new size", and weston ends the connection for exactly that ("xdg_surface
+// buffer (1280 x 720) is larger than the configured fullscreen state (640 x
+// 480)", SDL issue 4563). serial_for_commit() therefore holds the serial of a
+// configure that resized the buffer for ONE commit, and hands it back on the
+// next. xdg-shell.xml allows the wait ("sometime before the commit request"),
+// and acking only the newest of several configures ("it only has to ack the
+// last configure event").
 
 namespace glintfx::platform {
 
@@ -76,8 +89,14 @@ class window_configure_sequence {
 
     [[nodiscard]] std::optional<std::uint32_t> take_serial_to_ack() noexcept;
 
+    // The serial to acknowledge before the commit about to happen, if any.
+    // buffer_just_resized: the wl_egl_window was resized right before this
+    // commit, so its buffer does not answer the newest configure yet.
+    [[nodiscard]] std::optional<std::uint32_t> serial_for_commit(bool buffer_just_resized) noexcept;
+
   private:
     std::optional<std::uint32_t> m_pending_serial;
+    std::optional<std::uint32_t> m_held_serial;
 };
 
 } // namespace glintfx::platform

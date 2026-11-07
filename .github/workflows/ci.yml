@@ -2586,6 +2586,18 @@ jobs:
           printf 'surface_size_policy_adapter_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # WL-ACK-CONFIGURE-SEGUINTES: o KWin nao reclama de confirmacao que falta (docs/plano-w7c.md, F4), entao quem julga
+      # e o rastreio do protocolo, nas mesmas duas fixtures de cima: uma que muda de tamanho e outra que recebe um segundo
+      # configure sem mudar. Sem linha no inventario: as duas fixtures ja estao nele, e aqui so se rele o que elas fazem.
+      - name: WL-ACK-CONFIGURE-SEGUINTES - cada configure confirmado, lido do rastreio do protocolo
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          tests/container/exec_fixture.sh --env WAYLAND_DEBUG=1 ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} surface_size_policy_adapter_test > ack_resize.trace 2>&1
+          python3 tests/tools/check_configure_ack_trace.py ack_resize.trace --min-configures 3 --min-commits 4 --min-resizes 2
+          tests/container/exec_fixture.sh --env WAYLAND_DEBUG=1 ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} first_window --frames 30 > ack_first_window.trace 2>&1
+          python3 tests/tools/check_configure_ack_trace.py ack_first_window.trace --min-configures 2 --min-commits 5
+
       # CONTAINER-LEAK-COUNTER sub-fatia S4 (/var/tmp/glintfx-plan/leak-
       # counter.md sec. 5 S4): a 18a fixture, e a unica que abre e
       # fecha display/shell/janela/contexto GL TRES VEZES no mesmo

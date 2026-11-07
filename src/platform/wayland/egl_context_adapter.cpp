@@ -893,17 +893,18 @@ gltfx_rslt<void> wayland_egl_context_adapter::create_context(void *config) noexc
     return gltfx_rslt<void>::ok();
 }
 
-void wayland_egl_context_adapter::resize_surface_if_due() noexcept {
+bool wayland_egl_context_adapter::resize_surface_if_due() noexcept {
     const window_size pixel_size = m_window->state().pixel_size();
     const gltfx_rslt<gl_surface_size_decision> decision = resolve_gl_surface_size(
         pixel_size.width, pixel_size.height, m_buffer_width, m_buffer_height);
     if (decision.has_error() || !decision.value().should_resize) {
-        return;
+        return false;
     }
     wl_egl_window_resize(m_egl_window, static_cast<int>(decision.value().width),
                          static_cast<int>(decision.value().height), 0, 0);
     m_buffer_width = decision.value().width;
     m_buffer_height = decision.value().height;
+    return true;
 }
 
 gltfx_rslt<void>
@@ -1093,8 +1094,6 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
         return gltfx_rslt<gltfx_present_outcome>::err(*dead_on_entry);
     }
 
-    resize_surface_if_due();
-
     if (!m_vsync_on) {
         // D-W6b-46: `vsync=off` used to present as fast as the driver
         // allows, UNCONDITIONALLY - the exact paridade defect (F3,
@@ -1155,6 +1154,11 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
 // break this, loop_parity_test (at least 27 of 30 frames) would fail on every Linux runner.
 gltfx_rslt<gltfx_present_outcome>
 wayland_egl_context_adapter::present_through_egl(wl_display *display) noexcept {
+    // WL-ACK-CONFIGURE-SEGUINTES: the resize and the ack are decided here, right before the commit,
+    // and not at the top of swap_buffers(), because the wait for the frame callback dispatches
+    // events: a configure that lands during it must count for this very commit.
+    const bool buffer_just_resized = resize_surface_if_due();
+    m_window->ack_configure_for_commit(buffer_just_resized);
     egl_wire_present_ports ports{
         .target = egl_present_target{.egl_display = m_egl_display,
                                      .egl_surface = m_egl_surface,

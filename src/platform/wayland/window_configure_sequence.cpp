@@ -39,4 +39,19 @@ std::optional<std::uint32_t> window_configure_sequence::take_serial_to_ack() noe
     return serial;
 }
 
+std::optional<std::uint32_t>
+window_configure_sequence::serial_for_commit(bool buffer_just_resized) noexcept {
+    const std::optional<std::uint32_t> held = m_held_serial;
+    m_held_serial.reset();
+    const std::optional<std::uint32_t> newest = take_serial_to_ack();
+    if (!newest.has_value()) {
+        return held;
+    }
+    if (buffer_just_resized) {
+        m_held_serial = newest;
+        return held;
+    }
+    return newest;
+}
+
 } // namespace glintfx::platform

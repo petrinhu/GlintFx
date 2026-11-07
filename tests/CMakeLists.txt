@@ -6376,6 +6376,15 @@ add_test(
 set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
+# WL-ACK-CONFIGURE-SEGUINTES: the judge of the WAYLAND_DEBUG trace the wayland-container job reads (ci.yml). Its
+# --selftest reads synthetic traces of its own and starts nothing, so it runs on every system.
+add_test(
+    NAME configure_ack_trace_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_configure_ack_trace.py" --selftest
+)
+set_tests_properties(configure_ack_trace_selftest PROPERTIES LABELS selftest)
+
 # CONTAINER-LOG-SIGNAL-FIRST (TODO.md, GODS_LAWS.md L-40/L-45/L-49,
 # /var/tmp/glintfx-plan/cauda-w6b.md sec. 4.1): tests/container/
 # exec_fixture.sh e' o atomo que os 18 passos `docker exec ... | tee

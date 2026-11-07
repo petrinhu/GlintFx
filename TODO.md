@@ -152,6 +152,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage main 07/11] GL-TEST-START-GUARD: a regra da partida de `tests/gl_state_contract_test.cpp` é lida, não executada, e já falhou três vezes na revisão; uma guarda no próprio teste a tornaria portão. Sem defeito medido hoje (D-W8-1571).
 - [triage main 07/11] CI-WIN-STALL-HEAVY-RULE: a regra de pesados de `tests/tools/ctest_aggregate.py` (40 s, absoluta) reprovou o CI 42359257323 por um pico isolado: `check_format_selftest` levou 40,56 s no `Windows - compartilhado`, contra 2,51 a 3,27 s nas 4 rodadas anteriores (D-W8-1051). Se repetir, investigar a causa no executor; marcar como pesado um teste de 3 s não trata a causa.
 - [triage main 07/11] TIDY-WIN-EXCEPTION-ESCAPE: clang-tidy 23 com os cabeçalhos da Microsoft acusa 2 `bugprone-exception-escape` (`declaration_value_check.cpp:171`, `gfx_option_validation.cpp:14`), por `xstring`. Esse arranjo não é o job real; que seja achado real é INFERÊNCIA do CTO da tidy23. N1 se confirmar.
 - [triage main 07/11] TIDY-WIN-TESTES: `tests/win32_*` não passam por clang-tidy em lugar nenhum.

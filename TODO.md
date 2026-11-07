@@ -152,6 +152,11 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage main 07/11] MOVED-STATE-AUDIT: oito cabeçalhos públicos prometem o estado do objeto movido; `display.hpp`, `window.hpp`, `loop.hpp`, `renderer_2d.hpp` e `err.hpp` não foram medidos. Auditar se há caso que leia o movido (CTO da T6-B1-fix1).
+- [triage main 07/11] CI-WINDOWS-PARITY-COUNT: o passo do CI Windows (`ci.yml:1260-1267`) só imprime `draw2d_parity_test`; a contagem da fixture de textura não aparece no log.
+- [triage main 07/11] PUBLIC-VALUE-LAYOUT-ASSERT: `gltfx_image_view` e outros tipos públicos de valor não têm o layout preso por `static_assert`.
+- [triage main 07/11] FACADE-NO-CALLER: sem chamador pela fachada, além do atlas: `fill_quad`, `last_frame_report` e `gltfx_loop::is_open` (CTO da T6-B1-fix1).
+- [triage main 07/11] REVIEW-GREP-INCLUDE: lição para o briefing de revisor: `grep` pelo nome de um arquivo não prova `#include` morto (achado C-1 falso da revisão da T6-B1).
 - [triage main 07/11] R2D-CLEAR-MASK-TEST: em `tests/renderer_2d_impl_test.cpp:242`, `f_clear` ignora a máscara. O mutante em `src/draw2d/renderer_2d_impl.cpp:176` (a cor mais profundidade e estêncil) passa em 100% nos 5 testes (FATO, CTO da H3a-fix2). Que as fixtures de pixel também não o veem é INFERÊNCIA. Ficou fora da fix2 porque o arquivo é da H3b.
 - [triage main 07/11] MAXIMIZE-RESTORE-SIZE: ao sair de maximizado, o compositor responde `configure(0, 0)` e a biblioteca mantém o tamanho maximizado, em vez de voltar ao anterior (FATO medido no Weston pelo CTO da WL-ACK). Defeito visível para quem usa a biblioteca.
 - [triage main 07/11] FIRST-FRAME-AFTER-RESIZE: no primeiro quadro depois de um redimensionamento, `pixel_size()` já é o novo e o buffer é o antigo (INFERÊNCIA do CTO da WL-ACK, efeito na imagem não medido). Candidato a um passo de preparar quadro.

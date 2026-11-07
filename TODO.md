@@ -152,6 +152,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage main 07/11] R2D-CLEAR-MASK-TEST: em `tests/renderer_2d_impl_test.cpp:242`, `f_clear` ignora a máscara. O mutante em `src/draw2d/renderer_2d_impl.cpp:176` (a cor mais profundidade e estêncil) passa em 100% nos 5 testes (FATO, CTO da H3a-fix2). Que as fixtures de pixel também não o veem é INFERÊNCIA. Ficou fora da fix2 porque o arquivo é da H3b.
 - [triage main 07/11] MAXIMIZE-RESTORE-SIZE: ao sair de maximizado, o compositor responde `configure(0, 0)` e a biblioteca mantém o tamanho maximizado, em vez de voltar ao anterior (FATO medido no Weston pelo CTO da WL-ACK). Defeito visível para quem usa a biblioteca.
 - [triage main 07/11] FIRST-FRAME-AFTER-RESIZE: no primeiro quadro depois de um redimensionamento, `pixel_size()` já é o novo e o buffer é o antigo (INFERÊNCIA do CTO da WL-ACK, efeito na imagem não medido). Candidato a um passo de preparar quadro.
 - [triage main 07/11] STRICT-COMPOSITOR-LAB: Weston como complemento do KWin no laboratório: um compositor estrito pega o que o KWin perdoa. A sonda contra o Weston 15.0.1 derrubou a conexão com o erro que a WL-ACK corrige. Decisão do líder.

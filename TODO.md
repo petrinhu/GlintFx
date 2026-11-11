@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage main 11/11] ATLAS-TEXEL-BYTES-TWICE: `src/draw2d/atlas_extrude.cpp:16` guarda uma segunda cópia do "4 bytes por texel" que `k_atlas_texel_bytes` já tem; achado fora do commit pelo revisor da T6-B1-fix1 (D-W8-1064).
+- [triage main 11/11] ATLAS-FIX1-COSMETICS: quatro cosméticos da revisão da T6-B1-fix1 (`rev-t6bfix1.txt`): comentário do AT4 deslocado em `tests/parity/draw2d_texture_parity_test.cpp:889-891`; dois grupos de include em `src/draw2d/texture_atlas_cells.cpp:9-11`; `tests/texture_atlas_facade_test.cpp:296-297` prende uma ordem que o cabeçalho não promete; `<cstdio>` sem uso em `tests/texture_atlas_facade_test.cpp:4` (D-W8-1064).
 - [triage main 07/11] CRUZA-COMPARTILHADO-CEGO: o `cruza_listas.sh` das ordens não vê colisão em arquivo compartilhado entre duas ordens; quem pega é a trava `espere6`, vista vermelha (D-W8-1059).
 - [triage main 07/11] DENIED-FILTER-CONTAINER: o implementador tem de filtrar os `denied` do SELinux por `container_t`; sem o filtro, 151 linhas de queda da NotaLivre na mesma janela o fariam parar à toa (D-W8-1059).
 - [triage main 07/11] ATLAS-EXAMPLE-RECEIPT: o exemplo `textures` ainda não mostra o desenho pelo recibo do atlas; `draw_texture_quad` não tem versão por recibo (D-W8-1059).

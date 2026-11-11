@@ -8,9 +8,14 @@
 # invocation that starts it, may reach back into the host session -
 # see check_isolation.sh for the proof.
 #
-# Pinned on fedora:44, the primary target (GODS_LAWS.md L-04): this
-# gate has to fail exactly when the leader's own machine would fail,
-# never drift to a moving `:latest`.
+# Built on fedora:latest, like the whole CI matrix (ESCOPO.md S1, the
+# leader's order of 27/08/2026): the primary target (GODS_LAWS.md L-04)
+# has to fail exactly when the leader's own machine would fail, and a
+# version written here would have to be raised by hand every time his
+# machine moved. The compositor and every other package come from the
+# Fedora repository of the day (KWIN-68-SEM-PLACA, the leader's decision
+# of 07/11/2026); what proves that a given image really is of the day
+# is check_image_freshness.sh, never a version written in a file.
 #
 # kwin is the compositor by the leader's own registered decision
 # (CLAUDE.md, "Isolamento obrigatório de teste"; GODS_LAWS.md L-09) -
@@ -22,6 +27,10 @@
 # which is why mesa-dri-drivers (llvmpipe) is here and /dev/dri is
 # not: L-09 rule 4 says no real GPU device by default, precisely so
 # this image renders the same way on every runner in the CI matrix.
+# The one device the container does get is /dev/udmabuf, the kernel's
+# memory-to-dma-buf allocator: since 6.8 KWin builds its software
+# render device on it (see the comment on the dnf layer below, and
+# docs/adr-udmabuf-no-conteiner-de-teste.md for the risk it accepts).
 #
 # ARCH-PORTS, TDD case R4: a SECOND, throwaway build stage compiles
 # connect_smoke.cpp against the REAL wayland_display_adapter/err.cpp/
@@ -227,7 +236,7 @@
 # Fedora ships libasan/libubsan as packages SEPARATE from gcc-c++, and
 # a link that never installed them died with "cannot find
 # libasan.so") - not repeated here a second time.
-FROM fedora:44 AS arch-ports-builder
+FROM fedora:latest AS arch-ports-builder
 # ARG must come AFTER this stage's own FROM to be visible to the RUN
 # lines below (a global ARG declared before the first FROM only ever
 # seeds that FROM's own image reference, never a build stage's shell
@@ -1229,7 +1238,7 @@ RUN cmake -S /build/_arch_ports_examples -B /build/examples-build -G Ninja -DCMA
         "-DCMAKE_CXX_FLAGS=-g -Wall -Wextra -Werror $GLINTFX_FIXTURE_SANITIZE" \
     && cmake --build /build/examples-build
 
-FROM fedora:44
+FROM fedora:latest
 
 # libasan/libubsan/binutils: always installed, one recipe for both
 # legs (D-CAUDA-6, /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.2) - a
@@ -1241,33 +1250,30 @@ FROM fedora:44
 # image to symbolize a stack trace either way, so static linking saves
 # nothing but makes every fixture binary bigger.
 #
-# kwin is held at 6.7.5, by exact build, with the Plasma libraries it links
-# against, because KWin 6.8 stopped compositing in this container: without
-# /dev/dri and without /dev/udmabuf it logs "Found no render device!", keeps the
-# socket open and never paints, so no surface ever gets a frame callback
-# (measured 06/11/2026, kwin-6.8.2-3.fc44: first_window renders one frame and
-# then waits forever). This container runs with no --device at all, by design
-# (software rendering, CLAUDE.md "Isolamento" rule 4), and giving it /dev/udmabuf
-# was never decided, so the old build stays until the leader decides. Fedora 44's
-# own updates moved to 6.8.2 too: fedora:44 alone no longer holds this line.
-# The packages come by URL, so the check dnf skips for a local package is asked
-# for by name: an unsigned build fails here instead of installing.
-RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-primary \
-    && dnf -y --setopt=localpkg_gpgcheck=1 install \
-        https://kojipkgs.fedoraproject.org/packages/kwin/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwin-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/kwin/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwin-common-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/kwin/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwin-libs-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/aurorae/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/aurorae-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/kdecoration/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kdecoration-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/kglobalacceld/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kglobalacceld-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/knighttime/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/knighttime-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/kscreenlocker/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kscreenlocker-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/kwayland/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/kwayland-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/layer-shell-qt/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/layer-shell-qt-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/libkscreen/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/libkscreen-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/libplasma/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/libplasma-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/plasma-activities/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/plasma-activities-6.7.5-1.fc44.x86_64.rpm \
-        https://kojipkgs.fedoraproject.org/packages/plasma-activities-stats/6.7.5/1.fc44/data/signed/6d9f90a6/x86_64/plasma-activities-stats-6.7.5-1.fc44.x86_64.rpm \
+# kwin comes from the Fedora repository of the day, like every other package of
+# this layer (the leader's decision of 07/11/2026, KWIN-68-SEM-PLACA). Since 6.8
+# KWin needs a render device even on its virtual backend: without /dev/dri and
+# without /dev/udmabuf it logs "Found no render device!", keeps the socket open
+# and never paints, so no surface ever gets a frame callback (measured
+# 06/11/2026: first_window renders one frame and then waits forever). So the
+# container gets exactly ONE device, /dev/udmabuf, and KWin builds its software
+# render device (llvmpipe) on it. It still gets no /dev/dri and no /dev/uinput
+# (CLAUDE.md "Isolamento" rule 4; check_isolation.sh, variant ci_udmabuf).
+#
+# GLINTFX_IMAGE_STAMP: a build cache keeps this layer for as long as the base
+# image and the text of this instruction stay the same, and that would freeze
+# "the KWin of the day" on the day the cache was filled, in silence (it
+# happened on 06/11/2026: a local round came out green on a layer of 31/10).
+# Whoever builds passes a value that is new for that build (the CI passes the
+# run id, a local round passes the clock); the value is part of this
+# instruction, so a new value runs dnf again, and the layer writes it to
+# /etc/glintfx-image-stamp, where check_image_freshness.sh reads it back. The
+# builder stage above is NOT stamped: its compiler may be as old as the cache,
+# and the library it links against is never newer than the one of this layer.
+ARG GLINTFX_IMAGE_STAMP=""
+RUN printf '%s\n' "$GLINTFX_IMAGE_STAMP" > /etc/glintfx-image-stamp \
+    && dnf -y install \
+        kwin \
         mesa-dri-drivers \
         mesa-libEGL \
         mesa-libgbm \
@@ -1352,7 +1358,10 @@ CMD ["glintfx-test"]
 # verified live to still start the compositor, and is strictly smaller
 # than the default Docker capability set. Nothing else beyond that one
 # capability is required: no --privileged, no --pid=host, no
-# --device=/dev/dri or any other --device (GODS_LAWS.md L-09 rule 4:
-# no real GPU device by default, so the render stays reproducible
-# across the whole CI matrix on software rasterization; check_isolation.sh
-# allow-lists this exact HostConfig and fails on any wider grant).
+# --device=/dev/dri (GODS_LAWS.md L-09 rule 4: no real GPU device by
+# default, so the render stays reproducible across the whole CI matrix
+# on software rasterization). Exactly one device goes in, spelled
+# `--device /dev/udmabuf:/dev/udmabuf:rw` (see the dnf layer above);
+# check_isolation.sh, variant ci_udmabuf, allow-lists this exact
+# HostConfig and fails on any other device, on one more device and on
+# any wider grant.

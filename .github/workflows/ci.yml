@@ -1675,6 +1675,14 @@ jobs:
   # nunca monta /dev/uinput, nunca fala X11 (L-05). Bloqueante como os
   # demais jobs (L-18): job que nao consegue ficar verde nao entra no
   # push.
+  # KWIN-68-SEM-PLACA (decisao do lider, 07/11/2026): a imagem segue o
+  # fedora:latest e o KWin do repositorio do dia. Desde o 6.8 o KWin so
+  # compoe com um dispositivo de renderizacao, e o conteiner recebe
+  # EXATAMENTE um, /dev/udmabuf (o alocador do nucleo que faz de memoria
+  # do processo um dma-buf; sem entrada, sem tela, sem placa). E desvio
+  # de risco com controles compensatorios, nunca conformidade:
+  # docs/adr-udmabuf-no-conteiner-de-teste.md diz qual passo deste job
+  # prova cada controle.
   # SANITIZER-CONTAINER-GAP (TODO.md, /var/tmp/glintfx-plan/cauda-w6b.md
   # sec. 4.2, D-CAUDA-3): duas pernas da MESMA receita (Containerfile,
   # com $GLINTFX_FIXTURE_SANITIZE), nao um segundo job - um job separado
@@ -1731,6 +1739,42 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v4
+
+      # KWIN-68-SEM-PLACA: o executor hospedado tem /dev/udmabuf? Este passo
+      # responde com nome, antes de o `docker run` do compositor responder
+      # com um erro generico do Docker, e confere que o no e mesmo o
+      # alocador (o numero do no contra o que o nucleo registra em
+      # /sys/class/misc/udmabuf/dev): o `--device` entrega o que estiver
+      # naquele caminho, seja o que for. Fica ANTES da guarda de reexecucao
+      # e do marco `id: prep`: a ausencia do dispositivo e defeito do
+      # executor, nao do codigo, conta como preparo, e a guarda deixa tentar
+      # outro executor uma vez (a guarda tem de ser o passo logo antes do
+      # marco: tests/tools/check_ci_step_independence.py, G6). E tambem o
+      # controle C5 do docs/adr-udmabuf-no-conteiner-de-teste.md: se o
+      # GitHub tirar o dispositivo do nucleo do executor, o job reprova
+      # aqui, alto, e a saida volta ao lider (maquina virtual com nucleo
+      # proprio, ou outro caminho); nunca se contorna com outro --device.
+      - name: O executor tem /dev/udmabuf (KWIN-68-SEM-PLACA)
+        run: |
+          set -eu
+          uname -r
+          if [ ! -c /dev/udmabuf ]; then
+            echo "aviso: /dev/udmabuf ausente; tentando carregar o modulo do nucleo neste executor" >&2
+            sudo -n modprobe udmabuf || true
+            sudo -n udevadm settle --timeout=10 || true
+          fi
+          if [ ! -c /dev/udmabuf ]; then
+            echo "ERRO: este executor nao tem /dev/udmabuf (nucleo $(uname -r)). Sem ele o KWin deste conteiner nao compoe e nenhuma fixture de janela roda. Nao e defeito do codigo: ver docs/adr-udmabuf-no-conteiner-de-teste.md, controle C5." >&2
+            exit 1
+          fi
+          no="$(stat -c '%t:%T' /dev/udmabuf)"
+          registrado="$(cat /sys/class/misc/udmabuf/dev)"
+          if [ "$((0x${no%%:*})):$((0x${no##*:}))" != "$registrado" ]; then
+            echo "ERRO: o no /dev/udmabuf e o dispositivo $no (em hexadecimal) e o nucleo registra o udmabuf em $registrado: o no nao e o alocador, e nao entra no conteiner." >&2
+            exit 1
+          fi
+          ls -l /dev/udmabuf
+          echo "ok: /dev/udmabuf presente no executor, identidade $registrado conferida contra o nucleo"
 
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
@@ -1800,12 +1844,29 @@ jobs:
           # imagem sempre foi); a perna `asan` passa as flags do bloco
           # `env:` acima do job - uma receita so, duas construcoes
           # (D-CAUDA-3).
+          # GLINTFX_IMAGE_STAMP (KWIN-68-SEM-PLACA): o cache `type=gha`
+          # abaixo guardaria a camada do dnf, e com ela o KWin, do dia em
+          # que o cache foi enchido. O carimbo e novo a cada execucao e a
+          # cada tentativa, e por isso essa camada e refeita sempre; o
+          # estagio que compila as fixtures continua no cache. `pull:
+          # true` deixa escrito que a base vem do registro.
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
+            GLINTFX_IMAGE_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
+          pull: true
           load: true
           push: false
           cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
           cache-to: type=gha,mode=max,scope=wayland-container-${{ matrix.perna }}
+
+      # KWIN-68-SEM-PLACA: a prova de que a imagem e do dia, sem pinar
+      # versao nenhuma. O carimbo lido de dentro da imagem tem de ser o
+      # desta execucao (a camada do dnf foi refeita agora), e a versao do
+      # Fedora da imagem tem de ser a que o registro chama de `latest`
+      # agora. O pacote do KWin e impresso para quem le o log.
+      - name: Imagem do dia - carimbo e base (KWIN-68-SEM-PLACA)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: tests/container/check_image_freshness.sh glintfx-wltest:ci-${{ matrix.perna }} "${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Tempo de build da imagem
         run: |
@@ -1837,6 +1898,7 @@ jobs:
           tags: glintfx-wltest:builder-${{ matrix.perna }}
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
+          pull: true
           load: true
           push: false
           cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
@@ -1867,11 +1929,14 @@ jobs:
       # not permitted" antes mesmo de o compositor subir.
       # --cap-drop=ALL --cap-add=SYS_NICE (nao --cap-add puro): forma
       # estritamente menor, verificada ao vivo que ainda sobe o
-      # compositor (revisao adversarial TEST-WLCONT, conserto 4). Nada
-      # alem disso: sem --privileged, sem --pid=host, sem /dev/dri
-      # (GODS_LAWS.md L-09 regra 4 - render por software, reproduzivel
-      # em qualquer runner); check_isolation.sh confere esse HostConfig
-      # exato por lista branca.
+      # compositor (revisao adversarial TEST-WLCONT, conserto 4). Alem
+      # disso, UM dispositivo e so ele: /dev/udmabuf, com leitura e
+      # escrita e sem mknod (KWIN-68-SEM-PLACA; o KWin 6.8 faz dele o
+      # dispositivo de renderizacao por software). Continua sem
+      # --privileged, sem --pid=host, sem /dev/dri (GODS_LAWS.md L-09
+      # regra 4 - render por software, reproduzivel em qualquer runner)
+      # e sem /dev/uinput; check_isolation.sh, na variante ci_udmabuf,
+      # confere esse HostConfig exato por lista branca.
       # CONT-WARMUP C-1 conserto (docs/plano-fecho-w7b.md D-10,
       # GODS_LAWS.md L-17 "gemeo"): este passo tinha o MESMO defeito
       # que tests/container/run_compositor.sh's own wait_for_
@@ -1909,7 +1974,7 @@ jobs:
         id: compositor
         run: |
           set -eux
-          docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci-${{ matrix.perna }}
+          docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE --device /dev/udmabuf:/dev/udmabuf:rw glintfx-wltest:ci-${{ matrix.perna }}
           tests/container/wait_for_ready_marker.sh glintfx-wltest-clean-${{ matrix.perna }}
           docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null
@@ -1918,7 +1983,7 @@ jobs:
       # interagir. Este passo roda antes do smoke test de proposito.
       - name: Isolamento provado (controle positivo)
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
-        run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
+        run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test ci_udmabuf
 
       # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
       # /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.1/4.1): responde a
@@ -2937,29 +3002,39 @@ jobs:
       # (--pid=host) nao chega a rodar processo nenhum - os tres
       # controles se apoiam so em `docker inspect`, o que
       # check_isolation.sh confere ANTES de qualquer `docker exec`.
+      # KWIN-68-SEM-PLACA: cada conteiner envenenado leva tambem o
+      # dispositivo aceito e e julgado na variante ci_udmabuf, para
+      # diferir da forma aceita SO pelo veneno. Sem isso os quatro
+      # reprovariam pela falta do dispositivo e deixariam de provar que o
+      # portao ve a montagem, o device a mais, o --pid=host e o
+      # systempaths. Os controles 6 e 7, no fim, provam as outras duas
+      # bordas do dispositivo: a chamada sem variante continua recusando
+      # todo dispositivo, e a grafia padrao (com mknod) nao passa. Esses
+      # dois conferem tambem o MOTIVO da reprovacao, lido da saida do
+      # portao: reprovar por outra razao nao prova o que o nome diz.
       - name: Controle negativo 1 - montagem proibida (FURO 1/3)
         if: ${{ !cancelled() }}
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-mount-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            -v /tmp:/run/user/1000:ro glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mount-${{ matrix.perna }} glintfx-test; then
+            --device /dev/udmabuf:/dev/udmabuf:rw -v /tmp:/run/user/1000:ro glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mount-${{ matrix.perna }} glintfx-test ci_udmabuf; then
             echo "ERRO: check_isolation.sh deveria ter acusado a montagem proibida" >&2
             exit 1
           fi
           echo "ok: montagem proibida foi acusada, como esperado"
 
-      - name: Controle negativo 2 - device passado (FURO 1)
+      - name: Controle negativo 2 - device a mais ao lado do aceito (FURO 1)
         if: ${{ !cancelled() }}
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-device-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            --device=/dev/uinput glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-test; then
-            echo "ERRO: check_isolation.sh deveria ter acusado o --device proibido" >&2
+            --device /dev/udmabuf:/dev/udmabuf:rw --device=/dev/uinput glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-test ci_udmabuf; then
+            echo "ERRO: check_isolation.sh deveria ter acusado o --device proibido ao lado do aceito" >&2
             exit 1
           fi
-          echo "ok: --device proibido foi acusado, como esperado"
+          echo "ok: --device proibido ao lado do aceito foi acusado, como esperado"
 
       # O mais serio dos tres: sob --pid=host, um `pgrep` DENTRO do
       # container deixa de estar escopado ao container e passa a ver
@@ -2972,8 +3047,8 @@ jobs:
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-pid-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            --pid=host glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-pid-${{ matrix.perna }} glintfx-test; then
+            --device /dev/udmabuf:/dev/udmabuf:rw --pid=host glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-pid-${{ matrix.perna }} glintfx-test ci_udmabuf; then
             echo "ERRO: check_isolation.sh deveria ter acusado --pid=host" >&2
             exit 1
           fi
@@ -2997,19 +3072,62 @@ jobs:
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            --security-opt systempaths=unconfined glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} glintfx-test; then
+            --device /dev/udmabuf:/dev/udmabuf:rw --security-opt systempaths=unconfined glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} glintfx-test ci_udmabuf; then
             echo "ERRO: check_isolation.sh deveria ter acusado --security-opt systempaths=unconfined" >&2
             exit 1
           fi
           echo "ok: --security-opt systempaths=unconfined foi acusado, como esperado"
+
+      # KWIN-68-SEM-PLACA, a negativa permanente: a chamada SEM o nome da
+      # variante continua comparando com a linha de base sem dispositivo,
+      # e por isso recusa ate o conteiner limpo deste job, que leva o
+      # /dev/udmabuf. So `docker inspect`: a comparacao do HostConfig
+      # reprova antes de qualquer `docker exec`, e o conteiner pode ja
+      # estar parado (o passo do erro fatal mata o compositor dele).
+      - name: Controle negativo 6 - sem o nome da variante, o dispositivo aceito tambem reprova
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu
+          if tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test > cn6.out 2>&1; then
+            cat cn6.out >&2
+            echo "ERRO: check_isolation.sh sem variante deveria ter acusado o /dev/udmabuf do conteiner limpo" >&2
+            exit 1
+          fi
+          cat cn6.out
+          if ! grep -q 'HostConfig nao bate com o baseline medido' cn6.out; then
+            echo "ERRO: check_isolation.sh reprovou, mas nao pela comparacao do HostConfig: o controle nao provou o que o nome dele diz" >&2
+            exit 1
+          fi
+          echo "ok: sem o nome da variante, o dispositivo aceito foi acusado pelo HostConfig, como esperado"
+
+      # KWIN-68-SEM-PLACA, o alvo estreito: `--device /dev/udmabuf` na
+      # grafia padrao do Docker da tambem mknod ("rwm"). A linha de base
+      # guarda "rw", e a grafia larga tem de reprovar.
+      - name: Controle negativo 7 - o dispositivo aceito com mknod reprova
+        if: ${{ !cancelled() }}
+        run: |
+          set -eu
+          docker create --name glintfx-wltest-poisoned-mknod-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
+            --device /dev/udmabuf glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mknod-${{ matrix.perna }} glintfx-test ci_udmabuf > cn7.out 2>&1; then
+            cat cn7.out >&2
+            echo "ERRO: check_isolation.sh deveria ter acusado o dispositivo com mknod" >&2
+            exit 1
+          fi
+          cat cn7.out
+          if ! grep -q '"CgroupPermissions":"rwm"' cn7.out; then
+            echo "ERRO: check_isolation.sh reprovou, mas a diferenca impressa nao e a permissao rwm do dispositivo: o controle nao provou o que o nome dele diz" >&2
+            exit 1
+          fi
+          echo "ok: o dispositivo com mknod foi acusado pela permissao, como esperado"
 
       - name: Limpeza
         if: always()
         run: |
           docker rm -f glintfx-wltest-clean-${{ matrix.perna }} glintfx-wltest-poisoned-mount-${{ matrix.perna }} \
             glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-wltest-poisoned-pid-${{ matrix.perna }} \
-            glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} || true
+            glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} glintfx-wltest-poisoned-mknod-${{ matrix.perna }} || true
 
   lint:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)

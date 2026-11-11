@@ -121,7 +121,7 @@ def read_file(path):
 
 # The image has two stages (arch-ports-builder, then the runtime
 # stage that only COPYs the already-built binaries in). Only the FIRST
-# stage compiles anything - the bare `FROM fedora:44` line (no `AS ...`)
+# stage compiles anything - the bare `FROM <image>` line (no `AS ...`)
 # that starts the second stage is where this walk stops, so a `RUN
 # chmod ...`/COPY --from=... in the runtime stage is never mistaken for
 # a build instruction.

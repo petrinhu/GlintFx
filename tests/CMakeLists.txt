@@ -7556,6 +7556,21 @@ if(UNIX)
     set_tests_properties(check_isolation_selftest PROPERTIES LABELS selftest)
 endif()
 
+# KWIN-68-SEM-PLACA: the controls of the text judges of tests/container/check_image_freshness.sh (the stamp of the
+# dnf layer, the Fedora release against the registry's, the kwin package, the verdict), loaded by the driver's --selftest
+# (check_image_freshness_selftest.sh). No docker, no network, no image: every input is text. The executor requires
+# exit 0 and the exact line with the control count. if(UNIX): POSIX sh, same reason as check_isolation_selftest.
+if(UNIX)
+    add_test(
+        NAME check_image_freshness_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 17 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/check_image_freshness.sh" --selftest
+    )
+    set_tests_properties(check_image_freshness_selftest PROPERTIES LABELS selftest)
+endif()
+
 # DEMO-1 D3 (D-W8-74, D-W8-81, D-W8-138): the DRIVER of the Linux capture of one example, first_window or shapes
 # (tests/container/run_example_capture.sh, its table opened by R2D-SHAPES S6, D-W8-1081); its controls live in
 # run_example_capture_selftest.sh, loaded by the

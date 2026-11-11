@@ -1,0 +1,44 @@
+# tests/container/hostconfig_baseline_ci_udmabuf.txt - SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Measured baseline for check_isolation.sh's variant "ci_udmabuf" (KWIN-68-SEM-PLACA, the leader's decision of
+# 07/11/2026). It is the HostConfig of the container the wayland-container CI job and every local round start
+# since KWin 6.8: the "ci" shape plus EXACTLY ONE device, /dev/udmabuf, with read and write and without mknod.
+# Same discipline as hostconfig_baseline.txt (the "ci" variant, GODS_LAWS.md L-40, ISO-BASELINE): a live capture,
+# not hand-written.
+#
+# Capture (11/11/2026, Docker Server 29.9.2, image fedora:45; a HostConfig does not carry image content):
+#
+#   docker create --name glintfx-kwin68-cap-rw --cap-drop=ALL --cap-add=SYS_NICE \
+#       --device /dev/udmabuf:/dev/udmabuf:rw fedora:45
+#   docker inspect --format '{{json .HostConfig}}' glintfx-kwin68-cap-rw
+#   docker rm glintfx-kwin68-cap-rw
+#
+# The container was NEVER started: `docker create` only builds the HostConfig, so the device was not opened by
+# the capture (GODS_LAWS.md L-09).
+#
+# Why this device, and why only it: since 6.8 KWin builds its software render device (llvmpipe) on the kernel's
+# udmabuf allocator, and without it or a GPU node it never paints (tests/container/Containerfile, the comment on
+# the dnf layer). /dev/udmabuf turns memory the process already owns into a dma-buf; it carries no input, no
+# screen and no GPU. It is still one more kernel surface inside the container, which is why it is the ONLY
+# device this variant accepts and why docs/adr-udmabuf-no-conteiner-de-teste.md records it as an accepted risk
+# with compensating controls. /dev/uinput (it injects into the leader's real session, GODS_LAWS.md L-09) and
+# /dev/dri (a real GPU, CLAUDE.md "Isolamento" rule 4) are refused by this variant exactly as by "ci".
+#
+# The only difference from hostconfig_baseline.txt (the "ci" variant) is the Devices array: here it holds this
+# one device, there it is empty. Nothing else moved (checked field by field by the capture: 63 keys on both
+# sides, one differing). "CgroupPermissions":"rw" is part of what is compared: the default spelling
+# `--device /dev/udmabuf` gives "rwm" and is refused, so the grant never widens to mknod in silence.
+#
+# Placeholders, the same three as the "ci" baseline, applied with the same sed steps normalize_host_config()
+# runs (see hostconfig_json.sh), so the two files compare field by field:
+#   1. "ConsoleSize":[0,0] -> "ConsoleSize":"NORMALIZED" (tty geometry, not container security).
+#   2. Each "/sys/devices/system/cpu/cpuN/thermal_throttle" entry of MaskedPaths removed. The count of those
+#      entries is checked separately against the host by assert_cpu_masked_path_count_matches_host().
+#   3. "OomKillDisable":false -> "OomKillDisable":"NORMALIZED" (docker create reads back false; docker run,
+#      null; both placeholdered).
+#
+# Re-measure this file, with the same command, whenever the Docker version changes the shape of the HostConfig.
+# The JSON below is kept as measured; it is NOT hand-sorted (arrays are sorted at compare time).
+#
+# Usage: check_isolation.sh <container> <socket> ci_udmabuf
+{"Binds":null,"ContainerIDFile":"","LogConfig":{"Type":"json-file","Config":{}},"NetworkMode":"bridge","PortBindings":{},"RestartPolicy":{"Name":"no","MaximumRetryCount":0},"AutoRemove":false,"VolumeDriver":"","VolumesFrom":null,"ConsoleSize":"NORMALIZED","CapAdd":["CAP_SYS_NICE"],"CapDrop":["ALL"],"CgroupnsMode":"private","Dns":null,"DnsOptions":[],"DnsSearch":[],"ExtraHosts":null,"GroupAdd":null,"IpcMode":"private","Cgroup":"","Links":null,"OomScoreAdj":0,"PidMode":"","Privileged":false,"PublishAllPorts":false,"ReadonlyRootfs":false,"SecurityOpt":null,"UTSMode":"","UsernsMode":"","ShmSize":67108864,"Runtime":"runc","Isolation":"","CpuShares":0,"Memory":0,"NanoCpus":0,"CgroupParent":"","BlkioWeight":0,"BlkioWeightDevice":[],"BlkioDeviceReadBps":[],"BlkioDeviceWriteBps":[],"BlkioDeviceReadIOps":[],"BlkioDeviceWriteIOps":[],"CpuPeriod":0,"CpuQuota":0,"CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CpusetCpus":"","CpusetMems":"","Devices":[{"PathOnHost":"/dev/udmabuf","PathInContainer":"/dev/udmabuf","CgroupPermissions":"rw"}],"DeviceCgroupRules":null,"DeviceRequests":null,"MemoryReservation":0,"MemorySwap":0,"MemorySwappiness":null,"OomKillDisable":"NORMALIZED","PidsLimit":null,"Ulimits":null,"CpuCount":0,"CpuPercent":0,"IOMaximumIOps":0,"IOMaximumBandwidth":0,"MaskedPaths":["/proc/acpi","/proc/asound","/proc/interrupts","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/sched_debug","/proc/scsi","/proc/timer_list","/proc/timer_stats","/sys/devices/virtual/powercap","/sys/firmware"],"ReadonlyPaths":["/proc/bus","/proc/fs","/proc/irq","/proc/sys","/proc/sysrq-trigger"]}

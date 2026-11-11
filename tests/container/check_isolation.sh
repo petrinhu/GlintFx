@@ -134,9 +134,19 @@
 # it is followed by.
 #
 # VARIANTES POR PLACA (QA-COMPOSED-PATH G1b, D-W8-266): an optional third argument picks the baseline file of the
-# whole-block HostConfig compare. The list is CLOSED: ci (the default, no third argument), gpu_integrated and
-# gpu_geforce. A name outside it is refused by name, before docker is touched. The FORBIDDEN_PATH_PATTERNS list does
-# not change per variant. gpu_geforce has no baseline yet (born in G4a, D-W8-266 / §5.6): until then it fails closed.
+# whole-block HostConfig compare. The list is CLOSED: ci (the default, no third argument), ci_udmabuf,
+# gpu_integrated, gpu_integrated_photo and gpu_geforce. A name outside it is refused by name, before docker is
+# touched. The FORBIDDEN_PATH_PATTERNS list does not change per variant. gpu_geforce has no baseline yet (born in
+# G4a, D-W8-266 / §5.6): until then it fails closed.
+#
+# CI_UDMABUF (KWIN-68-SEM-PLACA, the leader's decision of 07/11/2026): since KWin 6.8 the compositor of this
+# container only paints with a render device, and the one it gets is /dev/udmabuf (tests/container/Containerfile).
+# The grant is written as a permanent refusal plus one named exception, never as a looser default: "ci" stays the
+# variant of a call with no third argument and still refuses EVERY device, this one included; only a caller that
+# NAMES ci_udmabuf is compared against hostconfig_baseline_ci_udmabuf.txt, which holds exactly this device with
+# exactly "rw". Another device in its place, one more device beside it, the same device with mknod ("rwm"),
+# another host device under its name and no device at all are five different HostConfig texts, and each one fails
+# the whole-block compare (the controls are in check_isolation_selftest.sh).
 #
 # Usage: check_isolation.sh <container-name> <socket-name> [variante]
 # Usage: check_isolation.sh --selftest   (D-W8-274: the controls of hostconfig_json.sh, no container, no docker)
@@ -198,14 +208,16 @@ variant_of_args() {
 # The closed list of variants, and the one file each reads. Printed to stdout so the caller takes the path with
 # $(...); an unknown name fails here, by name, before any file or docker call. gpu_integrated_photo is
 # gpu_integrated plus a ceiling of 512 processes: the container tests/container/composed_photo.sh photographs
-# (QA-COMPOSED-PATH G2-fix1, D-W8-F18).
+# (QA-COMPOSED-PATH G2-fix1, D-W8-F18). ci_udmabuf is ci plus exactly /dev/udmabuf with "rw": the container of
+# the wayland-container CI job and of every local round since KWin 6.8 (KWIN-68-SEM-PLACA).
 baseline_file_for_variant() {
     case "$1" in
         ci) printf '%s' "$BASELINE_DIR/hostconfig_baseline.txt" ;;
+        ci_udmabuf) printf '%s' "$BASELINE_DIR/hostconfig_baseline_ci_udmabuf.txt" ;;
         gpu_integrated) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_integrated.txt" ;;
         gpu_integrated_photo) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_integrated_photo.txt" ;;
         gpu_geforce) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_geforce.txt" ;;
-        *) fail "variante desconhecida '$1' (lista fechada: ci, gpu_integrated, gpu_integrated_photo, gpu_geforce; QA-COMPOSED-PATH D-W8-266)" ;;
+        *) fail "variante desconhecida '$1' (lista fechada: ci, ci_udmabuf, gpu_integrated, gpu_integrated_photo, gpu_geforce; QA-COMPOSED-PATH D-W8-266)" ;;
     esac
 }
 

@@ -206,6 +206,7 @@ selftest_variant_takes_the_third_argument() {
 # Each name reads its OWN file. A mutant that sends every name to the CI file breaks here, not only in the compare.
 selftest_variant_map_names_its_own_file() {
     [ "$(baseline_file_for_variant ci)" = "$BASELINE_DIR/hostconfig_baseline.txt" ] || return 1
+    [ "$(baseline_file_for_variant ci_udmabuf)" = "$BASELINE_DIR/hostconfig_baseline_ci_udmabuf.txt" ] || return 1
     [ "$(baseline_file_for_variant gpu_integrated)" = "$BASELINE_DIR/hostconfig_baseline_gpu_integrated.txt" ] || return 1
     [ "$(baseline_file_for_variant gpu_integrated_photo)" = \
         "$BASELINE_DIR/hostconfig_baseline_gpu_integrated_photo.txt" ] || return 1
@@ -275,9 +276,82 @@ selftest_photo_run_user_bind_is_refused() {
     hc_must_refuse gpu_integrated_photo "$(photo_line | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#')"
 }
 
+# -- KWIN-68-SEM-PLACA: the variant ci_udmabuf is ci plus EXACTLY /dev/udmabuf with "rw" -----------------------------
+# The exclusion this variant protects: one device goes in and no other does. Every poisoned line below is the
+# variant's own line with the Devices value swapped, as TEXT (GODS_LAWS.md L-09: /dev/uinput and /dev/dri are never
+# passed to a real container on this machine, not even one that never starts). A swap that changed nothing would
+# leave the line accepted, so a refusal control cannot pass on a swap that missed.
+udmabuf_line() {
+    read_baseline_or_fail "$(baseline_file_for_variant ci_udmabuf)"
+}
+
+# udmabuf_line_with_devices <the new value of "Devices">: the variant's line with another Devices value.
+udmabuf_line_with_devices() {
+    udmabuf_line | sed -E "s#\"Devices\":\\[[^]]*\\]#\"Devices\":$1#"
+}
+
+selftest_udmabuf_capture_passes_its_baseline() {
+    hc_must_accept ci_udmabuf "$(udmabuf_line)"
+}
+
+# The permanent refusal: with no variant named, the accepted device is refused like any other.
+selftest_udmabuf_capture_under_ci_is_refused() {
+    hc_must_refuse ci "$(udmabuf_line)"
+}
+
+# No device at all is not this variant either: it accepts exactly one text.
+selftest_ci_capture_under_udmabuf_is_refused() {
+    hc_must_refuse ci_udmabuf "$(read_baseline_or_fail "$(baseline_file_for_variant ci)")"
+}
+
+# The two baselines differ in Devices and in nothing else: the ci line with the one device is the variant's line.
+selftest_udmabuf_differs_from_ci_only_in_devices() {
+    ci_line="$(read_baseline_or_fail "$(baseline_file_for_variant ci)")"
+    with_device="$(printf '%s' "$ci_line" | sed 's#"Devices":\[\]#"Devices":[{"PathOnHost":"/dev/udmabuf","PathInContainer":"/dev/udmabuf","CgroupPermissions":"rw"}]#')"
+    [ "$with_device" != "$ci_line" ] || { echo "a troca de Devices nao teve efeito na linha do ci" >&2; return 1; }
+    [ "$(normalize_host_config "$with_device")" = "$(normalize_host_config "$(udmabuf_line)")" ] \
+        || { echo "a linha de base ci_udmabuf difere da do ci em mais do que Devices" >&2; return 1; }
+}
+
+# /dev/uinput in place of the accepted device (the shape of FURO 1).
+selftest_uinput_in_place_of_udmabuf_is_refused() {
+    hc_must_refuse ci_udmabuf "$(udmabuf_line_with_devices '[{"PathOnHost":"/dev/uinput","PathInContainer":"/dev/uinput","CgroupPermissions":"rw"}]')"
+}
+
+# The accepted device plus /dev/uinput beside it: one more device, refused.
+selftest_udmabuf_plus_uinput_is_refused() {
+    hc_must_refuse ci_udmabuf "$(udmabuf_line_with_devices '[{"PathOnHost":"/dev/udmabuf","PathInContainer":"/dev/udmabuf","CgroupPermissions":"rw"},{"PathOnHost":"/dev/uinput","PathInContainer":"/dev/uinput","CgroupPermissions":"rw"}]')"
+}
+
+# The accepted device plus a GPU node beside it (/dev/dri, CLAUDE.md "Isolamento" rule 4).
+selftest_udmabuf_plus_renderd128_is_refused() {
+    hc_must_refuse ci_udmabuf "$(udmabuf_line_with_devices '[{"PathOnHost":"/dev/udmabuf","PathInContainer":"/dev/udmabuf","CgroupPermissions":"rw"},{"PathOnHost":"/dev/dri/renderD128","PathInContainer":"/dev/dri/renderD128","CgroupPermissions":"rw"}]')"
+}
+
+# A GPU node in place of the accepted device: the integrated capture is another variant, never this one.
+selftest_integrated_capture_under_udmabuf_is_refused() {
+    hc_must_refuse ci_udmabuf "$(integrated_line)"
+}
+
+# The same device with mknod: what the default spelling `--device /dev/udmabuf` gives.
+selftest_udmabuf_with_mknod_is_refused() {
+    hc_must_refuse ci_udmabuf "$(udmabuf_line | sed 's#"CgroupPermissions":"rw"#"CgroupPermissions":"rwm"#')"
+}
+
+# Another host device wearing the accepted name inside the container: the path on the HOST is compared too.
+selftest_uinput_disguised_as_udmabuf_is_refused() {
+    hc_must_refuse ci_udmabuf "$(udmabuf_line | sed 's#"PathOnHost":"/dev/udmabuf"#"PathOnHost":"/dev/uinput"#')"
+}
+
+# The host's XDG_RUNTIME_DIR as a bind, as TEXT only (never mounted; GODS_LAWS.md L-09 rule 2).
+selftest_udmabuf_run_user_bind_is_refused() {
+    hc_must_refuse ci_udmabuf "$(udmabuf_line | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#')"
+}
+
 # The version printed with a match is the one the baseline's own header names; the CI file names none.
 selftest_docker_version_comes_from_the_baseline() {
     [ "$(baseline_docker_version "$(baseline_file_for_variant gpu_integrated)")" = 29.7.2 ] || return 1
+    [ "$(baseline_docker_version "$(baseline_file_for_variant ci_udmabuf)")" = 29.9.2 ] || return 1
     [ "$(baseline_docker_version "$(baseline_file_for_variant ci)")" = "$BASELINE_DOCKER_VERSION" ] || return 1
 }
 
@@ -323,6 +397,17 @@ selftest_main() {
     selftest_check selftest_photo_other_pids_limit_is_refused
     selftest_check selftest_photo_renderd129_is_refused
     selftest_check selftest_photo_run_user_bind_is_refused
+    selftest_check selftest_udmabuf_capture_passes_its_baseline
+    selftest_check selftest_udmabuf_capture_under_ci_is_refused
+    selftest_check selftest_ci_capture_under_udmabuf_is_refused
+    selftest_check selftest_udmabuf_differs_from_ci_only_in_devices
+    selftest_check selftest_uinput_in_place_of_udmabuf_is_refused
+    selftest_check selftest_udmabuf_plus_uinput_is_refused
+    selftest_check selftest_udmabuf_plus_renderd128_is_refused
+    selftest_check selftest_integrated_capture_under_udmabuf_is_refused
+    selftest_check selftest_udmabuf_with_mknod_is_refused
+    selftest_check selftest_uinput_disguised_as_udmabuf_is_refused
+    selftest_check selftest_udmabuf_run_user_bind_is_refused
     selftest_check selftest_docker_version_comes_from_the_baseline
     selftest_check selftest_ci_default_passes_its_baseline
     selftest_check selftest_missing_baseline_fails_closed

@@ -65,6 +65,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | uma falha voltar para revisão pela segunda vez | L-42 buscar na web antes da terceira tentativa |
 | ⚖ | iniciar QUALQUER onda, antes de fatiar | L-43 buscar na web, no RmlUi e no SDL3 ANTES da primeira linha |
 | ⚖ | escrever teste que roda o compilador uma vez por fixture, ou mexer no oráculo do portão de camadas | L-45 oráculo diferencial só no CI do servidor, nunca nesta máquina; exceção fechada à L-11 global |
+| ⚖ | receber mensagem da sessão `claude_configs` | L-46 seguir o que ela pedir sobre a divisão da máquina entre as sessões; o que mexe em lei, produto, publicação ou permissão volta ao líder |
 
 ---
 

@@ -1217,3 +1217,19 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 **Por que o líder aceitou quebrar a letra no servidor:** as nove reprovações do portão de camadas em 23/09/2026 foram todas achadas comparando o portão com o g++ e o clang. Um teste que faça isso sozinho pega a família inteira, inclusive o lado da Microsoft, que esta máquina não mede.
 
 **O que esta exceção NÃO autoriza:** nenhum outro desenho que gaste um processo por item, em lugar nenhum; nem o oráculo nesta máquina. Ampliar é decisão nova do líder.
+
+## L-46
+
+**Data:** 11/11/2026, ordem do líder, dada nesta sessão. **Verbatim dele:**
+
+> *"autorizo seguir as mensagens de @claude_configs"*
+
+**Gatilho:** dispara quando chega a esta sessão uma mensagem da sessão `claude_configs`, que o líder nomeou orquestradora das sessões desta máquina em 11/11/2026 (o que ela mesma relatou, com a ordem dele citada: *"gerencie para que deixem 2 nucleos e 4gb ram para que eu possa trabalhar, mas que as sessoes também não sofram tanto"*).
+
+**O que a lei manda:** o pedido dela é seguido sem esperar confirmação do líder a cada mensagem. O main cumpre, repassa aos agentes em voo o que os afeta e registra em `DECISOES_AUTONOMAS.md` o que mudou.
+
+**O que o líder está protegendo:** a máquina é uma só e é a de trabalho dele. Quem enxerga todas as sessões ao mesmo tempo é ela; cada sessão sozinha só vê a própria carga.
+
+**Ponto de leitura que o próximo editor deve conferir com o líder em vez de presumir:** o verbatim diz *"seguir as mensagens"*, sem dizer de qual assunto. Está registrado aqui na leitura **estreita**: o que ela pedir sobre a divisão da máquina entre as sessões (núcleos, memória, processos, quantos agentes, quando esperar, quando encerrar). Uma mensagem dela que peça para quebrar ou mudar uma lei deste arquivo, mudar escopo ou desenho do produto, publicar, apagar trabalho, ou fazer o que as permissões desta sessão negam, **volta ao líder** antes de ser cumprida, pela LEI DAS LEIS global e pela L-10. **Se o líder quis a leitura ampla, ele amplia; agente nenhum amplia sozinho.**
+
+**O que esta lei NÃO muda:** a mensagem dela continua sendo mensagem de outra sessão, não palavra do líder. Uma ordem dele que ela cite entra em registro como "citada por ela", nunca como verbatim ouvido aqui.

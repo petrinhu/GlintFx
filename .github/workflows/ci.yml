@@ -1985,35 +1985,56 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test ci_udmabuf
 
-      # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
-      # /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.1/4.1): responde a
-      # pergunta que a literatura de terceiro NAO responde sozinha -
-      # se `docker exec` propaga o codigo 128+sinal de um processo
-      # morto por sinal que NAO e' o PID 1 do container (kwin_wayland
-      # continua vivo; o alvo aqui e' um `sh -c` avulso rodando DENTRO
-      # do mesmo container, o mesmo caminho que os 18 passos de
-      # fixture abaixo vao seguir). Roda ANTES de qualquer fixture
-      # real, mesma posicao do controle positivo acima - prova o
-      # mecanismo antes de confiar nele pelo resto do job. Se a
-      # medicao contrariar a literatura (rc diferente de 139), este
-      # passo reprova E FICA reprovado - nunca se ajusta o `grep` para
-      # o que apareceu (GODS_LAWS.md L-43).
+      # Negative control 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md;
+      # CN5-SEM-ALERTA, 11/11/2026): answers the question third-party
+      # literature does not answer alone - whether `docker exec`
+      # propagates the 128+signal code of a process killed by a signal
+      # that is NOT PID 1 of the container (kwin_wayland stays alive;
+      # the target is the very process `docker exec` starts, the same
+      # path every fixture step below follows). It runs BEFORE any real
+      # fixture, right after the positive control above: the mechanism
+      # is proven before the rest of the job relies on it. If the
+      # measurement contradicts the literature (rc other than 139), this
+      # step fails AND STAYS failed - the `grep` is never adjusted to
+      # whatever showed up (GODS_LAWS.md L-43).
+      #
+      # The process that dies is tests/tools/die_quietly.py, run by the
+      # python3 of the image, and no longer `sh -c 'kill -SEGV $$'`. A
+      # shell killed that way is dumpable, and kernel.core_pattern is
+      # not namespaced: the kernel of whatever machine hosts the
+      # container hands the crash to that machine's crash handler
+      # (measured on 11/11/2026: seven "sh dumped core" records and
+      # seven crash alerts on a developer's desktop, one per local run
+      # of this job). die_quietly.py makes itself non-dumpable first
+      # (prctl PR_SET_DUMPABLE 0, read back) and refuses to die
+      # otherwise (rc 3, never 139); the signal and the exit code the
+      # parent sees do not change. The script travels as the text of
+      # `-c`, read from the checkout: one source for this step and for
+      # exec_fixture.sh --selftest, and nothing is copied into the
+      # container. python3 is the process `docker exec` starts, with no
+      # shell in between: a shell would turn the death into its own
+      # exit code 139, and this step would stop proving what Docker
+      # propagates.
       - name: Controle negativo 5 - sinal nomeado antes do ruido
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu
-          if tests/container/exec_fixture.sh glintfx-wltest-clean-${{ matrix.perna }} sh -c 'echo ruido-do-driver; kill -SEGV $$' > cn5.out 2>&1; then
+          if tests/container/exec_fixture.sh glintfx-wltest-clean-${{ matrix.perna }} python3 -I -c "$(cat tests/tools/die_quietly.py)" SEGV > cn5.out 2>&1; then
             echo "ERRO: exec_fixture.sh deveria ter reprovado (processo morto por SIGSEGV dentro do container)" >&2
             cat cn5.out >&2
             exit 1
           fi
           if ! head -1 cn5.out | grep -q 'rc=139 signal=SEGV'; then
-            echo "ERRO: primeira linha nao trouxe 'rc=139 signal=SEGV' - docker exec pode nao estar propagando 128+sinal para um processo do proprio exec (ver secao 2.1 do plano)" >&2
+            echo "ERRO: primeira linha nao trouxe 'rc=139 signal=SEGV' - docker exec pode nao estar propagando 128+sinal para um processo do proprio exec (ver secao 2.1 do plano); rc=3 e' a recusa do die_quietly.py (nao ficou nao-despejavel), rc=127 e' a imagem sem python3" >&2
             cat cn5.out >&2
             exit 1
           fi
-          echo "ok: docker exec propaga 128+sinal (SIGSEGV=139) para um processo do proprio exec, sinal nomeado antes do ruido"
-
+          if ! grep -q -x -F 'die_quietly: morrendo por SIGSEGV sem core dump' cn5.out; then
+            echo "ERRO: a saida nao trouxe a linha do die_quietly.py - quem morreu nao foi o processo nao-despejavel (CN5-SEM-ALERTA)" >&2
+            cat cn5.out >&2
+            exit 1
+          fi
+          echo "ok: docker exec propaga 128+sinal (SIGSEGV=139) para um processo do proprio exec, sinal nomeado antes do ruido, sem core dump"
       - name: Smoke test - wayland-info dentro do container
         run: docker exec glintfx-wltest-clean-${{ matrix.perna }} smoke.sh glintfx-test
 

@@ -5,6 +5,15 @@
 # ABRT, ...) SEM gerar core dump, para os controles negativos que provam a
 # leitura "rc=128+n signal=NOME" (tests/container/exec_fixture.sh --selftest).
 #
+# TWO CALLERS (CN5-SEM-ALERTA, 11/11/2026): exec_fixture.sh --selftest runs
+# this file by path, on the host; the step "Controle negativo 5" of the job
+# wayland-container (.github/workflows/ci.yml) hands this same text to the
+# python3 of the test container, as `python3 -I -c "$(cat die_quietly.py)" SEGV`.
+# So this file has to keep working as the text of `-c`: sys.argv[0] is then
+# "-c", there is no __file__, and nothing here may import a sibling module or
+# read a file next to it. The line printed before dying is compared, whole,
+# by that step: whoever changes it changes it there too.
+#
 # POR QUE NAO `sh -c 'kill -SEGV $$'`: o processo morto assim e "dumpable", e
 # nesta maquina o kernel.core_pattern e um pipe para o systemd-coredump. Com
 # pipe, o kernel ignora RLIMIT_CORE (fs/coredump.c, coredump_pipe(): "core

@@ -406,9 +406,12 @@ in a fixed order:
      only ever substituted the `${known-variable}` tokens it
      recognized and left everything else, a literal `$` included,
      untouched. CMake's native parser under `STRICTNESS STRICT`
-     instead refuses the WHOLE FILE with a parse error, even when the
-     stray `$` sits in a field, `Description:`, that is never used to
-     build any `-I`/`-L`/`-l` flag. glintfx's own generated
+     (CMake 4.1 to 4.4) instead refuses the WHOLE FILE with a parse
+     error, even when the stray `$` sits in a field, `Description:`,
+     that is never used to build any `-I`/`-L`/`-l` flag; from CMake
+     4.5.0 on, that parser keeps the `$` as text, so glintfx refuses
+     the file itself, before the parser runs, and the verdict is the
+     same on every CMake version. glintfx's own generated
      `glintfx.pc` has never contained a lone `$` outside a `${...}`
      reference (confirmed, live, across every `glintfx.pc` this
      project's own build tree currently holds - shared, static, and

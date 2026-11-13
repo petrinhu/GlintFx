@@ -52,7 +52,11 @@
 # READ glintfx_pkgconfig_canonicalize_declarations()'s OWN COMMENT
 # FIRST: the two STRICT guarantees described below (duplicate
 # refused, everything defined before use) held up to CMake 4.4 only.
-# From CMake 4.5.0 on, glintfx enforces the duplicate one itself.
+# From CMake 4.5.0 on, glintfx enforces both itself (defined-before-
+# use for a variable's value; a field's undeclared reference is an
+# empty text on every CMake version), and also refuses, itself, a
+# line that is not a declaration and a lone "$", as CMake 4.1-4.4
+# did.
 #
 # STRICTNESS STRICT (this file's every cmake_pkg_config() call) is the
 # strictest mode the command offers - "closely mirrors the behavior of
@@ -103,9 +107,9 @@
 #     parser, not a tokenizer, not a variable-resolution engine: those
 #     three things are exactly what cmake_pkg_config() now does, on the
 #     SUBSTITUTED file, in the ONE call this file makes to it. Every
-#     other pkg-config syntax question (except the blanks and the
-#     comment of a variable line, and duplicate detection - see
-#     glintfx_pkgconfig_canonicalize_declarations() - "${var}" chains through prefix/exec_prefix/
+#     other pkg-config syntax question (except the line-level ones
+#     glintfx_pkgconfig_canonicalize_declarations() settles - see its
+#     own comment - "${var}" chains through prefix/exec_prefix/
 #     libdir/includedir, Cflags:/Libs: tokenizing) is answered by CMake
 #     itself from this point on.
 #
@@ -395,113 +399,283 @@ function(glintfx_pkgconfig_library_glob_patterns out_var)
     )
 endfunction()
 
-# CMAKE 4.5.0 CHANGED WHAT CMAKE'S OWN PARSER DOES WITH A VARIABLE LINE
-# (CMAKE45-PC, 13/11/2026). Up to CMake 4.4, cmake_pkg_config() trimmed
-# the whitespace around a variable's value and, under STRICTNESS STRICT,
-# refused a variable or a field declared twice. CMake 4.5.0 replaced its
-# parser (upstream commit 38fa645e73, "PkgC: Correctly handle various
-# pkg-config edge cases", absent from v4.4.5, present in v4.5.0; the 4.5
-# release notes do not mention it) and does neither any more: in
-# "exec_prefix = ${prefix}   # comment" the blank right after "=" and the
-# blanks before "#" now stay INSIDE the value, so "Libs: -L${libdir}"
-# splits into a bare "-L" plus loose path pieces, and a second "libdir="
-# or "Libs:" line is silently resolved instead of refused. Measured in CI
-# run 43357621563 (Arch, CMake 4.5.0): a .pc that real pkgconf accepts
-# was rejected with "ZERO -L flags".
+# CMAKE 4.5.0 CHANGED WHAT CMAKE'S OWN PARSER DOES WITH A .pc LINE
+# (CMAKE45-PC, 13/11/2026, and its first adversarial review,
+# CMAKE45-PC-FIX1). CMake 4.1 to 4.4 all ship the same pkg-config
+# reader (llpkgc as imported on 19/07/2024); CMake 4.5.0 ships llpkgc
+# 0.0.7 and a new resolver (upstream commit 38fa645e73, absent from
+# v4.4.5, present in v4.5.0, not named in the 4.5 release notes).
+# Measured in containers on 13/11/2026, CMake 4.3.0 against 4.5.0, or
+# read in the v4.5.0 and v4.4.5 sources, the 4.5.0 parser:
+#   - keeps the blanks right after "=" and before a "#" comment INSIDE
+#     a variable's value, so "Libs: -L${libdir}" splits into a bare
+#     "-L" plus loose path pieces (CI run 43357621563, "ZERO -L flags");
+#   - no longer refuses, under STRICTNESS STRICT, a variable or a field
+#     declared twice, nor a variable's "${name}" that no earlier line
+#     declares (it substitutes an empty text);
+#   - drops, silently, a line that is not a declaration (a name with a
+#     "-" in it, say), where the 4.1-4.4 parser refused the whole file;
+#   - keeps, as text, a "$" that starts no "${...}" reference, where the
+#     4.1-4.4 parser refused the whole file (PACKAGING.md documents that
+#     refusal);
+#   - ends the value at an escaped "\#", where the 4.1-4.4 parser, FDO
+#     pkg-config and pkgconf all keep a literal "#" (no spelling at all
+#     gives the 4.5.0 parser a literal "#").
 #
 # GODS_LAWS.md L-04 (the same behavior on every supported system) is why
-# this function exists: it brings the scratch copy to the ONE form every
-# CMake version reads the same way, BEFORE cmake_pkg_config() sees it,
-# and refuses a duplicate declaration itself, so the verdict no longer
-# depends on which CMake the packager happens to have. It does exactly
-# three things, line by line, and nothing else:
-#   1. a variable line ("ident = value", "ident=value"): drops an
-#      unescaped "#" comment, trims the blanks on both sides of the
-#      value, and rewrites it as "ident=value" - the form real
-#      pkg-config itself reduces it to;
-#   2. a variable declared twice: FATAL_ERROR, naming it;
-#   3. a field ("Key: value") declared twice: FATAL_ERROR, naming it.
-# It never evaluates "${...}", never splits Cflags:/Libs:, never touches
-# a field's value: reading the file is still cmake_pkg_config()'s job
-# (ESCOPO.md, decision 7). A line that is neither (a comment line, a
-# blank line, anything else) is copied unchanged. The text is walked
-# with string(FIND)/string(SUBSTRING), never turned into a CMake list,
-# because a ";" inside a .pc line would split a list silently.
+# the functions below exist. Before cmake_pkg_config() sees the scratch
+# copy, they rewrite it, logical line by logical line, into the ONE form
+# both parsers read the same way, and they refuse, themselves, what the
+# 4.1-4.4 parser refused: the verdict they keep is the one CMake 4.1 to
+# 4.4 gives. The line grammar is the one FDO pkg-config, pkgconf and
+# both llpkgc versions share: optional blanks, a name of ASCII letters,
+# digits, "_" and ".", optional blanks, then "=" (a variable) or ":" (a
+# field). They never substitute "${...}", never split Cflags:/Libs: and
+# never resolve a value: reading the file is still cmake_pkg_config()'s
+# job (ESCOPO.md, decision 7).
 #
-# DECLARED, NOT HANDLED: a line with blanks BEFORE its identifier is
-# copied unchanged; an escaped "\#" is kept as part of the value, the
-# way pkg-config keeps it.
-function(glintfx_pkgconfig_canonicalize_declarations pc_file text_var)
-    set(_glintfx_rest "${${text_var}}")
-    set(_glintfx_out "")
-    set(_glintfx_seen_variables "")
-    set(_glintfx_seen_fields "")
-    set(_glintfx_variable_count 0)
-    set(_glintfx_field_count 0)
-    while(NOT _glintfx_rest STREQUAL "")
+# DECLARED, NOT HANDLED (TODO.md INBOX, CMAKE45-PC-FIX1): quotes and
+# backslashes inside Cflags:/Libs: (4.5 splits them the way a shell
+# does, 4.1-4.4 by blanks only - not measured); a value that ends in a
+# backslash once its comment and blanks are gone; a field name repeated
+# in another letter case; a "#", "$" or blank inside the real directory
+# that replaces "${pcfiledir}".
+
+# The grammar of a declaration line, kept in ONE place: CMAKE_MATCH_1 is
+# the name, CMAKE_MATCH_2 the separator ("=" variable, ":" field) and
+# CMAKE_MATCH_3 the raw value.
+function(glintfx_pkgconfig_declaration_pattern out_var)
+    set(${out_var} "^[ \t]*([A-Za-z0-9_.]+)[ \t]*([=:])(.*)$" PARENT_SCOPE)
+endfunction()
+
+# Every line ending becomes "\n": a CRLF pair, and a lone CR, which
+# pkgconf and both llpkgc versions also end a line at.
+function(glintfx_pkgconfig_normalize_line_endings text_var)
+    string(REPLACE "\r\n" "\n" _glintfx_text "${${text_var}}")
+    string(REPLACE "\r" "\n" _glintfx_text "${_glintfx_text}")
+    set(${text_var} "${_glintfx_text}" PARENT_SCOPE)
+endfunction()
+
+# Takes ONE logical line off the front of rest_var: a physical line that
+# ends in an unescaped backslash, outside a comment, goes on in the next
+# physical line, the backslash and the line ending removed and nothing
+# inserted - FDO pkg-config, pkgconf and both llpkgc versions join it
+# the same way. A comment ends at its own physical line, as in llpkgc
+# (pkgconf would let it run on). A backslash at the very end of the file
+# is kept.
+function(glintfx_pkgconfig_pop_logical_line rest_var out_line)
+    set(_glintfx_rest "${${rest_var}}")
+    set(_glintfx_line "")
+    set(_glintfx_continued TRUE)
+    while(_glintfx_continued)
         string(FIND "${_glintfx_rest}" "\n" _glintfx_newline_at)
         if(_glintfx_newline_at EQUAL -1)
-            set(_glintfx_line "${_glintfx_rest}")
+            set(_glintfx_physical "${_glintfx_rest}")
             set(_glintfx_rest "")
-            set(_glintfx_line_end "")
         else()
-            string(SUBSTRING "${_glintfx_rest}" 0 ${_glintfx_newline_at} _glintfx_line)
+            string(SUBSTRING "${_glintfx_rest}" 0 ${_glintfx_newline_at} _glintfx_physical)
             math(EXPR _glintfx_next_at "${_glintfx_newline_at} + 1")
             string(SUBSTRING "${_glintfx_rest}" ${_glintfx_next_at} -1 _glintfx_rest)
-            set(_glintfx_line_end "\n")
         endif()
-
-        if(_glintfx_line MATCHES "^([A-Za-z0-9_.]+)[ \t]*=(.*)$")
-            set(_glintfx_name "${CMAKE_MATCH_1}")
-            set(_glintfx_value "${CMAKE_MATCH_2}")
-            list(FIND _glintfx_seen_variables "${_glintfx_name}" _glintfx_found_at)
-            if(NOT _glintfx_found_at EQUAL -1)
-                message(FATAL_ERROR
-                    "glintfx: glintfx.pc declares the variable "
-                    "'${_glintfx_name}' more than once (pc file: "
-                    "'${pc_file}'). Real pkg-config keeps only the last "
-                    "definition, silently; glintfx refuses the ambiguous "
-                    "file instead, on every CMake version. Skip this "
-                    "check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in "
-                    "the environment of this `cmake --install` "
-                    "invocation, then verify the install by hand."
-                )
-            endif()
-            list(APPEND _glintfx_seen_variables "${_glintfx_name}")
-            if(_glintfx_value MATCHES "^(([^\\\\#]|\\\\.)*)#")
-                set(_glintfx_value "${CMAKE_MATCH_1}")
-            endif()
-            string(STRIP "${_glintfx_value}" _glintfx_value)
-            set(_glintfx_line "${_glintfx_name}=${_glintfx_value}")
-            math(EXPR _glintfx_variable_count "${_glintfx_variable_count} + 1")
-        elseif(_glintfx_line MATCHES "^([A-Za-z0-9_.]+)[ \t]*:")
-            set(_glintfx_name "${CMAKE_MATCH_1}")
-            list(FIND _glintfx_seen_fields "${_glintfx_name}" _glintfx_found_at)
-            if(NOT _glintfx_found_at EQUAL -1)
-                message(FATAL_ERROR
-                    "glintfx: glintfx.pc declares the field "
-                    "'${_glintfx_name}' more than once (pc file: "
-                    "'${pc_file}'). Real pkgconf joins the two "
-                    "occurrences, silently; glintfx refuses the ambiguous "
-                    "file instead, on every CMake version. Skip this "
-                    "check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in "
-                    "the environment of this `cmake --install` "
-                    "invocation, then verify the install by hand."
-                )
-            endif()
-            list(APPEND _glintfx_seen_fields "${_glintfx_name}")
-            math(EXPR _glintfx_field_count "${_glintfx_field_count} + 1")
+        set(_glintfx_continued FALSE)
+        if(_glintfx_physical MATCHES "^([^\\\\#]|\\\\.)*\\\\$" AND NOT _glintfx_rest STREQUAL "")
+            string(REGEX REPLACE "\\\\$" "" _glintfx_physical "${_glintfx_physical}")
+            set(_glintfx_continued TRUE)
         endif()
+        string(APPEND _glintfx_line "${_glintfx_physical}")
+    endwhile()
+    set(${rest_var} "${_glintfx_rest}" PARENT_SCOPE)
+    set(${out_line} "${_glintfx_line}" PARENT_SCOPE)
+endfunction()
 
-        string(APPEND _glintfx_out "${_glintfx_line}${_glintfx_line_end}")
+function(glintfx_pkgconfig_refuse_unrecognized_line pc_file line_var)
+    message(FATAL_ERROR
+        "glintfx: glintfx.pc has a line that is not a declaration, a "
+        "comment or a blank line: '${${line_var}}' (pc file: "
+        "'${pc_file}'). A declaration is a name made only of letters, "
+        "digits, \"_\" and \".\", then \"=\" or \":\". CMake up to 4.4 "
+        "refuses such a file as unparseable, CMake 4.5 drops the line "
+        "silently and real pkgconf ignores it; glintfx refuses it on "
+        "every CMake version. Skip this check with "
+        "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of this "
+        "`cmake --install` invocation, then verify the install by hand."
+    )
+endfunction()
+
+# A "$" may only start "${" or "$$" (a literal "$"): walked in pairs from
+# the start, so "$${x}" is text and "$$$x" holds a lone "$".
+function(glintfx_pkgconfig_refuse_lone_dollar pc_file name value_var)
+    set(_glintfx_value "${${value_var}}")
+    if(_glintfx_value MATCHES "^([^$]|\\$\\$|\\$\\{)*\\$([^{$]|$)")
+        message(FATAL_ERROR
+            "glintfx: glintfx.pc gives the declaration '${name}' a lone $ "
+            "that starts no \${...} reference (pc file: '${pc_file}'). "
+            "CMake up to 4.4 refuses such a file, CMake 4.5 keeps the $ "
+            "as text; glintfx refuses it on every CMake version (write $$ "
+            "for a literal $). Skip this check with "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
+            "this `cmake --install` invocation, then verify the install "
+            "by hand."
+        )
+    endif()
+endfunction()
+
+# Percent-encodes the two characters the 4.5.0 parser cannot carry the
+# way the 4.1-4.4 one does: every "%" becomes "%25" FIRST, then every
+# escaped "\#" becomes "%23". Both parsers read "%", digits and letters
+# literally, so the value reaches cmake_pkg_config() intact on every
+# version, and glintfx_pkgconfig_percent_decode() reverses it exactly
+# (each "%" of the encoded text starts one of the two codes, so no
+# packager's own text is ever mistaken for one). After the comment is
+# gone, every "#" left in a value is escaped, so a plain string(REPLACE)
+# of "\#" is exact.
+function(glintfx_pkgconfig_percent_encode value_var)
+    string(REPLACE "%" "%25" _glintfx_value "${${value_var}}")
+    string(REPLACE "\\#" "%23" _glintfx_value "${_glintfx_value}")
+    set(${value_var} "${_glintfx_value}" PARENT_SCOPE)
+endfunction()
+
+# Reverses glintfx_pkgconfig_percent_encode() in one list
+# cmake_pkg_config() handed back: "%23" first, then "%25".
+function(glintfx_pkgconfig_percent_decode list_var)
+    string(REPLACE "%23" "#" _glintfx_decoded "${${list_var}}")
+    string(REPLACE "%25" "%" _glintfx_decoded "${_glintfx_decoded}")
+    set(${list_var} "${_glintfx_decoded}" PARENT_SCOPE)
+endfunction()
+
+# The value as both parsers must see it: its unescaped "#" comment
+# dropped, its blanks trimmed on both sides (as pkg-config trims them),
+# a lone "$" refused, then percent-encoded.
+function(glintfx_pkgconfig_canonical_value pc_file name value_var)
+    set(_glintfx_value "${${value_var}}")
+    if(_glintfx_value MATCHES "^(([^\\\\#]|\\\\.)*)#")
+        set(_glintfx_value "${CMAKE_MATCH_1}")
+    endif()
+    string(STRIP "${_glintfx_value}" _glintfx_value)
+    glintfx_pkgconfig_refuse_lone_dollar("${pc_file}" "${name}" _glintfx_value)
+    glintfx_pkgconfig_percent_encode(_glintfx_value)
+    set(${value_var} "${_glintfx_value}" PARENT_SCOPE)
+endfunction()
+
+# A "${name}" in a VARIABLE's value must name a variable declared on an
+# EARLIER line (never itself), or pc_sysrootdir, which CMake predefines:
+# CMake 4.1-4.4 refuse the file otherwise, CMake 4.5 substitutes an
+# empty text. A FIELD's reference to an undeclared variable is an empty
+# text on every CMake version, so it is left alone. "$$" is a literal
+# "$" and is dropped first, so "$${x}" names nothing.
+function(glintfx_pkgconfig_refuse_undeclared_reference pc_file name value_var seen_var)
+    string(REPLACE "$$" "" _glintfx_value "${${value_var}}")
+    string(REGEX MATCHALL "\\$\\{[^}]*\\}" _glintfx_references "${_glintfx_value}")
+    set(_glintfx_seen "${${seen_var}}")
+    foreach(_glintfx_reference IN LISTS _glintfx_references)
+        string(REGEX REPLACE "^\\$\\{(.*)\\}$" "\\1" _glintfx_referenced "${_glintfx_reference}")
+        list(FIND _glintfx_seen "=${_glintfx_referenced}" _glintfx_found_at)
+        if(_glintfx_found_at EQUAL -1 AND NOT _glintfx_referenced STREQUAL "pc_sysrootdir")
+            message(FATAL_ERROR
+                "glintfx: glintfx.pc gives the variable '${name}' a "
+                "reference to '${_glintfx_referenced}', which no earlier "
+                "line declares (pc file: '${pc_file}'). CMake up to 4.4 "
+                "refuses such a file, CMake 4.5 substitutes an empty "
+                "text; glintfx refuses it on every CMake version. Skip "
+                "this check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in "
+                "the environment of this `cmake --install` invocation, "
+                "then verify the install by hand."
+            )
+        endif()
+    endforeach()
+endfunction()
+
+# Claims a declaration's name in seen_var (entries "=<variable>" and
+# ":<field>", two separate namespaces, as in pkg-config); a second claim
+# of the same name is refused, in every spelling of the line.
+function(glintfx_pkgconfig_claim_declaration_name pc_file separator name seen_var)
+    set(_glintfx_seen "${${seen_var}}")
+    list(FIND _glintfx_seen "${separator}${name}" _glintfx_found_at)
+    if(NOT _glintfx_found_at EQUAL -1)
+        set(_glintfx_kind "field")
+        set(_glintfx_real_tool "real pkgconf joins the two occurrences")
+        if(separator STREQUAL "=")
+            set(_glintfx_kind "variable")
+            set(_glintfx_real_tool "real pkgconf keeps only the last definition")
+        endif()
+        message(FATAL_ERROR
+            "glintfx: glintfx.pc declares the ${_glintfx_kind} "
+            "'${name}' more than once (pc file: '${pc_file}'). CMake up "
+            "to 4.4 refuses such a file, CMake 4.5 accepts it silently "
+            "and ${_glintfx_real_tool}; glintfx refuses the ambiguous file "
+            "on every CMake version. Skip this check with "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
+            "this `cmake --install` invocation, then verify the install "
+            "by hand."
+        )
+    endif()
+    list(APPEND _glintfx_seen "${separator}${name}")
+    set(${seen_var} "${_glintfx_seen}" PARENT_SCOPE)
+endfunction()
+
+# Rewrites ONE declaration line as "name=value" (a variable) or
+# "name: value" (a field). A variable's references are checked against
+# the names declared BEFORE this line, and only then is its name
+# claimed, so a variable never counts as declared inside its own value.
+function(glintfx_pkgconfig_canonical_declaration pc_file line_var seen_var)
+    glintfx_pkgconfig_declaration_pattern(_glintfx_pattern)
+    string(REGEX MATCH "${_glintfx_pattern}" _glintfx_whole "${${line_var}}")
+    set(_glintfx_name "${CMAKE_MATCH_1}")
+    set(_glintfx_separator "${CMAKE_MATCH_2}")
+    set(_glintfx_value "${CMAKE_MATCH_3}")
+    set(_glintfx_seen "${${seen_var}}")
+    glintfx_pkgconfig_canonical_value("${pc_file}" "${_glintfx_name}" _glintfx_value)
+    set(_glintfx_line "${_glintfx_name}: ${_glintfx_value}")
+    if(_glintfx_separator STREQUAL "=")
+        glintfx_pkgconfig_refuse_undeclared_reference("${pc_file}" "${_glintfx_name}" _glintfx_value _glintfx_seen)
+        set(_glintfx_line "${_glintfx_name}=${_glintfx_value}")
+    endif()
+    glintfx_pkgconfig_claim_declaration_name("${pc_file}" "${_glintfx_separator}" "${_glintfx_name}" _glintfx_seen)
+    set(${line_var} "${_glintfx_line}" PARENT_SCOPE)
+    set(${seen_var} "${_glintfx_seen}" PARENT_SCOPE)
+endfunction()
+
+# The whole stage, over the pcfiledir-substituted scratch text: every
+# logical line comes out as a canonical declaration or as an empty line
+# (a blank line, a comment), or the file is refused. The summary line it
+# prints only when it finishes is what tells, in the output, that no
+# refusal of its own fired.
+function(glintfx_pkgconfig_canonicalize_declarations pc_file text_var)
+    set(_glintfx_rest "${${text_var}}")
+    glintfx_pkgconfig_normalize_line_endings(_glintfx_rest)
+    glintfx_pkgconfig_declaration_pattern(_glintfx_pattern)
+    set(_glintfx_out "")
+    set(_glintfx_seen "")
+    while(NOT _glintfx_rest STREQUAL "")
+        glintfx_pkgconfig_pop_logical_line(_glintfx_rest _glintfx_line)
+        if(_glintfx_line MATCHES "^[ \t]*$" OR _glintfx_line MATCHES "^[ \t]*#")
+            set(_glintfx_line "")
+        elseif(_glintfx_line MATCHES "${_glintfx_pattern}")
+            glintfx_pkgconfig_canonical_declaration("${pc_file}" _glintfx_line _glintfx_seen)
+        else()
+            glintfx_pkgconfig_refuse_unrecognized_line("${pc_file}" _glintfx_line)
+        endif()
+        string(APPEND _glintfx_out "${_glintfx_line}\n")
     endwhile()
 
+    list(LENGTH _glintfx_seen _glintfx_declaration_count)
     message(STATUS
         "glintfx: glintfx.pc canonicalized for CMake's native parser - "
-        "${_glintfx_variable_count} variable line(s) and "
-        "${_glintfx_field_count} field line(s), no declaration repeated."
+        "${_glintfx_declaration_count} declaration(s), none repeated."
     )
     set(${text_var} "${_glintfx_out}" PARENT_SCOPE)
+endfunction()
+
+# Runs cmake_pkg_config(EXTRACT ...) on the canonical scratch copy and
+# hands back its -I and -L token lists, percent-decoded.
+function(glintfx_pkgconfig_extract_native_tokens native_input out_includes out_libdirs)
+    cmake_pkg_config(EXTRACT "${native_input}" REQUIRED STRICTNESS STRICT)
+    set(_glintfx_includes "${CMAKE_PKG_CONFIG_INCLUDES}")
+    set(_glintfx_libdirs "${CMAKE_PKG_CONFIG_LIBDIRS}")
+    glintfx_pkgconfig_percent_decode(_glintfx_includes)
+    glintfx_pkgconfig_percent_decode(_glintfx_libdirs)
+    set(${out_includes} "${_glintfx_includes}" PARENT_SCOPE)
+    set(${out_libdirs} "${_glintfx_libdirs}" PARENT_SCOPE)
 endfunction()
 
 # ONE OF THE TWO HAND-WRITTEN TEXT OPERATIONS IN THIS FILE (see this
@@ -511,9 +685,10 @@ endfunction()
 # packager's own install tree) and replaces every literal
 # "${pcfiledir}" token with pc_file's own, already-absolute
 # PARENT_PATH - a single, exact-substring string(REPLACE ...), not a
-# parser: no "${...}" is evaluated, no comment is stripped, no
-# whitespace is trimmed. cmake_pkg_config(EXTRACT ...) below does all
-# of that, natively, on the result.
+# parser: no "${...}" is evaluated - and then hands the text to
+# glintfx_pkgconfig_canonicalize_declarations() (see its own comment)
+# before writing it. cmake_pkg_config(EXTRACT ...) below resolves the
+# result, natively.
 #
 # One scratch file per validation run is enough - this file's own
 # install(CODE) registration runs this whole script exactly once per
@@ -645,8 +820,8 @@ endfunction()
 
 # Orchestrates the WHOLE content check (LAYER A) against ONE installed
 # glintfx.pc, natively: prepares the pcfiledir-substituted scratch copy
-# (glintfx_pkgconfig_prepare_native_input(), above - the one hand-
-# written text operation this file still performs), hands it to
+# (glintfx_pkgconfig_prepare_native_input(), above, which also runs
+# glintfx_pkgconfig_canonicalize_declarations()), hands it to
 # cmake_pkg_config(EXTRACT ... STRICTNESS STRICT) - CMake's own native
 # pkg-config format parser, no pkg-config binary involved (see this
 # file's header, "Talking to the pkg-config BINARY itself") - and
@@ -667,13 +842,13 @@ endfunction()
 function(glintfx_pkgconfig_validate_content_on_disk pc_file)
     glintfx_pkgconfig_prepare_native_input("${pc_file}" _glintfx_native_input)
 
-    cmake_pkg_config(EXTRACT "${_glintfx_native_input}" REQUIRED STRICTNESS STRICT)
+    glintfx_pkgconfig_extract_native_tokens("${_glintfx_native_input}" _glintfx_includes _glintfx_libdirs)
 
     glintfx_pkgconfig_validate_content_tokens(
-        "${pc_file}" "${CMAKE_PKG_CONFIG_INCLUDES}" "-I" headers _glintfx_include_flag_count
+        "${pc_file}" "${_glintfx_includes}" "-I" headers _glintfx_include_flag_count
     )
     glintfx_pkgconfig_validate_content_tokens(
-        "${pc_file}" "${CMAKE_PKG_CONFIG_LIBDIRS}" "-L" library _glintfx_library_flag_count
+        "${pc_file}" "${_glintfx_libdirs}" "-L" library _glintfx_library_flag_count
     )
 
     if(_glintfx_include_flag_count EQUAL 0)

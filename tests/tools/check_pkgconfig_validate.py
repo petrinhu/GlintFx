@@ -24,15 +24,12 @@
 # funcionar para check_layers.py/check_vendor_purity.py/
 # check_blank_install_dir_rejected.py.
 #
-# TWENTY scenarios, not eight, not eighteen: this file's own header,
-# and the comment this port replaces in tests/CMakeLists.txt, said "the
-# eight scenarios" - stale prose left behind by PKG-WIN-SCOPE's,
-# PKG-NATIVE's and PKG-WIN-VALIDATE-FATAL's own later additions
-# (scenarios 9 through 20 were bolted on after that comment was
-# written, and it was never updated). The closed list actually
-# enumerated below, and exercised by real_main(), is the TWENTY
-# run_*_scenario() functions this file's own real_main() calls -
-# counted against SCENARIO_COUNT, not assumed (GODS_LAWS.md L-40; see
+# HOW MANY scenarios: never written here as a number. This header
+# said "the eight scenarios", then "TWENTY", and each number went
+# stale with the next addition. The closed list enumerated below,
+# numbered exactly as real_main()'s own record() calls number them,
+# is every run_*_scenario() function real_main() calls - counted
+# against SCENARIO_COUNT, not assumed (GODS_LAWS.md L-40; see
 # real_main()'s own scenario-floor summary, printed even when every
 # scenario passes outright).
 #
@@ -50,11 +47,11 @@
 #   5. run_broken_library_scenario - broken install, library artifact
 #      removed (RED, real error output): the exact "partially-removed
 #      install" PACKAGING.md names.
-#   6. run_empty_flags_floor_scenario - empty Cflags/Libs floor
+#   6. run_missing_pc_file_scenario - missing glintfx.pc itself (RED),
+#      the OTHER half of "partially-removed install".
+#   7. run_empty_flags_floor_scenario - empty Cflags/Libs floor
 #      (GODS_LAWS.md L-40, RED): correct variable=includedir/libdir,
 #      blank Cflags:/Libs: lines.
-#   7. run_missing_pc_file_scenario - missing glintfx.pc itself (RED),
-#      the OTHER half of "partially-removed install".
 #   8. run_pkgconfig_absent_scenario - pkg-config absent from PATH
 #      (WARNING, not FATAL - declared downgrade), sandboxed via
 #      CMAKE_FIND_ROOT_PATH_MODE_PROGRAM=ONLY against an empty root -
@@ -81,17 +78,19 @@
 #      own variable syntax (whitespace around "=", trailing comment)
 #      accepted (GREEN), cross-checked against a real pkg-config/pkgconf
 #      binary when one is on PATH.
-#  14. run_relative_prefix_ordinary_dispatch_scenario - relative
+#  14. run_duplicate_variable_rejected_scenario - a glintfx.pc defining a
+#      variable TWICE, the second time indented, is REJECTED (RED,
+#      PKG-NATIVE, CMAKE45-PC) by glintfx's OWN check, before CMake's
+#      native parser reads the file - never by CMake 4.1-4.4's STRICT
+#      refusal standing in for it (CMAKE45-PC-FIX1).
+#  15. run_relative_prefix_ordinary_dispatch_scenario - relative
 #      --prefix, ordinary dispatch (GREEN, PKG-WIN-SCOPE round 6
 #      regression proof): no doubled prefix/libdir/pkgconfig segment.
-#  15. run_duplicate_variable_rejected_scenario - a glintfx.pc defining a
-#      variable TWICE is REJECTED, closed (RED, PKG-NATIVE), by CMake's
-#      own native pkg-config parser under STRICTNESS STRICT.
-#  16. run_absolute_libdir_scenario - absolute CMAKE_INSTALL_LIBDIR
-#      still passes (GREEN, ESCOPO.md paragraph 8's own EXTRA case).
-#  17. run_destdir_relative_ordinary_dispatch_scenario - DESTDIR
+#  16. run_destdir_relative_ordinary_dispatch_scenario - DESTDIR
 #      relative, ordinary dispatch (GREEN): the DESTDIR-shaped sibling
-#      of scenario 14.
+#      of scenario 15.
+#  17. run_absolute_libdir_scenario - absolute CMAKE_INSTALL_LIBDIR
+#      still passes (GREEN, ESCOPO.md paragraph 8's own EXTRA case).
 #  18. run_looks_rooted_selftest_scenario - PKG-WIN-SCOPE round 7
 #      regression proof (GREEN): glintfx_pkgconfig_looks_rooted()
 #      (cmake/GlintfxPkgConfigValidateInstalled.cmake.in) correctly
@@ -129,10 +128,25 @@
 #      "skipped: <reason>" string, counted (never silently omitted), on
 #      every other host - see real_main()'s own scenario-floor summary.
 #  21. run_duplicate_field_rejected_scenario - a glintfx.pc declaring
-#      the Libs: field TWICE is REJECTED, closed (RED, CMAKE45-PC), by
-#      glintfx's own check, on every CMake version; scenario 15 above
-#      (duplicate variable) is refused by that same check now, because
-#      from CMake 4.5.0 on STRICTNESS STRICT no longer refuses either.
+#      the Libs: field TWICE is REJECTED (RED, CMAKE45-PC) by glintfx's
+#      OWN check, before CMake's native parser reads the file.
+#  22. run_line_spelling_variants_scenario - blanks and tabs before a
+#      name, an indented field, a Libs: line continued with a trailing
+#      backslash, and CRLF endings, all accepted (GREEN,
+#      CMAKE45-PC-FIX1) by the native content check alone.
+#  23. run_escaped_hash_kept_literal_scenario - an escaped "\#" in
+#      libdir= stays a literal "#" (GREEN, CMAKE45-PC-FIX1), the way
+#      FDO pkg-config, pkgconf and CMake 4.1-4.4 read it, next to a
+#      literal "%23" that stays itself.
+#  24. run_unrecognized_line_rejected_scenario - a line that is not a
+#      declaration ("my-dir=...") is REJECTED by glintfx's own check
+#      (RED, CMAKE45-PC-FIX1).
+#  25. run_lone_dollar_rejected_scenario - a lone "$" in a field
+#      value is REJECTED by glintfx's own check (RED, CMAKE45-PC-FIX1,
+#      the refusal PACKAGING.md documents).
+#  26. run_undeclared_reference_rejected_scenario - a variable's
+#      "${name}" naming a variable no earlier line declares is
+#      REJECTED by glintfx's own check (RED, CMAKE45-PC-FIX1).
 #
 # What this script does NOT test, declared (GODS_LAWS.md L-27):
 # component-scoped installs (`cmake --install --component X`) and
@@ -219,7 +233,7 @@ SCRIPT_NAME = "check_pkgconfig_validate.py"
 # real_main()'s own scenario-floor summary at the end): a mismatch
 # between this constant and how many actually ran is a broken floor,
 # never a detail to shrug off.
-SCENARIO_COUNT = 21
+SCENARIO_COUNT = 26
 
 # See this file's own header, "LIBRARY_ARTIFACT_PATTERNS" - DUPLICATED,
 # not imported, from cmake/GlintfxPkgConfigValidateInstalled.cmake.in's
@@ -319,6 +333,86 @@ def must_contain_in_order(output, *phrases, on_fail):
 def must_not_contain(output, phrase, on_fail):
     if phrase in normalize_wrapped_message(output):
         fail(f"{on_fail} Got:\n{output}")
+
+
+def assert_refused_by_glintfx_before_native_parser(output, diagnostic, on_fail):
+    """CMAKE45-PC-FIX1 (first adversarial review of CMAKE45-PC, finding 1):
+    a refusal glintfx owns must come from glintfx's OWN FATAL_ERROR,
+    raised before CMake's native parser ever reads the file - never from
+    CMake 4.1-4.4's own STRICT refusal standing in for it. The surviving
+    mutant that review measured on CMake 4.3.0 (glintfx's FATAL_ERROR
+    turned into message(STATUS)) printed glintfx's phrase as a "-- "
+    status line, then the canonicalization stage's own summary, then
+    CMake's "Resolution failed", and the old check still passed. Each
+    check below fails that output on its own: the phrase must sit right
+    after a "(message):" header that follows a "CMake Error at", the
+    stage must not have printed its summary, and CMake's parser must not
+    have reported a failure of its own.
+    """
+    must_contain_in_order(output, "CMake Error at", "(message): glintfx: " + diagnostic, on_fail=on_fail)
+    for later_stage_mark in ("canonicalized for CMake's native parser", "Resolution failed", "Parsing failed"):
+        must_not_contain(output, later_stage_mark, on_fail=on_fail)
+
+
+def write_pc_fixture(scratch, label, real_libdir, pc_text, newline=None):
+    """Lays out the hand-written glintfx.pc fixture shape every content-
+    check scenario shares - <prefix>/<libdir>/pkgconfig/glintfx.pc, a
+    <prefix>/include/glintfx/ tree and a placeholder library artifact in
+    <prefix>/<libdir> - and returns <prefix>. newline="" writes pc_text's
+    own line endings untouched on every host (a CRLF fixture stays CRLF).
+    """
+    fixture_prefix = os.path.join(scratch, f"prefix-{label}-fixture")
+    libdir_path = os.path.join(fixture_prefix, *real_libdir.split("/"))
+    pkgconfig_dir = os.path.join(libdir_path, "pkgconfig")
+    os.makedirs(pkgconfig_dir, exist_ok=True)
+    os.makedirs(os.path.join(fixture_prefix, "include", "glintfx"), exist_ok=True)
+    write_placeholder_library_artifact(libdir_path)
+    with open(os.path.join(pkgconfig_dir, "glintfx.pc"), "w", encoding="utf-8", newline=newline) as handle:
+        handle.write(pc_text)
+    return fixture_prefix
+
+
+def expect_refused_by_glintfx(build_dir, fixture_prefix, diagnostic, what):
+    """Re-runs the generated validator against fixture_prefix, which must
+    FAIL, refused by glintfx's own diagnostic before CMake's parser runs.
+    """
+    output = run_expect_failure(
+        ["cmake", f"-DCMAKE_INSTALL_PREFIX={fixture_prefix}", "-P", find_generated_validator_script(build_dir)],
+        f"re-running the validator against a fixture with {what} unexpectedly SUCCEEDED - "
+        "glintfx must refuse it itself, before CMake's native parser reads the file "
+        "(CMAKE45-PC-FIX1).",
+    )
+    assert_refused_by_glintfx_before_native_parser(
+        output,
+        diagnostic,
+        on_fail=(
+            f"the fixture with {what} was not refused by glintfx's OWN FATAL_ERROR, naming "
+            f"'{diagnostic}', before CMake's native parser ran (CMAKE45-PC-FIX1: a refusal "
+            "by CMake 4.1-4.4's own STRICT mode does not count as glintfx's)."
+        ),
+    )
+
+
+def run_validator_content_check_only(build_dir, scratch, fixture_prefix, on_fail):
+    """Re-runs the generated validator against fixture_prefix with
+    find_program() sandboxed to an empty root (scenario 8's own
+    mechanism), so ONLY the native content check - CMake's parser plus
+    glintfx's canonicalization - decides the verdict, never a real
+    pkg-config binary's own syntax tolerance, which varies by host
+    (Strawberry Perl's pkg-config.bat on windows-latest included).
+    """
+    empty_root = os.path.join(scratch, "empty-find-root")
+    os.makedirs(empty_root, exist_ok=True)
+    return run_expect_success(
+        [
+            "cmake",
+            f"-DCMAKE_INSTALL_PREFIX={fixture_prefix}",
+            f"-DCMAKE_FIND_ROOT_PATH={empty_root}",
+            "-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=ONLY",
+            "-P", find_generated_validator_script(build_dir),
+        ],
+        on_fail,
+    )
 
 
 # --- process / cmake plumbing -----------------------------------------
@@ -875,7 +969,7 @@ def run_broken_library_scenario(glintfx_src, cxx, build_dir, prefix):
     )
 
 
-# --- scenario 6 --------------------------------------------------------
+# --- scenario 7 --------------------------------------------------------
 
 
 def run_empty_flags_floor_scenario(build_dir, scratch, real_libdir):
@@ -923,7 +1017,7 @@ def run_empty_flags_floor_scenario(build_dir, scratch, real_libdir):
     )
 
 
-# --- scenario 7 --------------------------------------------------------
+# --- scenario 6 --------------------------------------------------------
 
 
 def run_missing_pc_file_scenario(glintfx_src, cxx, build_dir, prefix):
@@ -1473,8 +1567,8 @@ def run_real_pkgconfig_syntax_variants_scenario(build_dir, scratch, real_libdir)
             # invocable through this dispatch on this machine - an
             # OSError here (FileNotFoundError included) is a
             # legitimate, DECLARED absence (GODS_LAWS.md L-27), never
-            # an unhandled crash that would hide scenarios 14-18 behind
-            # it the way it did in run 33947167061.
+            # an unhandled crash that would hide every later scenario
+            # behind it the way it did in run 33947167061.
             print(
                 f"ok: real pkg-config syntax variants (outcome={outcome}; whitespace around "
                 f"'=', trailing comment) - accepted by this validator; a real {real_tool_name} "
@@ -1503,7 +1597,7 @@ def run_real_pkgconfig_syntax_variants_scenario(build_dir, scratch, real_libdir)
         )
 
 
-# --- scenario 14 -------------------------------------------------------
+# --- scenario 15 -------------------------------------------------------
 
 
 def run_relative_prefix_ordinary_dispatch_scenario(build_dir, dispatch_dir, real_libdir):
@@ -1537,57 +1631,40 @@ def run_relative_prefix_ordinary_dispatch_scenario(build_dir, dispatch_dir, real
     )
 
 
-# --- scenario 15 -------------------------------------------------------
+# --- scenario 14 -------------------------------------------------------
 
 
 def run_duplicate_variable_rejected_scenario(build_dir, scratch, real_libdir):
-    validator_script = find_generated_validator_script(build_dir)
-
-    fixture_prefix = os.path.join(scratch, "prefix-duplicate-variable-fixture")
-    libdir_path = os.path.join(fixture_prefix, *real_libdir.split("/"))
-    pkgconfig_dir = os.path.join(libdir_path, "pkgconfig")
-    os.makedirs(pkgconfig_dir, exist_ok=True)
-    os.makedirs(os.path.join(fixture_prefix, "include", "glintfx"), exist_ok=True)
-    write_placeholder_library_artifact(libdir_path)
-
-    pc_text = (
+    # The second definition carries blanks BEFORE its name - the spelling
+    # CMake 4.5.0 still let through, silently, after CMAKE45-PC (first
+    # adversarial review, finding 4, its fixture h5). A duplicate is a
+    # duplicate of the NAME, whatever the spelling of the line.
+    fixture_prefix = write_pc_fixture(
+        scratch,
+        "duplicate-variable",
+        real_libdir,
         "prefix=${pcfiledir}/../..\n"
         "exec_prefix=${prefix}\n"
         "includedir=${prefix}/include\n"
         "libdir=${exec_prefix}/" + real_libdir + "-does-not-exist-yet\n"
-        "libdir=${exec_prefix}/" + real_libdir + "\n"
+        "  libdir=${exec_prefix}/" + real_libdir + "\n"
         "\n"
         "Name: glintfx\n"
         "Description: check_pkgconfig_validate.py duplicate-variable-rejected fixture\n"
         "Version: 0.1.0.0\n"
         "Cflags: -I${includedir}\n"
-        "Libs: -L${libdir} -lglintfx\n"
+        "Libs: -L${libdir} -lglintfx\n",
     )
-    with open(os.path.join(pkgconfig_dir, "glintfx.pc"), "w", encoding="utf-8") as handle:
-        handle.write(pc_text)
-
-    output = run_expect_failure(
-        ["cmake", f"-DCMAKE_INSTALL_PREFIX={fixture_prefix}", "-P", validator_script],
-        "re-running the validator against a fixture that defines 'libdir' TWICE "
-        "unexpectedly SUCCEEDED - glintfx's own duplicate check should refuse an "
-        "ambiguous file with a duplicate variable definition, on every CMake version, "
-        "rather than silently picking one (CMAKE45-PC).",
-    )
-
-    must_contain(
-        output,
-        "declares the variable 'libdir' more than once",
-        on_fail=(
-            "the duplicate-variable RED did not print glintfx's own duplicate-variable "
-            "diagnostic. From CMake 4.5.0 on, cmake_pkg_config() under STRICTNESS STRICT "
-            "no longer refuses a duplicate variable by itself, so glintfx refuses it, "
-            "before CMake's parser runs, on every CMake version (CMAKE45-PC)."
-        ),
+    expect_refused_by_glintfx(
+        build_dir,
+        fixture_prefix,
+        "glintfx.pc declares the variable 'libdir' more than once",
+        "'libdir' defined twice, the second time indented",
     )
     print(
-        "ok: duplicate-variable RED - a glintfx.pc defining 'libdir' twice is REFUSED, "
-        "closed, by glintfx's own check, on every CMake version - a deliberate "
-        "narrowing from real pkg-config's own last-definition-wins behavior."
+        "ok: duplicate-variable RED - a glintfx.pc defining 'libdir' twice, the second "
+        "time indented, is REFUSED by glintfx's own check before CMake's native parser "
+        "runs - a deliberate narrowing from real pkgconf's last-definition-wins behavior."
     )
 
 
@@ -1595,16 +1672,10 @@ def run_duplicate_variable_rejected_scenario(build_dir, scratch, real_libdir):
 
 
 def run_duplicate_field_rejected_scenario(build_dir, scratch, real_libdir):
-    validator_script = find_generated_validator_script(build_dir)
-
-    fixture_prefix = os.path.join(scratch, "prefix-duplicate-field-fixture")
-    libdir_path = os.path.join(fixture_prefix, *real_libdir.split("/"))
-    pkgconfig_dir = os.path.join(libdir_path, "pkgconfig")
-    os.makedirs(pkgconfig_dir, exist_ok=True)
-    os.makedirs(os.path.join(fixture_prefix, "include", "glintfx"), exist_ok=True)
-    write_placeholder_library_artifact(libdir_path)
-
-    pc_text = (
+    fixture_prefix = write_pc_fixture(
+        scratch,
+        "duplicate-field",
+        real_libdir,
         "prefix=${pcfiledir}/../..\n"
         "exec_prefix=${prefix}\n"
         "includedir=${prefix}/include\n"
@@ -1614,32 +1685,229 @@ def run_duplicate_field_rejected_scenario(build_dir, scratch, real_libdir):
         "Description: check_pkgconfig_validate.py duplicate-field-rejected fixture\n"
         "Version: 0.1.0.0\n"
         "Cflags: -I${includedir}\n"
-        "Libs: -L${libdir} -lglintfx\n"
-        "Libs: -L${libdir} -lglintfx\n"
+        # A lone CR, not a LF, ends the first Libs: line: pkgconf ends a
+        # line there, and CMake's file(READ) keeps it (it strips only the
+        # CR of a CRLF pair), so only glintfx's own line-ending
+        # normalization lets its repetition check see two lines.
+        "Libs: -L${libdir} -lglintfx\r"
+        "Libs: -L${libdir} -lglintfx\n",
+        newline="",
     )
-    with open(os.path.join(pkgconfig_dir, "glintfx.pc"), "w", encoding="utf-8") as handle:
-        handle.write(pc_text)
-
-    output = run_expect_failure(
-        ["cmake", f"-DCMAKE_INSTALL_PREFIX={fixture_prefix}", "-P", validator_script],
-        "re-running the validator against a fixture that declares the 'Libs' field TWICE "
-        "unexpectedly SUCCEEDED - an ambiguous glintfx.pc must be refused, closed, on "
-        "every CMake version (CMAKE45-PC: from CMake 4.5.0 on, cmake_pkg_config() no "
-        "longer refuses it by itself).",
-    )
-
-    must_contain(
-        output,
-        "declares the field 'Libs' more than once",
-        on_fail="the duplicate-field RED did not print glintfx's own duplicate-field diagnostic.",
+    expect_refused_by_glintfx(
+        build_dir,
+        fixture_prefix,
+        "glintfx.pc declares the field 'Libs' more than once",
+        "the 'Libs' field declared twice",
     )
     print(
-        "ok: duplicate-field RED - a glintfx.pc declaring 'Libs' twice is REFUSED, "
-        "closed, by glintfx's own check, on every CMake version."
+        "ok: duplicate-field RED - a glintfx.pc declaring 'Libs' twice is REFUSED by "
+        "glintfx's own check before CMake's native parser runs."
     )
 
 
-# --- scenario 16 -------------------------------------------------------
+# --- scenario 22 -------------------------------------------------------
+
+
+def run_line_spelling_variants_scenario(build_dir, scratch, real_libdir):
+    # CMAKE45-PC-FIX1 (first adversarial review, finding 4 and its twins):
+    # spellings real pkg-config and CMake 4.1-4.4 accept and CMake 4.5.0
+    # read differently - blanks and tabs BEFORE a name, an indented field,
+    # a Libs: line continued with a trailing backslash onto an indented
+    # physical line, a comment that itself ends in a backslash (it stops
+    # at its own line, as in both CMake readers; pkgconf would let it
+    # swallow the next line), and CRLF endings throughout. Only the native
+    # content check decides, and the -I/-L count is checked, so a dropped
+    # line cannot pass as an empty one.
+    fixture_prefix = write_pc_fixture(
+        scratch,
+        "line-spelling-variants",
+        real_libdir,
+        "prefix=${pcfiledir}/../..\r\n"
+        "exec_prefix=${prefix}   # this comment ends in a backslash \\\r\n"
+        "  includedir = ${prefix}/include   # indented, blanks around \"=\", a comment\r\n"
+        "\tlibdir\t=\t${exec_prefix}/" + real_libdir + "\r\n"
+        "\r\n"
+        "Name: glintfx\r\n"
+        "Description: check_pkgconfig_validate.py line-spelling-variants fixture\r\n"
+        "Version: 0.1.0.0\r\n"
+        "  Cflags: -I${includedir}\r\n"
+        "Libs: -L${libdir} \\\r\n"
+        "    -lglintfx\r\n",
+        newline="",
+    )
+    output = run_validator_content_check_only(
+        build_dir,
+        scratch,
+        fixture_prefix,
+        "re-running the validator against a fixture with indented declarations, a "
+        "continued Libs: line and CRLF endings - forms real pkg-config and CMake 4.1-4.4 "
+        "accept - unexpectedly FAILED (CMAKE45-PC-FIX1).",
+    )
+    must_contain(
+        output,
+        "1 -I flag(s) and 1 -L flag(s) all resolve to real, populated directories",
+        on_fail="the line-spelling-variants fixture did not resolve exactly one -I and one -L flag.",
+    )
+    print(
+        "ok: line-spelling variants - indented declarations, an indented field, a Libs: "
+        "line continued with a backslash and CRLF endings resolve to the real header tree "
+        "and library, by the native content check alone."
+    )
+
+
+# --- scenario 23 -------------------------------------------------------
+
+
+def run_escaped_hash_kept_literal_scenario(build_dir, scratch, real_libdir):
+    # CMAKE45-PC-FIX1 (first adversarial review, finding 2): an escaped
+    # "\#" is a literal "#" for FDO pkg-config, pkgconf and CMake 4.1-4.4,
+    # while CMake 4.5.0's reader ends the value there. The library lives
+    # ONLY in a directory whose name really holds a "#" and a literal
+    # "%23": cut at the "#", the -L flag would name "<prefix>/escaped",
+    # which does not exist, and a "%23" taken for an encoded "#" would
+    # name another directory that does not exist either.
+    fixture_prefix = write_pc_fixture(
+        scratch,
+        "escaped-hash",
+        real_libdir,
+        "prefix=${pcfiledir}/../..\n"
+        "exec_prefix=${prefix}\n"
+        "includedir=${prefix}/include\n"
+        "libdir=${exec_prefix}/escaped\\#hash%23-lib\n"
+        "\n"
+        "Name: glintfx\n"
+        "Description: check_pkgconfig_validate.py escaped-hash fixture\n"
+        "Version: 0.1.0.0\n"
+        "Cflags: -I${includedir}\n"
+        "Libs: -L${libdir} -lglintfx\n",
+    )
+    write_placeholder_library_artifact(os.path.join(fixture_prefix, "escaped#hash%23-lib"))
+    output = run_validator_content_check_only(
+        build_dir,
+        scratch,
+        fixture_prefix,
+        "re-running the validator against a fixture whose libdir= holds an escaped "
+        "'\\#' (a literal '#' for real pkg-config and CMake 4.1-4.4) and a literal "
+        "'%23' unexpectedly FAILED (CMAKE45-PC-FIX1).",
+    )
+    must_contain(
+        output,
+        "1 -I flag(s) and 1 -L flag(s) all resolve to real, populated directories",
+        on_fail="the escaped-hash fixture did not resolve exactly one -I and one -L flag.",
+    )
+    print(
+        "ok: escaped hash - a libdir= holding an escaped '\\#' and a literal '%23' "
+        "resolves to the directory whose name really holds both, by the native content "
+        "check alone."
+    )
+
+
+# --- scenario 24 -------------------------------------------------------
+
+
+def run_unrecognized_line_rejected_scenario(build_dir, scratch, real_libdir):
+    # CMAKE45-PC-FIX1 (first adversarial review, finding 3): "my-dir" is
+    # no variable name for FDO pkg-config, pkgconf or llpkgc (the name
+    # stops at the "-"); CMake 4.1-4.4 refuse the file as unparseable,
+    # CMake 4.5.0 drops the line silently, real pkgconf ignores it.
+    fixture_prefix = write_pc_fixture(
+        scratch,
+        "unrecognized-line",
+        real_libdir,
+        "prefix=${pcfiledir}/../..\n"
+        "exec_prefix=${prefix}\n"
+        "includedir=${prefix}/include\n"
+        "libdir=${exec_prefix}/" + real_libdir + "\n"
+        "my-dir=/opt/elsewhere\n"
+        "\n"
+        "Name: glintfx\n"
+        "Description: check_pkgconfig_validate.py unrecognized-line-rejected fixture\n"
+        "Version: 0.1.0.0\n"
+        "Cflags: -I${includedir}\n"
+        "Libs: -L${libdir} -lglintfx\n",
+    )
+    expect_refused_by_glintfx(
+        build_dir,
+        fixture_prefix,
+        "glintfx.pc has a line that is not a declaration, a comment or a blank line",
+        "a line that is not a declaration ('my-dir=...')",
+    )
+    print(
+        "ok: unrecognized-line RED - a glintfx.pc line that is not a declaration, a "
+        "comment or a blank line is REFUSED by glintfx's own check before CMake's native "
+        "parser runs."
+    )
+
+
+# --- scenario 25 -------------------------------------------------------
+
+
+def run_lone_dollar_rejected_scenario(build_dir, scratch, real_libdir):
+    # CMAKE45-PC-FIX1: PACKAGING.md documents that a lone "$" fails the
+    # install; CMake 4.1-4.4 refuse it, CMake 4.5.0 keeps it as text.
+    fixture_prefix = write_pc_fixture(
+        scratch,
+        "lone-dollar",
+        real_libdir,
+        "prefix=${pcfiledir}/../..\n"
+        "exec_prefix=${prefix}\n"
+        "includedir=${prefix}/include\n"
+        "libdir=${exec_prefix}/" + real_libdir + "\n"
+        "\n"
+        "Name: glintfx\n"
+        "Description: costs $5\n"
+        "Version: 0.1.0.0\n"
+        "Cflags: -I${includedir}\n"
+        "Libs: -L${libdir} -lglintfx\n",
+    )
+    expect_refused_by_glintfx(
+        build_dir,
+        fixture_prefix,
+        "glintfx.pc gives the declaration 'Description' a lone $ that starts no ${...} reference",
+        "a lone $ in its Description: field",
+    )
+    print(
+        "ok: lone-dollar RED - a '$' that starts no ${...} reference is REFUSED by "
+        "glintfx's own check before CMake's native parser runs."
+    )
+
+
+# --- scenario 26 -------------------------------------------------------
+
+
+def run_undeclared_reference_rejected_scenario(build_dir, scratch, real_libdir):
+    # CMAKE45-PC-FIX1: a variable's "${name}" must name a variable an
+    # EARLIER line declares - here libdir= uses exec_prefix, declared one
+    # line too late, the shape a packager's reordering produces. CMake
+    # 4.1-4.4 refuse the file; CMake 4.5.0 substitutes an empty text.
+    fixture_prefix = write_pc_fixture(
+        scratch,
+        "undeclared-reference",
+        real_libdir,
+        "prefix=${pcfiledir}/../..\n"
+        "includedir=${prefix}/include\n"
+        "libdir=${exec_prefix}/" + real_libdir + "\n"
+        "exec_prefix=${prefix}\n"
+        "\n"
+        "Name: glintfx\n"
+        "Description: check_pkgconfig_validate.py undeclared-reference-rejected fixture\n"
+        "Version: 0.1.0.0\n"
+        "Cflags: -I${includedir}\n"
+        "Libs: -L${libdir} -lglintfx\n",
+    )
+    expect_refused_by_glintfx(
+        build_dir,
+        fixture_prefix,
+        "glintfx.pc gives the variable 'libdir' a reference to 'exec_prefix', which no earlier line declares",
+        "a variable used one line before it is declared",
+    )
+    print(
+        "ok: undeclared-reference RED - a variable's reference to a variable no earlier "
+        "line declares is REFUSED by glintfx's own check before CMake's native parser runs."
+    )
+
+
+# --- scenario 17 -------------------------------------------------------
 
 
 def run_absolute_libdir_scenario(glintfx_src, cxx, build_dir, scratch):
@@ -1681,7 +1949,7 @@ def run_absolute_libdir_scenario(glintfx_src, cxx, build_dir, scratch):
     )
 
 
-# --- scenario 17 -------------------------------------------------------
+# --- scenario 16 -------------------------------------------------------
 
 
 def run_destdir_relative_ordinary_dispatch_scenario(build_dir, dispatch_dir, real_libdir):
@@ -2312,6 +2580,16 @@ def real_main(args):
         record(20, "windows-unlaunchable-conversation", outcome_20)
         run_duplicate_field_rejected_scenario(build_dir, scratch, real_libdir)
         record(21, "duplicate-field-rejected")
+        run_line_spelling_variants_scenario(build_dir, scratch, real_libdir)
+        record(22, "line-spelling-variants")
+        run_escaped_hash_kept_literal_scenario(build_dir, scratch, real_libdir)
+        record(23, "escaped-hash-kept-literal")
+        run_unrecognized_line_rejected_scenario(build_dir, scratch, real_libdir)
+        record(24, "unrecognized-line-rejected")
+        run_lone_dollar_rejected_scenario(build_dir, scratch, real_libdir)
+        record(25, "lone-dollar-rejected")
+        run_undeclared_reference_rejected_scenario(build_dir, scratch, real_libdir)
+        record(26, "undeclared-reference-rejected")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -2352,13 +2630,17 @@ def real_main(args):
         "hatches) - never silently downgraded to a warning just because the host "
         "happens to be Windows; accepts real pkg-config's own whitespace/comment "
         "syntax, cross-checked against a real pkg-config binary when one is on PATH, "
-        "while a variable or a field declared TWICE is now refused, closed, by "
-        "glintfx's own check on every CMake version (CMAKE45-PC); no longer doubles a shared "
+        "while a variable or a field declared TWICE (in any spelling of the line), a line "
+        "that is not a declaration, a lone '$' and a variable's reference to a variable "
+        "no earlier line declares are refused, closed, by glintfx's own "
+        "check before CMake's native parser runs, and indented declarations, continued "
+        "lines, CRLF endings and an escaped '\\#' are read the way CMake 4.1-4.4 read them "
+        "(CMAKE45-PC, CMAKE45-PC-FIX1); no longer doubles a shared "
         "prefix/libdir/pkgconfig or DESTDIR path segment when --prefix or DESTDIR is "
         "given as a plain relative path; and no longer borrows a wrong drive letter "
         "(PKG-WIN-SCOPE round 7) when a staged, DESTDIR-aware directory is concatenated "
         "with a driveless-but-rooted prefix - proven with portable, "
-        "platform-independent string logic (all twenty-one scenarios, unguarded by "
+        "platform-independent string logic (every scenario above, unguarded by "
         "platform)."
     )
 
@@ -2787,6 +3069,52 @@ def selftest_windows_batch_dispatch_control():
     return ok
 
 
+def selftest_refused_before_native_parser_control():
+    """CMAKE45-PC-FIX1: proves assert_refused_by_glintfx_before_native_parser()
+    accepts glintfx's genuine FATAL_ERROR and rejects each one of the
+    four shapes it exists to reject, each NEGATIVE breaking exactly one
+    of its checks, plus the survivor shape the first adversarial review
+    measured on CMake 4.3.0 (its first two lines verbatim, paths
+    shortened). Pure text, no cmake needed, so it bites on every host.
+    """
+    diagnostic = "glintfx.pc declares the variable 'libdir' more than once"
+    genuine = (
+        "CMake Error at /x/GlintfxPkgConfigValidateInstalled.cmake:470 (message):\n"
+        "  glintfx: glintfx.pc declares the variable 'libdir' more than once (pc\n"
+        "  file: '/x/glintfx.pc').\n"
+    )
+    status_only = genuine.replace("CMake Error at /x/GlintfxPkgConfigValidateInstalled.cmake:470 (message):\n  ", "-- ")
+    negatives = {
+        "frase so como linha de STATUS": status_only,
+        "resumo do estagio impresso": genuine + "-- glintfx: glintfx.pc canonicalized for CMake's native parser - 5 declaration(s), none repeated.\n",
+        "Resolution failed do CMake": genuine + "  Resolution failed for file '/x/scratch/glintfx.pc'\n",
+        "Parsing failed do CMake": genuine + "  Parsing failed for file '/x/scratch/glintfx.pc'\n",
+        "sobrevivente medido no CMake 4.3.0": (
+            "-- glintfx: glintfx.pc declares the variable 'libdir' more than once (pc file: '/x/glintfx.pc').\n"
+            "-- glintfx: glintfx.pc canonicalized for CMake's native parser - 5 variable line(s) and 5 field line(s), no declaration repeated.\n"
+            "CMake Warning at /x/probe.cmake:11 (cmake_pkg_config):\n"
+            "  Resolution failed for file '/x/p0_var_dup.canon.pc'\n"
+        ),
+    }
+    ok = True
+    try:
+        assert_refused_by_glintfx_before_native_parser(genuine, diagnostic, on_fail="POSITIVO deveria ter passado")
+    except SystemExit:
+        print("selftest: controle POSITIVO (recusa do proprio glintfx) FALHOU", file=sys.stderr)
+        ok = False
+    else:
+        print("selftest: controle POSITIVO (recusa do proprio glintfx) OK")
+    for label, text in negatives.items():
+        try:
+            assert_refused_by_glintfx_before_native_parser(text, diagnostic, on_fail=f"NEGATIVO ({label})")
+        except SystemExit:
+            print(f"selftest: controle NEGATIVO ({label}) OK - reprovou")
+        else:
+            print(f"selftest: controle NEGATIVO ({label}) FALHOU - aceitou", file=sys.stderr)
+            ok = False
+    return ok
+
+
 def selftest_main():
     controls = [
         selftest_normalize_wrap_immunity_control(),
@@ -2797,6 +3125,7 @@ def selftest_main():
         selftest_rewrite_libdir_line_control(),
         selftest_resolve_real_pkgconfig_tool_full_path_control(),
         selftest_windows_batch_dispatch_control(),
+        selftest_refused_before_native_parser_control(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -11052,3 +11052,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A janela:** o líder respondeu, verbatim, "fechei navegadores". Medido pelo main às 15:05:04: usuario=1806 e fora=1806, abaixo de 2000.
   - **Ordem da `claude_configs`:** primeiro os dois autotestes pelo contido, depois as rodadas. Avisar a ela o fim dos autotestes e o início e o fim das rodadas, com o pico de memória.
   - **Despacho:** o revisor da T7 (`qa-engineer` haiku, o mesmo da revisão parcial, para continuidade) foi retomado com essa ordem de execução, mais a revisão do commit `317808a0`.
+- **D-W8-1099 (main, 13/11 15:22, modo autônomo, a confirmar retroativamente): a CMAKE45-PC fecha pela regra N3, com `f2c6b95a`, e o ramo é empurrado para o CI provar Arch e CachyOS.**
+  - **Segunda revisão** (`qa-engineer` haiku novo, `.trabalho/cto-w8/rev-cmake45-fix1/veredito.txt`): REPROVADA só por I-1. Três funções de teste novas passam de 40 linhas (45, 42 e 44, contra a L-17, `GODS_LAWS.md:440`); o main conferiu a primeira no blob.
+  - **O resto da revisão:** verde 26/26 nas três imagens; os 4 IMPORTANTES da primeira revisão consertados e medidos; 18 de 18 mutantes mortos em pelo menos um sistema; os 3 que sobrevivem no Fedora são os previstos e declarados como só-Arch.
+  - **Fechamento:** pela regra N3 (`GODS_LAWS.md:380`), na segunda reprovação o que sobra vai à INBOX e a fatia fecha. O main registrou I-1, C-1 e C-2 na INBOX e anotou o estado no item `CMAKE45-PC`.
+  - **Push e CI:** o ramo `onda-w8` é empurrado, no escopo do modo autônomo, e o CI dispara por `workflow_dispatch`. Isso confirma Arch e CachyOS no servidor, o motivo da fatia, e dá o item 7 da revisão da T7. Merge e tag continuam só no fechamento da onda.

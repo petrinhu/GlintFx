@@ -15,7 +15,7 @@
 // one-pixel scissor, front faces culled, color mask off, a stray program, vertex array and buffers,
 // a 1x1 viewport), the function runs, and EVERY item of the closed list is read back. The cases
 // named gl_stencil_contract_* prove, on the same model, the stencil passes of
-// gl_stencil_contract.hpp (R2D-SPRITE-SHADE H3a; their own file since H3a-fix1).
+// gl_stencil_contract.hpp (R2D-SPRITE-SHADE H3a; that contract has its own header since H3a-fix1).
 //
 // THE RULE OF THE START (the N1 review of H3a-fix1): every item starts AWAY from what the function
 // under test is about to write. A model that already holds the value a call would write cannot
@@ -466,14 +466,15 @@ GLINTFX_TEST(gl_stencil_contract_clearing_the_stencil_makes_every_bit_writable_f
     GLINTFX_CHECK_EQ(model.value_at_clear, 0);
 }
 
-// R2D-SPRITE-SHADE H3a: after a pass that turned the stencil on and the color off, leaving puts the
-// stencil test off, the color on and the stencil at the GL defaults; setting the state for drawing
-// puts the same stencil defaults (the two halves agree).
+// R2D-SPRITE-SHADE H3a: from a consumer's stencil, every item away from the GL defaults, with the
+// stencil test on and the color off, leaving puts the test off, the color on and the stencil at the
+// GL defaults; setting the state for drawing puts the same stencil defaults (the two halves agree).
+// No pass runs first, on purpose: every pass asks reference 0 and every bit, the very defaults, so
+// a pass as the start would hide them (THE RULE OF THE START).
 GLINTFX_TEST(gl_state_contract_both_halves_leave_the_stencil_at_the_gl_defaults) {
     const gl_function_table table = fake_table();
     plant_hostile_state();
     plant_hostile_stencil();
-    set_stencil_pass(table, stencil_pass::release_marks);
     leave_gl_state_after_drawing(table, 320, 240, false);
     GLINTFX_CHECK(!model.stencil_test);
     GLINTFX_CHECK((model.color_mask == std::array<bool, 4>{true, true, true, true}));

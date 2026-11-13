@@ -11105,3 +11105,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - a ratificação da seção "In progress" da Home;
     - o Status da ATLAS-WIKI para 🔍.
   - **Limite declarado:** os links para os cabeçalhos novos quebram no GitHub até o merge em `main`.
+- **D-W8-1108 (líder, 13/11 18:43, registrado pelo main): seguir a ordem da tabela.** O líder perguntou se já existe a fatia do personagem na frente e atrás de um prédio. O main respondeu: R2D-YSORT e GFSS-ZINDEX estão na W9-C e R2D-OCCLUDE-PARTIAL na W10; foram desenhadas em 27/08 e estavam congeladas até DEMO-1, que já está ✅. Ordem do líder, verbatim: "Pode continuar seguindo a ordem da tabela". Leitura do main: a fila da W8 segue como está (H3b-1 em curso, depois tidy23, T6-B2, H3b-2, H3b-3, H5, STROKE-FAN-ATOM, G3, G4, F1), e as fatias de profundidade entram na vez delas, depois do fechamento da W8.

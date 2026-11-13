@@ -11064,3 +11064,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - apagar builds e temporários do trabalho, com o caminho conferido antes (L-53);
   - merge em `main`, push e tag.
   A condição de fechamento continua a da L-11 do projeto e da L-24 global: merge e tag só com a onda fechada, CI verde e revisão limpa. A versão e a tag seguem a L-26.
+- **D-W8-1103 (main, 13/11 17:38, modo autônomo, a confirmar retroativamente): os itens 2 e 5 da revisão da T7 estão feitos, e o item 7 vai contra o CI já verde.**
+  - **Item 5:** o contido aceitou às 15:09:36, com usuário em 1812. Os dois autotestes deram rc 0; HST e HWT reprovaram, como previsto.
+  - **Item 2:** as 24 rodadas foram de 15:09:43 a 17:36:43, todas com rc 0. As de referência bateram IGUAIS e o PNG ficou sem mudança de pixel. Dos 10 mutantes próprios, 9 saíram como previsto. O MP8 errou a previsão (ela modelou só A) e o M5 pegou o deslocamento de 0,1 px, por isso o C-7 saiu do relatório.
+  - **M4:** sobrevive por desenho. O par plantado (25 rodadas) não roda; vai à INBOX como `T7-M4-PAR-PLANTADO`.
+  - **Commit `317808a0`:** sem CRÍTICO nem IMPORTANTE novos.
+  - **Aviso à `claude_configs`:** fim das rodadas e pico de 22,67 GiB (`memory.peak` da fatia do usuário).
+  - **Item 7:** o run 43482138342, verde, já contém os três commits da T7. O revisor foi retomado para conferir nesse log os critérios do item 7 e rodar o passo 15 (MSVC) contra o blob, e então fechar o veredito.

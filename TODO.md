@@ -152,6 +152,7 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage 13/11/2026, D-W8-1639, do CTO via main] `WINLAB-SELFTEST-FOLGA`: os autotestes `win_vm_lab_coletar_resultados_selftest` (mediana 25,0 s) e `win_vm_lab_sessao_selftest` (mediana 31,6 s) rodam perto da régua de 40 s da regra 1 do `ctest_aggregate.py`; sob carga o coletor chegou a 43,8 s e reprovou o `preci --fast` da T7 (`.trabalho/cto-w8/t7/preciE.log:6590-6601`); no CI o coletor sai `Skipped` (run 43286479464), então a régua só morde o espelho local; o irmão `sessao` não foi conferido no CI. Conserto por ordem N3 do CTO, com a medida e a leitura da D-W8-1642 da errata 2 da T7 (`.trabalho/cto-w8/ordens-anexos/t7-errata2/errata2.md`).
 
 
 

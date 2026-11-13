@@ -11,6 +11,9 @@
 #include <glintfx/core/log/severity.hpp>
 
 #include "core/log/emit.hpp"
+#include "draw2d/embedded_program.hpp"
+#include "draw2d/gl_stencil_contract.hpp"
+#include "draw2d/shadow_group.hpp"
 
 namespace glintfx::draw2d {
 
@@ -288,20 +291,58 @@ namespace {
     return true;
 }
 
+// What draw_batch() carries from one run to the next for the stencil (R2D-SPRITE-SHADE H3b):
+// whether a shadow came in this segment, and the pass GL is set for. Plain at the start:
+// set_gl_state_for_drawing() turned the stencil test off and every color channel on, and the
+// caller set u_stencil_discard to 0.
+struct stencil_cursor {
+    bool shadow_came = false;
+    stencil_pass set_for = stencil_pass::plain;
+};
+
+// Sets GL for `pass`, the stencil state and u_stencil_discard, when it is not the pass GL is
+// already set for.
+void enter_stencil_pass(const render::gl_function_table &gl, stencil_pass pass,
+                        std::int32_t discard_location, stencil_cursor &cursor) noexcept {
+    if (pass == cursor.set_for) {
+        return;
+    }
+    set_stencil_pass(gl, pass);
+    gl.glUniform1i(discard_location, stencil_discard_of(pass));
+    cursor.set_for = pass;
+}
+
+// Draws `run` with the passes shadow_group.hpp gives it, one draw call per pass, and says how many
+// were issued.
+[[nodiscard]] std::uint64_t draw_run_passes(const render::gl_function_table &gl,
+                                            const draw_run &run, std::int32_t discard_location,
+                                            stencil_cursor &cursor) noexcept {
+    const run_passes passes = passes_of_run(run.state.stencil, cursor.shadow_came);
+    if (passes.clear_stencil_first) {
+        clear_stencil(gl);
+    }
+    for (std::size_t pass = 0; pass < passes.count; ++pass) {
+        enter_stencil_pass(gl, passes.passes[pass], discard_location, cursor);
+        gl.glDrawElements(k_gl_triangles, static_cast<GLsizei>(run.index_count), k_gl_unsigned_int,
+                          buffer_offset(run.first_index * sizeof(std::uint32_t)));
+    }
+    cursor.shadow_came = shadow_came_after(run.state.stencil, cursor.shadow_came);
+    return passes.count;
+}
+
 } // namespace
 
 gltfx_rslt<batch_draw_counts> draw_batch(const render::gl_function_table &gl,
                                          const triangle_batch &batch,
-                                         std::int32_t textured_location) noexcept {
+                                         const batch_uniforms &uniforms) noexcept {
     batch_draw_counts counts;
     std::uint32_t bound_texture = 0; // as if none: u_textured is 0 until a run binds its own
+    stencil_cursor cursor;           // one batch is one segment: no shadow has come yet
     for (const draw_run &run : batch.runs()) {
-        if (bind_run_texture(gl, textured_location, run.state.texture, bound_texture)) {
+        if (bind_run_texture(gl, uniforms.textured_location, run.state.texture, bound_texture)) {
             ++counts.texture_switches;
         }
-        gl.glDrawElements(k_gl_triangles, static_cast<GLsizei>(run.index_count), k_gl_unsigned_int,
-                          buffer_offset(run.first_index * sizeof(std::uint32_t)));
-        ++counts.calls;
+        counts.calls += draw_run_passes(gl, run, uniforms.stencil_discard_location, cursor);
     }
     if (counts.calls == 0) {
         return gltfx_rslt<batch_draw_counts>::ok(counts);

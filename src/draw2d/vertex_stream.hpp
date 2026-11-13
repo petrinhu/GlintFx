@@ -88,6 +88,14 @@ void destroy_vertex_stream(const render::gl_function_table &gl, vertex_stream &s
                                                      vertex_upload_technique technique,
                                                      const triangle_batch &batch) noexcept;
 
+// Where draw_batch() finds the program's two integer uniforms it sets (embedded_program.hpp):
+// u_textured (T4b-B1) and u_stencil_discard (R2D-SPRITE-SHADE H3b). Grouped so the call stays
+// within four parameters.
+struct batch_uniforms {
+    std::int32_t textured_location = -1;
+    std::int32_t stencil_discard_location = -1;
+};
+
 // What one draw_batch() did (T4b-B1, D-W8-471): the draw calls it issued and how many times it
 // changed the bound texture, counted where the change is made, so the report says what GL was
 // told.
@@ -96,19 +104,27 @@ struct batch_draw_counts {
     std::uint64_t texture_switches = 0;
 };
 
-// Issues one draw call per run of `batch`, in order, and says how many were issued. The array, the
-// buffers and the program must be bound (set_gl_state_for_drawing does it), unit 0 active, and the
-// program's `u_textured` (at `textured_location`) at 0, which the caller sets every flush. It
+// Issues the draw calls of every run of `batch`, in order, and says how many were issued. The
+// array, the buffers and the program must be bound and the stencil test off with every color
+// channel on (set_gl_state_for_drawing does it), unit 0 active, and the program's `u_textured` and
+// `u_stencil_discard` (at the locations in `uniforms`) at 0, which the caller sets every flush. It
 // starts as if no texture were bound: whatever the consumer left on unit 0 is never read, because
 // a run with no texture samples nothing (`u_textured` 0) and a run with one binds its own. Before
 // the draw call of a run whose texture differs from the last one it bound (0 is no texture), it
 // binds the run's texture to unit 0 and sets `u_textured` to 1 for a texture, 0 for none; that is
-// one texture switch (renderer_2d.hpp: a change to or from no texture counts). The
-// GL errors the calls left are read (at most k_max_gl_error_reads, D-B3c-2) and mapped:
+// one texture switch (renderer_2d.hpp: a change to or from no texture counts).
+// THE STENCIL (R2D-SPRITE-SHADE H3b): one batch is one SEGMENT of shadow_group.hpp, so each call
+// starts with no shadow come. Each run is drawn with the passes passes_of_run() gives it, in
+// order: the stencil cleared first when it asks (clear_stencil(), after the scissor is off), and
+// for each pass the state of set_stencil_pass() and the `u_stencil_discard` of
+// stencil_discard_of(), set only when the pass differs from the one GL is already set for, then one
+// draw call. A batch with no shadow therefore calls no stencil function and sets no uniform for it.
+// An ordinary run after the first shadow is two draw calls (paint, then release), and both count.
+// The GL errors the calls left are read (at most k_max_gl_error_reads, D-B3c-2) and mapped:
 // GL_OUT_OF_MEMORY is `out_of_memory`, anything else `platform_failure` with rejected_value()
 // "draw" and the GL code in os_error_code(). An empty batch issues nothing and reads nothing.
 [[nodiscard]] glintfx::gltfx_rslt<batch_draw_counts>
 draw_batch(const render::gl_function_table &gl, const triangle_batch &batch,
-           std::int32_t textured_location) noexcept;
+           const batch_uniforms &uniforms) noexcept;
 
 } // namespace glintfx::draw2d

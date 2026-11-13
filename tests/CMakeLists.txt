@@ -2020,6 +2020,13 @@ target_sources(vertex_stream_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
+# R2D-SPRITE-SHADE H3b: draw_batch() gives each run the passes of the stencil atom (shadow_group.cpp), sets each pass in
+# GL (gl_stencil_contract.cpp) and the program's discard of each pass (embedded_program.cpp).
+target_sources(vertex_stream_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/shadow_group.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_stencil_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
+)
 
 # R2D-SHAPES S5-C1 (D-W8-566): the one field of the renderer's descriptor that open() can refuse, checked by a pure
 # predicate (header only), on every system.
@@ -2079,6 +2086,12 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+)
+# R2D-SPRITE-SHADE H3b: fill_shadow() reaches the frame machine (renderer_2d_impl_shadows.cpp), and draw_batch() asks
+# the atom of the stencil passes (shadow_group.cpp).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_shadows.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/shadow_group.cpp"
 )
 # R2D-SHAPES S3, etapa B: stroke_line() reaches the frame machine, so this target compiles the atoms of the line.
 target_sources(renderer_2d_impl_test PRIVATE

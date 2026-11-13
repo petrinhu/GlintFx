@@ -188,23 +188,33 @@ void renderer_2d_impl::begin_batch(const gltfx_transform &world_to_pixel) noexce
     tally.batch_began();
 }
 
-void renderer_2d_impl::submit(const draw2d::quad_corners_world &corners, gltfx_rgba color,
-                              gltfx_draw_layer layer, gltfx_draw_2d_refusal refusal) noexcept {
+bool renderer_2d_impl::quad_call_goes_on(const draw2d::quad_corners_world &corners,
+                                         gltfx_draw_2d_refusal refusal,
+                                         draw2d::quad_corners_pixel &pixel_corners) noexcept {
     if (!frame_open) {
         tally.piece_outside_frame();
-        return;
+        return false;
     }
     if (refusal != gltfx_draw_2d_refusal::none) {
         tally.piece_refused(refusal);
-        return;
+        return false;
     }
     if (!draw2d::quad_in_pixel_range(corners, affine)) {
         tally.piece_refused(gltfx_draw_2d_refusal::pixel_position_out_of_range); // S2b-fix1, I-7
-        return;
+        return false;
     }
     // Turned NOW, by the batch transform in force, in double precision: changing batch later never
     // moves a piece already submitted, and it costs no draw call.
-    const draw2d::quad_corners_pixel pixel_corners = draw2d::quad_vertices(corners, affine);
+    pixel_corners = draw2d::quad_vertices(corners, affine);
+    return true;
+}
+
+void renderer_2d_impl::submit(const draw2d::quad_corners_world &corners, gltfx_rgba color,
+                              gltfx_draw_layer layer, gltfx_draw_2d_refusal refusal) noexcept {
+    draw2d::quad_corners_pixel pixel_corners{};
+    if (!quad_call_goes_on(corners, refusal, pixel_corners)) {
+        return;
+    }
     if (!pieces.add(pixel_corners, color, layer.value)) {
         tally.piece_dropped_out_of_memory();
     }
@@ -342,8 +352,11 @@ bool renderer_2d_impl::add_piece_to_batch(const draw2d::pending_piece &piece) no
     }
     // A quad carries its texture (0 for none) and where its corners read it (T4b-B1, D-W8-470):
     // a change of texture between two pieces starts another run, in paint order, never reordered.
-    return batch.add_textured_quad(piece.corners, piece.texture_corners, piece.color,
-                                   draw2d::batch_state{program.program, piece.texture, 0});
+    // A shadow carries its stencil role (R2D-SPRITE-SHADE H3b): it never shares a run with an
+    // ordinary piece, and draw_batch() gives its run the passes of shadow_group.hpp.
+    return batch.add_textured_quad(
+        piece.corners, piece.texture_corners, piece.color,
+        draw2d::batch_state{program.program, piece.texture, 0, piece.stencil});
 }
 
 std::size_t renderer_2d_impl::batch_pending_in_paint_order() noexcept {
@@ -379,8 +392,12 @@ bool renderer_2d_impl::upload_and_draw_batch() noexcept {
     // flushes, so it is set every time.
     gl.glUniform1i(program.texture_location, 0);
     gl.glUniform1i(program.textured_location, 0);
-    const gltfx_rslt<draw2d::batch_draw_counts> counts =
-        draw2d::draw_batch(gl, batch, program.textured_location);
+    // R2D-SPRITE-SHADE H3b: no fragment is discarded until a stencil pass asks; a flush that ended
+    // in a pass that discards left the uniform at 1 or 2 in the program.
+    gl.glUniform1i(program.stencil_discard_location, 0);
+    const gltfx_rslt<draw2d::batch_draw_counts> counts = draw2d::draw_batch(
+        gl, batch,
+        draw2d::batch_uniforms{program.textured_location, program.stencil_discard_location});
     if (counts.has_error()) {
         remember_error(counts.err());
         return false;

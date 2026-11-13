@@ -114,6 +114,12 @@ struct renderer_2d_impl {
     void fill_rect(const gltfx_rect_world &rect, gltfx_rgba color, gltfx_draw_layer layer) noexcept;
     void fill_quad(const gltfx_quad_world &corners, gltfx_rgba color,
                    gltfx_draw_layer layer) noexcept;
+    // A shadow (R2D-SPRITE-SHADE H3b, renderer_2d_impl_shadows.cpp): a filled quadrilateral of one
+    // color, `tint`, refused for its corners and tint as fill_quad() is, and kept as one piece with
+    // the stencil role shadow (shadow_group.hpp), so its run marks what it darkens. No public
+    // method calls it in this version; the facade comes with the pixel cells.
+    void fill_shadow(const gltfx_quad_world &shadow, gltfx_rgba tint,
+                     gltfx_draw_layer layer) noexcept;
     // The triangle methods (S2b): an empty call is nothing; the rest is checked, and refused whole
     // or kept as one piece (triangle_list_check.hpp).
     void fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
@@ -191,6 +197,13 @@ struct renderer_2d_impl {
 
     void submit(const draw2d::quad_corners_world &corners, gltfx_rgba color, gltfx_draw_layer layer,
                 gltfx_draw_2d_refusal refusal) noexcept;
+    // The head of every quad call (fill_rect, fill_quad, fill_shadow; H3b, the third, rule of 3):
+    // with no frame open the call is counted outside the frame; with a reason, or with a corner the
+    // batch transform takes out of the pixel range, it is refused and counted once. True only when
+    // the quad goes on to be kept, with `pixel_corners` turned NOW by the batch transform in force.
+    [[nodiscard]] bool quad_call_goes_on(const draw2d::quad_corners_world &corners,
+                                         gltfx_draw_2d_refusal refusal,
+                                         draw2d::quad_corners_pixel &pixel_corners) noexcept;
     // The head of every shape call (line, rectangle outline, ellipse; S5-C1, the third shape, rule
     // of 3): with no frame open the call is counted outside the frame; with a reason, it is refused
     // whole and counted once. True only when the call goes on to be built.

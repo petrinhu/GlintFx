@@ -20,27 +20,31 @@ bool piece_list::reserve(std::size_t pieces) noexcept {
 
 bool piece_list::add(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                      std::int32_t layer) noexcept {
-    if (piece_store.size >= bound || !ensure_room<pending_piece>(allocator, piece_store, 1)) {
-        return false;
-    }
-    piece_store.data[piece_store.size] = pending_piece{
-        corners, color, layer, static_cast<std::uint32_t>(piece_store.size), piece_kind::quad};
-    note_layer(layer);
-    ++piece_store.size;
-    return true;
+    return append_quad(pending_piece{corners, color, layer, 0, piece_kind::quad});
 }
 
 bool piece_list::add_textured(const quad_corners_pixel &corners, const textured_quad_paint &paint,
                               std::int32_t layer) noexcept {
+    pending_piece piece{corners, paint.tint, layer, 0, piece_kind::quad};
+    piece.texture = paint.texture;
+    piece.texture_corners = paint.texture_corners;
+    return append_quad(piece);
+}
+
+bool piece_list::add_shadow(const quad_corners_pixel &corners, glintfx::gltfx_rgba tint,
+                            std::int32_t layer) noexcept {
+    pending_piece piece{corners, tint, layer, 0, piece_kind::quad};
+    piece.stencil = stencil_role::shadow;
+    return append_quad(piece);
+}
+
+bool piece_list::append_quad(pending_piece piece) noexcept {
     if (piece_store.size >= bound || !ensure_room<pending_piece>(allocator, piece_store, 1)) {
         return false;
     }
-    pending_piece piece{corners, paint.tint, layer, static_cast<std::uint32_t>(piece_store.size),
-                        piece_kind::quad};
-    piece.texture = paint.texture;
-    piece.texture_corners = paint.texture_corners;
+    piece.submission = static_cast<std::uint32_t>(piece_store.size);
     piece_store.data[piece_store.size] = piece;
-    note_layer(layer);
+    note_layer(piece.layer);
     ++piece_store.size;
     return true;
 }

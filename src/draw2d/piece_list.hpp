@@ -61,6 +61,9 @@ struct pending_piece {
     // name and four corners more per piece, paid by every piece.
     std::uint32_t texture = 0;
     quad_texture_corners texture_corners = k_role_texture_corners;
+    // What the piece is to the stencil (shadow_group.hpp; R2D-SPRITE-SHADE H3b): a shadow, or an
+    // ordinary piece. Carried through the sort with the rest, so the batch keys the run by it.
+    stencil_role stencil = stencil_role::ordinary;
 };
 static_assert(std::is_trivially_copyable_v<pending_piece>,
               "a pending piece is copied by value through the sort (D-B4-2)");
@@ -101,6 +104,11 @@ class piece_list {
     [[nodiscard]] bool add_textured(const quad_corners_pixel &corners,
                                     const textured_quad_paint &paint, std::int32_t layer) noexcept;
 
+    // Adds one SHADOW (R2D-SPRITE-SHADE H3b): a quad of one color, `tint`, with the stencil role
+    // shadow. The same bound and the same refusal as add().
+    [[nodiscard]] bool add_shadow(const quad_corners_pixel &corners, glintfx::gltfx_rgba tint,
+                                  std::int32_t layer) noexcept;
+
     [[nodiscard]] std::size_t size() const noexcept;
 
     // Adds one TRIANGLE piece (S2a): its vertices and its local indices are COPIED into the list
@@ -139,6 +147,10 @@ class piece_list {
     void clear() noexcept;
 
   private:
+    // The one path of every quad piece (add(), add_textured(), add_shadow(); H3b, the third, rule
+    // of 3): appends `piece` with the next submission number. False, list unchanged, at the bound
+    // or when memory ran out.
+    [[nodiscard]] bool append_quad(pending_piece piece) noexcept;
     // Keeps `one_layer` true only while every piece is on the layer of the first one.
     void note_layer(std::int32_t layer) noexcept;
     // Room in one go for a triangle piece with these counts, in the piece store and in the triangle

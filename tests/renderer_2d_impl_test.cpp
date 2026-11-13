@@ -69,8 +69,11 @@ constexpr GLenum k_out_of_memory = 0x0505;
 constexpr GLenum k_invalid_operation = 0x0502;
 constexpr GLint k_viewport_location = 11;
 constexpr GLint k_encode_location = 12;
-constexpr GLint k_textured_location = 13; // T4b-B1: u_textured
-constexpr GLint k_texture_location = 14;  // T4b-B1: u_texture
+constexpr GLint k_textured_location = 13;        // T4b-B1: u_textured
+constexpr GLint k_texture_location = 14;         // T4b-B1: u_texture
+constexpr GLint k_stencil_discard_location = 15; // R2D-SPRITE-SHADE H3b: u_stencil_discard
+constexpr GLenum k_stencil_test = 0x0B90;
+constexpr GLbitfield k_stencil_buffer_bit = 0x00000400;
 
 struct fake_card {
     GLuint next_id = 1;
@@ -99,6 +102,14 @@ struct fake_card {
     int texture_unit_uniform = -1;
     std::vector<GLuint> texture_at_draw;
     std::vector<int> textured_at_draw;
+    // R2D-SPRITE-SHADE H3b: u_stencil_discard as last set, the color mask (its red channel), the
+    // stencil clears, and what each draw call saw of the three and of the stencil test.
+    int stencil_discard_uniform = -1;
+    bool color_on = true;
+    int stencil_clears = 0;
+    std::vector<int> stencil_discard_at_draw;
+    std::vector<bool> stencil_test_at_draw;
+    std::vector<bool> color_at_draw;
 };
 fake_card card;
 
@@ -173,6 +184,9 @@ GLint GLINTFX_GL_APIENTRY f_uniform_location(GLuint, const GLchar *name) {
     if (std::strcmp(name, "u_texture") == 0) {
         return k_texture_location;
     }
+    if (std::strcmp(name, "u_stencil_discard") == 0) {
+        return k_stencil_discard_location;
+    }
     return std::strcmp(name, "u_encode_srgb") == 0 ? k_encode_location : k_viewport_location;
 }
 void GLINTFX_GL_APIENTRY f_gen(GLsizei n, GLuint *ids) {
@@ -222,6 +236,9 @@ void GLINTFX_GL_APIENTRY f_draw(GLenum, GLsizei count, GLenum, const void *) {
     card.draw_counts.push_back(count);
     card.texture_at_draw.push_back(card.bound_texture);
     card.textured_at_draw.push_back(card.textured_uniform);
+    card.stencil_discard_at_draw.push_back(card.stencil_discard_uniform);
+    card.stencil_test_at_draw.push_back(card.cap_state.at(k_stencil_test) == 1);
+    card.color_at_draw.push_back(card.color_on);
     if (card.error_from_draw != 0) {
         card.error_queue.push_back(card.error_from_draw);
     }
@@ -239,9 +256,12 @@ void GLINTFX_GL_APIENTRY f_clear_color(GLfloat r, GLfloat g, GLfloat b, GLfloat 
     GLINTFX_COUNT();
     card.clear_color = {r, g, b, a};
 }
-void GLINTFX_GL_APIENTRY f_clear(GLbitfield) {
+void GLINTFX_GL_APIENTRY f_clear(GLbitfield mask) {
     GLINTFX_COUNT();
     card.calls.emplace_back("clear");
+    if ((mask & k_stencil_buffer_bit) != 0) {
+        ++card.stencil_clears;
+    }
 }
 void GLINTFX_GL_APIENTRY f_uniform2f(GLint location, GLfloat x, GLfloat y) {
     GLINTFX_COUNT();
@@ -260,6 +280,9 @@ void GLINTFX_GL_APIENTRY f_uniform1i(GLint location, GLint value) {
     if (location == k_texture_location) {
         card.texture_unit_uniform = value;
     }
+    if (location == k_stencil_discard_location) {
+        card.stencil_discard_uniform = value;
+    }
 }
 void GLINTFX_GL_APIENTRY f_bind_texture(GLenum, GLuint texture) {
     GLINTFX_COUNT();
@@ -277,14 +300,17 @@ void GLINTFX_GL_APIENTRY f_disable(GLenum cap) {
 void GLINTFX_GL_APIENTRY f_enum_uint(GLenum, GLuint) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_enum_enum(GLenum, GLenum) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_blend4(GLenum, GLenum, GLenum, GLenum) { GLINTFX_COUNT(); }
-void GLINTFX_GL_APIENTRY f_color_mask(GLboolean, GLboolean, GLboolean, GLboolean) {
+void GLINTFX_GL_APIENTRY f_color_mask(GLboolean red, GLboolean, GLboolean, GLboolean) {
     GLINTFX_COUNT();
+    card.color_on = red != 0;
 }
 void GLINTFX_GL_APIENTRY f_pixel_store(GLenum, GLint) { GLINTFX_COUNT(); }
 // R2D-SPRITE-SHADE H3a: every flush leaves the stencil at the GL defaults (gl_state_contract.hpp).
 void GLINTFX_GL_APIENTRY f_stencil_func(GLenum, GLint, GLuint) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_stencil_op(GLenum, GLenum, GLenum) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_stencil_mask(GLuint) { GLINTFX_COUNT(); }
+// R2D-SPRITE-SHADE H3b: the first shadow of a segment clears the stencil.
+void GLINTFX_GL_APIENTRY f_clear_stencil(GLint) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_viewport(GLint x, GLint y, GLsizei w, GLsizei h) {
     GLINTFX_COUNT();
     card.viewport = {x, y, w, h};
@@ -337,6 +363,7 @@ gl_function_table fake_table() {
     t.glStencilFunc = &f_stencil_func;
     t.glStencilOp = &f_stencil_op;
     t.glStencilMask = &f_stencil_mask;
+    t.glClearStencil = &f_clear_stencil;
     return t;
 }
 
@@ -2676,4 +2703,74 @@ GLINTFX_TEST(renderer_2d_impl_two_renderers_keep_their_own_image_resolver) {
     GLINTFX_CHECK(second_back.context == static_cast<void *>(&second_resolver_context));
     renderer_2d_impl::destroy(second_renderer);
     renderer_2d_impl::destroy(first_renderer);
+}
+
+namespace {
+
+constexpr glintfx::gltfx_rgba k_shade{0.0F, 0.0F, 0.0F, 0.5F};
+
+glintfx::gltfx_quad_world shadow_square(double x) {
+    return glintfx::gltfx_quad_world{{x, 0.0}, {x + 4.0, 0.0}, {x + 4.0, 4.0}, {x, 4.0}};
+}
+
+} // namespace
+
+// R2D-SPRITE-SHADE H3b (the audit, sec. 2 and 4.2): fill_shadow() is one piece, kept in its own
+// run with the stencil role shadow. A rectangle, a shadow and a rectangle on one layer are three
+// pieces and FOUR draw calls: the first rectangle plain; the stencil cleared once, then the shadow
+// marking (stencil test on, color on, discard 1); the second rectangle painted (discard 0), then
+// releasing the marks where it is opaque (stencil test on, color OFF, discard 2).
+GLINTFX_TEST(renderer_2d_impl_a_shadow_is_one_piece_with_the_stencil_passes_of_its_segment) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_rect(rect(0, 0, 4, 4), k_red, k_layer_0);
+    renderer->fill_shadow(shadow_square(2.0), k_shade, k_layer_0);
+    renderer->fill_rect(rect(4, 0, 4, 4), k_red, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    const auto report = renderer->last_frame_report();
+    GLINTFX_CHECK(report.pieces_submitted == 3U && report.pieces_drawn == 3U);
+    GLINTFX_CHECK_EQ(report.draw_calls, std::uint64_t{4});
+    GLINTFX_CHECK((card.stencil_discard_at_draw == std::vector<int>{0, 1, 0, 2}));
+    GLINTFX_CHECK((card.stencil_test_at_draw == std::vector<bool>{false, true, false, true}));
+    GLINTFX_CHECK((card.color_at_draw == std::vector<bool>{true, true, true, false}));
+    GLINTFX_CHECK_EQ(card.stencil_clears, 1);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-SPRITE-SHADE H3b (the audit, sec. 2): a shadow is refused as ONE piece, counted, for a corner
+// or a tint that is not a finite number: not_a_number first, then infinite.
+GLINTFX_TEST(renderer_2d_impl_a_shadow_refused_for_a_value_counts_once_by_its_reason) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_shadow(glintfx::gltfx_quad_world{{0, 0}, {nan, 0}, {1, inf}, {0, 1}}, k_shade,
+                          k_layer_0);
+    renderer->fill_shadow(glintfx::gltfx_quad_world{{0, 0}, {1, 0}, {1, inf}, {0, 1}}, k_shade,
+                          k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    const auto report = renderer->last_frame_report();
+    GLINTFX_CHECK(report.pieces_submitted == 2U && report.pieces_refused == 2U);
+    GLINTFX_CHECK(report.first_refusal == glintfx::gltfx_draw_2d_refusal::not_a_number);
+    GLINTFX_CHECK(report.pieces_refused_not_a_number == 1U && report.pieces_refused_infinite == 1U);
+    GLINTFX_CHECK_EQ(report.draw_calls, std::uint64_t{0});
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-SPRITE-SHADE H3b: every flush starts with u_stencil_discard at 0 (a uniform keeps its value
+// in the program between flushes): a flush that ended marking a shadow leaves it at 1, and the
+// rectangle of the next flush is drawn with 0.
+GLINTFX_TEST(renderer_2d_impl_each_flush_starts_with_u_stencil_discard_at_zero) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_shadow(shadow_square(0.0), k_shade, k_layer_0);
+    renderer->flush();
+    renderer->fill_rect(rect(1, 0, 1, 1), k_red, k_layer_0);
+    const auto report = renderer->finish_frame();
+    GLINTFX_CHECK(report.has_value());
+    GLINTFX_CHECK((card.stencil_discard_at_draw == std::vector<int>{1, 0}));
+    renderer_2d_impl::destroy(renderer);
 }

@@ -11040,3 +11040,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Ao líder, se a janela for negada:** as opções da seção 4 da errata, nesta ordem: contêiner com `--pids-limit 64`, mudar a regra U/2, escopo próprio do systemd, hospedeiro sem envoltório, esperar. O CTO desaconselha o escopo próprio e o hospedeiro.
   - **Errata:** `.trabalho/cto-w8/ordens-anexos/t7-fix1-errata1/errata1.md`, md5 `56def0f7`, anexos `becb9629`, rc 0.
   - **Retomada:** o implementador da T7-fix1 retomou com `usuario=2550`.
+- **D-W8-1097 (main, 13/11 15:03, modo autônomo, a confirmar retroativamente): a T7-fix1 entra em `317808a0`, e o main pede à `claude_configs` as janelas da revisão da T7.**
+  - **Relato:** "Cumprimento: SIM". `preci --fast` TUDO VERDE (395/395) no `snap2` sobre `aaa7590c`. Usuário entre 2546 e 2561 dentro da trava, pico depois em 2847.
+  - **Conferido pelo main:** são 2 arquivos (18/10 e 1/1), os md5 dos blobs batem com o pré-ensaio do CTO (`51a279d7` e `c914bc5a`) e não sobrou nenhum nome com `_and_` em `textures.cpp`.
+  - **Pedido à `claude_configs` (L-46), para fechar a revisão da T7:**
+    - aviso prévio das 24 rodadas com `docker build` (o BuildKit e o contêiner B ficam sem cpuset e usam os núcleos 0-3) e pedido da janela de horário;
+    - pedido de uma janela com `fora<=2000` para os dois autotestes do item 5, pelo contido.
+  - **Se ela recusar ou devolver ao líder:** sobem as opções da seção 6 da `ordem-t7-fix1.md` e da seção 4 da `t7-fix1-errata1`.

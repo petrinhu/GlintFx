@@ -13,9 +13,14 @@ from selftest_controls import CHECKS, check
 
 DRIVER_SCRIPT = Path(__file__).resolve().parent / "run_example_capture_win32.py"
 
-# Each example's source: the control below reads its title and its ready line there (D-W8-127).
+# Each example's source: the control below reads its title and its name there (D-W8-127). The ready line is the
+# one every example shares, printed by examples/common/example_harness.hpp with the example's name (CONTRACT.md 6.7,
+# the third example): the control reads its format there.
 def example_source(name):
     return REPO_ROOT / "examples" / name / f"{name}.cpp"
+
+
+HARNESS_SOURCE = REPO_ROOT / "examples" / "common" / "example_harness.hpp"
 
 
 # -- selftest ---------------------------------------------------------
@@ -313,12 +318,15 @@ def selftest_table_probe_files_hold_their_counts():
 
 
 def selftest_example_source_matches():
+    harness = HARNESS_SOURCE.read_text(encoding="utf-8", errors="replace") if HARNESS_SOURCE.is_file() else ""
     for name, facts in EXAMPLES.items():
         source = example_source(name)
         text = source.read_text(encoding="utf-8", errors="replace") if source.is_file() else ""
-        check(f"o fonte de {name} existe e da a janela o titulo que o driver passa a ferramenta, e imprime a linha de "
-              "prontidao que o driver espera (D-W8-127)",
-              f'"{facts.window_title}"' in text and f'"{facts.ready_line}"' in text)
+        check(f"o fonte de {name} existe, da a janela o titulo que o driver passa a ferramenta e se chama {name}, e a "
+              "linha de prontidao que o driver espera e a que o harness comum imprime com esse nome (D-W8-127)",
+              f'"{facts.window_title}"' in text and f'constexpr std::string_view k_example = "{name}";' in text
+              and facts.ready_line == f"{name}: first frame presented"
+              and '"%.*s: first frame presented\\n"' in harness)
 
 
 

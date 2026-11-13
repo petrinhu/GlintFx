@@ -55,23 +55,22 @@
 //   loop. The scene is the same in every frame.
 // EXIT: 0 done; 1 a step of the library failed (the line says which) or a frame lost pieces; 2 bad
 // usage.
+// The command line, the ready line, the line of a failed step and the tally of the frames are the
+// ones every example shares to run without a person (examples/common/example_harness.hpp); this
+// file is the lesson.
 
 #include <array>
-#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <numbers>
 #include <optional>
 #include <string_view>
-#include <system_error>
 
 #include <glintfx/core/angle.hpp>
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err.hpp>
-#include <glintfx/core/err_code.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/core/segment.hpp>
@@ -89,11 +88,13 @@
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 
+#include "../common/example_harness.hpp"
+
 namespace {
 
-constexpr int k_exit_ok = 0;
-constexpr int k_exit_failed = 1;
-constexpr int k_exit_usage = 2;
+using glintfx_examples::frame_tally;
+
+constexpr std::string_view k_example = "shapes";
 
 constexpr glintfx::gltfx_window_desc k_window_desc{
     .title = "GlintFx example: shapes",
@@ -222,114 +223,29 @@ void draw_coarse_circle(glintfx::gltfx_renderer_2d &coarse) {
 struct example_state {
     glintfx::gltfx_renderer_2d &renderer;
     glintfx::gltfx_renderer_2d &coarse;
-    std::optional<std::uint64_t> frames_to_draw;
-    std::uint64_t frames_drawn = 0;
-    bool ready_line_printed = false;
-    std::uint64_t pieces_lost = 0;
-    bool frame_failed = false;
+    frame_tally tally;
 
     bool on_frame(const glintfx::gltfx_frame_tick &tick) noexcept;
     void on_render(const glintfx::gltfx_frame_tick & /*tick*/) noexcept;
-    void count_frame(const glintfx::gltfx_rslt<glintfx::gltfx_frame_2d_report> &finished) noexcept;
-    void announce_first_frame(const glintfx::gltfx_frame_tick &tick) noexcept;
-    [[nodiscard]] bool all_frames_drawn() const noexcept;
 };
 
 // Runs every tick: prints the ready line once, and ends the loop after the last frame.
 bool example_state::on_frame(const glintfx::gltfx_frame_tick &tick) noexcept {
-    announce_first_frame(tick);
-    return !all_frames_drawn();
+    tally.announce_first_frame(tick);
+    return !tally.all_frames_drawn();
 }
 
 // Runs only when the loop will present: both renderers draw, one after the other, and each frame
 // report is kept. The loop presents after this returns.
 void example_state::on_render(const glintfx::gltfx_frame_tick & /*tick*/) noexcept {
-    ++frames_drawn;
+    ++tally.frames_drawn;
     draw_scene(renderer);
-    count_frame(renderer.finish_frame());
+    tally.count_frame(renderer.finish_frame());
     draw_coarse_circle(coarse);
-    count_frame(coarse.finish_frame());
+    tally.count_frame(coarse.finish_frame());
 }
 
-// A piece refused, dropped or abandoned is a frame that did not show the whole scene: the run
-// fails.
-void example_state::count_frame(
-    const glintfx::gltfx_rslt<glintfx::gltfx_frame_2d_report> &finished) noexcept {
-    if (finished.has_error()) {
-        frame_failed = true;
-        return;
-    }
-    const glintfx::gltfx_frame_2d_report &report = finished.value();
-    pieces_lost += report.pieces_refused + report.pieces_dropped_out_of_memory +
-                   report.pieces_dropped_graphics_failure + report.pieces_dropped_outside_frame +
-                   report.frames_abandoned;
-}
-
-// ---- Running without a person (CI, replay): --frames and the ready line ----
-
-constexpr std::uint64_t k_max_frames = 1000000;
-
-// The line a capture tool waits for before it reads a pixel, printed once, at the first tick after
-// a frame was really presented. fflush, because a pipe makes stdout block-buffered and the tool
-// would never see it.
-void example_state::announce_first_frame(const glintfx::gltfx_frame_tick &tick) noexcept {
-    if (ready_line_printed || frames_drawn < 1 ||
-        tick.last_present != glintfx::gltfx_present_outcome::presented) {
-        return;
-    }
-    std::puts("shapes: first frame presented");
-    (void)std::fflush(stdout);
-    ready_line_printed = true;
-}
-
-bool example_state::all_frames_drawn() const noexcept {
-    return frames_to_draw.has_value() && frames_drawn >= *frames_to_draw;
-}
-
-// The command line: nothing, or --frames N with N in [1, 1000000], digits only (std::from_chars).
-struct command_line {
-    bool valid = false;
-    std::optional<std::uint64_t> frames_to_draw;
-};
-
-command_line read_command_line(int argc, char **argv) {
-    if (argc == 1) {
-        return {.valid = true, .frames_to_draw = std::nullopt};
-    }
-    if (argc != 3 || std::string_view(argv[1]) != "--frames") {
-        return {};
-    }
-    const std::string_view text(argv[2]);
-    std::uint64_t frames = 0;
-    const std::from_chars_result result =
-        std::from_chars(text.data(), text.data() + text.size(), frames);
-    const bool whole_number = result.ec == std::errc{} && result.ptr == text.data() + text.size();
-    if (!whole_number || frames < 1 || frames > k_max_frames) {
-        return {};
-    }
-    return {.valid = true, .frames_to_draw = frames};
-}
-
-// ---- Opening, running and reporting ----
-
-// One failed step of the library, in the form the capture drivers read; the example then exits 1.
-int fail(std::string_view step, const glintfx::gltfx_err &error) {
-    const std::string_view code = glintfx::gltfx_err_code_name(error.code());
-    const std::string_view rejected = error.rejected_value();
-    (void)std::fprintf(stderr, "shapes: %.*s failed: %.*s rejected_value=%.*s\n",
-                       static_cast<int>(step.size()), step.data(), static_cast<int>(code.size()),
-                       code.data(), static_cast<int>(rejected.size()), rejected.data());
-    return k_exit_failed;
-}
-
-// The frame report of the whole run: any piece lost, or a frame that failed to finish, fails the
-// run.
-int report_frames(const example_state &state) {
-    std::printf("shapes: frames_drawn=%llu pieces_lost=%llu frame_failed=%d\n",
-                static_cast<unsigned long long>(state.frames_drawn),
-                static_cast<unsigned long long>(state.pieces_lost), state.frame_failed ? 1 : 0);
-    return state.pieces_lost > 0 || state.frame_failed ? k_exit_failed : k_exit_ok;
-}
+// ---- Opening and running ----
 
 // The two renderers over the same context, then the loop. Each renderer keeps the curve distance it
 // was opened with; the second one is opened with a large one on purpose (L).
@@ -338,41 +254,42 @@ int run_with_context(glintfx::gltfx_display &display, glintfx::gltfx_window &win
                      std::optional<std::uint64_t> frames_to_draw) {
     auto renderer = glintfx::gltfx_renderer_2d::open(context, glintfx::gltfx_renderer_2d_desc{});
     if (renderer.has_error()) {
-        return fail("renderer", renderer.err());
+        return glintfx_examples::fail(k_example, "renderer", renderer.err());
     }
     auto coarse = glintfx::gltfx_renderer_2d::open(
         context, glintfx::gltfx_renderer_2d_desc{.curve_max_error_pixels = k_coarse_curve_pixels});
     if (coarse.has_error()) {
-        return fail("coarse_renderer", coarse.err());
+        return glintfx_examples::fail(k_example, "coarse_renderer", coarse.err());
     }
     auto loop = glintfx::gltfx_loop::open(display, window, context);
     if (loop.has_error()) {
-        return fail("loop", loop.err());
+        return glintfx_examples::fail(k_example, "loop", loop.err());
     }
-    example_state state{
-        .renderer = renderer.value(), .coarse = coarse.value(), .frames_to_draw = frames_to_draw};
+    example_state state{.renderer = renderer.value(),
+                        .coarse = coarse.value(),
+                        .tally = {.example = k_example, .frames_to_draw = frames_to_draw}};
     const glintfx::gltfx_rslt<void> ran = loop.value().run(
         glintfx::gltfx_bind_loop_callbacks<&example_state::on_frame, &example_state::on_render>(
             state));
     if (ran.has_error()) {
-        return fail("run", ran.err());
+        return glintfx_examples::fail(k_example, "run", ran.err());
     }
-    return report_frames(state);
+    return state.tally.report();
 }
 
 int run_example(std::optional<std::uint64_t> frames_to_draw) {
     auto display = glintfx::gltfx_display::open();
     if (display.has_error()) {
-        return fail("display", display.err());
+        return glintfx_examples::fail(k_example, "display", display.err());
     }
     auto window = glintfx::gltfx_window::open(display.value(), k_window_desc);
     if (window.has_error()) {
-        return fail("window", window.err());
+        return glintfx_examples::fail(k_example, "window", window.err());
     }
     auto context =
         glintfx::gltfx_gl_context::open(window.value(), glintfx::gltfx_gl_context_desc{});
     if (context.has_error()) {
-        return fail("context", context.err());
+        return glintfx_examples::fail(k_example, "context", context.err());
     }
     return run_with_context(display.value(), window.value(), context.value(), frames_to_draw);
 }
@@ -380,10 +297,9 @@ int run_example(std::optional<std::uint64_t> frames_to_draw) {
 } // namespace
 
 int main(int argc, char **argv) {
-    const command_line args = read_command_line(argc, argv);
+    const glintfx_examples::command_line args = glintfx_examples::read_command_line(argc, argv);
     if (!args.valid) {
-        (void)std::fputs("usage: shapes [--frames N]   (N from 1 to 1000000)\n", stderr);
-        return k_exit_usage;
+        return glintfx_examples::print_usage(k_example);
     }
     return run_example(args.frames_to_draw);
 }

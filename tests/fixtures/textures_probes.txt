@@ -1,0 +1,162 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# textures_probes.txt - R2D-TEXTURE T7: the probes of the example textures, read on both systems (the Linux capture in
+# the protocol and the two Windows captures); the drivers' tables fix how many. Format: tests/tools/image_probe.py
+# ("<x> <y> <RRGGBBAA> [<tol>]", origin top-left, alpha included). Fixed BEFORE the data existed (GODS_LAWS.md L-43):
+# every value comes from the scene, the public rules of the headers and the sRGB formula, never from a capture. The
+# scene is in the header comment of examples/textures/textures.cpp.
+#
+# THE RULES OF EACH PROBE. Nearest: the sample lies 0.01 texel or more from a texel edge. Linear: the two texels of
+# each axis are floor(u - 1/2) and the next, weighted by the fraction (OpenGL 3.3 core, 3.8.11), blended in linear
+# light over the colour multiplied by alpha; no probe depends on what a sample past the OUTER edge of a texture reads
+# (the headers promise nothing there). A blend's tolerance is the spread of the value when a weight that is not 0, 1/2
+# or 1 moves by 1/128, plus one level; a pure colour read from one texel has tolerance 0. A slanted edge, and the
+# shared diagonal of two triangles, is 2 pixels or more away; a checker square, 0.2 square or more.
+#
+# WHAT THE PROBES PROVE: each of the four textured calls draws where the scene puts it; the nearest filter keeps each
+# texel a block and the linear one blends neighbours in linear light; the first texel of the first row is at the top
+# left, and the mirror moves it; a tint's alpha makes the texture half transparent; the projective quad and the affine
+# triangles read the checker differently, at six points each; the indexed triangles draw what the plain ones draw;
+# reduced levels turn a fine checker into its average where the full-size level alone gives a wrong colour; a
+# transparent texel's written colour never shows; the plain texture blends its neighbours at the edge of a region and
+# the atlas does not; the two pixel formats read the same grey. WHAT THEY DO NOT PROVE: what a sample past the outer
+# edge of a texture reads; which reduced level a driver picks (any level from 1 on gives the same grey); the exact
+# number of bits of a filter weight; the place the allocator gives a cell (the probes read the image where
+# region_of() says it is); a change that moves a slanted edge less than about 2.5 pixels; and anything between the
+# probes.
+#
+# the background: the four corners and points between the pieces; 0.2 encoded by the CPU = 124 = 0x7C
+0 0 7C7C7CFF 0
+639 0 7C7C7CFF 0
+0 479 7C7C7CFF 0
+639 479 7C7C7CFF 0
+158 84 7C7C7CFF 0
+210 290 7C7C7CFF 0
+320 440 7C7C7CFF 0
+#
+# A, draw_texture, NEAREST, the 4 x 4 image 32 times larger at (20, 20): each texel is a block of 32 x 32 pixels
+#  of one colour. The first texel of the first row (red) is at the top left. The centre of four blocks; the last
+#  pixel of the red block and the first of the white one next to it; the corners of the image and one pixel
+#  outside each
+36 36 FF0000FF 0
+68 36 FFFFFFFF 0
+68 68 0000FFFF 0
+132 132 00FF00FF 0
+51 36 FF0000FF 0
+52 36 FFFFFFFF 0
+20 20 FF0000FF 0
+19 36 7C7C7CFF 0
+147 147 00FF00FF 0
+148 100 7C7C7CFF 0
+#
+# B, draw_texture, LINEAR, the same image at (168.5, 20.5): at the centre of a texel its own colour; halfway
+#  between two texels the blend of the two IN LINEAR LIGHT (texture_2d_desc.hpp, FILTERING AND COLOUR): red and
+#  white give (1, 0.5, 0.5) = (255, 188, 188), never the darker (255, 128, 128) of a blend of the encoded bytes;
+#  white and blue give (188, 188, 255); the corner of red, white, white and blue gives (0.5, 0.5, 0.75)
+184 36 FF0000FF 0
+200 36 FFBCBCFF 2
+216 52 BCBCFFFF 2
+216 68 0000FFFF 0
+280 132 00FF00FF 0
+200 52 E1BCE1FF 2
+#
+# C, draw_texture, NEAREST, mirrored left to right (flip_left_right) at (316, 20): the red texel is now at the
+#  top RIGHT and the green one at the bottom LEFT; the last white pixel and the first red one of the top row
+332 36 FFFFFFFF 0
+428 36 FF0000FF 0
+332 132 00FF00FF 0
+428 132 FFFFFFFF 0
+411 36 FFFFFFFF 0
+412 36 FF0000FF 0
+#
+# D, draw_texture, NEAREST, tinted white with alpha 0.5 at (464, 20): half of each colour over the background,
+#  blended in the encoded bytes (the default surface, renderer_2d.hpp, COLOR): 0.5 * 255 + 0.5 * 124 = 189.5
+480 36 BE3E3EFF 2
+512 36 BEBEBEFF 2
+512 68 3E3EBEFF 2
+576 132 3EBE3EFF 2
+#
+# E, draw_texture_quad, an 8 x 8 checker (white where column + row is even, blue where odd), NEAREST, into a
+#  trapezoid (top (65, 168) to (155, 168), bottom (20, 296) to (200, 296)): read PROJECTIVELY, each square is
+#  where the homography of the four corners puts it. Each probe lies 0.2 square or more inside its square and 2
+#  pixels or more from every edge, at a point where the AFFINE reading of F and G gives the other colour (and
+#  safe for the affine reading along the other diagonal too); then a point outside the slanted right edge
+66 178 0000FFFF 0
+156 192 0000FFFF 0
+74 220 0000FFFF 0
+178 252 0000FFFF 0
+38 256 FFFFFFFF 0
+84 258 FFFFFFFF 0
+190 188 7C7C7CFF 0
+#
+# F, fill_textured_triangles, the SAME trapezoid and checker at x + 200, as two triangles (top_left, top_right,
+#  bottom_right) and (top_left, bottom_right, bottom_left), six vertices: each triangle is read AFFINELY, so the
+#  squares bend at the shared diagonal. The same six points as E, each 2 pixels or more from the diagonal too,
+#  read the other colour; then a point outside
+266 178 FFFFFFFF 0
+356 192 FFFFFFFF 0
+274 220 FFFFFFFF 0
+378 252 FFFFFFFF 0
+238 256 0000FFFF 0
+284 258 0000FFFF 0
+390 188 7C7C7CFF 0
+#
+# G, fill_indexed_textured_triangles, the same two triangles at x + 400 from FOUR vertices and six indices
+#  (0, 1, 2, 0, 2, 3): the same pixels as F. Two of the six points, (474, 220) and (484, 258), read the other
+#  colour if the indices named the other diagonal
+466 178 FFFFFFFF 0
+556 192 FFFFFFFF 0
+474 220 FFFFFFFF 0
+578 252 FFFFFFFF 0
+438 256 0000FFFF 0
+484 258 0000FFFF 0
+590 188 7C7C7CFF 0
+#
+# H1, draw_texture, NEAREST, WITHOUT reduced levels: a 256 x 256 checker of one-texel squares drawn 4 times
+#  smaller, at (20.1, 316.1). Every pixel takes one texel, and here they all fall on the same colour: the fine
+#  checker comes out solid WHITE, the wrong colour (aliasing). One pixel outside the left edge
+36 332 FFFFFFFF 0
+52 348 FFFFFFFF 0
+76 372 FFFFFFFF 0
+19 340 7C7C7CFF 0
+#
+# H2, the same checker with every reduced level (gltfx_all_mipmap_levels), NEAREST, at (104, 316): the level is
+#  chosen by the size, and every texel of every level from 1 on is the average of the checker, 0.5 in linear
+#  light = 188 = 0xBC, so the square comes out the grey it averages to
+120 332 BCBCBCFF 1
+136 348 BCBCBCFF 1
+160 372 BCBCBCFF 1
+#
+# I, draw_texture, LINEAR, a 4 x 4 image whose 2 x 2 centre is opaque red and whose border is TRANSPARENT with the
+#  colour white written in it (rgba8_srgb_straight, alpha 0), 16 times larger at (188.5, 316.5): the library
+#  multiplies the colour by alpha first (core/image_view.hpp), so the white never shows. Halfway between a
+#  transparent texel and a red one: red at alpha 0.5, 0.5 * 255 + 0.5 * 124 = 189.5 and 0.5 * 124 = 62 (a filter
+#  of the straight colour would give a pale pink fringe); the corner of three transparent texels and a red one:
+#  red at alpha 0.25; a transparent texel shows the background
+212 340 FF0000FF 0
+204 340 BE3E3EFF 2
+212 332 BE3E3EFF 2
+204 332 9D5D5DFF 2
+196 324 7C7C7CFF 0
+#
+# J1, draw_texture, LINEAR, the white image of a PLAIN 12 x 4 texture that holds red, white and blue side by side,
+#  16 times larger at (272, 316): the first and the last column of pixels reach past the white image and blend
+#  in the red and the blue next to it (the reason for an atlas); the centre is white
+272 340 FFC1C1FF 3
+335 340 C1C1FFFF 3
+304 348 FFFFFFFF 0
+#
+# J2, draw_texture, LINEAR, the same white image from a gltfx_texture_atlas (margin 1) that holds the same three
+#  images, from region_of() of its receipt, at (356, 316): the margin is a copy of the image's own edge, so the
+#  edge pixels on all four sides read white
+356 340 FFFFFFFF 0
+419 340 FFFFFFFF 0
+388 316 FFFFFFFF 0
+388 379 FFFFFFFF 0
+#
+# K1 and K2, NEAREST, two 2 x 2 images of one grey given as bytes in two formats: K1 (440, 316) 188 as
+#  rgba8_srgb_straight, K2 (524, 316) 128 as rgba8_linear_straight. The format says how the bytes are read, and
+#  both are the same grey, 0.5 in linear light = 188 (the conversion is held to one level, D-W8-25)
+480 340 BCBCBCFF 1
+472 364 BCBCBCFF 1
+550 340 BCBCBCFF 1
+556 364 BCBCBCFF 1

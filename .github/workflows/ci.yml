@@ -1308,6 +1308,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
+      - name: Publicar a captura do exemplo textures no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-textures-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/textures_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
       # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN:
       # tools/ci/check-dep-zero-win.ps1, check-port-privacy-win.ps1 e
       # check-exports-win.ps1 (dumpbin.exe contra glintfx.dll) eram
@@ -2468,6 +2478,21 @@ jobs:
           printf 'shapes\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # R2D-TEXTURE T7: o exemplo textures, irmao dos dois passos de cima (mesmo driver, mesma imagem, mesmo
+      # capture_out, subdiretorio textures/), julgado pelas sondas de tests/fixtures/textures_probes.txt (a contagem
+      # e a da tabela do driver). Roda mesmo com os outros exemplos vermelhos: cada exemplo tem o seu veredito.
+      - name: R2D-TEXTURE - exemplo textures capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "textures" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} textures glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "textures: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, D-W8-81)"
+          printf 'textures\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
       # QA-SCREEN-CAPTURE P3 (S3 da revisao): as imagens da captura (PNG, raw, meta, log do rele) saem como artefato,
       # para que uma falha deixe o quadro para olhar. Roda mesmo com o passo anterior vermelho.
       - name: Publicar a captura no protocolo (${{ matrix.perna }})
@@ -2476,6 +2501,17 @@ jobs:
         with:
           name: capture-out-${{ matrix.perna }}
           path: capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-TEXTURE T7: as duas capturas do exemplo textures tambem num artefato com o nome do exemplo, como as do
+      # Windows (o artefato acima continua inteiro): quem procura pelo nome do exemplo acha as do Linux.
+      - name: Publicar a captura do exemplo textures no protocolo (${{ matrix.perna }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-textures-${{ matrix.perna }}
+          path: capture_out/textures
           if-no-files-found: warn
           retention-days: 7
 
@@ -4138,6 +4174,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
+      - name: Publicar a captura do exemplo textures no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-textures-windows-sanitizer
+          path: build-shared/tests/textures_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
     runs-on: ubuntu-latest
@@ -4502,6 +4548,16 @@ jobs:
         with:
           name: capture-out-shapes-windows-debug
           path: build-debug/tests/shapes_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
+      - name: Publicar a captura do exemplo textures no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-textures-windows-debug
+          path: build-debug/tests/textures_capture_out
           if-no-files-found: warn
           retention-days: 7
 

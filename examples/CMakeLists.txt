@@ -17,3 +17,4 @@ endif()
 
 add_subdirectory(first_window)
 add_subdirectory(shapes)
+add_subdirectory(textures)

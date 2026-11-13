@@ -11071,3 +11071,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Commit `317808a0`:** sem CRÍTICO nem IMPORTANTE novos.
   - **Aviso à `claude_configs`:** fim das rodadas e pico de 22,67 GiB (`memory.peak` da fatia do usuário).
   - **Item 7:** o run 43482138342, verde, já contém os três commits da T7. O revisor foi retomado para conferir nesse log os critérios do item 7 e rodar o passo 15 (MSVC) contra o blob, e então fechar o veredito.
+- **D-W8-1104 (main, 13/11 17:44, modo autônomo, a confirmar retroativamente): a revisão da T7 sai LIMPA, e o QA visual é despachado.** Veredito do revisor no adendo 3 de `.trabalho/cto-w8/rev-t7.txt`.
+  - **Item 7:** no run 43482138342 o passo das texturas passou nas duas pernas, com `probes=77 failed=0`, e o caso `textures` deu `Passed` nos 4 do Windows. Estão lá também os 6 artefatos, o `PARITY-GATE`, as 6 linhas `alloc` e o `clang` nos dois modos.
+  - **Duas linhas não aparecem no log do `ctest`:** as sondas do Windows e o `check_examples_consume`. Foram provadas pelos artefatos e pelo critério do teste. É COSMÉTICO e foi para a INBOX.
+  - **Passo 15 (MSVC) contra `317808a0`:** 3 de 3 exemplos compilados, régua 0, contêiner fixado em 4-15 por `docker update` logo depois de subir.
+  - **INBOX:** o C-7 foi retirado (o M5 provou o deslocamento) e anotado na linha dele. Entraram `TEXTURES-SCENE-ARG-NARROW` (C-f1) e `CI-LOG-WINDOWS-PROBES-VISIVEL`. As linhas I-3, C-3, C-4, C-5, C-8 e C-9 já estavam lá.
+  - **QA visual:** pela seção 10 da `ordem-t7.md`, o `qa-engineer` haiku NOVO (o terceiro) foi despachado sobre os PNG do run 43482138342.
+  - **R2D-TEXTURE:** continua em 🔄, porque fecha com a B2 e a T7 (D-W8-1349). A ATLAS-WIKI segue na fila.

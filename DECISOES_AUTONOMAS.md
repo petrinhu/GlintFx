@@ -11084,3 +11084,11 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Cosmético de fora da T7:** `gh run download` sem filtro falha num artefato `.dockerbuild`, por zip inválido. Use `-n`.
   - **A T7 fica pronta** (implementação, revisão e QA). A linha `R2D-TEXTURE` segue em 🔄, porque o item fecha com a B2 (D-W8-1349).
   - **Despachados:** o CTO (opus), para a errata de retomada da H3b-1 (POSTERIORES, D-W8-1572), conferir as guardas da fila contra o HEAD novo e ordenar o resto da onda; e o `technical-writer` haiku, para a ATLAS-WIKI (só `docs/wiki/`), como manda a `ordem-t7.md:351`.
+- **D-W8-1106 (main, 13/11 18:11, modo autônomo, a confirmar retroativamente): a fila da onda é revista, e a H3b-1 é despachada.** Decisões do CTO D-W8-1668 a D-W8-1674, a ratificar. Errata: `.trabalho/cto-w8/ordens-anexos/h3b1-errata-retomada/errata.md`, md5 `6a5b037d`, anexos `7bdf990a`, rc 0, conferidos pelo main.
+  - **POSTERIORES da H3b-1:** já estava na chave 2 da errata comum, provada nos dois sentidos.
+  - **tidy23:** recusa pela posição na fila e ganha uma cópia de `cruza_listas.sh` com POSTERIORES `t6b2 h3b2 h3b3`. Fica o risco de `textures.cpp` e `gl_state_contract_test.cpp` não terem passado pela `.clang-tidy` nova.
+  - **As outras guardas passam.**
+  - **Passo 9 da H3b-1:** sai o `taskset -c 0-7`, que pegava os núcleos do líder, e entra o portão de 2625 processos.
+  - **Fila serial na árvore:** H3b-1, tidy23, T6-B2, H3b-2, H3b-3, H5, STROKE-FAN-ATOM, G3, G4, F1. Pode correr junto: ATLAS-WIKI e o CTO escrevendo as ordens de H5 e STROKE-FAN.
+  - **Vão ao líder na hora certa:** a G4 (GeForce: alerta 5x e aval), o mecanismo da G3 (`/dev/dri` de uma variante nomeada do portão, só com o nó da integrada) e as portas de mão única de T6-B2, H3b-2 e H3b-3, antes da tag.
+  - **Despacho:** `backend-engineer` haiku NOVO para a H3b-1.

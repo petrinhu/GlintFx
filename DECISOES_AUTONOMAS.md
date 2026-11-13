@@ -11124,3 +11124,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Previsão do revisor:** o mutante X8 (memória esgotada em `fill_shadow`) deve sobreviver, o que daria IMPORTANTE pela regra (c).
   - **Despacho:** o CTO (opus) escreve a errata geral `cpuset-lancamento-errata`. Todo `docker run` das ordens pendentes nasce com cpuset, com o isolamento declarado como exceção; sai uma fatia própria para os scripts rastreados, com portão provado vermelho; e o porte de todos os builds restantes da fila, para um pedido único ao líder.
   - **Aviso à `claude_configs`:** o fim do build foi avisado.
+- **D-W8-1112 (líder, 13/11 20:35, registrado pelo main): a errata geral de cpuset no lançamento entra, os 25 builds da fila ficam liberados e a fatia de cpuset fura a fila.**
+  - **Errata:** decisões do CTO D-W8-1676 a D-W8-1690, a ratificar, em `.trabalho/cto-w8/ordens-anexos/cpuset-lancamento-errata/errata.md` (md5 `1fad6e09`, anexos `166274a6`, rc 0). Todo `docker run` dos anexos da fila passa a nascer com `--cpuset-cpus "${GLINTFX_CPUSET:?}"`, o teto de 15g e uma guarda. A exceção é o contêiner A do isolamento, idêntico ao CI.
+  - **Arquivos rastreados:** há 6 lançamentos sem cpuset em 5 deles (`tools/preci.sh:542` e `:557`, `check_win32_test_link.py:816`, `check_host_alerts.py:339`, `check_image_freshness.sh:70`, `compare.sh:44`). Eles viram a fatia `CPUSET-NO-LANCAMENTO` (§5.3).
+  - **Builds restantes:** 25 (T6-B2 12, H3b-2 6, H3b-3 7).
+  - **Confissão do CTO:** entre 20:02:18 e 20:02:29 ele rodou dois laços de um processo por arquivo, cerca de 100 processos, contra a L-11. O pico das 20:01:47 é anterior e foi atribuído pela `claude_configs` à direito2006.
+  - **Respostas do líder por AskUserQuestion, verbatim:** "As 25 de uma vez" (a trava `.trabalho/cto-w8/janela-build-fila-w8.ok` foi criada) e "Entrar já (Recomendado)": a `CPUSET-NO-LANCAMENTO` entra logo depois do veredito da H3b-1, antes da tidy23.
+  - **Próximo passo:** a revisão da H3b-1 retoma pelo R0 da §5.1, sem build.

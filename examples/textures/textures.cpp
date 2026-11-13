@@ -66,7 +66,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
-#include <span>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -75,8 +74,6 @@
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
-#include <glintfx/core/quad.hpp>
-#include <glintfx/core/rect.hpp>
 #include <glintfx/core/vec2.hpp>
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/renderer_2d.hpp>
@@ -353,24 +350,33 @@ void draw_trapezoids(glintfx::gltfx_renderer_2d &renderer, const texture &board)
     renderer.fill_indexed_textured_triangles(board, g, indices);
 }
 
-// Row 3, H, I, J and K. One region per call, always in texels of the texture drawn.
-void draw_small_and_clear(glintfx::gltfx_renderer_2d &renderer, const scene_textures &textures) {
+// Row 3, H1 and H2: the fine checker with its full-size level only, then with its reduced
+// levels. Every region in this row is in texels of the texture drawn.
+void draw_reduced_levels(glintfx::gltfx_renderer_2d &renderer, const scene_textures &textures) {
     constexpr glintfx::gltfx_rect_texel whole_fine{{0.0, 0.0}, {256.0, 256.0}};
     renderer.draw_texture(textures.full_size_only, {.region = {.source = whole_fine}},
                           {{20.1, 316.1}, {64.0, 64.0}});
     renderer.draw_texture(textures.reduced, {.region = {.source = whole_fine}},
                           {{104.0, 316.0}, {64.0, 64.0}});
+}
+
+// Row 3, I: the red image on clear texels, whose own written colour never shows.
+void draw_transparency(glintfx::gltfx_renderer_2d &renderer, const scene_textures &textures) {
     renderer.draw_texture(textures.red_on_clear, {.region = {.source = k_whole_art}},
                           {{188.5, 316.5}, {64.0, 64.0}});
 }
 
-// J1 takes the white image from the plain sheet, columns 4 to 8; J2 from the atlas, where
-// region_of() put it. K: the two greys.
-void draw_atlas_and_formats(glintfx::gltfx_renderer_2d &renderer, const scene_textures &textures) {
+// Row 3, J: J1 takes the white image from the plain sheet, columns 4 to 8; J2 from the atlas,
+// where region_of() put it.
+void draw_atlas_comparison(glintfx::gltfx_renderer_2d &renderer, const scene_textures &textures) {
     renderer.draw_texture(textures.sheet, {.region = {.source = {{4.0, 0.0}, {4.0, 4.0}}}},
                           {{272.0, 316.0}, {64.0, 64.0}});
     renderer.draw_texture(textures.atlas.texture(), {.region = {.source = textures.white_in_atlas}},
                           {{356.0, 316.0}, {64.0, 64.0}});
+}
+
+// Row 3, K: the same grey in two pixel formats.
+void draw_grey_formats(glintfx::gltfx_renderer_2d &renderer, const scene_textures &textures) {
     constexpr glintfx::gltfx_rect_texel whole_grey{{0.0, 0.0}, {2.0, 2.0}};
     renderer.draw_texture(textures.grey_srgb, {.region = {.source = whole_grey}},
                           {{440.0, 316.0}, {64.0, 64.0}});
@@ -382,8 +388,10 @@ void draw_scene(glintfx::gltfx_renderer_2d &renderer, const scene_textures &text
     renderer.begin_frame(glintfx::gltfx_frame_2d_desc{.clear_color = k_background});
     draw_magnified(renderer, textures);
     draw_trapezoids(renderer, textures.checker);
-    draw_small_and_clear(renderer, textures);
-    draw_atlas_and_formats(renderer, textures);
+    draw_reduced_levels(renderer, textures);
+    draw_transparency(renderer, textures);
+    draw_atlas_comparison(renderer, textures);
+    draw_grey_formats(renderer, textures);
 }
 
 // Everything one run of the loop needs, and the two callbacks the loop calls on it.

@@ -51,7 +51,7 @@
 # B, draw_texture, LINEAR, the same image at (168.5, 20.5): at the centre of a texel its own colour; halfway
 #  between two texels the blend of the two IN LINEAR LIGHT (texture_2d_desc.hpp, FILTERING AND COLOUR): red and
 #  white give (1, 0.5, 0.5) = (255, 188, 188), never the darker (255, 128, 128) of a blend of the encoded bytes;
-#  white and blue give (188, 188, 255); the corner of red, white, white and blue gives (0.5, 0.5, 0.75)
+#  white and blue give (188, 188, 255); the corner of red, white, white and blue gives (0.75, 0.5, 0.75)
 184 36 FF0000FF 0
 200 36 FFBCBCFF 2
 216 52 BCBCFFFF 2

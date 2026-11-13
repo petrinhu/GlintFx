@@ -11047,3 +11047,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - aviso prévio das 24 rodadas com `docker build` (o BuildKit e o contêiner B ficam sem cpuset e usam os núcleos 0-3) e pedido da janela de horário;
     - pedido de uma janela com `fora<=2000` para os dois autotestes do item 5, pelo contido.
   - **Se ela recusar ou devolver ao líder:** sobem as opções da seção 6 da `ordem-t7-fix1.md` e da seção 4 da `t7-fix1-errata1`.
+- **D-W8-1098 (líder, 13/11 15:04, repassado pela `claude_configs`; registrado pelo main às 15:05): as 24 rodadas da revisão da T7 ficam liberadas também nos núcleos 0-3, e a janela de processos abre.**
+  - **Resposta do líder por AskUserQuestion, verbatim:** "Liberar agora". A liberação vale só para essas 24 rodadas, uma por vez, com 14 GiB livres antes de cada uma e parada acima de 3000 processos.
+  - **A janela:** o líder respondeu, verbatim, "fechei navegadores". Medido pelo main às 15:05:04: usuario=1806 e fora=1806, abaixo de 2000.
+  - **Ordem da `claude_configs`:** primeiro os dois autotestes pelo contido, depois as rodadas. Avisar a ela o fim dos autotestes e o início e o fim das rodadas, com o pico de memória.
+  - **Despacho:** o revisor da T7 (`qa-engineer` haiku, o mesmo da revisão parcial, para continuidade) foi retomado com essa ordem de execução, mais a revisão do commit `317808a0`.

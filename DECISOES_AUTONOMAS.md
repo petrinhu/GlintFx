@@ -11078,3 +11078,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **INBOX:** o C-7 foi retirado (o M5 provou o deslocamento) e anotado na linha dele. Entraram `TEXTURES-SCENE-ARG-NARROW` (C-f1) e `CI-LOG-WINDOWS-PROBES-VISIVEL`. As linhas I-3, C-3, C-4, C-5, C-8 e C-9 já estavam lá.
   - **QA visual:** pela seção 10 da `ordem-t7.md`, o `qa-engineer` haiku NOVO (o terceiro) foi despachado sobre os PNG do run 43482138342.
   - **R2D-TEXTURE:** continua em 🔄, porque fecha com a B2 e a T7 (D-W8-1349). A ATLAS-WIKI segue na fila.
+- **D-W8-1105 (main, 13/11 17:48, modo autônomo, a confirmar retroativamente): o QA visual aprova a T7, e a fila segue pela H3b e pela ATLAS-WIKI.**
+  - **QA visual** (`qa-engineer` haiku NOVO, `.trabalho/cto-w8/qa-t7/relatorio.txt`): APROVADO. Foram 10 imagens, 2 do Linux e 8 do Windows; 770 de 770 sondas lidas por leitor próprio; nenhum achado de imagem.
+  - **Reconferido pelo main:** a checklist foi gravada às 17:45:02, antes dos downloads (`md5_inicio` às 17:45:45), e o diff de md5 entre o início e o fim saiu vazio, com 10 PNG.
+  - **Cosmético de fora da T7:** `gh run download` sem filtro falha num artefato `.dockerbuild`, por zip inválido. Use `-n`.
+  - **A T7 fica pronta** (implementação, revisão e QA). A linha `R2D-TEXTURE` segue em 🔄, porque o item fecha com a B2 (D-W8-1349).
+  - **Despachados:** o CTO (opus), para a errata de retomada da H3b-1 (POSTERIORES, D-W8-1572), conferir as guardas da fila contra o HEAD novo e ordenar o resto da onda; e o `technical-writer` haiku, para a ATLAS-WIKI (só `docs/wiki/`), como manda a `ordem-t7.md:351`.

@@ -76,6 +76,15 @@ section for what is still being built.
   the future style engine that is already public and stable: the table
   of callbacks your own UI tree implements so glintfx can inspect it.
 
+### In progress
+
+Areas whose public names are still under review. They are not finished, and
+they may change before they are called stable.
+
+- **[API Reference: Texture atlas](API-Texture-Atlas)** - packing many small
+  pictures into one texture, and where each one sits in it. Still under
+  review as part of the texture API (as of 2026-11-13).
+
 ### Experimental parts
 
 Two parts of glintfx are installed with its headers but marked **experimental**: reading a whole file into memory (`glintfx/platform/asset/file.hpp`) and the pieces of the future style-sheet engine (`glintfx/gfss/`). "Experimental" means you can try them, but they may change or disappear in any later version, even one whose number suggests only a small change. Do not build something you ship on them yet. They get no page here until that label is removed; the main README's ["Status"](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction) section says what each one does.

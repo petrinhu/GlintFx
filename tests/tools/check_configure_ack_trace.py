@@ -22,6 +22,9 @@
 #        check_configure_ack_trace.py --selftest
 # EXIT: 0 passed; 1 failed; 2 bad usage. The verdict line is always printed, with its counts.
 import argparse
+import contextlib
+import dataclasses
+import io
 import re
 import sys
 
@@ -51,7 +54,7 @@ class trace_state:
         self.ack_waiting = {}  # wl_surface id -> serial acknowledged and not yet answered by a buffer commit
         self.surfaces = {}  # xdg_surface id -> surface_record
         self.buffer_commits = 0
-        self.wrong_sizes = 0
+        self.size_errors = []  # (serial acknowledged, the size it asked, the size of the buffer committed)
 
     def record(self, xdg_id):
         return self.surfaces.setdefault(xdg_id, surface_record())
@@ -115,8 +118,7 @@ def on_commit(state, wl_id):
         return
     asked = record.configures.get(serial)
     if asked is not None and state.buffers.get(buffer_id) != asked:
-        state.wrong_sizes += 1
-        print(f"tamanho_errado: ack_configure({serial}) pediu {asked}, buffer {state.buffers.get(buffer_id)}")
+        state.size_errors.append((serial, asked, state.buffers.get(buffer_id)))
 
 
 def feed(state, line):
@@ -146,6 +148,20 @@ def feed(state, line):
         on_commit(state, int(message["id"]))
 
 
+@dataclasses.dataclass
+class trace_verdict:
+    surfaces: int
+    configures: int
+    resizes: int
+    buffer_commits: int
+    size_errors: list
+    no_ack: int
+    invalid_serials: int
+    floor_asked: tuple  # configures, buffer commits, resizes
+    floor_ok: bool
+    passed: bool
+
+
 def judge(lines, min_configures, min_commits, min_resizes):
     state = trace_state()
     for line in lines:
@@ -156,14 +172,24 @@ def judge(lines, min_configures, min_commits, min_resizes):
     resizes = sum(record.resizes for record in records)
     no_ack = sum(1 for record in records if record.newest_configure is not None
                  and record.newest_ack != record.newest_configure and record.commits_after_newest >= 2)
-    print(f"configure_ack_trace: superficies={len(state.surfaces)} configures={configures} "
-          f"redimensionamentos={resizes} commits_com_buffer={state.buffer_commits} "
-          f"tamanho_errado={state.wrong_sizes} sem_ack={no_ack} serial_invalido={invalid}")
     floor_ok = configures >= min_configures and state.buffer_commits >= min_commits and resizes >= min_resizes
-    if not floor_ok:
+    passed = floor_ok and not state.size_errors and no_ack == 0 and invalid == 0
+    return trace_verdict(surfaces=len(state.surfaces), configures=configures, resizes=resizes,
+                         buffer_commits=state.buffer_commits, size_errors=state.size_errors, no_ack=no_ack,
+                         invalid_serials=invalid, floor_asked=(min_configures, min_commits, min_resizes),
+                         floor_ok=floor_ok, passed=passed)
+
+
+def report_verdict(verdict):
+    for serial, asked, got in verdict.size_errors:
+        print(f"tamanho_errado: ack_configure({serial}) pediu {asked}, buffer {got}")
+    print(f"configure_ack_trace: superficies={verdict.surfaces} configures={verdict.configures} "
+          f"redimensionamentos={verdict.resizes} commits_com_buffer={verdict.buffer_commits} "
+          f"tamanho_errado={len(verdict.size_errors)} sem_ack={verdict.no_ack} serial_invalido={verdict.invalid_serials}")
+    if not verdict.floor_ok:
+        min_configures, min_commits, min_resizes = verdict.floor_asked
         print(f"configure_ack_trace: FAIL piso: pedidos {min_configures} configures, {min_commits} commits, "
               f"{min_resizes} redimensionamentos")
-    return floor_ok and state.wrong_sizes == 0 and no_ack == 0 and invalid == 0
 
 
 def fake_trace(steps):
@@ -180,6 +206,14 @@ def configure(width, height, serial):
 def commit(buffer_id, width, height):
     return [f"-> wl_shm_pool#13.create_buffer(new id wl_buffer#{buffer_id}, 0, {width}, {height}, 2560, 0)",
             f"-> wl_surface#5.attach(wl_buffer#{buffer_id}, 0, 0)", "-> wl_surface#5.commit()"]
+
+
+def judging_prints_nothing():
+    wrong_size = configure(800, 600, 1) + ["-> xdg_surface#6.ack_configure(1)"] + commit(14, 640, 480)
+    heard = io.StringIO()
+    with contextlib.redirect_stdout(heard):
+        judge(fake_trace(wrong_size), 9, 9, 9)
+    return heard.getvalue() == ""
 
 
 def selftest():
@@ -199,10 +233,14 @@ def selftest():
     ]
     failed = 0
     for name, lines, expected, min_configures, min_commits, min_resizes in cases:
-        got = judge(fake_trace(lines), min_configures, min_commits, min_resizes)
-        print(f"selftest: {name}: {'ok' if got == expected else 'FALHOU'}")
-        failed += got != expected
-    print(f"selftest: encontrados={len(cases)} analisados={len(cases)} falharam={failed}")
+        verdict = judge(fake_trace(lines), min_configures, min_commits, min_resizes)
+        report_verdict(verdict)
+        print(f"selftest: {name}: {'ok' if verdict.passed == expected else 'FALHOU'}")
+        failed += verdict.passed != expected
+    silent = judging_prints_nothing()
+    print(f"selftest: judging prints nothing, only the report does: {'ok' if silent else 'FALHOU'}")
+    failed += not silent
+    print(f"selftest: encontrados={len(cases) + 1} analisados={len(cases) + 1} falharam={failed}")
     return failed == 0
 
 
@@ -219,9 +257,10 @@ def main():
     if args.trace is None:
         parser.error("trace missing")
     with open(args.trace, encoding="utf-8", errors="replace") as trace:
-        passed = judge(trace, args.min_configures, args.min_commits, args.min_resizes)
-    print("configure_ack_trace: " + ("ok" if passed else "FAIL"))
-    return 0 if passed else 1
+        verdict = judge(trace, args.min_configures, args.min_commits, args.min_resizes)
+    report_verdict(verdict)
+    print("configure_ack_trace: " + ("ok" if verdict.passed else "FAIL"))
+    return 0 if verdict.passed else 1
 
 
 if __name__ == "__main__":

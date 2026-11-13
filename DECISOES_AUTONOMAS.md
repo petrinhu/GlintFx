@@ -11114,3 +11114,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O que o main fez:** gravou a regra na memória da reserva de núcleos e mandou o pedido de liberação para a revisão da H3b-1 (1 a 2 builds de cerca de 5 min, a partir de 19:30).
   - **Revisor:** `qa-engineer` haiku NOVO despachado. Ele espera o arquivo `.trabalho/cto-w8/janela-build-rev-h3b.ok` antes de qualquer build e não roda script congelado que lance contêiner sem cpuset.
 - **D-W8-1110 (líder, 13/11 19:29, registrado pelo main): a montagem de imagem da revisão da H3b-1 está liberada.** A resposta da `claude_configs` não tinha chegado desde as 19:07, e o main perguntou direto ao líder por AskUserQuestion. Resposta, verbatim: "Liberar agora (Recomendado)". A liberação vale só para 1 a 2 `docker build` da revisão da H3b-1, de cerca de 5 min cada e um por vez; eles podem usar os núcleos 0-3. O main criou a trava `.trabalho/cto-w8/janela-build-rev-h3b.ok` e avisou a `claude_configs`.
+- **D-W8-1111 (main, 13/11 19:42, modo autônomo, a confirmar retroativamente): a revisão da H3b-1 para sem veredito, e o CTO escreve a errata geral de cpuset no lançamento.**
+  - **O que o revisor fez** (`qa-engineer` haiku novo, `.trabalho/cto-w8/rev-h3b.txt`):
+    - conferiu o blob, os 12 arquivos reconstruídos byte a byte, os 302 anexos, a mensagem e o escopo;
+    - pré-registrou 9 mutantes;
+    - rodou 1 `docker build` liberado pelo líder (`glintfx-wltest:revh3b93`, 19:29:46 a 19:41:18, rc 0).
+  - **O que ele não fez:** não rodou nada de execução, porque `ctest_ct_HB.sh`, `clang_ct.sh` e `msvc_check.sh` lançam `docker run` sem `--cpuset-cpus`. A regra nova da `claude_configs` (19:07) proíbe isso.
+  - **Achados estáticos:** só cosméticos (`shadow_group.hpp:18` desatualizado, uma frase da mensagem do commit contra `renderer_2d_impl.cpp:397`, e três na pesquisa e no parecer).
+  - **Previsão do revisor:** o mutante X8 (memória esgotada em `fill_shadow`) deve sobreviver, o que daria IMPORTANTE pela regra (c).
+  - **Despacho:** o CTO (opus) escreve a errata geral `cpuset-lancamento-errata`. Todo `docker run` das ordens pendentes nasce com cpuset, com o isolamento declarado como exceção; sai uma fatia própria para os scripts rastreados, com portão provado vermelho; e o porte de todos os builds restantes da fila, para um pedido único ao líder.
+  - **Aviso à `claude_configs`:** o fim do build foi avisado.

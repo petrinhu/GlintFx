@@ -11019,3 +11019,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - Faltam três itens: os mutantes, porque falta a imagem `glintfx-wltest` e o roteiro faz `docker build`; o caso vermelho, porque o contido recusou com 2053 a 2096 processos; e MSVC e CI, que precisam de push.
   - **Despacho:** o CTO (opus) foi chamado para escrever a errata da fix1 e a `ordem-t7-fix1.md`, mais o caminho para fechar a revisão, com prazo às 11:45.
   - **A parada das 12:00 vale:** nenhum implementador novo hoje. As ordens ficam prontas para a retomada.
+- **D-W8-1092 (main, 13/11 11:15, modo autônomo, a confirmar retroativamente): o CTO decide as duas frentes, e as ordens ficam prontas para a retomada.** Decisões do CTO D-W8-1657 a D-W8-1663, a ratificar.
+  - **fix1:** o conserto está certo. A previsão do X10 estava errada porque o `file(READ)` do CMake já tira o CR do par CRLF, e o teste não exercitava o CR sozinho. O cenário 21 ganha esse caso. Errata `.trabalho/cto-w8/ordens-anexos/cmake45-fix1-errata1/errata1.md` (md5 `5336106a`, anexos `d9e5c8c8`, rc 0). A fix1 retoma do passo 1 com pasta nova; não é reprovação de revisão.
+  - **T7-fix1:** conserta I-1, I-2 (quatro funções, janela byte a byte igual) e C-1. `.trabalho/cto-w8/ordem-t7-fix1.md` (md5 `aaf946d8`, anexos `da56fdf0`, rc 0).
+  - **Fechar a revisão da T7:** o item 2 precisa de 24 rodadas com `docker build`, com aviso prévio à `claude_configs` (L-46); o item 5, só pelo contido, com portão de processos; o item 7, depois do push. A R2D-TEXTURE fica em 🔍.
+  - **INBOX:** o main registrou as 6 linhas novas.
+  - **Vai ao líder, só se acontecer:** a `claude_configs` recusar a janela dos builds, ou a troca do contido por contêiner com limite de processos.
+  - **Sem despacho novo hoje:** pela parada das 12:00, nenhum implementador começa agora (os dois roteiros têm passos pesados que não cabem até as 11:30).

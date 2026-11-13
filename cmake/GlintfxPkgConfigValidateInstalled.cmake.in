@@ -49,6 +49,11 @@
 # ESCOPO.md's own decision 7) and both get an explicit CMake-install
 # step in .github/workflows/ci.yml).
 #
+# READ glintfx_pkgconfig_canonicalize_declarations()'s OWN COMMENT
+# FIRST: the two STRICT guarantees described below (duplicate
+# refused, everything defined before use) held up to CMake 4.4 only.
+# From CMake 4.5.0 on, glintfx enforces the duplicate one itself.
+#
 # STRICTNESS STRICT (this file's every cmake_pkg_config() call) is the
 # strictest mode the command offers - "closely mirrors the behavior of
 # the original FDO pkg-config: variables and keywords must be unique
@@ -85,8 +90,9 @@
 #     genuine, present-day gap in this version of the native
 #     mechanism, not a usage mistake on this file's part.
 #
-#     THE FIX, and it is the ONLY hand-written text operation this file
-#     still performs: glintfx_pkgconfig_prepare_native_input() below
+#     THE FIX, and one of the TWO hand-written text operations this
+#     file performs (the other one, needed from CMake 4.5.0 on, is
+#     glintfx_pkgconfig_canonicalize_declarations()): glintfx_pkgconfig_prepare_native_input() below
 #     copies glintfx.pc's own text to a private SCRATCH file (never the
 #     real installed glintfx.pc - a packager's install tree is never
 #     written to by this validation) and replaces the literal token
@@ -97,8 +103,9 @@
 #     parser, not a tokenizer, not a variable-resolution engine: those
 #     three things are exactly what cmake_pkg_config() now does, on the
 #     SUBSTITUTED file, in the ONE call this file makes to it. Every
-#     other pkg-config syntax question (comments, whitespace,
-#     duplicate detection, "${var}" chains through prefix/exec_prefix/
+#     other pkg-config syntax question (except the blanks and the
+#     comment of a variable line, and duplicate detection - see
+#     glintfx_pkgconfig_canonicalize_declarations() - "${var}" chains through prefix/exec_prefix/
 #     libdir/includedir, Cflags:/Libs: tokenizing) is answered by CMake
 #     itself from this point on.
 #
@@ -388,7 +395,116 @@ function(glintfx_pkgconfig_library_glob_patterns out_var)
     )
 endfunction()
 
-# THE ONLY HAND-WRITTEN TEXT OPERATION LEFT IN THIS FILE (see this
+# CMAKE 4.5.0 CHANGED WHAT CMAKE'S OWN PARSER DOES WITH A VARIABLE LINE
+# (CMAKE45-PC, 13/11/2026). Up to CMake 4.4, cmake_pkg_config() trimmed
+# the whitespace around a variable's value and, under STRICTNESS STRICT,
+# refused a variable or a field declared twice. CMake 4.5.0 replaced its
+# parser (upstream commit 38fa645e73, "PkgC: Correctly handle various
+# pkg-config edge cases", absent from v4.4.5, present in v4.5.0; the 4.5
+# release notes do not mention it) and does neither any more: in
+# "exec_prefix = ${prefix}   # comment" the blank right after "=" and the
+# blanks before "#" now stay INSIDE the value, so "Libs: -L${libdir}"
+# splits into a bare "-L" plus loose path pieces, and a second "libdir="
+# or "Libs:" line is silently resolved instead of refused. Measured in CI
+# run 43357621563 (Arch, CMake 4.5.0): a .pc that real pkgconf accepts
+# was rejected with "ZERO -L flags".
+#
+# GODS_LAWS.md L-04 (the same behavior on every supported system) is why
+# this function exists: it brings the scratch copy to the ONE form every
+# CMake version reads the same way, BEFORE cmake_pkg_config() sees it,
+# and refuses a duplicate declaration itself, so the verdict no longer
+# depends on which CMake the packager happens to have. It does exactly
+# three things, line by line, and nothing else:
+#   1. a variable line ("ident = value", "ident=value"): drops an
+#      unescaped "#" comment, trims the blanks on both sides of the
+#      value, and rewrites it as "ident=value" - the form real
+#      pkg-config itself reduces it to;
+#   2. a variable declared twice: FATAL_ERROR, naming it;
+#   3. a field ("Key: value") declared twice: FATAL_ERROR, naming it.
+# It never evaluates "${...}", never splits Cflags:/Libs:, never touches
+# a field's value: reading the file is still cmake_pkg_config()'s job
+# (ESCOPO.md, decision 7). A line that is neither (a comment line, a
+# blank line, anything else) is copied unchanged. The text is walked
+# with string(FIND)/string(SUBSTRING), never turned into a CMake list,
+# because a ";" inside a .pc line would split a list silently.
+#
+# DECLARED, NOT HANDLED: a line with blanks BEFORE its identifier is
+# copied unchanged; an escaped "\#" is kept as part of the value, the
+# way pkg-config keeps it.
+function(glintfx_pkgconfig_canonicalize_declarations pc_file text_var)
+    set(_glintfx_rest "${${text_var}}")
+    set(_glintfx_out "")
+    set(_glintfx_seen_variables "")
+    set(_glintfx_seen_fields "")
+    set(_glintfx_variable_count 0)
+    set(_glintfx_field_count 0)
+    while(NOT _glintfx_rest STREQUAL "")
+        string(FIND "${_glintfx_rest}" "\n" _glintfx_newline_at)
+        if(_glintfx_newline_at EQUAL -1)
+            set(_glintfx_line "${_glintfx_rest}")
+            set(_glintfx_rest "")
+            set(_glintfx_line_end "")
+        else()
+            string(SUBSTRING "${_glintfx_rest}" 0 ${_glintfx_newline_at} _glintfx_line)
+            math(EXPR _glintfx_next_at "${_glintfx_newline_at} + 1")
+            string(SUBSTRING "${_glintfx_rest}" ${_glintfx_next_at} -1 _glintfx_rest)
+            set(_glintfx_line_end "\n")
+        endif()
+
+        if(_glintfx_line MATCHES "^([A-Za-z0-9_.]+)[ \t]*=(.*)$")
+            set(_glintfx_name "${CMAKE_MATCH_1}")
+            set(_glintfx_value "${CMAKE_MATCH_2}")
+            list(FIND _glintfx_seen_variables "${_glintfx_name}" _glintfx_found_at)
+            if(NOT _glintfx_found_at EQUAL -1)
+                message(FATAL_ERROR
+                    "glintfx: glintfx.pc declares the variable "
+                    "'${_glintfx_name}' more than once (pc file: "
+                    "'${pc_file}'). Real pkg-config keeps only the last "
+                    "definition, silently; glintfx refuses the ambiguous "
+                    "file instead, on every CMake version. Skip this "
+                    "check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in "
+                    "the environment of this `cmake --install` "
+                    "invocation, then verify the install by hand."
+                )
+            endif()
+            list(APPEND _glintfx_seen_variables "${_glintfx_name}")
+            if(_glintfx_value MATCHES "^(([^\\\\#]|\\\\.)*)#")
+                set(_glintfx_value "${CMAKE_MATCH_1}")
+            endif()
+            string(STRIP "${_glintfx_value}" _glintfx_value)
+            set(_glintfx_line "${_glintfx_name}=${_glintfx_value}")
+            math(EXPR _glintfx_variable_count "${_glintfx_variable_count} + 1")
+        elseif(_glintfx_line MATCHES "^([A-Za-z0-9_.]+)[ \t]*:")
+            set(_glintfx_name "${CMAKE_MATCH_1}")
+            list(FIND _glintfx_seen_fields "${_glintfx_name}" _glintfx_found_at)
+            if(NOT _glintfx_found_at EQUAL -1)
+                message(FATAL_ERROR
+                    "glintfx: glintfx.pc declares the field "
+                    "'${_glintfx_name}' more than once (pc file: "
+                    "'${pc_file}'). Real pkgconf joins the two "
+                    "occurrences, silently; glintfx refuses the ambiguous "
+                    "file instead, on every CMake version. Skip this "
+                    "check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in "
+                    "the environment of this `cmake --install` "
+                    "invocation, then verify the install by hand."
+                )
+            endif()
+            list(APPEND _glintfx_seen_fields "${_glintfx_name}")
+            math(EXPR _glintfx_field_count "${_glintfx_field_count} + 1")
+        endif()
+
+        string(APPEND _glintfx_out "${_glintfx_line}${_glintfx_line_end}")
+    endwhile()
+
+    message(STATUS
+        "glintfx: glintfx.pc canonicalized for CMake's native parser - "
+        "${_glintfx_variable_count} variable line(s) and "
+        "${_glintfx_field_count} field line(s), no declaration repeated."
+    )
+    set(${text_var} "${_glintfx_out}" PARENT_SCOPE)
+endfunction()
+
+# ONE OF THE TWO HAND-WRITTEN TEXT OPERATIONS IN THIS FILE (see this
 # file's own header, "STRICTNESS STRICT", for why it exists at all):
 # copies pc_file's own text to a private scratch file under
 # @GLINTFX_VALIDATE_SCRATCH_DIR@ (a build-tree location, never the
@@ -408,6 +524,7 @@ function(glintfx_pkgconfig_prepare_native_input pc_file out_scratch_file)
     file(READ "${pc_file}" _glintfx_pc_text)
     cmake_path(GET pc_file PARENT_PATH _glintfx_pcfiledir)
     string(REPLACE "\${pcfiledir}" "${_glintfx_pcfiledir}" _glintfx_pc_text_substituted "${_glintfx_pc_text}")
+    glintfx_pkgconfig_canonicalize_declarations("${pc_file}" _glintfx_pc_text_substituted)
 
     set(_glintfx_scratch_dir "@GLINTFX_VALIDATE_SCRATCH_DIR@")
     file(MAKE_DIRECTORY "${_glintfx_scratch_dir}")

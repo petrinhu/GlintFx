@@ -128,6 +128,11 @@
 #      real only on a REAL Windows host (os.name == "nt") and returns a
 #      "skipped: <reason>" string, counted (never silently omitted), on
 #      every other host - see real_main()'s own scenario-floor summary.
+#  21. run_duplicate_field_rejected_scenario - a glintfx.pc declaring
+#      the Libs: field TWICE is REJECTED, closed (RED, CMAKE45-PC), by
+#      glintfx's own check, on every CMake version; scenario 15 above
+#      (duplicate variable) is refused by that same check now, because
+#      from CMake 4.5.0 on STRICTNESS STRICT no longer refuses either.
 #
 # What this script does NOT test, declared (GODS_LAWS.md L-27):
 # component-scoped installs (`cmake --install --component X`) and
@@ -214,7 +219,7 @@ SCRIPT_NAME = "check_pkgconfig_validate.py"
 # real_main()'s own scenario-floor summary at the end): a mismatch
 # between this constant and how many actually ran is a broken floor,
 # never a detail to shrug off.
-SCENARIO_COUNT = 20
+SCENARIO_COUNT = 21
 
 # See this file's own header, "LIBRARY_ARTIFACT_PATTERNS" - DUPLICATED,
 # not imported, from cmake/GlintfxPkgConfigValidateInstalled.cmake.in's
@@ -1564,22 +1569,73 @@ def run_duplicate_variable_rejected_scenario(build_dir, scratch, real_libdir):
     output = run_expect_failure(
         ["cmake", f"-DCMAKE_INSTALL_PREFIX={fixture_prefix}", "-P", validator_script],
         "re-running the validator against a fixture that defines 'libdir' TWICE "
-        "unexpectedly SUCCEEDED - CMake's own native pkg-config parser, under "
-        "STRICTNESS STRICT, should refuse an ambiguous file with a duplicate variable "
-        "definition rather than silently picking one.",
+        "unexpectedly SUCCEEDED - glintfx's own duplicate check should refuse an "
+        "ambiguous file with a duplicate variable definition, on every CMake version, "
+        "rather than silently picking one (CMAKE45-PC).",
     )
 
-    must_contain_in_order(
+    must_contain(
         output,
-        "cmake_pkg_config",
-        "Resolution failed",
-        on_fail="the duplicate-variable RED did not print the expected 'cmake_pkg_config ... Resolution failed' diagnostic.",
+        "declares the variable 'libdir' more than once",
+        on_fail=(
+            "the duplicate-variable RED did not print glintfx's own duplicate-variable "
+            "diagnostic. From CMake 4.5.0 on, cmake_pkg_config() under STRICTNESS STRICT "
+            "no longer refuses a duplicate variable by itself, so glintfx refuses it, "
+            "before CMake's parser runs, on every CMake version (CMAKE45-PC)."
+        ),
     )
     print(
         "ok: duplicate-variable RED - a glintfx.pc defining 'libdir' twice is REFUSED, "
-        "closed, by CMake's own native pkg-config parser under STRICTNESS STRICT - a "
-        "deliberate narrowing from the deleted hand-written reader's own "
-        "last-definition-wins behavior, not a regression."
+        "closed, by glintfx's own check, on every CMake version - a deliberate "
+        "narrowing from real pkg-config's own last-definition-wins behavior."
+    )
+
+
+# --- scenario 21 -------------------------------------------------------
+
+
+def run_duplicate_field_rejected_scenario(build_dir, scratch, real_libdir):
+    validator_script = find_generated_validator_script(build_dir)
+
+    fixture_prefix = os.path.join(scratch, "prefix-duplicate-field-fixture")
+    libdir_path = os.path.join(fixture_prefix, *real_libdir.split("/"))
+    pkgconfig_dir = os.path.join(libdir_path, "pkgconfig")
+    os.makedirs(pkgconfig_dir, exist_ok=True)
+    os.makedirs(os.path.join(fixture_prefix, "include", "glintfx"), exist_ok=True)
+    write_placeholder_library_artifact(libdir_path)
+
+    pc_text = (
+        "prefix=${pcfiledir}/../..\n"
+        "exec_prefix=${prefix}\n"
+        "includedir=${prefix}/include\n"
+        "libdir=${exec_prefix}/" + real_libdir + "\n"
+        "\n"
+        "Name: glintfx\n"
+        "Description: check_pkgconfig_validate.py duplicate-field-rejected fixture\n"
+        "Version: 0.1.0.0\n"
+        "Cflags: -I${includedir}\n"
+        "Libs: -L${libdir} -lglintfx\n"
+        "Libs: -L${libdir} -lglintfx\n"
+    )
+    with open(os.path.join(pkgconfig_dir, "glintfx.pc"), "w", encoding="utf-8") as handle:
+        handle.write(pc_text)
+
+    output = run_expect_failure(
+        ["cmake", f"-DCMAKE_INSTALL_PREFIX={fixture_prefix}", "-P", validator_script],
+        "re-running the validator against a fixture that declares the 'Libs' field TWICE "
+        "unexpectedly SUCCEEDED - an ambiguous glintfx.pc must be refused, closed, on "
+        "every CMake version (CMAKE45-PC: from CMake 4.5.0 on, cmake_pkg_config() no "
+        "longer refuses it by itself).",
+    )
+
+    must_contain(
+        output,
+        "declares the field 'Libs' more than once",
+        on_fail="the duplicate-field RED did not print glintfx's own duplicate-field diagnostic.",
+    )
+    print(
+        "ok: duplicate-field RED - a glintfx.pc declaring 'Libs' twice is REFUSED, "
+        "closed, by glintfx's own check, on every CMake version."
     )
 
 
@@ -2254,6 +2310,8 @@ def real_main(args):
         record(19, "windows-forced-broken-conversation")
         outcome_20 = run_windows_unlaunchable_conversation_scenario(build_dir, prefix_default, scratch)
         record(20, "windows-unlaunchable-conversation", outcome_20)
+        run_duplicate_field_rejected_scenario(build_dir, scratch, real_libdir)
+        record(21, "duplicate-field-rejected")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -2294,13 +2352,13 @@ def real_main(args):
         "hatches) - never silently downgraded to a warning just because the host "
         "happens to be Windows; accepts real pkg-config's own whitespace/comment "
         "syntax, cross-checked against a real pkg-config binary when one is on PATH, "
-        "while a variable defined TWICE is now refused, closed, by CMake's own native "
-        "pkg-config parser under STRICTNESS STRICT; no longer doubles a shared "
+        "while a variable or a field declared TWICE is now refused, closed, by "
+        "glintfx's own check on every CMake version (CMAKE45-PC); no longer doubles a shared "
         "prefix/libdir/pkgconfig or DESTDIR path segment when --prefix or DESTDIR is "
         "given as a plain relative path; and no longer borrows a wrong drive letter "
         "(PKG-WIN-SCOPE round 7) when a staged, DESTDIR-aware directory is concatenated "
         "with a driveless-but-rooted prefix - proven with portable, "
-        "platform-independent string logic (all twenty scenarios, unguarded by "
+        "platform-independent string logic (all twenty-one scenarios, unguarded by "
         "platform)."
     )
 

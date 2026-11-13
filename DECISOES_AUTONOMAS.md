@@ -11092,3 +11092,16 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Fila serial na árvore:** H3b-1, tidy23, T6-B2, H3b-2, H3b-3, H5, STROKE-FAN-ATOM, G3, G4, F1. Pode correr junto: ATLAS-WIKI e o CTO escrevendo as ordens de H5 e STROKE-FAN.
   - **Vão ao líder na hora certa:** a G4 (GeForce: alerta 5x e aval), o mecanismo da G3 (`/dev/dri` de uma variante nomeada do portão, só com o nó da integrada) e as portas de mão única de T6-B2, H3b-2 e H3b-3, antes da tag.
   - **Despacho:** `backend-engineer` haiku NOVO para a H3b-1.
+- **D-W8-1107 (main, 13/11 18:12, modo autônomo, a confirmar retroativamente): a ATLAS-WIKI entra em `19dff569`, e o `preci` rodado na árvore viva acusa dois defeitos de ferramenta.**
+  - **O commit:** só `docs/wiki/API-Texture-Atlas.md` (273 linhas, em inglês como o resto da wiki, status "em andamento") e `docs/wiki/Home.md` (+9, seção "In progress"). Conferido pelo main.
+  - **Portões de texto do conteúdo final:** rc 0 em `dep_zero`, `spdx`, `dash_pubdoc`, `check_format` e `docs_count_vocab`. Sem travessão e sem emoji.
+  - **O `preci --fast`:** rodou na árvore viva, sobre uma versão anterior às correções do texto, e deu rc≠0 em 5 testes que não tocam a página. FATO do relato, log em `.trabalho/tmp/atlas-wiki-preci.log`:
+    - (a) `vendor_purity` varre `.trabalho/` e acha binários de outros agentes, ou seja, o portão olha o escopo errado;
+    - (b) `pkgconfig`, `pkgconfig_validate`, `libdir` e `armadilha` falham com `TMPDIR` dentro da árvore e passam com ele fora (medido por ele).
+  - **Por que os implementadores não viram:** eles rodam o `preci` em clone dentro de `.trabalho/`.
+  - **Pendências que ficam com o main**, e só depois que a H3b-1 commitar, para não mexer no `TODO.md` que as guardas dela leem:
+    - as duas linhas na INBOX;
+    - o aviso de que `Concepts.md:44-45` ainda diz que não há API de imagem;
+    - a ratificação da seção "In progress" da Home;
+    - o Status da ATLAS-WIKI para 🔍.
+  - **Limite declarado:** os links para os cabeçalhos novos quebram no GitHub até o merge em `main`.

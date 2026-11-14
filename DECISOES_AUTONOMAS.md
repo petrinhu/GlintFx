@@ -11282,3 +11282,20 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - A hipótese do main, de que o culpado era o cliente de backup do IDrive, estava errada para esse caso. Para as leituras das 12:25 não há autor medido.
     - O briefing de todo agente proíbe agora qualquer busca recursiva que não exclua `r21`.
   - **INBOX, quando o `TODO.md` estiver livre:** `ATLAS-WIKI-RECIBO-INCOMPLETO`. `docs/wiki/API-Texture-Atlas.md:223-224` está incompleto, não falso.
+- **D-W8-1148 (main, 14/11 13:42, modo autônomo, a confirmar retroativamente): o conserto da T6-B2 entra, a pasta de trabalho troca de forma e o revisor sai.**
+  - **T6-B2-fix1 commitada** em `113b924a`: 4 arquivos, +46/-12.
+    - As sabotagens sab1 a sab5 deram exatamente o previsto na tabela da ordem.
+    - Verde com `-Werror`.
+    - `preci --fast` com rc 0, 397/397, no hospedeiro (downgrade declarado da PRECI-IN-CONTAINER).
+    - O main conferiu o texto novo de `renderer_2d.hpp` no blob.
+  - **Janela da sessão `manutencao`**, por ordem do líder: o `.trabalho` virou um subvolume btrfs próprio, fora dos snapshots do snapper.
+    - O GlintFx liberou a pasta às 13:10, com 0 processos medidos numa leitura única de `/proc`.
+    - A troca terminou às 13:41, com o manifesto de 4.066.285 entradas idêntico byte a byte e os caminhos mantidos.
+    - Efeitos para esta sessão:
+      - a raiz do `.trabalho` não sai com `rm`; a limpeza pós-onda apaga só o conteúdo;
+      - não há cópia horária, então o que se apaga ali não volta;
+      - mover entre o `.trabalho` e o repo vira cópia mais remoção.
+  - **A pasta `r21`:** os dois arquivos danificados foram regravados pela `manutencao` às 12:32, por decisão do líder às 12:30, a partir do índice daquela cópia (md5 `91de7476` e `790b3030`). O scrub de `/home` às 12:45 saiu limpo.
+    - As leituras ruins das 12:25 foram da própria `manutencao`.
+    - As das 12:19:30 vieram do `grep -r` do CTO (D-W8-1147).
+  - **Revisor N1 despachado:** `qa-engineer` haiku NOVO, pela seção 6 da ordem, contra `113b924a`.

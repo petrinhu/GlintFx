@@ -585,6 +585,14 @@ def process_alive(pid):
     return state != "Z"
 
 
+def grandchild_fate(grandchild, alive):
+    """Which way the tree check came out, so a failed run names its cause: the grandchild never wrote its
+    PID (the parent died before starting it), or the grandchild outlived the deadline."""
+    if grandchild == 0:
+        return "o neto nunca gravou o PID"
+    return "o neto ficou vivo" if alive else "o neto morreu"
+
+
 SLEEPER = "import time; time.sleep(20)"
 def selftest_run_process():
     code, output = run_process([sys.executable, "-c", "import sys; print('hello'); sys.exit(3)"])
@@ -612,8 +620,9 @@ def selftest_run_process():
         deadline = time.monotonic() + 5
         while grandchild and process_alive(grandchild) and time.monotonic() < deadline:
             time.sleep(0.1)
-        check("run_process: o prazo estourado mata a ARVORE (o neto nao fica vivo)",
-              grandchild != 0 and not process_alive(grandchild))
+        alive = grandchild != 0 and process_alive(grandchild)
+        check(f"run_process: o prazo estourado mata a ARVORE ({grandchild_fate(grandchild, alive)})",
+              grandchild != 0 and not alive)
 
 
 class real_helpers_run:

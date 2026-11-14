@@ -14,8 +14,8 @@
 //
 // THE RULE these passes carry out (the contract of fill_shadow() in the audit, sec. 2): a pixel is
 // darkened by the shadows of a segment at most once, until an OPAQUE piece of that segment is drawn
-// over it. Every piece of the segment takes part, shadow or not, in paint order, once the drawing
-// of the shadows (H3b) hands each run of a segment to passes_of_run(); in H3a nothing calls it yet:
+// over it. Every piece of the segment takes part, shadow or not, in paint order: since H3b, the
+// batch drawing (draw_batch()) hands each run of a segment to passes_of_run():
 //   - a shadow marks the pixels it darkens, and darkens only pixels not yet marked;
 //   - an ordinary piece drawn after the first shadow paints, and then releases the mark where it
 //     is opaque (alpha 1 on that pixel), so a later shadow darkens it again;

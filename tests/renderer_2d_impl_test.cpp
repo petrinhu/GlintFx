@@ -2774,3 +2774,39 @@ GLINTFX_TEST(renderer_2d_impl_each_flush_starts_with_u_stencil_discard_at_zero) 
     GLINTFX_CHECK((card.stencil_discard_at_draw == std::vector<int>{1, 0}));
     renderer_2d_impl::destroy(renderer);
 }
+
+// R2D-SPRITE-SHADE H3b-1-fix1 (the review of H3b-1): a shadow that does not fit for lack of
+// memory is counted in pieces_dropped_out_of_memory and is the error of the frame, as an
+// ordinary piece is. The sibling case, for rectangles:
+// renderer_2d_impl_a_piece_dropped_for_lack_of_memory_is_counted_and_is_the_error.
+// Every shadow asked for ends drawn or dropped: none is lost uncounted, none is counted twice.
+GLINTFX_TEST(renderer_2d_impl_a_shadow_dropped_for_lack_of_memory_is_counted_and_is_the_error) {
+    reset();
+    deny_growth = false;
+    const gl_function_table table = fake_table();
+    auto created = renderer_2d_impl::create(
+        fake_host(), table,
+        renderer_2d_options{true, 1,
+                            glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release}});
+    GLINTFX_CHECK(created.has_value());
+    renderer_2d_impl *renderer = created.value();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    // From here the storage cannot grow: what fits is drawn, the rest is counted.
+    deny_growth = true;
+    for (int i = 0; i < 100; ++i) {
+        renderer->fill_shadow(shadow_square(static_cast<double>(i)), k_shade, k_layer_0);
+    }
+    const auto report = renderer->finish_frame();
+    deny_growth = false;
+    GLINTFX_CHECK(report.has_error());
+    if (report.has_error()) {
+        GLINTFX_CHECK(report.err().code() == gltfx_err_code::out_of_memory);
+    }
+    const auto last = renderer->last_frame_report();
+    GLINTFX_CHECK_EQ(last.pieces_submitted, std::uint64_t{100});
+    GLINTFX_CHECK(last.pieces_dropped_out_of_memory > 0);
+    GLINTFX_CHECK(last.pieces_drawn > 0);
+    GLINTFX_CHECK_EQ(last.pieces_drawn + last.pieces_dropped_out_of_memory, std::uint64_t{100});
+    GLINTFX_CHECK(ends_add_up(last));
+    renderer_2d_impl::destroy(renderer);
+}

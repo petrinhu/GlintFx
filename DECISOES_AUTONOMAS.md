@@ -11221,3 +11221,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Autoria:** o commit leva o `Co-Authored-By` do Opus junto com o do implementador, e uma frase declara a linha que faltou em `1f2d63c8`, a do Opus.
   - **Limite declarado:** o `docker run -d` continua antes do portão de isolamento. Vai à INBOX como `PHOTO-PRESTART-HOSTCONFIG`.
   - **Paralelismo e placa:** com a T6-B2 não há arquivo em comum. Com a H3b-2, há 2 arquivos em comum; vale a D-W8-1735. Zero `docker build`; a GeForce continua proibida. Implementador: `devops-sre` haiku NOVO.
+- **D-W8-1140 (main, 14/11 10:04, modo autônomo, a confirmar retroativamente): a G4a-fix1 entra em `0cbffb56` e vai à re-revisão N2.**
+  - **O que o main conferiu:** o commit tem 7 arquivos, 239 linhas a mais e 18 a menos, e 2 `Co-Authored-By`.
+  - **Do relatório do implementador:** o vermelho e o verde saíram como esperado (isolamento 51 OK, ferramenta 14 OK, foto 9 OK). As sabotagens S1 a S5 reprovaram. O `preci --fast` deu rc 0, com 397 de 397 (downgrade declarado). Nenhum contêiner tocou a GeForce.
+  - **Desvio declarado pelo implementador:** o autoteste montou com `:ro,z`, como a ordem mandava, e não com o `:ro,Z` da regra do `CLAUDE.md`. A memória "Container rouba etiqueta" mostra que a etiqueta privada já tirou acesso da sessão do líder. Vai ao revisor avaliar.
+  - **Revisor:** um `qa-engineer` haiku NOVO.

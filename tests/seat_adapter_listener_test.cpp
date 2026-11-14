@@ -97,6 +97,7 @@ GLINTFX_TEST(capabilities_event_with_zero_bitmask_clears_every_flag) {
 
     wayland_seat_adapter::wl_seat_capabilities(
         &adapter, nullptr,
+        // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: generated enum, signed here
         WL_SEAT_CAPABILITY_POINTER | WL_SEAT_CAPABILITY_KEYBOARD | WL_SEAT_CAPABILITY_TOUCH);
     wayland_seat_adapter::wl_seat_capabilities(&adapter, nullptr, 0);
 

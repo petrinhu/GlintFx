@@ -181,7 +181,7 @@ void append_connection_poll_entries(active_connection &conn, std::vector<struct 
     }
 }
 
-void build_poll_lists(const relay_endpoints &endpoints, connection_list &connections,
+void build_poll_lists(const relay_endpoints &endpoints, const connection_list &connections,
                       std::vector<struct pollfd> &out_fds, std::vector<poll_entry_meta> &out_meta) {
     out_fds.push_back({endpoints.listen_fd, POLLIN, 0});
     out_meta.push_back({nullptr, false});
@@ -191,6 +191,7 @@ void build_poll_lists(const relay_endpoints &endpoints, connection_list &connect
 }
 
 bool entry_ready(const struct pollfd &pfd) {
+    // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: poll(2) types these flags as signed
     return (pfd.revents & (POLLIN | POLLHUP | POLLERR)) != 0;
 }
 

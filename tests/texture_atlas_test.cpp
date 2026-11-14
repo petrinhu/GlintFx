@@ -273,6 +273,7 @@ struct owned_image {
                             .pixel_format = gltfx_pixel_format::rgba8_srgb_straight};
 }
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: it changes the atlas that a owns
 [[nodiscard]] gltfx_rslt<gltfx_atlas_slot> add(open_atlas &a, const owned_image &image) {
     return add_image_to_atlas(a.atlas, a.texture, view_of(image));
 }

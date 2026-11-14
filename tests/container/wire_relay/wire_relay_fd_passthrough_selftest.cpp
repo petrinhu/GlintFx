@@ -131,9 +131,10 @@ demands(std::initializer_list<std::optional<std::size_t>> list) {
 
 // How many descriptors reached the compositor side: every read while data is waiting, never a
 // blocking read (each descriptor closed here).
-[[nodiscard]] std::size_t descriptors_upstream(pumped_connection &rig) {
+[[nodiscard]] std::size_t descriptors_upstream(const pumped_connection &rig) {
     std::size_t total = 0;
     pollfd waiting{.fd = rig.upstream_pair.b, .events = POLLIN, .revents = 0};
+    // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: poll(2) types these flags as signed
     while (::poll(&waiting, 1, 0) > 0 && (waiting.revents & POLLIN) != 0) {
         const wire_transport::read_result chunk = rig.upstream_end.read_once();
         total += chunk.fds.size();

@@ -81,7 +81,7 @@ void write_file_if_changed(const std::filesystem::path &path, const std::string 
 // Parses "--expect-sha256=<hex>" out of argv, or returns an empty
 // string when the flag is absent (see the file header comment for why
 // absence is a normal, supported case, not an error).
-std::string parse_expect_sha256_flag(int argc, char **argv) {
+std::string parse_expect_sha256_flag(int argc, const char *const *argv) {
     constexpr std::string_view prefix = "--expect-sha256=";
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg = argv[i];
@@ -92,7 +92,7 @@ std::string parse_expect_sha256_flag(int argc, char **argv) {
     return {};
 }
 
-double parse_max_version_argument(int argc, char **argv) {
+double parse_max_version_argument(int argc, const char *const *argv) {
     // Positional argument 3 (argv[3]), only when present AND not
     // itself a --flag (so "gl_registry_codegen a.xml out --expect-
     // sha256=X" without a max-version still resolves the default,
@@ -130,7 +130,7 @@ double parse_max_version_argument(int argc, char **argv) {
 // that needs neither), so requiring argc >= 3 first would make
 // `gl_registry_codegen --codegen-abi` alone fail the usage check
 // instead of ever reaching this branch.
-bool handle_codegen_abi_flag(int argc, char **argv) {
+bool handle_codegen_abi_flag(int argc, const char *const *argv) {
     if (argc != 2 || std::string_view(argv[1]) != "--codegen-abi") {
         return false;
     }
@@ -140,6 +140,7 @@ bool handle_codegen_abi_flag(int argc, char **argv) {
 
 } // namespace
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: the standard fixes the type of main's argv
 int main(int argc, char **argv) {
     if (handle_codegen_abi_flag(argc, argv)) {
         return 0;

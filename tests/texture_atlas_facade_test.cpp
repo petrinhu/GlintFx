@@ -188,6 +188,7 @@ void release_texture_object(texture_2d_impl *texture) noexcept {
     }
 }
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: the library declares this signature
 gltfx_rslt<gltfx_atlas_slot> add_image_to_atlas(texture_atlas_impl *atlas, texture_2d_impl *texture,
                                                 const gltfx_image_view &) noexcept {
     added = passed_on{atlas, texture, added.calls + 1};
@@ -200,6 +201,7 @@ gltfx_rslt<gltfx_rect_texel> region_in_atlas(const texture_atlas_impl *atlas,
     return gltfx_rslt<gltfx_rect_texel>::err(gltfx_err(gltfx_err_code::invalid_argument));
 }
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: the library declares this signature
 gltfx_rslt<void> release_from_texture_atlas(texture_atlas_impl *atlas,
                                             const gltfx_atlas_slot &) noexcept {
     released = passed_on{atlas, nullptr, released.calls + 1};

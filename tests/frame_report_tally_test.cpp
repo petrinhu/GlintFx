@@ -177,7 +177,7 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         tally.begin_frame(); // abandons the first
         tally.piece_drawn();
         (void)tally.finish();
-        auto r = tally.last_report();
+        const auto r = tally.last_report();
         GLINTFX_CHECK_EQ(r.frames_abandoned, std::uint64_t{1});
         GLINTFX_CHECK_EQ(r.pieces_submitted, std::uint64_t{1});
         GLINTFX_CHECK_EQ(r.pieces_refused, std::uint64_t{0});
@@ -235,7 +235,7 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
             tally.piece_drawn();
         }
         tally.draw_calls_issued(9);
-        auto meanwhile = tally.last_report();
+        const auto meanwhile = tally.last_report();
         GLINTFX_CHECK_EQ(meanwhile.pieces_submitted, std::uint64_t{3});
         GLINTFX_CHECK_EQ(meanwhile.pieces_drawn, std::uint64_t{2});
         GLINTFX_CHECK_EQ(meanwhile.draw_calls, std::uint64_t{0});

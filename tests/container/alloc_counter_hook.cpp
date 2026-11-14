@@ -276,8 +276,9 @@ struct dl_scan_state {
     glintfx_leak_counter::address_range *libc;
 };
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: dl_iterate_phdr(3) fixes this signature
 GFX_HOOK_FN int phdr_scan_callback(dl_phdr_info *info, std::size_t /*size*/, void *data) noexcept {
-    auto *state = static_cast<dl_scan_state *>(data);
+    const auto *state = static_cast<const dl_scan_state *>(data);
     const char *name = info->dlpi_name;
     if (name == nullptr || name[0] == '\0') {
         return 0;

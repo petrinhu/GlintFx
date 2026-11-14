@@ -104,11 +104,13 @@ void log_on_render(void *context, const glintfx::gltfx_frame_tick &tick) noexcep
 // (S2.3's own table names this as the one exception).
 loop_call_log *g_static_log = nullptr;
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: the record type fixes this signature
 bool log_on_frame_via_static(void *context, const glintfx::gltfx_frame_tick &tick) noexcept {
     g_static_log->push(loop_event::on_frame, 0, tick.frame_index, context);
     return g_static_log->on_frame_returns;
 }
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: the record type fixes this signature
 void log_on_render_via_static(void *context, const glintfx::gltfx_frame_tick &tick) noexcept {
     g_static_log->push(loop_event::on_render, 0, tick.frame_index, context);
 }

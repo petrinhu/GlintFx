@@ -92,7 +92,7 @@ int listen_downstream(const std::string &path) {
 // "" when no capture directory was given; a given one that is not an
 // existing directory ends the process (a capture that cannot be saved
 // must not look like a capture that found nothing, GODS_LAWS.md L-40).
-std::string capture_directory(int argc, char **argv) {
+std::string capture_directory(int argc, const char *const *argv) {
     if (argc != 4) {
         return "";
     }
@@ -107,6 +107,7 @@ std::string capture_directory(int argc, char **argv) {
 
 } // namespace
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: the standard fixes the type of main's argv
 int main(int argc, char **argv) {
     if (argc != 3 && argc != 4) {
         glintfx::container_fixture::checked_fprintf(

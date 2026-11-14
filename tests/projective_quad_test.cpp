@@ -505,8 +505,8 @@ struct kite_tally {
 [[nodiscard]] kite_tally tally_of_poses(const kite_shape &shape,
                                         const std::array<double, 4> &want) {
     kite_tally tally;
-    for (const int variant : {0, 1, 2, 3}) {
-        const kite_pose pose{(variant & 1) != 0, (variant & 2) != 0};
+    for (const unsigned variant : {0U, 1U, 2U, 3U}) {
+        const kite_pose pose{(variant & 1U) != 0U, (variant & 2U) != 0U};
         ++tally.counted;
         tally.wrong += within_promise(projective_weights(kite(shape, pose)), want) ? 0U : 1U;
     }
@@ -607,7 +607,7 @@ GLINTFX_TEST(projective_quad_one_minus_s_keeps_its_digits) {
 namespace {
 
 [[nodiscard]] std::array<std::array<std::int64_t, 2>, 4> square_moved(quad_draw &draw) {
-    constexpr std::int64_t k_side = std::int64_t{1} << 25U;
+    constexpr std::int64_t k_side = 1LL << 25U;
     std::array<std::array<std::int64_t, 2>, 4> c{
         {{0, 0}, {k_side, 0}, {k_side, k_side}, {0, k_side}}};
     for (auto &corner : c) {

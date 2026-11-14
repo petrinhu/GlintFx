@@ -479,7 +479,7 @@ GLINTFX_TEST(vertex_stream_creation_failure_is_out_of_memory_and_leaves_no_objec
     reset();
     gl_state.gen_fails = true;
     const gl_function_table table = fake_table();
-    auto failed = create_vertex_stream(table);
+    const auto failed = create_vertex_stream(table);
     GLINTFX_CHECK(failed.has_error());
     // glGen* answered 0 with NOTHING in the queue (a lost or not-current context): not
     // out_of_memory, since glGen* allocates no storage - platform_failure with the token of the
@@ -494,7 +494,7 @@ GLINTFX_TEST(vertex_stream_creation_failure_is_out_of_memory_and_leaves_no_objec
     reset();
     gl_state.gen_buffers_fail = true;
     const gl_function_table table3 = fake_table();
-    auto half = create_vertex_stream(table3);
+    const auto half = create_vertex_stream(table3);
     GLINTFX_CHECK(half.has_error());
     GLINTFX_CHECK(half.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK_EQ(gl_state.vertex_arrays_created, 1);
@@ -504,7 +504,7 @@ GLINTFX_TEST(vertex_stream_creation_failure_is_out_of_memory_and_leaves_no_objec
     reset();
     const gl_function_table table2 = fake_table();
     gl_state.error_from_layout = 0x0505; // GL_OUT_OF_MEMORY, raised while describing the layout
-    auto errored = create_vertex_stream(table2);
+    const auto errored = create_vertex_stream(table2);
     GLINTFX_CHECK(errored.has_error());
     GLINTFX_CHECK(errored.err().code() == gltfx_err_code::out_of_memory);
     GLINTFX_CHECK(errored.err().rejected_value() == "vertex_array_create");
@@ -522,7 +522,7 @@ GLINTFX_TEST(vertex_stream_both_techniques_put_the_exact_bytes_in_both_buffers) 
         vertex_stream stream = create_vertex_stream(table).value();
         triangle_batch batch;
         fill(batch, 3, false);
-        auto sent = upload_batch(table, stream, technique, batch);
+        const auto sent = upload_batch(table, stream, technique, batch);
         GLINTFX_CHECK(sent.has_value());
         const std::size_t vertex_bytes = batch.vertices().size() * sizeof(batch_vertex);
         const std::size_t index_bytes = batch.indices().size() * sizeof(std::uint32_t);
@@ -629,7 +629,7 @@ GLINTFX_TEST(vertex_stream_upload_failures_carry_the_token_of_the_step) {
             fill(batch, 2, false);
             gl_state.buffer_data_calls = 0;
             gl_state.error_from_first_buffer_data = raised;
-            auto failed = upload_batch(table, stream, technique, batch);
+            const auto failed = upload_batch(table, stream, technique, batch);
             GLINTFX_CHECK(failed.has_error());
             GLINTFX_CHECK(failed.err().code() == (raised == 0x0505
                                                       ? gltfx_err_code::out_of_memory
@@ -647,7 +647,7 @@ GLINTFX_TEST(vertex_stream_upload_failures_carry_the_token_of_the_step) {
         fill(batch, 2, false);
         gl_state.buffer_data_calls = 0;
         gl_state.error_from_second_buffer_data = 0x0502; // GL_INVALID_OPERATION
-        auto failed =
+        const auto failed =
             upload_batch(table, stream, vertex_upload_technique::orphan_and_sub_data, batch);
         GLINTFX_CHECK(failed.has_error());
         GLINTFX_CHECK(failed.err().code() == gltfx_err_code::platform_failure);
@@ -666,7 +666,7 @@ GLINTFX_TEST(vertex_stream_upload_failures_carry_the_token_of_the_step) {
         gl_state.buffer_data_calls = 0;
         gl_state.error_from_first_buffer_data = 0x0502;
         gl_state.also_out_of_memory_from_first_buffer_data = true;
-        auto failed =
+        const auto failed =
             upload_batch(table, stream, vertex_upload_technique::orphan_and_sub_data, batch);
         GLINTFX_CHECK(failed.has_error());
         GLINTFX_CHECK(failed.err().code() == gltfx_err_code::out_of_memory);
@@ -679,7 +679,7 @@ GLINTFX_TEST(vertex_stream_upload_failures_carry_the_token_of_the_step) {
     triangle_batch batch;
     fill(batch, 2, false);
     gl_state.map_returns_null = true;
-    auto null_map =
+    const auto null_map =
         upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, batch);
     GLINTFX_CHECK(null_map.has_error());
     GLINTFX_CHECK(null_map.err().rejected_value() == "vertex_upload");
@@ -690,7 +690,7 @@ GLINTFX_TEST(vertex_stream_upload_failures_carry_the_token_of_the_step) {
     const gl_function_table table2 = fake_table();
     vertex_stream stream2 = create_vertex_stream(table2).value();
     gl_state.unmap_reports_corruption = true;
-    auto corrupted =
+    const auto corrupted =
         upload_batch(table2, stream2, vertex_upload_technique::map_range_invalidate, batch);
     GLINTFX_CHECK(corrupted.has_error());
     GLINTFX_CHECK(corrupted.err().code() == gltfx_err_code::platform_failure);
@@ -755,11 +755,11 @@ GLINTFX_TEST(vertex_stream_the_consumers_prior_errors_are_drained_said_and_not_o
         if (at_upload) {
             triangle_batch batch;
             fill(batch, 1, false);
-            auto sent =
+            const auto sent =
                 upload_batch(table, stream, vertex_upload_technique::orphan_and_sub_data, batch);
             GLINTFX_CHECK(sent.has_value()); // their errors are not our failure
         } else {
-            auto created = create_vertex_stream(table);
+            const auto created = create_vertex_stream(table);
             GLINTFX_CHECK(created.has_value());
         }
         GLINTFX_CHECK_EQ(captured.size(), std::size_t{2});
@@ -783,7 +783,7 @@ GLINTFX_TEST(vertex_stream_the_drain_stops_at_the_limit_when_the_queue_never_emp
     arm_log();
     gl_state.endless_error = 0x0500;
     const gl_function_table table = fake_table();
-    auto created = create_vertex_stream(table);
+    const auto created = create_vertex_stream(table);
     GLINTFX_CHECK(created.has_error());
     GLINTFX_CHECK_EQ(captured.size(), std::size_t{16});
     // 16 reads to drain + at most 16 to check the operation: bounded, never a loop that does not
@@ -820,12 +820,14 @@ GLINTFX_TEST(vertex_stream_capacity_is_not_trusted_after_a_failed_growth) {
     triangle_batch big;
     fill(big, 200, false);
     gl_state.ignored_buffer_data_call = gl_state.buffer_data_calls + 1;
-    auto failed = upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, big);
+    const auto failed =
+        upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, big);
     GLINTFX_CHECK(failed.has_error());
     GLINTFX_CHECK(failed.has_error() && failed.err().code() == gltfx_err_code::out_of_memory);
     triangle_batch medium;
     fill(medium, 20, false);
-    auto after = upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, medium);
+    const auto after =
+        upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, medium);
     GLINTFX_CHECK(after.has_value());
     GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.vertex_buffer], medium.vertices().data(),
                               medium.vertices().size() * sizeof(batch_vertex)));
@@ -840,7 +842,7 @@ GLINTFX_TEST(vertex_stream_draw_reads_the_gl_errors_and_maps_them_with_the_token
         triangle_batch batch;
         fill(batch, 3, false);
         gl_state.error_from_draw = raised;
-        auto failed = draw_batch(table, batch, k_uniforms);
+        const auto failed = draw_batch(table, batch, k_uniforms);
         GLINTFX_CHECK(failed.has_error());
         GLINTFX_CHECK(failed.err().code() == (raised == 0x0505 ? gltfx_err_code::out_of_memory
                                                                : gltfx_err_code::platform_failure));
@@ -852,7 +854,7 @@ GLINTFX_TEST(vertex_stream_draw_reads_the_gl_errors_and_maps_them_with_the_token
     const gl_function_table table = fake_table();
     triangle_batch empty;
     gl_state.error_from_draw = 0x0502; // would be raised by a draw: there is none
-    auto nothing = draw_batch(table, empty, k_uniforms);
+    const auto nothing = draw_batch(table, empty, k_uniforms);
     GLINTFX_CHECK(nothing.has_value());
     GLINTFX_CHECK_EQ(gl_state.get_error_calls, 0); // and nothing was read
 }
@@ -870,12 +872,14 @@ GLINTFX_TEST(vertex_stream_index_capacity_is_not_trusted_after_a_failed_growth) 
     triangle_batch big;
     fill(big, 200, false);
     gl_state.ignored_buffer_data_call = gl_state.buffer_data_calls + 2; // the index glBufferData
-    auto failed = upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, big);
+    const auto failed =
+        upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, big);
     GLINTFX_CHECK(failed.has_error() && failed.err().code() == gltfx_err_code::out_of_memory &&
                   failed.err().rejected_value() == "index_upload");
     triangle_batch medium;
     fill(medium, 20, false);
-    auto after = upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, medium);
+    const auto after =
+        upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, medium);
     GLINTFX_CHECK(after.has_value());
     GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.index_buffer], medium.indices().data(),
                               medium.indices().size() * sizeof(std::uint32_t)));

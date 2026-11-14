@@ -305,7 +305,7 @@ GLINTFX_TEST(embedded_program_vertex_failure_has_its_token_and_routes_the_messag
     driver.fail_vertex = true;
     driver.message = "0:3(1): error: syntax error";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "vertex_shader");
@@ -337,7 +337,7 @@ GLINTFX_TEST(embedded_program_fragment_failure_has_its_token_and_frees_the_verte
     driver.fail_fragment = true;
     driver.message = "fragment says no";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "fragment_shader");
@@ -354,7 +354,7 @@ GLINTFX_TEST(embedded_program_link_failure_has_its_token_and_frees_everything) {
     driver.fail_link = true;
     driver.program_message = "link: undefined varying";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "program_link");
@@ -375,7 +375,7 @@ GLINTFX_TEST(embedded_program_a_long_driver_message_is_truncated_not_refused) {
     driver.message = std::string(5000, 'x');
     driver.message[0] = 'A';
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == "vertex_shader");
     GLINTFX_CHECK_EQ(captured.count, 1);
@@ -393,7 +393,7 @@ GLINTFX_TEST(embedded_program_an_empty_driver_message_still_logs_the_rejection) 
     driver.fail_link = true;
     driver.program_message = "";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK_EQ(captured.count, 1);
     GLINTFX_CHECK_EQ(captured.field_count, 3);
@@ -469,7 +469,7 @@ GLINTFX_TEST(embedded_program_a_driver_that_overstates_the_length_cannot_overrun
     driver.lie_about_length = true;
     driver.message = std::string(5000, 'y');
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK_EQ(captured.count, 1);
     GLINTFX_CHECK_EQ(captured.first_field_text.size(), std::size_t{1023});
@@ -485,7 +485,7 @@ GLINTFX_TEST(embedded_program_truncation_is_said_exactly_at_the_capacity_boundar
         driver.fail_fragment = true;
         driver.message = std::string(size, 'z');
         const gl_function_table table = fake_table();
-        auto result = create_embedded_program(table);
+        const auto result = create_embedded_program(table);
         GLINTFX_CHECK(result.has_error());
         GLINTFX_CHECK_EQ(captured.count, 1);
         GLINTFX_CHECK_EQ(captured.first_field_text.size(), std::size_t{1023});
@@ -501,7 +501,7 @@ GLINTFX_TEST(embedded_program_a_long_link_message_says_it_was_truncated) {
     driver.fail_link = true;
     driver.program_message = std::string(3000, 'k');
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == "program_link");
     GLINTFX_CHECK(captured.second_field_value);
@@ -515,7 +515,7 @@ GLINTFX_TEST(embedded_program_a_zero_program_is_refused_without_touching_program
     arm();
     driver.create_program_fails = true;
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "program_link");
@@ -535,7 +535,7 @@ GLINTFX_TEST(embedded_program_a_zero_shader_says_why_by_token_with_an_empty_driv
     arm();
     driver.create_shader_fails = true;
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == "vertex_shader");
     GLINTFX_CHECK_EQ(captured.count, 1);
@@ -553,7 +553,7 @@ GLINTFX_TEST(embedded_program_a_link_failure_says_program_link_failed) {
     driver.fail_link = true;
     driver.program_message = "no";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(captured.third_field_text == "program_link_failed");
     disarm();

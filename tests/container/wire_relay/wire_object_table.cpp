@@ -90,12 +90,12 @@ void wire_object_table::declare(std::uint32_t object_id, known_interface interfa
 void wire_object_table::retire(std::uint32_t object_id) { m_objects.erase(object_id); }
 
 known_interface wire_object_table::interface_of(std::uint32_t object_id) const {
-    auto it = m_objects.find(object_id);
+    const auto it = m_objects.find(object_id);
     return it == m_objects.end() ? known_interface::unknown : it->second;
 }
 
 std::optional<std::uint32_t> wire_object_table::xdg_surface_for(std::uint32_t surface_id) const {
-    auto it = m_xdg_surface_of_wl_surface.find(surface_id);
+    const auto it = m_xdg_surface_of_wl_surface.find(surface_id);
     if (it == m_xdg_surface_of_wl_surface.end()) {
         return std::nullopt;
     }

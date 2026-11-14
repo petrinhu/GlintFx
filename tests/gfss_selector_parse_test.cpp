@@ -932,7 +932,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_not_argument_input) 
 // builds the two strings that bracket whatever that bound is FROM THE
 // OUTSIDE, the same way a consumer of this library would have to.
 GLINTFX_TEST(gltfx_gfss_parse_selector_list_enforces_not_nesting_depth_limit) {
-    auto build_not_chain = [](int nesting_count) {
+    const auto build_not_chain = [](int nesting_count) {
         std::string text;
         for (int i = 0; i < nesting_count; ++i) {
             text += ":not(";

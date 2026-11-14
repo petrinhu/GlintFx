@@ -11226,3 +11226,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Do relatório do implementador:** o vermelho e o verde saíram como esperado (isolamento 51 OK, ferramenta 14 OK, foto 9 OK). As sabotagens S1 a S5 reprovaram. O `preci --fast` deu rc 0, com 397 de 397 (downgrade declarado). Nenhum contêiner tocou a GeForce.
   - **Desvio declarado pelo implementador:** o autoteste montou com `:ro,z`, como a ordem mandava, e não com o `:ro,Z` da regra do `CLAUDE.md`. A memória "Container rouba etiqueta" mostra que a etiqueta privada já tirou acesso da sessão do líder. Vai ao revisor avaliar.
   - **Revisor:** um `qa-engineer` haiku NOVO.
+- **D-W8-1141 (main, 14/11 10:22, modo autônomo, a confirmar retroativamente): a T6-B2 entra em `7ca6eeda` e vai à revisão N1.**
+  - **O que entrou:** 23 arquivos, 1246 linhas a mais e 44 a menos. No `TODO.md` só a célula de Status da `R2D-TEXTURE` mudou, e o bullet `PHOTO-PRESTART-HOSTCONFIG` sobreviveu; o main conferiu os dois.
+  - **Relatório do implementador:** passos 1 a 10 verdes. 14 de 14 rodadas. Mutantes M1 a M10 e FM1 a FM5 mortos. MSVC 13/13. `--fast` 396/396. Sanitizer 203/203.
+  - **Por que o commit parou e como seguiu:** parou no passo 12, por cautela, porque o `TODO.md` tinha andado com um bullet que o main acrescentou com a fatia em voo. O erro foi do main; ver a memória "TODO.md fica parado com fatia aberta". O CTO decidiu a retomada (D-W8-1790 a D-W8-1792, em `retomada-t6b2-passo12.md`, md5 `cad6c165`) e conferiu numa cópia que o bullet sobrevivia.
+  - **Limite declarado (D-W8-1791):** os `preci` rodaram sobre `d8eb6983`, sem a G4a-fix1. A combinação só o CI prova.
+  - **Revisor:** um `qa-engineer` haiku NOVO, com até 6 `docker build`.
+  - **Ponto aberto:** o hook `no_mdash_staged.py` contou "0 user-facing" e não varreu `docs/auditoria-api-texture.md`. Fica com o revisor.

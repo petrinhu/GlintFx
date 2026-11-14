@@ -11246,3 +11246,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Porte:** 6 `docker build`.
   - **Quando abre:** só depois que a revisão N1 da T6-B2 sair LIMPA. Se houver conserto, o CTO reancora de novo antes.
   - **Ao líder, na saída da onda:** as portas de mão única da H3b-2 (D-W8-1328, D-W8-1329 e D-W8-1336).
+- **D-W8-1144 (main, 14/11 12:17, modo autônomo, a confirmar retroativamente): a revisão da T6-B2 reprova por um texto público sem prova, e abre o conserto.**
+  - **Veredito:** NÃO LIMPA, com um IMPORTANTE e um COSMÉTICO. Relatório em `.trabalho/cto-w8/rev-t6b2/relatorio_final.md`, SHA revisado `7ca6eeda`.
+  - **O IMPORTANTE, conferido pelo main no blob:**
+    - O comentário público de `draw_atlas_image` diz que um recibo com um campo alterado é recusado como "região velha".
+    - O código recusa como "região de outro atlas" quando o campo trocado é o dono e o número novo pertence a outro alocador (`texture_atlas_cells.cpp:124-131`).
+    - Nenhum teste cobre esse caso.
+    - A mesma promessa aparece em `texture_atlas.hpp:50`.
+  - **O que passou:** mutantes (5 de 5 morreram), Clang 22 e 23, 300 células das fixtures, e as portas de mão única conferidas no blob.
+  - **Próximo passo:** um CTO escreve `ordem-t6b2-fix1.md` e a executa antes numa cópia (decisões D-W8-1830 em diante). Depois, um implementador NOVO e um revisor N1 NOVO, pela regra N1 de repetir até sair limpa.
+  - **Efeito na fila:** a H3b-2 segue esperando a revisão do conserto. Os quatro arquivos do conserto ficam reservados, e as frentes paralelas não podem tocá-los.

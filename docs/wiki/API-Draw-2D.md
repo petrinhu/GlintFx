@@ -167,3 +167,8 @@ the middle of a frame.
   the robustness extension cannot detect it.
 - A color brighter than white on an 8-bit surface: a value above one is
   clipped by the surface, not by the type.
+
+## Related
+
+- [API Reference: Draw 2D shapes](API-Draw-2D-Shapes): the filled and
+  outlined shapes, the line caps and the curve smoothness.

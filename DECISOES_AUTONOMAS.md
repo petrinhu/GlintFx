@@ -11211,3 +11211,8 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Ao líder, na saída da onda:** as portas de mão única da T6-B2 (D-W8-1503, D-W8-1504, D-W8-1509 e D-W8-1510).
   - **Implementador:** `backend-engineer` haiku NOVO.
   - **Erros que o CTO declarou:** cinco arquivos gravados por engano na pasta antiga `t6b2-cto/` e depois movidos. Não dá para provar que nenhum desses nomes já existia lá.
+- **D-W8-1138 (main, 14/11 08:27, modo autônomo, a confirmar retroativamente): a revisão N2 da G4a sai NÃO LIMPA, e o CTO escreve a G4a-fix1.**
+  - **Relatório:** `.trabalho/cto-w8/rev-g4a/relatorio.txt`.
+  - **Mutantes:** 7 de 10 morreram pelos portões commitados. M02' (família repetida aceita) e M03' (família fora de `/usr/lib64` aceita) sobrevivem. M08 e M09 só o arnês do revisor pegou.
+  - **IMPORTANTES:** o Traceback quando a especificação CDI está ausente (`nvidia_cdi_mounts.py:113-119`); a falta de controle para M02' e M03'; a guarda do nó sem teste automático (`composed_photo.sh:131-136`); e o commit só com o `Co-Authored-By` do Haiku, que o main conferiu na mensagem de `1f2d63c8`.
+  - **Despacho:** pela L-12 do projeto, a camada N2 tem uma rodada de conserto. Ela vai ao CTO, com a GeForce ainda proibida.

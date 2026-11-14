@@ -248,12 +248,18 @@ AWK
 # which is the one property GODS_LAWS.md L-40's own closing warning
 # ("null e [] sao o mesmo nada; mas [] e [\"/dev/uinput\"] nunca podem
 # virar a mesma coisa") requires of it.
+#
+# DRIVER-VERSION (QA-COMPOSED-PHOTOS G4a): a library bind under /usr/lib64 keeps its name and its soname, and
+# loses only a version of two or more numbers: libEGL_nvidia.so.620.70.06 and libnvidia-egl-gbm.so.1.1.4 become
+# .so.VERSAO, libEGL_nvidia.so.0 stays. The gpu_geforce baseline is measured on one driver and must not fail on
+# the next; which libraries enter, read-only or not, and every other byte are still compared.
 normalize_host_config() {
     raw="$1"
     sed_normalized="$(printf '%s' "$raw" \
         | sed -E 's#"ConsoleSize":\[[0-9]+,[0-9]+\]#"ConsoleSize":"NORMALIZED"#' \
         | sed -E 's#,"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle"##g; s#"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle",##g' \
-        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#')"
+        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#' \
+        | sed -E 's#(/usr/lib64/[^":]*\.so)\.[0-9]+\.[0-9]+(\.[0-9]+)*:#\1.VERSAO:#g')"
     sort_json_arrays "$(collapse_null_outside_strings "$sed_normalized")"
 }
 

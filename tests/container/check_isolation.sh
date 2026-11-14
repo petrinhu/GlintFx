@@ -136,8 +136,8 @@
 # VARIANTES POR PLACA (QA-COMPOSED-PATH G1b, D-W8-266): an optional third argument picks the baseline file of the
 # whole-block HostConfig compare. The list is CLOSED: ci (the default, no third argument), ci_udmabuf,
 # gpu_integrated, gpu_integrated_photo and gpu_geforce. A name outside it is refused by name, before docker is
-# touched. The FORBIDDEN_PATH_PATTERNS list does not change per variant. gpu_geforce has no baseline yet (born in
-# G4a, D-W8-266 / §5.6): until then it fails closed.
+# touched. The FORBIDDEN_PATH_PATTERNS list does not change per variant. gpu_geforce is the GeForce photo
+# container (QA-COMPOSED-PHOTOS G4a); its baseline is hostconfig_baseline_gpu_geforce.txt.
 #
 # CI_UDMABUF (KWIN-68-SEM-PLACA, the leader's decision of 07/11/2026): since KWin 6.8 the compositor of this
 # container only paints with a render device, and the one it gets is /dev/udmabuf (tests/container/Containerfile).
@@ -209,7 +209,9 @@ variant_of_args() {
 # $(...); an unknown name fails here, by name, before any file or docker call. gpu_integrated_photo is
 # gpu_integrated plus a ceiling of 512 processes: the container tests/container/composed_photo.sh photographs
 # (QA-COMPOSED-PATH G2-fix1, D-W8-F18). ci_udmabuf is ci plus exactly /dev/udmabuf with "rw": the container of
-# the wayland-container CI job and of every local round since KWin 6.8 (KWIN-68-SEM-PLACA).
+# the wayland-container CI job and of every local round since KWin 6.8 (KWIN-68-SEM-PLACA). gpu_geforce is the
+# only GeForce container there is, the photo one: the NVIDIA nodes, the read-only driver libraries and
+# label=disable, with the same ceiling of 512 (QA-COMPOSED-PHOTOS G4a).
 baseline_file_for_variant() {
     case "$1" in
         ci) printf '%s' "$BASELINE_DIR/hostconfig_baseline.txt" ;;
@@ -265,7 +267,8 @@ hostconfig_key_count() {
 }
 
 # The count line names the Docker version of the baseline file the run is compared against (G3a, residue R-2), never
-# the CI constant for a file measured later. A pure phrase, no docker call (L-17): the selftest calls it on text.
+# the CI constant for a file measured later. No docker call: it reads only the header of the baseline file (L-17),
+# so the selftest calls it on the committed files.
 key_count_message() {
     printf 'check_isolation.sh: HostConfig tem %s campo(s) de topo (baseline: %s, medido com Docker %s)' \
         "$1" "$EXPECTED_HOSTCONFIG_KEY_COUNT" "$(baseline_docker_version "$2")"

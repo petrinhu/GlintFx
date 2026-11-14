@@ -7494,6 +7494,20 @@ add_test(
 )
 set_tests_properties(composed_photo_facts_selftest PROPERTIES LABELS selftest)
 
+# QA-COMPOSED-PHOTOS G4a: nvidia_cdi_mounts.py turns the CDI specification that matches the loaded NVIDIA driver
+# into the read-only binds of the GeForce photo container (tests/container/composed_photo.sh, card nvidia). The
+# selftest reads a hand-written specification with a fake driver version; the count is exact, so a dropped
+# control fails.
+add_test(
+    NAME nvidia_cdi_mounts_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 10 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/nvidia_cdi_mounts.py" --selftest
+)
+set_tests_properties(nvidia_cdi_mounts_selftest PROPERTIES LABELS selftest)
+
 # QA-SCREEN-CAPTURE P3 (D-W8-33): capture_vs_readback.py compares the relay's
 # capture of a frame against the client's own glReadPixels of the same frame,
 # pixel by pixel, alpha included. Its --selftest runs on a 2x2 image
@@ -7562,7 +7576,7 @@ if(UNIX)
     add_test(
         NAME check_isolation_selftest
         COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-            "-DEXPECT_LINE=selftest: 42 controles OK"
+            "-DEXPECT_LINE=selftest: 51 controles OK"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
             sh "${CMAKE_CURRENT_SOURCE_DIR}/container/check_isolation.sh" --selftest
     )

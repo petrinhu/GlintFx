@@ -276,6 +276,76 @@ selftest_photo_run_user_bind_is_refused() {
     hc_must_refuse gpu_integrated_photo "$(photo_line | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#')"
 }
 
+# -- QA-COMPOSED-PHOTOS G4a: the variant gpu_geforce is the GeForce photo container ---------------------------------
+# Its baseline names the NVIDIA render node, the three /dev/nvidia* nodes, the read-only driver library binds and
+# label=disable. Every case reads the line FIRST and fails when it cannot: a refusal must never pass on an empty
+# line because the baseline is missing. Every swap must change the line, or the case fails (a swap that missed
+# would leave a refusal control passing on the accepted line).
+geforce_line() {
+    read_baseline_or_fail "$(baseline_file_for_variant gpu_geforce)"
+}
+
+# geforce_swap <sed -E program>: the variant's line with one swap, as TEXT only (never a real mount or device).
+geforce_swap() {
+    line="$(geforce_line)" || return 1
+    swapped="$(printf '%s' "$line" | sed -E "$1")"
+    [ "$swapped" != "$line" ] || { echo "a troca '$1' nao mudou a linha" >&2; return 1; }
+    printf '%s' "$swapped"
+}
+
+selftest_geforce_capture_passes_its_baseline() {
+    line="$(geforce_line)" || return 1
+    hc_must_accept gpu_geforce "$line"
+}
+
+# The next driver: every masked library version becomes another one, and the line still passes.
+selftest_geforce_other_driver_version_passes() {
+    line="$(geforce_swap 's#\.so\.VERSAO:#.so.999.1.2:#g')" || return 1
+    hc_must_accept gpu_geforce "$line"
+}
+
+selftest_geforce_extra_library_is_refused() {
+    line="$(geforce_swap 's#"Binds":\[#"Binds":["/usr/lib64/libcuda.so.VERSAO:/usr/lib64/libcuda.so.VERSAO:ro",#')" || return 1
+    hc_must_refuse gpu_geforce "$line"
+}
+
+selftest_geforce_writable_library_is_refused() {
+    line="$(geforce_swap 's#:ro"#:rw"#')" || return 1
+    hc_must_refuse gpu_geforce "$line"
+}
+
+selftest_geforce_extra_node_is_refused() {
+    line="$(geforce_swap 's#"Devices":\[\{#"Devices":[{"PathOnHost":"/dev/nvidia-uvm","PathInContainer":"/dev/nvidia-uvm","CgroupPermissions":"rwm"},{#')" || return 1
+    hc_must_refuse gpu_geforce "$line"
+}
+
+selftest_geforce_other_card_node_is_refused() {
+    line="$(geforce_swap 's#/dev/dri/renderD129#/dev/dri/renderD128#g')" || return 1
+    hc_must_refuse gpu_geforce "$line"
+}
+
+# The host's XDG_RUNTIME_DIR as a bind, as TEXT only (never mounted; GODS_LAWS.md L-09 rule 2).
+selftest_geforce_run_user_bind_is_refused() {
+    line="$(geforce_swap 's#"Binds":\[#"Binds":["/run/user/1000:/run/user/1000",#')" || return 1
+    hc_must_refuse gpu_geforce "$line"
+}
+
+selftest_geforce_capture_under_integrated_photo_is_refused() {
+    line="$(geforce_line)" || return 1
+    hc_must_refuse gpu_integrated_photo "$line"
+}
+
+# The version mask is narrow: a soname, a path outside /usr/lib64 and the rest of the text keep every byte, and a
+# second pass changes nothing.
+selftest_version_mask_is_narrow() {
+    raw='{"Binds":["/usr/lib64/libA.so.1:/usr/lib64/libA.so.1:ro","/opt/libB.so.1.2.3:/opt/libB.so.1.2.3:ro","/usr/lib64/libC.so.620.70.06:/usr/lib64/libC.so.0:ro"]}'
+    once="$(normalize_host_config "$raw")"
+    case "$once" in *'"/usr/lib64/libA.so.1:/usr/lib64/libA.so.1:ro"'*) ;; *) return 1 ;; esac
+    case "$once" in *'"/opt/libB.so.1.2.3:/opt/libB.so.1.2.3:ro"'*) ;; *) return 1 ;; esac
+    case "$once" in *'"/usr/lib64/libC.so.VERSAO:/usr/lib64/libC.so.0:ro"'*) ;; *) return 1 ;; esac
+    [ "$(normalize_host_config "$once")" = "$once" ] || return 1
+}
+
 # -- KWIN-68-SEM-PLACA: the variant ci_udmabuf is ci plus EXACTLY /dev/udmabuf with "rw" -----------------------------
 # The exclusion this variant protects: one device goes in and no other does. Every poisoned line below is the
 # variant's own line with the Devices value swapped, as TEXT (GODS_LAWS.md L-09: /dev/uinput and /dev/dri are never
@@ -363,6 +433,10 @@ selftest_key_count_message_names_the_version_of_its_baseline() {
     esac
     [ "$(key_count_message 63 "$(baseline_file_for_variant ci)")" = \
         "check_isolation.sh: HostConfig tem 63 campo(s) de topo (baseline: 63, medido com Docker 29.7.2)" ] || return 1
+    case "$(key_count_message 63 "$(baseline_file_for_variant ci_udmabuf)")" in
+        *"medido com Docker 29.9.2)") ;;
+        *) return 1 ;;
+    esac
 }
 
 # Sem 3o argumento, a variante e ci, e a linha de base do CI passa contra o arquivo do CI.
@@ -407,6 +481,15 @@ selftest_main() {
     selftest_check selftest_photo_other_pids_limit_is_refused
     selftest_check selftest_photo_renderd129_is_refused
     selftest_check selftest_photo_run_user_bind_is_refused
+    selftest_check selftest_geforce_capture_passes_its_baseline
+    selftest_check selftest_geforce_other_driver_version_passes
+    selftest_check selftest_geforce_extra_library_is_refused
+    selftest_check selftest_geforce_writable_library_is_refused
+    selftest_check selftest_geforce_extra_node_is_refused
+    selftest_check selftest_geforce_other_card_node_is_refused
+    selftest_check selftest_geforce_run_user_bind_is_refused
+    selftest_check selftest_geforce_capture_under_integrated_photo_is_refused
+    selftest_check selftest_version_mask_is_narrow
     selftest_check selftest_udmabuf_capture_passes_its_baseline
     selftest_check selftest_udmabuf_capture_under_ci_is_refused
     selftest_check selftest_ci_capture_under_udmabuf_is_refused

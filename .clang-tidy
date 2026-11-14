@@ -27,12 +27,15 @@ Checks: >
   -cert-err58-cpp,
   -misc-non-private-member-variables-in-classes,
   -misc-include-cleaner,
-  -misc-use-anonymous-namespace,
-  -bugprone-signed-bitwise
-# bugprone-signed-bitwise excluded on arrival (LLVM 23 removed the hicpp
-# module and moved its checks under bugprone-*, so this wildcard caught
-# it): 48 sites on 06/11/2026, 26 of them in src/ and include/. Each
-# needs its own look; that triage is a work item, not a verdict here.
+  -misc-use-anonymous-namespace
+# bugprone-signed-bitwise came in with LLVM 23, which removed the hicpp
+# module and moved its checks under bugprone-* (triaged site by site on
+# 06/11/2026, item CLANG-TIDY-23-TRIAGE). It stays on: the premise in its
+# documentation, a shift of a signed value "may result in undefined
+# behavior", predates C++20 ([expr.shift]), so what it catches here is a
+# bit pattern kept in a signed type or a signed shift count, which are
+# fixed in the code. What the operating system types as signed (poll(2),
+# fcntl(2), recvmsg(2)) carries a NOLINT with the reason.
 # cert-err58-cpp and bugprone-throwing-static-initialization excluded
 # together: both fire on the SAME static-init self-registration object
 # that tests/harness/test_registry.hpp's GLINTFX_TEST macro expands to
@@ -85,11 +88,15 @@ WarningsAsErrors: '*'
 # before/after diagnostic counts).
 HeaderFilterRegex: '(^|/)(include|src)/.*'
 FormatStyle: none
-# LLVM 23 widened misc-const-correctness to parameters, auto variables
-# and lambdas, all three on by default: 60 sites on 06/11/2026, 9 of
-# them in src/. Off until the same triage decides them, so the check
-# keeps exactly the coverage it had under LLVM 22.
+# IgnorePositiveIntegerLiterals: a positive literal has no sign bit to
+# corrupt, so `byte & 0xC0` and `value << 16` are not findings; the option
+# is off by default and the operand that is not a literal is still read.
+#
+# LLVM 23 also widened misc-const-correctness to parameters, auto variables
+# and lambdas, all three on by default, and they stay on (same triage). The
+# Windows lint job runs LLVM 20: neither the new check name nor these
+# options exist there, and an option a check does not read is reported only
+# under --verify-config, which no job here uses. That job keeps exactly the
+# coverage it had.
 CheckOptions:
-  misc-const-correctness.AnalyzeParameters: false
-  misc-const-correctness.AnalyzeAutoVariables: false
-  misc-const-correctness.AnalyzeLambdas: false
+  bugprone-signed-bitwise.IgnorePositiveIntegerLiterals: true

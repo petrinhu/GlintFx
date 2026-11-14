@@ -7501,7 +7501,7 @@ set_tests_properties(composed_photo_facts_selftest PROPERTIES LABELS selftest)
 add_test(
     NAME nvidia_cdi_mounts_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 10 controles OK"
+        "-DEXPECT_LINE=selftest: 14 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/nvidia_cdi_mounts.py" --selftest
@@ -7581,6 +7581,22 @@ if(UNIX)
             sh "${CMAKE_CURRENT_SOURCE_DIR}/container/check_isolation.sh" --selftest
     )
     set_tests_properties(check_isolation_selftest PROPERTIES LABELS selftest)
+endif()
+
+# QA-COMPOSED-PHOTOS G4a-fix1: the controls of composed_photo.sh's choice of card, the guards that run BEFORE any
+# docker call (the node by vendor and driver, the node the GeForce baseline names, label=disable only on nvidia),
+# loaded by the driver's own --selftest (composed_photo_selftest.sh). Fake /sys trees under mktemp; no container,
+# no device. The executor requires exit 0 and the exact line with the control count. if(UNIX): POSIX sh and
+# mktemp, same reason as check_isolation_selftest above.
+if(UNIX)
+    add_test(
+        NAME composed_photo_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 9 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/composed_photo.sh" --selftest
+    )
+    set_tests_properties(composed_photo_selftest PROPERTIES LABELS selftest)
 endif()
 
 # KWIN-68-SEM-PLACA: the controls of the text judges of tests/container/check_image_freshness.sh (the stamp of the

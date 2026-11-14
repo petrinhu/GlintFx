@@ -686,6 +686,12 @@ check_isolation_selftest|windows|nenhum|SEM-PENDENCIA
 # check_image_freshness_selftest (tests/container/check_image_freshness.sh --selftest, controles em check_image_freshness_selftest.sh, KWIN-68-SEM-PLACA): o portao que prova que a imagem do contêiner Wayland e do dia (carimbo da camada de pacotes, versao do Fedora contra a do registro) julga uma imagem com compositor Wayland, e o Windows nao tem esse mecanismo (L-05: Wayland puro, sem X11). Os controles sao POSIX sh e usam sed, grep e sort, ferramentas que o runner Windows desta matriz nao tem nativamente; o portao roda so no job wayland-container (Linux).
 check_image_freshness_selftest|windows|nenhum|SEM-PENDENCIA
 
+# composed_photo_selftest (tests/container/composed_photo.sh --selftest, controles em composed_photo_selftest.sh,
+# G4a-fix1): a foto composta roda num conteiner com compositor Wayland, e o Windows nao tem esse mecanismo (L-05:
+# Wayland puro, sem X11). Os controles sao POSIX sh e usam mktemp e ln -s, que o runner Windows desta matriz nao
+# tem nativamente; os guardas que eles cobrem rodam so na maquina Linux da foto.
+composed_photo_selftest|windows|nenhum|SEM-PENDENCIA
+
 # container_alloc_report_selftest (tests/container/check_alloc_report.sh
 # --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX),
 # CONTAINER-LEAK-COUNTER sub-fatia S3) - MESMA assimetria que container_

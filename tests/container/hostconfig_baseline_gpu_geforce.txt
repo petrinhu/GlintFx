@@ -22,11 +22,11 @@
 # not in this file. The node NUMBER is frozen here on purpose: composed_photo.sh refuses, before any docker call,
 # a GeForce node other than the one this file names, and this file is measured again.
 #
-# Fields that differ from hostconfig_baseline_gpu_integrated_photo.txt, checked field by field by the capture:
-# Binds (null there; here the 23 read-only driver binds of nvidia_cdi_mounts.py), Devices (renderD128 there; here
-# renderD129, /dev/nvidia0, /dev/nvidiactl and /dev/nvidia-modeset), SecurityOpt (null there; here label=disable),
-# MaskedPaths (only the 16 thermal_throttle entries of the CPUs, which the normalization drops), and ConsoleSize
-# and OomKillDisable (the placeholders below).
+# Fields that differ from hostconfig_baseline_gpu_integrated_photo.txt in this file, three: Binds (null there; here
+# the 23 read-only driver binds of nvidia_cdi_mounts.py), Devices (renderD128 there; here renderD129, /dev/nvidia0,
+# /dev/nvidiactl and /dev/nvidia-modeset) and SecurityOpt (null there; here label=disable). The raw capture also
+# differed in MaskedPaths (the 16 thermal_throttle entries of the CPUs), ConsoleSize and OomKillDisable; the
+# placeholders below make those three equal.
 #
 # Placeholders: the three of hostconfig_baseline_gpu_integrated.txt (ConsoleSize, the thermal_throttle entries of
 # MaskedPaths, OomKillDisable) and the library version: a bind under /usr/lib64 with a version of two or more

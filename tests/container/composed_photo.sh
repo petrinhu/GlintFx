@@ -6,6 +6,7 @@
 # tests/tools/composed_photo_facts.py and pixel by tests/tools/image_probe.py.
 #
 # Usage: composed_photo.sh <image> <example> <out-dir> <intel|nvidia>
+#        composed_photo.sh --selftest   (G4a-fix1: the guards before any docker call, on fake /sys trees)
 #   intel: only /dev/dri/renderD128 enters, after its PCI vendor reads 0x8086 (Intel), and the
 #   isolation variant is gpu_integrated_photo (tests/container/check_isolation.sh).
 #   nvidia (G4a): the render node is read from /sys by its vendor and driver, never by its number; the
@@ -62,11 +63,16 @@ env_is_image_plus_kwin_flags() {
 
 start_and_prove() {
     # The two -e below are KWIN_FLAGS written out; env_is_image_plus_kwin_flags() fails closed if they ever drift.
-    # EXTRA_ARGS is empty on intel; on nvidia it holds the GeForce set, split into words on purpose.
+    # EXTRA_ARGS is empty on intel; on nvidia it holds the GeForce set, split into words on purpose, with pathname
+    # expansion off (set -f) so a '*', '?' or '[' in a path can never turn into other files (G4a-fix1).
+    set -f
     # shellcheck disable=SC2086
     docker run -d --name "$CONTAINER" --cap-drop=ALL --cap-add=SYS_NICE --pids-limit 512 --device "$NODE" $EXTRA_ARGS \
         -e KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1 -e KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 "$IMAGE" \
-        > "$OUT/run.id" 2> "$OUT/run.err" || fail "conteiner nao subiu" 30
+        > "$OUT/run.id" 2> "$OUT/run.err"
+    run_rc=$?
+    set +f
+    [ "$run_rc" = 0 ] || fail "conteiner nao subiu" 30
     "$HERE/wait_for_ready_marker.sh" "$CONTAINER" > "$OUT/ready.log" 2>&1 \
         || remove_container_and_fail "conteiner nao ficou pronto" 31
     "$HERE/check_isolation.sh" "$CONTAINER" glintfx-test "$VARIANT" > "$OUT/isolation.log" 2>&1
@@ -105,20 +111,22 @@ judge_photo() {
 }
 
 # The intel branch: the one node the photo has always used, after its PCI vendor reads 0x8086.
+# <sys_root>: /sys in the photo, a fake tree in the selftest (an argument, never an environment variable).
 pick_intel_node() {
     NODE=/dev/dri/renderD128; VARIANT=gpu_integrated_photo
-    vendor=$(cat /sys/class/drm/renderD128/device/vendor 2>&1)
+    vendor=$(cat "$1/class/drm/renderD128/device/vendor" 2>&1)
     [ "$vendor" = 0x8086 ] || fail "renderD128 nao e a Intel (fabricante '$vendor'); nada roda" 3
 }
 
 # The nvidia branch, item 1: exactly one render node whose vendor is 0x10de and whose driver is nvidia. Only
 # shell builtins and test -ef: nothing here opens a device, and the node is never chosen by its number.
+# <sys_root>: /sys in the photo, a fake tree in the selftest.
 pick_nvidia_node() {
     found=""; count=0
-    for d in /sys/class/drm/renderD*; do
+    for d in "$1"/class/drm/renderD*; do
         [ -e "$d/device/vendor" ] || continue
         read -r v < "$d/device/vendor" || continue
-        if [ "$v" = 0x10de ] && [ "$d/device/driver" -ef /sys/bus/pci/drivers/nvidia ]; then
+        if [ "$v" = 0x10de ] && [ "$d/device/driver" -ef "$1/bus/pci/drivers/nvidia" ]; then
             found="$found ${d##*/}"; count=$((count + 1))
         fi
     done
@@ -163,8 +171,8 @@ main() {
     HERE=$(cd "$(dirname "$0")" && pwd) || fail "diretorio do script" 2
     TOOLS="$HERE/../tools"; PYTHON=${PYTHON:-python3}
     case "$MAKER" in
-        intel) pick_intel_node ;;
-        nvidia) pick_nvidia_node; check_node_named_by_baseline; check_nvidia_device_nodes ;;
+        intel) pick_intel_node /sys ;;
+        nvidia) pick_nvidia_node /sys; check_node_named_by_baseline; check_nvidia_device_nodes ;;
         *) fail "fabricante '$MAKER' recusado: so intel ou nvidia" 2 ;;
     esac
     [ ! -e "$OUT" ] || fail "$OUT ja existe; use uma pasta nova" 2
@@ -181,4 +189,13 @@ main() {
     rec veredito PASSA
 }
 
-main "$@"
+# --selftest (G4a-fix1): the only argument besides the four of the photo. The controls live beside the script
+# (composed_photo_selftest.sh), load with `.`, and touch no container, no device and no /sys of this machine.
+if [ "$#" -eq 1 ] && [ "$1" = "--selftest" ]; then
+    HERE=$(cd "$(dirname "$0")" && pwd) || fail "diretorio do script" 2
+    # shellcheck source=composed_photo_selftest.sh
+    . "$HERE/composed_photo_selftest.sh"
+    selftest_main
+else
+    main "$@"
+fi

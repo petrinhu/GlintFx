@@ -31,6 +31,15 @@ GLSI_BLOCK = (
     "            - ro\n"
 )
 ALLOCATOR_LINK = "            - libnvidia-allocator.so.999.1.2::/usr/lib64/libnvidia-allocator.so.1\n"
+# The libEGL_nvidia entry, and the same entry moved out of /usr/lib64 (G4a-fix1, M03' of the N2 review).
+EGL_ENTRY = (
+    "        - hostPath: /usr/lib64/libEGL_nvidia.so.999.1.2\n"
+    "          containerPath: /usr/lib64/libEGL_nvidia.so.999.1.2\n"
+)
+EGL_ENTRY_ELSEWHERE = (
+    "        - hostPath: /opt/nvidia/libEGL_nvidia.so.999.1.2\n"
+    "          containerPath: /opt/nvidia/libEGL_nvidia.so.999.1.2\n"
+)
 DUPLICATE_LINK = "            - --link\n            - libnvidia-glsi.so.999.1.2::/usr/lib64/libEGL_nvidia.so.0\n"
 # An emitted destination with a colon or a space: a --link that resolves to an allow-listed file (D-W8-1752).
 COLON_LINK = "            - --link\n            - libEGL_nvidia.so.999.1.2::/usr/lib64/libEGL:nvidia.so.0\n"
@@ -111,10 +120,15 @@ def spec_driver_version(text):
 
 
 def choose_spec(driver_version, spec_paths):
-    """Return the first spec whose --host-driver-version is the driver's; if none is, name every version seen."""
+    """Return the first spec whose --host-driver-version is the driver's. A spec that cannot be read does not match
+    (the boot clears /run/cdi, G4a-fix1); if none matches, name every spec with its version or its read error."""
     seen = []
     for spec in spec_paths:
-        version = spec_driver_version(read_text(spec))
+        try:
+            version = spec_driver_version(read_text(spec))
+        except OSError as error:
+            seen.append(f"{spec} ilegivel ({error.strerror or error})")
+            continue
         if version == driver_version:
             return spec
         seen.append(f"{spec} traz {version}")
@@ -339,6 +353,41 @@ def selftest_real_spec_links_are_accepted():
     return status == "ok" and tuple(lines) == EXPECTED_SAMPLE_MOUNTS
 
 
+def selftest_missing_spec_is_skipped():
+    """The boot clears /run/cdi (G4a-fix1): a missing spec does not match, and the next one that does is used."""
+    with tempfile.TemporaryDirectory() as tmp:
+        missing = str(pathlib.Path(tmp) / "nao-existe.yaml")
+        good = pathlib.Path(tmp) / "boa.yaml"
+        good.write_text(sample_text(), encoding="utf-8")
+        try:
+            lines = mounts_for_driver(SAMPLE_DRIVER, [missing, str(good)])
+        except (MountError, OSError):
+            return False
+        return tuple(lines) == EXPECTED_SAMPLE_MOUNTS
+
+
+def selftest_only_missing_specs_are_named():
+    with tempfile.TemporaryDirectory() as tmp:
+        missing = str(pathlib.Path(tmp) / "nao-existe.yaml")
+        try:
+            mounts_for_driver(SAMPLE_DRIVER, [missing])
+        except MountError as error:
+            return missing in str(error) and "ilegivel" in str(error)
+        except OSError:
+            return False
+        return False
+
+
+def selftest_repeated_family_is_refused():
+    status, reason = attempt(SAMPLE_DRIVER, [replace_once(sample_text(), GLSI_BLOCK, GLSI_BLOCK + GLSI_BLOCK)])
+    return status == "erro" and "libnvidia-glsi" in reason and "2 vez" in reason
+
+
+def selftest_family_outside_lib_dir_is_refused():
+    status, reason = attempt(SAMPLE_DRIVER, [replace_once(sample_text(), EGL_ENTRY, EGL_ENTRY_ELSEWHERE)])
+    return status == "erro" and "libEGL_nvidia" in reason and "0 vez" in reason
+
+
 def selftest():
     check("amostra: as 23 montagens esperadas, em ordem", selftest_sample_mounts())
     check("amostra: versao diferente da do driver e recusada pelo nome", selftest_driver_mismatch_is_refused())
@@ -352,6 +401,10 @@ def selftest():
           selftest_container_path_change_in_family_is_refused())
     check("CDI real: --link repetido igual e --link com dois-pontos fora da lista passam",
           selftest_real_spec_links_are_accepted())
+    check("especificacao ausente: e pulada, e vale a seguinte que bate", selftest_missing_spec_is_skipped())
+    check("nenhuma especificacao legivel: recusa nomeando o caminho", selftest_only_missing_specs_are_named())
+    check("familia permitida repetida: recusa", selftest_repeated_family_is_refused())
+    check("familia permitida fora de /usr/lib64: recusa", selftest_family_outside_lib_dir_is_refused())
     print(f"selftest: {len(CHECKS)} controles OK")
     return 0
 
@@ -366,7 +419,7 @@ def main(argv):
     try:
         spec = choose_spec(driver, specs)
         lines = build_mounts(read_text(spec), driver)
-    except MountError as error:
+    except (MountError, OSError) as error:
         print(f"nvidia_cdi_mounts.py: {error}", file=sys.stderr)
         return 1
     print(f"nvidia_cdi_mounts.py: especificacao {spec} (driver {driver}), {len(lines)} montagens", file=sys.stderr)

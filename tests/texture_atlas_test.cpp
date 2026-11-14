@@ -393,6 +393,10 @@ namespace {
 
 constexpr gltfx_rect_texel k_no_region{};
 
+// An owner number no allocator of this process hands out: owners are handed out from 1 up, one per
+// allocator opened (core/atlas_allocator.hpp, A SLOT IS A RECEIPT), and this test opens a few.
+constexpr std::uint32_t k_owner_never_handed_out = 0xFFFFFFFFU;
+
 } // namespace
 
 // T6-B2: a current receipt reads the region of its image, the place worked out by hand: margin 2,
@@ -447,6 +451,17 @@ GLINTFX_TEST(texture_atlas_a_receipt_not_current_reads_its_reason_and_no_region)
     changed = taken.value();
     changed.owner = 0U;
     GLINTFX_CHECK(reads(changed, stale_region));
+    // The owner names the atlas that handed the receipt out, so a receipt whose owner was changed
+    // to a number other than 0 reads as one of another atlas, never as a changed one. The receipt
+    // of `other` is this one with only its owner changed: the same cell, number and generation.
+    GLINTFX_CHECK(rect_is(foreign.value(), taken.value().rect) &&
+                  foreign.value().id == taken.value().id &&
+                  foreign.value().generation == taken.value().generation);
+    changed = taken.value();
+    changed.owner = foreign.value().owner;
+    GLINTFX_CHECK(reads(changed, region_other_atlas));
+    changed.owner = k_owner_never_handed_out;
+    GLINTFX_CHECK(reads(changed, region_other_atlas));
     GLINTFX_CHECK(
         read_is(read_atlas_receipt(nullptr, taken.value()), texture_not_open, k_no_region));
     GLINTFX_CHECK(glintfx::draw2d::release_from_texture_atlas(a.atlas, taken.value()).has_value());
@@ -736,6 +751,15 @@ GLINTFX_TEST(texture_atlas_a_receipt_of_another_atlas_or_a_changed_one_is_refuse
                              gltfx_err_code::invalid_argument, "stale_slot"));
     gltfx_atlas_slot changed = slot.value();
     changed.rect.width += 1U;
+    GLINTFX_CHECK(refused_as(region_in_atlas(first.atlas, changed),
+                             gltfx_err_code::invalid_argument, "stale_slot"));
+    // The owner names the atlas: changed to a number other than 0 it is another atlas's receipt,
+    // and changed to 0 it is one never handed out.
+    changed = slot.value();
+    changed.owner = k_owner_never_handed_out;
+    GLINTFX_CHECK(refused_as(region_in_atlas(first.atlas, changed),
+                             gltfx_err_code::invalid_argument, "slot_other_allocator"));
+    changed.owner = 0U;
     GLINTFX_CHECK(refused_as(region_in_atlas(first.atlas, changed),
                              gltfx_err_code::invalid_argument, "stale_slot"));
     GLINTFX_CHECK(refused_as(region_in_atlas(nullptr, slot.value()),

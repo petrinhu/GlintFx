@@ -596,17 +596,20 @@ class gltfx_renderer_2d {
     //   - texture_not_open: the atlas was moved from;
     //   - texture_other_renderer: the atlas was opened on another renderer;
     //   - region_other_atlas: another atlas handed out the receipt, which is also what an atlas
-    //     that received another by move assignment says of the receipts it had;
+    //     that received another by move assignment says of the receipts it had; a receipt whose
+    //     owner was changed to a number other than 0 reads as one of another atlas, because the
+    //     owner is what names the atlas that handed it out;
     //   - stale_region: the cell of the receipt was released, the receipt was never handed out
-    //     (the default gltfx_atlas_slot, among them), or a field of it was changed;
+    //     (an owner of 0, the default gltfx_atlas_slot among them), or its rect, id or generation
+    //     was changed;
     //   - pixel_position_out_of_range: the batch transform takes a corner outside the range the
     //     drawing program can scale, as for fill_rect.
     // The receipt is read at this call, and reading it asks for no memory. Nothing reads it again:
     // a piece kept before release_slot() stays in the frame, and shows what the texture holds when
     // the batch is sent (texture_atlas.hpp, NOT A BARRIER). A kept piece is painted, counted and
     // sent as a piece of draw_texture() on the same texture is: images of one atlas painted one
-    // after the other, with nothing between them, add no draw call and no texture switch to the
-    // first of them.
+    // after the other, with nothing between them, share the draw call and the texture switch of
+    // the first of them: each one after it adds neither.
     // Proved by: renderer_2d_impl_test (each reason in this order, each pair of neighbours crossed,
     // over a fake GL; the vertices sent, byte for byte, those of draw_texture() for each mirror and
     // a tint; each reason's own counter; the layer; no frame open; two images in one draw call

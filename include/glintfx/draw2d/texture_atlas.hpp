@@ -46,8 +46,10 @@
 // rect is the whole cell, margin and rounding included. region_of(slot) gives the rectangle of the
 // IMAGE in texels of texture(), which is what a drawing call reads. A receipt is current from
 // add_image() until release_slot(); region_of() and release_slot() refuse any other, with the
-// allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas
-// is "slot_other_allocator", a released, changed or never handed out one is "stale_slot".
+// allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas,
+// or one whose owner was changed to a number other than 0, is "slot_other_allocator"; a released
+// or never handed out one (an owner of 0 among them), or one whose rect, id or generation was
+// changed, is "stale_slot".
 // A region is a value: one taken from region_of() before release_slot() still names the place, and
 // a drawing call reads whatever is there then. A receipt is checked: draw_atlas_image() refuses one
 // that stopped being current, and counts it in the frame report (renderer_2d.hpp).

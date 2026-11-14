@@ -629,8 +629,10 @@ class gltfx_atlas_allocator {
 // rect is the whole cell, margin and rounding included. region_of(slot) gives the rectangle of the
 // IMAGE in texels of texture(), which is what a drawing call reads. A receipt is current from
 // add_image() until release_slot(); region_of() and release_slot() refuse any other, with the
-// allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas
-// is "slot_other_allocator", a released, changed or never handed out one is "stale_slot".
+// allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas,
+// or one whose owner was changed to a number other than 0, is "slot_other_allocator"; a released
+// or never handed out one (an owner of 0 among them), or one whose rect, id or generation was
+// changed, is "stale_slot".
 // A region is a value: one taken from region_of() before release_slot() still names the place, and
 // a drawing call reads whatever is there then. A receipt is checked: draw_atlas_image() refuses one
 // that stopped being current, and counts it in the frame report (renderer_2d.hpp).
@@ -997,17 +999,20 @@ class gltfx_texture_atlas {
     //   - texture_not_open: the atlas was moved from;
     //   - texture_other_renderer: the atlas was opened on another renderer;
     //   - region_other_atlas: another atlas handed out the receipt, which is also what an atlas
-    //     that received another by move assignment says of the receipts it had;
+    //     that received another by move assignment says of the receipts it had; a receipt whose
+    //     owner was changed to a number other than 0 reads as one of another atlas, because the
+    //     owner is what names the atlas that handed it out;
     //   - stale_region: the cell of the receipt was released, the receipt was never handed out
-    //     (the default gltfx_atlas_slot, among them), or a field of it was changed;
+    //     (an owner of 0, the default gltfx_atlas_slot among them), or its rect, id or generation
+    //     was changed;
     //   - pixel_position_out_of_range: the batch transform takes a corner outside the range the
     //     drawing program can scale, as for fill_rect.
     // The receipt is read at this call, and reading it asks for no memory. Nothing reads it again:
     // a piece kept before release_slot() stays in the frame, and shows what the texture holds when
     // the batch is sent (texture_atlas.hpp, NOT A BARRIER). A kept piece is painted, counted and
     // sent as a piece of draw_texture() on the same texture is: images of one atlas painted one
-    // after the other, with nothing between them, add no draw call and no texture switch to the
-    // first of them.
+    // after the other, with nothing between them, share the draw call and the texture switch of
+    // the first of them: each one after it adds neither.
     // Proved by: renderer_2d_impl_test (each reason in this order, each pair of neighbours crossed,
     // over a fake GL; the vertices sent, byte for byte, those of draw_texture() for each mirror and
     // a tint; each reason's own counter; the layer; no frame open; two images in one draw call

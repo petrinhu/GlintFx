@@ -31,6 +31,20 @@ struct atlas_identity {
 [[nodiscard]] gltfx_rslt<void> check_atlas_request(const atlas_identity &atlas, std::uint32_t width,
                                                    std::uint32_t height) noexcept;
 
+// How a receipt stands, read with no gltfx_err built: the one definition of "current"
+// (core/atlas_allocator_impl.hpp reads the slot table for it) and of whose receipt it is.
+enum class atlas_slot_standing : std::uint8_t {
+    current,
+    stale,
+    other_allocator,
+};
+
+// How `slot` stands by its owner alone, for an allocator numbered `owner`: 0, the owner of a slot
+// never handed out, is stale; another number is another allocator's; this one says current, and
+// only the slot table can say otherwise.
+[[nodiscard]] atlas_slot_standing standing_by_owner(std::uint32_t owner,
+                                                    const gltfx_atlas_slot &slot) noexcept;
+
 // release(slot): a moved-from allocator ("allocator"), then a slot whose owner is not this
 // allocator's: another allocator's ("slot_other_allocator"), or 0, the owner of a slot never handed
 // out ("stale_slot"). The other stale slots are the slot table's (core/atlas_slots.hpp).

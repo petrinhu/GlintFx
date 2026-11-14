@@ -1719,6 +1719,8 @@ using glintfx::gltfx_texture_paint;
 
 constexpr double k_nan = std::numeric_limits<double>::quiet_NaN();
 constexpr double k_far = 1.0e39; // past the pixel range the vertex program can scale
+constexpr float k_float_nan = std::numeric_limits<float>::quiet_NaN();
+constexpr float k_float_inf = std::numeric_limits<float>::infinity();
 
 // The paint of a region of a texture: `source` in texels, the mirror, the tint (white, the
 // default, when not given).
@@ -2074,6 +2076,190 @@ GLINTFX_TEST(renderer_2d_impl_a_textured_rect_is_refused_for_the_first_reason_in
                                 }),
                      10);
     GLINTFX_CHECK(card.draw_counts.size() == 1); // only the one row that was drawn
+    close_two_owners(owners);
+}
+
+namespace {
+
+// R2D-TEXTURE T6-B2: one call of the frame machine's draw_atlas_image(), the atlas already read by
+// the facade (renderer_2d_facade_atlas.cpp), and the reason it must give.
+struct atlas_case {
+    glintfx::draw2d::atlas_image_call call{};
+    glintfx::gltfx_rect_world where{};
+    gltfx_draw_2d_refusal expected = gltfx_draw_2d_refusal::none;
+};
+
+// The order of renderer_2d.hpp, each pair of neighbours crossed: each row has the next reason in
+// it too, so a swap of two checks gives the wrong answer in that row. The last row has only the
+// first reason, with the rest clean.
+std::array<atlas_case, 12> atlas_cases(const glintfx::texture_2d_impl *mine,
+                                       const glintfx::texture_2d_impl *theirs) {
+    using enum gltfx_draw_2d_refusal;
+    const double inf = std::numeric_limits<double>::infinity();
+    const gltfx_texture_paint fine = paint_of(whole());
+    const gltfx_texture_paint unknown = paint_of(whole(), unknown_mirror());
+    const gltfx_texture_paint nan_tint =
+        paint_of(whole(), gltfx_texture_mirror::none, gltfx_rgba{1.0F, k_float_nan, 1.0F, 1.0F});
+    const gltfx_texture_paint inf_tint =
+        paint_of(whole(), gltfx_texture_mirror::none, gltfx_rgba{1.0F, 1.0F, k_float_inf, 1.0F});
+    return {{
+        {{nullptr, fine, stale_region}, rect(k_nan, 0, 1, inf), not_a_number},
+        {{nullptr, nan_tint, stale_region}, rect(0, 0, 1, inf), not_a_number},
+        {{nullptr, fine, stale_region}, rect(0, 0, -1, inf), infinite},
+        {{nullptr, inf_tint, stale_region}, rect(0, 0, -1, 1), infinite},
+        {{nullptr, unknown, stale_region}, rect(0, 0, -1, 1), negative_size},
+        {{nullptr, unknown, stale_region}, rect(k_far, 0, 1, 1), unknown_option},
+        {{nullptr, fine, region_other_atlas}, rect(k_far, 0, 1, 1), texture_not_open},
+        {{theirs, fine, region_other_atlas}, rect(k_far, 0, 1, 1), texture_other_renderer},
+        {{mine, fine, region_other_atlas}, rect(k_far, 0, 1, 1), region_other_atlas},
+        {{mine, fine, stale_region}, rect(k_far, 0, 1, 1), stale_region},
+        {{mine, fine, none}, rect(k_far, 0, 1, 1), pixel_position_out_of_range},
+        {{mine, unknown, none}, rect(0, 0, 1, 1), unknown_option},
+    }};
+}
+
+// The bytes a textured rectangle sends, with `submit` drawing it alone in a frame.
+template <typename Submit>
+std::vector<unsigned char> bytes_of_one(renderer_2d_impl *renderer, const Submit &submit) {
+    card.vertex_bytes.clear(); // what a frame that sends nothing leaves here is not this call's
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    submit();
+    static_cast<void>(renderer->finish_frame());
+    return card.vertex_bytes;
+}
+
+// The report of the frame that ends now; all zero when the frame ended in an error, which no row
+// of the cases below expects.
+glintfx::gltfx_frame_2d_report report_of_frame(renderer_2d_impl *renderer) {
+    const auto finished = renderer->finish_frame();
+    return finished.has_value() ? finished.value() : glintfx::gltfx_frame_2d_report{};
+}
+
+// What draw_atlas_image() sends for `paint`, and whether draw_texture() sends exactly that.
+struct bytes_compared {
+    std::vector<unsigned char> sent;
+    bool same = false;
+};
+
+bytes_compared compare_with_draw_texture(const two_owners &owners,
+                                         const gltfx_texture_paint &paint) {
+    renderer_2d_impl *renderer = owners.renderer;
+    const glintfx::gltfx_rect_world where = rect(10, 20, 30, 40);
+    const auto textured = bytes_of_one(
+        renderer, [&] { renderer->draw_texture(owners.mine, paint, where, k_layer_0); });
+    auto by_receipt = bytes_of_one(renderer, [&] {
+        renderer->draw_atlas_image({owners.mine, paint, gltfx_draw_2d_refusal::none}, where,
+                                   k_layer_0);
+    });
+    const bool same = !textured.empty() && textured == by_receipt;
+    return bytes_compared{std::move(by_receipt), same};
+}
+
+} // namespace
+
+// T6-B2: an image of an atlas is refused for the FIRST reason, in the order of atlas_cases().
+GLINTFX_TEST(renderer_2d_impl_an_atlas_image_is_refused_for_the_first_reason_in_order) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    GLINTFX_CHECK_EQ(rows_right(renderer, atlas_cases(owners.mine, owners.theirs),
+                                [&](const atlas_case &row) {
+                                    renderer->draw_atlas_image(row.call, row.where, k_layer_0);
+                                }),
+                     12);
+    GLINTFX_CHECK(card.draw_counts.empty()); // every row is refused, none of them drawn
+    close_two_owners(owners);
+}
+
+// T6-B2: what reaches the card is what draw_texture() sends for the same region, mirror, tint and
+// rectangle, byte for byte. The rows differ from one another, so a machine that dropped the mirror,
+// the tint or the region would show here.
+GLINTFX_TEST(renderer_2d_impl_an_atlas_image_reaches_the_card_as_draw_texture_does) {
+    reset();
+    const two_owners owners = open_two_owners();
+    const glintfx::gltfx_rect_texel half{{1.0, 0.0}, {1.0, 2.0}};
+    const std::array<gltfx_texture_paint, 5> paints{
+        paint_of(half),
+        paint_of(half, gltfx_texture_mirror::flip_left_right),
+        paint_of(half, gltfx_texture_mirror::flip_top_bottom),
+        paint_of(half, gltfx_texture_mirror::flip_left_right_and_top_bottom),
+        paint_of(half, gltfx_texture_mirror::none, gltfx_rgba{0.5F, 0.25F, 0.125F, 0.75F}),
+    };
+    int same = 0;
+    int differ_from_the_first = 0;
+    std::vector<unsigned char> first;
+    for (const gltfx_texture_paint &paint : paints) {
+        const bytes_compared compared = compare_with_draw_texture(owners, paint);
+        same += compared.same ? 1 : 0;
+        differ_from_the_first += (!first.empty() && compared.sent != first) ? 1 : 0;
+        if (first.empty()) {
+            first = compared.sent;
+        }
+    }
+    GLINTFX_CHECK_EQ(same, 5);
+    GLINTFX_CHECK_EQ(differ_from_the_first, 4);
+    close_two_owners(owners);
+}
+
+// T6-B2: each reason of the receipt has its own counter in the report, the ends of the pieces add
+// up, and nothing is sent for a refused one.
+GLINTFX_TEST(renderer_2d_impl_an_atlas_receipt_reason_counts_in_its_own_counter) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    const gltfx_texture_paint fine = paint_of(whole());
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_atlas_image({owners.mine, fine, gltfx_draw_2d_refusal::stale_region},
+                               rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_atlas_image({owners.mine, fine, gltfx_draw_2d_refusal::region_other_atlas},
+                               rect(0, 0, 1, 1), k_layer_0);
+    renderer->draw_atlas_image({owners.mine, fine, gltfx_draw_2d_refusal::region_other_atlas},
+                               rect(0, 0, 1, 1), k_layer_0);
+    const glintfx::gltfx_frame_2d_report report = report_of_frame(renderer);
+    GLINTFX_CHECK_EQ(report.pieces_refused, std::uint64_t{3});
+    GLINTFX_CHECK_EQ(report.pieces_refused_stale_region, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(report.pieces_refused_region_other_atlas, std::uint64_t{2});
+    GLINTFX_CHECK(report.first_refusal == gltfx_draw_2d_refusal::stale_region);
+    GLINTFX_CHECK_EQ(report.pieces_drawn, std::uint64_t{0});
+    GLINTFX_CHECK(ends_add_up(report));
+    GLINTFX_CHECK(card.draw_counts.empty());
+    close_two_owners(owners);
+}
+
+// T6-B2: with no frame open a call is dropped and counted outside the frame, whatever its receipt
+// says, never as refused.
+GLINTFX_TEST(renderer_2d_impl_an_atlas_image_with_no_frame_open_is_counted_outside_it) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    renderer->draw_atlas_image(
+        {owners.mine, paint_of(whole()), gltfx_draw_2d_refusal::stale_region}, rect(0, 0, 1, 1),
+        k_layer_0);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    const glintfx::gltfx_frame_2d_report report = report_of_frame(renderer);
+    GLINTFX_CHECK_EQ(report.pieces_dropped_outside_frame, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(report.pieces_submitted, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(report.pieces_refused, std::uint64_t{0});
+    close_two_owners(owners);
+}
+
+// T6-B2: the layer reaches the piece (the one of the lower layer is sent first, whichever came
+// first), and two images of one texture, one after the other, are one draw call and one switch.
+GLINTFX_TEST(renderer_2d_impl_atlas_images_keep_their_layer_and_share_a_draw_call) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    const glintfx::draw2d::atlas_image_call call{owners.mine, paint_of(whole()),
+                                                 gltfx_draw_2d_refusal::none};
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_atlas_image(call, rect(100, 0, 1, 1), glintfx::gltfx_draw_layer{5});
+    renderer->draw_atlas_image(call, rect(200, 0, 1, 1), glintfx::gltfx_draw_layer{1});
+    const glintfx::gltfx_frame_2d_report report = report_of_frame(renderer);
+    GLINTFX_CHECK_EQ(report.pieces_drawn, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(report.draw_calls, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(report.texture_switches, std::uint64_t{1});
+    GLINTFX_CHECK(sent_vertex(0, 0) == 200.0F);
+    GLINTFX_CHECK(sent_vertex(4, 0) == 100.0F);
     close_two_owners(owners);
 }
 

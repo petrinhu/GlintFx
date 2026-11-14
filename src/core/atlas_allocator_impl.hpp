@@ -8,6 +8,7 @@
 
 #include "core/atlas_geometry.hpp"
 #include "core/atlas_memory.hpp"
+#include "core/atlas_request_check.hpp"
 #include "core/atlas_slots.hpp"
 
 // core/atlas_allocator_impl.hpp - R2D-TEXTURE. The interior of one gltfx_atlas_allocator
@@ -62,6 +63,11 @@ allocate_in_atlas(atlas_allocator_impl *impl, std::uint32_t width, std::uint32_t
 // definition of "current".
 [[nodiscard]] gltfx_rslt<void> check_current_atlas_slot(const atlas_allocator_impl *impl,
                                                         const gltfx_atlas_slot &slot) noexcept;
+
+// How `slot` stands in `impl`, by the checks release(slot) makes, in their order, with no gltfx_err
+// built, so a drawing call can read a receipt asking for no memory (draw2d/texture_atlas_impl.hpp).
+[[nodiscard]] atlas_slot_standing standing_in_atlas(const atlas_allocator_impl &impl,
+                                                    const gltfx_atlas_slot &slot) noexcept;
 
 // release_all() on `impl`; does nothing on nullptr.
 void release_everything_in_atlas(atlas_allocator_impl *impl) noexcept;

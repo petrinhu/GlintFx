@@ -31,6 +31,10 @@ std::string_view gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal reason) noexce
         return "region_out_of_range";
     case gltfx_draw_2d_refusal::degenerate_quad:
         return "degenerate_quad";
+    case gltfx_draw_2d_refusal::stale_region:
+        return "stale_region";
+    case gltfx_draw_2d_refusal::region_other_atlas:
+        return "region_other_atlas";
     }
     return "unknown"; // a value a NEWER glintfx produced (docs/api-conventions.md R4)
 }

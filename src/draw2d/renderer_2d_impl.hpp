@@ -72,6 +72,16 @@ struct textured_triangle_call {
     std::span<const std::uint32_t> indices;
     bool indexed = false;
 };
+
+// What one draw_atlas_image() call submits (T6-B2), the atlas already read by the facade
+// (renderer_2d_facade_atlas.cpp), so the frame machine never knows an atlas: the texture of the
+// atlas (null for a moved-from atlas), the paint with the region of the image, and the reason the
+// receipt gave (none when it is current; then the region is the image's).
+struct atlas_image_call {
+    const texture_2d_impl *texture = nullptr;
+    gltfx_texture_paint paint{};
+    gltfx_draw_2d_refusal receipt = gltfx_draw_2d_refusal::none;
+};
 } // namespace draw2d
 
 // What the renderer asks of its context (D-API-07: it makes ITS OWN context current before it
@@ -155,6 +165,10 @@ struct renderer_2d_impl {
                       const gltfx_rect_world &rect, gltfx_draw_layer layer) noexcept;
     void draw_texture_quad(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
                            const gltfx_quad_world &corners, gltfx_draw_layer layer) noexcept;
+    // The image of an atlas receipt (T6-B2): the checks of draw_texture(), with the reason of the
+    // receipt between the texture's and the pixel range, and then kept as draw_texture() keeps it.
+    void draw_atlas_image(const draw2d::atlas_image_call &call, const gltfx_rect_world &rect,
+                          gltfx_draw_layer layer) noexcept;
     // The textured triangles (T5, renderer_2d_impl_textures.cpp): an empty call is nothing; the
     // rest is checked in the order of triangle_list_check.hpp (the counts, the indices, the values
     // with the texel coordinates), then the texture (not open, another renderer's, a texel

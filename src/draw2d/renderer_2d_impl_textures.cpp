@@ -103,6 +103,20 @@ void renderer_2d_impl::draw_texture_quad(const texture_2d_impl *texture,
     submit_textured(draw2d::textured_submission{texture, &paint, corners, true}, refusal, layer);
 }
 
+void renderer_2d_impl::draw_atlas_image(const draw2d::atlas_image_call &call,
+                                        const gltfx_rect_world &rect,
+                                        gltfx_draw_layer layer) noexcept {
+    gltfx_draw_2d_refusal refusal = draw2d::refusal_of_texture_rect(call.paint, rect);
+    if (refusal == gltfx_draw_2d_refusal::none) {
+        refusal = refusal_of_texture_owner(call.texture, this);
+    }
+    if (refusal == gltfx_draw_2d_refusal::none) {
+        refusal = call.receipt;
+    }
+    submit_textured(draw2d::textured_submission{call.texture, &call.paint, quad_of(rect), false},
+                    refusal, layer);
+}
+
 void renderer_2d_impl::submit_textured(const draw2d::textured_submission &submission,
                                        gltfx_draw_2d_refusal refusal,
                                        gltfx_draw_layer layer) noexcept {

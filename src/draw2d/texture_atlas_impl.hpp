@@ -6,6 +6,7 @@
 #include <glintfx/core/atlas_allocator.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/texture_atlas.hpp>
 #include <glintfx/draw2d/texture_region.hpp>
 
@@ -74,6 +75,19 @@ add_image_to_atlas(glintfx::texture_atlas_impl *atlas, glintfx::texture_2d_impl 
 [[nodiscard]] glintfx::gltfx_rslt<glintfx::gltfx_rect_texel>
 region_in_atlas(const glintfx::texture_atlas_impl *atlas,
                 const glintfx::gltfx_atlas_slot &slot) noexcept;
+
+// What a drawing call reads of a receipt (renderer_2d.hpp, draw_atlas_image): no reason and the
+// region of the image when `slot` is current; otherwise the reason of the frame report and an empty
+// region.
+struct atlas_receipt_read {
+    glintfx::gltfx_draw_2d_refusal refusal = glintfx::gltfx_draw_2d_refusal::none;
+    glintfx::gltfx_rect_texel region{};
+};
+
+// Reads `slot` in `atlas` (nullptr for a moved-from atlas, which reads texture_not_open): the same
+// checks and order as region_in_atlas(), with no gltfx_err built, so it asks for no memory.
+[[nodiscard]] atlas_receipt_read read_atlas_receipt(const glintfx::texture_atlas_impl *atlas,
+                                                    const glintfx::gltfx_atlas_slot &slot) noexcept;
 
 // release_slot(slot) on `atlas` (nullptr for a moved-from atlas).
 [[nodiscard]] glintfx::gltfx_rslt<void>

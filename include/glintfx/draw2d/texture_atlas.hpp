@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <glintfx/core/atlas_allocator.hpp>
+#include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
 #include <glintfx/draw2d/texture_2d.hpp>
@@ -14,12 +15,12 @@
 // draw2d/texture_atlas.hpp - R2D-TEXTURE. Many images in ONE texture: a texture of the renderer,
 // the allocator of core/atlas_allocator.hpp that decides where each image goes, and the writing of
 // each image into its place. The caller hands an image and gets back the receipt of the cell that
-// holds it; region_of() says where the image is in texture(), and the image is drawn from there by
-// the textured calls of renderer_2d.hpp, for example
+// holds it, and draws the image by that receipt, which the drawing call checks:
+//     renderer.draw_atlas_image(atlas, {slot, mirror, tint}, rect);
+// region_of() says where the image is in texture(), for the other textured calls of renderer_2d.hpp
+// (a part of the image, a free quadrilateral, triangles), for example
 //     renderer.draw_texture(atlas.texture(), {{atlas.region_of(slot).value(), mirror}, tint},
 //     rect);
-// A drawing call that takes the receipt itself, and refuses one whose cell was given back, is not
-// part of this version.
 //
 // THE CELL. An image of w x h texels takes a cell of (w + 2 * margin_pixels) x
 // (h + 2 * margin_pixels) texels, each side rounded UP to a multiple of 2^k, k being
@@ -48,7 +49,8 @@
 // allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas
 // is "slot_other_allocator", a released, changed or never handed out one is "stale_slot".
 // A region is a value: one taken from region_of() before release_slot() still names the place, and
-// a drawing call reads whatever is there then.
+// a drawing call reads whatever is there then. A receipt is checked: draw_atlas_image() refuses one
+// that stopped being current, and counts it in the frame report (renderer_2d.hpp).
 //
 // NOT A BARRIER. add_image() writes into texture() as update_texture() writes (renderer_2d.hpp): it
 // does not send the batch, and the texture is read when the batch is sent. An image added into a
@@ -98,8 +100,9 @@
 // holds nothing: is_open() is false, texture() is a handle that is not open, and add_image(),
 // region_of() and release_slot() are refused as above; a reference taken from texture() before the
 // move reads that handle, not open, and the one to draw from is the atlas moved into's. An atlas
-// that receives another by move assignment gives its own cells and texture back first. One atlas
-// must not be used from two threads at the same time.
+// that receives another by move assignment gives its own cells and texture back first. A receipt
+// follows its cell through a move: the atlas moved into reads it and draws it. One atlas must not
+// be used from two threads at the same time.
 //
 // Proved by: atlas_cell_test (each refusal of open() by name and in this order; the margin at its
 // border, 2^k accepted and 2^k - 1 refused, for every k from 0 to 12; the multiple of 2^k at its
@@ -124,7 +127,8 @@
 // included; a cell minified 0.5 times with one reduced level and 0.25 times with two, next to a
 // cell of another colour, reads only its own; a cell released and taken by a smaller image reads
 // only the new image; a moved-from atlas is not open, nor is its texture(), and each call is
-// refused as above; an atlas that received another refuses the receipt it had).
+// refused as above; an atlas that received another refuses the receipt it had; and
+// draw_atlas_image(), as renderer_2d.hpp says, the atlas moved into drawing a receipt).
 
 namespace glintfx {
 
@@ -141,6 +145,16 @@ struct gltfx_texture_atlas_desc {
     gltfx_texture_filter filter = gltfx_texture_filter::linear;
     // The number of reduced levels of texture(), exactly; zero: none (see above).
     std::uint32_t mipmap_levels = 0;
+};
+
+// What draw_atlas_image() (renderer_2d.hpp) paints with, grouped, as gltfx_texture_paint is
+// (D-W8-354): the receipt of the image, the mirroring, and the tint. The tint you do not choose is
+// opaque white, which leaves the image as it is (D-W8-464), so {slot} draws the image as added.
+// Trivial value, 48 bytes; its layout is tested (texture_atlas_facade_test).
+struct gltfx_atlas_paint {
+    gltfx_atlas_slot slot{};
+    gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
+    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
 };
 
 class gltfx_texture_atlas {
@@ -174,6 +188,8 @@ class gltfx_texture_atlas {
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> release_slot(gltfx_atlas_slot slot) noexcept;
 
   private:
+    // draw_atlas_image() reads a receipt in the interior, as draw_texture() reads a texture.
+    friend class gltfx_renderer_2d;
     gltfx_texture_atlas(texture_atlas_impl *interior, texture_2d_impl *made) noexcept
         : impl(interior), atlas_texture(made) {}
     texture_atlas_impl *impl = nullptr;

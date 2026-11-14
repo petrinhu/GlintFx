@@ -230,6 +230,41 @@ GLINTFX_TEST(atlas_allocator_impl_move_gives_the_old_interior_back_and_leaves_it
 
 // The owner after the last one: one more, and 1 after 4294967295, so a process that opens more
 // allocators than that never hands out owner 0, the owner of a slot never handed out.
+// R2D-TEXTURE T6-B2: how a receipt stands, with no error built, says what release() refuses, in the
+// same order: the owner first (0 is stale, even with the fields of a current receipt), then the
+// slot table, field by field.
+GLINTFX_TEST(atlas_allocator_impl_a_receipt_stands_as_release_would_answer) {
+    using glintfx::atlas_slot_standing;
+    gltfx_rslt<atlas_allocator_impl *> mine =
+        glintfx::make_atlas_allocator_impl(64, 64, default_atlas_memory());
+    gltfx_rslt<atlas_allocator_impl *> other =
+        glintfx::make_atlas_allocator_impl(64, 64, default_atlas_memory());
+    GLINTFX_CHECK(mine.has_value() && other.has_value());
+    if (!mine.has_value() || !other.has_value()) {
+        return;
+    }
+    atlas_allocator_impl &atlas = *mine.value();
+    const gltfx_atlas_slot taken = glintfx::allocate_in_atlas(&atlas, 4, 4).value();
+    const gltfx_atlas_slot foreign = glintfx::allocate_in_atlas(other.value(), 4, 4).value();
+    using glintfx::standing_in_atlas;
+    GLINTFX_CHECK(standing_in_atlas(atlas, taken) == atlas_slot_standing::current);
+    GLINTFX_CHECK(standing_in_atlas(atlas, gltfx_atlas_slot{}) == atlas_slot_standing::stale);
+    GLINTFX_CHECK(standing_in_atlas(atlas, foreign) == atlas_slot_standing::other_allocator);
+    gltfx_atlas_slot no_owner = taken;
+    no_owner.owner = 0;
+    GLINTFX_CHECK(standing_in_atlas(atlas, no_owner) == atlas_slot_standing::stale);
+    gltfx_atlas_slot older = taken;
+    older.generation += 1U;
+    GLINTFX_CHECK(standing_in_atlas(atlas, older) == atlas_slot_standing::stale);
+    gltfx_atlas_slot moved = taken;
+    moved.rect.x += 1U;
+    GLINTFX_CHECK(standing_in_atlas(atlas, moved) == atlas_slot_standing::stale);
+    GLINTFX_CHECK(glintfx::release_from_atlas(&atlas, taken).has_value());
+    GLINTFX_CHECK(standing_in_atlas(atlas, taken) == atlas_slot_standing::stale);
+    glintfx::destroy_atlas_allocator_impl(other.value());
+    glintfx::destroy_atlas_allocator_impl(mine.value());
+}
+
 GLINTFX_TEST(atlas_allocator_impl_owner_after_the_last_one_is_one) {
     GLINTFX_CHECK_EQ(glintfx::atlas_owner_after(0U), 1U);
     GLINTFX_CHECK_EQ(glintfx::atlas_owner_after(41U), 42U);

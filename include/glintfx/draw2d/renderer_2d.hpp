@@ -110,6 +110,9 @@
 namespace glintfx {
 
 struct renderer_2d_impl;
+// draw_atlas_image() takes these two; <glintfx/draw2d/texture_atlas.hpp> declares them.
+class gltfx_texture_atlas;
+struct gltfx_atlas_paint;
 
 // Internal access to the private layout, for the library's own code
 // only - the same "friend struct" shape gltfx_gl_context uses. Never
@@ -578,6 +581,46 @@ class gltfx_renderer_2d {
     GLINTFX_API void draw_texture_quad(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
                                        gltfx_quad_world corners,
                                        gltfx_draw_layer layer = {}) noexcept;
+
+    // Draws the image of the receipt `paint.slot` (texture_atlas.hpp) into the axis-aligned
+    // rectangle `rect` (world space, like fill_rect), multiplied by `paint.tint`, the whole image
+    // and nothing around it: the pixels draw_texture() gives from atlas.texture() and
+    // atlas.region_of(paint.slot) with the same mirror and tint. Mirroring is applied inside the
+    // image, wherever in the atlas its cell is. Include <glintfx/draw2d/texture_atlas.hpp> to call
+    // it. Refused as ONE piece, counted in the report, never an exception, for the first of these
+    // reasons, in this order:
+    //   - not_a_number, then infinite: a value of the rectangle or of the tint that is not a
+    //     finite number;
+    //   - negative_size: the rectangle with a negative width or height;
+    //   - unknown_option: the mirror is a value outside its enumeration;
+    //   - texture_not_open: the atlas was moved from;
+    //   - texture_other_renderer: the atlas was opened on another renderer;
+    //   - region_other_atlas: another atlas handed out the receipt, which is also what an atlas
+    //     that received another by move assignment says of the receipts it had;
+    //   - stale_region: the cell of the receipt was released, the receipt was never handed out
+    //     (the default gltfx_atlas_slot, among them), or a field of it was changed;
+    //   - pixel_position_out_of_range: the batch transform takes a corner outside the range the
+    //     drawing program can scale, as for fill_rect.
+    // The receipt is read at this call, and reading it asks for no memory. Nothing reads it again:
+    // a piece kept before release_slot() stays in the frame, and shows what the texture holds when
+    // the batch is sent (texture_atlas.hpp, NOT A BARRIER). A kept piece is painted, counted and
+    // sent as a piece of draw_texture() on the same texture is: images of one atlas painted one
+    // after the other, with nothing between them, add no draw call and no texture switch to the
+    // first of them.
+    // Proved by: renderer_2d_impl_test (each reason in this order, each pair of neighbours crossed,
+    // over a fake GL; the vertices sent, byte for byte, those of draw_texture() for each mirror and
+    // a tint; each reason's own counter; the layer; no frame open; two images in one draw call
+    // with one switch).
+    // Proved by: texture_atlas_test (over a fake GL, the atlas itself: what each kind of receipt
+    // reads, the region of the image by hand, and that reading it asks for no memory, counted).
+    // Proved by: draw2d_texture_parity_test (on a real context, in both values of srgb_framebuffer,
+    // through the library: each mirror read back by quarter in a cell that does not start at the
+    // origin; pixels equal to draw_texture()'s; a default, a released and another atlas's receipt,
+    // and a moved-from atlas, counted and painting nothing; a position of half a pixel, a moving
+    // transform and one texel stretched reading only the image; two images in one draw call with
+    // one switch; the layer; the tint; a kept piece showing what the cell holds at the flush).
+    GLINTFX_API void draw_atlas_image(const gltfx_texture_atlas &atlas, gltfx_atlas_paint paint,
+                                      gltfx_rect_world rect, gltfx_draw_layer layer = {}) noexcept;
 
     // Filled triangles textured from `texture`, each vertex with its own position (world space,
     // like fill_triangles), tint and texel coordinate (gltfx_textured_vertex_2d,

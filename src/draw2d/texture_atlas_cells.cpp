@@ -19,6 +19,7 @@ namespace {
 
 using glintfx::gltfx_atlas_rect;
 using glintfx::gltfx_atlas_slot;
+using glintfx::gltfx_draw_2d_refusal;
 using glintfx::gltfx_err_code;
 using glintfx::gltfx_image_view;
 using glintfx::gltfx_rect_texel;
@@ -113,6 +114,24 @@ gltfx_rslt<gltfx_rect_texel> region_in_atlas(const texture_atlas_impl *atlas,
     }
     return gltfx_rslt<gltfx_rect_texel>::ok(
         atlas_image_region(slot.rect, atlas->image_sizes.data[slot.id], atlas->layout));
+}
+
+atlas_receipt_read read_atlas_receipt(const texture_atlas_impl *atlas,
+                                      const gltfx_atlas_slot &slot) noexcept {
+    if (atlas == nullptr) {
+        return atlas_receipt_read{gltfx_draw_2d_refusal::texture_not_open, {}};
+    }
+    switch (glintfx::standing_in_atlas(*atlas->cells, slot)) {
+    case glintfx::atlas_slot_standing::current:
+        return atlas_receipt_read{
+            gltfx_draw_2d_refusal::none,
+            atlas_image_region(slot.rect, atlas->image_sizes.data[slot.id], atlas->layout)};
+    case glintfx::atlas_slot_standing::other_allocator:
+        return atlas_receipt_read{gltfx_draw_2d_refusal::region_other_atlas, {}};
+    case glintfx::atlas_slot_standing::stale:
+        break;
+    }
+    return atlas_receipt_read{gltfx_draw_2d_refusal::stale_region, {}};
 }
 
 gltfx_rslt<void> release_from_texture_atlas(texture_atlas_impl *atlas,

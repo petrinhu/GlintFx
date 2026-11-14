@@ -312,6 +312,10 @@ namespace {
         return &report.pieces_refused_region_out_of_range;
     case gltfx_draw_2d_refusal::degenerate_quad:
         return &report.pieces_refused_degenerate_quad;
+    case gltfx_draw_2d_refusal::stale_region:
+        return &report.pieces_refused_stale_region;
+    case gltfx_draw_2d_refusal::region_other_atlas:
+        return &report.pieces_refused_region_other_atlas;
     default:
         return nullptr;
     }
@@ -324,7 +328,8 @@ namespace {
            r.pieces_refused_count_not_multiple_of_three + r.pieces_refused_unknown_option +
            r.pieces_refused_too_many_vertices + r.pieces_refused_pixel_position_out_of_range +
            r.pieces_refused_texture_not_open + r.pieces_refused_texture_other_renderer +
-           r.pieces_refused_region_out_of_range + r.pieces_refused_degenerate_quad;
+           r.pieces_refused_region_out_of_range + r.pieces_refused_degenerate_quad +
+           r.pieces_refused_stale_region + r.pieces_refused_region_other_atlas;
 }
 
 } // namespace
@@ -334,7 +339,7 @@ namespace {
 // (D-W8-30). The k-th reason of the list (counting from 1) is refused k times, so a swap of two
 // counters shows.
 GLINTFX_TEST(frame_report_tally_each_reason_has_its_own_counter) {
-    const std::array<gltfx_draw_2d_refusal, 12> reasons{
+    const std::array<gltfx_draw_2d_refusal, 14> reasons{
         gltfx_draw_2d_refusal::not_a_number,
         gltfx_draw_2d_refusal::infinite,
         gltfx_draw_2d_refusal::negative_size,
@@ -347,6 +352,8 @@ GLINTFX_TEST(frame_report_tally_each_reason_has_its_own_counter) {
         gltfx_draw_2d_refusal::texture_other_renderer,
         gltfx_draw_2d_refusal::region_out_of_range,
         gltfx_draw_2d_refusal::degenerate_quad,
+        gltfx_draw_2d_refusal::stale_region,
+        gltfx_draw_2d_refusal::region_other_atlas,
     };
     frame_tally tally;
     tally.begin_frame();
@@ -404,17 +411,51 @@ GLINTFX_TEST(frame_report_tally_the_texture_reasons_are_nine_to_twelve_with_thei
                   "region_out_of_range");
     GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::degenerate_quad) ==
                   "degenerate_quad");
-    // The next value is still unknown to this build (R4).
-    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
-    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(static_cast<gltfx_draw_2d_refusal>(13)) == "unknown");
 }
 
-// R2D-TEXTURE T4b-B1 (D-W8-471): the texture switches of each flush add up in the frame's report,
-// LAST in the struct; they start at zero every frame, and an empty frame has none.
+// R2D-TEXTURE T6-B2: the two reasons of the receipt, appended (values 14 and 15, never renumbered;
+// 13 is the shadows'), and their public tokens, written here as literals.
+GLINTFX_TEST(frame_report_tally_the_receipt_reasons_are_fourteen_and_fifteen_with_their_tokens) {
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::stale_region), 14);
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::region_other_atlas), 15);
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::stale_region) ==
+                  "stale_region");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::region_other_atlas) ==
+                  "region_other_atlas");
+    // The next value is still unknown to this build (R4).
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(static_cast<gltfx_draw_2d_refusal>(16)) == "unknown");
+}
+
+// R2D-TEXTURE T6-B2: the layout only grows at its end (frame_2d_report.hpp, LAYOUT IS THE
+// CONTRACT), held by the place of the older fields, in bytes: nothing was inserted before
+// texture_switches, and the two counters come after it, next to each other. The same in every data
+// model the library targets: every field is 8 bytes, and the one of 1 byte, first_refusal, is
+// padded to 8.
+GLINTFX_TEST(frame_report_tally_the_receipt_counters_are_appended_after_the_switches) {
+    using report = glintfx::gltfx_frame_2d_report;
+    static_assert(offsetof(report, first_refusal) == 24);
+    static_assert(offsetof(report, pieces_dropped_out_of_memory) == 32);
+    static_assert(offsetof(report, texture_switches) == 184);
+    static_assert(offsetof(report, pieces_refused_stale_region) >=
+                  offsetof(report, texture_switches) + sizeof(std::uint64_t));
+    static_assert(offsetof(report, pieces_refused_region_other_atlas) ==
+                  offsetof(report, pieces_refused_stale_region) + sizeof(std::uint64_t));
+    frame_tally tally;
+    tally.begin_frame();
+    tally.piece_refused(gltfx_draw_2d_refusal::stale_region);
+    tally.piece_refused(gltfx_draw_2d_refusal::region_other_atlas);
+    tally.piece_refused(gltfx_draw_2d_refusal::stale_region);
+    GLINTFX_CHECK(tally.finish() == finish_status::ok); // a refusal is not an error of the frame
+    const auto r = tally.last_report();
+    GLINTFX_CHECK_EQ(r.pieces_refused_stale_region, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(r.pieces_refused_region_other_atlas, std::uint64_t{1});
+    GLINTFX_CHECK(r.first_refusal == gltfx_draw_2d_refusal::stale_region);
+}
+
+// R2D-TEXTURE T4b-B1 (D-W8-471): the texture switches of each flush add up in the frame's report;
+// they start at zero every frame, and an empty frame has none.
 GLINTFX_TEST(frame_report_tally_texture_switches_add_up_per_frame) {
-    static_assert(offsetof(glintfx::gltfx_frame_2d_report, texture_switches) ==
-                      sizeof(glintfx::gltfx_frame_2d_report) - sizeof(std::uint64_t),
-                  "texture_switches is appended last (the layout only grows at its end)");
     frame_tally tally;
     tally.begin_frame();
     tally.texture_switched(2);

@@ -94,6 +94,17 @@
 //     region_of() and release_slot() are refused as "atlas"; the atlas moved into reads the
 //     receipt; one that receives another by assignment refuses the receipt it had as
 //     "slot_other_allocator" and reads the other's, and that other is left holding nothing (AT5).
+//   - THE IMAGE OF A RECEIPT (R2D-TEXTURE T6-B2, draw_atlas_image() through the library): the four
+//     mirrors of the 2 x 2 image, in a cell that does not start at the origin, each quarter exact
+//     (AB1); the pixels of the image with no mirror against draw_texture() on atlas.texture() with
+//     region_of(): the same, read pixel by pixel (AB2); a default, a released and another atlas's
+//     receipt, and a moved-from atlas, each counted by its own reason and painting nothing, and a
+//     receipt read by the atlas moved into (AB3); the positions the complaints name, every pixel
+//     the image's colour exactly: half a pixel, unscaled, in both filters, a transform that moves
+//     by a fraction of a pixel, and one texel stretched 64 times (AB4); two images of one atlas in
+//     one draw call with one switch (AB5); the layer, the one above last whichever came first
+//     (AB6); the tint, the default one included (AB7); a piece kept before the cell changes shows
+//     what is there at the flush, and flush() first keeps what it was (AB8).
 // MEASURED, PRINTED, NEVER ASSERTED EQUAL: the value read at k = 100 of filter_linear_srgb_order in
 // each mode, and whether the ON mode was absent.
 //
@@ -886,6 +897,427 @@ void cell_atlas_minified_quarter(const cells_context &c) {
            r.read == 4 && r.wrong == 0, text_of(r));
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// R2D-TEXTURE T6-B2: the image of a receipt, through draw_atlas_image().
+// ---------------------------------------------------------------------------------------------------------
+// One image of a receipt alone in a frame cleared to black; the frame's report.
+std::optional<glintfx::gltfx_frame_2d_report>
+draw_receipt_alone(const cells_context &c, const glintfx::gltfx_texture_atlas &atlas,
+                   const glintfx::gltfx_atlas_paint &paint,
+                   const glintfx::gltfx_rect_world &where) {
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    c.renderer.draw_atlas_image(atlas, paint, where);
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    if (finished.has_error()) {
+        return std::nullopt;
+    }
+    return finished.value();
+}
+
+// What every pixel whose centre lies inside `where` reads against `want`.
+atlas_reading read_rect(const cells_context &c, const glintfx::gltfx_rect_world &where, rgba want) {
+    atlas_reading out;
+    const int first_x = static_cast<int>(std::ceil(where.corner.x - 0.5));
+    const int end_x = static_cast<int>(std::ceil(where.corner.x + where.size.x - 0.5));
+    const int first_y = static_cast<int>(std::ceil(where.corner.y - 0.5));
+    const int end_y = static_cast<int>(std::ceil(where.corner.y + where.size.y - 0.5));
+    for (int y = first_y; y < end_y; ++y) {
+        for (int x = first_x; x < end_x; ++x) {
+            const pixel got = read_at(c, x, y);
+            const bool exact = is_exact(got, want[0], want[1], want[2]);
+            out.first_wrong = (exact || out.wrong > 0) ? out.first_wrong : got;
+            out.wrong += exact ? 0 : 1;
+            ++out.read;
+        }
+    }
+    return out;
+}
+
+// A nearest atlas with `blue` in the first cell (so the next one does not start at the origin), and
+// then the 2 x 2 image of the mirrors; its receipt.
+struct quarters_atlas {
+    glintfx::gltfx_texture_atlas atlas;
+    glintfx::gltfx_atlas_slot image{};
+};
+
+std::optional<quarters_atlas> make_quarters_atlas(const cells_context &c) {
+    const glintfx::gltfx_texture_atlas_desc desc{
+        .width = 32, .height = 32, .filter = glintfx::gltfx_texture_filter::nearest};
+    glintfx::gltfx_rslt<glintfx::gltfx_texture_atlas> opened =
+        glintfx::gltfx_texture_atlas::open(c.renderer, desc);
+    if (opened.has_error()) {
+        report(c, "AB gltfx_texture_atlas::open", false, code_name(opened.err()));
+        return std::nullopt;
+    }
+    glintfx::gltfx_texture_atlas atlas = std::move(opened.value());
+    if (!add_solid(c, atlas, {3, 2}, k_px_blue).has_value()) {
+        return std::nullopt;
+    }
+    std::vector<std::byte> bytes;
+    for (const rgba &texel : {k_px_red, k_px_green, k_px_blue, k_px_white}) {
+        for (const std::uint8_t channel : texel) {
+            bytes.push_back(static_cast<std::byte>(channel));
+        }
+    }
+    const glintfx::gltfx_rslt<glintfx::gltfx_atlas_slot> added =
+        atlas.add_image(glintfx::gltfx_image_view{
+            .pixels = bytes,
+            .width = 2,
+            .height = 2,
+            .bytes_per_row = 8,
+            .pixel_format = glintfx::gltfx_pixel_format::rgba8_srgb_straight});
+    if (added.has_error()) {
+        report(c, "AB add_image", false, code_name(added.err()));
+        return std::nullopt;
+    }
+    return quarters_atlas{std::move(atlas), added.value()};
+}
+
+// AB1: each mirror is applied inside the image, wherever its cell is: flipped from the texture's
+// origin, the quarters would read the blue cell or outside it.
+void cell_atlas_image_mirrors(const cells_context &c) {
+    auto q = make_quarters_atlas(c);
+    if (!q.has_value()) {
+        return;
+    }
+    report(c, "AB1 a celula da imagem nao comeca na origem", q->image.rect.x != 0);
+    struct mirror_case {
+        glintfx::gltfx_texture_mirror mirror = glintfx::gltfx_texture_mirror::none;
+        const char *name = "";
+        std::array<rgba, 4> quarters{};
+    };
+    const std::array<mirror_case, 4> cases{{
+        {glintfx::gltfx_texture_mirror::none,
+         "none",
+         {k_px_red, k_px_green, k_px_blue, k_px_white}},
+        {glintfx::gltfx_texture_mirror::flip_left_right,
+         "flip_left_right",
+         {k_px_green, k_px_red, k_px_white, k_px_blue}},
+        {glintfx::gltfx_texture_mirror::flip_top_bottom,
+         "flip_top_bottom",
+         {k_px_blue, k_px_white, k_px_red, k_px_green}},
+        {glintfx::gltfx_texture_mirror::flip_left_right_and_top_bottom,
+         "flip_left_right_and_top_bottom",
+         {k_px_white, k_px_blue, k_px_green, k_px_red}},
+    }};
+    constexpr std::array<std::array<int, 2>, 4> offsets{{{10, 10}, {30, 10}, {10, 30}, {30, 30}}};
+    for (const mirror_case &m : cases) {
+        const auto drawn = draw_receipt_alone(c, q->atlas, {q->image, m.mirror, k_opaque_white},
+                                              rect(100, 100, 40, 40));
+        int right = 0;
+        for (std::size_t i = 0; i < 4; ++i) {
+            const pixel got = read_at(c, 100 + offsets[i][0], 100 + offsets[i][1]);
+            right += is_exact(got, m.quarters[i][0], m.quarters[i][1], m.quarters[i][2]) ? 1 : 0;
+        }
+        const std::string what = std::string("AB1 espelho ") + m.name + ": os quatro quartos";
+        report(c, what.c_str(), drawn.has_value() && right == 4, std::to_string(right) + "/4");
+    }
+}
+
+// AB2: the same pixels draw_texture() gives from texture() and region_of(), read one by one.
+void cell_atlas_image_equals_draw_texture(const cells_context &c) {
+    auto q = make_quarters_atlas(c);
+    if (!q.has_value()) {
+        return;
+    }
+    const glintfx::gltfx_rslt<glintfx::gltfx_rect_texel> region = q->atlas.region_of(q->image);
+    if (region.has_error()) {
+        report(c, "AB2 region_of", false, code_name(region.err()));
+        return;
+    }
+    const glintfx::gltfx_rect_world where = rect(60.25, 70.75, 41, 37);
+    const glintfx::gltfx_texture_paint paint{{region.value(), glintfx::gltfx_texture_mirror::none},
+                                             k_opaque_white};
+    const auto by_texture = draw_alone(c, q->atlas.texture(), paint, where);
+    std::vector<pixel> first;
+    for (int y = 65; y < 112; ++y) {
+        for (int x = 55; x < 106; ++x) {
+            first.push_back(read_at(c, x, y));
+        }
+    }
+    const auto by_receipt = draw_receipt_alone(c, q->atlas, {q->image}, where);
+    int different = 0;
+    std::size_t at = 0;
+    for (int y = 65; y < 112; ++y) {
+        for (int x = 55; x < 106; ++x) {
+            const pixel got = read_at(c, x, y);
+            different += is_exact(got, first[at].red, first[at].green, first[at].blue) ? 0 : 1;
+            ++at;
+        }
+    }
+    report(c, "AB2 pixel a pixel igual a draw_texture",
+           by_texture.has_value() && by_receipt.has_value() && at == 2397 && different == 0,
+           "lidos " + std::to_string(at) + ", diferentes " + std::to_string(different));
+}
+
+// One receipt that must be refused, by the reason `why`.
+struct refused_receipt {
+    const char *cell = "";
+    const glintfx::gltfx_texture_atlas &atlas;
+    glintfx::gltfx_atlas_slot slot{};
+    glintfx::gltfx_draw_2d_refusal why = glintfx::gltfx_draw_2d_refusal::none;
+};
+
+// Its own counter is 1, the first reason is `why`, and no pixel was painted.
+void report_receipt_refused(const cells_context &c, const refused_receipt &k) {
+    const glintfx::gltfx_rect_world where = rect(100, 100, 8, 8);
+    const auto drawn = draw_receipt_alone(c, k.atlas, {k.slot}, where);
+    const atlas_reading r = read_rect(c, where, k_px_black);
+    const bool counted = drawn.has_value() && drawn->pieces_refused == 1 &&
+                         drawn->first_refusal == k.why && drawn->pieces_drawn == 0 &&
+                         (k.why != glintfx::gltfx_draw_2d_refusal::stale_region ||
+                          drawn->pieces_refused_stale_region == 1) &&
+                         (k.why != glintfx::gltfx_draw_2d_refusal::region_other_atlas ||
+                          drawn->pieces_refused_region_other_atlas == 1);
+    const std::string token(glintfx::gltfx_draw_2d_refusal_name(k.why));
+    report(c, k.cell, counted && r.read == 64 && r.wrong == 0, token + " " + text_of(r));
+}
+
+// AB3: the receipts that are refused, through the library; and the receipt that follows its cell.
+void cell_atlas_image_refused_receipts(const cells_context &c) {
+    auto first = make_atlas(c, 32, 1, 0);
+    auto other = make_atlas(c, 32, 1, 0);
+    if (!first || !other) {
+        return;
+    }
+    const auto red = add_solid(c, *first, {2, 2}, k_px_red);
+    const auto released = add_solid(c, *first, {2, 2}, k_px_red);
+    const auto foreign = add_solid(c, *other, {2, 2}, k_px_green);
+    if (!red || !released || !foreign || first->release_slot(*released).has_error()) {
+        return;
+    }
+    using enum glintfx::gltfx_draw_2d_refusal;
+    report_receipt_refused(c, {"AB3 recibo padrao", *first, {}, stale_region});
+    report_receipt_refused(c, {"AB3 recibo liberado", *first, *released, stale_region});
+    report_receipt_refused(c, {"AB3 recibo de outro atlas", *first, *foreign, region_other_atlas});
+    glintfx::gltfx_texture_atlas moved = std::move(*first);
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move) reason: the case
+    report_receipt_refused(c, {"AB3 atlas movido", *first, *red, texture_not_open});
+    const glintfx::gltfx_rect_world where = rect(100, 100, 2, 2);
+    const auto drawn = draw_receipt_alone(c, moved, {*red}, where);
+    const atlas_reading r = read_rect(c, where, k_px_red);
+    report(c, "AB3 o destino desenha o recibo", drawn.has_value() && r.read == 4 && r.wrong == 0,
+           text_of(r));
+    moved = std::move(*other);
+    report_receipt_refused(c,
+                           {"AB3 quem recebe recusa o que tinha", moved, *red, region_other_atlas});
+}
+
+// AB4, one case: a red image between two blue cells of an atlas of `filter`, drawn into `where`
+// moved by the batch transform `shift`. What the complaints of the research name: a source
+// rectangle leaking at half a pixel, a tile drawn under a moving transform, one texel stretched
+// showing what is around it. `inside` is what must be exactly red: a pixel whose centre falls ON an
+// edge is covered or not as the driver decides, so it is left out of `inside`, and the box around
+// it may hold only black and red, never the blue of the neighbours.
+struct leak_case {
+    const char *name = "";
+    std::pair<std::uint32_t, std::uint32_t> image{};
+    glintfx::gltfx_texture_filter filter = glintfx::gltfx_texture_filter::linear;
+    glintfx::gltfx_rect_world where{};
+    double shift = 0.0;
+    glintfx::gltfx_rect_world inside{};
+    int pixels = 0;
+};
+
+// How many pixels of the box of `where`, grown by 2, hold any green or blue.
+int foreign_pixels_around(const cells_context &c, const glintfx::gltfx_rect_world &where) {
+    int foreign = 0;
+    const int first_x = static_cast<int>(std::floor(where.corner.x)) - 2;
+    const int end_x = static_cast<int>(std::ceil(where.corner.x + where.size.x)) + 2;
+    const int first_y = static_cast<int>(std::floor(where.corner.y)) - 2;
+    const int end_y = static_cast<int>(std::ceil(where.corner.y + where.size.y)) + 2;
+    for (int y = first_y; y < end_y; ++y) {
+        for (int x = first_x; x < end_x; ++x) {
+            const pixel got = read_at(c, x, y);
+            foreign += (got.green != 0 || got.blue != 0) ? 1 : 0;
+        }
+    }
+    return foreign;
+}
+
+void report_no_leak(const cells_context &c, const leak_case &k) {
+    const glintfx::gltfx_texture_atlas_desc desc{.width = 128, .height = 128, .filter = k.filter};
+    glintfx::gltfx_rslt<glintfx::gltfx_texture_atlas> opened =
+        glintfx::gltfx_texture_atlas::open(c.renderer, desc);
+    if (opened.has_error()) {
+        report(c, k.name, false, code_name(opened.err()));
+        return;
+    }
+    glintfx::gltfx_texture_atlas &atlas = opened.value();
+    const auto before = add_solid(c, atlas, k.image, k_px_blue);
+    const auto red = add_solid(c, atlas, k.image, k_px_red);
+    const auto after = add_solid(c, atlas, k.image, k_px_blue);
+    if (!before || !red || !after) {
+        return;
+    }
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    const glintfx::gltfx_transform moved_by{
+        .translation = {k.shift, k.shift}, .rotation = {.radians = 0.0}, .scale = {1.0, 1.0}};
+    c.renderer.begin_batch(moved_by);
+    c.renderer.draw_atlas_image(atlas, {*red}, k.where);
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    const atlas_reading r = read_rect(c, k.inside, k_px_red);
+    const int foreign = foreign_pixels_around(c, k.inside);
+    report(c, k.name, finished.has_value() && r.read == k.pixels && r.wrong == 0 && foreign == 0,
+           text_of(r) + ", com verde ou azul em volta " + std::to_string(foreign));
+}
+
+void cell_atlas_image_does_not_leak(const cells_context &c) {
+    using filter = glintfx::gltfx_texture_filter;
+    report_no_leak(c, {"AB4 meio pixel em y, linear",
+                       {4, 4},
+                       filter::linear,
+                       rect(100, 50.5, 4, 4),
+                       0.0,
+                       rect(100, 51, 4, 3),
+                       12});
+    report_no_leak(c, {"AB4 meio pixel em x, linear",
+                       {4, 4},
+                       filter::linear,
+                       rect(100.5, 50, 4, 4),
+                       0.0,
+                       rect(101, 50, 3, 4),
+                       12});
+    report_no_leak(c, {"AB4 meio pixel em y, mais proximo",
+                       {4, 4},
+                       filter::nearest,
+                       rect(100, 50.5, 4, 4),
+                       0.0,
+                       rect(100, 51, 4, 3),
+                       12});
+    report_no_leak(c, {"AB4 transformada quebrada",
+                       {4, 4},
+                       filter::linear,
+                       rect(100, 50, 4, 4),
+                       0.3,
+                       rect(100.3, 50.3, 4, 4),
+                       16});
+    report_no_leak(c, {"AB4 um texel esticado 64 vezes",
+                       {1, 1},
+                       filter::linear,
+                       rect(100, 50, 64, 64),
+                       0.0,
+                       rect(100, 50, 64, 64),
+                       4096});
+}
+
+// AB5: two images of one atlas, one after the other, in one draw call with one switch; each reads
+// its own colour.
+void cell_atlas_images_share_a_draw_call(const cells_context &c) {
+    auto atlas = make_atlas(c, 32, 1, 0);
+    if (!atlas) {
+        return;
+    }
+    const auto red = add_solid(c, *atlas, {2, 2}, k_px_red);
+    const auto green = add_solid(c, *atlas, {2, 2}, k_px_green);
+    if (!red || !green) {
+        return;
+    }
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    c.renderer.draw_atlas_image(*atlas, {*red}, rect(100, 100, 10, 10));
+    c.renderer.draw_atlas_image(*atlas, {*green}, rect(120, 100, 10, 10));
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    const atlas_reading first = read_rect(c, rect(100, 100, 10, 10), k_px_red);
+    const atlas_reading second = read_rect(c, rect(120, 100, 10, 10), k_px_green);
+    report(c, "AB5 duas imagens: draw_calls = 1 e texture_switches = 1",
+           finished.has_value() && finished.value().draw_calls == 1 &&
+               finished.value().texture_switches == 1);
+    report(c, "AB5 cada imagem le a propria cor", first.wrong == 0 && second.wrong == 0,
+           text_of(first) + " / " + text_of(second));
+}
+
+// AB6: the layer reaches the piece: the upper layer is on top, though it was asked for first.
+void cell_atlas_image_layer(const cells_context &c) {
+    auto atlas = make_atlas(c, 32, 1, 0);
+    if (!atlas) {
+        return;
+    }
+    const auto red = add_solid(c, *atlas, {2, 2}, k_px_red);
+    const auto green = add_solid(c, *atlas, {2, 2}, k_px_green);
+    if (!red || !green) {
+        return;
+    }
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    c.renderer.draw_atlas_image(*atlas, {*red}, rect(100, 100, 10, 10),
+                                glintfx::gltfx_draw_layer{7});
+    c.renderer.draw_atlas_image(*atlas, {*green}, rect(100, 100, 10, 10),
+                                glintfx::gltfx_draw_layer{2});
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    const atlas_reading on_top = read_rect(c, rect(100, 100, 10, 10), k_px_red);
+    report(c, "AB6 a camada de cima fica por cima", finished.has_value() && on_top.wrong == 0,
+           text_of(on_top));
+}
+
+// AB7: the tint reaches the piece, with the value the tint of draw_texture() is held to, and the
+// tint nobody chose leaves the image as it is.
+void cell_atlas_image_tint(const cells_context &c) {
+    auto atlas = make_atlas(c, 32, 1, 0);
+    if (!atlas) {
+        return;
+    }
+    const auto white = add_solid(c, *atlas, {2, 2}, k_px_white);
+    if (!white) {
+        return;
+    }
+    const auto drawn = draw_receipt_alone(
+        c, *atlas, {*white, glintfx::gltfx_texture_mirror::none, {1.0F, 1.0F, 1.0F, 0.5F}},
+        rect(200, 100, 20, 20));
+    const pixel got = read_at(c, 210, 110);
+    const double want = c.srgb ? 188.0 : 128.0;
+    report(c, "AB7 tinta branca com alfa 0,5 sobre preto",
+           drawn.has_value() && within(got.red, want, 2.0) && within(got.green, want, 2.0) &&
+               within(got.blue, want, 2.0),
+           text_of(got));
+    const auto plain = draw_receipt_alone(c, *atlas, {*white}, rect(200, 100, 20, 20));
+    const pixel untinted = read_at(c, 210, 110);
+    report(c, "AB7 sem tinta escolhida a imagem fica como e",
+           plain.has_value() && is_exact(untinted, 255, 255, 255), text_of(untinted));
+}
+
+// AB8: the receipt is read at the call, and the batch reads the texture when it is sent (NOT A
+// BARRIER): a piece kept before the cell changes shows what is there at the flush, and is not
+// refused; flush() before the change keeps what it was.
+void report_kept_piece(const cells_context &c, bool flush_first) {
+    auto atlas = make_atlas(c, 32, 1, 0);
+    if (!atlas) {
+        return;
+    }
+    const auto red = add_solid(c, *atlas, {2, 2}, k_px_red);
+    if (!red) {
+        return;
+    }
+    const glintfx::gltfx_rect_world where = rect(100, 100, 10, 10);
+    c.renderer.begin_frame(
+        glintfx::gltfx_frame_2d_desc{.clear_color = glintfx::gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    c.renderer.draw_atlas_image(*atlas, {*red}, where);
+    if (flush_first) {
+        c.renderer.flush();
+    }
+    const bool released = atlas->release_slot(*red).has_value();
+    const auto green = add_solid(c, *atlas, {2, 2}, k_px_green);
+    const auto finished = c.renderer.finish_frame();
+    c.gl.finish();
+    const atlas_reading r = read_rect(c, where, flush_first ? k_px_red : k_px_green);
+    report(c, flush_first ? "AB8 flush antes guarda a peca" : "AB8 a peca guardada mostra o que ha",
+           released && green.has_value() && finished.has_value() &&
+               finished.value().pieces_drawn == 1 && finished.value().pieces_refused == 0 &&
+               r.read == 100 && r.wrong == 0,
+           text_of(r));
+}
+
+void cell_atlas_image_is_not_a_barrier(const cells_context &c) {
+    report_kept_piece(c, false);
+    report_kept_piece(c, true);
+}
+
 // AT4: a cell released and taken by a smaller image reads only the new image, never the texels the
 // old, larger image left around it.
 template <typename T> bool refused_by_name(const glintfx::gltfx_rslt<T> &got, const char *name) {
@@ -1007,6 +1439,14 @@ void run_cells(const cells_context &cells) {
     cell_atlas_minified_quarter(cells);
     cell_atlas_reused_place(cells);
     cell_atlas_moves(cells);
+    cell_atlas_image_mirrors(cells);
+    cell_atlas_image_equals_draw_texture(cells);
+    cell_atlas_image_refused_receipts(cells);
+    cell_atlas_image_does_not_leak(cells);
+    cell_atlas_images_share_a_draw_call(cells);
+    cell_atlas_image_layer(cells);
+    cell_atlas_image_tint(cells);
+    cell_atlas_image_is_not_a_barrier(cells);
 }
 
 mode_result run_mode(glintfx::gltfx_display &display, bool srgb) {
@@ -1081,7 +1521,7 @@ int main() {
     // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
     std::fprintf(stdout, "draw2d_texture_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
                  g_cells, g_failures);
-    if (g_cells < 33) {
+    if (g_cells < 72) {
         return fail("menos celulas do que o piso (varredura quebrada)");
     }
     return g_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

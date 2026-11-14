@@ -55,6 +55,10 @@ namespace {
         return &report.pieces_refused_region_out_of_range;
     case gltfx_draw_2d_refusal::degenerate_quad:
         return &report.pieces_refused_degenerate_quad;
+    case gltfx_draw_2d_refusal::stale_region:
+        return &report.pieces_refused_stale_region;
+    case gltfx_draw_2d_refusal::region_other_atlas:
+        return &report.pieces_refused_region_other_atlas;
     case gltfx_draw_2d_refusal::none:
         return nullptr;
     }

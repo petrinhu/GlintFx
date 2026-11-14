@@ -135,6 +135,16 @@ gltfx_rslt<gltfx_atlas_slot> allocate_in_atlas(atlas_allocator_impl *impl, std::
     return gltfx_rslt<gltfx_atlas_slot>::ok(hand_out_atlas_number(impl->slots, rect, impl->owner));
 }
 
+atlas_slot_standing standing_in_atlas(const atlas_allocator_impl &impl,
+                                      const gltfx_atlas_slot &slot) noexcept {
+    const atlas_slot_standing by_owner = standing_by_owner(impl.owner, slot);
+    if (by_owner != atlas_slot_standing::current) {
+        return by_owner;
+    }
+    return is_current_atlas_slot(impl.slots, slot) ? atlas_slot_standing::current
+                                                   : atlas_slot_standing::stale;
+}
+
 gltfx_rslt<void> check_current_atlas_slot(const atlas_allocator_impl *impl,
                                           const gltfx_atlas_slot &slot) noexcept {
     gltfx_rslt<void> request = check_atlas_release(identity_of(impl), slot);

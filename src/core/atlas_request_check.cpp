@@ -53,18 +53,28 @@ gltfx_rslt<void> check_atlas_request(const atlas_identity &atlas, std::uint32_t 
     return check_fits_the_atlas(atlas, width, height);
 }
 
+atlas_slot_standing standing_by_owner(std::uint32_t owner, const gltfx_atlas_slot &slot) noexcept {
+    if (slot.owner == 0) {
+        return atlas_slot_standing::stale;
+    }
+    return slot.owner == owner ? atlas_slot_standing::current
+                               : atlas_slot_standing::other_allocator;
+}
+
 gltfx_rslt<void> check_atlas_release(const atlas_identity &atlas,
                                      const gltfx_atlas_slot &slot) noexcept {
     if (!atlas.open) {
         return refused("allocator");
     }
-    if (slot.owner == 0) {
-        return refused("stale_slot");
-    }
-    if (slot.owner != atlas.owner) {
+    switch (standing_by_owner(atlas.owner, slot)) {
+    case atlas_slot_standing::current:
+        return gltfx_rslt<void>::ok();
+    case atlas_slot_standing::other_allocator:
         return refused("slot_other_allocator");
+    case atlas_slot_standing::stale:
+        break;
     }
-    return gltfx_rslt<void>::ok();
+    return refused("stale_slot");
 }
 
 } // namespace glintfx

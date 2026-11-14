@@ -69,6 +69,17 @@ static_assert(offsetof(gltfx_atlas_slot, rect) == 0);
 static_assert(offsetof(gltfx_atlas_slot, id) == 16);
 static_assert(offsetof(gltfx_atlas_slot, generation) == 20);
 static_assert(offsetof(gltfx_atlas_slot, owner) == 24);
+// The paint of draw_atlas_image() goes by value in a public signature: the receipt, the mirror of 1
+// byte with 3 of padding, and four floats (docs/auditoria-api-texture.md, section 10).
+static_assert(offsetof(glintfx::gltfx_atlas_paint, slot) == 0);
+static_assert(offsetof(glintfx::gltfx_atlas_paint, mirror) == 28);
+static_assert(sizeof(glintfx::gltfx_atlas_paint::mirror) == 1);
+static_assert(offsetof(glintfx::gltfx_atlas_paint, tint) == 32);
+static_assert(sizeof(glintfx::gltfx_atlas_paint::tint) == 16);
+static_assert(sizeof(glintfx::gltfx_atlas_paint) == 48);
+static_assert(alignof(glintfx::gltfx_atlas_paint) == 4);
+static_assert(std::is_standard_layout_v<glintfx::gltfx_atlas_paint>);
+static_assert(std::is_trivially_copyable_v<glintfx::gltfx_atlas_paint>);
 static_assert(sizeof(gltfx_texture_atlas) == 2 * sizeof(void *));
 static_assert(alignof(gltfx_texture_atlas) == alignof(void *));
 static_assert(!std::is_copy_constructible_v<gltfx_texture_atlas>);

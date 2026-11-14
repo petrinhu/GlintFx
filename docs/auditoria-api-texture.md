@@ -50,6 +50,7 @@
 - **Errata da T6-A-fix1 (CTO, 25/10/2026; D-W8-1060 a D-W8-1064; revisão N1 da T6-A, IMPORTANTE-1 e COSMÉTICOS 4 e 5):** a regra pública "at most one and a half times as tall" do passo 1 passa a ter caso na fronteira exata: uma prateleira de h + h / 2 linhas (divisão inteira) é tomada, e uma de uma linha a mais é deixada para o passo 2, com uma faixa livre disponível ao mesmo tempo, numa altura par (8: 12 e 13) e numa ímpar (7: 10 e 11); antes dele, trocar `<=` por `<` no limite não derrubava nenhuma das seis suítes. A cerca do cabeçalho, abaixo, é reescrita NO LUGAR com o texto publicado (precedente D-W8-545): o `Proved by:` de `atlas_geometry_test` passa a citar o limite na fronteira, para uma altura par e uma ímpar; a promessa não muda. A liberação de um retângulo que não começa uma corrida tomada, inalcançável pela API porque o recibo é conferido antes, ganha caso que prova que nada é tocado. Porta de mão única: o texto público vai à ratificação do líder.
 - **Errata da T6-B1 (CTO, 30/10/2026; D-W8-1200 a D-W8-1219):** `include/glintfx/draw2d/texture_atlas.hpp` entra no repositório, e a cerca dele, abaixo, é reescrita NO LUGAR com o texto do cabeçalho publicado (precedente D-W8-545). Diferenças contra a proposta da T0: (1) `width` e `height` no descritor, no lugar de `side` (o gêmeo da D-W8-912), e `filter` no descritor, com o padrão `linear` do descritor de textura; (2) a regra da margem fica `margin_pixels >= 2^k` (a saída "2^k passa" da D-W8-298), com o alinhamento que o IMP-T06 pedia: cada lado da célula é arredondado para múltiplo de 2^k, a largura e a altura do atlas têm de ser múltiplas de 2^k, e `2 * margin_pixels + 1` não passa de nenhum lado; 2^k é critério de segurança (meio texel do nível k de folga), não a menor margem que cabe no papel, e o texto público diz isso; a conta enumerada está em `atlas_cell_test`, e as células AT1 a AT4 de `draw2d_texture_parity_test` medem num driver que nada sangra; (3) `add_image()` devolve o recibo do alocador para a CÉLULA inteira, e `region_of()` dá o retângulo da IMAGEM (a cerca dizia que o recibo cobria só a imagem); (4) `release_slot()` recusa com os nomes do alocador (`stale_slot`, `slot_other_allocator`), não com `"slot"`; (5) `texture()` entrega a textura do atlas aos desenhos de `renderer_2d.hpp`; (6) `stale_region`, `gltfx_atlas_paint` (com a tinta branca opaca da D-W8-464) e `draw_atlas_image` NÃO entram nesta fatia: são da T6-B2, e a cerca de `draw_atlas_image`, na seção de `renderer_2d.hpp`, fica como está até lá. A cerca de `texture_2d.hpp` ganha a declaração antecipada de `gltfx_texture_atlas` e a linha `friend class gltfx_texture_atlas;`, como o cabeçalho. Porta de mão única: vai à ratificação do líder.
 - **Errata da T6-B1-fix1 (CTO, 06/11/2026; D-W8-1404 a D-W8-1408; revisão N1 da T6-B1):** a cerca de `texture_atlas.hpp`, abaixo, é reescrita NO LUGAR com o texto do cabeçalho (precedente D-W8-545). (1) THE COST: a tabela de recibos nunca custa menos de 128 bytes, e o bloco de escrita acompanha a maior célula que chegou ao alocador, recusada ou não; o texto antigo era falso nos dois pontos, medido. (2) THE REFUSALS: a recusa antes de `out_of_memory` não muda nada, e daí em diante o bloco e a tabela podem ficar grandes. (3) LIFETIME: a referência tomada de `texture()` não acompanha um movimento. (4) Novos `Proved by:`: `texture_atlas_facade_test`, e os custos em bytes. (5) A revisão de API dedicada que faltou está na seção 9.
+- **Errata da T6-B2 (CTO, 07/11/2026; D-W8-1501 a D-W8-1516):** `draw_atlas_image` entra em `renderer_2d.hpp`, e a cerca dela, abaixo, é reescrita NO LUGAR com o texto do cabeçalho (precedente D-W8-545), como a de `texture_atlas.hpp`, que ganha `gltfx_atlas_paint`. Diferenças contra a proposta da T0: (1) a tinta de `gltfx_atlas_paint` é branca opaca (D-W8-464), e a frase da errata da T4b-A que dizia `tint{}` não vale mais; (2) além de `stale_region`, um motivo novo, `region_other_atlas`, porque o alocador distingue as duas coisas ("stale_slot" e "slot_other_allocator") e quem lê o relatório precisa da mesma distinção; (3) os dois motivos e os dois contadores são acrescentados ao FIM de `gltfx_draw_2d_refusal` (14 e 15; o 13 fica com o motivo das sombras, D-W8-1328) e de `gltfx_frame_2d_report`; (4) `renderer_2d.hpp` só declara `gltfx_texture_atlas` e `gltfx_atlas_paint`, e quem chama inclui `texture_atlas.hpp`. A cerca antiga de `frame_2d_report.hpp` em `docs/auditoria-api-draw2d.md` é da B0 (nem `degenerate_quad` ela tem) e fica como registro daquela decisão. **A revisão de API dedicada desta fatia é a seção 10, feita ANTES do commit.** Porta de mão única: vai à ratificação do líder.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta com a sua decisão.
 
@@ -597,12 +598,12 @@ class gltfx_atlas_allocator {
 // draw2d/texture_atlas.hpp - R2D-TEXTURE. Many images in ONE texture: a texture of the renderer,
 // the allocator of core/atlas_allocator.hpp that decides where each image goes, and the writing of
 // each image into its place. The caller hands an image and gets back the receipt of the cell that
-// holds it; region_of() says where the image is in texture(), and the image is drawn from there by
-// the textured calls of renderer_2d.hpp, for example
+// holds it, and draws the image by that receipt, which the drawing call checks:
+//     renderer.draw_atlas_image(atlas, {slot, mirror, tint}, rect);
+// region_of() says where the image is in texture(), for the other textured calls of renderer_2d.hpp
+// (a part of the image, a free quadrilateral, triangles), for example
 //     renderer.draw_texture(atlas.texture(), {{atlas.region_of(slot).value(), mirror}, tint},
 //     rect);
-// A drawing call that takes the receipt itself, and refuses one whose cell was given back, is not
-// part of this version.
 //
 // THE CELL. An image of w x h texels takes a cell of (w + 2 * margin_pixels) x
 // (h + 2 * margin_pixels) texels, each side rounded UP to a multiple of 2^k, k being
@@ -631,7 +632,8 @@ class gltfx_atlas_allocator {
 // allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas
 // is "slot_other_allocator", a released, changed or never handed out one is "stale_slot".
 // A region is a value: one taken from region_of() before release_slot() still names the place, and
-// a drawing call reads whatever is there then.
+// a drawing call reads whatever is there then. A receipt is checked: draw_atlas_image() refuses one
+// that stopped being current, and counts it in the frame report (renderer_2d.hpp).
 //
 // NOT A BARRIER. add_image() writes into texture() as update_texture() writes (renderer_2d.hpp): it
 // does not send the batch, and the texture is read when the batch is sent. An image added into a
@@ -681,8 +683,9 @@ class gltfx_atlas_allocator {
 // holds nothing: is_open() is false, texture() is a handle that is not open, and add_image(),
 // region_of() and release_slot() are refused as above; a reference taken from texture() before the
 // move reads that handle, not open, and the one to draw from is the atlas moved into's. An atlas
-// that receives another by move assignment gives its own cells and texture back first. One atlas
-// must not be used from two threads at the same time.
+// that receives another by move assignment gives its own cells and texture back first. A receipt
+// follows its cell through a move: the atlas moved into reads it and draws it. One atlas must not
+// be used from two threads at the same time.
 //
 // Proved by: atlas_cell_test (each refusal of open() by name and in this order; the margin at its
 // border, 2^k accepted and 2^k - 1 refused, for every k from 0 to 12; the multiple of 2^k at its
@@ -707,7 +710,8 @@ class gltfx_atlas_allocator {
 // included; a cell minified 0.5 times with one reduced level and 0.25 times with two, next to a
 // cell of another colour, reads only its own; a cell released and taken by a smaller image reads
 // only the new image; a moved-from atlas is not open, nor is its texture(), and each call is
-// refused as above; an atlas that received another refuses the receipt it had).
+// refused as above; an atlas that received another refuses the receipt it had; and
+// draw_atlas_image(), as renderer_2d.hpp says, the atlas moved into drawing a receipt).
 
 namespace glintfx {
 
@@ -724,6 +728,16 @@ struct gltfx_texture_atlas_desc {
     gltfx_texture_filter filter = gltfx_texture_filter::linear;
     // The number of reduced levels of texture(), exactly; zero: none (see above).
     std::uint32_t mipmap_levels = 0;
+};
+
+// What draw_atlas_image() (renderer_2d.hpp) paints with, grouped, as gltfx_texture_paint is
+// (D-W8-354): the receipt of the image, the mirroring, and the tint. The tint you do not choose is
+// opaque white, which leaves the image as it is (D-W8-464), so {slot} draws the image as added.
+// Trivial value, 48 bytes; its layout is tested (texture_atlas_facade_test).
+struct gltfx_atlas_paint {
+    gltfx_atlas_slot slot{};
+    gltfx_texture_mirror mirror = gltfx_texture_mirror::none;
+    gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
 };
 
 class gltfx_texture_atlas {
@@ -757,6 +771,8 @@ class gltfx_texture_atlas {
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> release_slot(gltfx_atlas_slot slot) noexcept;
 
   private:
+    // draw_atlas_image() reads a receipt in the interior, as draw_texture() reads a texture.
+    friend class gltfx_renderer_2d;
     gltfx_texture_atlas(texture_atlas_impl *interior, texture_2d_impl *made) noexcept
         : impl(interior), atlas_texture(made) {}
     texture_atlas_impl *impl = nullptr;
@@ -967,13 +983,45 @@ class gltfx_texture_atlas {
                                        gltfx_quad_world corners,
                                        gltfx_draw_layer layer = {}) noexcept;
 
-    // Draws one cell of an atlas, named by `paint.slot`, into `rect`. A slot whose
-    // cell was released is refused as `stale_region`. D-W8-353 and D-W8-354: the
-    // name is draw_atlas_image, and the parameters are the atlas, the paint and
-    // the rectangle, with the layer; four parameters at most.
-    GLINTFX_API void draw_atlas_image(const gltfx_texture_atlas &atlas,
-                                      gltfx_atlas_paint paint, gltfx_rect_world rect,
-                                      gltfx_draw_layer layer = {}) noexcept;
+    // Draws the image of the receipt `paint.slot` (texture_atlas.hpp) into the axis-aligned
+    // rectangle `rect` (world space, like fill_rect), multiplied by `paint.tint`, the whole image
+    // and nothing around it: the pixels draw_texture() gives from atlas.texture() and
+    // atlas.region_of(paint.slot) with the same mirror and tint. Mirroring is applied inside the
+    // image, wherever in the atlas its cell is. Include <glintfx/draw2d/texture_atlas.hpp> to call
+    // it. Refused as ONE piece, counted in the report, never an exception, for the first of these
+    // reasons, in this order:
+    //   - not_a_number, then infinite: a value of the rectangle or of the tint that is not a
+    //     finite number;
+    //   - negative_size: the rectangle with a negative width or height;
+    //   - unknown_option: the mirror is a value outside its enumeration;
+    //   - texture_not_open: the atlas was moved from;
+    //   - texture_other_renderer: the atlas was opened on another renderer;
+    //   - region_other_atlas: another atlas handed out the receipt, which is also what an atlas
+    //     that received another by move assignment says of the receipts it had;
+    //   - stale_region: the cell of the receipt was released, the receipt was never handed out
+    //     (the default gltfx_atlas_slot, among them), or a field of it was changed;
+    //   - pixel_position_out_of_range: the batch transform takes a corner outside the range the
+    //     drawing program can scale, as for fill_rect.
+    // The receipt is read at this call, and reading it asks for no memory. Nothing reads it again:
+    // a piece kept before release_slot() stays in the frame, and shows what the texture holds when
+    // the batch is sent (texture_atlas.hpp, NOT A BARRIER). A kept piece is painted, counted and
+    // sent as a piece of draw_texture() on the same texture is: images of one atlas painted one
+    // after the other, with nothing between them, add no draw call and no texture switch to the
+    // first of them.
+    // Proved by: renderer_2d_impl_test (each reason in this order, each pair of neighbours crossed,
+    // over a fake GL; the vertices sent, byte for byte, those of draw_texture() for each mirror and
+    // a tint; each reason's own counter; the layer; no frame open; two images in one draw call
+    // with one switch).
+    // Proved by: texture_atlas_test (over a fake GL, the atlas itself: what each kind of receipt
+    // reads, the region of the image by hand, and that reading it asks for no memory, counted).
+    // Proved by: draw2d_texture_parity_test (on a real context, in both values of srgb_framebuffer,
+    // through the library: each mirror read back by quarter in a cell that does not start at the
+    // origin; pixels equal to draw_texture()'s; a default, a released and another atlas's receipt,
+    // and a moved-from atlas, counted and painting nothing; a position of half a pixel, a moving
+    // transform and one texel stretched reading only the image; two images in one draw call with
+    // one switch; the layer; the tint; a kept piece showing what the cell holds at the flush).
+    GLINTFX_API void draw_atlas_image(const gltfx_texture_atlas &atlas, gltfx_atlas_paint paint,
+                                      gltfx_rect_world rect, gltfx_draw_layer layer = {}) noexcept;
 
     // Filled triangles textured from `texture`, each vertex with its own position (world space,
     // like fill_triangles), tint and texel coordinate (gltfx_textured_vertex_2d,
@@ -1345,3 +1393,35 @@ Arquivo de origem: `/var/tmp/cto-w8/t0/auditoria-api-texture.md`, md5 `f8d6415d1
 2. **A conta de bytes fica no texto.** Nenhuma das bibliotecas lidas (SDL3, raylib, sokol, LÖVE) promete essa conta; a LÖVE dá uma consulta estimada. Aqui a conta é promessa, porque ainda não existe a consulta (`ATLAS-USAGE-QUERY`, INBOX), e cada número tem caso em bytes em `texture_atlas_test`.
 
 **Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros (é o CI do push); o layout de `gltfx_image_view`; biblioteca padrão diferente da de cada alvo (nenhum alvo usa libc++).
+
+## 10. Revisão de API dedicada de `draw_atlas_image` (T6-B2)
+
+**Quando foi feita:** ANTES do commit da fatia. A ordem da T6-B2 tem um passo só para ela, anterior ao commit, com PARE em qualquer `rc` diferente de 0, e o resultado gravado na pasta do implementador. Na T6-B1 a revisão veio depois do commit, e isso foi desvio (seção 9); aqui não.
+
+**O que foi revisado:** a assinatura `gltfx_renderer_2d::draw_atlas_image`, a declaração antecipada das duas classes em `renderer_2d.hpp`, `gltfx_atlas_paint`, a linha `friend class gltfx_renderer_2d;` de `gltfx_texture_atlas`, os dois valores novos de `gltfx_draw_2d_refusal` e os dois contadores novos de `gltfx_frame_2d_report`. **Plataformas:** Fedora, Ubuntu, Arch e CachyOS (LP64) e Windows (LLP64), mais as distros varridas pelo astrometrica (LP64). Nenhum alvo é de 32 bits.
+
+| O que congela | Tipo e forma | Nos dois modelos de dados | Prova |
+|---|---|---|---|
+| `gltfx_atlas_paint`, por valor na assinatura | `slot` (0): `gltfx_atlas_slot`, 28 bytes; `mirror` (28): `gltfx_texture_mirror`, `enum class : std::uint8_t`; 3 bytes de preenchimento; `tint` (32): `gltfx_rgba`, quatro `float`; 48 bytes; alinhamento 4 | iguais: nenhum `long`, `size_t` ou ponteiro | `static_assert` em `tests/texture_atlas_facade_test.cpp`, nos dois compiladores de Linux e no MSVC |
+| `gltfx_draw_2d_refusal` | `enum class : std::uint8_t`; `stale_region = 14`, `region_other_atlas = 15`, ao fim; só se acrescenta; o 13 fica com o motivo das sombras (D-W8-1328) | iguais | `tests/frame_report_tally_test.cpp`, os números e os nomes escritos como literais |
+| `gltfx_frame_2d_report` | dois `std::uint64_t` depois de `texture_switches`, que deixa de ser o último campo | iguais: todo campo tem 8 bytes, e o de 1 byte, `first_refusal`, é preenchido até 8 | `static_assert` em `tests/frame_report_tally_test.cpp`: o lugar dos campos antigos em bytes, e os dois novos depois deles, lado a lado |
+| `gltfx_texture_atlas` | sem mudança de layout: a amizade não ocupa nada | iguais | o `static_assert` de tamanho da T6-B1-fix1, intocado |
+
+Crescer o relatório é mudança de ABI, permitida antes da 1.0 e anunciada pela versão, pela regra do próprio cabeçalho (`renderer_2d_desc.hpp`, LAYOUT IS THE CONTRACT). `SOVERSION` continua 0.
+
+| Pergunta de portabilidade | Resposta | Medida |
+|---|---|---|
+| O método é exportado? | sim, `GLINTFX_API`; a fachada mora em `renderer_2d_facade_atlas.cpp` | `nm -DC` da biblioteca compartilhada, no Linux; no Windows, as células AB ligam o método pela DLL real, no CI |
+| Parâmetro por valor de tipo incompleto, na declaração de um método exportado, compila? | sim: o cabeçalho só declara `gltfx_atlas_paint`, e o tipo completo só é exigido de quem chama | a sonda compila `renderer_2d.hpp` sozinho, e depois `texture_atlas.hpp` com uma chamada de verdade, em GCC, Clang e MSVC `/W4 /WX` |
+| Algum nome colide com macro do sistema? | não: `draw_atlas_image`, `gltfx_atlas_paint`, `slot`, `mirror`, `tint`, `stale_region`, `region_other_atlas` e os dois contadores | a sonda compila depois de `windows.h`, e depois de `fcntl.h` com `_FILE_OFFSET_BITS=64`; `public_name_collision_test` varre os nomes novos no Linux |
+| Os três cabeçalhos são ASCII? | sim | `LC_ALL=C grep -c -P '[^\x00-\x7F]'`, zero em cada um |
+| A borda é `noexcept`? | sim | a assinatura; `noexcept_alloc_test` varre o corpo novo |
+| `docs/api-conventions.md` R1 a R10 | **R1:** como todo desenho, não devolve nada; o relatório do quadro é o lugar (decisão do líder de 19/09/2026). **R3:** nada alocado no caminho do recibo; o corpo não lança. **R4:** valor desconhecido do `mirror` é recusa; motivo desconhecido do `gltfx_draw_2d_refusal_name` lê "unknown", provado no 16. **R5:** nada cruza a fronteira além de valores. **R6:** acima. **R7:** os dois nomes novos são identificadores. **R2, R8, R9 e R10** não se aplicam | os casos citados no cabeçalho |
+
+**O que a revisão decidiu:**
+
+1. **Nenhuma assinatura mudou por causa dela.** Os quatro parâmetros são os da T0.
+2. **O recibo não guarda ponteiro nenhum para o atlas.** Um recibo que sobrevive ao atlas é recusado pelo número do dono, e nunca lido. O número só repete depois de 4294967295 aberturas no mesmo processo (`core/atlas_allocator.hpp`).
+3. **A declaração antecipada fica no lugar do `#include`.** Trocar por um `#include` depois não quebra ninguém, e o contrário quebraria.
+
+**Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros, que é o CI do push; a recusa `texture_other_renderer` pela biblioteca num contexto real (a fixture abre um desenhador só, e ela é provada na máquina do quadro, em `renderer_2d_impl_test`).

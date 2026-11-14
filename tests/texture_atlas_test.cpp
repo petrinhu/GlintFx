@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <new>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -13,6 +15,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/draw2d/frame_2d_report.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
 #include <glintfx/draw2d/texture_atlas.hpp>
 
@@ -21,6 +24,7 @@
 #include "draw2d/texture_atlas_impl.hpp"
 
 #include "harness/check.hpp"
+#include "harness/compiler_noinline.hpp"
 #include "harness/test_registry.hpp"
 
 // texture_atlas_test.cpp - R2D-TEXTURE, fatia T6-B1 (draw2d/texture_atlas_impl.hpp; GODS_LAWS.md
@@ -37,6 +41,7 @@
 // the cells of draw2d_texture_parity_test.
 
 using glintfx::gltfx_atlas_slot;
+using glintfx::gltfx_draw_2d_refusal;
 using glintfx::gltfx_err_code;
 using glintfx::gltfx_image_view;
 using glintfx::gltfx_pixel_format;
@@ -47,9 +52,11 @@ using glintfx::gltfx_texture_filter;
 using glintfx::texture_2d_impl;
 using glintfx::texture_atlas_impl;
 using glintfx::draw2d::add_image_to_atlas;
+using glintfx::draw2d::atlas_receipt_read;
 using glintfx::draw2d::batch_allocator;
 using glintfx::draw2d::destroy_texture_atlas;
 using glintfx::draw2d::make_texture_atlas;
+using glintfx::draw2d::read_atlas_receipt;
 using glintfx::draw2d::region_in_atlas;
 using glintfx::draw2d::release_from_texture_atlas;
 using glintfx::draw2d::texture_atlas_made;
@@ -323,6 +330,188 @@ template <typename T>
 }
 
 } // namespace
+
+// R2D-TEXTURE T6-B2: this translation unit replaces the global operator new, every form, only to
+// COUNT, because "reading a receipt asks for no memory" (renderer_2d.hpp) is a promise about EVERY
+// memory, not only the atlas's armed one: a refusal built as a gltfx_err would ask for its context
+// here. The same technique, the same forms and the same reason for an atomic counter as
+// err_no_alloc_test. TWO DECLARED LIMITS: in a Windows shared build a gltfx_err inside the DLL asks
+// the DLL's own operator new, which this count does not see; and under AddressSanitizer the
+// override may lose to the sanitizer's own, so the control below is not asserted there (the armed
+// allocator and the plain legs still are).
+namespace {
+std::atomic<std::size_t> g_global_news{0};
+#if defined(__SANITIZE_ADDRESS__)
+constexpr bool k_global_news_are_counted = false;
+#else
+constexpr bool k_global_news_are_counted = true;
+#endif
+} // namespace
+
+// NOLINTBEGIN(misc-new-delete-overloads,cppcoreguidelines-no-malloc) reason: see above
+// None of these is inlined: seen through, an operator new is a malloc() next to an operator delete,
+// or an operator delete is a free() next to an operator new, and GCC's -Wmismatched-new-delete
+// reproves that pair, measured in the Release and in the sanitizer builds.
+GLINTFX_TEST_NOINLINE void *operator new(std::size_t size) {
+    ++g_global_news;
+    void *block = std::malloc(size == 0 ? 1 : size);
+    if (block == nullptr) {
+        throw std::bad_alloc{};
+    }
+    return block;
+}
+GLINTFX_TEST_NOINLINE void *operator new[](std::size_t size) { return ::operator new(size); }
+GLINTFX_TEST_NOINLINE void *operator new(std::size_t size, const std::nothrow_t &) noexcept {
+    ++g_global_news;
+    return std::malloc(size == 0 ? 1 : size);
+}
+GLINTFX_TEST_NOINLINE void *operator new[](std::size_t size, const std::nothrow_t &tag) noexcept {
+    return ::operator new(size, tag);
+}
+GLINTFX_TEST_NOINLINE void operator delete(void *block) noexcept { std::free(block); }
+GLINTFX_TEST_NOINLINE void operator delete(void *block, std::size_t) noexcept { std::free(block); }
+GLINTFX_TEST_NOINLINE void operator delete(void *block, const std::nothrow_t &) noexcept {
+    std::free(block);
+}
+GLINTFX_TEST_NOINLINE void operator delete[](void *block) noexcept { std::free(block); }
+GLINTFX_TEST_NOINLINE void operator delete[](void *block, std::size_t) noexcept {
+    std::free(block);
+}
+GLINTFX_TEST_NOINLINE void operator delete[](void *block, const std::nothrow_t &) noexcept {
+    std::free(block);
+}
+// NOLINTEND(misc-new-delete-overloads,cppcoreguidelines-no-malloc) reason: see above
+
+namespace {
+
+[[nodiscard]] bool read_is(const atlas_receipt_read &got, gltfx_draw_2d_refusal refusal,
+                           const gltfx_rect_texel &region) {
+    return got.refusal == refusal && got.region.corner.x == region.corner.x &&
+           got.region.corner.y == region.corner.y && got.region.size.x == region.size.x &&
+           got.region.size.y == region.size.y;
+}
+
+constexpr gltfx_rect_texel k_no_region{};
+
+} // namespace
+
+// T6-B2: a current receipt reads the region of its image, the place worked out by hand: margin 2,
+// so the second image of a row of cells of 7 x 7 starts 2 texels into a cell at x = 7, and the same
+// value region_of() gives.
+GLINTFX_TEST(texture_atlas_a_current_receipt_reads_the_region_of_its_image) {
+    reset();
+    arm(0);
+    open_atlas a(desc_of(64, 2, 0));
+    const gltfx_rslt<gltfx_atlas_slot> first = add(a, image_of(3, 3, 1));
+    const gltfx_rslt<gltfx_atlas_slot> second = add(a, image_of(3, 2, 2));
+    GLINTFX_CHECK(first.has_value() && second.has_value());
+    if (!first.has_value() || !second.has_value()) {
+        return;
+    }
+    const gltfx_rect_texel want{{9.0, 2.0}, {3.0, 2.0}};
+    GLINTFX_CHECK(
+        read_is(read_atlas_receipt(a.atlas, second.value()), gltfx_draw_2d_refusal::none, want));
+    GLINTFX_CHECK(region_is(glintfx::draw2d::region_in_atlas(a.atlas, second.value()), want));
+    GLINTFX_CHECK(read_is(read_atlas_receipt(a.atlas, first.value()), gltfx_draw_2d_refusal::none,
+                          gltfx_rect_texel{{2.0, 2.0}, {3.0, 3.0}}));
+}
+
+// T6-B2: each receipt that is not current reads its reason and an empty region, in the order of
+// region_of(): another atlas's, then what the slot table says, field by field.
+GLINTFX_TEST(texture_atlas_a_receipt_not_current_reads_its_reason_and_no_region) {
+    reset();
+    arm(0);
+    open_atlas a(desc_of(64, 1, 0));
+    open_atlas other(desc_of(64, 1, 0));
+    const gltfx_rslt<gltfx_atlas_slot> taken = add(a, image_of(4, 4, 1));
+    const gltfx_rslt<gltfx_atlas_slot> foreign = add(other, image_of(4, 4, 2));
+    GLINTFX_CHECK(taken.has_value() && foreign.has_value());
+    if (!taken.has_value() || !foreign.has_value()) {
+        return;
+    }
+    using enum gltfx_draw_2d_refusal;
+    const auto reads = [&](const gltfx_atlas_slot &slot, gltfx_draw_2d_refusal why) {
+        return read_is(read_atlas_receipt(a.atlas, slot), why, k_no_region);
+    };
+    GLINTFX_CHECK(reads(foreign.value(), region_other_atlas));
+    GLINTFX_CHECK(reads(gltfx_atlas_slot{}, stale_region));
+    gltfx_atlas_slot changed = taken.value();
+    changed.rect.width += 1U;
+    GLINTFX_CHECK(reads(changed, stale_region));
+    changed = taken.value();
+    changed.generation += 1U;
+    GLINTFX_CHECK(reads(changed, stale_region));
+    changed = taken.value();
+    changed.id += 1U;
+    GLINTFX_CHECK(reads(changed, stale_region));
+    changed = taken.value();
+    changed.owner = 0U;
+    GLINTFX_CHECK(reads(changed, stale_region));
+    GLINTFX_CHECK(
+        read_is(read_atlas_receipt(nullptr, taken.value()), texture_not_open, k_no_region));
+    GLINTFX_CHECK(glintfx::draw2d::release_from_texture_atlas(a.atlas, taken.value()).has_value());
+    GLINTFX_CHECK(reads(taken.value(), stale_region));
+}
+
+// T6-B2: when the number of a released receipt is handed out again, the new receipt reads the new
+// image, and the old one stays stale.
+GLINTFX_TEST(texture_atlas_a_number_handed_out_again_leaves_the_old_receipt_stale) {
+    reset();
+    arm(0);
+    open_atlas a(desc_of(64, 1, 0));
+    const gltfx_rslt<gltfx_atlas_slot> taken = add(a, image_of(4, 4, 1));
+    GLINTFX_CHECK(taken.has_value());
+    if (!taken.has_value()) {
+        return;
+    }
+    GLINTFX_CHECK(glintfx::draw2d::release_from_texture_atlas(a.atlas, taken.value()).has_value());
+    const gltfx_rslt<gltfx_atlas_slot> again = add(a, image_of(2, 2, 3));
+    GLINTFX_CHECK(again.has_value());
+    if (!again.has_value()) {
+        return;
+    }
+    GLINTFX_CHECK_EQ(again.value().id, taken.value().id); // the number handed out again
+    GLINTFX_CHECK(read_is(read_atlas_receipt(a.atlas, taken.value()),
+                          gltfx_draw_2d_refusal::stale_region, k_no_region));
+    GLINTFX_CHECK(read_is(read_atlas_receipt(a.atlas, again.value()), gltfx_draw_2d_refusal::none,
+                          gltfx_rect_texel{{1.0, 1.0}, {2.0, 2.0}}));
+}
+
+// T6-B2: reading a receipt asks for no memory, of any kind, whatever it answers: neither the
+// atlas's own (armed) nor the global operator new (see above).
+GLINTFX_TEST(texture_atlas_reading_a_receipt_asks_for_no_memory) {
+    reset();
+    arm(0);
+    open_atlas a(desc_of(64, 1, 0));
+    open_atlas other(desc_of(64, 1, 0));
+    const gltfx_rslt<gltfx_atlas_slot> taken = add(a, image_of(4, 4, 1));
+    const gltfx_rslt<gltfx_atlas_slot> foreign = add(other, image_of(4, 4, 2));
+    GLINTFX_CHECK(taken.has_value() && foreign.has_value());
+    if (!taken.has_value() || !foreign.has_value()) {
+        return;
+    }
+    gltfx_atlas_slot changed = taken.value();
+    changed.generation += 1U;
+    arm(0);
+    const std::size_t before = g_global_news.load();
+    const std::array<atlas_receipt_read, 5> reads{
+        read_atlas_receipt(a.atlas, taken.value()),
+        read_atlas_receipt(a.atlas, foreign.value()),
+        read_atlas_receipt(a.atlas, gltfx_atlas_slot{}),
+        read_atlas_receipt(a.atlas, changed),
+        read_atlas_receipt(nullptr, taken.value()),
+    };
+    const std::size_t after = g_global_news.load();
+    GLINTFX_CHECK_EQ(after - before, std::size_t{0});
+    GLINTFX_CHECK_EQ(armed.requests, 0);
+    GLINTFX_CHECK(reads[0].refusal == gltfx_draw_2d_refusal::none);
+    GLINTFX_CHECK(reads[1].refusal == gltfx_draw_2d_refusal::region_other_atlas);
+    // The counter does count (the control of this case): a block asked here shows in it. A direct
+    // call kept in a volatile, because a compiler may drop a new and a delete it can pair.
+    void *volatile asked = ::operator new(16);
+    ::operator delete(asked);
+    GLINTFX_CHECK(!k_global_news_are_counted || g_global_news.load() > after);
+}
 
 GLINTFX_TEST(texture_atlas_open_makes_one_updatable_texture_with_its_levels_from_an_empty_image) {
     reset();

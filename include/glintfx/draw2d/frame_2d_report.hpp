@@ -18,7 +18,8 @@
 // WHAT A "PIECE" IS: one call of a drawing method (fill_rect(), fill_quad(),
 // fill_triangles(), fill_indexed_triangles(), stroke_line(), stroke_rect(),
 // fill_ellipse(), stroke_ellipse(), draw_texture(), draw_texture_quad(),
-// fill_textured_triangles() or fill_indexed_textured_triangles()),
+// draw_atlas_image(), fill_textured_triangles() or
+// fill_indexed_textured_triangles()),
 // whatever the
 // method: a triangle call with a hundred triangles is one piece, and a
 // refusal refuses the whole call, once. A call that does nothing (no
@@ -77,13 +78,21 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     texture_other_renderer = 10,
     region_out_of_range = 11,
     degenerate_quad = 12,
+    // Appended by R2D-TEXTURE T6-B2, the two reasons of the receipt of
+    // draw_atlas_image() (renderer_2d.hpp): the cell of the receipt was
+    // released, the receipt was never handed out, or a field of it was
+    // changed; the receipt was handed out by another atlas. 13 is reserved for
+    // the shadows of R2D-SPRITE-SHADE.
+    stale_region = 14,
+    region_other_atlas = 15,
 };
 
 // The token for `reason`: "none", "not_a_number", "infinite",
 // "negative_size", "index_out_of_range", "count_not_multiple_of_three",
 // "unknown_option", "too_many_vertices", "pixel_position_out_of_range",
-// "texture_not_open", "texture_other_renderer", "region_out_of_range" or
-// "degenerate_quad". A value this build does not
+// "texture_not_open", "texture_other_renderer", "region_out_of_range",
+// "degenerate_quad", "stale_region" or "region_other_atlas". A value this
+// build does not
 // know (a newer glintfx crossing the library boundary) reads "unknown"
 // (docs/api-conventions.md R4). The returned text lives as long as the
 // program.
@@ -105,8 +114,9 @@ struct gltfx_frame_2d_report {
     // whose pixel coordinate is out of the range the vertex program can
     // scale, a texture that is not open or belongs to another renderer, a
     // texel coordinate of a textured triangle outside its texture, a
-    // source region outside its texture, or a textured quadrilateral with no
-    // projective mapping or with a projective weight of 2^63 or more.
+    // source region outside its texture, a textured quadrilateral with no
+    // projective mapping or with a projective weight of 2^63 or more, or an
+    // atlas receipt that is stale or of another atlas.
     // The frame goes on without them; this is not an error of the
     // frame. The counters at the end of this struct, one per reason, add up
     // to this one.
@@ -142,7 +152,8 @@ struct gltfx_frame_2d_report {
     // count in pieces_dropped_graphics_failure, and finish_frame() returns
     // an error. Printed for you to measure, never promised as a number.
     std::uint64_t draw_calls = 0;
-    // Appended in W8 (D-W8-30): one counter per refusal reason. Their sum is
+    // Appended in W8 (D-W8-30): one counter per refusal reason. Their sum,
+    // with the two that R2D-TEXTURE T6-B2 appended after texture_switches, is
     // pieces_refused, always.
     std::uint64_t pieces_refused_not_a_number = 0;
     std::uint64_t pieces_refused_infinite = 0;
@@ -165,6 +176,10 @@ struct gltfx_frame_2d_report {
     // promised as a number: a textured piece between two untextured ones
     // costs two.
     std::uint64_t texture_switches = 0;
+    // Appended by R2D-TEXTURE T6-B2: the counters of the two reasons of the
+    // receipt of draw_atlas_image().
+    std::uint64_t pieces_refused_stale_region = 0;
+    std::uint64_t pieces_refused_region_other_atlas = 0;
 };
 
 } // namespace glintfx

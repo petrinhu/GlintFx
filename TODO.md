@@ -393,6 +393,7 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 - [triage 14/11/2026, D-W8-1124, do revisor N3 via main] `CHECK-ISOLATION-EXTRAIR-CONTAGEM`: `tests/container/check_isolation.sh` tem 553 linhas, 24 funções e 14 commits; o bloco das asserções de contagem (`:254-282`) pede extração para um arquivo próprio (L-17 do projeto).
 - [triage 14/11/2026, D-W8-1128, do revisor da tidy23 via main] `TIDY23-TB-COSMETICO`: o comentário de `tests/texture_atlas_test.cpp:276` diz "that a owns" (falta palavra), no commit TB `22682f7c`.
 - [triage 14/11/2026, D-W8-1135, do implementador da G4a via main] `RUN-PROCESS-KILL-TREE-DISTINGUIR`: o controle "o prazo estourado mata a ARVORE" do autoteste `run_capture_known_color_win32_selftest` reprovou uma vez no `preci-1` da G4a e passou nas 10 rodadas sozinho (5 no snap e 5 no base `c6f6fc47`, `.trabalho/cto-w8/g4/a/f2.txt`). Ele não distingue "o neto nunca gravou o PID" de "o neto ficou vivo"; precisa dizer qual dos dois casos falhou, para que a próxima reprovação seja diagnosticável.
+- [triage 14/11/2026, D-W8-1139, do CTO via main] `PHOTO-PRESTART-HOSTCONFIG`: em `tests/container/composed_photo.sh`, o `docker run -d` acontece antes do portão de isolamento, porque o portão precisa do contêiner vivo. Alternativa: criar o contêiner, conferir o `HostConfig` e só então dar start. Isso muda o portão; fica como limite declarado da G4a-fix1 (`.trabalho/cto-w8/ordem-g4a-fix1.md`), e a G4b prova a partida.
 
 
 

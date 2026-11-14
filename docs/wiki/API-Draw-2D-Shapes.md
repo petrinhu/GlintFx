@@ -377,8 +377,8 @@ becomes a rule of the library.
 
 - A speed, or a number of pieces per draw call. The frame report counts the
   draw calls, and that count is for you to measure.
-- That a curve is exact. Its edge stays within the distance you chose, unless
-  the limit on segments is reached first.
+- That a curve is exact. Its edge stays within the distance you chose only
+  while the two conditions in "How smooth curves are" above hold.
 - That the pixels the example draws are a rule of the library.
 - A color brighter than white on an 8-bit surface. A value above 1.0 is
   clipped by the surface.

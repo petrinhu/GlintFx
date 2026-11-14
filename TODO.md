@@ -401,6 +401,7 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 - [triage 14/11/2026, D-W8-1141, do implementador da T6-B2 via main] `NOMDASH-HOOK-DOCS-AUDITORIA`: o hook global `no_mdash_staged.py` contou "0 user-facing" entre os 23 arquivos da T6-B2 e não varreu `docs/auditoria-api-texture.md`; ver se o critério cobre `docs/`.
 - [triage 14/11/2026, D-W8-1146, do revisor N3 da KILLTREE via main] `KILLTREE-REV-COSMETICOS`: a revisão do commit `6cbb7d84` saiu LIMPA, com dois cosméticos (`.trabalho/cto-w8/rev-killtree/relatorio.txt`): o rótulo "o neto morreu" de `grandchild_fate` nunca aparece no caminho verde (`tests/tools/run_capture_known_color_win32_selftest.py:593`); e `selftest_run_process` (`:597-625`) junta quatro assuntos, com o átomo `selftest_run_process_tree` a extrair (L-17, dívida anterior).
 - [triage 14/11/2026, D-W8-1146, do redator da wiki via main] `CONCEPTS-README-STATUS`: `docs/wiki/Concepts.md:119-120` manda o leitor à seção Status do README como a fonte em dia, e o README ainda não cita a API de texturas (`docs/wiki/API-Texture-Atlas.md:20-22`).
+- [triage 14/11/2026, D-W8-1147 e D-W8-1851, do CTO e do revisor N1 da fix2 via main] `ATLAS-WIKI-RECIBO-INCOMPLETO`: `docs/wiki/API-Texture-Atlas.md:223-224` ficou incompleta (não falsa) sobre o recibo depois dos consertos T6-B2-fix1 a fix3, e chama `stale_slot` de "never given out" sem citar o dono lido primeiro; redige o `technical-writer`.
 
 
 

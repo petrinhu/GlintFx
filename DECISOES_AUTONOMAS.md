@@ -11299,3 +11299,23 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - As leituras ruins das 12:25 foram da própria `manutencao`.
     - As das 12:19:30 vieram do `grep -r` do CTO (D-W8-1147).
   - **Revisor N1 despachado:** `qa-engineer` haiku NOVO, pela seção 6 da ordem, contra `113b924a`.
+- **D-W8-1149 (main, 14/11 15:10, modo autônomo, a confirmar retroativamente): segunda rodada do recibo commitada, a lei de envio emendada, a pasta de trabalho limpa, a terceira rodada pronta, e a sessão pausa por ordem do líder.**
+  - **T6-B2-fix2**, `6fc45f19` (5 arquivos, +67/-38): S1 a S4 conferem com a previsão; `preci --fast` 397/397; trailers conferidos.
+    - Revisão N1 NÃO LIMPA (`rev-t6b2-fix2.txt`): 9/9 mutantes mortos e I-2, I-3 e I-4 da fix1 consertados.
+    - Ficou um IMPORTANTE: o I-1 foi consertado só em parte. `frame_2d_report.hpp:82-84` não diz que o dono é lido primeiro.
+  - **T6-B2-fix3 pronta e NÃO despachada:** `ordem-t6b2-fix3.md`, md5 `eb2a9008`, anexos com rc 0, decisões D-W8-1850 a 1855 a ratificar.
+    - Só comentário: o I-1 e três cosméticos de uma linha cada. S1 e S2 foram vistos vermelhos, e o `preci` deu 397/397.
+    - O cosmético da wiki entrou na INBOX, na linha `ATLAS-WIKI-RECIBO-INCOMPLETO`.
+    - Para a H3b-2 há uma nova errata proposta, em `ordens-anexos/t6b2-fix3/h3b2-errata-proposta/`. A errata da fix2 deixou de valer.
+  - **Lei de envio:** quinta emenda da L-11 do projeto e emenda da L-24 global, com a LEI DAS LEIS aplicada e o verbatim do líder nas duas.
+    - Commit `501e59fa` no projeto. No `~/.claude`, a sessão `manutencao` conferiu as tabelas e o commit sai no salvamento automático das 22:30.
+    - Primeira cópia privada: `~/IDrive/backups-git/GlintFx/GlintFx-20261114-1448.bundle`, com verify rc 0.
+    - Envio `5e153414..ead200a0` para `onda-w8`, 49 commits já revisados. O `ls-remote` confere, e o remoto tem só `main` e `onda-w8`.
+    - O que vai de `7ca6eeda` em diante espera a revisão limpa da T6-B2.
+    - As sessões `direito_2026`, `nfse` e `manutencao` foram avisadas, e a `direito_2026` já fez o próprio bundle.
+  - **Limpeza por ordem do líder** (14:28, *"limpe agora builds e temps antigos seus"*):
+    - Um `devops-sre` apagou 207 subárvores de build e de cópia das fatias fechadas, cerca de 86 GiB aparentes, sem falhas. Saíram também 4 imagens.
+    - Ficaram relatórios, ordens, `r21`, as pastas vivas e o `ccache`.
+    - O ganho real de disco foi de 0,45 GiB. INFERÊNCIA, não medida: os snapshots antigos ainda guardam os dados.
+  - **Watchcode:** às 14:55 houve um coredump SIGSEGV de `/out/build/tests/atlas_allocator_test`, dentro do contêiner de ensaio do CTO. INFERÊNCIA: é a sabotagem S2, que a ordem prevê vermelha.
+  - **Pausa:** ordem do líder às 15:03, *"assim que acabar esse agente, commit, /memo_persistente e pause"*. Nenhum agente vivo. O próximo passo, quando o líder mandar seguir, é despachar o implementador da fix3.

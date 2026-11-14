@@ -11271,3 +11271,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **WIKI-CONCEPTS-DESATUALIZADO** (`48f3f2fd`, N4): a parte do `Concepts.md` está feita. O bullet segue só com a seção "In progress" da `Home.md`, que espera o líder. A descoberta nova entra como `CONCEPTS-README-STATUS`.
   - **INBOX gravada agora**, numa janela em que nenhuma fatia aberta tem o `TODO.md` na lista: as seis linhas seguradas de `inbox-pendente-main.md` (D-W8-1141 e 1142) e as duas novas.
   - **Correção de hora:** a D-W8-1145 dizia 12:18 e a hora medida foi 12:17. Ficou corrigida.
+- **D-W8-1147 (main, 14/11 12:47, modo autônomo, a confirmar retroativamente): o conserto da T6-B2 é despachado.**
+  - **A ordem:** `ordem-t6b2-fix1.md`, md5 `5b8813f5`, anexos com rc 0, ambos conferidos pelo main. As decisões D-W8-1830 a 1837 do CTO ficam para ratificar.
+  - **O que muda:** só texto e teste, com o código intocado. São 4 arquivos: `renderer_2d.hpp`, `texture_atlas.hpp`, `docs/auditoria-api-texture.md` e `tests/texture_atlas_test.cpp`.
+  - **A prova do CTO:** vermelho antes do verde nas sabotagens S4 e S5; depois verde com `-Werror`; `preci --fast` com 397/397 na segunda rodada. Na primeira, a pasta de tempos sumiu no meio, sem autor medido.
+  - **Quem executa:** implementador `backend-engineer` haiku NOVO; revisor N1 `qa-engineer` haiku NOVO e diferente, que entra só depois do commit.
+  - **Efeito na H3b-2:** o único arquivo em comum é `renderer_2d.hpp`. O despacho dela reancora depois do commit e da revisão limpa do conserto.
+  - **Correção de diagnóstico:**
+    - O erro de checksum das 12:19:30 em `r21/` veio de um `grep -r` recursivo que o próprio CTO rodou a partir de `$R`. Ele declarou o erro e trocou para `git grep`.
+    - A hipótese do main, de que o culpado era o cliente de backup do IDrive, estava errada para esse caso. Para as leituras das 12:25 não há autor medido.
+    - O briefing de todo agente proíbe agora qualquer busca recursiva que não exclua `r21`.
+  - **INBOX, quando o `TODO.md` estiver livre:** `ATLAS-WIKI-RECIBO-INCOMPLETO`. `docs/wiki/API-Texture-Atlas.md:223-224` está incompleto, não falso.

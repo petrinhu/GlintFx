@@ -11246,7 +11246,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Porte:** 6 `docker build`.
   - **Quando abre:** só depois que a revisão N1 da T6-B2 sair LIMPA. Se houver conserto, o CTO reancora de novo antes.
   - **Ao líder, na saída da onda:** as portas de mão única da H3b-2 (D-W8-1328, D-W8-1329 e D-W8-1336).
-- **D-W8-1144 (main, 14/11 12:17, modo autônomo, a confirmar retroativamente): a revisão da T6-B2 reprova por um texto público sem prova, e abre o conserto.**
+- **D-W8-1144 (main, 14/11 12:15, modo autônomo, a confirmar retroativamente): a revisão da T6-B2 reprova por um texto público sem prova, e abre o conserto.**
   - **Veredito:** NÃO LIMPA, com um IMPORTANTE e um COSMÉTICO. Relatório em `.trabalho/cto-w8/rev-t6b2/relatorio_final.md`, SHA revisado `7ca6eeda`.
   - **O IMPORTANTE, conferido pelo main no blob:**
     - O comentário público de `draw_atlas_image` diz que um recibo com um campo alterado é recusado como "região velha".

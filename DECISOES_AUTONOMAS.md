@@ -11239,3 +11239,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Achados novos:** IMPORTANTES, o Traceback com UTF-8 inválido e a falta de controle para A1 e A3; e quatro cosméticos. Relatório em `.trabalho/cto-w8/rev-g4a-fix1/relatorio.txt`.
   - **A regra aplicada:** a L-12 do projeto (`GODS_LAWS.md:379`) dá à camada N2 "**uma** rodada de conserto", e ela foi gasta. A G4a fecha: o que sobra vira item da INBOX e limite declarado, e o sítio de chamada ganha prova natural na G4b. As linhas da INBOX estão guardadas em `.trabalho/cto-w8/inbox-pendente-main.md`. O main não as grava agora porque o `TODO.md` está na capa da H3b-2, que o CTO ensaia (ver a memória "TODO.md fica parado com fatia aberta"); entram entre a H3b-2 e a H3b-3.
   - **Nada inseguro ficou aberto:** os achados que sobram falham fechados, e nenhum contêiner tocou a GeForce.
+- **D-W8-1143 (main, 14/11 10:28, modo autônomo, a confirmar retroativamente): o despacho da H3b-2 está pronto e espera a revisão da T6-B2.**
+  - **Documento:** `despacho-h3b2.md` (md5 `d6e57d84`; anexos `f700eaef`, rc 0, conferidos pelo main), com as decisões D-W8-1793 a D-W8-1799, a ratificar.
+  - **Reancoragem no HEAD `1eff1396`:** os 55 blocos aplicam com n=1, inclusive por cima da G4a-fix1. Os mutantes deram 13/13 e 6/6. Nenhuma errata.
+  - **Comandos trocados:** 9 linhas de laço passaram para o `um_processo.py`.
+  - **Porte:** 6 `docker build`.
+  - **Quando abre:** só depois que a revisão N1 da T6-B2 sair LIMPA. Se houver conserto, o CTO reancora de novo antes.
+  - **Ao líder, na saída da onda:** as portas de mão única da H3b-2 (D-W8-1328, D-W8-1329 e D-W8-1336).

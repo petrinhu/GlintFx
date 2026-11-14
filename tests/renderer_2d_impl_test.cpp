@@ -136,7 +136,7 @@ glintfx::gltfx_rslt<void> fake_make_current(void *) noexcept {
     }
     return glintfx::gltfx_rslt<void>::ok();
 }
-std::pair<std::uint32_t, std::uint32_t> fake_surface_size(void *) noexcept {
+std::pair<std::uint32_t, std::uint32_t> fake_surface_size(const void *) noexcept {
     return {context.width, context.height};
 }
 renderer_2d_host fake_host() {

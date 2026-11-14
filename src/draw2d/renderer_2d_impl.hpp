@@ -79,8 +79,9 @@ struct textured_triangle_call {
 struct renderer_2d_host {
     void *context = nullptr;
     gltfx_rslt<void> (*make_current)(void *context) noexcept = nullptr;
-    // The size of the surface in physical pixels {width, height}, read at begin_frame().
-    std::pair<std::uint32_t, std::uint32_t> (*surface_size)(void *context) noexcept = nullptr;
+    // The size of the surface in physical pixels {width, height}, read at begin_frame(). It only
+    // reads the context, so it takes a pointer to const.
+    std::pair<std::uint32_t, std::uint32_t> (*surface_size)(const void *context) noexcept = nullptr;
 };
 
 // What create() is told besides the host and the GL functions (D-B7-1, Introduce Parameter Object):

@@ -28,7 +28,8 @@ namespace {
 [[nodiscard]] gltfx_rslt<void> host_make_current(void *interior) noexcept {
     return gl_context_interior_make_current(interior);
 }
-[[nodiscard]] std::pair<std::uint32_t, std::uint32_t> host_surface_size(void *interior) noexcept {
+[[nodiscard]] std::pair<std::uint32_t, std::uint32_t>
+host_surface_size(const void *interior) noexcept {
     return gl_context_interior_surface_size(interior);
 }
 [[nodiscard]] void *host_resolve(void *interior, const char *name) noexcept {

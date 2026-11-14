@@ -30,8 +30,9 @@ namespace glintfx {
 [[nodiscard]] void *gl_context_interior_resolve(void *interior, const char *name) noexcept;
 
 // The size of the drawing surface in PHYSICAL pixels {width, height}; {0, 0} without a surface.
+// It only reads the interior, so it takes a pointer to const.
 [[nodiscard]] std::pair<std::uint32_t, std::uint32_t>
-gl_context_interior_surface_size(void *interior) noexcept;
+gl_context_interior_surface_size(const void *interior) noexcept;
 
 // Makes the context current on the calling thread; the context's own error when it cannot.
 [[nodiscard]] gltfx_rslt<void> gl_context_interior_make_current(void *interior) noexcept;

@@ -11233,3 +11233,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Limite declarado (D-W8-1791):** os `preci` rodaram sobre `d8eb6983`, sem a G4a-fix1. A combinação só o CI prova.
   - **Revisor:** um `qa-engineer` haiku NOVO, com até 6 `docker build`.
   - **Ponto aberto:** o hook `no_mdash_staged.py` contou "0 user-facing" e não varreu `docs/auditoria-api-texture.md`. Fica com o revisor.
+- **D-W8-1142 (main, 14/11 10:25, modo autônomo, a confirmar retroativamente): a re-revisão N2 da G4a-fix1 sai NÃO LIMPA, e a G4a fecha pela regra da camada.**
+  - **O que fechou:** os achados (1) Traceback da especificação ausente, (2) família repetida, (3) família fora de `/usr/lib64` e (5) autoria.
+  - **O que ficou parcial:** o achado (4). A guarda do nó tem controle (o M08p e o M09p morrem), mas o sítio de chamada não tem (os mutantes A1, A2 e A3 sobrevivem).
+  - **Achados novos:** IMPORTANTES, o Traceback com UTF-8 inválido e a falta de controle para A1 e A3; e quatro cosméticos. Relatório em `.trabalho/cto-w8/rev-g4a-fix1/relatorio.txt`.
+  - **A regra aplicada:** a L-12 do projeto (`GODS_LAWS.md:379`) dá à camada N2 "**uma** rodada de conserto", e ela foi gasta. A G4a fecha: o que sobra vira item da INBOX e limite declarado, e o sítio de chamada ganha prova natural na G4b. As linhas da INBOX estão guardadas em `.trabalho/cto-w8/inbox-pendente-main.md`. O main não as grava agora porque o `TODO.md` está na capa da H3b-2, que o CTO ensaia (ver a memória "TODO.md fica parado com fatia aberta"); entram entre a H3b-2 e a H3b-3.
+  - **Nada inseguro ficou aberto:** os achados que sobram falham fechados, e nenhum contêiner tocou a GeForce.

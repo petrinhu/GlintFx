@@ -16,6 +16,9 @@ shapes is still under review and is not covered here.
   corner, with y growing down.
 - **World position**: a position in your own units, for example the units of
   your game world. A transform turns it into pixels.
+- **Draw call**: one instruction sent to the graphics card. The library gathers
+  your pieces into as few draw calls as the order you ask for allows. The
+  frame report counts them.
 - **Batch**: a group of drawing calls that share one transform. The transform
   moves, turns and scales every call in the group. See [Draw 2D](API-Draw-2D)
   for how batches work.
@@ -51,13 +54,17 @@ shapes is still under review and is not covered here.
   report counts the refused call and names the first reason.
 - **Frame report**: the counts that `finish_frame()` returns at the end of each
   frame.
+- **Continuous integration** (CI): an automatic check that builds the library
+  and runs its tests after each change, on several systems. When it fails, the
+  change has a problem that must be fixed before anyone trusts it.
 
 ## Where to read the exact rules
 
 This page says what each call does for you. The exact signatures and every
-refusal live in the headers. The continuous integration reads the pixels that
-the example below draws, so the example stays correct on every system the
-project supports.
+refusal live in the headers. The continuous integration runs the example
+below and reads some of the pixels it draws. It compares them with the colours
+listed in `tests/fixtures/shapes_probes.txt`. It does this on Windows and in a
+Fedora container on Linux. Ubuntu, Arch and CachyOS do not have this check yet.
 
 - [`renderer_2d.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/renderer_2d.hpp):
   the six shape calls on this page, each with its refusals.
@@ -319,6 +326,12 @@ draws uses it.
   points on each of its two edges. Each rounded cap uses at most 1024
   segments. A value so small that the limit is reached is still drawn, but
   with a gap larger than the one you asked for.
+- **Conditions for a filled ellipse:** the edge stays within that distance,
+  plus the rounding of its corners, while two conditions hold. First, the
+  larger radius on the screen is at most 2^40 pixels, about 1.1 trillion.
+  Second, the 1024 segments one call may use are enough for that distance. A
+  very small distance on a very large surface can need more. Then the distance
+  drawn is larger than the one you asked for.
 - **Example:** the example opens a second renderer with a distance of 12
   pixels. The same circle comes out with five straight sides, so it looks like
   a pentagon.

@@ -629,10 +629,12 @@ class gltfx_atlas_allocator {
 // rect is the whole cell, margin and rounding included. region_of(slot) gives the rectangle of the
 // IMAGE in texels of texture(), which is what a drawing call reads. A receipt is current from
 // add_image() until release_slot(); region_of() and release_slot() refuse any other, with the
-// allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT): a receipt of another atlas,
-// or one whose owner was changed to a number other than 0, is "slot_other_allocator"; a released
-// or never handed out one (an owner of 0 among them), or one whose rect, id or generation was
-// changed, is "stale_slot".
+// allocator's names (core/atlas_allocator.hpp, A SLOT IS A RECEIPT), reading the owner first: an
+// owner of 0 is a receipt never handed out (the default gltfx_atlas_slot among them), "stale_slot";
+// an owner that is not this atlas's is "slot_other_allocator", whatever the other fields say; with
+// this atlas's owner, a receipt whose rect, id and generation are not those of a cell in use now
+// (the cell was released, or one of them was changed) is "stale_slot". A receipt is its four
+// fields: one equal, field by field, to a current receipt of this atlas is that receipt.
 // A region is a value: one taken from region_of() before release_slot() still names the place, and
 // a drawing call reads whatever is there then. A receipt is checked: draw_atlas_image() refuses one
 // that stopped being current, and counts it in the frame report (renderer_2d.hpp).
@@ -998,13 +1000,12 @@ class gltfx_texture_atlas {
     //   - unknown_option: the mirror is a value outside its enumeration;
     //   - texture_not_open: the atlas was moved from;
     //   - texture_other_renderer: the atlas was opened on another renderer;
-    //   - region_other_atlas: another atlas handed out the receipt, which is also what an atlas
-    //     that received another by move assignment says of the receipts it had; a receipt whose
-    //     owner was changed to a number other than 0 reads as one of another atlas, because the
-    //     owner is what names the atlas that handed it out;
-    //   - stale_region: the cell of the receipt was released, the receipt was never handed out
-    //     (an owner of 0, the default gltfx_atlas_slot among them), or its rect, id or generation
-    //     was changed;
+    //   - region_other_atlas: the owner of the receipt is not 0 and not the atlas's, whatever the
+    //     other fields say: another atlas handed it out, its owner was changed, or the atlas had
+    //     it before it received another atlas by move assignment;
+    //   - stale_region: the owner of the receipt is 0 (it was never handed out, the default
+    //     gltfx_atlas_slot among them), or it is the atlas's and the rect, id and generation are
+    //     not those of a cell in use now (the cell was released, or one of them was changed);
     //   - pixel_position_out_of_range: the batch transform takes a corner outside the range the
     //     drawing program can scale, as for fill_rect.
     // The receipt is read at this call, and reading it asks for no memory. Nothing reads it again:

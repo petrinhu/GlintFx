@@ -451,21 +451,48 @@ GLINTFX_TEST(texture_atlas_a_receipt_not_current_reads_its_reason_and_no_region)
     changed = taken.value();
     changed.owner = 0U;
     GLINTFX_CHECK(reads(changed, stale_region));
-    // The owner names the atlas that handed the receipt out, so a receipt whose owner was changed
-    // to a number other than 0 reads as one of another atlas, never as a changed one. The receipt
-    // of `other` is this one with only its owner changed: the same cell, number and generation.
-    GLINTFX_CHECK(rect_is(foreign.value(), taken.value().rect) &&
-                  foreign.value().id == taken.value().id &&
-                  foreign.value().generation == taken.value().generation);
-    changed = taken.value();
-    changed.owner = foreign.value().owner;
-    GLINTFX_CHECK(reads(changed, region_other_atlas));
-    changed.owner = k_owner_never_handed_out;
-    GLINTFX_CHECK(reads(changed, region_other_atlas));
     GLINTFX_CHECK(
         read_is(read_atlas_receipt(nullptr, taken.value()), texture_not_open, k_no_region));
     GLINTFX_CHECK(glintfx::draw2d::release_from_texture_atlas(a.atlas, taken.value()).has_value());
     GLINTFX_CHECK(reads(taken.value(), stale_region));
+}
+
+// T6-B2: reading a receipt, the owner is read first (texture_atlas.hpp, THE RECEIPT). An owner that
+// is not this atlas's reads as another atlas's, whatever the other fields say; with this atlas's
+// owner, the slot table decides. The receipt of `other` is the one of `a` with only its owner
+// changed (the same cell, number and generation), so each reads as the other's in the other atlas.
+GLINTFX_TEST(texture_atlas_reading_a_receipt_reads_its_owner_first) {
+    reset();
+    arm(0);
+    open_atlas a(desc_of(64, 1, 0));
+    open_atlas other(desc_of(64, 1, 0));
+    const gltfx_rslt<gltfx_atlas_slot> taken = add(a, image_of(4, 4, 1));
+    const gltfx_rslt<gltfx_atlas_slot> foreign = add(other, image_of(4, 4, 2));
+    GLINTFX_CHECK(taken.has_value() && foreign.has_value());
+    if (!taken.has_value() || !foreign.has_value()) {
+        return;
+    }
+    using enum gltfx_draw_2d_refusal;
+    GLINTFX_CHECK(rect_is(foreign.value(), taken.value().rect) &&
+                  foreign.value().id == taken.value().id &&
+                  foreign.value().generation == taken.value().generation);
+    gltfx_atlas_slot changed = taken.value();
+    changed.owner = foreign.value().owner;
+    GLINTFX_CHECK(read_is(read_atlas_receipt(a.atlas, changed), region_other_atlas, k_no_region));
+    changed.owner = k_owner_never_handed_out;
+    GLINTFX_CHECK(read_is(read_atlas_receipt(a.atlas, changed), region_other_atlas, k_no_region));
+    // A receipt of `other` with its rect changed is still `other`'s: the owner comes first.
+    changed = foreign.value();
+    changed.rect.width += 1U;
+    GLINTFX_CHECK(read_is(read_atlas_receipt(a.atlas, changed), region_other_atlas, k_no_region));
+    GLINTFX_CHECK(refused_as(glintfx::draw2d::region_in_atlas(a.atlas, changed),
+                             gltfx_err_code::invalid_argument, "slot_other_allocator"));
+    // With this atlas's owner, the four fields of a current receipt are that receipt: margin 1, so
+    // the image of 4 x 4 starts 1 texel into the cell at the origin.
+    changed = foreign.value();
+    changed.owner = taken.value().owner;
+    GLINTFX_CHECK(read_is(read_atlas_receipt(a.atlas, changed), none,
+                          gltfx_rect_texel{{1.0, 1.0}, {4.0, 4.0}}));
 }
 
 // T6-B2: when the number of a released receipt is handed out again, the new receipt reads the new
@@ -753,8 +780,8 @@ GLINTFX_TEST(texture_atlas_a_receipt_of_another_atlas_or_a_changed_one_is_refuse
     changed.rect.width += 1U;
     GLINTFX_CHECK(refused_as(region_in_atlas(first.atlas, changed),
                              gltfx_err_code::invalid_argument, "stale_slot"));
-    // The owner names the atlas: changed to a number other than 0 it is another atlas's receipt,
-    // and changed to 0 it is one never handed out.
+    // The owner is read first: an owner no allocator handed out is not this atlas's, so the receipt
+    // is another atlas's; an owner of 0 is a receipt never handed out.
     changed = slot.value();
     changed.owner = k_owner_never_handed_out;
     GLINTFX_CHECK(refused_as(region_in_atlas(first.atlas, changed),

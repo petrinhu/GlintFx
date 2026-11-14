@@ -264,6 +264,13 @@ hostconfig_key_count() {
     printf '%s\n' "$keys" | sed '/^$/d' | wc -l
 }
 
+# The count line names the Docker version of the baseline file the run is compared against (G3a, residue R-2), never
+# the CI constant for a file measured later. A pure phrase, no docker call (L-17): the selftest calls it on text.
+key_count_message() {
+    printf 'check_isolation.sh: HostConfig tem %s campo(s) de topo (baseline: %s, medido com Docker %s)' \
+        "$1" "$EXPECTED_HOSTCONFIG_KEY_COUNT" "$(baseline_docker_version "$2")"
+}
+
 # GODS_LAWS.md L-40: the count is printed even when this passes -
 # "distingue olhou e estava tudo bem de nao olhou" - and a mismatch
 # gets a dedicated message pointing at the baseline file, instead of
@@ -271,7 +278,7 @@ hostconfig_key_count() {
 assert_hostconfig_key_count_matches_baseline() {
     container="$1"
     count="$(hostconfig_key_count "$container")"
-    echo "check_isolation.sh: HostConfig tem $count campo(s) de topo (baseline: $EXPECTED_HOSTCONFIG_KEY_COUNT, medido com Docker $BASELINE_DOCKER_VERSION)"
+    echo "$(key_count_message "$count" "$2")"
     [ "$count" -gt 0 ] || fail "HostConfig nao retornou NENHUM campo de topo (varredura vazia disfarcada de OK)"
     [ "$count" -eq "$EXPECTED_HOSTCONFIG_KEY_COUNT" ] \
         || fail "HostConfig tem $count campo(s) de topo, o baseline esperava $EXPECTED_HOSTCONFIG_KEY_COUNT - campo novo apareceu (ex.: --mount populando .HostConfig.Mounts, que fica AUSENTE quando nao usado) ou o Docker mudou de versao: reconfira tests/container/hostconfig_baseline.txt (GODS_LAWS.md L-40/ISO-BASELINE)"
@@ -526,7 +533,7 @@ main() {
     # `raw` is fetched once and shared by the three checks below so
     # they all read the same snapshot.
     raw="$(raw_host_config "$container")"
-    assert_hostconfig_key_count_matches_baseline "$container"
+    assert_hostconfig_key_count_matches_baseline "$container" "$baseline_file"
     assert_cpu_masked_path_count_matches_host "$raw"
     assert_full_hostconfig_matches_baseline "$container" "$raw" "$baseline_file"
 

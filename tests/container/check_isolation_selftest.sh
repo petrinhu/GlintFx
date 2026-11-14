@@ -355,6 +355,16 @@ selftest_docker_version_comes_from_the_baseline() {
     [ "$(baseline_docker_version "$(baseline_file_for_variant ci)")" = "$BASELINE_DOCKER_VERSION" ] || return 1
 }
 
+# The count line names the version of the baseline it is compared against (G3a, R-2); the CI line stays byte for byte.
+selftest_key_count_message_names_the_version_of_its_baseline() {
+    case "$(key_count_message 63 "$(baseline_file_for_variant gpu_integrated_photo)")" in
+        *"medido com Docker 29.8.2)") ;;
+        *) return 1 ;;
+    esac
+    [ "$(key_count_message 63 "$(baseline_file_for_variant ci)")" = \
+        "check_isolation.sh: HostConfig tem 63 campo(s) de topo (baseline: 63, medido com Docker 29.7.2)" ] || return 1
+}
+
 # Sem 3o argumento, a variante e ci, e a linha de base do CI passa contra o arquivo do CI.
 selftest_ci_default_passes_its_baseline() {
     variant="$(variant_of_args c s)"
@@ -409,6 +419,7 @@ selftest_main() {
     selftest_check selftest_uinput_disguised_as_udmabuf_is_refused
     selftest_check selftest_udmabuf_run_user_bind_is_refused
     selftest_check selftest_docker_version_comes_from_the_baseline
+    selftest_check selftest_key_count_message_names_the_version_of_its_baseline
     selftest_check selftest_ci_default_passes_its_baseline
     selftest_check selftest_missing_baseline_fails_closed
     echo "selftest: $SELFTEST_CHECKS controles OK"

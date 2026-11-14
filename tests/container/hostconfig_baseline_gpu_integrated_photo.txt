@@ -17,9 +17,11 @@
 # The container was NEVER started: docker create only builds the HostConfig, so no GPU was opened (GODS_LAWS.md
 # L-09). renderD128 is the Intel integrated node (vendor 0x8086); the GeForce (renderD129) is not in this file.
 #
-# The only difference from hostconfig_baseline_gpu_integrated.txt is "PidsLimit": null there, 512 here (checked
-# field by field by the capture). The two KWin variables live in .Config.Env, which is not the HostConfig; the
-# photo driver checks them itself (the container's environment is the image's plus exactly those two).
+# Two top fields differ from hostconfig_baseline_gpu_integrated.txt, both checked field by field by the capture:
+# "PidsLimit" (null there, 512 here) and "Ulimits" ([] there, null here). Only the first changes the comparison:
+# the gate's normalizer turns a bare null into [] (check_isolation_selftest.sh, the case ISO-NULL-QUOTE). The two
+# KWin variables live in .Config.Env, which is not the HostConfig; the photo driver checks them itself (the
+# container's environment is the image's plus exactly those two).
 #
 # Placeholders: the same three as hostconfig_baseline_gpu_integrated.txt (ConsoleSize, the thermal_throttle entries
 # of MaskedPaths, OomKillDisable), applied with the same sed steps normalize_host_config() runs.

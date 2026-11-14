@@ -11256,3 +11256,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O que passou:** mutantes (5 de 5 morreram), Clang 22 e 23, 300 células das fixtures, e as portas de mão única conferidas no blob.
   - **Próximo passo:** um CTO escreve `ordem-t6b2-fix1.md` e a executa antes numa cópia (decisões D-W8-1830 em diante). Depois, um implementador NOVO e um revisor N1 NOVO, pela regra N1 de repetir até sair limpa.
   - **Efeito na fila:** a H3b-2 segue esperando a revisão do conserto. Os quatro arquivos do conserto ficam reservados, e as frentes paralelas não podem tocá-los.
+- **D-W8-1145 (main, 14/11 12:18, modo autônomo, a confirmar retroativamente): duas frentes paralelas entram, ao lado do conserto da T6-B2.**
+  - **A ordem do líder** (14/11 11:55): "aproveite o tempo. Se for possível lance até 4 agentes não concorrentes para executar outras tarefas!"
+  - **O plano do CTO:** D-W8-1800 a 1806, a ratificar. O md5 das ordens e a prova de arquivo em comum foram conferidos pelo main (`frentes-1200/cruza.txt`: zero contra H3b-2, H3b-3, T6-B2, H5, G3, G4 e os reservados do conserto, e zero entre as duas frentes).
+  - **Frente 1, WIKI-SHAPES** (N4, `ordem-wiki-shapes.md`, md5 `42cff4fe`): uma página nova da wiki para as formas 2D (R2D-SHAPES e CURVE-FLOAT-NARROW), com dois links. Implementa um `technical-writer` haiku NOVO.
+  - **Frente 2, RUN-PROCESS-KILL-TREE-DISTINGUIR** (N3, `ordem-killtree.md`, md5 `2f8b1dc2`): o autoteste passa a dizer qual das duas causas falhou. Implementa um `devops-sre` haiku NOVO; depois do commit, um revisor N3 NOVO.
+  - **Como não colidem:** cada uma trabalha num clone `--shared` e só grava na árvore viva no commit, por caminho, pela `commit_frente.sh` na `git.lock`.
+  - **Recusados pelo CTO**, com motivo em cada caso: CDI-UTF8-TRACEBACK, G4A-FIX1-COSMETICOS, H3B1-FIX1-MENORES, TIDY23-TB-COSMETICO, PHOTO-GUARDA-NO-CALLSITE, PHOTO-PRESTART-HOSTCONFIG, CHECK-ISOLATION-EXTRAIR-CONTAGEM, ORDENS-CITAM-TODO-806 e NOMDASH-HOOK-DOCS-AUDITORIA. Este último vai à sessão `claude_configs`, com o fato novo de que o hook também conta "0 user-facing" para `docs/wiki/*.md`.
+  - **Ao líder na saída da onda:** SELINUX-SUFIXO-REGRA-DIVERGE. O `CLAUDE.md` manda `:ro,Z`, e o que se pratica é `:ro,z`; é texto de canon.
+  - **Agentes vivos:** 3 (o CTO do conserto e as duas frentes).

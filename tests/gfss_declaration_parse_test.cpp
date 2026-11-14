@@ -298,6 +298,26 @@ GLINTFX_TEST(every_property_has_exactly_one_value_contract_and_categories_are_co
         keyword_only, length_like, number_only, integer_only, color, time_list, raw, total);
 }
 
+// Six natures, six bits of their own (property_value_contract.hpp): two constants sharing a bit
+// would make a contract accept a nature nobody declared for it, and the table above would still
+// count the same. The sheet below names what that would let through.
+GLINTFX_TEST(each_value_nature_has_a_bit_of_its_own_and_a_contract_refuses_the_others) {
+    const std::array<unsigned, 6> bits{k_nature_length,  k_nature_percentage, k_nature_number,
+                                       k_nature_integer, k_nature_angle,      k_nature_time};
+    unsigned seen = 0U;
+    for (const unsigned bit : bits) {
+        GLINTFX_CHECK(bit != 0U);
+        GLINTFX_CHECK((seen & bit) == 0U);
+        seen |= bit;
+    }
+    for (const char *const text : {"outline-width: 10%; color: red", "opacity: 1s; color: red"}) {
+        const declaration_list_parse_result result =
+            parse_declaration_list(gltfx_gfss_cursor{.source = text});
+        GLINTFX_CHECK(result.rejected.size() == 1);
+        GLINTFX_CHECK(result.rejected[0].expected == k_expected_value_nature_for_property);
+    }
+}
+
 GLINTFX_TEST(display_contract_accepts_only_its_three_words) {
     const property_value_contract &c = property_value_contract_for(gltfx_gfss_property::display);
     GLINTFX_CHECK(c.keyword_count == 3);

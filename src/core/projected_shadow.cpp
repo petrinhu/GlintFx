@@ -64,7 +64,7 @@ gltfx_quad_world assemble_quad(gltfx_vec2_world top_start, gltfx_vec2_world top_
 
 // An accepted input still has to give four finite corners; the extent check names the refusal.
 quad_result finite_or_refused(const gltfx_quad_world &shadow) noexcept {
-    if (auto finite = validate_shadow_extent(shadow); finite.has_error()) {
+    if (const auto finite = validate_shadow_extent(shadow); finite.has_error()) {
         return quad_result::err(finite.err());
     }
     return quad_result::ok(shadow);
@@ -82,7 +82,7 @@ quad_result finite_or_refused(const gltfx_quad_world &shadow) noexcept {
 gltfx_rslt<gltfx_quad_world>
 gltfx_project_directional_shadow(gltfx_directional_light_2d light,
                                  gltfx_standing_piece_2d piece) noexcept {
-    if (auto valid = validate_directional_shadow_input(light, piece); valid.has_error()) {
+    if (const auto valid = validate_directional_shadow_input(light, piece); valid.has_error()) {
         return quad_result::err(valid.err());
     }
     const double run = ground_run_per_unit_height(light.elevation);
@@ -94,7 +94,7 @@ gltfx_project_directional_shadow(gltfx_directional_light_2d light,
 
 gltfx_rslt<gltfx_quad_world> gltfx_project_point_shadow(gltfx_point_light_2d light,
                                                         gltfx_standing_piece_2d piece) noexcept {
-    if (auto valid = validate_point_shadow_input(light, piece); valid.has_error()) {
+    if (const auto valid = validate_point_shadow_input(light, piece); valid.has_error()) {
         return quad_result::err(valid.err());
     }
     return finite_or_refused(assemble_quad(point_shadow_of(light, piece.base_start, piece.height),

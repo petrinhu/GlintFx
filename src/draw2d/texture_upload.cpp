@@ -265,9 +265,10 @@ void delete_gl_texture(const gl_function_table &gl, const texture_2d_impl &recor
 
 // The GL object: unpack state, the texture, every level, then the first error after the upload.
 // The binding of unit 0 is cleared in every case, and a failed texture is deleted.
-[[nodiscard]] gltfx_rslt<texture_2d_impl *>
-create_gl_texture(const creation &plan, texture_2d_impl &record,
-                  pod_buffer<gltfx_rgba8> &chain) noexcept {
+[[nodiscard]] gltfx_rslt<texture_2d_impl *> create_gl_texture(
+    const creation &plan, texture_2d_impl &record,
+    // NOLINTNEXTLINE(misc-const-correctness) reason: the levels are written through chain.data
+    pod_buffer<gltfx_rgba8> &chain) noexcept {
     const gl_function_table &gl = *plan.access.gl;
     set_unpack_state(gl);
     prepare_gl_texture(gl, record, plan.sampling);

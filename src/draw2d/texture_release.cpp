@@ -49,6 +49,7 @@ void release_texture_object(glintfx::texture_2d_impl *texture) noexcept {
     release_texture_now(texture);
 }
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: this call destroys the record
 void release_texture_now(glintfx::texture_2d_impl *texture) noexcept {
     if (texture == nullptr) {
         return;

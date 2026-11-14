@@ -121,7 +121,7 @@ std::uint8_t expand_hex_nibble(std::uint8_t nibble) noexcept {
 }
 
 std::uint8_t hex_byte(std::uint8_t high_nibble, std::uint8_t low_nibble) noexcept {
-    return static_cast<std::uint8_t>((high_nibble << 4U) | low_nibble);
+    return static_cast<std::uint8_t>((static_cast<unsigned>(high_nibble) << 4U) | low_nibble);
 }
 
 // Precondition: every character of `hex_digit` already passed
@@ -216,7 +216,7 @@ rgb_unit hsl_to_rgb_unit(double hue_deg, double sat_unit, double light_unit) noe
     const double light = std::clamp(light_unit, 0.0, 1.0);
     const double a = sat * std::min(light, 1.0 - light);
 
-    auto channel = [&](double n) noexcept -> double {
+    const auto channel = [&](double n) noexcept -> double {
         const double k = std::fmod(n + hue / 30.0, 12.0);
         return light - a * std::max(-1.0, std::min({k - 3.0, 9.0 - k, 1.0}));
     };

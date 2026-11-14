@@ -27,6 +27,7 @@ wait_for_writable_until(int fd, std::chrono::steady_clock::time_point deadline) 
         if (poll_result == 0) {
             return bounded_wait_outcome::timed_out;
         }
+        // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: poll(2) types these flags as signed
         if ((pending_write.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
             // Checked BEFORE POLLOUT below, on purpose: measured (this
             // file's own tests/bounded_output_wait_test.cpp), a stream
@@ -40,6 +41,7 @@ wait_for_writable_until(int fd, std::chrono::steady_clock::time_point deadline) 
             // comment: "conexao inutilizavel").
             return bounded_wait_outcome::poll_failed;
         }
+        // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: poll(2) types these flags as signed
         if ((pending_write.revents & POLLOUT) != 0) {
             return bounded_wait_outcome::ready;
         }

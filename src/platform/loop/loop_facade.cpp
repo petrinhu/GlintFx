@@ -94,7 +94,7 @@ using loop_ports_t =
     platform::loop_ports<platform::selected_display_adapter, platform::window_state,
                          platform::loop_context_view, platform::steady_loop_clock>;
 
-[[nodiscard]] loop_ports_t make_loop_ports(loop_impl &impl, bound_ports &bound) noexcept {
+[[nodiscard]] loop_ports_t make_loop_ports(const loop_impl &impl, bound_ports &bound) noexcept {
     return loop_ports_t{
         .display = impl.display->connection.adapter(),
         .window = impl.window->adapter.state(),

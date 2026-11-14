@@ -298,7 +298,7 @@ declaration_value_check_result check_comma_separated(const std::vector<gltfx_gfs
     std::size_t group_start = span.first;
     int depth = 0;
 
-    auto close_group = [&](std::size_t group_end) -> const gltfx_gfss_diagnostic * {
+    const auto close_group = [&](std::size_t group_end) -> const gltfx_gfss_diagnostic * {
         static gltfx_gfss_diagnostic diagnostic{};
         const trimmed_token_span group = trim_whitespace_tokens(tokens, group_start, group_end);
         if (!group.has_content || group.first != group.last) {

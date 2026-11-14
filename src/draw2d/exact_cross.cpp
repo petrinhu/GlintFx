@@ -55,9 +55,9 @@ void trim(whole &w) noexcept {
     auto digits = static_cast<std::uint64_t>(std::ldexp(mantissa, k_mantissa_bits));
     const int shift = exponent - k_mantissa_bits - base;
     std::size_t at = static_cast<std::size_t>(shift / k_limb_bits);
-    const int bits = shift % k_limb_bits;
+    const auto bits = static_cast<unsigned>(shift % k_limb_bits);
     const std::uint64_t low = digits << bits;
-    const std::uint64_t high = bits == 0 ? 0U : digits >> (64 - bits);
+    const std::uint64_t high = bits == 0U ? 0U : digits >> (64U - bits);
     for (const std::uint64_t part : {low, low >> 32U, high}) {
         w.limb[at] = static_cast<std::uint32_t>(part & 0xFFFFFFFFU);
         ++at;
@@ -153,7 +153,8 @@ void trim(whole &w) noexcept {
     if (bit < 0 || static_cast<std::size_t>(bit / k_limb_bits) >= w.size) {
         return 0U;
     }
-    return (w.limb[static_cast<std::size_t>(bit / k_limb_bits)] >> (bit % k_limb_bits)) & 1U;
+    const auto position = static_cast<unsigned>(bit % k_limb_bits);
+    return (w.limb[static_cast<std::size_t>(bit / k_limb_bits)] >> position) & 1U;
 }
 
 // The leading 63 bits of w as m * 2^e, m in [2^62, 2^63); the bits below are dropped (an error
@@ -166,9 +167,9 @@ void trim(whole &w) noexcept {
     const int top_bits = k_limb_bits - std::countl_zero(top);
     const int length = (static_cast<int>(w.size) - 1) * k_limb_bits + top_bits;
     const int from = length - k_leading_bits;
-    std::int64_t digits = 0;
+    std::uint64_t digits = 0;
     for (int bit = length - 1; bit >= from; --bit) {
-        digits = (digits << 1) | static_cast<std::int64_t>(bit_of(w, bit));
+        digits = (digits << 1U) | bit_of(w, bit);
     }
     const double m = static_cast<double>(digits);
     return exact_cross_value{w.negative ? -1 : 1, w.negative ? -m : m, from + base};

@@ -11685,3 +11685,25 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - as do CTO, de D-W8-1591 a D-W8-2006, menos as já respondidas;
     - em destaque, a D-W8-1967 (o critério da foto alargado depois do dado), a D-W8-1982, a D-W8-1946, a D-W8-1591 e a D-W8-1997.
   - **Pendente do líder:** só o merge e a marca v0.7.0.0, que sobem juntos quando os portões G1 a G7 do F1 estiverem verdes (§7 de `ordem-f1-w8.md`).
+
+- **D-W8-1183 (LÍDER, 20/11 19:06): o modo autônomo foi LIGADO por ordem do líder,** verbatim: *"ligue modo autonomo"*.
+  - **A flag** está em `~/.claude/autonomo/GlintFx.json`, vale até 21/11/2026 19:05 (24 h) e tem os escopos `push` e `clean` (o push da onda e a marca, pelo contrato; a limpeza de build com a onda verde).
+  - **O regime continua o da D-W8-1166:** a decisão técnica é do CTO e fica registrada aqui. Sobem ao líder a lei, o dinheiro, o ato irreversível e a GPU (L-50 global, com os 5 alertas).
+  - **O merge e a marca v0.7.0.0:** o CTO registrou que o hook pede confirmação na hora (`lista-ratificacao-w8.md`, item 3). O main só os faz com os portões G1 a G7 verdes, e pergunta ao líder se o hook pedir.
+
+- **D-W8-1184 (main, 20/11 19:27): a rodada 1 da verificação profunda da W8 (D-W8-257) dá NÃO LIMPA. O main reexecutou um mutante de cada agente, e os dois confirmam.**
+  - **A rodada:** `HEAD_V=144fd590`, `ordem-verif-profunda-w8.md` (md5 `ec1976dd`). Os dois verificadores rodaram em Opus (D-W8-1182).
+  - **V-A** (`.trabalho/cto-w8/verif-w8/va-r1/relatorio.md`): `preci --fast` com rc 0.
+    - CRÍTICOS: C7-1 (caminho `/home/petrus/` em 7 linhas novas publicadas) e C8-1 (leitor `src/gfss/image_value_read.cpp` sem fuzzer).
+    - IMPORTANTES: C2-1 (L-17) e C4-1 (o layout congelado do resolvedor sem teste).
+    - 5 COSMÉTICOS.
+  - **V-R** (`.trabalho/cto-w8/verif-w8/vr-r1/relatorio.md`): 15 de 16 mutantes mortos.
+    - IMPORTANTES: I-1 (o M03 vivo, sRGB pré-multiplicado sem teste que o prenda), I-2 (erros GL descartados calados na textura), I-3 (`renderer_2d_impl.hpp` virando monólito) e I-4 (20 frases "Proved by" que citam teste só do CI no Linux).
+    - 2 COSMÉTICOS.
+  - **A reexecução do main** (§5.2, `.trabalho/cto-w8/verif-w8/main-r1/`), com scope TasksMax=150 e `-j2`:
+    - M03 do V-R: `aplicou=1 build=0 ctest_mutante=0 testes=1 veredito=VIVO`. Confirma o I-1;
+    - VA-C41 do V-A (um campo a mais no fim de `gltfx_image_reference`): `aplicou=1 build=0 ctest_mutante=0 testes=4 veredito=VIVO`. Confirma o C4-1.
+    - Nos dois, a árvore foi restaurada, com `restaurado_build=0` e `ctest_volta=0`.
+  - **O conserto e as perguntas ao líder** vão ao CTO pela D-W8-1996.
+
+- **D-W8-1185 (main, 20/11 19:27): a PRECI-TETO passa a ✅.** O CI `44822607741`, em `bb6ffcc2`, fechou VERDE, com 25 sucessos e 1 pulado. Os commits `48765d6e` e `0e8f1a99` são ancestrais dele (`git merge-base --is-ancestor`, rc 0). No mesmo CI, o job `ps-syntax` do `ubuntu-latest` provou o `--memory-swap`.

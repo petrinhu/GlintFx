@@ -11319,3 +11319,20 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - O ganho real de disco foi de 0,45 GiB. INFERÊNCIA, não medida: os snapshots antigos ainda guardam os dados.
   - **Watchcode:** às 14:55 houve um coredump SIGSEGV de `/out/build/tests/atlas_allocator_test`, dentro do contêiner de ensaio do CTO. INFERÊNCIA: é a sabotagem S2, que a ordem prevê vermelha.
   - **Pausa:** ordem do líder às 15:03, *"assim que acabar esse agente, commit, /memo_persistente e pause"*. Nenhum agente vivo. O próximo passo, quando o líder mandar seguir, é despachar o implementador da fix3.
+- **D-W8-1150 (main, 20/11 02:59, modo autônomo religado pelo líder às 02:57 de 20/11, a confirmar retroativamente): a pausa cai, a fix3 é despachada e o GusWorld entrega a ordem de lacunas.**
+  - **Ordens do líder em 20/11:**
+    - *"pode obdecer @manutencao"*: virou emenda da L-46 (`b92700d7`).
+    - *"ligue modo autonomo"*.
+    - *"Retomar agora"*, resposta à pergunta sobre a pausa de 14/11.
+    - *"dialogue com @GusWorld sobre o que você já tem e sobre o que ele precisa"*.
+  - **Recursos:** a `manutencao` liberou a fix3 com `systemd-run --user --scope -p TasksMax=700`, nice 10, contêineres um por vez com `--pids-limit 512` e TMPDIR no `.trabalho`. O GlintFx é a prioridade 2 da fila do líder. Ao terminar, mando o pico e "máquina livre".
+  - **Despachado:** um `backend-engineer` haiku NOVO para a seção do implementador de `ordem-t6b2-fix3.md` (md5 `eb2a9008`).
+  - **GusWorld, a ordem de lacunas do consumidor**, verbatim do resumo dele, como evidência e sem compromisso de data:
+    1. decodificação de PNG, a mais bloqueante;
+    2. textura, região e atlas;
+    3. teclado;
+    4. fonte, texto e layout de UI com estilo;
+    5. mecanismo de mapa;
+    6. animação;
+    7. áudio.
+    O jogo não contorna nada, porque a L-05 do canon dele proíbe dublê. O decodificador é IMG-PNG (`TODO.md:982`), na W11d por decisão do líder de 08/09. O filtro sem interpolação já existe na W8 (`gltfx_texture_filter::nearest`). **Ao líder:** se IMG-PNG sobe na fila. A L-21 global diz que a dor do consumidor é evidência de lacuna, e a ordem de entrega é decisão do líder.

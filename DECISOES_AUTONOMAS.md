@@ -11336,3 +11336,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     6. animação;
     7. áudio.
     O jogo não contorna nada, porque a L-05 do canon dele proíbe dublê. O decodificador é IMG-PNG (`TODO.md:982`), na W11d por decisão do líder de 08/09. O filtro sem interpolação já existe na W8 (`gltfx_texture_filter::nearest`). **Ao líder:** se IMG-PNG sobe na fila. A L-21 global diz que a dor do consumidor é evidência de lacuna, e a ordem de entrega é decisão do líder.
+- **D-W8-1151 (main, 20/11 03:01): o líder decide que o decodificador de PNG vem logo depois da W8.**
+  - **A pergunta** (AskUserQuestion) trouxe a evidência do GusWorld e o estado da fila: IMG-PNG estava na W11d desde 08/09. Ela também trouxe a comparação com a raylib, que embute o PNG, e com a SDL, que usa a SDL_image separada.
+  - **A resposta:** *"Logo depois da W8"*. A opção dizia: "O IMG-PNG vira a primeira fatia depois do fechamento da onda 8, antes da entrada da W9. O jogo passa a carregar sprite e tile do disco o quanto antes. A entrada de teclado, segunda trava do jogo, atrasa uma fatia."
+  - **Consequência registrada:** o IMG-INFLATE é pré-requisito e vem junto. Os dois saem do slot de trilha paralela da L-32 e entram no caminho principal. A coluna Onda se acerta no planejamento pós-W8, pelo CTO. As linhas ficaram anotadas no `TODO.md`.
+  - **O GusWorld será avisado** pelo barramento (`inbox/gusworld/`).
+  - **O implementador da fix3 parou antes do primeiro contêiner.** O script congelado usa `--pids-limit 2048`, e o teto da `manutencao` é 512. A pergunta foi a ela (L-46).

@@ -7523,13 +7523,14 @@ set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
 
 # QA-COMPOSED-PATH G2 (plano-fechamento-w8-r2.md sec. 5.4, D-W8-254/267): composed_photo_facts.py judges one
 # composed photo taken by tests/container/composed_photo.sh: which card composed (OpenGL, the expected maker,
-# never llvmpipe or softpipe) and what ScreenShot2 handed over (QImage format 6 or 4, mapped to wl_shm). The
+# never llvmpipe or softpipe; OpenGL ES too since KWin 6.8, G3-ES) and what ScreenShot2 handed over (QImage
+# format 6, 4 or 18, mapped to wl_shm; 18 with R and B swapped). The
 # selftest is the criterion table written before the data (L-43); the count is exact, so a dropped control fails.
 # G2-fix1: the capture must also be the expected size (640x480 for the demo, D-W8-72) at scale 1.
 add_test(
     NAME composed_photo_facts_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 25 controles OK"
+        "-DEXPECT_LINE=selftest: 32 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/composed_photo_facts.py" --selftest

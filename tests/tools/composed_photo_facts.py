@@ -6,7 +6,8 @@
 # the container. Test tooling, not product code. Standard library only (L-07).
 #
 # It answers two questions, and writes the capture where tests/tools/raw_to_png.py reads it:
-#   1. Which card composed? photo_verdict(): "Compositing Type: OpenGL", and ONE "OpenGL renderer
+#   1. Which card composed? photo_verdict(): "Compositing Type: OpenGL" or, since KWin 6.8 composes
+#      only in OpenGL ES, "Compositing Type: OpenGL ES" (G3-ES, D-W8-1967), and ONE "OpenGL renderer
 #      string:" that names the expected maker and is neither llvmpipe nor softpipe (software never
 #      counts). A photo without this proof does not count (the line QA-COMPOSED-PATH, D-W8-34).
 #   2. What did KWin's ScreenShot2 hand over? capture_meta() reads the a{sv} busctl printed for
@@ -14,8 +15,11 @@
 #      640x480, D-W8-72, examples/first_window/first_window.cpp) and a scale other than 1.
 #      QImage::Format_ARGB32_Premultiplied (6) is, byte for byte, wl_shm ARGB8888 (0) on a
 #      little-endian host (B, G, R, A, premultiplied: the convention raw_to_png.py documents),
-#      and Format_RGB32 (4) is XRGB8888 (1). Every other format is refused, never
-#      guessed: a straight-alpha ARGB32 (5) would be read in the wrong convention.
+#      and Format_RGB32 (4) is XRGB8888 (1). Format_RGBA8888_Premultiplied (18), what the window
+#      capture of KWin 6.8 hands over, is R, G, B, A in memory on every host (Qt: byte-ordered
+#      format); it is written as ARGB8888 (0) with R and B swapped in each pixel (G3-ES, D-W8-1968).
+#      Every other format is refused, never guessed: a straight-alpha ARGB32 (5) or RGBA8888 (17)
+#      would be read in the wrong convention.
 # The criterion was written BEFORE the data (L-43): the table of selftest_verdict() below.
 #
 # USAGE: composed_photo_facts.py <achados> <intel|nvidia> <capture_dir> <WIDTHxHEIGHT>
@@ -31,7 +35,9 @@ import tempfile
 
 from selftest_controls import CHECKS, check
 
-QIMAGE_TO_WL_SHM = {6: 0, 4: 1}
+# QImage format -> (wl_shm format, swap R and B of every pixel). The table is closed.
+QIMAGE_TO_WL_SHM = {6: (0, False), 4: (1, False), 18: (0, True)}
+COMPOSITING_TYPES = ("OpenGL", "OpenGL ES")
 SIZE = re.compile(r"^([1-9][0-9]*)x([1-9][0-9]*)$")
 PAIR = re.compile(r'"([A-Za-z][A-Za-z0-9_-]*)" ([a-z]) ("[^"]*"|\S+)')
 SOFTWARE = ("llvmpipe", "softpipe")
@@ -41,15 +47,16 @@ def photo_verdict(support_text, maker):
     lines = support_text.splitlines()
     compositing = [line for line in lines if line.strip().startswith("Compositing Type:")]
     renderer = [line for line in lines if line.strip().startswith("OpenGL renderer string:")]
-    if len(compositing) != 1 or compositing[0].split(":", 1)[1].strip() != "OpenGL":
+    if len(compositing) != 1 or compositing[0].split(":", 1)[1].strip() not in COMPOSITING_TYPES:
         return False, f"compositing={compositing!r}"
+    kind = compositing[0].split(":", 1)[1].strip()
     if len(renderer) != 1:
         return False, f"renderer={renderer!r}"
     name = renderer[0].split(":", 1)[1].strip()
     lowered = name.lower()
     if any(soft in lowered for soft in SOFTWARE) or maker not in lowered:
         return False, f"renderer={name!r} fabricante_esperado={maker}"
-    return True, f"compositing=OpenGL renderer={name!r}"
+    return True, f"compositing={kind} renderer={name!r}"
 
 
 def capture_meta(cap_text, expected_size):
@@ -64,20 +71,34 @@ def capture_meta(cap_text, expected_size):
     if scale != 1.0:
         return None, f"escala {scale}, esperada 1"
     if qformat not in QIMAGE_TO_WL_SHM:
-        return None, f"formato QImage {qformat} recusado (so 6 e 4 tem equivalente exato em wl_shm)"
+        return None, f"formato QImage {qformat} recusado (so 6, 4 e 18 tem equivalente exato em wl_shm)"
     if width <= 0 or height <= 0 or stride < width * 4:
         return None, f"geometria invalida {width}x{height} stride={stride}"
-    return (width, height, stride, QIMAGE_TO_WL_SHM[qformat]), f"{width}x{height} stride={stride} qimage={qformat}"
+    wl_format, swap_red_blue = QIMAGE_TO_WL_SHM[qformat]
+    return (width, height, stride, wl_format, swap_red_blue), f"{width}x{height} stride={stride} qimage={qformat}"
+
+
+def red_blue_swapped(data, width, height, stride):
+    # R, G, B, A -> B, G, R, A in the width*4 pixel bytes of every row; row padding is kept as it is.
+    out = bytearray(data)
+    for y in range(height):
+        start, end = y * stride, y * stride + width * 4
+        out[start:end:4] = data[start + 2:end:4]
+        out[start + 2:end:4] = data[start:end:4]
+    return bytes(out)
 
 
 def write_capture(found_dir, meta, capture_dir):
-    width, height, stride, wl_format = meta
+    width, height, stride, wl_format, swap_red_blue = meta
     raw = pathlib.Path(found_dir) / "img.raw"
     if raw.stat().st_size < stride * height:
         return False, f"img.raw com {raw.stat().st_size} bytes, menos que stride*height"
     out = pathlib.Path(capture_dir)
     out.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(raw, out / "conn1_surface1.raw")
+    if swap_red_blue:
+        (out / "conn1_surface1.raw").write_bytes(red_blue_swapped(raw.read_bytes(), width, height, stride))
+    else:
+        shutil.copyfile(raw, out / "conn1_surface1.raw")
     (out / "conn1_surface1.meta").write_text(
         f"width={width}\nheight={height}\nstride={stride}\nformat={wl_format}\n", encoding="utf-8")
     return True, f"captura gravada em {out}"
@@ -122,15 +143,28 @@ def selftest_verdict():
         "Compositing Type: OpenGL\nOpenGL renderer string: llvmpipe (LLVM 19, intel host)\n", "intel"))
     check("dois renderizadores reprovam, mesmo o primeiro bom", refused_cleanly(
         good_intel + "OpenGL renderer string: llvmpipe (LLVM 19)\n", "intel"))
+    # G3-ES (D-W8-1967): KWin 6.8 composes only in OpenGL ES; it is still the GPU, and the renderer
+    # line still decides which card. Any other spelling is refused, never guessed.
+    good_es = "Compositing Type: OpenGL ES\nOpenGL renderer string: Mesa Intel(R) Iris(R) Xe Graphics (ADL GT2)\n"
+    check("OpenGL ES na Intel, esperando intel, passa", photo_verdict(good_es, "intel")[0])
+    check("OpenGL ES com llvmpipe reprova", refused_cleanly(
+        "Compositing Type: OpenGL ES\nOpenGL renderer string: llvmpipe (LLVM 19)\n", "intel"))
+    check("tipo de composicao desconhecido reprova", refused_cleanly(
+        "Compositing Type: OpenGL ES 2\nOpenGL renderer string: Mesa Intel(R) Graphics\n", "intel"))
 
 
 def selftest_capture():
     cap = '"type" s "raw" "width" u {w} "height" u {h} "scale" d {k} "stride" u {s} "format" u {f}'
     vga = (640, 480)
     meta, _ = capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=6), vga)
-    check("formato 6 vira wl_shm 0", meta == (640, 480, 2560, 0))
+    check("formato 6 vira wl_shm 0", meta == (640, 480, 2560, 0, False))
     meta, _ = capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=4), vga)
-    check("formato 4 vira wl_shm 1", meta == (640, 480, 2560, 1))
+    check("formato 4 vira wl_shm 1", meta == (640, 480, 2560, 1, False))
+    meta, _ = capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=18), vga)
+    check("formato 18 vira wl_shm 0 com R e B trocados", meta == (640, 480, 2560, 0, True))
+    check("formato 17 (RGBA de alfa reto) reprova",
+          capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=17), vga)[0] is None)
+    check("formato 16 (RGBX) reprova", capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=16), vga)[0] is None)
     check("formato 5 (alfa reto) reprova", capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=5), vga)[0] is None)
     check("resposta sem format reprova", capture_meta('"width" u 640 "height" u 480 "scale" d 1', vga)[0] is None)
     check("stride menor que 4 bytes por pixel reprova",
@@ -164,6 +198,17 @@ def selftest_run():
         check("fabricante errado, raw bom: rc 1", run(found, "nvidia", pathlib.Path(tmp) / "c3", (2, 1)) == 1)
         (found / "img.raw").write_bytes(bytes(4))
         check("raw curto, placa boa: rc 1", run(found, "intel", pathlib.Path(tmp) / "c2", (2, 1)) == 1)
+        (found / "support.txt").write_text(
+            "Compositing Type: OpenGL ES\nOpenGL renderer string: Mesa Intel(R) Graphics\n", encoding="utf-8")
+        (found / "cap.out").write_text('"width" u 2 "height" u 1 "scale" d 1 "stride" u 8 "format" u 18',
+                                       encoding="utf-8")
+        (found / "img.raw").write_bytes(bytes([1, 2, 3, 4, 5, 6, 7, 8]))
+        out18 = pathlib.Path(tmp) / "c18"
+        check("formato 18: raw gravado em B, G, R, A e meta em wl_shm 0",
+              run(found, "intel", out18, (2, 1)) == 0
+              and (out18 / "conn1_surface1.raw").read_bytes() == bytes([3, 2, 1, 4, 7, 6, 5, 8])
+              and (out18 / "conn1_surface1.meta").read_text(encoding="utf-8")
+              == "width=2\nheight=1\nstride=8\nformat=0\n")
 
 
 def main():

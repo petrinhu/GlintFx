@@ -11438,3 +11438,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **D-W8-1907:** *"Só na lista (Recomendado)"*.
   - **D-W8-1908:** *"Confirmar todas (Recomendado)"*. As D-W8-1707 a 1714 ficam ratificadas.
   - **Sem errata 2.** A H5 vai ao implementador `backend-engineer` haiku NOVO depois da vez da `manutencao`.
+- **D-W8-1164 (main, 20/11 11:10): o CI do Windows e a parada da H5.**
+  - **CI `44739396242` (`f274f5f6`):** 24 verdes e 1 vermelho, o "Windows - Lint". O GitHub trocou a imagem do runner em 16/11 (`windows-2025-vs2026` 20261116.315.1, MSVC 14.52). A biblioteca padrão nova exige Clang 22 (`STL1000`, 181 vezes) e o runner traz o LLVM 20.1.8. A falha é de infraestrutura, não do código (L-49). O mesmo job passou em 13/11.
+  - **Decisão do líder, por AskUserQuestion:** *"Instalar Clang 22 (Recomendado)"*. O CTO escreve a ordem do conserto em `ci.yml`.
+  - **A H5 parou no preci:** o cppcheck acusa `uninitMemberVarNoCtor` em `examples/sprite_shadows/sprite_shadows.cpp:162-164` e `:209`. O defeito está no bloco do CTO.
+    - O resto da H5 passou: o vermelho (17/8), o verde (17/0), os dois modos e a captura.
+    - O CTO escreve a errata 2. Não houve commit.

@@ -11476,3 +11476,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - `src/gfss/declaration_value_check.cpp:171`;
     - `src/platform/gl/gfx_option_validation.cpp:14`.
     O CTO analisa se são reais, pela decisão técnica que o líder delegou a ele.
+- **D-W8-1168 (main, 20/11 13:21): o CTO decide os dois achados do clang-tidy 23 do Windows** (decisão técnica delegada pelo líder, D-W8-1166). Detalhes em `.trabalho/cto-w8/ordem-tidy23-escape.md` (md5 `c2e56c66db81107df62e786b6b22181d`), D-W8-1928 a 1933:
+  - **`check_one_component`:** defeito real nos 5 sistemas. O CTO tira o `noexcept` e acrescenta um teste próprio, com o vermelho real.
+  - **`validate_gfx_option_entry`:** falso positivo em tempo de execução. Sai um `std::to_chars` num buffer fixo, sem NOLINT.
+  - **Gêmeo:** nenhum, conferido nas duas plataformas.
+  - **O `OnlyUndefined`** fica fora do CI.
+  - **Entrega:** dois commits, do implementador haiku, e o item TIDY23-ESCAPE criado no TODO, junto com 4 itens na INBOX.

@@ -3079,16 +3079,51 @@ run_selftest_ps_container_controls() {
     out="$(ps_container_case "$stub" "128 2147483648 2147483648" 7)"
     { ps_case_has "$out" rc=7 && ps_case_has "$out" "rm -f $cid"; } \
         || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: E, o conteiner saiu 7 (esperado rc=7 e o rm): $out"; }
-    # The launch count of the script itself: a container launch written
-    # anywhere else in this file, outside comments, would carry no ceiling.
-    launches="$(grep -E '^[^#]*docker[[:space:]]+(run|create)([[:space:]]|$)' "$ROOT_DIR/tools/preci.sh" || true)"
-    n_launches="$(grep -c . <<<"$launches" || true)"
-    n_ceiling="$(grep -c -F -- '--pids-limit' <<<"$launches" || true)"
-    [ "$n_launches" = 1 ] && [ "$n_ceiling" = 1 ] \
-        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: F, lancamentos no script=$n_launches com_teto=$n_ceiling (esperado 1 e 1): $launches"; }
     rm -rf "$stub"
-    echo "selftest: ps_container casos=7 falhas=$ruins"
+    echo "selftest: ps_container casos=6 falhas=$ruins"
     [ "$ruins" = 0 ] || fail "selftest ps_container: $ruins caso(s) reprovado(s) (PRECI-TETO)"
+}
+
+# PRECI-TETO-FIX1 (GODS_LAWS.md L-36 global; L-40 of the project): the
+# container launch lines of the file $1, outside comments: `docker run`,
+# `docker create`, `docker container run` and `docker container create`.
+# The regex stays on one line, and the selftest fixture spells the word
+# through a variable, so no line of this script counts itself.
+ps_launch_lines() {
+    grep -E '^[^#]*docker[[:space:]]+(container[[:space:]]+)?(run|create)([[:space:]]|$)' "$1" || true
+}
+
+# PRECI-TETO-FIX1: prints "<launches> <launches with --pids-limit>" for
+# the file $1.
+ps_launch_counts() {
+    local lines n m
+    lines="$(ps_launch_lines "$1")"
+    n="$(grep -c . <<<"$lines" || true)"
+    m="$(grep -c -F -- '--pids-limit' <<<"$lines" || true)"
+    echo "$n $m"
+}
+
+# PRECI-TETO-FIX1: the launch count, first on a fixture (H: every spelling
+# of a launch is seen, a comment and a look-alike word are not) and then on
+# this script itself (F: exactly one launch, the ceilinged create of
+# ps_container_create). A launch written anywhere else would carry no
+# ceiling.
+run_selftest_ps_launch_count_controls() {
+    log "selftest: contagem de lancamentos de conteiner no proprio preci.sh (PRECI-TETO, L-36 global)"
+    fixture="$(mktemp "${TMPDIR}/glintfx-ps-launch.XXXXXX")" || fail "selftest ps_launch: mktemp falhou"
+    d=docker
+    printf '%s\n' "$d run --rm img" "    $d container create img" "# $d run img" \
+        "out=\"\$($d container run --pids-limit 1 img)\"" "echo $d-runner" > "$fixture"
+    ruins=0
+    got="$(ps_launch_counts "$fixture")"
+    [ "$got" = "3 1" ] \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_launch FALHOU: H, fixture com as quatro grafias e um comentario (esperado 3 1, lido $got): $(ps_launch_lines "$fixture")"; }
+    got="$(ps_launch_counts "$ROOT_DIR/tools/preci.sh")"
+    [ "$got" = "1 1" ] \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_launch FALHOU: F, lancamentos no script (esperado 1 1, lido $got): $(ps_launch_lines "$ROOT_DIR/tools/preci.sh")"; }
+    rm -f "$fixture"
+    echo "selftest: ps_launch casos=2 falhas=$ruins"
+    [ "$ruins" = 0 ] || fail "selftest ps_launch: $ruins caso(s) reprovado(s) (PRECI-TETO)"
 }
 
 run_selftest() {
@@ -3120,6 +3155,7 @@ run_selftest() {
     run_selftest_stage_times_controls
     run_selftest_cache_state_controls
     run_selftest_ps_container_controls
+    run_selftest_ps_launch_count_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 

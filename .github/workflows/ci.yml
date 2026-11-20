@@ -2401,6 +2401,20 @@ jobs:
           printf 'draw2d_shapes_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # R2D-SPRITE-SHADE H3b-2 (docs/auditoria-api-sprite-shade.md, sec. 2): a prova viva das sombras (pixels lidos)
+      # dentro do container, contra este MESMO compositor, so pela API publica: um pixel escurecido uma vez por segmento,
+      # a peca opaca que libera a marca, a barreira, a contagem e o estencil que a barreira deixa. O irmao Windows de mesmo
+      # nome e um alvo ctest (tests/CMakeLists.txt, if(WIN32)). ORDEM: depois de draw2d_shapes_parity_test.
+      - name: R2D-SPRITE-SHADE H3b-2 - sombras (pixels lidos) dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "draw2d_shadow_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_shadow_parity_test || codigo=$?
+          printf 'draw2d_shadow_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
       # R2D-TEXTURE T4b-B2 (D-W8-475 a 480): a prova viva do desenho com textura (pixels lidos) dentro do container,
       # contra este MESMO compositor, so pela API publica: o filtro da D-W8-305, o trapezio projetivo, o atributo de q,
       # a ordem das texturas, os espelhos e a tinta. O irmao Windows de mesmo nome e um alvo ctest

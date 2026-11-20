@@ -244,6 +244,9 @@ class gltfx_renderer_2d {
     //   - the polygon mode FILL for both faces;
     //   - depth test, stencil test, scissor test and face culling off;
     //     color mask all on;
+    //   - the values GL starts with for the stencil, both faces: the
+    //     function ALWAYS with reference 0 over every bit, the operation
+    //     KEEP for all three outcomes, and every bit writable;
     //   - rasterizer discard, color logic op and sample-alpha-to-coverage
     //     off;
     //   - the DRAW framebuffer 0 (the surface itself);
@@ -253,7 +256,11 @@ class gltfx_renderer_2d {
     // Proved by: draw2d_parity_test (hostile state planted before the
     // frame - depth test on, blending swapped, a one-pixel scissor,
     // front faces culled, color mask off - and the pixels still right;
-    // then every state above read back after flush()).
+    // then every state above but the values of the stencil read back after
+    // flush()).
+    // Proved by: draw2d_shadow_parity_test (the values of the stencil read
+    // back after a flush() with shadows and after one without).
+    // Proved by: gl_state_contract_test (both halves of the state set them).
     GLINTFX_API void flush() noexcept;
 
     // Ends the frame: sends what is left to the graphics card and
@@ -826,6 +833,66 @@ class gltfx_renderer_2d {
     // Proved by: renderer_2d_impl_test (the interior this method forwards to:
     // the previous one comes back, and two renderers keep their own).
     GLINTFX_API gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;
+
+    // A SHADOW: a filled quadrilateral that darkens what is already drawn
+    // under it. gltfx_project_directional_shadow() and
+    // gltfx_project_point_shadow() (core/projected_shadow.hpp) give one.
+    // `tint` is the colour of the shadow, mixed over what is under it by
+    // src-over. A black tint with alpha a gives dst * (1 - a): darkening. Any
+    // other colour mixes towards that colour. `tint` is a REQUIRED parameter
+    // with no default colour: the look of a shadow belongs to the consumer.
+    //
+    // SHADOW SEGMENT. A pixel is darkened by the shadows of a segment at most
+    // once, until an opaque piece of that segment is drawn over it. An opaque
+    // piece is one whose colour has alpha 1 on that pixel: a half-transparent
+    // piece does not release the mark. A segment is the drawing between two
+    // barriers, flush() or finish_frame(). Every piece drawn in the segment
+    // takes part, shadow or not, so a shadow drawn over an opaque piece darkens
+    // that piece. A barrier ends the segment, the same way it ends the layer
+    // order: a shadow drawn after a barrier darkens again. begin_batch() does
+    // not end a segment. What is on top is the paint order (layer, then
+    // submission): a shadow painted before its own piece does not darken it.
+    //
+    // THE STENCIL BUFFER IS NOT YOURS WHILE A SEGMENT DRAWS A SHADOW. A segment
+    // that draws a shadow clears the stencil buffer of the surface before its
+    // first shadow, and leaves its marks there: write what you need again
+    // after the barrier. A segment that draws none does not touch the buffer,
+    // and neither does the clear of begin_frame(). What you left in it never
+    // changes what a shadow darkens. The state of the stencil after a barrier
+    // is the closed list of flush().
+    //
+    // THE COST. The first ordinary run after a shadow, and each one after it,
+    // costs one more draw call (draw_calls, draw2d/frame_2d_report.hpp), and a
+    // segment with a shadow clears the stencil once (shadow_segments). Before
+    // the first shadow of a segment an ordinary piece costs nothing more.
+    //
+    // A shadow is one piece, as draw2d/frame_2d_report.hpp counts pieces.
+    // Refused as one piece, counted in the report, never an exception. The
+    // first rule that applies names the reason:
+    //   1. a NaN in a corner or in the tint: not_a_number; then an infinity in
+    //      any of them: infinite;
+    //   2. a surface with no stencil bits: stencil_unavailable. Such a surface
+    //      would darken a pixel twice and the graphics card would say nothing,
+    //      so the shadow is refused instead. open() reads the bits once, from
+    //      the surface as it came, whatever was asked for. Both systems ask
+    //      for 8 bits and accept no less, so this takes a driver that gives
+    //      less than it was asked. When the card answers that reading with an
+    //      error, the library trusts what it asked for, and the shadow is
+    //      drawn: an error says nothing about the bits. That is sent to the log
+    //      sink (core/log), the event `draw2d_stencil_bits_unread` with the GL
+    //      error in the field `gl_error`;
+    //   3. a corner that the batch transform turns into a pixel coordinate
+    //      larger in magnitude than about 1.7e38, where the vertex program
+    //      would overflow: pixel_position_out_of_range.
+    // A shadow of zero area is drawn and covers no pixel.
+    // Proved by: shadow_group_test (the stencil sequence of a batch).
+    // Proved by: surface_stencil_test (the reading of the bits, the error
+    // included).
+    // Proved by: renderer_2d_impl_test (the order of the refusals, and one
+    // call is one piece).
+    // Proved by: draw2d_shadow_parity_test (the pixels, on both systems).
+    GLINTFX_API void fill_shadow(gltfx_quad_world shadow, gltfx_rgba tint,
+                                 gltfx_draw_layer layer = {}) noexcept;
 
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}

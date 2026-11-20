@@ -344,6 +344,7 @@ gltfx_rslt<batch_draw_counts> draw_batch(const render::gl_function_table &gl,
         }
         counts.calls += draw_run_passes(gl, run, uniforms.stencil_discard_location, cursor);
     }
+    counts.shadow_segments = cursor.shadow_came ? 1U : 0U;
     if (counts.calls == 0) {
         return gltfx_rslt<batch_draw_counts>::ok(counts);
     }

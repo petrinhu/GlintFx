@@ -126,9 +126,9 @@ struct renderer_2d_impl {
     void fill_quad(const gltfx_quad_world &corners, gltfx_rgba color,
                    gltfx_draw_layer layer) noexcept;
     // A shadow (R2D-SPRITE-SHADE H3b, renderer_2d_impl_shadows.cpp): a filled quadrilateral of one
-    // color, `tint`, refused for its corners and tint as fill_quad() is, and kept as one piece with
-    // the stencil role shadow (shadow_group.hpp), so its run marks what it darkens. No public
-    // method calls it in this version; the facade comes with the pixel cells.
+    // color, `tint`, refused for its corners and tint as fill_quad() is, then for a surface with no
+    // stencil bits (piece_refusal.hpp), and kept as one piece with the stencil role shadow
+    // (shadow_group.hpp), so its run marks what it darkens.
     void fill_shadow(const gltfx_quad_world &shadow, gltfx_rgba tint,
                      gltfx_draw_layer layer) noexcept;
     // The triangle methods (S2b): an empty call is nothing; the rest is checked, and refused whole
@@ -286,6 +286,9 @@ struct renderer_2d_impl {
     std::uint32_t surface_width = 0;
     std::uint32_t surface_height = 0;
     bool srgb_framebuffer = false;
+    // What surface_has_stencil() answered in create() (D-W8-1328): read once, the surface of a
+    // context does not change.
+    bool surface_stencil_present = true;
     bool frame_open = false;
     bool gl_ready = false; // the context was made current for this frame
     std::optional<gltfx_err> frame_error;

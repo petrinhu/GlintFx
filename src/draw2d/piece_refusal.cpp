@@ -10,6 +10,16 @@ gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,
                              color.blue, color.alpha);
 }
 
+gltfx_draw_2d_refusal refusal_of_shadow(const quad_corners_world &corners, glintfx::gltfx_rgba tint,
+                                        bool surface_has_stencil) noexcept {
+    const gltfx_draw_2d_refusal by_value = refusal_of_quad(corners, tint);
+    if (by_value != gltfx_draw_2d_refusal::none) {
+        return by_value;
+    }
+    return surface_has_stencil ? gltfx_draw_2d_refusal::none
+                               : gltfx_draw_2d_refusal::stencil_unavailable;
+}
+
 gltfx_draw_2d_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,
                                       glintfx::gltfx_rgba color) noexcept {
     const gltfx_draw_2d_refusal by_value =

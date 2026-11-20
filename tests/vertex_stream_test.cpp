@@ -995,6 +995,7 @@ GLINTFX_TEST(vertex_stream_a_batch_with_no_shadow_calls_no_stencil_function) {
     fill(batch, 5, true);
     const auto counts = draw_batch(table, batch, k_uniforms);
     GLINTFX_CHECK(counts.has_value() && counts.value().calls == 5U);
+    GLINTFX_CHECK_EQ(counts.value().shadow_segments, std::uint64_t{0});
     GLINTFX_CHECK_EQ(gl_state.stencil_calls, 0);
     GLINTFX_CHECK_EQ(matching(gl_state.seen, std::vector<pass_seen>(5, pass_seen{})), 5);
 }
@@ -1014,6 +1015,7 @@ GLINTFX_TEST(vertex_stream_each_run_is_drawn_with_the_stencil_passes_of_its_segm
     GLINTFX_CHECK(batch.add_quad(square_at(3, 0, 1), k_shade, k_shadow_run));
     const auto counts = draw_batch(table, batch, k_uniforms);
     GLINTFX_CHECK(counts.has_value() && counts.value().calls == 5U);
+    GLINTFX_CHECK_EQ(counts.value().shadow_segments, std::uint64_t{1}); // two shadows, one segment
     const pass_seen mark{true, true, k_equal, k_incr, 1, 1};
     const std::vector<pass_seen> want{pass_seen{}, mark,
                                       pass_seen{false, true, k_always, k_keep, 0, 1},

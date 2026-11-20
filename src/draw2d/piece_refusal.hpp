@@ -39,6 +39,13 @@ template <typename... Values>
 [[nodiscard]] gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,
                                                     glintfx::gltfx_rgba color) noexcept;
 
+// Why a shadow is refused (`none` when it is not): what a quad is refused for, and then, with every
+// value finite, a surface with no stencil bits (D-W8-1328). A value names itself first, as in the
+// vocabulary: it is wrong on any surface.
+[[nodiscard]] gltfx_draw_2d_refusal refusal_of_shadow(const quad_corners_world &corners,
+                                                      glintfx::gltfx_rgba tint,
+                                                      bool surface_has_stencil) noexcept;
+
 // The same for a rectangle in world position, which can also have a negative size.
 [[nodiscard]] gltfx_draw_2d_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,
                                                     glintfx::gltfx_rgba color) noexcept;

@@ -312,6 +312,8 @@ namespace {
         return &report.pieces_refused_region_out_of_range;
     case gltfx_draw_2d_refusal::degenerate_quad:
         return &report.pieces_refused_degenerate_quad;
+    case gltfx_draw_2d_refusal::stencil_unavailable:
+        return &report.pieces_refused_stencil_unavailable;
     case gltfx_draw_2d_refusal::stale_region:
         return &report.pieces_refused_stale_region;
     case gltfx_draw_2d_refusal::region_other_atlas:
@@ -329,7 +331,8 @@ namespace {
            r.pieces_refused_too_many_vertices + r.pieces_refused_pixel_position_out_of_range +
            r.pieces_refused_texture_not_open + r.pieces_refused_texture_other_renderer +
            r.pieces_refused_region_out_of_range + r.pieces_refused_degenerate_quad +
-           r.pieces_refused_stale_region + r.pieces_refused_region_other_atlas;
+           r.pieces_refused_stale_region + r.pieces_refused_region_other_atlas +
+           r.pieces_refused_stencil_unavailable;
 }
 
 } // namespace
@@ -339,7 +342,7 @@ namespace {
 // (D-W8-30). The k-th reason of the list (counting from 1) is refused k times, so a swap of two
 // counters shows.
 GLINTFX_TEST(frame_report_tally_each_reason_has_its_own_counter) {
-    const std::array<gltfx_draw_2d_refusal, 14> reasons{
+    const std::array<gltfx_draw_2d_refusal, 15> reasons{
         gltfx_draw_2d_refusal::not_a_number,
         gltfx_draw_2d_refusal::infinite,
         gltfx_draw_2d_refusal::negative_size,
@@ -352,6 +355,7 @@ GLINTFX_TEST(frame_report_tally_each_reason_has_its_own_counter) {
         gltfx_draw_2d_refusal::texture_other_renderer,
         gltfx_draw_2d_refusal::region_out_of_range,
         gltfx_draw_2d_refusal::degenerate_quad,
+        gltfx_draw_2d_refusal::stencil_unavailable,
         gltfx_draw_2d_refusal::stale_region,
         gltfx_draw_2d_refusal::region_other_atlas,
     };
@@ -413,6 +417,14 @@ GLINTFX_TEST(frame_report_tally_the_texture_reasons_are_nine_to_twelve_with_thei
                   "degenerate_quad");
 }
 
+// R2D-SPRITE-SHADE H3b-2 (D-W8-1328): the reason of the shadow, value 13, never renumbered, and its
+// public token, written here as a literal.
+GLINTFX_TEST(frame_report_tally_the_stencil_reason_is_thirteen_with_its_token) {
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::stencil_unavailable), 13);
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::stencil_unavailable) ==
+                  "stencil_unavailable");
+}
+
 // R2D-TEXTURE T6-B2: the two reasons of the receipt, appended (values 14 and 15, never renumbered;
 // 13 is the shadows'), and their public tokens, written here as literals.
 GLINTFX_TEST(frame_report_tally_the_receipt_reasons_are_fourteen_and_fifteen_with_their_tokens) {
@@ -466,4 +478,26 @@ GLINTFX_TEST(frame_report_tally_texture_switches_add_up_per_frame) {
     tally.begin_frame();
     (void)tally.finish();
     GLINTFX_CHECK_EQ(tally.last_report().texture_switches, std::uint64_t{0});
+}
+
+// R2D-SPRITE-SHADE H3b-2 (D-W8-322): the segments with a shadow add up, and start at zero every
+// frame. The two fields of this slice are the last of the struct, in this order, right after the
+// counters of the receipt: the layout only grows at its end.
+GLINTFX_TEST(frame_report_tally_shadow_segments_add_up_per_frame) {
+    using report = glintfx::gltfx_frame_2d_report;
+    static_assert(offsetof(report, pieces_refused_stencil_unavailable) ==
+                  sizeof(report) - sizeof(std::uint64_t));
+    static_assert(offsetof(report, shadow_segments) == sizeof(report) - 2 * sizeof(std::uint64_t));
+    static_assert(offsetof(report, pieces_refused_region_other_atlas) ==
+                  sizeof(report) - 3 * sizeof(std::uint64_t));
+    frame_tally tally;
+    tally.begin_frame();
+    tally.shadow_segments_closed(1);
+    tally.shadow_segments_closed(0);
+    tally.shadow_segments_closed(1);
+    (void)tally.finish();
+    GLINTFX_CHECK_EQ(tally.last_report().shadow_segments, std::uint64_t{2});
+    tally.begin_frame();
+    (void)tally.finish();
+    GLINTFX_CHECK_EQ(tally.last_report().shadow_segments, std::uint64_t{0});
 }

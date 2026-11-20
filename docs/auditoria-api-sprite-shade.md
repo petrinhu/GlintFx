@@ -19,6 +19,7 @@
 - **D-W8-353 a 356 (r13):** `gltfx_light_tint` tem cabeçalho próprio em `core/light_tint.hpp` (seção 2.1, D-W8-355), com o tipo de luz `gltfx_light_source_2d`. `draw_shadow_texture` recebe `gltfx_texture_paint` (D-W8-354), e o `tint` é a cor da sombra. As seções 3 a 7 são análise e citam, onde indicam, os nomes anteriores; o texto vigente é o da seção 2.
 - **H1-fix (CTO, 11/10/2026, registrada em `DECISOES_AUTONOMAS.md`):** a cerca de `projected_shadow.hpp` passa à forma que o clang-format exige (a declaração de `gltfx_project_point_shadow` numa linha só, coluna 100 da L-24) e ganha a recusa `"shadow_extent"`: um resultado aceito nunca tem canto infinito nem NaN (elevação rasante, ou valores perto do maior double). A cerca continua sendo o texto que o cabeçalho copia byte a byte.
 - **Errata da H4 (CTO, 14/10/2026, D-W8-380; registrada em `DECISOES_AUTONOMAS.md` pelo main):** a cerca de `light_tint.hpp` passa à forma do clang-format (coluna 100 da L-24) e fecha três buracos do texto de 13/10, pela regra da casa de que nenhum número não finito passa calado (D-W8-325 para os vértices; S2b-fix1, I-7; a recusa `"shadow_extent"` da H1-fix): (1) o ambiente e a cor da luz são recusados pelo nome (`"ambient"`, `"color"`) quando um canal não é finito ou é negativo (luz linear não é negativa; acima de 1 continua aceito); (2) a conta é `cor · (intensidade · f(d))`, nessa ordem, para que cor muito grande vezes intensidade muito grande fora do alcance dê 0 e nunca infinito vezes zero; (3) nada é escrito numa recusa, e a ordem em que os campos são conferidos não faz parte do contrato (como a pergunta aberta `SHADOW-REFUSAL-ORDER`). **Errata do alfa (CTO, 14/10/2026, D-W8-397, depois da consulta ao advisor):** a luz não tem opacidade. A tinta sai com alfa 1, e o alfa do ambiente e da cor da luz NÃO é lido (nem conferido): a tinta multiplica a cor ou a textura da peça, e um multiplicador que muda a opacidade faria o chão sumir no escuro com o ambiente de três valores `gltfx_rgba{0.2F, 0.2F, 0.2F}` (alfa 0, `core/color.hpp` não tem valor padrão). É o que o Godot 4 faz (`servers/rendering/renderer_rd/shaders/canvas.glsl`, `light_blend_compute`, só `color.rgb` muda) e o box2dlights (`RayHandler.setAmbientLight`, o alfa do ambiente é brilho). A cerca continua sendo o texto que o cabeçalho copia byte a byte.
+- **Errata da H3b-2 (CTO, 07/11/2026, D-W8-1533; a cerca é a que o cabeçalho traz):** a cerca de `fill_shadow` passa a listar as recusas na ordem em que valem, com o `stencil_unavailable` (D-W8-1328) e o `pixel_position_out_of_range` (o motivo que a S2b-fix1 acrescentou depois deste parecer, para toda peça), diz o que a sombra faz com o buffer de stencil do consumidor e diz o custo; o `tint` entra na primeira regra, porque `refusal_of_quad` já o confere. O contador ganha, depois de `shadow_segments`, o `pieces_refused_stencil_unavailable`. A assinatura não muda. A seção 9 é a revisão de API dedicada, antes do commit da H3b-2.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta.
 
@@ -208,15 +209,47 @@ gltfx_project_point_shadow(gltfx_point_light_2d light, gltfx_standing_piece_2d p
     // takes part, shadow or not, so a shadow drawn over an opaque piece darkens
     // that piece. A barrier ends the segment, the same way it ends the layer
     // order: a shadow drawn after a barrier darkens again. begin_batch() does
-    // not end a segment.
+    // not end a segment. What is on top is the paint order (layer, then
+    // submission): a shadow painted before its own piece does not darken it.
+    //
+    // THE STENCIL BUFFER IS NOT YOURS WHILE A SEGMENT DRAWS A SHADOW. A segment
+    // that draws a shadow clears the stencil buffer of the surface before its
+    // first shadow, and leaves its marks there: write what you need again
+    // after the barrier. A segment that draws none does not touch the buffer,
+    // and neither does the clear of begin_frame(). What you left in it never
+    // changes what a shadow darkens. The state of the stencil after a barrier
+    // is the closed list of flush().
+    //
+    // THE COST. The first ordinary run after a shadow, and each one after it,
+    // costs one more draw call (draw_calls, draw2d/frame_2d_report.hpp), and a
+    // segment with a shadow clears the stencil once (shadow_segments). Before
+    // the first shadow of a segment an ordinary piece costs nothing more.
     //
     // A shadow is one piece, as draw2d/frame_2d_report.hpp counts pieces.
-    // Refused as one piece, counted in the report, never an exception:
-    //   - a corner that is not a finite number: not_a_number;
-    //   - a corner that is infinite: infinite.
+    // Refused as one piece, counted in the report, never an exception. The
+    // first rule that applies names the reason:
+    //   1. a NaN in a corner or in the tint: not_a_number; then an infinity in
+    //      any of them: infinite;
+    //   2. a surface with no stencil bits: stencil_unavailable. Such a surface
+    //      would darken a pixel twice and the graphics card would say nothing,
+    //      so the shadow is refused instead. open() reads the bits once, from
+    //      the surface as it came, whatever was asked for. Both systems ask
+    //      for 8 bits and accept no less, so this takes a driver that gives
+    //      less than it was asked. When the card answers that reading with an
+    //      error, the library trusts what it asked for, and the shadow is
+    //      drawn: an error says nothing about the bits. That is sent to the log
+    //      sink (core/log), the event `draw2d_stencil_bits_unread` with the GL
+    //      error in the field `gl_error`;
+    //   3. a corner that the batch transform turns into a pixel coordinate
+    //      larger in magnitude than about 1.7e38, where the vertex program
+    //      would overflow: pixel_position_out_of_range.
     // A shadow of zero area is drawn and covers no pixel.
-    // Proved by: shadow_group_test (the stencil sequence of a batch) and
-    // draw2d_shadow_parity_test (the pixels, on both systems).
+    // Proved by: shadow_group_test (the stencil sequence of a batch).
+    // Proved by: surface_stencil_test (the reading of the bits, the error
+    // included).
+    // Proved by: renderer_2d_impl_test (the order of the refusals, and one
+    // call is one piece).
+    // Proved by: draw2d_shadow_parity_test (the pixels, on both systems).
     GLINTFX_API void fill_shadow(gltfx_quad_world shadow, gltfx_rgba tint,
                                  gltfx_draw_layer layer = {}) noexcept;
 
@@ -236,9 +269,15 @@ gltfx_project_point_shadow(gltfx_point_light_2d light, gltfx_standing_piece_2d p
 ### `include/glintfx/draw2d/frame_2d_report.hpp` (trecho: contador novo ao fim)
 
 ```cpp
-    // W8, H0 (D-W8-16): shadow segments with at least one shadow, counted at
-    // the barrier that closes them. A segment without shadows counts nothing.
+    // Appended by R2D-SPRITE-SHADE H3b-2 (D-W8-322): the segments that drew at
+    // least one shadow, counted at the barrier that closes each (flush() or
+    // finish_frame()). A segment with no shadow drawn counts nothing, a shadow
+    // refused or dropped included. A flush the card refuses counts none, as for
+    // draw_calls. A cost, printed for you to measure: each of these clears the
+    // stencil once.
     std::uint64_t shadow_segments = 0;
+    // Appended by R2D-SPRITE-SHADE H3b-2 (D-W8-1328), the counter of its reason.
+    std::uint64_t pieces_refused_stencil_unavailable = 0;
 };
 ```
 
@@ -550,3 +589,33 @@ Quem decide é o CTO, e o líder onde o item diz. O revisor não decide nenhum d
 
 md5 do corpo deste parecer, sem esta linha: f2c3d7b7956f2e1ea767b9f6f2ab7e38 (corpo de origem, antes das errata; o texto desta cópia traz as errata e tem outro md5).
 Arquivo de origem: `/var/tmp/cto-w8/h0/auditoria-api-sprite-shade.md`, md5 `a36080994717c465b6e160abe14d9f9e`.
+
+---
+
+## 9. Revisão de API dedicada do grupo de sombra (H3b-2)
+
+**Por que esta seção existe, e quando.** A `TODO.md` manda que todo item `[PMU]` tenha revisão de API dedicada, conferindo a portabilidade da assinatura entre as plataformas, **antes** do commit da fatia. Esta foi feita antes do commit da H3b-2, na pré-execução da ordem (a T6-B1 fez depois, e isso foi desvio, D-W8-1408; aqui não se repete). O que muda em `include/`: um método (`fill_shadow`), um valor de enum (`stencil_unavailable = 13`), dois campos ao fim do relatório (`shadow_segments`, `pieces_refused_stencil_unavailable`) e o texto (`draw_calls`, a lista fechada do `flush()`). **Plataformas:** Fedora, Ubuntu, Arch e CachyOS (LP64) e Windows (LLP64), mais as distros varridas pelo astrometrica (LP64). Nenhum alvo é de 32 bits.
+
+| O que congela | Tipo e forma | Nos dois modelos de dados | Prova |
+|---|---|---|---|
+| `gltfx_renderer_2d::fill_shadow(gltfx_quad_world, gltfx_rgba, gltfx_draw_layer = {}) noexcept` | três parâmetros por valor: quatro `gltfx_vec2_world` (dois `double` cada), quatro `float`, e `gltfx_draw_layer`; `void` | iguais: nenhum `long`, `size_t` nem ponteiro; `fill_quad` já tem esta forma | `pmu_probe.cpp` nos três compiladores; a Windows liga o método pela DLL real na fixture |
+| `gltfx_draw_2d_refusal::stencil_unavailable = 13` | `enum class : std::uint8_t`, acrescentado ao fim | iguais | `static_assert` da sonda; `frame_report_tally_the_stencil_reason_is_thirteen_with_its_token` |
+| `gltfx_frame_2d_report::shadow_segments`, `::pieces_refused_stencil_unavailable` | `std::uint64_t`, os dois últimos campos, nesta ordem | iguais; o preenchimento depois de `first_refusal` não muda | os `static_assert` de `frame_report_tally_shadow_segments_add_up_per_frame` e da sonda |
+| `gltfx_draw_2d_refusal_name()` | devolve `"stencil_unavailable"`; o valor seguinte lê `"unknown"` (R4) | iguais | o mesmo caso |
+
+| Pergunta de portabilidade | Resposta | Medida |
+|---|---|---|
+| O método é exportado? | sim, `GLINTFX_API`; sem ele, a fixture do Windows não liga | o `pmu_probe.sh` imprime a contagem; Linux, `nm -DC` da biblioteca compartilhada; Windows, a fixture no CI |
+| O nome colide com macro do sistema? | não: `fill_shadow`, `stencil_unavailable`, `shadow_segments`, `pieces_refused_stencil_unavailable` | `public_name_collision_test` com os nomes finais, e o controle positivo; `pmu_probe.cpp` depois de `windows.h` (`/W4 /WX`) e de `fcntl.h` com `_FILE_OFFSET_BITS=64`. O parecer §6 deixou esta repetição pendente: é esta |
+| Os parâmetros colidem? | `shadow`, `tint`, `layer`: nenhum é macro conhecida | de revisão: nomes de parâmetro não são varridos (`check_public_name_collision.py`, cabeçalho); a sonda os compila depois de `windows.h` |
+| O cabeçalho é ASCII? | sim | `LC_ALL=C grep -c -P '[^\x00-\x7F]'` nos dois cabeçalhos: 0 |
+| Tudo que cruza a fronteira é `noexcept`? | sim; a falta de memória vira `pieces_dropped_out_of_memory` (R3) | o portão `noexcept_alloc_test` passa com os arquivos novos, e `add_shadow` já passava |
+| `docs/api-conventions.md` R1 a R10 | R1: o método devolve `void` por decisão 2 do líder (19/09), o problema vai ao relatório; R2: nenhum valor devolvido; R3: acima; R4: o token novo com o valor seguinte `"unknown"`; R5: valor, sem ponteiro guardado; R6: acima; R7: `stencil_unavailable` é identificador; R8 e R10 não se aplicam (nenhum retorno de chamada); R9: um evento novo, `draw2d_stencil_bits_unread`, identificador mais um campo `gl_error`, `D-W8-1546` | os casos citados no cabeçalho |
+
+**Três decisões da porta de mão única, ditas aqui para o líder.**
+
+1. **A sombra sem stencil é recusada pelo nome (D-W8-1328).** Um valor público e um campo público, para um caso que nenhum alvo nosso produz de propósito: as duas plataformas pedem 8 bits como mínimo. A alternativa de deixar passar quebra a promessa em silêncio, e é a queixa de quatro bibliotecas (a pesquisa, tema A).
+2. **`draw_calls` conta a passada de liberação (D-W8-1329).** O sentido do campo não muda ("reached the graphics card"), o custo fica escrito, e `shadow_segments` separa o que é de sombra.
+3. **A frase do stencil na lista do `flush()` e o que a sombra faz com o buffer (D-W8-1336, D-W8-1534).** O estado promete os valores iniciais do GL. O CONTEÚDO do buffer não é prometido num segmento com sombra: é limpo antes da primeira e fica com as marcas. Um consumidor que usa o stencil entre barreiras precisa saber, e a frase diz.
+
+**Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros (é o CI do push); uma placa cuja leitura dos bits dê erro (fora da matriz; o caso é provado pela placa de mentira em `surface_stencil_test`).

@@ -10,6 +10,7 @@
 #include "draw2d/srgb_encoding.hpp"
 #include "draw2d/stroke_line_check.hpp"
 #include "draw2d/stroke_rect_check.hpp"
+#include "draw2d/surface_stencil.hpp"
 #include "draw2d/texture_update.hpp"
 #include "draw2d/texture_update_check.hpp"
 #include "draw2d/triangle_list_check.hpp"
@@ -74,6 +75,7 @@ renderer_2d_impl::create(const renderer_2d_host &host, const render::gl_function
         return gltfx_rslt<renderer_2d_impl *>::err(stream.err());
     }
     impl->stream = stream.value();
+    impl->surface_stencil_present = draw2d::surface_has_stencil(impl->gl);
     impl->curve_max_error_pixels = options.curve_max_error_pixels;
     const std::size_t room =
         options.reserve_pieces == 0 ? k_default_reserve_pieces : options.reserve_pieces;
@@ -404,6 +406,7 @@ bool renderer_2d_impl::upload_and_draw_batch() noexcept {
     }
     tally.draw_calls_issued(counts.value().calls);
     tally.texture_switched(counts.value().texture_switches);
+    tally.shadow_segments_closed(counts.value().shadow_segments);
     return true;
 }
 

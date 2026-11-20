@@ -2033,6 +2033,18 @@ target_sources(vertex_stream_test PRIVATE
 glintfx_add_test(renderer_2d_desc_check_test)
 target_include_directories(renderer_2d_desc_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# R2D-SPRITE-SHADE H3b-2 (D-W8-1328): whether the surface has stencil bits, asked of a table of FAKE GL functions.
+glintfx_add_test(surface_stencil_test)
+add_dependencies(surface_stencil_test glintfx_gl_functions_generated)
+target_include_directories(surface_stencil_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(surface_stencil_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/surface_stencil.cpp"
+)
+
 # R2D-BATCH B4: the frame machine behind the public handle, against a FAKE host and a table of FAKE GL functions.
 glintfx_add_test(renderer_2d_impl_test)
 add_dependencies(renderer_2d_impl_test glintfx_gl_functions_generated)
@@ -2092,6 +2104,7 @@ target_sources(renderer_2d_impl_test PRIVATE
 target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_shadows.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/shadow_group.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/surface_stencil.cpp"
 )
 # R2D-SHAPES S3, etapa B: stroke_line() reaches the frame machine, so this target compiles the atoms of the line.
 target_sources(renderer_2d_impl_test PRIVATE
@@ -3441,6 +3454,18 @@ if(WIN32)
     glintfx_copy_runtime_dlls_after_build(draw2d_shapes_parity_test)
     add_test(NAME draw2d_shapes_parity_test COMMAND draw2d_shapes_parity_test)
     set_tests_properties(draw2d_shapes_parity_test PROPERTIES LABELS consume)
+endif()
+
+# R2D-SPRITE-SHADE H3b-2 (docs/auditoria-api-sprite-shade.md, sec. 2 and 4.2): draw2d_shadow_parity_test.cpp
+# (tests/parity/) is the shadow cell of the same family: ONE file, only the public API, no #if. The Linux side is the
+# container fixture of this exact name (tests/container/Containerfile, ci.yml); this block is the Windows side only.
+if(WIN32)
+    add_executable(draw2d_shadow_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_shadow_parity_test.cpp")
+    target_link_libraries(draw2d_shadow_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_shadow_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_shadow_parity_test)
+    add_test(NAME draw2d_shadow_parity_test COMMAND draw2d_shadow_parity_test)
+    set_tests_properties(draw2d_shadow_parity_test PROPERTIES LABELS consume)
 endif()
 
 # R2D-TEXTURE T4b-B2 (D-W8-475 a 480): draw2d_texture_parity_test.cpp (tests/parity/) is the textured cell of the same

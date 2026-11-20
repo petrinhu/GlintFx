@@ -102,6 +102,8 @@ struct batch_uniforms {
 struct batch_draw_counts {
     std::uint64_t calls = 0;
     std::uint64_t texture_switches = 0;
+    // One batch is one segment (shadow_group.hpp): 1 when a shadow run was drawn in it, else 0.
+    std::uint64_t shadow_segments = 0;
 };
 
 // Issues the draw calls of every run of `batch`, in order, and says how many were issued. The

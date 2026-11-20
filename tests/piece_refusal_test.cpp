@@ -154,3 +154,21 @@ GLINTFX_TEST(piece_refusal_cells) {
     GLINTFX_CHECK_EQ(analyzed, 8);
     std::println("piece_refusal_test: {} celula(s) conferida(s) (recusa)", analyzed);
 }
+
+// R2D-SPRITE-SHADE H3b-2 (D-W8-1328): a shadow is refused for a value first, on any surface, and
+// only then for the surface. A value that is finite on a surface with bits is not refused.
+GLINTFX_TEST(piece_refusal_a_shadow_names_a_value_before_the_surface) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    const glintfx::gltfx_rgba tint{0.0F, 0.0F, 0.0F, 0.5F};
+    using corners = glintfx::draw2d::quad_corners_world;
+    const corners fine{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
+    const corners with_nan{{{nan, 0}, {1, 0}, {1, inf}, {0, 1}}};
+    const corners with_inf{{{0, 0}, {1, 0}, {1, inf}, {0, 1}}};
+    using glintfx::draw2d::refusal_of_shadow;
+    GLINTFX_CHECK(refusal_of_shadow(fine, tint, true) == gltfx_draw_2d_refusal::none);
+    GLINTFX_CHECK(refusal_of_shadow(fine, tint, false) ==
+                  gltfx_draw_2d_refusal::stencil_unavailable);
+    GLINTFX_CHECK(refusal_of_shadow(with_nan, tint, false) == gltfx_draw_2d_refusal::not_a_number);
+    GLINTFX_CHECK(refusal_of_shadow(with_inf, tint, false) == gltfx_draw_2d_refusal::infinite);
+}

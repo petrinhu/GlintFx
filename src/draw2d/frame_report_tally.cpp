@@ -55,6 +55,8 @@ namespace {
         return &report.pieces_refused_region_out_of_range;
     case gltfx_draw_2d_refusal::degenerate_quad:
         return &report.pieces_refused_degenerate_quad;
+    case gltfx_draw_2d_refusal::stencil_unavailable:
+        return &report.pieces_refused_stencil_unavailable;
     case gltfx_draw_2d_refusal::stale_region:
         return &report.pieces_refused_stale_region;
     case gltfx_draw_2d_refusal::region_other_atlas:
@@ -93,6 +95,10 @@ void frame_tally::draw_calls_issued(std::uint64_t count) noexcept { current.draw
 
 void frame_tally::texture_switched(std::uint64_t count) noexcept {
     current.texture_switches += count;
+}
+
+void frame_tally::shadow_segments_closed(std::uint64_t count) noexcept {
+    current.shadow_segments += count;
 }
 
 finish_status frame_tally::finish() noexcept {

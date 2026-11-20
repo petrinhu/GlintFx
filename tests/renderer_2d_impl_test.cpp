@@ -108,6 +108,11 @@ struct fake_card {
     bool color_on = true;
     int stencil_clears = 0;
     std::vector<int> stencil_discard_at_draw;
+    // R2D-SPRITE-SHADE H3b-2: the mask of every glClear, in order (R2D-CLEAR-MASK-TEST), and what
+    // the surface answers when create() asks for its stencil bits (D-W8-1328).
+    std::vector<GLbitfield> clear_masks;
+    GLint surface_stencil_type = 0x8218; // GL_FRAMEBUFFER_DEFAULT
+    GLint surface_stencil_size = 8;
     std::vector<bool> stencil_test_at_draw;
     std::vector<bool> color_at_draw;
 };
@@ -259,6 +264,7 @@ void GLINTFX_GL_APIENTRY f_clear_color(GLfloat r, GLfloat g, GLfloat b, GLfloat 
 void GLINTFX_GL_APIENTRY f_clear(GLbitfield mask) {
     GLINTFX_COUNT();
     card.calls.emplace_back("clear");
+    card.clear_masks.push_back(mask);
     if ((mask & k_stencil_buffer_bit) != 0) {
         ++card.stencil_clears;
     }
@@ -298,6 +304,16 @@ void GLINTFX_GL_APIENTRY f_disable(GLenum cap) {
     card.cap_state.at(cap) = 2;
 }
 void GLINTFX_GL_APIENTRY f_enum_uint(GLenum, GLuint) { GLINTFX_COUNT(); }
+// R2D-SPRITE-SHADE H3b-2: create() asks the surface for its stencil bits (surface_stencil.hpp,
+// whose own test proves the reading); no framebuffer of the consumer is bound on this card.
+void GLINTFX_GL_APIENTRY f_get_integerv(GLenum, GLint *out) {
+    GLINTFX_COUNT();
+    *out = 0;
+}
+void GLINTFX_GL_APIENTRY f_attachment(GLenum, GLenum, GLenum pname, GLint *out) {
+    GLINTFX_COUNT();
+    *out = pname == 0x8CD0 ? card.surface_stencil_type : card.surface_stencil_size;
+}
 void GLINTFX_GL_APIENTRY f_enum_enum(GLenum, GLenum) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_blend4(GLenum, GLenum, GLenum, GLenum) { GLINTFX_COUNT(); }
 void GLINTFX_GL_APIENTRY f_color_mask(GLboolean red, GLboolean, GLboolean, GLboolean) {
@@ -364,6 +380,8 @@ gl_function_table fake_table() {
     t.glStencilOp = &f_stencil_op;
     t.glStencilMask = &f_stencil_mask;
     t.glClearStencil = &f_clear_stencil;
+    t.glGetIntegerv = &f_get_integerv;
+    t.glGetFramebufferAttachmentParameteriv = &f_attachment;
     return t;
 }
 
@@ -2942,6 +2960,100 @@ GLINTFX_TEST(renderer_2d_impl_a_shadow_refused_for_a_value_counts_once_by_its_re
     GLINTFX_CHECK(report.first_refusal == glintfx::gltfx_draw_2d_refusal::not_a_number);
     GLINTFX_CHECK(report.pieces_refused_not_a_number == 1U && report.pieces_refused_infinite == 1U);
     GLINTFX_CHECK_EQ(report.draw_calls, std::uint64_t{0});
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-SPRITE-SHADE H3b-2 (D-W8-1328): on a surface with no stencil bits a shadow is refused as ONE
+// piece, by its own reason, and nothing reaches the stencil; a value names itself first, and the
+// pixel range comes after. An ordinary piece on the same surface is drawn as always.
+GLINTFX_TEST(renderer_2d_impl_a_shadow_on_a_surface_with_no_stencil_is_refused_by_its_reason) {
+    reset();
+    card.surface_stencil_type = 0; // GL_NONE
+    renderer_2d_impl *renderer = make(true);
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_rect(rect(0, 0, 1, 1), k_red, k_layer_0);
+    renderer->fill_shadow(glintfx::gltfx_quad_world{{nan, 0}, {1, 0}, {1, 1}, {0, 1}}, k_shade,
+                          k_layer_0);
+    renderer->fill_shadow(shadow_square(0.0), k_shade, k_layer_0);
+    renderer->fill_shadow(shadow_square(1e300), k_shade, k_layer_0); // beyond the pixel range
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    const auto report = renderer->last_frame_report();
+    GLINTFX_CHECK(report.pieces_submitted == 4U && report.pieces_drawn == 1U);
+    GLINTFX_CHECK_EQ(report.pieces_refused, std::uint64_t{3});
+    GLINTFX_CHECK(report.first_refusal == glintfx::gltfx_draw_2d_refusal::not_a_number);
+    GLINTFX_CHECK_EQ(report.pieces_refused_not_a_number, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(report.pieces_refused_stencil_unavailable, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(report.pieces_refused_pixel_position_out_of_range, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(report.shadow_segments, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(card.stencil_clears, 0);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-SPRITE-SHADE H3b-2 (D-W8-1328): on a surface with stencil bits, a shadow beyond the pixel
+// range is refused by that reason, once: the surface is not the reason.
+GLINTFX_TEST(renderer_2d_impl_a_shadow_on_a_surface_with_stencil_is_not_refused_for_it) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_shadow(shadow_square(1e300), k_shade, k_layer_0);
+    renderer->fill_shadow(shadow_square(0.0), k_shade, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    const auto report = renderer->last_frame_report();
+    GLINTFX_CHECK_EQ(report.pieces_refused_pixel_position_out_of_range, std::uint64_t{1});
+    GLINTFX_CHECK_EQ(report.pieces_refused_stencil_unavailable, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(report.pieces_drawn, std::uint64_t{1});
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-SPRITE-SHADE H3b-2 (D-W8-322): shadow_segments counts the segments that drew a shadow, at the
+// barrier that closes them: a flush with one, a begin_batch() that does not end it, a segment with
+// no shadow, a segment whose shadow was refused, and the finish_frame() that closes the last.
+GLINTFX_TEST(renderer_2d_impl_shadow_segments_counts_at_the_barrier_that_closes_each) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    const double inf = std::numeric_limits<double>::infinity();
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_shadow(shadow_square(0.0), k_shade, k_layer_0);
+    renderer->begin_batch();
+    renderer->fill_shadow(shadow_square(4.0), k_shade, k_layer_0);
+    renderer->flush(); // one, whatever the transforms
+    renderer->fill_rect(rect(0, 0, 1, 1), k_red, k_layer_0);
+    renderer->flush(); // no shadow
+    renderer->fill_shadow(glintfx::gltfx_quad_world{{inf, 0}, {1, 0}, {1, 1}, {0, 1}}, k_shade,
+                          k_layer_0);
+    renderer->flush(); // only a refused one
+    renderer->fill_shadow(shadow_square(8.0), k_shade, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK_EQ(renderer->last_frame_report().shadow_segments, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(card.stencil_clears, 2);
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-SPRITE-SHADE H3b-2 (D-W8-322): a flush the card refuses counts no segment, as for draw_calls.
+GLINTFX_TEST(renderer_2d_impl_a_refused_flush_counts_no_shadow_segment) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_shadow(shadow_square(0.0), k_shade, k_layer_0);
+    card.error_from_draw = k_out_of_memory;
+    GLINTFX_CHECK(renderer->finish_frame().has_error());
+    const auto report = renderer->last_frame_report();
+    GLINTFX_CHECK_EQ(report.draw_calls, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(report.shadow_segments, std::uint64_t{0});
+    renderer_2d_impl::destroy(renderer);
+}
+
+// R2D-CLEAR-MASK-TEST (D-W8-1488): each glClear asks for its own buffer ALONE. begin_frame() clears
+// the color, never the stencil or the depth of the consumer; the first shadow of a segment clears
+// the stencil, never the color already painted. The masks are the whole value, as literals.
+GLINTFX_TEST(renderer_2d_impl_each_clear_asks_for_its_own_buffer_alone) {
+    reset();
+    renderer_2d_impl *renderer = make(true);
+    renderer->begin_frame(gltfx_frame_2d_desc{gltfx_rgba{0.0F, 0.0F, 0.0F, 1.0F}});
+    renderer->fill_shadow(shadow_square(0.0), k_shade, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    GLINTFX_CHECK((card.clear_masks == std::vector<GLbitfield>{0x00004000U, 0x00000400U}));
     renderer_2d_impl::destroy(renderer);
 }
 

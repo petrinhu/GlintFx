@@ -14,7 +14,8 @@ void renderer_2d_impl::fill_shadow(const gltfx_quad_world &shadow, gltfx_rgba ti
     const draw2d::quad_corners_world world{shadow.top_left, shadow.top_right, shadow.bottom_right,
                                            shadow.bottom_left};
     draw2d::quad_corners_pixel pixel_corners{};
-    if (!quad_call_goes_on(world, draw2d::refusal_of_quad(world, tint), pixel_corners)) {
+    if (!quad_call_goes_on(world, draw2d::refusal_of_shadow(world, tint, surface_stencil_present),
+                           pixel_corners)) {
         return;
     }
     if (!pieces.add_shadow(pixel_corners, tint, layer.value)) {

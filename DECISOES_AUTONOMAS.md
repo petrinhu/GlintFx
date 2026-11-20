@@ -11707,3 +11707,28 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O conserto e as perguntas ao líder** vão ao CTO pela D-W8-1996.
 
 - **D-W8-1185 (main, 20/11 19:27): a PRECI-TETO passa a ✅.** O CI `44822607741`, em `bb6ffcc2`, fechou VERDE, com 25 sucessos e 1 pulado. Os commits `48765d6e` e `0e8f1a99` são ancestrais dele (`git merge-base --is-ancestor`, rc 0). No mesmo CI, o job `ps-syntax` do `ubuntu-latest` provou o `--memory-swap`.
+
+- **D-W8-1186 (LÍDER, 20/11 19:44): as respostas do líder às 4 perguntas da rodada 1 da verificação profunda** (`ordem-r2-w8.md` §7, md5 `6c2add3b`), por AskUserQuestion. Verbatim:
+  - **P1, C7-1, o caminho da pasta pessoal:** *"Corrigir daqui para frente (Recomendado)"*. As 24 linhas públicas trocam o caminho por um nome genérico, e entra um portão que barra caminho de máquina em arquivo novo. O histórico não é reescrito.
+  - **P2, C8-1, o fuzzer do leitor gfss:** *"Registrar e fazer junto do PNG (Recomendado)"*. A falta vira linha datada no TODO, aparece no CHANGELOG da 0.7.0.0, e o fuzzer nasce na W-PNG-2.
+  - **P3, a L-17 e os testes:** *"atomos para o framework glintfx. Os testes vocês faz como forem melhores"*.
+    - Na pergunta de confirmação, sobre se as ferramentas de teste contam como teste ou como framework, a resposta foi: *"eu expliquei a @GusWorld"*. É a L-33 do GusWorld (`9d88131`, 19:43): átomo só no código do produto; testes, ferramentas, scripts de CI, documentos, commits, itens e assets se organizam como for melhor.
+    - **A lei foi EMENDADA**, gravada em `GODS_LAWS.md` L-17 no mesmo instante (L-68 global). O argumento contra veio antes da pergunta (LEI DAS LEIS).
+    - **Efeito sobre os achados:** do C2-1, os 17 casos de Python de ferramenta e os 30 corpos de teste deixam de ser violação. Ficam as 5 funções de produto, que entram antes da marca (R2-C).
+  - **P4, as dívidas de átomo:** *"Registrar e consertar logo depois (Recomendado)"*. O I-3 (`renderer_2d_impl.hpp`, código do framework) vira linha IMPORTANTE no TODO, numa fatia paralela à W-PNG, e a 0.7.0.0 não espera por ele. As 5 funções de produto do C2-1 entram antes da marca.
+  - **Em consequência, a rodada 2 fecha com:**
+    - R2-A: o C4-1 e o I-1;
+    - R2-B: o I-2;
+    - R2-C: as 5 funções de produto;
+    - o C7-1 consertado daqui para frente, com o portão;
+    - o C8-1 e o I-3 DECLARADOS no TODO, com a classe intacta (L-43);
+    - o I-4 como falso positivo provado (D-W8-2012).
+
+- **D-W8-1187 (LÍDER, 20/11 20:15): a L-12 é harmonizada com a emenda da L-17.** A pergunta do CTO veio da `ordem-r2bc-w8.md` §5 (D-W8-2029). A resposta do líder, verbatim: *"Ajustar (Recomendado)"*.
+  - Daqui em diante, o revisor N3, de ferramenta de teste, lê pela correção: o código faz o que diz? falha de forma visível? Ele confere um caso vermelho e não reprova por tamanho nem pelas cinco perguntas da L-17.
+  - O texto foi refundido no próprio item N3 da L-12 (`GODS_LAWS.md`), pela L-68.
+- **D-W8-1188 (main, 20/11 20:15): o R2-A entra.**
+  - `a0655dc2`: o teste do layout do resolvedor, com um `static_assert` que barra campo novo (D-W8-1247).
+  - `b02a513a`: a linha de sRGB pré-multiplicado na tabela do `pixel_premultiply_test`.
+  - O mutante M03 MORRE, e o campo novo MORRE PELO PINO. O `preci --fast` deu rc 0.
+  - Falta a A-rev. As ordens do CTO para R2-B, R2-C e C7-1 estão em `.trabalho/cto-w8/ordem-r2bc-w8.md` (md5 `8c2a7e4a`, D-W8-2018 a D-W8-2031).

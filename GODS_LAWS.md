@@ -40,7 +40,7 @@
 | [L-14](#l-14) | instalar, remover ou atualizar pacote de sistema | Pedir autorização; não instalar sozinho |
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
 | [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
-| [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
+| [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo do framework (`include/`, `src/`) | Proibido monolito; cada função é um átomo; teste, ferramenta e documento se organizam como for melhor |
 | [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level audita e cria no modelo configurado em `/modelos_sessao` (emenda de 02/10/2026; `fable` só como advisor); sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 | [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
@@ -385,7 +385,7 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 - **N1, código público da biblioteca (`src/`, `include/`):** revisão adversarial que executa e muta, até sair limpa. A mutação mira **só as linhas que a fatia mudou**, no máximo 10 por revisão (padrão do Google: "State of Mutation Testing at Google", arxiv 2102.11378).
 - **N2, portão que protege a sessão do líder** (por exemplo, `tests/container/check_isolation.sh`): mutação mirada na exclusão que ele protege e **uma** rodada de conserto.
-- **N3, ferramenta de teste comum** (autotestes, travas de registro, scripts de CI): revisão de leitura pelas cinco perguntas da L-17 e **um** caso vermelho conferido. O revisor **não** procura mutantes próprios. Na segunda reprovação da mesma família, o que sobra vai à INBOX ou vira limite declarado, e a fatia fecha.
+- **N3, ferramenta de teste comum** (autotestes, travas de registro, scripts de CI): revisão de leitura **pela correção**, e **um** caso vermelho conferido. A revisão pergunta se o código faz o que diz e se falha de forma visível. Ela **não** reprova por tamanho nem pelas cinco perguntas da L-17, que desde a emenda de 20/11/2026 valem só para o código do framework. A harmonização foi aprovada pelo líder no mesmo dia, por `AskUserQuestion`: *"Ajustar (Recomendado)"* (D-W8-1187). O revisor **não** procura mutantes próprios. Na segunda reprovação da mesma família, o que sobra vai à INBOX ou vira limite declarado, e a fatia fecha.
 - **N4, texto** (documento, comentário, diário): sem `preci` e sem revisor.
 
 Toda ordem de serviço declara a camada no cabeçalho, e o rigor e o orçamento de rodadas saem dela, e não do julgamento do revisor. O CTO roda os comandos de cada ordem antes do despacho e anexa a saída à ordem.
@@ -437,6 +437,11 @@ O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone c
 ## L-17
 
 **Data:** 21/08/2026. **Verbatim:** *"projeto com proibicao de monolitos. Cada funcao é um átomo"*.
+
+**ESCOPO (emenda do líder, 20/11/2026, por `AskUserQuestion`, durante a verificação profunda da W8; D-W8-1186). Verbatim:** *"atomos para o framework glintfx. Os testes vocês faz como forem melhores"*, e, perguntado se as ferramentas de teste contam como teste ou como framework: *"eu expliquei a @GusWorld"*. O que ele explicou lá é a L-33 do GusWorld (19:43 do mesmo dia): *"Nenhuma regra de átomo vale fora do código do aplicativo [...] testes, ferramentas, scripts de CI, documentos, commits, itens de tabela e assets se organizam como for melhor em cada caso, sem obrigação de atomizar."* Aqui isso quer dizer:
+- **Esta lei (os números e a régua qualitativa) vale só para o código do framework:** `include/` e `src/`, o que vai para dentro da biblioteca entregue ao consumidor.
+- **Testes, ferramentas de teste e de verificação, scripts de CI, documentos, commits, itens de tabela e assets se organizam como for melhor em cada caso,** pelo critério técnico de quem os escreve e revisa, sem obrigação de atomizar. Um revisor não reprova nada disso pela L-17.
+- O argumento contra foi apresentado antes da resposta (LEI DAS LEIS): teste longo esconde qual caso reprovou e mistura dado com lógica. O líder decidiu assim mesmo.
 
 **Monolito é proibido em todo nível:** função que faz mais de uma coisa, arquivo que reúne assuntos sem relação, classe que cresce até virar dona de tudo, módulo sem fronteira declarada. **Cada função é um átomo:** faz **uma** coisa, inteira, e o nome dela diz exatamente qual.
 

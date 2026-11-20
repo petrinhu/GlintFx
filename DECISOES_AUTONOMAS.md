@@ -11342,3 +11342,15 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Consequência registrada:** o IMG-INFLATE é pré-requisito e vem junto. Os dois saem do slot de trilha paralela da L-32 e entram no caminho principal. A coluna Onda se acerta no planejamento pós-W8, pelo CTO. As linhas ficaram anotadas no `TODO.md`.
   - **O GusWorld será avisado** pelo barramento (`inbox/gusworld/`).
   - **O implementador da fix3 parou antes do primeiro contêiner.** O script congelado usa `--pids-limit 2048`, e o teto da `manutencao` é 512. A pergunta foi a ela (L-46).
+- **D-W8-1152 (main, 20/11 03:15): o líder decide as pendências que esperavam por ele, a pedido dele repassado pela `manutencao`.** O pedido, verbatim: *"diga a todos para trazer pendencias de decisoes minhas via askuserquestion"*. As respostas:
+  - **Atlas da T6-B2** (D-W8-1503, 1504, 1509 e 1510): *"Quero ver cada uma"*. O CTO prepara uma pergunta por decisão, com as opções descartadas e a pesquisa, em `atlas-decisoes-lider.md`. A onda 8 só fecha depois do aval dele item a item.
+  - **Sombras da H3b-2 e da H3b-3** (D-W8-1328, 1329, 1336, 1534, 1546, 1552 e 1553): *"Ratificar (Recomendado)"*.
+  - **R2D-NULL-CONTEXT**: *"Guardar para depois (Recomendado)"*. Continua na INBOX.
+  - **FALLBACK-KEEP-ENDS-NEAR**: *"Corrigir depois da W8 (Recomendado)"*. Vira fatia pequena no planejamento pós-W8.
+  - **Ainda para levar:** `SELINUX-SUFIXO-REGRA-DIVERGE` e a seção "In progress" da `Home.md`.
+- **D-W8-1153 (main, 20/11 03:15): a fix3 retoma pela errata dos limites.**
+  - A `manutencao` recusou o contêiner como estava: `--pids-limit 2048`, uid 1000, 15g. O motivo é que ele somaria acima do teto de 4000 processos e deixaria o líder abaixo do piso de memória.
+  - O CTO escreveu `ordem-t6b2-fix3-errata1.md` (md5 `e2f6ba87`, decisões D-W8-1856 a 1861). Os limites passam a vir do ambiente, com os padrões dela: 512 processos, 8g, 6 cpus, -j 4. O script recusa valor acima do padrão. O preci roda com paralelismo 4 dentro de `systemd-run --scope TasksMax=700 nice 10`.
+  - Um implementador NOVO retoma do passo 5.
+  - **Achado do CTO:** os scripts congelados da H3b-2 e da H3b-3 usam 2048 processos, 15g e 8 cpus (`errata1-varredura-limites.txt`). Precisam de errata igual antes de rodar.
+  - **GPU:** a `manutencao` repassou a quebra da L-09 global confirmada pelo líder (*"autorizo ollama/placa de video se precisar, sem aviso antes"*, *"Confirmar a quebra até eu revogar"*), com contenção em `/var/tmp/onda-paralela/gpu.LEIAME`. Antes do primeiro uso da GeForce no GlintFx (G4b), o main confirma com o líder na janela dele.

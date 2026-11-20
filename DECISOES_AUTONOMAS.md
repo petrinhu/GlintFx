@@ -11652,3 +11652,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - O QA declarou um limite: não viu com segurança, nesta resolução, a dobra da diagonal de F e G em `textures`. As sondas dela deram 77/0.
   - **O que falta do item 11:** a G4b, na GeForce. Ela pede uma errata do CTO (a G4-0 refeita e a linha de base da GeForce recapturada em 256), os 5 alertas, o aviso à manutenção e o OK do líder (L-50 global).
   - A `QA-COMPOSED-PHOTOS` continua ⏳ até a G4b.
+
+- **D-W8-1180 (LÍDER, 20/11 18:36): OK do líder para a foto na GeForce, a parte F da G4b, pela L-50 global.**
+  - Os 5 alertas tocaram às 18:36 (`play_den_den_alert.sh`, 5 vezes, rc 0 nas 5).
+  - O texto mostrado foi a seção 6 de `.trabalho/cto-w8/ordem-g4b-errata.md` (md5 `dd875519`). A pergunta foi feita por AskUserQuestion.
+  - A resposta, verbatim: *"Autorizar a rodada agora (Recomendado)"*.
+  - **O OK vale para uma rodada só,** com as 4 fotos uma por vez e parada na primeira falha. Outra rodada exige novo OK (D-W8-1981).
+  - **A parte P veio antes do OK e não tocou a placa:** `create`, `inspect` e `rm` com rc 0, `hc_igual=1`, nenhum hook da NVIDIA. A manutenção conferiu a VRAM do lado dela: 25 MiB, 0%.

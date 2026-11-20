@@ -151,6 +151,17 @@ def selftest_verdict():
         "Compositing Type: OpenGL ES\nOpenGL renderer string: llvmpipe (LLVM 19)\n", "intel"))
     check("tipo de composicao desconhecido reprova", refused_cleanly(
         "Compositing Type: OpenGL ES 2\nOpenGL renderer string: Mesa Intel(R) Graphics\n", "intel"))
+    # G3-ES-fix1 (D-W8-1973, I1 of the A-rev): the ES axis gets the same card and software fences as
+    # the OpenGL one; softpipe gets its own control on both axes (I5).
+    good_es_nvidia = "Compositing Type: OpenGL ES\nOpenGL renderer string: NVIDIA GeForce RTX 3050/PCIe/SSE2\n"
+    check("OpenGL ES na NVIDIA, esperando intel, reprova", refused_cleanly(good_es_nvidia, "intel"))
+    check("OpenGL ES na Intel, esperando nvidia, reprova", refused_cleanly(good_es, "nvidia"))
+    check("OpenGL ES na NVIDIA, esperando nvidia, passa", photo_verdict(good_es_nvidia, "nvidia")[0])
+    # The renderer names the maker on purpose: only the software rule can refuse it, never the maker rule.
+    check("OpenGL ES com softpipe que nomeia o fabricante reprova", refused_cleanly(
+        "Compositing Type: OpenGL ES\nOpenGL renderer string: softpipe (intel host)\n", "intel"))
+    check("OpenGL com softpipe que nomeia o fabricante reprova", refused_cleanly(
+        "Compositing Type: OpenGL\nOpenGL renderer string: softpipe (intel host)\n", "intel"))
 
 
 def selftest_capture():
@@ -165,6 +176,8 @@ def selftest_capture():
     check("formato 17 (RGBA de alfa reto) reprova",
           capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=17), vga)[0] is None)
     check("formato 16 (RGBX) reprova", capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=16), vga)[0] is None)
+    check("formato 19 (um passo alem do 18) reprova",
+          capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=19), vga)[0] is None)
     check("formato 5 (alfa reto) reprova", capture_meta(cap.format(w=640, h=480, k=1, s=2560, f=5), vga)[0] is None)
     check("resposta sem format reprova", capture_meta('"width" u 640 "height" u 480 "scale" d 1', vga)[0] is None)
     check("stride menor que 4 bytes por pixel reprova",

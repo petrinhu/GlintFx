@@ -7530,7 +7530,7 @@ set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
 add_test(
     NAME composed_photo_facts_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 32 controles OK"
+        "-DEXPECT_LINE=selftest: 38 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/composed_photo_facts.py" --selftest

@@ -11581,3 +11581,25 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - tirar os ajudantes e os controles de autoteste do `preci.sh`, que tem 3518 linhas (D-W8-1963);
     - um portão que confira o registro de cada controle do autoteste (D-W8-1964).
   - **A linha `PRECI-TETO` entra no TODO em 🔍.** Ela vai a ✅ quando um CI verde do ramo contiver os dois commits. O job `ps-syntax` do CI também prova o `--memory-swap` no `ubuntu-latest`.
+
+- **D-W8-1176 (main, 20/11 17:01): a G3-LIM, parte A da G3b, entra. O teto do contêiner da foto desce de 512 para 256, e os commits são empurrados.**
+  - **Os commits:**
+    - `d0107b64`: 5 arquivos, +21/−12. O condutor, o portão de isolamento, o autoteste e as duas linhas de base passam para 256.
+    - `4eeb8d47`: o conserto de 1 linha de comentário.
+  - **As provas da parte A:**
+    - vermelho com o controle 25 reprovando, verde com 51 OK;
+    - `--fast` com rc 0 e pico de 20 processos;
+    - teto lido nos três contêineres;
+    - o `docker create` nunca subiu, e o comparador deu `hc_igual=1`.
+  - **A A-rev deu NÃO LIMPA por um único COSMÉTICO:** `hostconfig_baseline_gpu_geforce.txt:7` dizia "A live capture, not hand-written", e o PidsLimit da GeForce foi escrito à mão (as linhas 19-22 do mesmo arquivo dizem isso).
+    - O conserto está em `4eeb8d47`. É texto só, camada N4, conferido pelo main pelo blob: 1+/1−, sem a palavra "Server" e com o autoteste do portão em rc 0.
+    - O precedente é a D-W8-1156: a fatia fechou pela N4 conferida pelo main.
+    - O gêmeo foi conferido: na linha de base da Intel, "live capture" segue verdadeiro, porque o 256 dela foi medido ao vivo.
+  - **Trailer do `4eeb8d47`:** só Haiku. O texto da linha foi ditado pelo main, mas quem o escreveu e o commitou foi o haiku. Não há amend.
+  - **Os desvios de processo do implementador, julgados pela A-rev:**
+    - a linha de guarda faltou nos blocos depois do A5 e do A6, sem dano (TasksMax=272, pico 20);
+    - leu tarde a L-50 e a L-11, sem nenhum ato que elas proíbam.
+  - **Vão à INBOX:**
+    - O1, IMPORTANTE pré-existente: `tests/container/check_image_freshness.sh:70` sobe um `docker run --rm` sem teto. A manutenção proibiu rodar esse script até o conserto;
+    - O3: `docs/ferramentas-de-apoio-aos-testes.md:74` diz que `--pids-limit` só aparece em plano, e isso é falso.
+  - **O que vem a seguir é a parte B:** as 4 fotos na placa INTEGRADA. A manutenção confirmou que os 5 alertas e o OK do líder (L-50) valem só para a GeForce. A Intel pede isolamento, uma rodada curta e com teto, e o aviso de uma linha ao líder antes.

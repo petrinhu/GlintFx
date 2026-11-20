@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage main 20/11] `IMAGE-FRESHNESS-TETO` (IMPORTANTE): `tests/container/check_image_freshness.sh:70` sobe um `docker run --rm` sem `--pids-limit`. A manutenção proibiu rodá-lo nesta máquina até o conserto (D-W8-1176).
+- [triage main 20/11] `DOC-FERRAMENTAS-PIDS`: `docs/ferramentas-de-apoio-aos-testes.md:74` diz que `--pids-limit` só aparece em plano, o que é falso desde a PRECI-TETO e a G3-LIM (D-W8-1176).
 - [triage main 20/11] `PRECI-LAUNCH-REGEX-BURACOS` (IMPORTANTE): a contagem de lançamentos de contêiner do autoteste do `preci` (`tools/preci.sh:3093-3094`) não vê `$DOCKER run` nem `podman`. São buracos declarados, sem nenhuma ocorrência hoje (D-W8-1960, D-W8-1175).
 - [triage main 20/11] `PRECI-TETO-FONTE-UNICA`: o teto do contêiner está escrito em três lugares, `tools/preci.sh:219-220`, `tests/tools/check_host_alerts.py:260-261` e `tests/tools/check_host_alerts_selftest.py:229`. Junta com a trava global que está com o líder (D-W8-1961).
 - [triage main 20/11] `PRECI-STAGE-PS-SYNTAX-41`: a `stage_ps_syntax` (`tools/preci.sh:544`) tem 41 linhas, uma acima do limite. Já era assim antes da PRECI-TETO (D-W8-1962).

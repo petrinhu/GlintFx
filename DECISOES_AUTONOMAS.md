@@ -11451,3 +11451,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **D-W8-1924:** *"Impressão digital (Recomendado)"*.
   - **D-W8-1925:** *"Sem cache (Recomendado)"*.
   - **Ordem (D-W8-1927):** 1º o commit da H5, 2º o do CI.
+- **D-W8-1166 (main, 20/11 12:08): ordem do líder, repassada pela `manutencao`, verbatim:** *"decisoes tecnicas com o clevel. Decisoes de lore, trazer para mim"*.
+  - Decisão técnica de execução vai ao CTO e fica registrada aqui, para o líder ver depois.
+  - Decisão de lore vai ao líder por AskUserQuestion.
+  - Por lei, continua com o líder:
+    - alterar lei;
+    - gastar dinheiro;
+    - ação irreversível;
+    - merge em main, tag e deploy fora da autorização já dada;
+    - GPU (5 alertas e o OK dele).
+  - Substitui a D-W8-1162 (1).

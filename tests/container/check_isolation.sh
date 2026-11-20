@@ -207,11 +207,11 @@ variant_of_args() {
 
 # The closed list of variants, and the one file each reads. Printed to stdout so the caller takes the path with
 # $(...); an unknown name fails here, by name, before any file or docker call. gpu_integrated_photo is
-# gpu_integrated plus a ceiling of 512 processes: the container tests/container/composed_photo.sh photographs
+# gpu_integrated plus a ceiling of 256 processes: the container tests/container/composed_photo.sh photographs
 # (QA-COMPOSED-PATH G2-fix1, D-W8-F18). ci_udmabuf is ci plus exactly /dev/udmabuf with "rw": the container of
 # the wayland-container CI job and of every local round since KWin 6.8 (KWIN-68-SEM-PLACA). gpu_geforce is the
 # only GeForce container there is, the photo one: the NVIDIA nodes, the read-only driver libraries and
-# label=disable, with the same ceiling of 512 (QA-COMPOSED-PHOTOS G4a).
+# label=disable, with the same ceiling of 256 (QA-COMPOSED-PHOTOS G4a; 512 until G3-LIM, 20/11/2026).
 baseline_file_for_variant() {
     case "$1" in
         ci) printf '%s' "$BASELINE_DIR/hostconfig_baseline.txt" ;;

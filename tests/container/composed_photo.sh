@@ -16,7 +16,7 @@
 #   this one container only.
 #
 # ONE container, the one that is photographed: check_isolation.sh proves THIS container BEFORE any
-# docker exec (G2-fix1, finding I-3 of the N3 review). It runs with a ceiling of 512 processes, a
+# docker exec (G2-fix1, finding I-3 of the N3 review). It runs with a ceiling of 256 processes, a
 # protection of this machine (the recursive test double of 29/09 took it down); the variant
 # gpu_integrated_photo is gpu_integrated plus exactly that ceiling, measured by docker create
 # (tests/container/hostconfig_baseline_gpu_integrated_photo.txt, D-W8-F18). The two KWin variables
@@ -67,7 +67,7 @@ start_and_prove() {
     # expansion off (set -f) so a '*', '?' or '[' in a path can never turn into other files (G4a-fix1).
     set -f
     # shellcheck disable=SC2086
-    docker run -d --name "$CONTAINER" --cap-drop=ALL --cap-add=SYS_NICE --pids-limit 512 --device "$NODE" $EXTRA_ARGS \
+    docker run -d --name "$CONTAINER" --cap-drop=ALL --cap-add=SYS_NICE --pids-limit 256 --device "$NODE" $EXTRA_ARGS \
         -e KWIN_SCREENSHOT_NO_PERMISSION_CHECKS=1 -e KWIN_WAYLAND_NO_PERMISSION_CHECKS=1 "$IMAGE" \
         > "$OUT/run.id" 2> "$OUT/run.err"
     run_rc=$?

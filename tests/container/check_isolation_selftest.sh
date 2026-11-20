@@ -244,7 +244,7 @@ selftest_run_user_bind_is_refused() {
     hc_must_refuse gpu_integrated "$(integrated_line | sed 's#"Binds":null#"Binds":["/run/user/1000:/run/user/1000"]#')"
 }
 
-# -- QA-COMPOSED-PATH G2-fix1 (D-W8-F18): the photo variant is gpu_integrated plus --pids-limit 512 -----------------
+# -- QA-COMPOSED-PATH G2-fix1 (D-W8-F18): the photo variant is gpu_integrated plus --pids-limit 256 -----------------
 photo_line() {
     read_baseline_or_fail "$(baseline_file_for_variant gpu_integrated_photo)"
 }
@@ -258,13 +258,13 @@ selftest_photo_capture_under_integrated_is_refused() {
     hc_must_refuse gpu_integrated "$(photo_line)"
 }
 
-# Without the ceiling, the photo variant refuses: the 512 is part of what it proves.
+# Without the ceiling, the photo variant refuses: the 256 is part of what it proves.
 selftest_integrated_capture_under_photo_is_refused() {
     hc_must_refuse gpu_integrated_photo "$(integrated_line)"
 }
 
 selftest_photo_other_pids_limit_is_refused() {
-    hc_must_refuse gpu_integrated_photo "$(photo_line | sed 's#"PidsLimit":512#"PidsLimit":4096#')"
+    hc_must_refuse gpu_integrated_photo "$(photo_line | sed 's#"PidsLimit":256#"PidsLimit":4096#')"
 }
 
 selftest_photo_renderd129_is_refused() {

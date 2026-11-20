@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- [triage main 20/11] `PHOTO-FACTS-ATOMS`: separar leitura e validação em `capture_meta` e partir `tests/tools/composed_photo_facts.py` (242 linhas) em placa, captura, gravação e autoteste; achados I3 e I4 da A-rev da G3-ES; camada N3; especificação `ordem-g3b-es-fix1.md` D-W8-1977.
+- [triage main 20/11] `PHOTO-FACTS-FORMATO-0` (IMPORTANTE): o formato de captura 0 não tem controle vermelho no juiz da foto (`tests/tools/composed_photo_facts.py:39`, achado da A-rev2 da G3-ES, D-W8-1178).
 - [triage main 20/11] `IMAGE-FRESHNESS-TETO` (IMPORTANTE): `tests/container/check_image_freshness.sh:70` sobe um `docker run --rm` sem `--pids-limit`. A manutenção proibiu rodá-lo nesta máquina até o conserto (D-W8-1176).
 - [triage main 20/11] `DOC-FERRAMENTAS-PIDS`: `docs/ferramentas-de-apoio-aos-testes.md:74` diz que `--pids-limit` só aparece em plano, o que é falso desde a PRECI-TETO e a G3-LIM (D-W8-1176).
 - [triage main 20/11] `PRECI-LAUNCH-REGEX-BURACOS` (IMPORTANTE): a contagem de lançamentos de contêiner do autoteste do `preci` (`tools/preci.sh:3093-3094`) não vê `$DOCKER run` nem `podman`. São buracos declarados, sem nenhuma ocorrência hoje (D-W8-1960, D-W8-1175).

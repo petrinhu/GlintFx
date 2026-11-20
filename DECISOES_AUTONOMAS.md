@@ -11624,3 +11624,17 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - entra um veto mais estrito que o antigo, o PNG idêntico ao da G2.
   - Mesmo assim, a D-W8-1967 vai em destaque na lista de ratificação do líder.
   - A ordem está em `.trabalho/cto-w8/ordem-g3b-es.md` (md5 `0cddb54d`). Ela tem a parte A, com 1 commit em 2 arquivos e 1 `preci --fast`; a A-rev, com 4 mutantes; e a parte B', que recomeça pelo canário.
+
+- **D-W8-1178 (main, 20/11 18:19): a G3-ES entra com a fix1. O juiz da foto aceita o OpenGL ES e o formato de captura do KWin 6.8, os dois commits são empurrados, e as decisões D-W8-1973 a D-W8-1978 do CTO ficam registradas para o líder ler depois.**
+  - **Os commits:**
+    - `7e0990d6`: o juiz, com 32 controles e `--fast` com rc 0;
+    - `46492d6a` (fix1): 6 controles novos, com 38 no total. O código do juiz não muda, e a A-rev2 conferiu as funções iguais às do pai.
+  - **As revisões:**
+    - a A-rev deu NÃO LIMPA, por falta de controle vermelho para ES na placa errada (I1). O main tinha pedido ao revisor que atacasse o critério alargado pela L-43, e foi assim que a falha apareceu;
+    - a A-rev2 deu LIMPA. O I1 foi fechado nos dois sentidos, e também em softpipe (ES e GL) e no formato 19. Os 3 mutantes pré-registrados sobrevivem no pai e morrem na fix1, e os 2 mutantes do revisor morreram.
+  - **O veto do md5 (D-W8-1976)** virou o passo B'3a, com rc, provado dos dois lados: sem PNG, rc 1; com o PNG da G2, rc 0.
+    - Como o comando não tem `exit` (`ordem-g3b-es-fix1.md:251-256`), o main põe no briefing da B' uma guarda que lê o `veto_md5_rc=0` no relatório antes do B'4.
+  - **Vão à INBOX:**
+    - `PHOTO-FACTS-ATOMS` (D-W8-1977, I3 e I4);
+    - `PHOTO-FACTS-FORMATO-0`: o formato 0 está sem controle (`tests/tools/composed_photo_facts.py:39`, achado da A-rev2).
+  - **Trailers:** os commits trazem Opus e Haiku, porque o código é do CTO e foi aplicado por haiku (D-W8-1167).

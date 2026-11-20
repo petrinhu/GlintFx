@@ -11563,3 +11563,21 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Ficam com o líder:**
     - tirar da fila a `CPUSET-NO-LANCAMENTO` (L-67: agente não declara obsoleto);
     - um `:Z` maiúsculo em `tools/msvc-container/armadilhas/compare.sh:44`, que o main reconferiu. Ele contraria a decisão de 20/11 ("Minúscula sempre") e vai à INBOX como conserto. O caso de `tests/tools/check_win32_test_link.py:816` é só texto de comentário.
+
+- **D-W8-1175 (main, 20/11 16:30): a PRECI-TETO fecha a revisão LIMPA e é empurrada; as decisões D-W8-1957 a D-W8-1965 do CTO ficam registradas para o líder ler depois.**
+  - **Os commits:**
+    - `48765d6e`: o teto de 128 processos e 2 GiB nos três contêineres do `--fast`, lido de volta no log;
+    - `0e8f1a99` (fix1): a contagem de lançamentos de contêiner ganha controle próprio e passa a ver `docker container run`.
+  - **As provas:**
+    - teto lido: `128 2147483648 2147483648` nos dois do PowerShell e no do portão de alertas, este por coleta (D-W8-1957, `impl/casa.log`);
+    - `--fast` com rc 0 e pico de 20 processos no scope.
+  - **As revisões:**
+    - a 1ª, N2, deu NÃO LIMPA pela L-17: uma função misturava teto e contagem. A fix1 foi a rodada única de conserto;
+    - a 2ª deu LIMPA: vermelho pelo motivo certo (sem rc=127), 7 mutantes como o previsto, com o N4 vivo e declarado (D-W8-1964).
+  - **O IMPORTANTE que resta, aceito:** a regex de contagem em `tools/preci.sh:3093-3094` não vê `$DOCKER run` nem `podman`. Nenhum dos dois existe hoje no `preci`. O CTO declarou os dois buracos (D-W8-1960), e a N2 tem uma rodada só de conserto. Vai à INBOX (`PRECI-LAUNCH-REGEX-BURACOS`).
+  - **Vão à INBOX também:**
+    - a fonte única do teto (D-W8-1961);
+    - a `stage_ps_syntax` com 41 linhas (D-W8-1962);
+    - tirar os ajudantes e os controles de autoteste do `preci.sh`, que tem 3518 linhas (D-W8-1963);
+    - um portão que confira o registro de cada controle do autoteste (D-W8-1964).
+  - **A linha `PRECI-TETO` entra no TODO em 🔍.** Ela vai a ✅ quando um CI verde do ramo contiver os dois commits. O job `ps-syntax` do CI também prova o `--memory-swap` no `ubuntu-latest`.

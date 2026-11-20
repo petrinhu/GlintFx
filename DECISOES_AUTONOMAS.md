@@ -11354,3 +11354,7 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Um implementador NOVO retoma do passo 5.
   - **Achado do CTO:** os scripts congelados da H3b-2 e da H3b-3 usam 2048 processos, 15g e 8 cpus (`errata1-varredura-limites.txt`). Precisam de errata igual antes de rodar.
   - **GPU:** a `manutencao` repassou a quebra da L-09 global confirmada pelo líder (*"autorizo ollama/placa de video se precisar, sem aviso antes"*, *"Confirmar a quebra até eu revogar"*), com contenção em `/var/tmp/onda-paralela/gpu.LEIAME`. Antes do primeiro uso da GeForce no GlintFx (G4b), o main confirma com o líder na janela dele.
+- **D-W8-1154 (main, 20/11 03:17): o líder fecha as duas últimas pendências que esperavam por ele.**
+  - **Sufixo SELinux:** *"Minúscula sempre (Recomendado)"*. O `CLAUDE.md` do projeto passa a mandar `:z` e `:ro,z`, e proíbe `:Z` em pasta do projeto ou compartilhada. O bullet `SELINUX-SUFIXO-REGRA-DIVERGE` sai da INBOX.
+  - **Seção "In progress" da `Home.md` da wiki:** *"Aprovar como está (Recomendado)"*. Ela sai quando a API de texturas for declarada estável. O bullet `WIKI-CONCEPTS-DESATUALIZADO` sai da INBOX, porque a parte do `Concepts.md` já estava feita em `48f3f2fd`.
+  - **Pendências que ainda esperam o líder:** as quatro decisões do atlas, uma a uma (D-W8-1152). O pacote está sendo preparado pelo CTO.

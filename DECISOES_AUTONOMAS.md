@@ -11421,3 +11421,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - os outros dois entram na INBOX (SHADE-TEST-NAME-TOKEN-ORDER e SHADE-OPAQUE-WHITE-CITE).
   - **Sem CI:** o envio do ramo segue bloqueado.
   - **Próxima fatia, a H5:** a ordem é de 13/11, anterior à H3b e aos limites da `manutencao`. O CTO emite a errata antes do despacho.
+- **D-W8-1162 (main, 20/11 09:40): ordens novas do líder, repassadas pela `manutencao` às 09:3x.**
+  - **(1)** *"Todas as decisoes voltam para mim"*: o C-level deixa de decidir no lugar do líder. Toda escolha vai a ele por AskUserQuestion. O CTO, que escrevia a errata da H5, foi avisado na hora e passa a entregar propostas, não decisões.
+  - **(2)** A exceção à L-09 foi revogada. Antes de tocar a GPU ou o Ollama (G4b inclusive), voltam os 5 alertas sonoros e a espera pelo OK dele; o `gpu.LEIAME` não autoriza mais sozinho.
+  - **(3)** A autorização de push, merge, tag e deploy foi mantida, com os portões da L-24 fechados.
+  - **(4)** O limite de 3 pesados e a limpeza horária seguem como estão, enquanto ele decide sobre a L-11 e a L-67.
+  - **Pendência dele, agora:** as decisões autônomas desta noite esperam ratificação (D-W8-1150 a 1162 do main, e as do CTO desde a 1591 até a 1899).

@@ -11461,3 +11461,18 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - merge em main, tag e deploy fora da autorização já dada;
     - GPU (5 alertas e o OK dele).
   - Substitui a D-W8-1162 (1).
+- **D-W8-1167 (main, 20/11 12:45): a H5 entra, e o item R2D-SPRITE-SHADE vai a 🔍.**
+  - **Os commits:** a H5 entrou em `fb07389b` (14 caminhos, +489/-19) e o conserto do Clang 23 do Windows em `386e5f6c`. Os dois estão publicados no `onda-w8`.
+  - **Revisão N1** (`.trabalho/cto-w8/rev-h5/rev-h5.txt`), com o código limpo:
+    - sondas 17/0; mutantes MX1 e MX2 pegos; R5 8/8; R11 cppcheck com 872 arquivos e 0 achados;
+    - PNG em `rev-h5/green/capture_out/sprite_shadows/png/conn1_surface5.png`.
+  - **NÃO LIMPA por um IMPORTANTE de atribuição:** `fb07389b` não tem o Co-Authored-By do Opus, embora os blocos sejam do CTO (emenda de 22/10, `GODS_LAWS.md:660`).
+    - A causa é o `msg.txt` dos anexos da errata, que já veio sem o trailer.
+    - O commit está publicado. Pela L-25, não há amend de commit publicado, então a correção fica neste registro: **`fb07389b` = blocos de Claude Opus 5.5 (CTO), aplicados por Claude Haiku 5.5**.
+    - Lição: o `msg.txt` dos anexos tem de trazer todos os trailers.
+  - **O outro IMPORTANTE** (processo) foi um erro do main no briefing: disse que o commit não tocava o `ci.yml`. Já está corrigido.
+  - **COSMÉTICO:** `sprite_shadows.cpp:194-197` repete coordenadas de `:106-111`.
+  - **O CI `44764144174` (`386e5f6c`):** o LLVM 23.1.6 instalou e foi provado. O clang-tidy 23, sobre a STL da MSVC, acusou 2 `bugprone-exception-escape`:
+    - `src/gfss/declaration_value_check.cpp:171`;
+    - `src/platform/gl/gfx_option_validation.cpp:14`.
+    O CTO analisa se são reais, pela decisão técnica que o líder delegou a ele.

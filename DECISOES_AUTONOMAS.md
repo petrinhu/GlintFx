@@ -11659,3 +11659,15 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - A resposta, verbatim: *"Autorizar a rodada agora (Recomendado)"*.
   - **O OK vale para uma rodada só,** com as 4 fotos uma por vez e parada na primeira falha. Outra rodada exige novo OK (D-W8-1981).
   - **A parte P veio antes do OK e não tocou a placa:** `create`, `inspect` e `rm` com rc 0, `hc_igual=1`, nenhum hook da NVIDIA. A manutenção conferiu a VRAM do lado dela: 25 MiB, 0%.
+
+- **D-W8-1181 (main, 20/11 18:41): as 4 fotos compostas na GeForce, da G4b, PASSARAM numa rodada só. Com a G3b (D-W8-1179), o item 11 do fechamento da W8 fica cumprido, e a QA-COMPOSED-PHOTOS passa a ✅.**
+  - **A rodada:** parte F de `ordem-g4b-errata.md` (md5 `dd875519`), com o OK do líder às 18:36 (D-W8-1180) e a GPU travada pela manutenção às 18:37. O relatório está em `.trabalho/cto-w8/g4b/f/relatorio.txt`.
+  - **Na placa:** RTX 3050 Laptop, OpenGL ES 3.2, driver NVIDIA 620.70.06, KWin 6.8.3, composição em OpenGL ES. A captura veio com `qimage=18`, 640x480, nas 4 fotos, o que confirma a inferência do CTO.
+  - **Por foto:** `foto_rc=0` nas 4. As sondas deram 12, 80, 77 e 17, sem falha.
+    - `isolamento=0` nas 4.
+    - O vigia marcou 44 processos por contêiner, com o teto de 256. O scope ficou entre 19 e 20.
+    - A memória chegou a 341 MB no máximo, e a VRAM ficou em 25/4096 MiB antes e depois.
+  - **O md5:** só informativo na GeForce (D-W8-1982). Três fotos diferem das da Intel, como o CTO previu, e a `sprite_shadows` saiu igual.
+  - **A observação visual (L-13 global):** o QA viu as 4 e descreveu o que viu. O main reconferiu a `textures` pela imagem: os 4 quadros, os 3 trapézios de xadrez em perspectiva e a fileira de peças.
+  - **Os desvios do QA, aceitos pelo main:** o `gpu.lock` é da manutenção, por isso o QA não o criou nem o apagou. A manutenção solta a trava.
+  - **Ficou de fora:** o pico de VRAM durante a foto não foi medido, porque a ordem não o grava.

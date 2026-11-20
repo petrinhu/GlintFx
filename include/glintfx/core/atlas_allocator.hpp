@@ -45,11 +45,11 @@
 // (`id`), how many times that number was handed out (`generation`) and the number of the
 // allocator that handed it out (`owner`). release() accepts only the slot of a cell that is in use
 // now, exactly as allocate() returned it, and frees nothing otherwise:
-//   - a slot whose `owner` is another allocator's is refused (invalid_argument, rejected_value()
-//     "slot_other_allocator");
-//   - a slot whose cell was already released, a slot never handed out (the default
-//     gltfx_atlas_slot, whose owner is 0, among them) and a slot whose rect, id or generation was
-//     changed are refused (invalid_argument, rejected_value() "stale_slot"); so releasing an old
+//   - a slot whose `owner` is neither 0 nor this allocator's is refused, whatever its other fields
+//     say (invalid_argument, rejected_value() "slot_other_allocator");
+//   - a slot never handed out (the default gltfx_atlas_slot, whose owner is 0, among them), and a
+//     slot of this allocator whose cell was already released or whose rect, id or generation was
+//     changed, are refused (invalid_argument, rejected_value() "stale_slot"); so releasing an old
 //     slot again can never free the space of the cell that took its number later.
 // Each time a number is handed out again, its generation grows by one. A number whose generation
 // reached 4294967295 is never handed out again, so an old slot can never become current again.

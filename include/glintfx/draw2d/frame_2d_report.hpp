@@ -79,10 +79,11 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     region_out_of_range = 11,
     degenerate_quad = 12,
     // Appended by R2D-TEXTURE T6-B2, the two reasons of the receipt of
-    // draw_atlas_image() (renderer_2d.hpp): the receipt was never handed
-    // out (its owner is 0), its cell was released, or its rect, id or
-    // generation was changed; the owner of the receipt is neither 0 nor the
-    // atlas's. 13 is reserved for the shadows of R2D-SPRITE-SHADE.
+    // draw_atlas_image() (renderer_2d.hpp), the owner read first: the owner
+    // is 0 (the receipt was never handed out), or it is the atlas's and the
+    // cell was released or the rect, id or generation was changed; the owner
+    // is neither 0 nor the atlas's, whatever the other fields say.
+    // 13 is reserved for the shadows of R2D-SPRITE-SHADE.
     stale_region = 14,
     region_other_atlas = 15,
 };

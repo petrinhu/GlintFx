@@ -393,8 +393,9 @@ namespace {
 
 constexpr gltfx_rect_texel k_no_region{};
 
-// An owner number no allocator of this process hands out: owners are handed out from 1 up, one per
-// allocator opened (core/atlas_allocator.hpp, A SLOT IS A RECEIPT), and this test opens a few.
+// An owner number this test never sees handed out: owners are handed out from 1 up, one per
+// allocator opened, and 4294967295 only after that many (core/atlas_allocator.hpp, A SLOT IS A
+// RECEIPT); this test opens a few.
 constexpr std::uint32_t k_owner_never_handed_out = 0xFFFFFFFFU;
 
 } // namespace
@@ -460,7 +461,7 @@ GLINTFX_TEST(texture_atlas_a_receipt_not_current_reads_its_reason_and_no_region)
 // T6-B2: reading a receipt, the owner is read first (texture_atlas.hpp, THE RECEIPT). An owner that
 // is not this atlas's reads as another atlas's, whatever the other fields say; with this atlas's
 // owner, the slot table decides. The receipt of `other` is the one of `a` with only its owner
-// changed (the same cell, number and generation), so each reads as the other's in the other atlas.
+// changed (the same cell, number and generation): only the owner tells the two apart.
 GLINTFX_TEST(texture_atlas_reading_a_receipt_reads_its_owner_first) {
     reset();
     arm(0);

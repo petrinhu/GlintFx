@@ -3448,15 +3448,14 @@ jobs:
   # confirmado no proprio repositorio: windows-latest = windows-2025)
   # e o script de instalacao images/windows/scripts/build/Install-LLVM.ps1
   # (fetched 03/09/2026):
-  #   - LLVM 20.1.8 standalone, instalado via `Install-ChocoPackage llvm`
-  #     no caminho x64 (nao o ramo ARM64 do mesmo script) - o pacote
-  #     oficial da LLVM traz clang-tidy.exe no mesmo bin/ que clang.exe,
-  #     que o proprio Pester de fabrica da imagem (LLVM.Tests.ps1) ja
-  #     prova estar no PATH ("clang --version" sem caminho completo).
-  #   - Visual Studio 2022 Enterprise 17.14 traz os componentes
-  #     VC.Llvm.Clang e VC.Llvm.ClangToolset (integracao clang-cl com o
-  #     MSBuild/IDE) - NAO e o que este job usa; o clang-tidy vem do
-  #     LLVM standalone acima, que fala com qualquer compile_commands.json,
+  #   - o LLVM standalone da imagem (`Install-ChocoPackage llvm`, caminho
+  #     x64) e os componentes VC.Llvm.Clang/VC.Llvm.ClangToolset do Visual
+  #     Studio NAO sao mais o clang-tidy deste job: desde a imagem
+  #     windows-2025-vs2026 (run 44739396242) o job instala o LLVM 23.1.6
+  #     oficial e prova qual clang-tidy esta no PATH (CLANG-WIN-STL, ver os
+  #     passos "Instalar o LLVM 23.1.6 oficial" e "Versoes da toolchain").
+  #     O pacote oficial da LLVM traz clang-tidy.exe no mesmo bin/ que
+  #     clang.exe, e o clang-tidy fala com qualquer compile_commands.json,
   #     inclusive um gerado por cl.exe (deteccao automatica de driver
   #     estilo MSVC no clang-tidy, sem flag extra).
   #   - cppcheck e gitleaks NAO constam no inventario desta imagem
@@ -3478,15 +3477,6 @@ jobs:
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
-
-      # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE) -
-      # CMAKE_EXPORT_COMPILE_COMMANDS precisa de um CMake que atenda o
-      # piso 4.1 que este projeto declara, e o clang-tidy le o
-      # compile_commands.json que o CMake escreve, nao o compilador em
-      # si.
-      - name: Versoes da toolchain
-        shell: pwsh
-        run: clang-tidy --version
 
       # Mesmo passo CI-WIN-ENV do job `windows` acima: sem o ambiente do
       # MSVC preparado, o cl.exe que o CMake vai gravar dentro do
@@ -3525,6 +3515,88 @@ jobs:
         shell: pwsh
         run: tools/ci/windows/prep.ps1
 
+      # CLANG-WIN-STL (D-W8-1164: o lider escolheu por AskUserQuestion
+      # "Instalar Clang 22 (Recomendado)"; depois, D-W8-1922 "23.1.6",
+      # D-W8-1923 "Instalador oficial", D-W8-1924 "Impressao digital" e
+      # D-W8-1925 "Sem cache", 20/11/2026). MEDIDO no run 44739396242
+      # (commit f274f5f6): a imagem passou a ser windows-2025-vs2026
+      # 20261116.315.1, com o Visual Studio 18 e o MSVC 14.52.37025, e o
+      # LLVM da imagem continuou 20.1.8. A STL do MSVC 14.52 recusa todo
+      # Clang abaixo do 22 (yvals_core.h:923, "error STL1000: Unexpected
+      # compiler version, expected Clang 22 or newer"): 181 de 183
+      # arquivos reprovaram por isso, nenhum por achado do proprio codigo.
+      # O run 43482138342 (13/11/2026, imagem anterior) passou com o
+      # mesmo job.
+      #
+      # O CONSERTO: o LLVM 23.1.6 oficial (release llvmorg-23.1.6 de
+      # github.com/llvm/llvm-project), pelo instalador MSI
+      # LLVM-23.1.6-win64.msi - a linha 23 nao publica mais o .exe NSIS.
+      # O destino e' $env:RUNNER_TEMP, pela propriedade INSTALL_ROOT: o
+      # llvm/CMakeLists.txt da tag usa o gerador WIX do CPack, com escopo
+      # perMachine, e o modelo WIX.template.in do CMake liga
+      # WIXUI_INSTALLDIR a INSTALL_ROOT (lido no codigo-fonte, nao medido
+      # no runner). INTEGRIDADE: o SHA-256 abaixo e' FIXO, medido em
+      # 20/11/2026 por curl e sha256sum no proprio arquivo da release, e
+      # igual ao `digest` que a API de releases do GitHub publica; um byte
+      # diferente reprova antes de qualquer execucao. msiexec: /qn (sem
+      # janela), /norestart, e o log /l*v em $env:RUNNER_TEMP. O msiexec
+      # devolve o controle antes do fim: Start-Process -Wait -PassThru,
+      # para esperar e ler o codigo de saida. 0 e 3010 (sucesso, com um
+      # reinicio pedido e nao feito) passam; outro codigo reprova e
+      # imprime o fim do log. O caminho nao pode ter espaco, para o
+      # msiexec nao depender de aspas. A imagem instalou o 20.1.8 pelo
+      # NSIS (Chocolatey), e o MSI so' reconhece instalacoes pelo
+      # UpgradeCode dele: INFERENCIA, nao medida, de que o MSI nao toca
+      # aquela instalacao. ANTES do marco prep: download e instalacao sao
+      # preparo, e uma queda de rede aqui e' falha de infraestrutura
+      # (rerun_guard). A PROVA de que o clang-tidy chamado e' este vem num
+      # passo PROPRIO depois do marco prep ($env:GITHUB_PATH so' vale do
+      # passo seguinte em diante). GEMEO (GODS_LAWS.md L-17): os jobs
+      # `windows`, `windows-sanitizer` e `windows-debug` compilam com o
+      # cl.exe, nunca com o Clang, e passaram no mesmo run e na mesma
+      # imagem; o portao win32-link (tools/msvc-container/) roda o cl.exe
+      # sob Wine. So' este job usa o Clang do lado Windows.
+      - name: Instalar o LLVM 23.1.6 oficial (clang-tidy deste job)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $versao = '23.1.6'
+          $sha256 = '81F7EB520CA698EB2D5CD8BC4B8F24F7ADD9ED66ED40A6F722A6E6F060737C00'
+          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$versao/LLVM-$versao-win64.msi"
+          $instalador = Join-Path $env:RUNNER_TEMP "LLVM-$versao-win64.msi"
+          $destino = Join-Path $env:RUNNER_TEMP "llvm-$versao"
+          $registro = Join-Path $env:RUNNER_TEMP "llvm-$versao-msiexec.log"
+          $comEspaco = @(@($instalador, $destino, $registro) | Where-Object { $_ -match '\s' })
+          if ($comEspaco.Count -gt 0) {
+            Write-Error "um dos caminhos tem espaco ('$instalador', '$destino', '$registro') - o msiexec deste passo nao usa aspas"
+            exit 1
+          }
+          Invoke-WebRequest -Uri $url -OutFile $instalador -MaximumRetryCount 3 -RetryIntervalSec 10
+          $obtido = (Get-FileHash -Algorithm SHA256 -LiteralPath $instalador).Hash
+          if ($obtido -ne $sha256) {
+            Write-Error "SHA-256 do instalador nao confere: obtido $obtido, esperado $sha256 ($url). Nada foi executado."
+            exit 1
+          }
+          Write-Host "sha256 ok: $obtido ($url)"
+          $argumentos = "/i $instalador /qn /norestart INSTALL_ROOT=$destino /l*v $registro"
+          $processo = Start-Process -FilePath 'msiexec.exe' -ArgumentList $argumentos -Wait -PassThru
+          Write-Host "msiexec saiu com codigo $($processo.ExitCode)"
+          if ($processo.ExitCode -ne 0 -and $processo.ExitCode -ne 3010) {
+            if (Test-Path -LiteralPath $registro) {
+              Get-Content -LiteralPath $registro -Tail 40 | ForEach-Object { Write-Host $_ }
+            }
+            Write-Error "o msiexec do LLVM $versao saiu com codigo $($processo.ExitCode) (log: $registro)"
+            exit 1
+          }
+          $binario = Join-Path $destino 'bin\clang-tidy.exe'
+          if (-not (Test-Path -LiteralPath $binario)) {
+            Write-Error "$binario nao existe depois do msiexec (INSTALL_ROOT nao foi respeitado?)"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $destino 'bin')
+          Write-Host "instalado: $binario"
+
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
       # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
@@ -3554,6 +3626,38 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # CLANG-WIN-STL, a PROVA (GODS_LAWS.md L-40): o clang-tidy que o
+      # passo `clang-tidy - src/` chama pelo nome, no PATH, e' o
+      # instalado acima, e e' o 23.1.6. Passo proprio, depois do marco
+      # prep e do CMake pinado: o $env:GITHUB_PATH do passo de instalacao
+      # so' vale daqui em diante, e o PATH que o vcvarsall gravou em
+      # $env:GITHUB_ENV poe pastas do Visual Studio no caminho - o que
+      # decide e' quem o Get-Command acha primeiro, nunca a ordem
+      # presumida. Reprova se o primeiro clang-tidy do PATH nao for o
+      # arquivo instalado, ou se a versao nao for exatamente a 23.1.6.
+      - name: Versoes da toolchain
+        shell: pwsh
+        run: |
+          $esperado = Join-Path $env:RUNNER_TEMP 'llvm-23.1.6\bin\clang-tidy.exe'
+          $achado = @(Get-Command clang-tidy -CommandType Application -ErrorAction Stop)[0].Source
+          Write-Host "primeiro clang-tidy do PATH: $achado"
+          if ($achado -ne $esperado) {
+            Write-Error "o clang-tidy do PATH e' '$achado', nao o instalado '$esperado' - o da imagem ou o do Visual Studio esta na frente"
+            exit 1
+          }
+          $saida = @(& $achado --version)
+          $rc = $LASTEXITCODE
+          Write-Host ($saida -join "`n")
+          if ($rc -ne 0) {
+            Write-Error "clang-tidy --version saiu com codigo $rc"
+            exit 1
+          }
+          if (-not (($saida -join "`n") -match 'LLVM version 23\.1\.6(\s|$)')) {
+            Write-Error "clang-tidy --version nao diz 'LLVM version 23.1.6'"
+            exit 1
+          }
+          Write-Host "ok: clang-tidy 23.1.6 do LLVM oficial, em $achado"
 
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real

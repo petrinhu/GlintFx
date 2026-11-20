@@ -11427,3 +11427,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **(3)** A autorização de push, merge, tag e deploy foi mantida, com os portões da L-24 fechados.
   - **(4)** O limite de 3 pesados e a limpeza horária seguem como estão, enquanto ele decide sobre a L-11 e a L-67.
   - **Pendência dele, agora:** as decisões autônomas desta noite esperam ratificação (D-W8-1150 a 1162 do main, e as do CTO desde a 1591 até a 1899).
+- **D-W8-1163 (main, 20/11 10:25): as respostas do líder às propostas da H5** (`ordem-h5-errata1.md`, md5 `5cdaa55612026326c8adb78a1a6b3440`), por AskUserQuestion:
+  - **D-W8-1900:** *"CTO escreve tudo (Recomendado)"*. O haiku aplica os blocos e prova.
+  - **D-W8-1901:** *"2 tons (Recomendado)"*. Fica `TOL=2`.
+  - **D-W8-1902:** *"Manter e explicar (Recomendado)"*.
+  - **D-W8-1903:** o líder respondeu *"o que for mais rápido teoricamente"*. O main leu isso como a opção (a), a prova do Windows no CI do push: ela não liga a VM nem acrescenta um trabalho pesado local, e roda em paralelo no servidor. É leitura do main; o líder confirma na saída.
+  - **D-W8-1904:** *"Só pela tela (Recomendado)"*.
+  - **D-W8-1905:** *"Aceitar e declarar (Recomendado)"*.
+  - **D-W8-1906:** *"sprite shadows (Recomendado)"*.
+  - **D-W8-1907:** *"Só na lista (Recomendado)"*.
+  - **D-W8-1908:** *"Confirmar todas (Recomendado)"*. As D-W8-1707 a 1714 ficam ratificadas.
+  - **Sem errata 2.** A H5 vai ao implementador `backend-engineer` haiku NOVO depois da vez da `manutencao`.

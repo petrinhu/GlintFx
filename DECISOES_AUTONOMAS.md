@@ -11482,3 +11482,15 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Gêmeo:** nenhum, conferido nas duas plataformas.
   - **O `OnlyUndefined`** fica fora do CI.
   - **Entrega:** dois commits, do implementador haiku, e o item TIDY23-ESCAPE criado no TODO, junto com 4 itens na INBOX.
+- **D-W8-1169 (main, 20/11 13:45): o TIDY23-ESCAPE entra e vai à revisão.**
+  - **Os commits:** `a17f342c` (fix(gfss)) e `4e68bd24` (refactor(gl)), ambos com os três trailers.
+  - **O que o implementador mediu:**
+    - o vermelho abortou com `std::bad_alloc`, rc 8, como previsto;
+    - o verde passou 100%;
+    - a mutação digits10 foi pega;
+    - preci --fast 399/399 com `familia_A=61`, e o --sanitizer-only verde;
+    - o clang-tidy 23 dos 4 arquivos deu 0 avisos.
+    - Desvio declarado: rodou no hospedeiro, não no contêiner (L-09 rebaixada).
+  - **CI:** enviado ao `onda-w8` e disparado o run `44776410242` (`4e68bd24`), que é o portão da seção 6 da ordem.
+  - **Revisor N1:** um `qa-engineer` haiku NOVO.
+  - **Também entrou:** o `ee6cd633` (ESCOPO.md, L-39 global movida para o projeto), que veio de outra sessão.

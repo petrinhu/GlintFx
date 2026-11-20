@@ -11505,3 +11505,21 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **TIDY23-ESCAPE e R2D-SPRITE-SHADE** ficam ✅:
     - a revisão fechou, com a exceção de autoria registrada em D-W8-1167;
     - o CI fechou verde, com o exemplo das sombras em todas as plataformas.
+
+- **D-W8-1171 (main, 20/11 14:50): o levantamento do CTO para fechar a W8 entra, e as decisões técnicas D-W8-1934 a D-W8-1947 ficam registradas para o líder ler depois** (ordem do líder de 20/11, D-W8-1166).
+  - O texto delas está em `.trabalho/cto-w8/ordem-g3b.md` §2 (md5 `204ad48f`); este registro resume.
+  - **D-W8-1934:** o fechamento da W8 soma três textos: `plano-w8-v2.md` §3, `plano-w8-v3.md` §5 e a D-W8-248. O CI verde sozinho não fecha a onda (L-24 global).
+  - **D-W8-1935:** R2D-TEXTURE, R2D-IMAGE-RESOLVER, WL-ACK-CONFIGURE-SEGUINTES e CLANG-TIDY-23-TRIAGE passam a ✅. As quatro tinham a revisão limpa e só esperavam um CI verde. O main reconferiu: os 12 commits citados são ancestrais de `4e68bd24` (`git merge-base --is-ancestor`, 12 de 12 com rc 0). A ATLAS-WIKI fica 🔍 até uma verificação de leitura.
+  - **D-W8-1936:** a STROKE-FAN-ATOM sai da W8 para a `W9-B`, com o pré-requisito `R2D-FILL-POLYGON`. O líder já a tinha tirado da onda (D-W8-1117).
+  - **D-W8-1937:** o teto do contêiner da foto desce de 512 para 256 por uma fatia nova, a G3-LIM (parte A da G3b). Foi recusado pedir exceção à manutenção: daria 656 processos contra os 400.
+  - **D-W8-1938:** a imagem `glintfx-wltest:g3` vale para a G4b enquanto `git diff --quiet <sha_B1> HEAD -- src include examples tests cmake CMakeLists.txt` der rc 0.
+  - **D-W8-1939:** o critério da D-W8-1718 fica mais duro com três coisas: o vigia do cgroup, o `foto_rc` e o `first_window` como canário.
+  - **D-W8-1940:** os limites da manutenção. Scope com TasksMax=144 quando houver contêiner vivo e 400 quando for só o hospedeiro, contêiner com 256, paralelismo 4. O `docker run` de sintaxe PowerShell do `preci` não tem teto próprio; é limite declarado.
+  - **D-W8-1941:** a ordem do resto da onda. G3b, depois G4b (OK do líder pela L-50), depois a verificação profunda, depois F1 e o fechamento.
+  - **D-W8-1942:** as 16 linhas do PNG entram no `TODO.md` no fechamento.
+  - **D-W8-1943:** nenhuma das D-W8-1934 a D-W8-1947 é porta de mão única.
+  - **D-W8-1944:** o conteúdo da G3-LIM é 12 trocas de texto e 2 de dado, aplicadas por `aplica.py`.
+  - **D-W8-1945 (afrouxamento declarado):** a montagem da parte B não roda o `rpm -q kwin` nem o `check_image_freshness.sh`, porque os dois sobem contêiner sem teto. O frescor fica como "não rodou", e a prova passa a ser a imagem montada com `--pull` a partir do HEAD.
+  - **D-W8-1946:** o mecanismo da G3, pendente desde a D-W8-1106, fica decidido. É a variante nomeada do portão, só com o nó da placa integrada, mais o aviso de uma linha ao líder antes da rodada.
+  - **D-W8-1947:** a revisão da parte A e a parte B leem o blob do commit da parte A, nunca a árvore viva.
+  - **Sobem ao líder, no momento de cada passo:** o OK da GeForce para a G4b, com os 5 alertas; o merge e a marca v0.7.0.0, quando o portão fechar; a porta de mão única D-W8-1247; e o lote de ratificação.

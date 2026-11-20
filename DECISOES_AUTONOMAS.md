@@ -11392,3 +11392,13 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - Picos, todos sem oom: contêineres com até 17 processos e 941 MB; preci com até 36 processos e 3,4 GB. O MemAvailable ficou sempre acima de 17,9 GiB.
   - **Desvios declarados por ele** (`h3b2/relatorio.txt`): D14, processo por item fora da seção 4; D15, paralelismo 8 no hospedeiro em vez de 4. Os dois foram repassados à `manutencao`. O revisor recebeu ordem expressa de usar 4.
   - **Revisor N1:** `qa-engineer` haiku NOVO, pela seção 9 da ordem. Os contêineres só sobem depois da vez da `manutencao`.
+- **D-W8-1159 (main, 20/11 06:18): a H3b-2 fecha.**
+  - **Revisão N1** (`rev-h3b2.txt`), em duas rodadas:
+    - a 1ª rodada deixou os itens 5, 7, 8 e 9 sem rodar; o revisor foi retomado para completá-los;
+    - a 2ª deu NÃO LIMPA por 1 IMPORTANTE só de texto: `docs/auditoria-api-sprite-shade.md` dizia que a fatia não tinha evento novo e que três testes não existiam;
+    - código sem achado;
+    - mutantes: os 10 rodados morreram pelo caso previsto;
+    - GCC, Clang e MSVC (/W4 /WX) passaram, e a sonda da interface pública passou.
+  - **Conserto:** N4 (camada de texto da L-12) em `b8548aa0`, uma nota "Atualização pós-commit" depois de cada frase. O main conferiu cada `arquivo:linha` citado contra a árvore.
+  - **Sem CI:** o envio do ramo ao GitHub segue bloqueado pela permissão.
+  - **Antes da H3b-3,** o CTO confere se `b8548aa0` quebra a base dela (a H3b-3 escreve no mesmo parecer) e emite a errata2: varredura em lote (L-11), paralelismo 4 e TasksMax=400 para o revisor.

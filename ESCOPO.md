@@ -474,7 +474,7 @@ O value type `glintfx::version` ganha o **quarto campo** (`tweak_version`), para
 - **O vocabulário segue o dos padrões web** onde eles já resolveram o problema, porque **milhões de pessoas já sabem essas palavras** — e conhecimento que o consumidor já tem é o recurso mais barato que existe. Inventar sinônimo para o que já tem nome é custo puro.
 - **Erro de escrita se diagnostica com linha, coluna e o que se esperava.** Formato amigável que falha com mensagem obscura **não é amigável** — é hostil na hora que mais importa.
 
-
+**Encurtar precisa provar ganho de legibilidade.** Toda proposta de sintaxe, nome de propriedade ou qualquer encurtamento em `gfss`, `gfml` ou em outra API e formato do GlintFx tem de provar ganho real de legibilidade, e não apenas economia de caracteres. Encurtar por encurtar é regressão, não otimização. O critério do revisor não é "funciona?", e sim "uma pessoa que nunca viu isto entende esta linha lendo uma vez?". Se a resposta depende de consultar a documentação, de lembrar uma convenção interna ou de decifrar uma abreviação, o encurtamento falhou e vale a forma por extenso. Esta é a heurística de clareza que vence a elegância. Regra de 21/08/2026, nascida da revisão do formato RCSS; estava nas leis globais da máquina e foi transferida para este canon por decisão do líder em 20/11/2026.
 
 **Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).
 

@@ -11373,3 +11373,11 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A T6-B2 fecha** assim: fatia `7ca6eeda`, consertos `113b924a`, `6fc45f19` e `3f3c02c8`, e o texto em `752f5be9`. As quatro decisões de API foram mantidas pelo líder (D-W8-1155).
   - **Lei de envio** (L-11, quinta emenda): a onda tem mais de 7 dias. Vão ao ramo `onda-w8` os commits até o último revisado limpo. Cópia privada do dia: `/home/petrus/IDrive/backups-git/GlintFx/GlintFx-20261120-0348.bundle`, com verify rc 0.
   - **Próximo:** a H3b-2, pelo despacho mais a `despacho-h3b2-errata2.md` (md5 `8e702fb2`), com a vez pedida à `manutencao` e as condições dela (`condicoes-manutencao-1120.md`).
+- **D-W8-1157 (main, 20/11 04:15): o plano do PNG pós-W8 está pronto. As decisões ficam com o CTO, pela ordem do líder de 20/11.**
+  - **O plano:** `plano-pos-w8-png.md`, md5 `51a4fc44`, com as decisões D-W8-1872 a 1894 do CTO, todas a ratificar.
+  - **W-PNG-1, 9 linhas:** módulos, kit de entrada hostil, inflate, revisão da API de PNG, chunks, PNG, carregamento, documentos e CI-VERDE. Ao fim dela, a biblioteca lê todo PNG não entrelaçado em RGBA de 8 bits.
+  - **W-PNG-2, 7 linhas:** Adam7, saídas, primeiro fuzzer, PngSuite (condicional), FALLBACK-KEEP-ENDS-NEAR, documentos e CI-VERDE.
+  - **Quem decide.** A ordem do líder (*"todas as dúvidas são resolvidas por clevel"*) deixa as escolhas de API com o CTO. As portas de mão única são D-W8-1873, 1875, 1877 a 1881, 1883, 1885, 1886, 1889 e 1890.
+  - **O que o CTO recomendou mostrar ao líder:** 1872 (duas ondas no lugar de uma fatia), 1874 (Adam7 suportado, porque a norma PNG 3 obriga), 1875 (o decodificador não aloca), 1877 (`limit_exceeded`), 1880 (a cor só é rotulada, nunca transformada), 1888 (primeiro fuzzer) e 1889 (texto da elipse). Vão na lista de ratificação da saída da onda.
+  - **Só sobe ao líder por lei:** a exceção nº 2 da L-07, para usar o corpus PngSuite, que seria vendorizar dado de terceiro. Também sobe a instalação de pacote para o fuzzer (L-51 global). O plano não depende de nenhuma das duas. A pergunta sobe quando a fatia condicional chegar.
+  - **As 16 linhas entram no `TODO.md` no fechamento da W8,** pelo texto da seção 6 do plano, com as ordens de serviço escritas e executadas antes pelo CTO (L-12).

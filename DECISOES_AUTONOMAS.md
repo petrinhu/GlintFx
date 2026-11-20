@@ -11671,3 +11671,17 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A observação visual (L-13 global):** o QA viu as 4 e descreveu o que viu. O main reconferiu a `textures` pela imagem: os 4 quadros, os 3 trapézios de xadrez em perspectiva e a fileira de peças.
   - **Os desvios do QA, aceitos pelo main:** o `gpu.lock` é da manutenção, por isso o QA não o criou nem o apagou. A manutenção solta a trava.
   - **Ficou de fora:** o pico de VRAM durante a foto não foi medido, porque a ordem não o grava.
+
+- **D-W8-1182 (LÍDER, 20/11 18:56): as respostas do líder à lista de ratificação da W8** (`.trabalho/cto-w8/lista-ratificacao-w8.md`, md5 `95df1214`), feitas por AskUserQuestion em duas chamadas. As respostas, verbatim:
+  - **Modelo da verificação profunda:** *"Opus só nesta verificação"*. É uma exceção nomeada à regra de modelos (`/modelos_sessao`), que vale só para os 2 verificadores da verificação profunda da W8 (`ordem-verif-profunda-w8.md`). O resto segue em Haiku.
+  - **D-W8-1247, o pacote do resolvedor de imagens:** *"Manter: o pacote nunca muda (Recomendado)"*. A porta de mão única fica RATIFICADA: o layout congela, e dado novo vem por tipo novo.
+  - **D-W8-24, a folha de estilo nunca abre arquivo:** *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-25, a cor das texturas** (alfa pré-multiplicado, luz linear, até 1 nível de 8 bits, margem no atlas com níveis de redução): *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-26, destruir a textura no meio do quadro** (seguro; vazamento com aviso, sem travar): *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-27, determinismo** (byte a byte com o mesmo binário; 4 ULP entre sistemas): *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-28 e D-W8-30, o grupo de sombra e o formato único do relatório do quadro:** *"Manter (Recomendado)"*. RATIFICADAS.
+  - **O lote das decisões autônomas:** *"Confirmar todas (Recomendado)"*. Ficam RATIFICADAS:
+    - as do main, de D-W8-1150 a D-W8-1181 (menos as que já eram respostas do líder), mais a leitura da D-W8-1903;
+    - as do CTO, de D-W8-1591 a D-W8-2006, menos as já respondidas;
+    - em destaque, a D-W8-1967 (o critério da foto alargado depois do dado), a D-W8-1982, a D-W8-1946, a D-W8-1591 e a D-W8-1997.
+  - **Pendente do líder:** só o merge e a marca v0.7.0.0, que sobem juntos quando os portões G1 a G7 do F1 estiverem verdes (§7 de `ordem-f1-w8.md`).

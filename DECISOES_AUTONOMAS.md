@@ -11603,3 +11603,24 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - O1, IMPORTANTE pré-existente: `tests/container/check_image_freshness.sh:70` sobe um `docker run --rm` sem teto. A manutenção proibiu rodar esse script até o conserto;
     - O3: `docs/ferramentas-de-apoio-aos-testes.md:74` diz que `--pids-limit` só aparece em plano, e isso é falso.
   - **O que vem a seguir é a parte B:** as 4 fotos na placa INTEGRADA. A manutenção confirmou que os 5 alertas e o OK do líder (L-50) valem só para a GeForce. A Intel pede isolamento, uma rodada curta e com teto, e o aviso de uma linha ao líder antes.
+
+- **D-W8-1177 (main, 20/11 17:20): a foto canária da G3b reprovou, e o CTO responde com a G3-ES. As decisões D-W8-1966 a D-W8-1972 ficam registradas para o líder ler depois. Uma delas alarga um critério depois do dado, e o main a destaca.**
+  - **FATO da rodada (`.trabalho/cto-w8/g3b/b/`):**
+    - `first_window` com `foto_rc=50`;
+    - o facts.log registra `compositing=['Compositing Type: OpenGL ES']` e "formato QImage 18 recusado";
+    - não saiu PNG;
+    - isolamento 0, e o vigia deu 23 processos e 374 MiB, sem nenhum fork recusado;
+    - KWin 6.8.3.
+  - **As decisões do CTO, com a pesquisa feita antes da 2ª tentativa (L-42):**
+    - **D-W8-1966:** o KWin 6.8 tirou o OpenGL de mesa da composição e só compõe em ES. O renderizador é a Intel real (Iris Xe), e não software.
+    - **D-W8-1968:** a captura de janela do KWin pede sempre `Format_RGBA8888_Premultiplied` (o 18). O juiz passa a aceitá-lo. O `img.raw` da rodada reprovada, lido nessa ordem, deu PNG igual byte a byte ao da G2 (md5 `6aef691c`), e as sondas deram 12 de 12.
+    - **D-W8-1967 (o critério alargado):** a exigência "compositing = OpenGL" da D-W8-1718 passa a aceitar OpenGL ES.
+    - **D-W8-1970:** um veto novo e mais estrito. O md5 do PNG do `first_window` tem de ser igual ao da G2.
+    - **D-W8-1971:** a imagem `b61ea148` continua valendo, sem novo `docker build`.
+    - **D-W8-1972:** o CTO trata a mudança como nomeada para ratificação, e não como pergunta ao líder.
+  - **O alerta do main pela L-43 global:** o critério muda DEPOIS de visto o resultado, e muda a favor de passar, que é exatamente o caso de que a lei manda desconfiar. O main aceita, por três razões:
+    - a causa é um fato externo e citado, não um ajuste ao dado: o KWin 6.8 não compõe mais em OpenGL de mesa, e o critério antigo passou a ser impossível em qualquer máquina com o KWin atual;
+    - o que a foto prova não muda: composição na placa nomeada, com software recusado;
+    - entra um veto mais estrito que o antigo, o PNG idêntico ao da G2.
+  - Mesmo assim, a D-W8-1967 vai em destaque na lista de ratificação do líder.
+  - A ordem está em `.trabalho/cto-w8/ordem-g3b-es.md` (md5 `0cddb54d`). Ela tem a parte A, com 1 commit em 2 arquivos e 1 `preci --fast`; a A-rev, com 4 mutantes; e a parte B', que recomeça pelo canário.

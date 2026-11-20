@@ -13,14 +13,15 @@ glintfx has two parts for this:
 - The **atlas** owns the big texture, writes each picture into the place the
   allocator chose, and tells you where that place is.
 
-**Status, as of 2026-11-13: in progress.** The atlas is part of the texture
+**Status, as of 2026-11-20: in progress.** The atlas is part of the texture
 API, which is still under review before its public names are called stable.
 The names on this page are the ones in the public headers today. They can
 still change before that review ends. The
 [README's Status section](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction)
-is the dated list of what is finished, and it does not mention the texture
-API yet. The [Home](Home) page lists this page under "In progress", not with
-the finished areas.
+lists textures among the parts that are built: it says textures are drawn,
+from images handed in as bytes. It does not name the atlas yet. The README
+mentions the atlas only in its examples section. The [Home](Home) page lists
+this page under "In progress", not with the finished areas.
 
 ## Words used on this page
 
@@ -38,6 +39,9 @@ the finished areas.
   blends the neighbouring texels.
 - **Margin**: a ring of extra texels around each picture. The ring holds
   copies of the picture's own edge (see [Why the margin exists](#why-the-margin-exists)).
+- **Cell**: the place the allocator gives one picture. A cell is big enough
+  for the picture and its margin. Each side of a cell is rounded up to a
+  multiple of 2^k.
 - **Reduced levels** (also called mipmaps): smaller copies of the texture,
   made ahead of time. Each one is half the size of the one above it. They
   make a picture drawn small look right.
@@ -53,8 +57,14 @@ the finished areas.
   one rectangle.
 - **Flush**: the moment the renderer sends the pieces it has collected to the
   card, in order. Nothing sent after a flush is drawn before what came earlier.
-- **Slot**: the receipt the allocator gives you when it places a picture. You
-  keep it to find the picture later, or to give its place back.
+- **Frame report**: the summary that `finish_frame()` returns when a frame
+  ends. It counts the pieces that were refused, by reason, and how many times
+  the bound texture changed.
+- **Slot**: the receipt that `add_image()` gives you for the cell that holds a
+  picture. A slot has a number for the cell, and a generation that counts how
+  many times that number was handed out. So an old slot never matches a newer
+  cell that reuses the number. You keep the slot to draw the picture, to find
+  its place, or to give the cell back.
 - **Moved-from**: an object whose contents were handed to another object with
   a move. It still exists, but it holds nothing.
 - **Thread**: one path of work inside a program. Two threads can run at the
@@ -73,6 +83,8 @@ code stays correct.
   the atlas, its descriptor and each call.
 - [`atlas_allocator.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/core/atlas_allocator.hpp):
   the allocator, the slot and its refusals.
+- [`renderer_2d.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/renderer_2d.hpp):
+  the drawing calls, including the one that draws a picture of the atlas.
 - [`examples/textures/textures.cpp`](https://github.com/petrinhu/GlintFx/blob/main/examples/textures/textures.cpp):
   a program that draws the same white picture from a plain texture and from
   an atlas, side by side, so you can compare the two.
@@ -83,6 +95,9 @@ This is the atlas code of the example, shortened. The `picture` is a
 `gltfx_image_view` over your own pixel bytes. The example gets its image from
 a small helper. The view's fields are in
 [`image_view.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/core/image_view.hpp).
+The example draws the picture with `draw_texture()` and a region from
+`region_of()`, the path for the textured calls that take a region. Step 4
+shows the call that takes the slot directly.
 
 ```cpp
 // 1. Open the atlas on a renderer that is already open.
@@ -137,10 +152,10 @@ example's header describes the scene. The pixels it expects are listed in
 
 ### 2. Add a picture
 
-`add_image()` takes a `gltfx_image_view` and returns a slot. The atlas gives
-the picture a **cell**: its own place, big enough for the picture and its
-margin. Each side of a cell is rounded up to a multiple of 2^k, so every
-cell starts on a multiple of 2^k.
+`add_image()` takes a `gltfx_image_view` and returns a slot, the receipt of
+the cell that holds the picture. The atlas gives the picture a **cell**: its
+own place, big enough for the picture and its margin. Each side of a cell is
+rounded up to a multiple of 2^k, so every cell starts on a multiple of 2^k.
 
 The library reads your pixels only during the call. You may free your bytes
 right after `add_image()` returns.
@@ -153,32 +168,99 @@ the old contents, call `renderer.flush()` before `add_image()`.
 ### 3. Find the picture
 
 `region_of(slot)` returns the rectangle of the picture itself, not of its
-cell, in texels of `atlas.texture()`. Always ask `region_of()` for the place.
-A later version of glintfx may place pictures differently, so do not copy
-positions from one run into your code.
+cell, in texels of `atlas.texture()`. You need it for the textured calls that
+take a region, such as `draw_texture()`, and for a part of a picture.
+`draw_atlas_image()` takes the slot itself, so it does not need `region_of()`.
+
+Always ask `region_of()` for the place. A later version of glintfx may place
+pictures differently, so do not copy positions from one run into your code.
 
 ### 4. Draw the picture
 
-A drawing call takes a **region**, never a slot. Pass `atlas.texture()` and a
-region made from `region_of()`. The options for the tint and the mirror are in
-[`texture_region.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/texture_region.hpp).
-The drawing calls themselves are in
-[`renderer_2d.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/renderer_2d.hpp).
-This wiki has no page for the textured drawing calls yet.
+To draw a whole picture from the atlas, pass the atlas and the slot to
+`draw_atlas_image()`. The call draws the picture and nothing around it, into
+the rectangle you give. The mirror is applied inside the picture, wherever
+its cell is in the texture. The tint multiplies the picture's colours. The
+tint you do not choose is opaque white, which leaves the picture as it is.
+
+Include the header before you call it:
+
+```cpp
+#include <glintfx/draw2d/texture_atlas.hpp>
+```
+
+Then, between `renderer.begin_frame(...)` and `renderer.finish_frame()`:
+
+```cpp
+// The slot from add_image(), a whole picture, and a rectangle on the screen.
+renderer.draw_atlas_image(atlas, {slot.value()}, {{356.0, 316.0}, {64.0, 64.0}});
+
+// The same, mirrored left to right and with a pink tint.
+renderer.draw_atlas_image(
+    atlas,
+    {.slot = slot.value(),
+     .mirror = glintfx::gltfx_texture_mirror::flip_left_right,
+     .tint = glintfx::gltfx_rgba{1.0F, 0.5F, 0.5F, 1.0F}},
+    {{356.0, 316.0}, {64.0, 64.0}});
+```
+
+The example above is built by continuous integration, and it does not call
+`draw_atlas_image()` yet. The first snippet has the form the library's own
+tests use for this call. The second one names the mirror and the tint. Their
+fields are declared in `gltfx_atlas_paint`, in
+[`texture_atlas.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/texture_atlas.hpp).
+
+Use `draw_atlas_image()` to draw one whole picture. Use `draw_texture()` with
+a region from `region_of()` for a part of a picture, and for the other
+textured calls of [`renderer_2d.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/renderer_2d.hpp):
+`draw_texture_quad()`, `fill_textured_triangles()` and
+`fill_indexed_textured_triangles()`. This wiki has no page for those calls
+yet.
+
+`draw_atlas_image()` returns nothing and never throws. A piece it refuses is
+not drawn. The refusal is counted in the frame report, under a counter named
+for its reason, such as `pieces_refused_stale_region`. The reasons, in the
+order they are checked:
+
+- `not_a_number`, then `infinite`: a value of the rectangle or of the tint is
+  not a finite number.
+- `negative_size`: the rectangle has a negative width or height.
+- `unknown_option`: the mirror is not one of the values of
+  `gltfx_texture_mirror`.
+- `texture_not_open`: the atlas was moved from.
+- `texture_other_renderer`: the atlas was opened on another renderer.
+- `region_other_atlas`: another atlas handed out the slot, or this atlas had
+  the slot before it received another atlas by move assignment.
+- `stale_region`: the slot was never handed out, as the default slot is, or
+  its cell was released or changed since `add_image()` returned it.
+- `pixel_position_out_of_range`: the batch transform takes a corner outside
+  the range the drawing program can scale.
+
+The slot is checked when the call runs. A piece drawn before `release_slot()`
+and not yet sent still shows what the texture holds when it is sent. See
+[step 2](#2-add-a-picture) for why `flush()` keeps earlier pieces as they were.
 
 ### 5. Give the place back
 
 `release_slot(slot)` frees the cell. The texels stay in the texture until
-another picture is written over them. After a release, do not draw from that
-region. The place may now hold a different picture. A slot that was already
-released is refused.
+another picture is written over them. After a release, do not draw the picture
+from that slot or from its region. The place may now hold a different picture.
+A slot that was already released is refused.
 
 ## How the allocator places pictures
 
 The allocator cuts the area into horizontal strips, called shelves. A shelf is
 as tall as the first picture that opened it, and holds pictures side by side.
-A new picture goes onto a shelf that fits it, or opens a new shelf. If no
-place is free, the call is refused as `no_free_space`.
+For each new picture, the allocator tries these steps, in this order:
+
+1. A shelf that already holds pictures, at least as tall as the new picture
+   and at most one and a half times as tall, with room for it. The shortest
+   such shelf wins.
+2. The topmost free strip that is at least as tall as the picture. The
+   picture opens a new shelf exactly as tall as itself.
+3. Any shelf that holds pictures, is at least as tall as the picture, and has
+   room for it.
+4. Otherwise the call is refused as `no_free_space`.
 
 Pictures of similar heights pack best. A picture much shorter than its shelf
 leaves the space under it empty until the shelf is empty again.
@@ -186,6 +268,17 @@ leaves the space under it empty until the shelf is empty again.
 Given the same calls in the same order, on an atlas of the same size, the
 allocator gives the same places on every system. That is a promise for one
 version of glintfx, not for all of them.
+
+### The allocator on its own
+
+The allocator is also a public class of its own, `glintfx::gltfx_atlas_allocator`.
+It needs no renderer and no graphics card. It fits any layout of rectangles,
+such as glyphs or the frames of a sprite sheet. `open(width, height)` returns a
+`gltfx_rslt` with the allocator. `allocate(width, height)` returns the slot of a
+new rectangle. `release(slot)` takes one back, and `release_all()` takes back
+every slot at once. `width()`, `height()` and `is_open()` tell you the size and
+whether the allocator holds anything. The full list of refusals, in order, is
+in [`atlas_allocator.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/core/atlas_allocator.hpp).
 
 ## Why the margin exists
 
@@ -204,8 +297,11 @@ grows with `mipmap_levels`. With no reduced levels, a margin of 1 is enough.
 
 ## Refusals
 
-Every refusal is a `gltfx_err` (see [API Reference: Core](API-Core)). The
-`rejected_value()` names the part that was wrong, as a short token.
+The refusals of `open()`, `add_image()`, `region_of()` and `release_slot()` are
+each a `gltfx_err` (see [API Reference: Core](API-Core)). The `rejected_value()`
+names the part that was wrong, as a short token. The drawing call
+`draw_atlas_image()` is different: it returns nothing, and it refuses a piece
+and counts the refusal in the frame report (see [step 4](#4-draw-the-picture)).
 
 | Call | Code | Token | Meaning and what to do |
 |---|---|---|---|
@@ -217,24 +313,35 @@ Every refusal is a `gltfx_err` (see [API Reference: Core](API-Core)). The
 | `add_image` | `invalid_argument` | `width` or `height` | The picture has no size, or its cell is bigger than the whole atlas. No release can make a cell that big fit, so use a bigger atlas. |
 | `add_image` | `invalid_argument` | `pixel_format`, `bytes_per_row` or `pixels` | The picture's bytes or format are not valid. |
 | `add_image` | `no_free_space` | `atlas_full` | No free place of that size is left now. Release pictures you no longer need, or open a second atlas. |
-| `add_image` | `out_of_memory` | `atlas_add_image` or `atlas_allocate` | The library ran out of memory. |
+| `add_image` | `out_of_memory` | `atlas_add_image` | The library ran out of memory. |
+| `add_image` | `out_of_memory` | `atlas_allocate` | The library ran out of memory, or no number is left for a new cell. All 4294967295 cell numbers are in use or retired, and a number is retired once its generation reaches 4294967295. Release cells, or open a second atlas. |
 | `add_image` | the errors of writing a texture | as they come | The card refused the picture's texels. The errors are named in [`renderer_2d.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/renderer_2d.hpp) under `update_texture()`. |
 | `region_of`, `release_slot` | `invalid_argument` | `atlas` | The atlas was moved from, and holds nothing. |
 | `region_of`, `release_slot` | `invalid_argument` | `stale_slot` | The slot was already released, or was never given out. Use the slot `add_image()` returned, until you release it. |
 | `region_of`, `release_slot` | `invalid_argument` | `slot_other_allocator` | The slot belongs to another atlas. Use a slot of this atlas. |
 
-A refused `open()` leaves nothing behind. A refused `add_image()` changes
-nothing, with two exceptions. Memory the library keeps between calls may stay
-grown. And if the card refuses the picture's data after its cell was taken,
-the cell is given back, and what the card holds there is not defined. Do not
-draw from that place until another picture is written there.
+A refused `open()` leaves nothing behind. A refused `add_image()` takes no
+cell. A refusal that comes before `out_of_memory` with `atlas_add_image`
+changes nothing. A refusal from that point on may leave the memory the library
+keeps between calls grown. If the card refuses the picture's data after its
+cell was taken, the cell is given back, and what the card holds there is not
+defined. Do not draw from that place until another picture is written there.
+The number of that cell may later be given out again, with a larger
+generation, so an old slot is refused rather than reused.
 
 ## Lifetime and threads
 
 - The atlas belongs to the renderer it was opened on. Do not use it after
   that renderer is gone.
+- An atlas cannot be copied. The copy constructor and the copy assignment are
+  deleted, so a copy does not compile. Move the atlas with `std::move`, as
+  step 1 does. `gltfx_atlas_allocator` cannot be copied either.
 - A moved-from atlas holds nothing. `is_open()` returns `false`, and
   `add_image()`, `region_of()` and `release_slot()` are refused.
+- An atlas that receives another atlas by move assignment first gives its own
+  cells and texture back. The slots it handed out before are then refused by
+  `draw_atlas_image()`, as in [step 4](#4-draw-the-picture). A slot follows its
+  cell through a move, so the atlas moved into can still use it.
 - Use one atlas from one thread at a time. The renderer itself is used from
   one thread too (see [API Reference: Draw 2D](API-Draw-2D)).
 
@@ -256,7 +363,8 @@ and of
   [`frame_2d_report.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/draw2d/frame_2d_report.hpp)).
   That is a number to measure, not a promise.
 - That places stay the same in a later version of glintfx.
-- That a drawing call takes a slot. It takes a region.
+- That the textured calls other than `draw_atlas_image()` take a slot. They
+  take a region, from `region_of()`.
 - Drawing from two threads at the same time.
 
 ## Related
@@ -268,6 +376,7 @@ and of
 
 ---
 
-Last reviewed: 2026-11-13, against the public headers as they stood that day.
+Last reviewed: 2026-11-20, against the public headers and the README as they
+stood that day.
 Owner: the glintfx maintainers. To report an inaccuracy, open an
 [issue](https://github.com/petrinhu/GlintFx/issues).

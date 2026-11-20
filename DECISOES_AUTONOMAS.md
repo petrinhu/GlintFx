@@ -11638,3 +11638,17 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - `PHOTO-FACTS-ATOMS` (D-W8-1977, I3 e I4);
     - `PHOTO-FACTS-FORMATO-0`: o formato 0 está sem controle (`tests/tools/composed_photo_facts.py:39`, achado da A-rev2).
   - **Trailers:** os commits trazem Opus e Haiku, porque o código é do CTO e foi aplicado por haiku (D-W8-1167).
+
+- **D-W8-1179 (main, 20/11 18:27): as 4 fotos compostas da G3b, na placa INTEGRADA Intel, PASSARAM.** Isso cumpre metade do item 11 do fechamento da W8, a ordem do líder de 06/10: *"exigir 2 fotos compostas locais. Uma da geforce e outra da integrada."*
+  - **A rodada:** parte B' de `ordem-g3b-es-fix1.md`, com o QA em haiku. O relatório está em `.trabalho/cto-w8/g3b-es-fix1/b/relatorio.txt`.
+    - HEAD `887cdf1a`, imagem `glintfx-wltest:g3` (`b61ea148`), KWin 6.8.3, compondo em OpenGL ES na Intel Iris Xe.
+  - **O veto D-W8-1970:** `veto_md5_rc=0`. O PNG do `first_window` saiu idêntico ao da G2 (`6aef691c`).
+    - O briefing do main pôs uma guarda com `exit` antes de cada foto do B'4. Ela rodou 3 vezes, com rc 0.
+  - **Por foto:** `foto_rc=0` nas 4. As sondas deram 12/0 (`first_window`), 80/0 (`shapes`), 77/0 (`textures`) e 17/0 (`sprite_shadows`).
+    - `isolamento=0` nas 4, com o HostConfig igual à linha de base de 256.
+    - O vigia do cgroup marcou 23/23/25/25 processos, com `pids_events_max=0`: o teto não recusou nenhum fork.
+    - O pico de memória foi de 577 MB.
+  - **A observação visual (L-13 global):** o QA viu as 4 imagens e descreveu o que viu. O main reconferiu `shapes` e `sprite_shadows` pela imagem e confirmou o que o QA descreveu.
+    - O QA declarou um limite: não viu com segurança, nesta resolução, a dobra da diagonal de F e G em `textures`. As sondas dela deram 77/0.
+  - **O que falta do item 11:** a G4b, na GeForce. Ela pede uma errata do CTO (a G4-0 refeita e a linha de base da GeForce recapturada em 256), os 5 alertas, o aviso à manutenção e o OK do líder (L-50 global).
+  - A `QA-COMPOSED-PHOTOS` continua ⏳ até a G4b.

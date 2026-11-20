@@ -50,6 +50,9 @@ glintfx_add_test(color_test)
 # layout of the public formas-2D types - the vertex of fill_triangles() (vertex_2d_layout_test)
 # and the ellipse of core/ellipse.hpp (ellipse_test). See each file's own header comment.
 glintfx_add_test(vertex_2d_layout_test)
+# W8 deep verification C4-1 (D-W8-2008): the resolver packets never change shape (D-W8-1247); the
+# static_asserts of image_resolver_layout_test.cpp stop the build if a field is added or retyped.
+glintfx_add_test(image_resolver_layout_test)
 glintfx_add_test(ellipse_test)
 
 # R2D-SPRITE-SHADE, H1 (docs/auditoria-api-sprite-shade.md, section 2): the projection of an upright

@@ -11541,3 +11541,25 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O17:** o atlas não se copia (`texture_atlas.hpp:170-171`).
   - Os portões do commit passaram, e as omissões deixadas de fora estão justificadas pelo leitor externo no relatório do redator (`.trabalho/cto-w8/atlas-wiki-fix/`).
   - **Trailer:** só o do Haiku, porque o texto saiu inteiro do redator. A ordem do main não escreveu linha nenhuma da página.
+
+- **D-W8-1174 (main, 20/11 15:33): a condição de hoje da manutenção trava todo `preci`, e o CTO responde com a fatia PRECI-TETO e a errata da G3b. As decisões técnicas dele, D-W8-1948 a D-W8-1956, ficam registradas para o líder ler depois.**
+  - **A condição:** pela L-11 global, todo contêiner tem teto próprio. O scope do `preci` fica com TasksMax=272, e o `docker run` do PowerShell com `--pids-limit 128 --memory 2g`.
+  - **O problema:** o `tools/preci.sh:542` e o `:557` não aceitam teto. O main devolveu a vez.
+  - **As decisões:**
+    - **1948:** teto fixo no código, 128 processos e 2 GiB, sem variável de ambiente. Um teto que quem chama pode desligar não é teto. O `--memory-swap` é pedido igual à memória.
+    - **1949:** o contêiner é criado, o teto é lido de volta e impresso no log, e só então ele sobe.
+    - **1950:** o portão é o próprio estágio, mais um controle novo do `--selftest` que conta os lançamentos de contêiner sem teto. Ele nasce vermelho no HEAD.
+    - **1951:** o gêmeo, `host_alert_gate_test` (estágio 6 do `--fast`), também sobe contêiner sem teto e entra na fatia.
+    - **1952:** é uma fatia própria, antes da G3-LIM.
+    - **1953:** camada N2, porque a fatia não toca `src/` nem `include/`. Mesmo assim, mantém os 10 mutantes com a previsão escrita antes.
+    - **1954:** a sequência de prova da fatia.
+    - **1955:** a errata da G3b.
+    - **1956:** nenhuma das decisões é porta de mão única.
+  - **Os arquivos:**
+    - a ordem, `.trabalho/cto-w8/ordem-preci-teto.md`, md5 `98166e8c`;
+    - a errata, `.trabalho/cto-w8/ordem-g3b-errata1.md`, md5 `acc86f5c`.
+    - O CTO pré-executou numa cópia: vermelho e verde, e os 10 mutantes morreram pelos casos previstos.
+  - **Desvio do CTO, declarado por ele:** um `grep -rl` a partir de `.trabalho/cto-w8` varreu também o `r21/`. Leu só nomes de arquivo JSON e não usou nada deles.
+  - **Ficam com o líder:**
+    - tirar da fila a `CPUSET-NO-LANCAMENTO` (L-67: agente não declara obsoleto);
+    - um `:Z` maiúsculo em `tools/msvc-container/armadilhas/compare.sh:44`, que o main reconferiu. Ele contraria a decisão de 20/11 ("Minúscula sempre") e vai à INBOX como conserto. O caso de `tests/tools/check_win32_test_link.py:816` é só texto de comentário.

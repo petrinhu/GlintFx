@@ -1318,6 +1318,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-sprite_shadows-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/sprite_shadows_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
       # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN:
       # tools/ci/check-dep-zero-win.ps1, check-port-privacy-win.ps1 e
       # check-exports-win.ps1 (dumpbin.exe contra glintfx.dll) eram
@@ -2507,6 +2517,21 @@ jobs:
           printf 'textures\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
+      # R2D-SPRITE-SHADE H5: o exemplo sprite_shadows, irmao dos passos de cima (mesmo driver, mesma imagem, mesmo
+      # capture_out, subdiretorio sprite_shadows/), julgado pelas sondas de tests/fixtures/sprite_shadows_probes.txt (a
+      # contagem e a da tabela do driver). Roda mesmo com os outros exemplos vermelhos: cada exemplo tem o seu veredito.
+      - name: R2D-SPRITE-SHADE - exemplo sprite_shadows capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "sprite_shadows" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} sprite_shadows glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "sprite_shadows: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, D-W8-81)"
+          printf 'sprite_shadows\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
       # QA-SCREEN-CAPTURE P3 (S3 da revisao): as imagens da captura (PNG, raw, meta, log do rele) saem como artefato,
       # para que uma falha deixe o quadro para olhar. Roda mesmo com o passo anterior vermelho.
       - name: Publicar a captura no protocolo (${{ matrix.perna }})
@@ -2526,6 +2551,17 @@ jobs:
         with:
           name: capture-out-textures-${{ matrix.perna }}
           path: capture_out/textures
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SPRITE-SHADE H5: as duas capturas do exemplo sprite_shadows tambem num artefato com o nome do exemplo,
+      # como as do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no protocolo (${{ matrix.perna }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-sprite_shadows-${{ matrix.perna }}
+          path: capture_out/sprite_shadows
           if-no-files-found: warn
           retention-days: 7
 
@@ -4198,6 +4234,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-sprite_shadows-windows-sanitizer
+          path: build-shared/tests/sprite_shadows_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
     runs-on: ubuntu-latest
@@ -4572,6 +4618,16 @@ jobs:
         with:
           name: capture-out-textures-windows-debug
           path: build-debug/tests/textures_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: capture-out-sprite_shadows-windows-debug
+          path: build-debug/tests/sprite_shadows_capture_out
           if-no-files-found: warn
           retention-days: 7
 

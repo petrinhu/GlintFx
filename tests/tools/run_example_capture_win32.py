@@ -19,7 +19,8 @@
 #      (D-W8-72); raw_to_png.py turns the pair into a PNG under <out>/<example>/png/ (the artifact a
 #      human looks at); ONLY with the right size, image_probe.py probes that PNG with the example's static
 #      probe file and must report exactly the count the table fixes, none failed (first_window 12,
-#      D-W8-72; shapes and textures: the count of EXAMPLES below, D-W8-1083 and R2D-TEXTURE T7);
+#      D-W8-72; shapes, textures and sprite_shadows: the count of EXAMPLES below, D-W8-1083, R2D-TEXTURE T7
+#      and R2D-SPRITE-SHADE H5);
 #   4. the alpha: the screen capture is XRGB8888 and carries none; raw_to_png.py gives it 255, so the
 #      probes' FF passes without measuring anything. The driver prints
 #      `MEASURED <example>.capture_alpha_compared=0` on EVERY run, so the absence is counted.
@@ -89,6 +90,8 @@ EXAMPLES = {
                             FIXTURES_DIR / "shapes_probes.txt", 80),
     "textures": example_facts("GlintFx example: textures", "textures: first frame presented",
                               FIXTURES_DIR / "textures_probes.txt", 77),
+    "sprite_shadows": example_facts("GlintFx example: sprite shadows", "sprite_shadows: first frame presented",
+                                    FIXTURES_DIR / "sprite_shadows_probes.txt", 17),
 }
 MOTIVO_BY_STATUS = {"ran": "PRONTA", "failed": "FALHA_DE_EXEMPLO_OU_FERRAMENTA", "incoherent": "INCOERENTE",
                     "unknown": "CODIGO_DESCONHECIDO"}

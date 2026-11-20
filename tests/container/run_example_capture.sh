@@ -15,6 +15,8 @@
 #      (tests/fixtures/first_window_probes_frames30.txt). shapes: the probes of its static scene
 #      (tests/fixtures/shapes_probes.txt, D-W8-1083; the count is in the table below). textures: the probes of
 #      its static scene (tests/fixtures/textures_probes.txt, R2D-TEXTURE T7; the count is in the table below).
+#      sprite_shadows: the probes of its static scene (tests/fixtures/sprite_shadows_probes.txt, R2D-SPRITE-SHADE
+#      H5; the count is in the table below).
 # Output under <out-directory>/<example>/ (D-W8-90). The verdict line is always printed.
 #
 # USAGE: run_example_capture.sh [--env NAME=VALUE ...] <example> <container> <out-directory>
@@ -63,6 +65,10 @@ example_facts() {
             # R2D-TEXTURE T7: a static scene too, read on the 30th drawn frame, as for shapes.
             EXAMPLE_FRAMES=30
             PROBE_SETS="estaticas:textures_probes.txt:77" ;;
+        sprite_shadows)
+            # R2D-SPRITE-SHADE H5: a static scene too, read on the 30th drawn frame, as for shapes.
+            EXAMPLE_FRAMES=30
+            PROBE_SETS="estaticas:sprite_shadows_probes.txt:17" ;;
         *) return 1 ;;
     esac
     EXAMPLE_NAME="$1"
@@ -70,7 +76,7 @@ example_facts() {
 
 fail_usage() {
     echo "uso: run_example_capture.sh [--env NOME=VALOR ...] <exemplo> <container> <diretorio-de-saida>" \
-        "(exemplos: first_window, shapes, textures)" >&2
+        "(exemplos: first_window, shapes, textures, sprite_shadows)" >&2
     exit 2
 }
 

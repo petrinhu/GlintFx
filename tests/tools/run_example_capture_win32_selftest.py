@@ -155,6 +155,12 @@ def selftest_tool_command():
               textures[textures.index("--title") + 1] == "GlintFx example: textures"
               and textures[textures.index("--ready-line") + 1] == "textures: first frame presented"
               and textures[textures.index("--out") + 1] == Path(tmp) / "out" / "textures" / "capture")
+        sprite = tool_command(make_config(tmp, name="sprite_shadows"))
+        check("comando do sprite_shadows: titulo 'GlintFx example: sprite shadows', --ready-line 'sprite_shadows: "
+              "first frame presented' e a saida <out>/sprite_shadows/capture, pela linha da tabela",
+              sprite[sprite.index("--title") + 1] == "GlintFx example: sprite shadows"
+              and sprite[sprite.index("--ready-line") + 1] == "sprite_shadows: first frame presented"
+              and sprite[sprite.index("--out") + 1] == Path(tmp) / "out" / "sprite_shadows" / "capture")
 
 
 def selftest_grammar_text():
@@ -296,18 +302,21 @@ def selftest_process_level():
     old_form = subprocess.run([sys.executable, script, "T", "E", "O"], capture_output=True, text=True, check=False)
     check("processo: um exemplo fora da tabela, ou a forma antiga de tres argumentos, sai 2 com a lista dos exemplos",
           unknown.returncode == 2 and old_form.returncode == 2
-          and "(examples: first_window, shapes, textures)" in unknown.stderr)
+          and "(examples: first_window, shapes, textures, sprite_shadows)" in unknown.stderr)
 
 
 def selftest_decided_scene_constants():
     check("a tabela decidida: first_window com 12 sondas estaticas (D-W8-72), shapes com 80 (D-W8-1083, S6-fix1), "
-          "textures com 77 (R2D-TEXTURE T7), os tres arquivos em tests/fixtures/, e captura de 640x480",
-          sorted(EXAMPLES) == ["first_window", "shapes", "textures"] and CAPTURE_SIZE == (640, 480)
+          "textures com 77 (R2D-TEXTURE T7), sprite_shadows com 17 (R2D-SPRITE-SHADE H5), os quatro arquivos em "
+          "tests/fixtures/, e captura de 640x480",
+          sorted(EXAMPLES) == ["first_window", "shapes", "sprite_shadows", "textures"] and CAPTURE_SIZE == (640, 480)
           and EXAMPLES["first_window"].probe_count == 12 and EXAMPLES["shapes"].probe_count == 80
-          and EXAMPLES["textures"].probe_count == 77
+          and EXAMPLES["textures"].probe_count == 77 and EXAMPLES["sprite_shadows"].probe_count == 17
           and EXAMPLES["first_window"].probes_file == REPO_ROOT / "tests" / "fixtures" / "first_window_probes.txt"
           and EXAMPLES["shapes"].probes_file == REPO_ROOT / "tests" / "fixtures" / "shapes_probes.txt"
-          and EXAMPLES["textures"].probes_file == REPO_ROOT / "tests" / "fixtures" / "textures_probes.txt")
+          and EXAMPLES["textures"].probes_file == REPO_ROOT / "tests" / "fixtures" / "textures_probes.txt"
+          and EXAMPLES["sprite_shadows"].probes_file
+          == REPO_ROOT / "tests" / "fixtures" / "sprite_shadows_probes.txt")
 
 
 def probes_in(path):
@@ -322,7 +331,7 @@ def selftest_table_probe_files_hold_their_counts():
     found = {name: probes_in(facts.probes_file) for name, facts in EXAMPLES.items()}
     check("cada arquivo de sondas da tabela existe e tem, pelo leitor real, exatamente a contagem da tabela: "
           + ", ".join(f"{name}={found[name]}/{EXAMPLES[name].probe_count}" for name in EXAMPLES),
-          len(found) == 3 and all(found[name] == EXAMPLES[name].probe_count for name in EXAMPLES))
+          len(found) == 4 and all(found[name] == EXAMPLES[name].probe_count for name in EXAMPLES))
 
 
 def selftest_example_source_matches():

@@ -5108,16 +5108,18 @@ add_test(
 set_tests_properties(check_examples_consume_selftest PROPERTIES LABELS selftest)
 
 # DEMO-1 D5b (D-W8-75, D-W8-125): the DRIVER of the Windows capture of one example, first_window,
-# shapes or textures (tests/tools/run_example_capture_win32.py, its table opened by R2D-SHAPES S6, D-W8-1081). Its
+# shapes, textures or sprite_shadows (tests/tools/run_example_capture_win32.py, its table opened by R2D-SHAPES S6,
+# D-W8-1081). Its
 # --selftest needs no Windows, no tool and no window: a tool double writes the capture files and the
 # REAL helpers (raw_to_png.py, image_probe.py) judge them. Python, so it runs on every system (no parity
 # exception). The executor requires exit 0 and the exact line with the control count: dropping a control
-# is a visible change, never a silent one. The real runs (first_window, shapes and textures on Windows) are
+# is a visible change, never a silent one. The real runs (first_window, shapes, textures and sprite_shadows on
+# Windows) are
 # registered further down; this is only the selftest.
 add_test(
     NAME run_example_capture_win32_selftest
     COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-        "-DEXPECT_LINE=selftest: 43 controles OK"
+        "-DEXPECT_LINE=selftest: 45 controles OK"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
         "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
@@ -7639,8 +7641,8 @@ if(UNIX)
     set_tests_properties(check_image_freshness_selftest PROPERTIES LABELS selftest)
 endif()
 
-# DEMO-1 D3 (D-W8-74, D-W8-81, D-W8-138): the DRIVER of the Linux capture of one example, first_window, shapes or
-# textures
+# DEMO-1 D3 (D-W8-74, D-W8-81, D-W8-138): the DRIVER of the Linux capture of one example, first_window, shapes,
+# textures or sprite_shadows
 # (tests/container/run_example_capture.sh, its table opened by R2D-SHAPES S6, D-W8-1081); its controls live in
 # run_example_capture_selftest.sh, loaded by the
 # driver's own --selftest. No container and no docker daemon: doubles of docker and of the example on PATH, the REAL
@@ -7651,7 +7653,7 @@ if(UNIX)
     add_test(
         NAME run_example_capture_selftest
         COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
-            "-DEXPECT_LINE=selftest: 28 controles OK"
+            "-DEXPECT_LINE=selftest: 30 controles OK"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
             sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_example_capture.sh" --selftest
     )
@@ -7714,6 +7716,21 @@ if(WIN32 AND TARGET textures)
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:textures>"
     )
     set_tests_properties(textures PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
+# R2D-SPRITE-SHADE H5: the Windows side of the example sprite_shadows, registered exactly as textures above (the same
+# driver, the same reasons for every line), judged with its static probes (tests/fixtures/sprite_shadows_probes.txt;
+# the count is the driver's table). The SAME name as the Linux capture in the container inventory.
+if(WIN32 AND TARGET sprite_shadows)
+    add_test(
+        NAME sprite_shadows
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" sprite_shadows "$<TARGET_FILE:sprite_shadows>"
+            "${CMAKE_CURRENT_BINARY_DIR}/sprite_shadows_capture_out"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:sprite_shadows>"
+    )
+    set_tests_properties(sprite_shadows PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
 endif()
 
 # QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of

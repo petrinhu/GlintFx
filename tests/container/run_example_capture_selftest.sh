@@ -134,6 +134,11 @@ selftest_table_textures() {
         [ "$PROBE_SETS" = "estaticas:textures_probes.txt:77" ]
 }
 
+selftest_table_sprite_shadows() {
+    example_facts sprite_shadows && [ "$EXAMPLE_NAME" = sprite_shadows ] && [ "$EXAMPLE_FRAMES" = 30 ] &&
+        [ "$PROBE_SETS" = "estaticas:sprite_shadows_probes.txt:17" ]
+}
+
 # A name outside the table returns 1 and changes nothing.
 selftest_table_refuses_an_unknown_example() {
     EXAMPLE_NAME=antes
@@ -150,7 +155,7 @@ count_probe_lines() {
 selftest_table_probe_files_hold_their_counts() {
     found=0
     matched=0
-    for name in first_window shapes textures; do
+    for name in first_window shapes textures sprite_shadows; do
         example_facts "$name" || return 1
         for probe_set in $PROBE_SETS; do
             rest="${probe_set#*:}"
@@ -160,7 +165,7 @@ selftest_table_probe_files_hold_their_counts() {
         done
     done
     echo "selftest: arquivos de sonda da tabela encontrados=$found conferidos=$matched" >&2
-    [ "$found" -eq 4 ] && [ "$matched" -eq 4 ]
+    [ "$found" -eq 5 ] && [ "$matched" -eq 5 ]
 }
 
 # -- the example's command, through the REAL exec_fixture.sh and timeout -----------------------------------------------
@@ -378,7 +383,7 @@ selftest_unknown_example_is_usage() {
     rc_old=$?
     [ "$rc" -eq 2 ] && [ "$rc_old" -eq 2 ] || return 1
     case "$out" in
-        *"uso: run_example_capture.sh"*"(exemplos: first_window, shapes, textures)"*) return 0 ;;
+        *"uso: run_example_capture.sh"*"(exemplos: first_window, shapes, textures, sprite_shadows)"*) return 0 ;;
     esac
     return 1
 }
@@ -429,11 +434,13 @@ selftest_main() {
     selftest_check selftest_table_first_window
     selftest_check selftest_table_shapes
     selftest_check selftest_table_textures
+    selftest_check selftest_table_sprite_shadows
     selftest_check selftest_table_refuses_an_unknown_example
     selftest_check selftest_table_probe_files_hold_their_counts
     selftest_check selftest_example_command_reaches_the_container first_window
     selftest_check selftest_example_command_reaches_the_container shapes
     selftest_check selftest_example_command_reaches_the_container textures
+    selftest_check selftest_example_command_reaches_the_container sprite_shadows
     selftest_check selftest_judge_passes_a_good_frame
     selftest_check selftest_judge_rejects_zero_images
     selftest_check selftest_judge_rejects_two_images

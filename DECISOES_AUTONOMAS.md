@@ -11367,3 +11367,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Imagem:** *"Autorizar o download (Recomendado)"* (L-51). `mcr.microsoft.com/powershell:latest` foi baixada de novo, 487 MB, pull rc 0. Ela tinha sumido do cache desde 14/11.
   - **Fix3 até aqui:** sab1, sab2 e o verde batem com a tabela da errata. Os picos ficaram em 13 processos e até 832 MiB, sem oom. O `preci` parou no estágio 1b por causa da imagem que faltava. O implementador retoma do passo 6.
   - **Coredump das 03:17:54** (`atlas_allocator_test`, SIGSEGV): veio da sab2, um vermelho esperado. O verde passou com 2 de 2. A `manutencao` foi avisada.
+- **D-W8-1156 (main, 20/11 03:48): a T6-B2 fecha, e o trabalho revisado segue para o ramo da onda.**
+  - **Revisão N1 da fix3** (`3f3c02c8`; `rev-t6b2-fix3.txt`): saiu NÃO LIMPA por um IMPORTANTE só de comentário e um COSMÉTICO, ambos em `tests/texture_atlas_test.cpp`. O I-1 da fix2 está fechado. Os 4 mutantes morreram, e os contêineres tiveram pico de 13 processos e até 769 MiB.
+  - **Fix4** (`752f5be9`): só os três comentários, camada N4 da L-12, sem preci e sem revisor. O main conferiu que o diff não tem nenhuma linha fora de comentário e que os trailers estão certos.
+  - **A T6-B2 fecha** assim: fatia `7ca6eeda`, consertos `113b924a`, `6fc45f19` e `3f3c02c8`, e o texto em `752f5be9`. As quatro decisões de API foram mantidas pelo líder (D-W8-1155).
+  - **Lei de envio** (L-11, quinta emenda): a onda tem mais de 7 dias. Vão ao ramo `onda-w8` os commits até o último revisado limpo. Cópia privada do dia: `/home/petrus/IDrive/backups-git/GlintFx/GlintFx-20261120-0348.bundle`, com verify rc 0.
+  - **Próximo:** a H3b-2, pelo despacho mais a `despacho-h3b2-errata2.md` (md5 `8e702fb2`), com a vez pedida à `manutencao` e as condições dela (`condicoes-manutencao-1120.md`).

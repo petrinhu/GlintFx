@@ -489,6 +489,21 @@ target_sources(gfss_declaration_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_reset_notice.cpp"
 )
 
+# TIDY23-ESCAPE (clang-tidy 23 bugprone-exception-escape over the
+# Microsoft STL, CI run 44764144174): the first build of
+# declaration_value_check.cpp's own keyword-detail table, forced to
+# fail, has to reach the caller as std::bad_alloc. Its own binary
+# because that table is a function-local static, built once per
+# process - see the test file's own header comment.
+glintfx_add_test(gfss_keyword_detail_oom_test)
+target_include_directories(gfss_keyword_detail_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_keyword_detail_oom_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_value_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/value_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
+)
+
 # GFSS-SHEET-PARSE (TODO.md wave W6, GODS_LAWS.md L-17/L-19/L-20/L-40):
 # reads a WHOLE sheet - recovery by rule, `@media`/`@keyframes`/unknown
 # at-rule dispatch - built on top of BOTH GFSS-SEL-PARSE-CORE's own

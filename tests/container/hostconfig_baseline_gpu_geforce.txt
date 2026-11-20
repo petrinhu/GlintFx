@@ -4,7 +4,7 @@
 # of the container tests/container/composed_photo.sh photographs on the GeForce (card nvidia): the NVIDIA render
 # node, /dev/nvidia0, /dev/nvidiactl and /dev/nvidia-modeset, the read-only binds tests/tools/nvidia_cdi_mounts.py
 # reads from the CDI specification of the loaded driver, label=disable for this container only, a ceiling of 256
-# processes, and nothing else. A live capture, not hand-written. Measured with Docker 29.9.3.
+# processes, and nothing else. A live capture except PidsLimit, see the note of 20/11/2026 below. Measured with Docker 29.9.3.
 #
 # Capture (14/11/2026, Docker Server 29.9.3, NVIDIA driver 620.70.06, image glintfx-devbuild:verify; a HostConfig
 # does not carry image content):

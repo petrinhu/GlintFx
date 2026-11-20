@@ -11444,3 +11444,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A H5 parou no preci:** o cppcheck acusa `uninitMemberVarNoCtor` em `examples/sprite_shadows/sprite_shadows.cpp:162-164` e `:209`. O defeito está no bloco do CTO.
     - O resto da H5 passou: o vermelho (17/8), o verde (17/0), os dois modos e a captura.
     - O CTO escreve a errata 2. Não houve commit.
+- **D-W8-1165 (main, 20/11 11:41): o líder responde as propostas da errata 2 da H5 e do conserto do CI** (`ordem-h5-errata2.md`, md5 `ccfdb1a26b46878b25adb8ef7850cfb8`, e `ordem-ci-clang22-win.md`, md5 `c38cdb6c640cc933da6bbc6775a9b641`), por AskUserQuestion:
+  - **D-W8-1920:** *"Cópia nova (Recomendado)"*. A retomada reaproveita o vermelho já medido; a cópia de trabalho antiga (`h5/snap`) foi apagada na limpeza de 11:4x.
+  - **D-W8-1922:** *"23.1.6"*, contra a recomendação (22.1.8). O CTO emite a errata 1 da ordem do CI com a 23.1.6.
+  - **D-W8-1923:** *"Instalador oficial (Recomendado)"*.
+  - **D-W8-1924:** *"Impressão digital (Recomendado)"*.
+  - **D-W8-1925:** *"Sem cache (Recomendado)"*.
+  - **Ordem (D-W8-1927):** 1º o commit da H5, 2º o do CI.

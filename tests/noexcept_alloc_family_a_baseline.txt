@@ -77,7 +77,6 @@ src/gfss/shorthand_longhand_apply.cpp|longhand_names_detail|string:default-decl
 src/gfss/shorthand_reset_notice.cpp|shorthand_reset_notices|vector:default-decl
 src/gfss/shorthand_reset_notice.cpp|shorthand_reset_notices|vector:return-local(move-se-sem-NRVO)
 src/platform/gl/gfx_open_only_fixation.hpp|<fora de funcao>|vector:default-decl
-src/platform/gl/gfx_option_validation.cpp|validate_gfx_option_entry|string:default-decl
 src/platform/gl/gl_context_facade.cpp|gltfx_gl_context::open|vector:move-decl
 src/platform/gl/gl_context_facade.cpp|resolve_full_option_table|vector:default-decl
 src/platform/gl/gl_context_facade.cpp|resolve_full_option_table|vector:return-move

@@ -27,7 +27,8 @@
 // shader turns pixels into clip space with the one uniform `u_viewport_pixels` (top-left origin,
 // y down, as the corner roles of core/quad.hpp). The fragment shader multiplies the color by the
 // texel of `u_texture` (texture unit 0), read projectively, when `u_textured` is 1 (a textured run,
-// T4b-B1, D-W8-469); an untextured run (0) reads no texture. Then it writes the color as it is when
+// T4b-B1, D-W8-469), and by the alpha of that texel alone when it is 2 (a silhouette, H3b-3); an
+// untextured run (0) reads no texture. Then it writes the color as it is when
 // the surface encodes for us (the premultiplication already happened, once, on the CPU), and
 // encodes it to sRGB itself when `u_encode_srgb` is 1 (the context option `srgb_framebuffer` off).
 // The integer `u_stencil_discard` (R2D-SPRITE-SHADE H3a) says which fragments a stencil pass of

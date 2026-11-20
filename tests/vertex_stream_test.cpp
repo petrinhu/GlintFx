@@ -1024,6 +1024,34 @@ GLINTFX_TEST(vertex_stream_each_run_is_drawn_with_the_stencil_passes_of_its_segm
     GLINTFX_CHECK_EQ(gl_state.stencil_clears, 1);
 }
 
+// R2D-SPRITE-SHADE H3b-3: a shadow run with a texture is a silhouette, u_textured 2. A textured
+// run, the silhouette of the SAME texture and the textured run again are one bind and one texture
+// switch, and the value goes 1, 2, 1, before each draw; the third run also releases, with the value
+// it set.
+GLINTFX_TEST(vertex_stream_a_silhouette_sets_its_value_and_is_not_a_texture_switch) {
+    reset();
+    const gl_function_table table = fake_table();
+    triangle_batch batch;
+    const batch_state textured{1, 5, 0};
+    const batch_state silhouette{1, 5, 0, glintfx::draw2d::stencil_role::shadow};
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_red, textured));
+    GLINTFX_CHECK(batch.add_quad(square_at(1, 0, 1), k_shade, silhouette));
+    GLINTFX_CHECK(batch.add_quad(square_at(2, 0, 1), k_red, textured));
+    const auto counts = draw_batch(table, batch, k_uniforms);
+    GLINTFX_CHECK(counts.has_value() && counts.value().calls == 4U);
+    GLINTFX_CHECK_EQ(counts.value().texture_switches, std::uint64_t{1});
+    std::string kinds;
+    std::vector<std::int64_t> values;
+    for (const texture_event &event : gl_state.sequence) {
+        kinds.push_back(event.kind);
+        if (event.kind == 'U') {
+            values.push_back(event.second);
+        }
+    }
+    GLINTFX_CHECK_EQ(kinds, std::string("BUDUDUDD"));
+    GLINTFX_CHECK((values == std::vector<std::int64_t>{1, 2, 1}));
+}
+
 // R2D-SPRITE-SHADE H3b: every draw_batch() call starts a new segment, with no shadow come: two
 // shadow runs in a row (two textures) clear the stencil once, and the same batch drawn again (the
 // next flush; the caller sets the state and u_stencil_discard back first) clears it again.

@@ -54,4 +54,9 @@ namespace glintfx::draw2d {
 [[nodiscard]] std::optional<std::array<double, 4>>
 projective_weights(const glintfx::gltfx_quad_world &corners) noexcept;
 
+// Whether the four corners lie on one line, a quadrilateral of zero area, decided exactly for any
+// finite corners (exact_cross.hpp). Such a quadrilateral has no projective mapping, and neither
+// does one with only three corners on a line: this answers only the first.
+[[nodiscard]] bool quad_lies_on_one_line(const glintfx::gltfx_quad_world &corners) noexcept;
+
 } // namespace glintfx::draw2d

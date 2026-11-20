@@ -3057,6 +3057,112 @@ GLINTFX_TEST(renderer_2d_impl_each_clear_asks_for_its_own_buffer_alone) {
     renderer_2d_impl::destroy(renderer);
 }
 
+// R2D-SPRITE-SHADE H3b-3: a silhouette is one piece, the shadow's passes with the third value of
+// u_textured and its texture bound: a rectangle, a silhouette and a rectangle are three pieces and
+// four draw calls, and two texture switches (to the texture, and back to none).
+GLINTFX_TEST(renderer_2d_impl_a_silhouette_is_one_piece_with_the_passes_of_a_shadow) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->fill_rect(rect(0, 0, 4, 4), k_red, k_layer_0);
+    renderer->draw_shadow_texture(owners.mine, paint_of(whole()), shadow_square(2.0), k_layer_0);
+    renderer->fill_rect(rect(4, 0, 4, 4), k_red, k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    const auto report = renderer->last_frame_report();
+    GLINTFX_CHECK(report.pieces_submitted == 3U && report.pieces_drawn == 3U);
+    GLINTFX_CHECK_EQ(report.draw_calls, std::uint64_t{4});
+    GLINTFX_CHECK_EQ(report.texture_switches, std::uint64_t{2});
+    GLINTFX_CHECK_EQ(report.shadow_segments, std::uint64_t{1});
+    GLINTFX_CHECK((card.textured_at_draw == std::vector<int>{0, 2, 0, 0}));
+    GLINTFX_CHECK((card.stencil_discard_at_draw == std::vector<int>{0, 1, 0, 2}));
+    GLINTFX_CHECK_EQ(card.stencil_clears, 1);
+    close_two_owners(owners);
+}
+
+namespace {
+
+// Each of the reasons of a silhouette, alone in a frame.
+[[nodiscard]] gltfx_draw_2d_refusal
+first_refusal_of_silhouette(renderer_2d_impl *renderer, const glintfx::texture_2d_impl *texture,
+                            const glintfx::gltfx_texture_paint &paint,
+                            const glintfx::gltfx_quad_world &shadow) {
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_shadow_texture(texture, paint, shadow, k_layer_0);
+    (void)renderer->finish_frame();
+    return renderer->last_frame_report().first_refusal;
+}
+
+} // namespace
+
+// R2D-SPRITE-SHADE H3b-3: the reasons of draw_texture_quad(), in its order, and the shape after
+// them.
+GLINTFX_TEST(renderer_2d_impl_a_silhouette_is_refused_for_the_first_reason_in_order) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    using enum gltfx_draw_2d_refusal;
+    const glintfx::gltfx_quad_world three_on_a_line{{0, 0}, {2, 0}, {4, 0}, {0, 4}};
+    GLINTFX_CHECK(first_refusal_of_silhouette(
+                      renderer, nullptr, paint_of(whole()),
+                      glintfx::gltfx_quad_world{{k_nan, 0}, {1, 0}, {1, 1}, {0, 1}}) ==
+                  not_a_number);
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, nullptr, paint_of(whole()),
+                                              shadow_square(0)) == texture_not_open);
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.theirs, paint_of(whole()),
+                                              shadow_square(0)) == texture_other_renderer);
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.mine, paint_of(outside()),
+                                              three_on_a_line) == region_out_of_range);
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.mine, paint_of(whole()),
+                                              three_on_a_line) == degenerate_quad);
+    // Far, and with an area: at k_far a square of 4 lies on one line in double precision.
+    const glintfx::gltfx_quad_world far_away{
+        {k_far, 0}, {2 * k_far, 0}, {2 * k_far, k_far}, {k_far, k_far}};
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.mine, paint_of(whole()), far_away) ==
+                  pixel_position_out_of_range);
+    close_two_owners(owners);
+}
+
+// R2D-SPRITE-SHADE H3b-3 (D-W8-1328): on a surface with no stencil bits, the texture's reasons
+// first and then the surface, whatever the shape: three corners on a line and all four.
+GLINTFX_TEST(renderer_2d_impl_a_silhouette_on_a_surface_with_no_stencil_is_refused_by_its_reason) {
+    reset();
+    card.surface_stencil_type = 0; // GL_NONE
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    using enum gltfx_draw_2d_refusal;
+    const glintfx::gltfx_quad_world on_one_line{{0, 0}, {2, 0}, {4, 0}, {6, 0}};
+    const glintfx::gltfx_quad_world three_on_a_line{{0, 0}, {2, 0}, {4, 0}, {0, 4}};
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.mine, paint_of(outside()),
+                                              on_one_line) == region_out_of_range);
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.mine, paint_of(whole()),
+                                              shadow_square(0)) == stencil_unavailable);
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.mine, paint_of(whole()),
+                                              on_one_line) == stencil_unavailable);
+    GLINTFX_CHECK(first_refusal_of_silhouette(renderer, owners.mine, paint_of(whole()),
+                                              three_on_a_line) == stencil_unavailable);
+    close_two_owners(owners);
+}
+
+// R2D-SPRITE-SHADE H3b-3 (D-W8-1553): four corners on one line, a sun overhead, are not refused:
+// one piece, drawn, of one colour (no texture is bound for it), and the segment counts.
+GLINTFX_TEST(renderer_2d_impl_a_silhouette_on_one_line_is_drawn_and_covers_no_pixel) {
+    reset();
+    const two_owners owners = open_two_owners();
+    renderer_2d_impl *renderer = owners.renderer;
+    renderer->begin_frame(gltfx_frame_2d_desc{});
+    renderer->draw_shadow_texture(owners.mine, paint_of(whole()),
+                                  glintfx::gltfx_quad_world{{0, 0}, {2, 0}, {4, 0}, {6, 0}},
+                                  k_layer_0);
+    GLINTFX_CHECK(renderer->finish_frame().has_value());
+    const auto report = renderer->last_frame_report();
+    GLINTFX_CHECK(report.pieces_submitted == 1U && report.pieces_drawn == 1U);
+    GLINTFX_CHECK_EQ(report.pieces_refused, std::uint64_t{0});
+    GLINTFX_CHECK_EQ(report.shadow_segments, std::uint64_t{1});
+    GLINTFX_CHECK((card.textured_at_draw == std::vector<int>{0}));
+    close_two_owners(owners);
+}
+
 // R2D-SPRITE-SHADE H3b: every flush starts with u_stencil_discard at 0 (a uniform keeps its value
 // in the program between flushes): a flush that ended marking a shadow leaves it at 1, and the
 // rectangle of the next flush is drawn with 0.

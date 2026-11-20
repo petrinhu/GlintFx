@@ -19,10 +19,10 @@
 // fill_triangles(), fill_indexed_triangles(), stroke_line(), stroke_rect(),
 // fill_ellipse(), stroke_ellipse(), draw_texture(), draw_texture_quad(),
 // draw_atlas_image(), fill_textured_triangles(),
-// fill_indexed_textured_triangles() or fill_shadow()), whatever the method: a triangle call with a
-// hundred triangles is one piece, and a refusal refuses the whole call, once. A call that does
-// nothing (no vertices, or no indices for the indexed one) is not a piece at all. Every piece
-// submitted while a frame is open ends in exactly one of four places:
+// fill_indexed_textured_triangles(), fill_shadow() or draw_shadow_texture()), whatever the method:
+// a triangle call with a hundred triangles is one piece, and a refusal refuses the whole call,
+// once. A call that does nothing (no vertices, or no indices for the indexed one) is not a piece at
+// all. Every piece submitted while a frame is open ends in exactly one of four places:
 //
 //   pieces_submitted == pieces_drawn + pieces_refused
 //                       + pieces_dropped_out_of_memory

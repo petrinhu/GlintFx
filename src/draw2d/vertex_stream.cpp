@@ -276,19 +276,40 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
 
 namespace {
 
-// Binds `texture` to unit 0, and sets u_textured to 1 for a texture and 0 for none, when it is not
-// the one `bound` (T4b-B1-fix1, D-W8-505: the binding of a run, an atom of its own). True when it
-// bound: one texture switch (D-W8-471).
-[[nodiscard]] bool bind_run_texture(const render::gl_function_table &gl,
-                                    std::int32_t textured_location, std::uint32_t texture,
-                                    std::uint32_t &bound) noexcept {
-    if (texture == bound) {
-        return false;
+// What draw_batch() carries from one run to the next for the texture: the one bound to unit 0, and
+// the value u_textured holds. A silhouette and a textured piece can share a texture, so the two
+// change apart: the texture only when it differs, the value when the run asks for another.
+struct texture_cursor {
+    std::uint32_t bound = 0;
+    int textured = 0;
+};
+
+// The value of u_textured a run asks for: 0 for no texture, 1 for a textured piece, 2 for a shadow
+// with a texture, which is a silhouette (embedded_program.hpp).
+[[nodiscard]] int textured_value_of(const batch_state &state) noexcept {
+    if (state.texture == 0) {
+        return 0;
     }
-    gl.glBindTexture(k_gl_texture_2d, texture);
-    gl.glUniform1i(textured_location, texture != 0 ? 1 : 0);
-    bound = texture;
-    return true;
+    return state.stencil == stencil_role::shadow ? 2 : 1;
+}
+
+// Binds the texture of a run to unit 0 and sets u_textured, when either differs (T4b-B1-fix1,
+// D-W8-505: the binding of a run, an atom of its own). True when it bound: one texture switch
+// (D-W8-471); going from a textured piece to a silhouette of the same texture is not one.
+[[nodiscard]] bool bind_run_texture(const render::gl_function_table &gl,
+                                    std::int32_t textured_location, const batch_state &state,
+                                    texture_cursor &cursor) noexcept {
+    const bool switched = state.texture != cursor.bound;
+    const int textured = textured_value_of(state);
+    if (switched) {
+        gl.glBindTexture(k_gl_texture_2d, state.texture);
+        cursor.bound = state.texture;
+    }
+    if (switched || textured != cursor.textured) {
+        gl.glUniform1i(textured_location, textured);
+        cursor.textured = textured;
+    }
+    return switched;
 }
 
 // What draw_batch() carries from one run to the next for the stencil (R2D-SPRITE-SHADE H3b):
@@ -336,10 +357,10 @@ gltfx_rslt<batch_draw_counts> draw_batch(const render::gl_function_table &gl,
                                          const triangle_batch &batch,
                                          const batch_uniforms &uniforms) noexcept {
     batch_draw_counts counts;
-    std::uint32_t bound_texture = 0; // as if none: u_textured is 0 until a run binds its own
-    stencil_cursor cursor;           // one batch is one segment: no shadow has come yet
+    texture_cursor texture; // as if none: u_textured is 0 until a run binds its own
+    stencil_cursor cursor;  // one batch is one segment: no shadow has come yet
     for (const draw_run &run : batch.runs()) {
-        if (bind_run_texture(gl, uniforms.textured_location, run.state.texture, bound_texture)) {
+        if (bind_run_texture(gl, uniforms.textured_location, run.state, texture)) {
             ++counts.texture_switches;
         }
         counts.calls += draw_run_passes(gl, run, uniforms.stencil_discard_location, cursor);

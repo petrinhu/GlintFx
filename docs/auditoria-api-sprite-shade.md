@@ -20,6 +20,7 @@
 - **H1-fix (CTO, 11/10/2026, registrada em `DECISOES_AUTONOMAS.md`):** a cerca de `projected_shadow.hpp` passa à forma que o clang-format exige (a declaração de `gltfx_project_point_shadow` numa linha só, coluna 100 da L-24) e ganha a recusa `"shadow_extent"`: um resultado aceito nunca tem canto infinito nem NaN (elevação rasante, ou valores perto do maior double). A cerca continua sendo o texto que o cabeçalho copia byte a byte.
 - **Errata da H4 (CTO, 14/10/2026, D-W8-380; registrada em `DECISOES_AUTONOMAS.md` pelo main):** a cerca de `light_tint.hpp` passa à forma do clang-format (coluna 100 da L-24) e fecha três buracos do texto de 13/10, pela regra da casa de que nenhum número não finito passa calado (D-W8-325 para os vértices; S2b-fix1, I-7; a recusa `"shadow_extent"` da H1-fix): (1) o ambiente e a cor da luz são recusados pelo nome (`"ambient"`, `"color"`) quando um canal não é finito ou é negativo (luz linear não é negativa; acima de 1 continua aceito); (2) a conta é `cor · (intensidade · f(d))`, nessa ordem, para que cor muito grande vezes intensidade muito grande fora do alcance dê 0 e nunca infinito vezes zero; (3) nada é escrito numa recusa, e a ordem em que os campos são conferidos não faz parte do contrato (como a pergunta aberta `SHADOW-REFUSAL-ORDER`). **Errata do alfa (CTO, 14/10/2026, D-W8-397, depois da consulta ao advisor):** a luz não tem opacidade. A tinta sai com alfa 1, e o alfa do ambiente e da cor da luz NÃO é lido (nem conferido): a tinta multiplica a cor ou a textura da peça, e um multiplicador que muda a opacidade faria o chão sumir no escuro com o ambiente de três valores `gltfx_rgba{0.2F, 0.2F, 0.2F}` (alfa 0, `core/color.hpp` não tem valor padrão). É o que o Godot 4 faz (`servers/rendering/renderer_rd/shaders/canvas.glsl`, `light_blend_compute`, só `color.rgb` muda) e o box2dlights (`RayHandler.setAmbientLight`, o alfa do ambiente é brilho). A cerca continua sendo o texto que o cabeçalho copia byte a byte.
 - **Errata da H3b-2 (CTO, 07/11/2026, D-W8-1533; a cerca é a que o cabeçalho traz):** a cerca de `fill_shadow` passa a listar as recusas na ordem em que valem, com o `stencil_unavailable` (D-W8-1328) e o `pixel_position_out_of_range` (o motivo que a S2b-fix1 acrescentou depois deste parecer, para toda peça), diz o que a sombra faz com o buffer de stencil do consumidor e diz o custo; o `tint` entra na primeira regra, porque `refusal_of_quad` já o confere. O contador ganha, depois de `shadow_segments`, o `pieces_refused_stencil_unavailable`. A assinatura não muda. A seção 9 é a revisão de API dedicada, antes do commit da H3b-2.
+- **Errata da H3b-3 (CTO, 07/11/2026, D-W8-1551; a cerca é a que o cabeçalho traz):** a cerca de `draw_shadow_texture` passa a dizer o que a silhueta lê (só o alfa), de onde vem a marca, que o tint que ninguém escolhe é branco, a leitura projetiva, as recusas e o caso de área zero (D-W8-1553). A assinatura não muda. A seção 10 é a revisão de API dedicada, antes do commit da H3b-3.
 
 A seção 5 traz a tabela de cada achado com a decisão que o fecha. A seção 7 marca cada divergência e pergunta.
 
@@ -255,12 +256,36 @@ gltfx_project_point_shadow(gltfx_point_light_2d light, gltfx_standing_piece_2d p
 
     // The silhouette of `texture` as a shadow, through `paint.region`: the
     // texture's alpha is the shape, and `paint.tint` (the colour of the shadow,
-    // D-W8-321) and the segment rule are those of fill_shadow(). The corners of
-    // `shadow` carry the corners of the region in the roles of gltfx_quad_world
-    // (core/projected_shadow.hpp). The texture comes by reference, the paint as
-    // a value. D-W8-354: four parameters at most, with the layer.
-    GLINTFX_API void draw_shadow_texture(const gltfx_texture_2d &texture,
-                                         gltfx_texture_paint paint,
+    // D-W8-321) and the segment rule are those of fill_shadow(). The colour of
+    // the texels is not read. A texel that darkens nothing marks nothing: the
+    // mark starts at half a level of alpha, tint and texel multiplied, the same
+    // limit as a shadow of one colour. The tint you do not choose is the opaque
+    // white of gltfx_texture_paint, and that is a white shadow: choose one.
+    // The corners of `shadow` carry the corners of the region in the roles of
+    // gltfx_quad_world (core/projected_shadow.hpp), with PROJECTIVE
+    // interpolation, as draw_texture_quad(), so the silhouette in the trapezoid
+    // of a point light does not bend. The texture comes by reference, the paint
+    // as a value. D-W8-354: four parameters at most, with the layer.
+    //
+    // Refused as ONE piece, counted in the report, for the reasons of
+    // draw_texture_quad(), in its order, with stencil_unavailable (fill_shadow())
+    // right after the texture's reasons. A shadow whose four corners lie on one
+    // line is not refused: it has zero area, the shadow of a piece of height
+    // zero or under a sun overhead (core/projected_shadow.hpp), and as in
+    // fill_shadow() it is drawn and covers no pixel. Corners that define no
+    // mapping any other way are degenerate_quad, as in draw_texture_quad().
+    // Proved by: embedded_program_test (the third value of u_textured).
+    // Proved by: vertex_stream_test (the value is set for its run, and going
+    // from a textured piece to a silhouette of the same texture is not a
+    // texture switch).
+    // Proved by: renderer_2d_impl_test (the order of the refusals; zero area).
+    // Proved by: projective_quad_test (four corners on one line, decided
+    // exactly).
+    // Proved by: draw2d_shadow_parity_test (the pixels, on both systems: a
+    // texel that does not darken and does not mark, the colour of the texel
+    // that does not enter, and a trapezoid read as draw_texture_quad() reads
+    // it).
+    GLINTFX_API void draw_shadow_texture(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
                                          gltfx_quad_world shadow,
                                          gltfx_draw_layer layer = {}) noexcept;
 
@@ -619,3 +644,24 @@ Arquivo de origem: `/var/tmp/cto-w8/h0/auditoria-api-sprite-shade.md`, md5 `a360
 3. **A frase do stencil na lista do `flush()` e o que a sombra faz com o buffer (D-W8-1336, D-W8-1534).** O estado promete os valores iniciais do GL. O CONTEÚDO do buffer não é prometido num segmento com sombra: é limpo antes da primeira e fica com as marcas. Um consumidor que usa o stencil entre barreiras precisa saber, e a frase diz.
 
 **Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros (é o CI do push); uma placa cuja leitura dos bits dê erro (fora da matriz; o caso é provado pela placa de mentira em `surface_stencil_test`).
+
+---
+
+## 10. Revisão de API dedicada da silhueta (H3b-3)
+
+**Quando.** Antes do commit da H3b-3, na pré-execução da ordem. O que muda em `include/`: um método, `draw_shadow_texture`, e o texto. Nenhum tipo, nenhum campo, nenhum valor de enum, nenhum token.
+
+| O que congela | Tipo e forma | Nos dois modelos de dados | Prova |
+|---|---|---|---|
+| `gltfx_renderer_2d::draw_shadow_texture(const gltfx_texture_2d &, gltfx_texture_paint, gltfx_quad_world, gltfx_draw_layer = {}) noexcept` | a textura por referência, o resto por valor; quatro parâmetros (D-W8-354); `void`; a forma de `draw_texture_quad` | iguais: nenhum `long`, `size_t` nem ponteiro por valor; a referência é de 8 bytes nos dois | `pmu_probe.cpp` nos três compiladores; a fixture liga o método pela DLL no Windows, no CI |
+
+| Pergunta | Resposta | Medida |
+|---|---|---|
+| Exportado? | sim, `GLINTFX_API` | o `pmu_probe.sh` conta; `nm -DC` no Linux; a fixture no Windows |
+| Colide? | `draw_shadow_texture` não; os parâmetros `texture`, `paint`, `shadow`, `layer` não são macros conhecidas | `public_name_collision_test`, e a sonda depois de `windows.h` e `fcntl.h` |
+| ASCII? | sim | a sonda: 0 bytes fora de ASCII |
+| R1 a R10 | R1: `void`, o problema vai ao relatório (decisão 2 do líder); R2: nada devolvido; R3: `noexcept`, a falta de memória vira contagem; R4: nenhum enum novo; R5: a textura por referência a cada chamada, sem guardar ponteiro (D-W8-289); R6: acima; R7: nenhum token novo; R8 a R10 não se aplicam | os casos citados no cabeçalho |
+
+**A decisão da porta de mão única, dita aqui para o líder (D-W8-1553):** quatro cantos numa reta (o sol a pino, a peça de altura zero) são desenhados e não cobrem pixel, em vez de `degenerate_quad`. É o que `fill_shadow` faz, é o que `projected_shadow.hpp` já promete, e evita que uma cena com o sol a pino encha o relatório de recusas que não são erro.
+
+**Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros (é o CI do push).

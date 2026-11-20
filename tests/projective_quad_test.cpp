@@ -321,6 +321,23 @@ GLINTFX_TEST(projective_quad_closed_cases) {
     GLINTFX_CHECK(far.has_value() && near((*far)[0], 1.5, 1e-6) && near((*far)[2], 0.75, 1e-6));
 }
 
+// R2D-SPRITE-SHADE H3b-3: four corners on one line, decided exactly, in any order and at any size;
+// a fourth corner one unit in the last place off the line is not on it.
+GLINTFX_TEST(projective_quad_four_corners_on_one_line) {
+    using glintfx::draw2d::quad_lies_on_one_line;
+    using quad = glintfx::gltfx_quad_world;
+    GLINTFX_CHECK(quad_lies_on_one_line(quad{{0, 0}, {2, 0}, {4, 0}, {6, 0}}));
+    GLINTFX_CHECK(quad_lies_on_one_line(quad{{1, 1}, {1, 1}, {1, 1}, {1, 1}}));
+    GLINTFX_CHECK(quad_lies_on_one_line(quad{{5, 5}, {5, 5}, {0, 0}, {0, 0}}));
+    GLINTFX_CHECK(
+        quad_lies_on_one_line(quad{{1e300, 1e300}, {2e300, 2e300}, {0, 0}, {3e300, 3e300}}));
+    GLINTFX_CHECK(!quad_lies_on_one_line(quad{{0, 0}, {1, 0}, {1, 1}, {0, 1}}));
+    GLINTFX_CHECK(!quad_lies_on_one_line(quad{{0, 0}, {2, 0}, {4, 0}, {0, 4}}));
+    GLINTFX_CHECK(!quad_lies_on_one_line(quad{{0, 0}, {0, 4}, {2, 0}, {4, 0}}));
+    GLINTFX_CHECK(
+        !quad_lies_on_one_line(quad{{0, 0}, {1, 1}, {2, 2}, {3, std::nextafter(3.0, 4.0)}}));
+}
+
 GLINTFX_TEST(projective_quad_no_mapping_is_degenerate) {
     std::size_t refused = 0;
     std::size_t counted = 0;

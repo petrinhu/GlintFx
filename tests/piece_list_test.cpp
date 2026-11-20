@@ -476,6 +476,23 @@ GLINTFX_TEST(piece_list_each_textured_triangle_piece_reads_its_own_reads) {
 
 // R2D-SPRITE-SHADE H3b: a shadow is a quad of one color with the stencil role shadow, kept through
 // the sort with its corners and its tint; every other way of adding a quad is ordinary.
+// R2D-SPRITE-SHADE H3b-3: a textured piece keeps the role of its paint: a silhouette is a shadow
+// with a texture, and a textured piece that asked for nothing is ordinary.
+GLINTFX_TEST(piece_list_a_silhouette_keeps_its_role_and_its_texture) {
+    piece_list list;
+    GLINTFX_CHECK(list.reserve(4));
+    const quad_corners_pixel corners{};
+    glintfx::draw2d::textured_quad_paint silhouette{};
+    silhouette.texture = 7U;
+    silhouette.stencil = glintfx::draw2d::stencil_role::shadow;
+    GLINTFX_CHECK(list.add_textured(corners, glintfx::draw2d::textured_quad_paint{}, 0));
+    GLINTFX_CHECK(list.add_textured(corners, silhouette, 0));
+    list.sort();
+    GLINTFX_CHECK(list.painted(0).stencil == glintfx::draw2d::stencil_role::ordinary);
+    GLINTFX_CHECK(list.painted(1).stencil == glintfx::draw2d::stencil_role::shadow);
+    GLINTFX_CHECK_EQ(list.painted(1).texture, 7U);
+}
+
 GLINTFX_TEST(piece_list_a_shadow_keeps_its_role_through_the_sort) {
     using glintfx::draw2d::stencil_role;
     piece_list list;

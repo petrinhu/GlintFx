@@ -96,11 +96,18 @@ void renderer_2d_impl::draw_texture_quad(const texture_2d_impl *texture,
                                          const gltfx_texture_paint &paint,
                                          const gltfx_quad_world &corners,
                                          gltfx_draw_layer layer) noexcept {
-    gltfx_draw_2d_refusal refusal = draw2d::refusal_of_texture_quad(paint, corners);
-    if (refusal == gltfx_draw_2d_refusal::none) {
-        refusal = refusal_of_texture(texture, this, paint.region);
-    }
-    submit_textured(draw2d::textured_submission{texture, &paint, corners, true}, refusal, layer);
+    submit_textured(draw2d::textured_submission{texture, &paint, corners, true},
+                    refusal_of_textured_quad(texture, paint, corners), layer);
+}
+
+gltfx_draw_2d_refusal
+renderer_2d_impl::refusal_of_textured_quad(const texture_2d_impl *texture,
+                                           const gltfx_texture_paint &paint,
+                                           const gltfx_quad_world &corners) const noexcept {
+    const gltfx_draw_2d_refusal by_value = draw2d::refusal_of_texture_quad(paint, corners);
+    return by_value != gltfx_draw_2d_refusal::none
+               ? by_value
+               : refusal_of_texture(texture, this, paint.region);
 }
 
 void renderer_2d_impl::draw_atlas_image(const draw2d::atlas_image_call &call,
@@ -148,7 +155,7 @@ void renderer_2d_impl::submit_textured(const draw2d::textured_submission &submis
     }
     // Turned NOW, by the batch transform in force, like fill_quad() (submit()).
     const draw2d::textured_quad_paint paint{submission.texture->gl_name, *reads,
-                                            submission.paint->tint};
+                                            submission.paint->tint, submission.stencil};
     if (!pieces.add_textured(draw2d::quad_vertices(world, affine), paint, layer.value)) {
         tally.piece_dropped_out_of_memory();
     }

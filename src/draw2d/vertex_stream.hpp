@@ -113,8 +113,10 @@ struct batch_draw_counts {
 // starts as if no texture were bound: whatever the consumer left on unit 0 is never read, because
 // a run with no texture samples nothing (`u_textured` 0) and a run with one binds its own. Before
 // the draw call of a run whose texture differs from the last one it bound (0 is no texture), it
-// binds the run's texture to unit 0 and sets `u_textured` to 1 for a texture, 0 for none; that is
-// one texture switch (renderer_2d.hpp: a change to or from no texture counts).
+// binds the run's texture to unit 0 and sets `u_textured` to 1 for a texture, 2 for a shadow with a
+// texture (a silhouette), 0 for none; that is one texture switch (renderer_2d.hpp: a change to or
+// from no texture counts). A run of the same texture that asks for another value only sets the
+// value, and it is not a switch.
 // THE STENCIL (R2D-SPRITE-SHADE H3b): one batch is one SEGMENT of shadow_group.hpp, so each call
 // starts with no shadow come. Each run is drawn with the passes passes_of_run() gives it, in
 // order: the stencil cleared first when it asks (clear_stencil(), after the scissor is off), and

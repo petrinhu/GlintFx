@@ -444,7 +444,7 @@ GLINTFX_TEST(embedded_program_sources_hold_the_agreed_interface_text) {
     // the multiplication comes BEFORE the sRGB encoding, which works on the textured color.
     GLINTFX_CHECK(fragment.find("uniform int u_textured") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("uniform sampler2D u_texture") != std::string_view::npos);
-    const std::size_t textured = fragment.find("if (u_textured != 0) {");
+    const std::size_t textured = fragment.find("if (u_textured == 1) {");
     const std::size_t sampled = fragment.find("color *= textureProj(u_texture, v_texcoord);");
     const std::size_t encoded = fragment.find("if (u_encode_srgb != 0");
     GLINTFX_CHECK(textured != std::string_view::npos && sampled != std::string_view::npos &&
@@ -565,6 +565,19 @@ GLINTFX_TEST(embedded_program_a_link_failure_says_program_link_failed) {
 // pass is 0 and discards nothing. The values are the literal ones, never the constants of the code.
 // Text, not behavior (see the interface case above): that a real driver discards these fragments
 // is for the pixel cells of H3b.
+// R2D-SPRITE-SHADE H3b-3: a silhouette (u_textured 2) multiplies the color by the ALPHA of the
+// texel alone, read projectively, before the discard of the stencil pass looks at the alpha and
+// before the encoding.
+GLINTFX_TEST(embedded_program_a_silhouette_reads_only_the_alpha_of_the_texel) {
+    const std::string_view fragment = glintfx::draw2d::embedded_fragment_shader_source();
+    const std::size_t asked = fragment.find("if (u_textured == 2) {");
+    const std::size_t read = fragment.find("color *= textureProj(u_texture, v_texcoord).a;");
+    const std::size_t discarded = fragment.find("if (u_stencil_discard == 1");
+    const std::size_t encoded = fragment.find("if (u_encode_srgb != 0");
+    GLINTFX_CHECK(asked != std::string_view::npos && read != std::string_view::npos);
+    GLINTFX_CHECK(asked < read && read < discarded && discarded < encoded);
+}
+
 GLINTFX_TEST(embedded_program_source_declares_a_discard_only_in_the_two_stencil_passes) {
     using glintfx::draw2d::stencil_discard_of;
     using glintfx::draw2d::stencil_pass;

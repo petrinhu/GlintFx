@@ -10,12 +10,16 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include <glintfx/core/angle.hpp>
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/core/light_2d.hpp>
 #include <glintfx/core/log/event.hpp>
 #include <glintfx/core/log/sink.hpp>
+#include <glintfx/core/projected_shadow.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/draw2d/draw_layer.hpp>
@@ -71,7 +75,28 @@
 //   - H12 the reading of the bits: the surface has at least 8 bits, the renderer did not refuse, a
 //     renderer opened with a framebuffer of the consumer bound puts the binding back and leaves no
 //     GL error, and neither open reads with an error: the event draw2d_stencil_bits_unread does
-//     not come, on a driver that follows the specification.
+//     not come, on a driver that follows the specification;
+//   - the silhouette (H3b-3), draw_shadow_texture(), on a texture of two texels, the left one
+//     transparent and the right one opaque green:
+//       H13 the transparent texel does not darken, the opaque one does by the alpha of the tint,
+//       the
+//           colour of the texel does not enter (a red tint stays red), a mirror swaps the two;
+//       H14 {without, with} a layer key: what a silhouette does not darken it does not mark, so the
+//           next shadow darkens there; what it darkens it marks, so the next one does not;
+//       H15 {without, with} a layer key: two overlapping silhouettes darken once; an opaque piece
+//           between them releases, and the second darkens the piece;
+//       H16 a texel of alpha 0.5 under a black tint of alpha 1 darkens by 0.5, once, and marks;
+//       H17 a checkerboard in a trapezoid: the silhouette covers exactly the pixels
+//           draw_texture_quad() paints with the same corners, a grid of probes;
+//       H18 the shadow of a piece under a point light (the trapezoid core/projected_shadow.hpp
+//       gives):
+//           the texel at base_start lands on the base_start side, with no swap of corners; under a
+//           sun overhead the four corners lie on one line: drawn, not refused, no pixel;
+//       H19 one call is one piece, and the reasons of draw_texture_quad() with their tokens: a
+//       corner
+//           that is not a number, a texture that is not open, a texture of another renderer, a
+//           region outside it, three corners on a line; a rectangle, a silhouette and a rectangle
+//           are 4 draw calls, 2 texture switches and 1 segment.
 // Geometry assumes a scale factor of 1 (as the sister fixtures). The surface is 320 by 240.
 
 namespace {
@@ -222,7 +247,7 @@ void begin_white(const cells_context &c) {
 }
 
 // One step of a paint order. `shadow` picks fill_shadow(); `texture`, when not null, picks
-// draw_texture() with the whole of it.
+// draw_texture() with the whole of it, and with `shadow` too, draw_shadow_texture().
 struct step {
     bool shadow = false;
     glintfx::gltfx_quad_world corners{};
@@ -238,7 +263,16 @@ step piece_step(double x0, double x1, glintfx::gltfx_rgba color) {
     return step{false, box(x0, 20, x1, 60), color, nullptr};
 }
 
+glintfx::gltfx_texture_paint whole_paint(glintfx::gltfx_rgba tint) {
+    return glintfx::gltfx_texture_paint{
+        glintfx::gltfx_texture_region{glintfx::gltfx_rect_texel{{0.0, 0.0}, {2.0, 1.0}}}, tint};
+}
+
 void draw_step(const cells_context &c, const step &s, glintfx::gltfx_draw_layer layer) {
+    if (s.shadow && s.texture != nullptr) {
+        c.renderer.draw_shadow_texture(*s.texture, whole_paint(s.color), s.corners, layer);
+        return;
+    }
     if (s.shadow) {
         c.renderer.fill_shadow(s.corners, s.color, layer);
         return;
@@ -247,8 +281,7 @@ void draw_step(const cells_context &c, const step &s, glintfx::gltfx_draw_layer 
         c.renderer.fill_quad(s.corners, s.color, layer);
         return;
     }
-    const glintfx::gltfx_texture_paint paint{
-        glintfx::gltfx_texture_region{glintfx::gltfx_rect_texel{{0.0, 0.0}, {2.0, 1.0}}}, k_white};
+    const glintfx::gltfx_texture_paint paint = whole_paint(k_white);
     const glintfx::gltfx_rect_world where{s.corners.top_left,
                                           {s.corners.bottom_right.x - s.corners.top_left.x,
                                            s.corners.bottom_right.y - s.corners.top_left.y}};
@@ -585,6 +618,225 @@ void count_unread_events(void *, const glintfx::gltfx_log_event &event) noexcept
     g_unread_events += event.name() == "draw2d_stencil_bits_unread" ? 1 : 0;
 }
 
+// The texture of H13 to H19: `bytes` holds `width` by `height` straight texels, with no filter.
+std::optional<glintfx::gltfx_texture_2d> texture_of(const cells_context &c,
+                                                    std::span<const std::byte> bytes,
+                                                    std::uint32_t width, std::uint32_t height) {
+    const glintfx::gltfx_image_view image{.pixels = bytes,
+                                          .width = width,
+                                          .height = height,
+                                          .bytes_per_row = static_cast<std::size_t>(width) * 4,
+                                          .pixel_format =
+                                              glintfx::gltfx_pixel_format::rgba8_srgb_straight};
+    glintfx::gltfx_texture_2d_desc desc;
+    desc.filter = glintfx::gltfx_texture_filter::nearest;
+    glintfx::gltfx_rslt<glintfx::gltfx_texture_2d> made = c.renderer.create_texture(image, desc);
+    if (made.has_error()) {
+        report(c, "H13 create_texture", false);
+        return std::nullopt;
+    }
+    return std::move(made.value());
+}
+
+step silhouette_step(const glintfx::gltfx_texture_2d &texture, glintfx::gltfx_rgba tint) {
+    return step{true, box(20, 20, 60, 60), tint, &texture};
+}
+
+void cell_silhouette_shape(const cells_context &c, const glintfx::gltfx_texture_2d &half) {
+    const step black[] = {silhouette_step(half, k_shade)};
+    report(c, "H13 preto: o quadro termina", draw_order(c, black, false));
+    report(c, "H13 o texel transparente nao escurece", gray_at(c, 30, 40, 1.0));
+    report(c, "H13 o texel opaco escurece pelo alfa da tinta", gray_at(c, 50, 40, 0.5));
+    const step red[] = {silhouette_step(half, glintfx::gltfx_rgba{1.0F, 0.0F, 0.0F, 0.5F})};
+    report(c, "H13 vermelho: o quadro termina", draw_order(c, red, false));
+    report(c, "H13 a cor do texel nao entra: a tinta vermelha mistura para o vermelho",
+           near_pixel(read_at(c, 50, 40), 255.0, level_of(c, 0.5), level_of(c, 0.5)));
+    begin_white(c);
+    glintfx::gltfx_texture_paint mirrored = whole_paint(k_shade);
+    mirrored.region.mirror = glintfx::gltfx_texture_mirror::flip_left_right;
+    c.renderer.draw_shadow_texture(half, mirrored, box(20, 20, 60, 60));
+    (void)c.renderer.finish_frame();
+    report(c, "H13 o espelho troca os dois lados",
+           gray_at(c, 30, 40, 0.5) && gray_at(c, 50, 40, 1.0));
+}
+
+void cell_silhouette_marks_where_it_darkens(const cells_context &c, bool keyed,
+                                            const glintfx::gltfx_texture_2d &half) {
+    const step steps[] = {silhouette_step(half, k_shade), shadow_step(20, 60)};
+    report(c, named("H14", keyed, "o quadro termina"), draw_order(c, steps, keyed));
+    report(c, named("H14", keyed, "o texel transparente nao marca: a seguinte escurece"),
+           gray_at(c, 30, 40, 0.5));
+    report(c, named("H14", keyed, "o texel opaco marca: a seguinte nao escurece, uma vez"),
+           gray_at(c, 50, 40, 0.5));
+}
+
+void cell_silhouettes_overlap_and_release(const cells_context &c, bool keyed,
+                                          const glintfx::gltfx_texture_2d &half) {
+    const step overlap[] = {silhouette_step(half, k_shade), silhouette_step(half, k_shade)};
+    report(c, named("H15", keyed, "duas: o quadro termina"), draw_order(c, overlap, keyed));
+    report(c, named("H15", keyed, "duas silhuetas sobrepostas: uma vez"), gray_at(c, 50, 40, 0.5));
+    const step between[] = {silhouette_step(half, k_shade), piece_step(45, 55, k_opaque_red),
+                            silhouette_step(half, k_shade)};
+    report(c, named("H15", keyed, "com a peca: o quadro termina"), draw_order(c, between, keyed));
+    report(c, named("H15", keyed, "a peca opaca libera: a segunda a escurece"),
+           near_pixel(read_at(c, 50, 40), level_of(c, 0.5), 0.0, 0.0));
+}
+
+void cell_silhouette_half_alpha(const cells_context &c) {
+    const std::array<std::byte, 8> half_alpha{std::byte{9},   std::byte{9},  std::byte{9},
+                                              std::byte{128}, std::byte{9},  std::byte{9},
+                                              std::byte{9},   std::byte{128}};
+    const auto texture = texture_of(c, half_alpha, 2, 1);
+    if (!texture.has_value()) {
+        return;
+    }
+    const glintfx::gltfx_rgba solid{0.0F, 0.0F, 0.0F, 1.0F};
+    const step steps[] = {silhouette_step(*texture, solid), shadow_step(20, 60)};
+    report(c, "H16 o quadro termina", draw_order(c, steps, false));
+    report(c, "H16 alfa 0,5 sob tinta de alfa 1: escurece 0,5, e marca", gray_at(c, 40, 40, 0.5));
+}
+
+// A checkerboard of two by two, opaque black and transparent, in a trapezoid.
+void draw_checker(const cells_context &c, const glintfx::gltfx_texture_2d &checker,
+                  bool silhouette) {
+    const glintfx::gltfx_quad_world trapezoid{{40, 20}, {160, 20}, {220, 200}, {10, 200}};
+    const glintfx::gltfx_texture_paint paint{
+        glintfx::gltfx_texture_region{glintfx::gltfx_rect_texel{{0.0, 0.0}, {2.0, 2.0}}},
+        glintfx::gltfx_rgba{silhouette ? 0.0F : 1.0F, silhouette ? 0.0F : 1.0F,
+                            silhouette ? 0.0F : 1.0F, 1.0F}};
+    begin_white(c);
+    if (silhouette) {
+        c.renderer.draw_shadow_texture(checker, paint, trapezoid);
+    } else {
+        c.renderer.draw_texture_quad(checker, paint, trapezoid);
+    }
+    (void)c.renderer.finish_frame();
+}
+
+bool is_dark(const cells_context &c, int x, int y) { return read_at(c, x, y).red < 64; }
+
+void cell_silhouette_in_a_trapezoid(const cells_context &c) {
+    const std::array<std::byte, 16> texels{
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{255}, std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0},   std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{0}, std::byte{0}, std::byte{255}};
+    const auto checker = texture_of(c, texels, 2, 2);
+    if (!checker.has_value()) {
+        return;
+    }
+    std::vector<bool> painted;
+    draw_checker(c, *checker, false);
+    for (int y = 24; y < 200; y += 6) {
+        for (int x = 14; x < 216; x += 6) {
+            painted.push_back(is_dark(c, x, y));
+        }
+    }
+    draw_checker(c, *checker, true);
+    std::size_t at = 0;
+    int different = 0;
+    int dark = 0;
+    for (int y = 24; y < 200; y += 6) {
+        for (int x = 14; x < 216; x += 6) {
+            const bool shadowed = is_dark(c, x, y);
+            different += shadowed != painted[at] ? 1 : 0;
+            dark += shadowed ? 1 : 0;
+            ++at;
+        }
+    }
+    std::fprintf(stdout,
+                 "draw2d_shadow_parity_test: [srgb=%s] H17 sondas=%zu diferentes=%d escuras=%d\n",
+                 c.mode, at, different, dark);
+    report(c, "H17 a silhueta cobre os pixels que draw_texture_quad pinta", different == 0);
+    report(c, "H17 a sonda viu os dois lados", dark > 100 && dark + 100 < static_cast<int>(at));
+}
+
+void cell_silhouette_of_a_projected_piece(const cells_context &c,
+                                          const glintfx::gltfx_texture_2d &half) {
+    const glintfx::gltfx_point_light_2d lamp{{120.0, 0.0}, 80.0};
+    const glintfx::gltfx_standing_piece_2d piece{{100.0, 60.0}, {140.0, 60.0}, 40.0};
+    const auto shadow = glintfx::gltfx_project_point_shadow(lamp, piece);
+    report(c, "H18 a projecao tem valor", shadow.has_value());
+    if (!shadow.has_value()) {
+        return;
+    }
+    begin_white(c);
+    c.renderer.draw_shadow_texture(half, whole_paint(k_shade), shadow.value());
+    (void)c.renderer.finish_frame();
+    report(c, "H18 o texel de base_start cai do lado de base_start", gray_at(c, 105, 90, 1.0));
+    report(c, "H18 o texel de base_end cai do lado de base_end", gray_at(c, 135, 90, 0.5));
+    const glintfx::gltfx_directional_light_2d sun{glintfx::gltfx_angle_from_degrees(0.0),
+                                                  glintfx::gltfx_angle_from_degrees(90.0)};
+    const auto overhead = glintfx::gltfx_project_directional_shadow(sun, piece);
+    report(c, "H18 o sol a pino: a projecao tem valor", overhead.has_value());
+    if (!overhead.has_value()) {
+        return;
+    }
+    begin_white(c);
+    c.renderer.draw_shadow_texture(half, whole_paint(k_shade), overhead.value());
+    const auto finished = c.renderer.finish_frame();
+    report(c, "H18 o sol a pino: desenhada, nao recusada, um trecho",
+           finished.has_value() && finished.value().pieces_refused == 0U &&
+               finished.value().pieces_drawn == 1U && finished.value().shadow_segments == 1U);
+    report(c, "H18 o sol a pino: nenhum pixel", gray_at(c, 120, 60, 1.0));
+}
+
+void cell_silhouette_refusals_and_count(const cells_context &c,
+                                        const glintfx::gltfx_texture_2d &half) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    glintfx::gltfx_texture_paint outside = whole_paint(k_shade);
+    outside.region.source.size = {9.0, 9.0};
+    const std::array<std::byte, 8> texels{std::byte{0}};
+    auto closed = texture_of(c, texels, 2, 1);
+    if (!closed.has_value()) {
+        return;
+    }
+    const glintfx::gltfx_texture_2d moved = std::move(*closed); // the one left behind is not open
+    begin_white(c);
+    c.renderer.draw_shadow_texture(half, whole_paint(k_shade),
+                                   glintfx::gltfx_quad_world{{nan, 0}, {1, 0}, {1, 1}, {0, 1}});
+    c.renderer.draw_shadow_texture(*closed, whole_paint(k_shade), box(0, 0, 1, 1));
+    c.renderer.draw_shadow_texture(half, outside, box(0, 0, 1, 1));
+    c.renderer.draw_shadow_texture(half, whole_paint(k_shade),
+                                   glintfx::gltfx_quad_world{{0, 0}, {2, 0}, {4, 0}, {0, 4}});
+    const auto refused = c.renderer.finish_frame();
+    report(c, "H19 o quadro termina", refused.has_value());
+    if (refused.has_value()) {
+        const glintfx::gltfx_frame_2d_report r = refused.value();
+        report(c, "H19 cada recusa e uma peca, com o seu motivo",
+               r.pieces_submitted == 4U && r.pieces_refused == 4U &&
+                   r.pieces_refused_not_a_number == 1U && r.pieces_refused_texture_not_open == 1U &&
+                   r.pieces_refused_region_out_of_range == 1U &&
+                   r.pieces_refused_degenerate_quad == 1U && r.shadow_segments == 0U);
+    }
+    begin_white(c);
+    c.renderer.fill_rect(glintfx::gltfx_rect_world{{0, 0}, {4, 4}}, k_opaque_red);
+    c.renderer.draw_shadow_texture(half, whole_paint(k_shade), box(20, 20, 60, 60));
+    c.renderer.fill_rect(glintfx::gltfx_rect_world{{4, 0}, {4, 4}}, k_opaque_red);
+    const auto counted = c.renderer.finish_frame();
+    report(c, "H19 retangulo, silhueta e retangulo: 4 chamadas, 2 trocas, 1 trecho",
+           counted.has_value() && counted.value().draw_calls == 4U &&
+               counted.value().texture_switches == 2U && counted.value().shadow_segments == 1U);
+}
+
+void run_silhouette_cells(const cells_context &c) {
+    const std::array<std::byte, 8> transparent_and_green{
+        std::byte{0}, std::byte{0},   std::byte{0}, std::byte{0},
+        std::byte{0}, std::byte{255}, std::byte{0}, std::byte{255}};
+    const auto half = texture_of(c, transparent_and_green, 2, 1);
+    if (!half.has_value()) {
+        return;
+    }
+    cell_silhouette_shape(c, *half);
+    for (const bool keyed : {false, true}) {
+        cell_silhouette_marks_where_it_darkens(c, keyed, *half);
+        cell_silhouettes_overlap_and_release(c, keyed, *half);
+    }
+    cell_silhouette_half_alpha(c);
+    cell_silhouette_in_a_trapezoid(c);
+    cell_silhouette_of_a_projected_piece(c, *half);
+    cell_silhouette_refusals_and_count(c, *half);
+}
+
 void cell_open_with_a_framebuffer_of_the_consumer(const cells_context &c) {
     for (int read = 0; read < 16 && c.gl.get_error() != 0U; ++read) {
     }
@@ -630,6 +882,7 @@ void run_cells(const cells_context &c) {
     cell_the_stencil_buffer_of_the_consumer(c);
     cell_the_bits_of_the_surface(c);
     cell_open_with_a_framebuffer_of_the_consumer(c);
+    run_silhouette_cells(c);
 }
 
 enum class mode_result : std::uint8_t { ran, absent, fatal };
@@ -731,7 +984,7 @@ int main() {
     std::fprintf(stdout, "draw2d_shadow_parity_test: %d celula(s) conferida(s), %d reprovada(s)\n",
                  g_cells, g_failures);
     // Piso de varredura nao-vazia (GODS_LAWS.md L-40): a run that checked nothing is not a pass.
-    if (g_cells < 79) {
+    if (g_cells < 112) {
         return fail("menos celulas do que o piso (varredura quebrada)");
     }
     return g_failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

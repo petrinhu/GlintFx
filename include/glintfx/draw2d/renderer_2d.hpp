@@ -894,6 +894,41 @@ class gltfx_renderer_2d {
     GLINTFX_API void fill_shadow(gltfx_quad_world shadow, gltfx_rgba tint,
                                  gltfx_draw_layer layer = {}) noexcept;
 
+    // The silhouette of `texture` as a shadow, through `paint.region`: the
+    // texture's alpha is the shape, and `paint.tint` (the colour of the shadow,
+    // D-W8-321) and the segment rule are those of fill_shadow(). The colour of
+    // the texels is not read. A texel that darkens nothing marks nothing: the
+    // mark starts at half a level of alpha, tint and texel multiplied, the same
+    // limit as a shadow of one colour. The tint you do not choose is the opaque
+    // white of gltfx_texture_paint, and that is a white shadow: choose one.
+    // The corners of `shadow` carry the corners of the region in the roles of
+    // gltfx_quad_world (core/projected_shadow.hpp), with PROJECTIVE
+    // interpolation, as draw_texture_quad(), so the silhouette in the trapezoid
+    // of a point light does not bend. The texture comes by reference, the paint
+    // as a value. D-W8-354: four parameters at most, with the layer.
+    //
+    // Refused as ONE piece, counted in the report, for the reasons of
+    // draw_texture_quad(), in its order, with stencil_unavailable (fill_shadow())
+    // right after the texture's reasons. A shadow whose four corners lie on one
+    // line is not refused: it has zero area, the shadow of a piece of height
+    // zero or under a sun overhead (core/projected_shadow.hpp), and as in
+    // fill_shadow() it is drawn and covers no pixel. Corners that define no
+    // mapping any other way are degenerate_quad, as in draw_texture_quad().
+    // Proved by: embedded_program_test (the third value of u_textured).
+    // Proved by: vertex_stream_test (the value is set for its run, and going
+    // from a textured piece to a silhouette of the same texture is not a
+    // texture switch).
+    // Proved by: renderer_2d_impl_test (the order of the refusals; zero area).
+    // Proved by: projective_quad_test (four corners on one line, decided
+    // exactly).
+    // Proved by: draw2d_shadow_parity_test (the pixels, on both systems: a
+    // texel that does not darken and does not mark, the colour of the texel
+    // that does not enter, and a trapezoid read as draw_texture_quad() reads
+    // it).
+    GLINTFX_API void draw_shadow_texture(const gltfx_texture_2d &texture, gltfx_texture_paint paint,
+                                         gltfx_quad_world shadow,
+                                         gltfx_draw_layer layer = {}) noexcept;
+
   private:
     explicit gltfx_renderer_2d(renderer_2d_impl *interior) noexcept : impl(interior) {}
     friend struct renderer_2d_internal_access;

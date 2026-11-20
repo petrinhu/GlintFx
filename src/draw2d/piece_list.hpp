@@ -36,6 +36,9 @@ struct textured_quad_paint {
     std::uint32_t texture = 0;
     quad_texture_corners texture_corners = k_role_texture_corners;
     glintfx::gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
+    // A shadow with a texture, a silhouette (R2D-SPRITE-SHADE H3b-3): its run marks what it
+    // darkens.
+    stencil_role stencil = stencil_role::ordinary;
 };
 
 // What the piece is: a quadrilateral (`corners`, one `color`) or a TRIANGLE piece (S2a), whose

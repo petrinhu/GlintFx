@@ -54,13 +54,14 @@ namespace glintfx {
 
 namespace draw2d {
 // What one textured call submits (T4b-B1): grouped so submit_textured() stays within four
-// parameters. `projective` is false for draw_texture() (q = 1 at every corner). `texture` and
-// `paint` are read only during the call.
+// parameters. `projective` is false for draw_texture() (q = 1 at every corner). `stencil` is the
+// role of a silhouette (H3b-3). `texture` and `paint` are read only during the call.
 struct textured_submission {
     const texture_2d_impl *texture = nullptr;
     const gltfx_texture_paint *paint = nullptr;
     gltfx_quad_world corners{};
     bool projective = false;
+    stencil_role stencil = stencil_role::ordinary;
 };
 
 // What one textured triangle call submits (T5): the texture, the vertices and the indices (read
@@ -131,6 +132,11 @@ struct renderer_2d_impl {
     // (shadow_group.hpp), so its run marks what it darkens.
     void fill_shadow(const gltfx_quad_world &shadow, gltfx_rgba tint,
                      gltfx_draw_layer layer) noexcept;
+    // A silhouette (H3b-3): the alpha of the region of `paint` is the shape of a shadow. Refused
+    // for what draw_texture_quad() is, the surface after the texture's reasons; on one line, it is
+    // the fill_shadow() of zero area: drawn, covering no pixel.
+    void draw_shadow_texture(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                             const gltfx_quad_world &shadow, gltfx_draw_layer layer) noexcept;
     // The triangle methods (S2b): an empty call is nothing; the rest is checked, and refused whole
     // or kept as one piece (triangle_list_check.hpp).
     void fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
@@ -232,6 +238,11 @@ struct renderer_2d_impl {
     // The screen an ellipse, or the rounded cap of a line (a half ellipse, S5-C2), is built on: the
     // batch transform in force, the surface of the frame and the curve distance given to create().
     [[nodiscard]] draw2d::ellipse_screen ellipse_screen_now() const noexcept;
+    // Why a textured quadrilateral is refused, the values and then the texture's reasons (`none`
+    // when it is not): draw_texture_quad() and draw_shadow_texture().
+    [[nodiscard]] gltfx_draw_2d_refusal
+    refusal_of_textured_quad(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                             const gltfx_quad_world &corners) const noexcept;
     // The one path of both textured methods: `refusal` is the first reason of the values and the
     // texture (none when they pass); the shape and the pixel range are asked here.
     void submit_textured(const draw2d::textured_submission &submission,

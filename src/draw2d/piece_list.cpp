@@ -28,6 +28,7 @@ bool piece_list::add_textured(const quad_corners_pixel &corners, const textured_
     pending_piece piece{corners, paint.tint, layer, 0, piece_kind::quad};
     piece.texture = paint.texture;
     piece.texture_corners = paint.texture_corners;
+    piece.stencil = paint.stencil;
     return append_quad(piece);
 }
 

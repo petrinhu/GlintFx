@@ -12,14 +12,23 @@
 namespace glintfx {
 
 // cppcheck-suppress-begin passedByValue
-// reason: gltfx_quad_world is a VALUE type, and fill_shadow() takes it by value as
-// docs/auditoria-api-sprite-shade.md fixes (D-W8-354): the copy is a few doubles, and a const
-// reference would make the caller's lifetime part of the contract.
+// reason: gltfx_quad_world and gltfx_texture_paint are VALUE types, and fill_shadow() and
+// draw_shadow_texture() take them by value as docs/auditoria-api-sprite-shade.md fixes (D-W8-354):
+// the copy is a few numbers, and a const reference would make the caller's lifetime part of the
+// contract.
 void gltfx_renderer_2d::fill_shadow(gltfx_quad_world shadow, gltfx_rgba tint,
                                     gltfx_draw_layer layer) noexcept {
     assert(impl != nullptr && "gltfx_renderer_2d::fill_shadow() called on a moved-from renderer - "
                               "the object no longer owns its drawing state");
     impl->fill_shadow(shadow, tint, layer);
+}
+
+void gltfx_renderer_2d::draw_shadow_texture(const gltfx_texture_2d &texture,
+                                            gltfx_texture_paint paint, gltfx_quad_world shadow,
+                                            gltfx_draw_layer layer) noexcept {
+    assert(impl != nullptr && "gltfx_renderer_2d::draw_shadow_texture() called on a moved-from "
+                              "renderer - the object no longer owns its drawing state");
+    impl->draw_shadow_texture(texture.impl, paint, shadow, layer);
 }
 // cppcheck-suppress-end passedByValue
 

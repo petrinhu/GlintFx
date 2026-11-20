@@ -48,10 +48,12 @@ constexpr char k_vertex_source[] =
 
 // The color is already premultiplied (triangle_batch.hpp). A TEXTURED run (`u_textured` = 1,
 // T4b-B1, D-W8-473) multiplies it by the texel, read PROJECTIVELY: textureProj divides (u q, v q)
-// by q (projective_quad.hpp). The texel comes out linear and premultiplied (the texture is stored
-// sRGB with the premultiplied color encoded, pixel_premultiply.hpp), so the product is the tint of
-// gltfx_texture_paint applied as texture_region.hpp promises. With the context option
-// `srgb_framebuffer` ON the surface encodes for us and the color is written as it is; with it OFF
+// by q (projective_quad.hpp). A SILHOUETTE (`u_textured` = 2, R2D-SPRITE-SHADE H3b-3) multiplies it
+// by the ALPHA of the texel alone: the texture is the shape, the color is the tint's. The texel
+// comes out linear and premultiplied (the texture is stored sRGB with the premultiplied color
+// encoded, pixel_premultiply.hpp), so the product is the tint of gltfx_texture_paint applied as
+// texture_region.hpp promises. With the context option `srgb_framebuffer` ON the surface encodes
+// for us and the color is written as it is; with it OFF
 // (`u_encode_srgb` = 1) the program encodes to sRGB before the blend does its work, which is what
 // most 2D libraries do (D-W7D-12): un-premultiply, encode the straight color, premultiply again.
 // After the texel and before the encoding, a stencil pass of shadow_group.hpp may discard the
@@ -67,8 +69,11 @@ constexpr char k_fragment_source[] =
     "out vec4 frag_color;\n"
     "void main() {\n"
     "    vec4 color = v_color;\n"
-    "    if (u_textured != 0) {\n"
+    "    if (u_textured == 1) {\n"
     "        color *= textureProj(u_texture, v_texcoord);\n"
+    "    }\n"
+    "    if (u_textured == 2) {\n"
+    "        color *= textureProj(u_texture, v_texcoord).a;\n"
     "    }\n"
     "    if (u_stencil_discard == 1 && color.a < 0.5 / 255.0) {\n"
     "        discard;\n"

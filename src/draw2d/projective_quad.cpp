@@ -102,4 +102,15 @@ projective_weights(const glintfx::gltfx_quad_world &corners) noexcept {
     return weights;
 }
 
+bool quad_lies_on_one_line(const glintfx::gltfx_quad_world &corners) noexcept {
+    const auto on_a_line = [](glintfx::gltfx_vec2_world a, glintfx::gltfx_vec2_world b,
+                              glintfx::gltfx_vec2_world c) noexcept {
+        return exact_cross(a, b, a, c).sign == 0;
+    };
+    return on_a_line(corners.top_left, corners.top_right, corners.bottom_right) &&
+           on_a_line(corners.top_left, corners.top_right, corners.bottom_left) &&
+           on_a_line(corners.top_left, corners.bottom_right, corners.bottom_left) &&
+           on_a_line(corners.top_right, corners.bottom_right, corners.bottom_left);
+}
+
 } // namespace glintfx::draw2d

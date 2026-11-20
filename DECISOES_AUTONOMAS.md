@@ -11358,3 +11358,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Sufixo SELinux:** *"Minúscula sempre (Recomendado)"*. O `CLAUDE.md` do projeto passa a mandar `:z` e `:ro,z`, e proíbe `:Z` em pasta do projeto ou compartilhada. O bullet `SELINUX-SUFIXO-REGRA-DIVERGE` sai da INBOX.
   - **Seção "In progress" da `Home.md` da wiki:** *"Aprovar como está (Recomendado)"*. Ela sai quando a API de texturas for declarada estável. O bullet `WIKI-CONCEPTS-DESATUALIZADO` sai da INBOX, porque a parte do `Concepts.md` já estava feita em `48f3f2fd`.
   - **Pendências que ainda esperam o líder:** as quatro decisões do atlas, uma a uma (D-W8-1152). O pacote está sendo preparado pelo CTO.
+- **D-W8-1155 (main, 20/11 03:23): o líder mantém as quatro escolhas do atlas e autoriza baixar de novo a imagem do PowerShell.**
+  - **Atlas** (pacote `atlas-decisoes-lider.md`, md5 `d925e8c6`, do CTO; decisões D-W8-1862 e 1863): as respostas foram estas, e as quatro decisões da T6-B2 ficam como estão, sem fatia de conserto:
+    1. *"Imagem inteira (Recomendado)"*;
+    2. *"Atlas 14 e 15 (Recomendado)"*;
+    3. *"Dois motivos (Recomendado)"*;
+    4. *"As duas promessas (Recomendado)"*.
+  - **Imagem:** *"Autorizar o download (Recomendado)"* (L-51). `mcr.microsoft.com/powershell:latest` foi baixada de novo, 487 MB, pull rc 0. Ela tinha sumido do cache desde 14/11.
+  - **Fix3 até aqui:** sab1, sab2 e o verde batem com a tabela da errata. Os picos ficaram em 13 processos e até 832 MiB, sem oom. O `preci` parou no estágio 1b por causa da imagem que faltava. O implementador retoma do passo 6.
+  - **Coredump das 03:17:54** (`atlas_allocator_test`, SIGSEGV): veio da sab2, um vermelho esperado. O verde passou com 2 de 2. A `manutencao` foi avisada.

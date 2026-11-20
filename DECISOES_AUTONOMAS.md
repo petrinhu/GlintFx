@@ -11402,3 +11402,11 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Conserto:** N4 (camada de texto da L-12) em `b8548aa0`, uma nota "Atualização pós-commit" depois de cada frase. O main conferiu cada `arquivo:linha` citado contra a árvore.
   - **Sem CI:** o envio do ramo ao GitHub segue bloqueado pela permissão.
   - **Antes da H3b-3,** o CTO confere se `b8548aa0` quebra a base dela (a H3b-3 escreve no mesmo parecer) e emite a errata2: varredura em lote (L-11), paralelismo 4 e TasksMax=400 para o revisor.
+- **D-W8-1160 (main, 20/11 06:35): a H3b-3 abre.**
+  - **O CTO** (D-W8-1895 a 1899) mediu contra o HEAD que a H3b-3 ainda vale: base, blocos e "espere" batem. Ele escreveu a `ordem-h3b3-errata2.md` (md5 `bcb89116a83b6b1dbb4e9e76b1e4b149`) com três pontos:
+    - a varredura vai em lote, por uma ferramenta que reprova nos quatro casos que deve reprovar (L-11);
+    - uma trava única mantém o paralelismo em 4 (D15 da H3b-2);
+    - o revisor roda com TasksMax=400.
+  - **Conferido pelo main:** md5 da errata e dos anexos (rc 0). A ratificação das sombras citada pelo CTO (D-W8-1152, `DECISOES_AUTONOMAS.md:11347`) bate.
+  - **A vez:** a `manutencao` concedeu. O implementador é `backend-engineer` haiku NOVO.
+  - **Pendente para o main depois do commit:** a nota de `b8548aa0` que cita "linha 613" passa a apontar para a 638.

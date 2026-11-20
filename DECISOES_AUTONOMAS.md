@@ -11532,3 +11532,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - D3: a recusa de `add_image` não cita a geração do recibo (`texture_atlas.hpp:95-96`);
     - D4: a página diz que a seção Status do README não fala de textura, e ela fala.
   - **O conserto:** vai a um `technical-writer` (texto só, camada N4, conferido pelo main). Ele cobre as 4 divergências e as omissões que mudam o uso: `draw_atlas_image`, o alocador público e o atlas não copiável.
+
+- **D-W8-1173 (main, 20/11 15:06): o conserto da ATLAS-WIKI entra (`cdd3f9a8`, technical-writer em haiku), e o item fica ✅.** O texto é camada N4, e o main conferiu pelo blob, contra o header:
+  - **D1:** o passo 4 desenha com `draw_atlas_image(atlas, {slot.value()}, rect)`. Isso casa com `renderer_2d.hpp:631-632`, com o teste `draw2d_texture_parity_test.cpp:910`, com os campos `slot`, `mirror` e `tint` (nessa ordem) de `texture_atlas.hpp:158-162` e com a forma do retângulo de `examples/textures/textures.cpp:374`. A página diz por extenso que o exemplo compilado pelo CI ainda não chama a função.
+  - **D2:** a linha de `atlas_allocate` cobre o fim dos números de célula (`atlas_allocator.hpp:66-68`).
+  - **D3:** a recusa de `add_image` e o número reemitido com geração maior (`texture_atlas.hpp:92-96`).
+  - **D4:** o README cita texturas no Status e o atlas só nos exemplos, o que confere com `README.md:26` e `:69`.
+  - **O17:** o atlas não se copia (`texture_atlas.hpp:170-171`).
+  - Os portões do commit passaram, e as omissões deixadas de fora estão justificadas pelo leitor externo no relatório do redator (`.trabalho/cto-w8/atlas-wiki-fix/`).
+  - **Trailer:** só o do Haiku, porque o texto saiu inteiro do redator. A ordem do main não escreveu linha nenhuma da página.

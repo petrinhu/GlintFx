@@ -11410,3 +11410,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Conferido pelo main:** md5 da errata e dos anexos (rc 0). A ratificação das sombras citada pelo CTO (D-W8-1152, `DECISOES_AUTONOMAS.md:11347`) bate.
   - **A vez:** a `manutencao` concedeu. O implementador é `backend-engineer` haiku NOVO.
   - **Pendente para o main depois do commit:** a nota de `b8548aa0` que cita "linha 613" passa a apontar para a 638.
+- **D-W8-1161 (main, 20/11 09:35): a H3b-3 fecha.**
+  - **Revisão N1** (`.trabalho/cto-w8/rev-h3b3/rev-h3b3.txt`, em três rodadas): LIMPA nos itens 1 a 9, sem CRÍTICO nem IMPORTANTE.
+    - Na 1ª rodada, o revisor parou por ler o `kwin=` como PARE; essa regra foi revogada pela errata KWIN-68 (`kwin68-saida-errata-pendentes/errata1.md:35`).
+    - Fixtures: fxgreen 224/0; COLOR, FACADE3, NOPROJ, NOLINE e GLSLBAD reprovam como previsto.
+    - Mutantes: M1 a M9 mortos. O M10 é equivalente (área zero não pinta pixel).
+    - pmu_probe passa nos três compiladores, e o MSVC /W4 /WX dá 13/13.
+  - **Os três cosméticos:**
+    - o da remissão "linha 613" foi corrigido por texto neste commit, com uma referência que não apodrece;
+    - os outros dois entram na INBOX (SHADE-TEST-NAME-TOKEN-ORDER e SHADE-OPAQUE-WHITE-CITE).
+  - **Sem CI:** o envio do ramo segue bloqueado.
+  - **Próxima fatia, a H5:** a ordem é de 13/11, anterior à H3b e aos limites da `manutencao`. O CTO emite a errata antes do despacho.

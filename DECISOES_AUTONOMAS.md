@@ -11523,3 +11523,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **D-W8-1946:** o mecanismo da G3, pendente desde a D-W8-1106, fica decidido. É a variante nomeada do portão, só com o nó da placa integrada, mais o aviso de uma linha ao líder antes da rodada.
   - **D-W8-1947:** a revisão da parte A e a parte B leem o blob do commit da parte A, nunca a árvore viva.
   - **Sobem ao líder, no momento de cada passo:** o OK da GeForce para a G4b, com os 5 alertas; o merge e a marca v0.7.0.0, quando o portão fechar; a porta de mão única D-W8-1247; e o lote de ratificação.
+
+- **D-W8-1172 (main, 20/11 15:00): a ATLAS-WIKI passa a ❌ Reprovado.** A verificação de leitura (qa-engineer, relatório em `.trabalho/cto-w8/atlas-wiki-verif/relatorio.txt`) deu NÃO LIMPA: 84 afirmações conferidas, 73 CONFERE, 4 divergências e 6 não verificáveis só pelo header.
+  - **A divergência grave (D1), reconferida pelo main:** `docs/wiki/API-Texture-Atlas.md:162` e `:259` dizem que a chamada de desenho recebe uma região e nunca um slot. Mas `include/glintfx/draw2d/renderer_2d.hpp:631-632` declara `draw_atlas_image(atlas, gltfx_atlas_paint, ...)`, que recebe o recibo do atlas.
+  - **A causa:** a página conferia em `19dff569` (13/11 18:11). A API mudou depois, em `7ca6eeda` (14/11 10:20, a T6 da R2D-TEXTURE), e a página não acompanhou.
+  - **As outras divergências:**
+    - D2: o erro de memória de `atlas_allocate` não conta o esgotamento de números de célula (`atlas_allocator.hpp:66-68`);
+    - D3: a recusa de `add_image` não cita a geração do recibo (`texture_atlas.hpp:95-96`);
+    - D4: a página diz que a seção Status do README não fala de textura, e ela fala.
+  - **O conserto:** vai a um `technical-writer` (texto só, camada N4, conferido pelo main). Ele cobre as 4 divergências e as omissões que mudam o uso: `draw_atlas_image`, o alocador público e o atlas não copiável.

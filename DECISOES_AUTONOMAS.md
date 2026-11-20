@@ -11381,3 +11381,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O que o CTO recomendou mostrar ao líder:** 1872 (duas ondas no lugar de uma fatia), 1874 (Adam7 suportado, porque a norma PNG 3 obriga), 1875 (o decodificador não aloca), 1877 (`limit_exceeded`), 1880 (a cor só é rotulada, nunca transformada), 1888 (primeiro fuzzer) e 1889 (texto da elipse). Vão na lista de ratificação da saída da onda.
   - **Só sobe ao líder por lei:** a exceção nº 2 da L-07, para usar o corpus PngSuite, que seria vendorizar dado de terceiro. Também sobe a instalação de pacote para o fuzzer (L-51 global). O plano não depende de nenhuma das duas. A pergunta sobe quando a fatia condicional chegar.
   - **As 16 linhas entram no `TODO.md` no fechamento da W8,** pelo texto da seção 6 do plano, com as ordens de serviço escritas e executadas antes pelo CTO (L-12).
+- **D-W8-1158 (main, 20/11 05:31): a H3b-2 entra e vai à revisão.**
+  - **O commit:** `33438ced`, com 27 arquivos (+1544/-33): "a sombra chega ao público, e um ponto escurece uma vez só".
+  - **O que o implementador mediu:**
+    - os 13 vermelhos da ordem e os 13 mutantes, todos mortos;
+    - green, werror e static em 100%;
+    - quatro fixtures conforme o previsto;
+    - Clang 22 e 23, e o MSVC só compilado;
+    - preci --fast 398/398 e --sanitizer-only 204/204.
+    - Picos, todos sem oom: contêineres com até 17 processos e 941 MB; preci com até 36 processos e 3,4 GB. O MemAvailable ficou sempre acima de 17,9 GiB.
+  - **Desvios declarados por ele** (`h3b2/relatorio.txt`): D14, processo por item fora da seção 4; D15, paralelismo 8 no hospedeiro em vez de 4. Os dois foram repassados à `manutencao`. O revisor recebeu ordem expressa de usar 4.
+  - **Revisor N1:** `qa-engineer` haiku NOVO, pela seção 9 da ordem. Os contêineres só sobem depois da vez da `manutencao`.

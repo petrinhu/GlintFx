@@ -11494,3 +11494,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **CI:** enviado ao `onda-w8` e disparado o run `44776410242` (`4e68bd24`), que é o portão da seção 6 da ordem.
   - **Revisor N1:** um `qa-engineer` haiku NOVO.
   - **Também entrou:** o `ee6cd633` (ESCOPO.md, L-39 global movida para o projeto), que veio de outra sessão.
+- **D-W8-1170 (main, 20/11 14:10): o CI `44776410242` (`4e68bd24`) fecha VERDE**, com 25 jobs em success e 1 pulado.
+  - **O lint do Windows** passou com o LLVM 23.1.6 e os dois consertos, o que cumpre o portão da seção 6 da `ordem-tidy23-escape.md`.
+  - **A revisão N1 do TIDY23-ESCAPE** (`rev-tidy23/rev-tidy23.txt`) saiu LIMPA:
+    - o vermelho e o verde foram reproduzidos;
+    - a mutação foi pega;
+    - o preci passou com 399/399;
+    - não há gêmeo e a API pública não mudou;
+    - houve 1 achado COSMÉTICO, que foi à INBOX.
+  - **TIDY23-ESCAPE e R2D-SPRITE-SHADE** ficam ✅:
+    - a revisão fechou, com a exceção de autoria registrada em D-W8-1167;
+    - o CI fechou verde, com o exemplo das sombras em todas as plataformas.

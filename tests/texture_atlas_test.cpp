@@ -394,8 +394,9 @@ namespace {
 constexpr gltfx_rect_texel k_no_region{};
 
 // An owner number this test never sees handed out: owners are handed out from 1 up, one per
-// allocator opened, and 4294967295 only after that many (core/atlas_allocator.hpp, A SLOT IS A
-// RECEIPT); this test opens a few.
+// allocator opened. 4294967295 is handed out only to the 4294967295th allocator opened in the
+// process (core/atlas_allocator.hpp, A SLOT IS A RECEIPT); this test opens a few, so it never
+// reaches it.
 constexpr std::uint32_t k_owner_never_handed_out = 0xFFFFFFFFU;
 
 } // namespace
@@ -422,7 +423,8 @@ GLINTFX_TEST(texture_atlas_a_current_receipt_reads_the_region_of_its_image) {
 }
 
 // T6-B2: each receipt that is not current reads its reason and an empty region, in the order of
-// region_of(): another atlas's, then what the slot table says, field by field.
+// region_of(): an owner of 0 is stale (never handed out); another atlas's owner is another
+// atlas's; with this atlas's owner, the slot table says, field by field.
 GLINTFX_TEST(texture_atlas_a_receipt_not_current_reads_its_reason_and_no_region) {
     reset();
     arm(0);
@@ -458,10 +460,11 @@ GLINTFX_TEST(texture_atlas_a_receipt_not_current_reads_its_reason_and_no_region)
     GLINTFX_CHECK(reads(taken.value(), stale_region));
 }
 
-// T6-B2: reading a receipt, the owner is read first (texture_atlas.hpp, THE RECEIPT). An owner that
-// is not this atlas's reads as another atlas's, whatever the other fields say; with this atlas's
-// owner, the slot table decides. The receipt of `other` is the one of `a` with only its owner
-// changed (the same cell, number and generation): only the owner tells the two apart.
+// T6-B2: reading a receipt, the owner is read first (texture_atlas.hpp, THE RECEIPT). An owner of
+// 0 is stale. An owner other than 0 that is not this atlas's reads as another atlas's, whatever the
+// other fields say; with this atlas's owner, the slot table decides. The receipt of `other` is the
+// one of `a` with only its owner changed (the same cell, number and generation): only the owner
+// tells the two apart.
 GLINTFX_TEST(texture_atlas_reading_a_receipt_reads_its_owner_first) {
     reset();
     arm(0);

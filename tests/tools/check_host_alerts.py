@@ -249,6 +249,34 @@ def read_jsonl(path: Path) -> list[dict]:
 HOUSE_IMAGE = "glintfx-devbuild:verify"
 SENTINEL_TAG = "glintfx-host-alert-gate"
 
+# PRECI-TETO (20/11/2026, GODS_LAWS.md L-11 global, item 2b): the house container is born with
+# a ceiling of its own on processes and memory. dockerd starts it outside the caller's systemd
+# scope, so the scope's TasksMax never reaches it. Fixed here, never read from the environment:
+# a ceiling the caller can unset is not a ceiling. --memory-swap equal to --memory asks for
+# no swap on top (L-11 global, item 4); a host without the swap controller drops it, so the
+# swap is printed and never compared. The same numbers as the pwsh containers of
+# tools/preci.sh (D-W8-1948): the two run in the same preci, one after the other, never
+# together.
+HOUSE_PIDS_LIMIT = 128
+HOUSE_MEMORY_BYTES = 2147483648
+CEILING_FORMAT = "{{.HostConfig.PidsLimit}} {{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}"
+
+
+class CeilingMissing(Exception):
+    """The house container was created without the ceiling; it is removed before it starts."""
+
+
+def house_ceiling_args() -> list[str]:
+    """The docker create options that put the ceiling on the house container."""
+    return ["--pids-limit", str(HOUSE_PIDS_LIMIT), "--memory", str(HOUSE_MEMORY_BYTES),
+            "--memory-swap", str(HOUSE_MEMORY_BYTES)]
+
+
+def ceiling_is_set(line: str) -> bool:
+    """True when the line docker inspect printed with CEILING_FORMAT starts with the processes
+    and the memory of the ceiling; the last field, the swap, is not compared."""
+    return line.rsplit(" ", 1)[0] == f"{HOUSE_PIDS_LIMIT} {HOUSE_MEMORY_BYTES}"
+
 
 def journal(filters: list[str], run=None) -> list[dict] | None:
     """Registros do diario pelos filtros dados, ou None se o journalctl falhar ou faltar."""
@@ -326,22 +354,36 @@ def window_gaps(facts: HostFacts, container_ran: bool, audit_records: list[dict]
     return gaps
 
 
-def run_house_container(repo: Path, run=None) -> tuple[str, str, list[str]]:
-    """Sobe o conteiner da casa: (id, MCS, origens das montagens). Roda dentro
-    dele o python sem -I e o exec_fixture.sh --selftest como root."""
-    run = subprocess.run if run is None else run
+def create_house_container(repo: Path, run) -> str:
+    """Creates the house container with the ceiling and reads the ceiling back from the container
+    object itself (GODS_LAWS.md L-36: the object, never the options we believe we passed). A
+    container without it is removed before it ever starts, and CeilingMissing is raised."""
     # `:ro,z`, minusculo, de proposito (D-W8-429): o repositorio e o mesmo que os outros testes
     # de conteiner da casa montam AO MESMO TEMPO (o ctest roda em paralelo), e o CLAUDE.md do
     # projeto manda o `:z` compartilhado nesse caso. O `:Z` privado reetiquetaria a pasta so
     # para este conteiner e tiraria o acesso dos outros (incidente de 07/09/2026: 10 mil
     # alertas por minuto).
     created = run(
-        ["docker", "create", "-v", f"{repo}:/src:ro,z", "-e", "GLINTFX_PYTHON3=python3",
-         HOUSE_IMAGE, "sh", "-c",
+        ["docker", "create", *house_ceiling_args(), "-v", f"{repo}:/src:ro,z",
+         "-e", "GLINTFX_PYTHON3=python3", HOUSE_IMAGE, "sh", "-c",
          "python3 -c 'import site, sys; print(site.ENABLE_USER_SITE, sys.path)'; "
          "/src/tests/container/exec_fixture.sh --selftest"],
         capture_output=True, text=True, check=True)
     cid = created.stdout.strip()
+    ceiling = run(["docker", "inspect", "-f", CEILING_FORMAT, cid],
+                  capture_output=True, text=True).stdout.strip()
+    print(f"conteiner {cid[:12]} teto (PidsLimit Memory MemorySwap): {ceiling or 'ilegivel'}")
+    if not ceiling_is_set(ceiling):
+        run(["docker", "rm", "-f", cid], capture_output=True)
+        raise CeilingMissing(f"lido {ceiling!r}, esperado {HOUSE_PIDS_LIMIT} {HOUSE_MEMORY_BYTES}")
+    return cid
+
+
+def run_house_container(repo: Path, run=None) -> tuple[str, str, list[str]]:
+    """Sobe o conteiner da casa: (id, MCS, origens das montagens). Roda dentro
+    dele o python sem -I e o exec_fixture.sh --selftest como root."""
+    run = subprocess.run if run is None else run
+    cid = create_house_container(repo, run)
     label = run(["docker", "inspect", "-f", "{{.ProcessLabel}}", cid],
                 capture_output=True, text=True, check=True).stdout.strip()
     sources = run(["docker", "inspect", "-f", "{{range .Mounts}}{{.Source}} {{end}}", cid],
@@ -395,6 +437,9 @@ def measure(repo: Path, python: str, facts: HostFacts, run=None, sleep=None) -> 
     try:
         cid, mcs, sources = (run_house_container(repo, run) if facts.docker_image
                              else ("", "", []))
+    except CeilingMissing as error:
+        print(f"REPROVADO: o conteiner da casa nao tem o teto, e foi removido sem subir: {error}")
+        return 1
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"REPROVADO: o conteiner da casa nao subiu (fonte ausente): {error}")
         return 1

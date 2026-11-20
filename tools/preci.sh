@@ -200,13 +200,25 @@ readonly CTEST_UNIT_LABEL_FILTER='^unit$'
 
 # GATE-PS-SYNTAX (TODO.md W2, GODS_LAWS.md L-36/L-40). Pinned image
 # name, single source of truth for both the availability check and the
-# `docker run` call in stage_ps_syntax below - never re-typed. Already
+# container launch in stage_ps_syntax below - never re-typed. Already
 # cached on this machine before this fatia (docker images), so this
 # stage never runs `docker pull`: pulling would be a silent network
 # call the very first time the image is missing, and this project's
 # whole point with this stage is "nada de rede, nada a instalar" (see
 # TODO.md's own item text).
 readonly GLINTFX_PS_IMAGE='mcr.microsoft.com/powershell:latest'
+
+# PRECI-TETO (20/11/2026, GODS_LAWS.md L-11 global, item 2b): the ceiling
+# of every pwsh container stage_ps_syntax starts. dockerd starts the
+# container outside the caller's systemd scope, so the scope's TasksMax
+# never reaches it: the container needs a ceiling of its own. Fixed here,
+# never read from the environment: a ceiling the caller can unset is not
+# a ceiling. 128 processes (the peak measured on 20/11/2026 was 12) and
+# 2 GiB, in bytes, the unit docker inspect reads back. --memory-swap is
+# the same number, asking for no swap on top (L-11 global, item 4).
+readonly GLINTFX_PS_PIDS_LIMIT=128
+readonly GLINTFX_PS_MEMORY_BYTES=2147483648
+readonly GLINTFX_PS_CEILING_FORMAT='{{.HostConfig.PidsLimit}} {{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}'
 
 # --- enumeration (GODS_LAWS.md L-23/L-24 spirit: a gate has to prove it
 # looked at something). Each *_stage function below prints how many
@@ -447,6 +459,48 @@ stage_format() {
     clang-format --dry-run -Werror "${FILES[@]}"
 }
 
+# PRECI-TETO: status 0 only when $1, the line docker inspect printed with
+# GLINTFX_PS_CEILING_FORMAT, starts with the processes and the memory of
+# the ceiling above. The third field, the swap, is printed and never
+# compared: on a host without the swap controller docker drops it and
+# reads back -1, while processes and memory still hold (L-11 global,
+# item 2b, asks for those two).
+ps_ceiling_is_set() {
+    [ "${1% *}" = "$GLINTFX_PS_PIDS_LIMIT $GLINTFX_PS_MEMORY_BYTES" ]
+}
+
+# PRECI-TETO: creates one pwsh container with the ceiling and reads the
+# ceiling back from the container object itself (GODS_LAWS.md L-36: the
+# object, never the options we believe we passed). Prints the container
+# id on stdout. A container without the ceiling is removed before it ever
+# starts, and the status is 1. "$@" is what follows the ceiling options:
+# mounts, image and command. The `--pids-limit` stays on the same line as
+# the create: the launch count of --selftest reads that one line.
+ps_container_create() {
+    local cid ceiling
+    cid="$(docker create --pull never --pids-limit "$GLINTFX_PS_PIDS_LIMIT" --memory "$GLINTFX_PS_MEMORY_BYTES" --memory-swap "$GLINTFX_PS_MEMORY_BYTES" "$@")" \
+        || { echo "GATE-PS-SYNTAX: a criacao do conteiner pwsh falhou" >&2; return 1; }
+    ceiling="$(docker inspect --format "$GLINTFX_PS_CEILING_FORMAT" "$cid")" || ceiling=""
+    echo "GATE-PS-SYNTAX: teto do conteiner ${cid:0:12} (PidsLimit Memory MemorySwap): ${ceiling:-ilegivel}" >&2
+    if ! ps_ceiling_is_set "$ceiling"; then
+        docker rm -f "$cid" > /dev/null 2>&1 || true
+        echo "GATE-PS-SYNTAX: conteiner sem o teto, removido sem subir (esperado $GLINTFX_PS_PIDS_LIMIT $GLINTFX_PS_MEMORY_BYTES e o swap)" >&2
+        return 1
+    fi
+    echo "$cid"
+}
+
+# PRECI-TETO: the replacement of `docker run --rm` for the pwsh
+# containers: create with the ceiling, start attached, remove. Returns the
+# container's own exit status (docker start --attach hands it back).
+run_ps_container() {
+    local cid status=0
+    cid="$(ps_container_create "$@")" || return 1
+    docker start --attach "$cid" || status=$?
+    docker rm -f "$cid" > /dev/null 2>&1 || echo "GATE-PS-SYNTAX: aviso: a remocao do conteiner ${cid:0:12} falhou" >&2
+    return "$status"
+}
+
 # GATE-PS-SYNTAX (03/09/2026, TODO.md W2). Nasce de dois erros de
 # sintaxe seguidos que so o runner Windows do GitHub Actions pegou
 # (medido): nao ha PowerShell nativo nesta maquina, entao os oito
@@ -539,7 +593,7 @@ if ($falharam -gt 0) {
 exit 0
 GLINTFX_PS_SYNTAX_EOF
 
-    if ! docker run --rm \
+    if ! run_ps_container \
         -v "${ROOT_DIR}:/glintfx-src:ro,z" \
         -v "${scratch_dir}:/glintfx-scratch:ro,z" \
         "$GLINTFX_PS_IMAGE" \
@@ -554,7 +608,7 @@ GLINTFX_PS_SYNTAX_EOF
     # Windows: guarda de versao do CMake vazia/antiga, sonda do cl.exe
     # com /Fo e /Fe dentro do temp) roda no MESMO container pwsh e no
     # MESMO estagio - so' parseia-lo nao provaria que o piso reprova.
-    docker run --rm -v "${ROOT_DIR}:/glintfx-src:ro,z" "$GLINTFX_PS_IMAGE" \
+    run_ps_container -v "${ROOT_DIR}:/glintfx-src:ro,z" "$GLINTFX_PS_IMAGE" \
         pwsh -NoProfile -NonInteractive -File /glintfx-src/tools/ci/windows/prep.ps1 -Autoteste \
         || fail "estagio sintaxe PowerShell recusado (prep.ps1 -Autoteste reprovou; ver saida acima; GATE-PS-SYNTAX)"
 }
@@ -2949,6 +3003,94 @@ run_selftest_cache_state_controls() {
     echo "selftest: cronometro cobre todos os modos ($cobertos chamadas de timed_stage, nenhuma chamada de estagio sem ele)"
 }
 
+# PRECI-TETO (GODS_LAWS.md L-11 global, item 2b; L-36 global): every pwsh
+# container of stage_ps_syntax is created with its own ceiling, the
+# ceiling is read back from the container object before it starts, and a
+# container without it is removed without ever starting. A stub `docker`
+# on PATH writes down every call and answers `inspect` with the line each
+# case wants; the real docker is never called here. The numbers are the
+# ones DECIDED for this ceiling (128 processes, 2 GiB, and the swap asked
+# equal to the memory), written here by hand and never read from the
+# constants under test.
+ps_container_write_stub() {
+    cat > "$1/docker" <<'GLINTFX_PS_STUB_EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$PS_STUB_LOG"
+case "$1" in
+    create) echo 0123456789abcdef0123456789abcdef ;;
+    inspect) [ -n "$PS_STUB_CEILING" ] || exit 1; echo "$PS_STUB_CEILING" ;;
+    start) exit "$PS_STUB_START_RC" ;;
+esac
+exit 0
+GLINTFX_PS_STUB_EOF
+    chmod +x "$1/docker"
+}
+
+# One case against the stub: prints "rc=<status>", then every call the
+# stub wrote down, one per line.
+ps_container_case() {
+    : > "$1/calls.log"
+    case_rc=0
+    (
+        PATH="$1:$PATH"
+        PS_STUB_LOG="$1/calls.log"
+        PS_STUB_CEILING="$2"
+        PS_STUB_START_RC="$3"
+        export PATH PS_STUB_LOG PS_STUB_CEILING PS_STUB_START_RC
+        run_ps_container -v /a:/b:ro,z glintfx-ps-stub-image pwsh -File /b/x.ps1
+    ) > "$1/out.log" 2>&1 || case_rc=$?
+    echo "rc=$case_rc"
+    cat "$1/calls.log"
+}
+
+# Status 0 when the case output ($1) has the line $2, whole.
+ps_case_has() {
+    grep -q -x -F -- "$2" <<<"$1"
+}
+
+# Status 0 when the case output ($1) never started a container.
+ps_case_never_started() {
+    ! grep -q '^start' <<<"$1"
+}
+
+run_selftest_ps_container_controls() {
+    log "selftest: o teto dos conteineres pwsh do GATE-PS-SYNTAX (PRECI-TETO, L-11 global item 2b)"
+    stub="$(mktemp -d "${TMPDIR}/glintfx-ps-stub.XXXXXX")" || fail "selftest ps_container: mktemp falhou"
+    ps_container_write_stub "$stub"
+    cid=0123456789abcdef0123456789abcdef
+    made="create --pull never --pids-limit 128 --memory 2147483648 --memory-swap 2147483648 -v /a:/b:ro,z glintfx-ps-stub-image pwsh -File /b/x.ps1"
+    ruins=0
+    out="$(ps_container_case "$stub" "128 2147483648 2147483648" 0)"
+    { ps_case_has "$out" rc=0 && ps_case_has "$out" "$made" && ps_case_has "$out" "start --attach $cid" \
+        && ps_case_has "$out" "rm -f $cid"; } \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: A, teto lido igual ao decidido (esperado rc=0, o create com o teto, start e rm): $out"; }
+    # A host without the swap controller: docker drops --memory-swap and
+    # reads back -1. Processes and memory still hold, so the container
+    # runs, and the line printed says what the object carries.
+    out="$(ps_container_case "$stub" "128 2147483648 -1" 0)"
+    { ps_case_has "$out" rc=0 && ps_case_has "$out" "$made" && ps_case_has "$out" "start --attach $cid" \
+        && ps_case_has "$out" "rm -f $cid"; } \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: G, swap descartado pelo hospedeiro (esperado rc=0, start e rm): $out"; }
+    for lido in "<nil> 0 0" "128 0 0" ""; do
+        out="$(ps_container_case "$stub" "$lido" 0)"
+        { ! ps_case_has "$out" rc=0 && ps_case_never_started "$out" && ps_case_has "$out" "rm -f $cid"; } \
+            || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: teto lido '$lido' (esperado rc diferente de 0, nenhum start, e o rm): $out"; }
+    done
+    out="$(ps_container_case "$stub" "128 2147483648 2147483648" 7)"
+    { ps_case_has "$out" rc=7 && ps_case_has "$out" "rm -f $cid"; } \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: E, o conteiner saiu 7 (esperado rc=7 e o rm): $out"; }
+    # The launch count of the script itself: a container launch written
+    # anywhere else in this file, outside comments, would carry no ceiling.
+    launches="$(grep -E '^[^#]*docker[[:space:]]+(run|create)([[:space:]]|$)' "$ROOT_DIR/tools/preci.sh" || true)"
+    n_launches="$(grep -c . <<<"$launches" || true)"
+    n_ceiling="$(grep -c -F -- '--pids-limit' <<<"$launches" || true)"
+    [ "$n_launches" = 1 ] && [ "$n_ceiling" = 1 ] \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: F, lancamentos no script=$n_launches com_teto=$n_ceiling (esperado 1 e 1): $launches"; }
+    rm -rf "$stub"
+    echo "selftest: ps_container casos=7 falhas=$ruins"
+    [ "$ruins" = 0 ] || fail "selftest ps_container: $ruins caso(s) reprovado(s) (PRECI-TETO)"
+}
+
 run_selftest() {
     # Variables that pin a repository whatever directory git runs in, and
     # that GIT_CEILING_DIRECTORIES does not reach (git(1), ENVIRONMENT).
@@ -2977,6 +3119,7 @@ run_selftest() {
     run_selftest_ccache_preconfigured_controls
     run_selftest_stage_times_controls
     run_selftest_cache_state_controls
+    run_selftest_ps_container_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 

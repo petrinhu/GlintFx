@@ -223,7 +223,13 @@ KERNEL_VETH = {"MESSAGE": "docker0: port 1(veth4242aaa) entered forwarding state
 OUR_AVC = {"MESSAGE": "avc:  denied { write } for pid=42 comm=\"sh\" "
                       "scontext=system_u:system_r:container_t:s0:c7,c8 "
                       "tcontext=system_u:object_r:user_home_t:s0 tclass=dir permissive=0"}
+# PRECI-TETO: the ceiling DECIDED for the house container (D-W8-1948), written here by hand
+# and never read from the gate under test: 128 processes, 2 GiB, and the swap asked equal.
+CEILING_FORMAT = "{{.HostConfig.PidsLimit}} {{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}"
+CEILING = "128 2147483648 2147483648"
+CEILING_ARGS = ["--pids-limit", "128", "--memory", "2147483648", "--memory-swap", "2147483648"]
 SCENE = {"host_rc": 0, "create_rc": 0, "label": "system_u:system_r:container_t:" + OURS,
+         "ceiling": CEILING,
          "extra_mount": "", "raise": {}, "after": {}, "our_dump": False,
          "window": {"_TRANSPORT=audit": [AUDIT_BPF], "_TRANSPORT=kernel": [KERNEL_VETH]}}
 
@@ -236,9 +242,11 @@ class FakeHost:
     def __init__(self, repo, **scene):
         self.repo, self.scene = str(repo), {**SCENE, **scene}
         self.calls, self.marker, self.unit = [], "", ""
+        self.argvs = []
 
     def __call__(self, argv, check=False, **_):
         self.calls.append(argv[0])
+        self.argvs.append(list(argv))
         failure = self.scene["raise"].get(argv[0])
         if failure is not None:
             raise failure
@@ -262,6 +270,8 @@ class FakeHost:
     def docker(self, args):
         if args[0] == "create":
             return self.scene["create_rc"], CONTAINER + "\n"
+        if args[0] == "inspect" and args[2] == CEILING_FORMAT:
+            return 0, self.scene["ceiling"] + "\n"
         if args[0] == "inspect" and args[2] == "{{.ProcessLabel}}":
             return 0, self.scene["label"] + "\n"
         if args[0] == "inspect":
@@ -305,13 +315,14 @@ def fake_repo():
 
 
 def measured(**scene):
-    """(rc, saida) de measure() com os fatos todos presentes e o hospedeiro do cenario."""
+    """(rc, saida, hospedeiro) de measure() com os fatos presentes e o hospedeiro do cenario."""
     repo, out = fake_repo(), io.StringIO()
+    host = FakeHost(repo, **scene)
     try:
         with no_real_process(), redirect_stdout(out):
             rc = gate.measure(repo, "python3", facts(True, True, True, True, True, True),
-                              FakeHost(repo, **scene), lambda _seconds: None)
-        return rc, out.getvalue()
+                              host, lambda _seconds: None)
+        return rc, out.getvalue(), host
     finally:
         shutil.rmtree(repo)
 
@@ -358,6 +369,41 @@ def measure_cells():
             lambda: measured(extra_mount="/home/lider")[0] == 1)),
         ("55 o conteiner da casa nao sobe: reprova com a razao, sem traceback", safe(
             lambda: (lambda r: r[0] == 1 and "nao subiu" in r[1])(measured(create_rc=125)))),
+    ] + ceiling_cells()
+
+
+def carries(argv, part):
+    """True when the list `part` appears in `argv` contiguous, in order."""
+    return any(argv[i:i + len(part)] == part for i in range(len(argv)))
+
+
+def created_with_ceiling(host):
+    return any(a[:2] == ["docker", "create"] and carries(a, CEILING_ARGS) for a in host.argvs)
+
+
+def refused_unstarted(result):
+    """A container without the ceiling: rc 1 with the reason, removed, never started."""
+    rc, out, host = result
+    return (rc == 1 and "nao tem o teto" in out
+            and not any(a[:2] == ["docker", "start"] for a in host.argvs)
+            and any(a[:3] == ["docker", "rm", "-f"] for a in host.argvs))
+
+
+def ceiling_cells():
+    """PRECI-TETO (D-W8-1948): the house container is created with its own ceiling, and a
+    container whose object does not carry it is removed before it starts."""
+    return [
+        ("63 o docker create da casa leva o teto decidido, e a medicao passa", safe(
+            lambda: (lambda r: r[0] == 0 and created_with_ceiling(r[2]))(measured()))),
+        ("64 conteiner criado sem teto nenhum: reprova, removido, nunca sobe", safe(
+            lambda: refused_unstarted(measured(ceiling="<nil> 0 0")))),
+        ("65 conteiner com o teto de processos e sem o de memoria: reprova, nunca sobe", safe(
+            lambda: refused_unstarted(measured(ceiling="128 0 0")))),
+        # A host without the swap controller reads the swap back as -1: processes and memory
+        # hold, so the measurement goes on (the swap is printed, never compared).
+        ("66 hospedeiro sem o controle de swap (-1): o teto vale, e a medicao passa", safe(
+            lambda: (lambda r: r[0] == 0 and any(a[:2] == ["docker", "start"] for a in r[2].argvs))(
+                measured(ceiling="128 2147483648 -1")))),
     ]
 
 
@@ -451,7 +497,7 @@ def main(argv: list[str]) -> int:
     for name in failed:
         print(f"check_host_alerts_selftest: FALHOU a celula {name}")
     print(f"check_host_alerts_selftest: celulas={len(table)} falhas={len(failed)}")
-    if len(table) < 62:
+    if len(table) < 66:
         print("check_host_alerts_selftest: menos celulas que o piso (varredura quebrada)")
         return 1
     return 1 if failed else 0

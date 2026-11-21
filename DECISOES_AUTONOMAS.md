@@ -11732,3 +11732,65 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - `b02a513a`: a linha de sRGB pré-multiplicado na tabela do `pixel_premultiply_test`.
   - O mutante M03 MORRE, e o campo novo MORRE PELO PINO. O `preci --fast` deu rc 0.
   - Falta a A-rev. As ordens do CTO para R2-B, R2-C e C7-1 estão em `.trabalho/cto-w8/ordem-r2bc-w8.md` (md5 `8c2a7e4a`, D-W8-2018 a D-W8-2031).
+
+- **D-W8-1189 (LÍDER, 20/11 20:48): o congelamento da D-W8-1247 vale também para os 4 tipos que o pacote do resolvedor carrega por dentro.** Os quatro são `gltfx_texture_region`, `gltfx_rect_texel`, `gltfx_vec2_texel` e `gltfx_texture_mirror`, e o congelamento vale também nas funções de desenho da 0.7.0.0.
+  - **A origem:** a A-rev do R2-A achou o MUT-R VIVO, um campo novo dentro de `gltfx_texture_region` (`.trabalho/cto-w8/verif-w8/r2a-rev/rev.txt`). O CTO leu que a promessa inclui o que vai dentro do pacote (D-W8-2035 a D-W8-2037).
+  - **A resposta do líder, verbatim:** *"Congelar os quatro (Recomendado)"*.
+  - O pino da fix1 do R2-A passa a prender os quatro (`ordem-r2bc-w8-errata1.md`, md5 `83776513`).
+
+- **D-W8-1190 (CTO, 20/11 21:18; vai para a lista de ratificação): o congelamento do `gltfx_texture_mirror` prende a largura e os números dos quatro valores (0 a 3), mas NÃO a quantidade de valores.**
+  - **A origem:** na fix1 do R2-A, um enumerador a mais (MUT-MIR-E) passou pelo pino.
+  - **A razão do CTO:** um valor novo no fim não muda o tamanho nem a posição de nada no pacote. O cabeçalho já promete que um valor desconhecido é recusado (`texture_region.hpp:21`, `texture_region_uv.cpp:19-20`, regra R4).
+  - **Leitura da decisão do líder:** o CTO lê que isso não contradiz a D-W8-1189, porque o que se congelou foi a forma.
+  - **Mutantes:** o `switch` com `-Werror` da biblioteca não conta como trava, porque some com um `default:`. O MUT-MIR-E é equivalente pelo contrato (D-W8-2039 a D-W8-2041, `ordem-r2a-fix1-errata1.md`, md5 `bbb0697a`).
+
+- **D-W8-1191 (LÍDER, 20/11 21:28): duas emendas de lei, pedidas pela sessão `configs` e confirmadas aqui por AskUserQuestion, porque mexem em lei (L-46 e LEI DAS LEIS).**
+  - **(1) L-11:** merge e tag no fim de onda passam a exigir o OK do líder ou o modo autônomo ligado. Escolha relatada pela `configs`, verbatim *"Exigir autorização"*.
+  - **(2) L-18 e L-34:** saem os modelos fixos (opus e sonnet), e vale o `/modelos_sessao`, com prosa para leitor humano em opus no esforço máximo. Escolha relatada, verbatim *"Seguir o /modelos_sessao"*.
+  - **Confirmação do líder nas duas perguntas, verbatim:** *"Confirmar a mudança (Recomendado)"*.
+  - Um technical-writer (opus, esforço máximo) aplica as emendas em `GODS_LAWS.md` e `CLAUDE.md`. O commit fica para depois da fix1 do R2-A, para não mover o tronco debaixo dela.
+
+- **D-W8-1192 (LÍDER, 20/11 21:38): as leis do projeto passam de `L-NN` a `GL-NN`, e o `CLAUDE.md` é enxugado para cerca de 200 linhas, com os detalhes indo para `docs/`.**
+  - **A origem:** pedido da sessão `configs`, verbatim *"Prefixar GL- e GW-"* e *"Cortar para ponteiros"*.
+  - **O tamanho, medido pelo main:** 7008 citações em 842 arquivos. Parte delas aponta para as leis globais e não muda, por isso a troca exige classificar cada citação.
+  - **Quando, resposta do líder verbatim:** *"opcao 2 com agente paralelo. Não interfere no trabalho principal"*. A opção 2 é agora, antes de fechar a onda 8.
+  - **O corte, resposta do líder verbatim:** *"Junto com a renomeação GL-NN"*.
+  - **O plano:** o CTO planeja (`ordem-gl-rename.md`). O agente trabalha num clone à parte e entrega um script, uma tabela e a prova. O script é reaplicado sobre o HEAD num ponto quieto, sob a `git.lock`.
+
+- **D-W8-1193 (LÍDER, 20/11 21:46): o GlintFx MANTÉM o `AGENTS.md` e fica de exceção à ordem de renomear para `LLM.md`.**
+  - **A ordem geral**, relatada pela sessão `configs`, verbatim: *"todos os projetos que tem AGENTS.md renomeie para LLM.md"*.
+  - **O contra-argumento do main:** o arquivo é público (155 linhas) e orienta IAs de fora a usar ou contribuir com a biblioteca. `AGENTS.md` é o nome que ferramentas de terceiros procuram sozinhas; `LLM.md`, nenhuma.
+  - **A resposta do líder, verbatim:** *"Manter AGENTS.md no GlintFx"*.
+  - Nada muda no repositório.
+
+- **D-W8-1194 (main, 20/11 22:05): perda IRREVERSÍVEL de uma prova antiga, por erro do main.**
+  - **O que se perdeu:** `.trabalho/cto-w8/ordem-r2b-fix1.md`, a ordem congelada da R2b-fix1 do resolvedor, de 31/10 (md5 `ed3068db8683f152b22fb47d15453fa2`). O CTO gravou por cima dela a ordem nova da fix1 do R2-B da verificação.
+  - **De quem é o erro:** do MAIN. Fui eu que mandei o CTO gravar com esse nome, sem conferir antes que ele já existia (L-53 e "antes de sobrescrever, olhar o alvo"). A ordem nova foi salva de novo como `ordem-r2b-verif-fix1.md` (md5 `452ee114`).
+  - **O impacto:** baixo. O trabalho daquela ordem já está no git, e este arquivo guarda o md5 e o resumo dela. O que se perdeu foi só o texto da ordem como prova histórica.
+  - **A recuperação:** `.trabalho/` fica fora dos snapshots. Só o histórico de versões do IDrive poderia trazer o arquivo de volta, e isso é ação do líder.
+  - **A regra que fica:** nome de arquivo novo dado em ordem a um agente se confere com `ls` antes, e a ordem manda o agente não sobrescrever nada que já exista fora da pasta dele.
+
+- **D-W8-1195 (LÍDER, 20/11 22:18): R9 da GL-RENAME. A sobra é lida inteira, e a troca entra DEPOIS da 0.7.0.0, como primeira fatia da onda 9.**
+  - **A amostra cega do CTO:** 35 discordâncias em 150 (23%), mais 11 indeterminadas, até 31%. O critério da opção "tratar como do projeto" era de no máximo 3, então essa opção caiu.
+  - **Os arquivos:** `.trabalho/cto-w8/amostra-r9-veredito.tsv`, md5 `ecc9d7ab`; `.trabalho/gl-rename/decisoes-r8.tsv`, md5 `bee4b9f3`; `ordem-gl-rename-errata1.md`, md5 `3b8209d1`.
+  - **A resposta do líder, verbatim:** *"Ler tudo; troca depois da 0.7 (Recomendado)"*.
+  - **O que isso muda:** a D-W8-1192, que mandava fazer agora, fica superada no QUANDO. O trabalho segue no clone à parte, sem tocar o tronco, e não bloqueia a F1. O corte do `CLAUDE.md` vai junto com a troca (D-W8-1192).
+  - **A citação de lei do mapeditor:** o líder respondeu, verbatim, *"Pergunte ao  configs"*. A pergunta foi enviada à sessão `configs`.
+  - **Defeitos que o CTO achou nas próprias regras:** a R3, que dava números globais de 29/08 a 20/11 como só do projeto, e as palavras `verbatim`, `github` e `config` da R5. A correção está na errata1, D-W8-2073 a D-W8-2078.
+  - **O índice sem L-43 a L-46** vai para a INBOX como `LAW-INDEX-GAP`.
+
+- **D-W8-1196 (LÍDER, pela sessão `configs`, 20/11 22:19): o prefixo das leis do `gusworld_mapeditor` é `GM-`.**
+  - As citações do GlintFx a leis do mapeditor viram `GM-NN` na GL-RENAME.
+  - Quem renomeia o repositório do mapeditor é a sessão `configs`.
+  - Isso resolve o `AMBIG-LIDER` da `decisoes-r8.tsv` (D-W8-1195).
+
+- **D-W8-1197 (LÍDER, 20/11 23:00): quatro cortes de processo no GlintFx, decididos na sessão `configs` e confirmados aqui (L-46).**
+  - **A medição que motivou os cortes:** em 14 dias, 143 de 196 commits (73%) foram de decisões, TODO e leis, e só 10 (5%) de código de produto.
+  - **Os cortes, verbatim da `configs`:**
+    1. *"Pesquisa só se vai a você"*;
+    2. *"Revisão com teto de 2"*: acaba o "até sair limpa". O critério de pronto ("funciona, os portões passam, sem risco de segurança ou privacidade") é escrito antes. A revisão só aponta o que quebra esse critério, e o resto não vira item;
+    3. *"Ferramentas fixas na onda"*: a imagem de CI e CMake, KWin e Clang só trocam na virada de onda;
+    4. *"Próximas ondas só produto"*.
+  - **Como se aplicam à W8, verbatim do líder:** *"Terminam e seguem sem nova revisão (Recomendado)"*. As três correções em voo (R2-B fix1, R2-A fix2 e R2-C) são gravadas com os próprios testes e portões verdes, sem uma terceira rodada. Depois vem a F1. O que ainda faltava da verificação só entra se quebrar o critério de pronto.
+  - **GL-RENAME, verbatim do líder:** *"Exceção: termina e entra (Recomendado)"*. É a única exceção de processo; depois dela não entra nenhum item novo de processo.
+  - **Quem aplica:** um technical-writer (opus, esforço máximo), num commit seletivo, sem rodada extra de revisão.

@@ -11794,3 +11794,30 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Como se aplicam à W8, verbatim do líder:** *"Terminam e seguem sem nova revisão (Recomendado)"*. As três correções em voo (R2-B fix1, R2-A fix2 e R2-C) são gravadas com os próprios testes e portões verdes, sem uma terceira rodada. Depois vem a F1. O que ainda faltava da verificação só entra se quebrar o critério de pronto.
   - **GL-RENAME, verbatim do líder:** *"Exceção: termina e entra (Recomendado)"*. É a única exceção de processo; depois dela não entra nenhum item novo de processo.
   - **Quem aplica:** um technical-writer (opus, esforço máximo), num commit seletivo, sem rodada extra de revisão.
+
+- **D-W8-1198 (LÍDER, 20/11 23:34): fim da pausa e modo autônomo religado.**
+  - **Ordens do líder, verbatim:** *"ligue modo autonomo"*, dita nesta sessão (flag até 21/11 às 23:33, com os escopos push e clean); e *"mande todos continarem"*, repassada pela `manutencao`.
+  - **Retomada pelo snapshot:** o R2-C e a R2-A fix2 terminam a prova local e entram sem nova revisão (D-W8-1197). Os cortes de processo nas leis e os leitores L2, L3 e L5 da GL-RENAME seguem de onde pararam.
+  - **Merge e tag:** cobertos pelo modo autônomo (L-11 emendada), só com a onda verde.
+
+- **D-W8-1199 (LÍDER, 20/11 23:58): quatro pontos dos cortes que o redator precisou interpretar (commit `387347f3`), todos resolvidos pelo líder por AskUserQuestion.**
+  1. **Defeito que sobra depois da 2ª rodada e ainda quebra o critério de pronto:** verbatim *"Sobe ao senhor decidir (Recomendado)"*.
+  2. **Pesquisa no modo autônomo:** vale também quando o C-level decide no lugar do líder. Verbatim *"Sim, no lugar do senhor pesquisa (Recomendado)"*.
+  3. **Critério de pronto:** uma fatia só pode torná-lo mais exigente, e isso fica escrito antes. Nunca pode afrouxar as três partes do padrão. Verbatim *"Só pode ficar mais exigente (Recomendado)"*.
+  4. **Imagem e ferramentas do CI:** são fixadas AGORA, no fechamento da W8. Verbatim *"Agora, no fechamento da onda 8 (Recomendado)"*.
+  - **Ajuste de texto:** os pontos 1 e 2 já estavam escritos assim. O 3 pede um ajuste no texto da lei, e o 4 vira uma fatia pequena de CI.
+
+- **D-W8-1200 (LÍDER, 21/11 00:16): o CI-PIN da W8 fica com a parte pequena; o congelamento dos pacotes vai para a troca de onda, como segunda exceção de processo.**
+  - **O erro do main:** ao pedir a D-W8-1199 eu disse que fixar o CI era "uma mudança pequena". Não era. O CTO mediu que CMake, Clang e KWin são instalados na hora, e que congelá-los pede cinco frentes, uma por distro. A do CachyOS é arriscada, porque ele não guarda arquivo de versões antigas (`decisao-ci-pin-pacotes.md`, D-W8-2090 a D-W8-2094).
+  - **Resposta do líder, verbatim:** *"Agora só o pequeno (Recomendado)"*.
+  - **O que entra na W8:** as imagens base presas por digest, as actions presas por SHA e os rótulos dos executores fixos.
+  - **O que fica para a troca de onda:** congelar os pacotes (Ubuntu por snapshot, Arch pelo Archive, Fedora por versionlock mais updates-archive, CachyOS por repositório local como artifact) e o portão de manifesto de versões. A 0.7.0.0 não espera por isso.
+  - **Proposta do CTO que fica para o líder:** uma imagem própria publicada no GHCR, para uma troca de onda futura. Publicar é ato irreversível.
+
+- **D-W8-1201 (LÍDER, pela `manutencao`, 21/11 00:37): o líder foi dormir.**
+  - **A ordem, verbatim:** *"diga a todos que vou dormir e que tirem duvidas com clevel. Se for duvida do lore de gusworld, com o advisor"*.
+  - **Dúvida técnica ou de produto:** vai ao C-level do assunto e é registrada aqui.
+  - **Fica PARADO até ele voltar:** mudar lei, gastar, ato irreversível, usar a GPU e rodar o preci completo.
+  - **Merge e tag da W8:** seguem cobertos pelo modo autônomo, que vale até 21/11 às 23:33 (L-11 emendada), só com a onda verde.
+
+- **D-W8-1202 (LÍDER, 21/11 00:44): nova pausa, por ordem dele nesta sessão, verbatim *"pause e memorize"*.** Nenhum trabalho novo começa. O tronco local está em `af4c4dac`, sem push. O estado completo para retomar está no snapshot da memória.

@@ -35,11 +35,19 @@ bool goes_with(double turn, double sense) noexcept {
     return sense >= 0.0 ? turn >= 0.0 : turn <= 0.0;
 }
 
-void write_triangle(std::span<std::uint32_t> out, std::size_t at, std::size_t a, std::size_t b,
-                    std::size_t c) noexcept {
-    out[at] = static_cast<std::uint32_t>(a);
-    out[at + 1U] = static_cast<std::uint32_t>(b);
-    out[at + 2U] = static_cast<std::uint32_t>(c);
+// The three corners of one triangle, by vertex index, in winding order: grouped so the writer
+// keeps to four parameters (L-17; W8 deep verification C2-1, D-W8-2022).
+struct triangle_corners {
+    std::size_t a;
+    std::size_t b;
+    std::size_t c;
+};
+
+void write_triangle(std::span<std::uint32_t> out, std::size_t at,
+                    triangle_corners corners) noexcept {
+    out[at] = static_cast<std::uint32_t>(corners.a);
+    out[at + 1U] = static_cast<std::uint32_t>(corners.b);
+    out[at + 2U] = static_cast<std::uint32_t>(corners.c);
 }
 
 } // namespace
@@ -50,7 +58,7 @@ std::size_t write_fan_indices(std::size_t rim_count, std::span<std::uint32_t> ou
     }
     for (std::size_t k = 0U; k < rim_count; ++k) {
         const std::size_t next = k + 1U == rim_count ? 1U : k + 2U;
-        write_triangle(out, 3U * k, 0U, k + 1U, next);
+        write_triangle(out, 3U * k, {0U, k + 1U, next});
     }
     return 3U * rim_count;
 }
@@ -73,11 +81,11 @@ std::size_t write_ring_indices(std::span<const pixel_position_wide> points,
             goes_with(turn_of(points[outer], points[outer_next], points[inner_next]), sense) &&
             goes_with(turn_of(points[outer], points[inner_next], points[inner]), sense);
         if (first_diagonal) {
-            write_triangle(out, 6U * k, outer, outer_next, inner_next);
-            write_triangle(out, (6U * k) + 3U, outer, inner_next, inner);
+            write_triangle(out, 6U * k, {outer, outer_next, inner_next});
+            write_triangle(out, (6U * k) + 3U, {outer, inner_next, inner});
         } else {
-            write_triangle(out, 6U * k, outer, outer_next, inner);
-            write_triangle(out, (6U * k) + 3U, outer_next, inner_next, inner);
+            write_triangle(out, 6U * k, {outer, outer_next, inner});
+            write_triangle(out, (6U * k) + 3U, {outer_next, inner_next, inner});
         }
     }
     return 6U * n;

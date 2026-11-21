@@ -910,7 +910,7 @@ bool wayland_egl_context_adapter::resize_surface_if_due() noexcept {
 namespace {
 
 // The window open() can use: open, and with a surface (W8 deep verification C2-1, D-W8-2022).
-[[nodiscard]] std::optional<gltfx_err> window_refusal(wayland_window_adapter &window) noexcept {
+[[nodiscard]] std::optional<gltfx_err> window_refusal(const wayland_window_adapter &window) noexcept {
     if (!window.is_open() || window.surface() == nullptr) {
         return gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window");
     }
@@ -931,7 +931,7 @@ adaptive_vsync_refusal(std::span<const gltfx_gfx_option_entry> options) noexcept
 // Why open() refuses before it touches EGL, in this order: an unusable window, a dead display
 // (EGL-DEAD-DISPLAY-GUARD S3) and `adaptive` (D-W6b-18); see open()'s preamble for each reason.
 [[nodiscard]] std::optional<gltfx_err>
-refusal_before_egl(wayland_window_adapter &window,
+refusal_before_egl(const wayland_window_adapter &window,
                    std::span<const gltfx_gfx_option_entry> options) noexcept {
     if (std::optional<gltfx_err> unusable = window_refusal(window); unusable.has_value()) {
         return unusable;

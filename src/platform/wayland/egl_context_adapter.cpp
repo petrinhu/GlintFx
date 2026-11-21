@@ -907,59 +907,114 @@ bool wayland_egl_context_adapter::resize_surface_if_due() noexcept {
     return true;
 }
 
+namespace {
+
+// The window open() can use: open, and with a surface (W8 deep verification C2-1, D-W8-2022).
+[[nodiscard]] std::optional<gltfx_err> window_refusal(wayland_window_adapter &window) noexcept {
+    if (!window.is_open() || window.surface() == nullptr) {
+        return gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window");
+    }
+    return std::nullopt;
+}
+
+// `adaptive` asked in the opening list: refused by name (D-W6b-18, see open()'s preamble).
+[[nodiscard]] std::optional<gltfx_err>
+adaptive_vsync_refusal(std::span<const gltfx_gfx_option_entry> options) noexcept {
+    for (const gltfx_gfx_option_entry &entry : options) {
+        if (entry.id == gltfx_gfx_option::vsync && entry.value == 2) {
+            return gltfx_err(gltfx_err_code::unsupported).with_rejected_value("vsync");
+        }
+    }
+    return std::nullopt;
+}
+
+// Why open() refuses before it touches EGL, in this order: an unusable window, a dead display
+// (EGL-DEAD-DISPLAY-GUARD S3) and `adaptive` (D-W6b-18); see open()'s preamble for each reason.
+[[nodiscard]] std::optional<gltfx_err>
+refusal_before_egl(wayland_window_adapter &window,
+                   std::span<const gltfx_gfx_option_entry> options) noexcept {
+    if (std::optional<gltfx_err> unusable = window_refusal(window); unusable.has_value()) {
+        return unusable;
+    }
+    if (std::optional<gltfx_err> dead = connection_failure_if_dead(
+            wl_proxy_get_display(reinterpret_cast<wl_proxy *>(window.surface())));
+        dead.has_value()) {
+        return dead;
+    }
+    return adaptive_vsync_refusal(options);
+}
+
+// The vsync the opening list asks for, the last entry winning; `current` when it asks nothing.
+[[nodiscard]] bool vsync_on_after(std::span<const gltfx_gfx_option_entry> options,
+                                  bool current) noexcept {
+    for (const gltfx_gfx_option_entry &entry : options) {
+        if (entry.id == gltfx_gfx_option::vsync) {
+            current = entry.value != 0;
+        }
+    }
+    return current;
+}
+
+} // namespace
+
+// open(): why it is written this way (moved out of the body, L-17: a comment says WHY; W8 deep
+// verification C2-1, D-W8-2022).
+//
+// EGL-DEAD-DISPLAY-GUARD S3 (docs/plano-egl-dead-display-guard.md
+// sec. 3, D-S3): guarda ANTES de create_egl_display() abaixo, sobre
+// o wl_display obtido do wl_surface que acabou de ser resolvido -
+// sem isso, um segundo open() (ex.: consumidor tentando reabrir o
+// contexto depois de um close()) sobre uma conexão já morta chegava
+// a eglInitialize() e falhava com o nome genérico "egl_display" em
+// vez da interface que reprovou (plano sec. 2, linha "open() →
+// create_egl_display()"). Nada foi alocado por este adaptador
+// ainda neste ponto, então não há nada para close() liberar.
+//
+// D-W6b-18: `adaptive` has no Wayland/EGL equivalent - refused BY
+// NAME here too, not only from a LATER set_option() call, since
+// `vsync` is `live` and this fatia's own resolved-options span may
+// already carry it if a consumer asked for `adaptive` straight in
+// the opening list (gl_context_desc_validation.cpp's own shape
+// check accepts any value in [0, 2] - refusing the THIRD one is
+// this adapter's own job, never silently downgraded to `on`).
+//
+// MEDIDO (docs/plano-w6b-fatias-5.md, esta fatia, achado do
+// implementador contra kwin_wayland --virtual isolado, GODS_LAWS.md
+// L-44/L-50): open() NAO arma um wl_surface.frame aqui. Fazer isso
+// contradiz o proprio contrato que frame_callback_sequence.hpp ja
+// documenta (frame_wait_plan::present_immediately - "either this is
+// the very first frame this context has ever presented... the
+// adapter may call eglSwapBuffers() right now, no socket I/O needed
+// first") e o que frame_callback_sequence.cpp implementa (m_pending
+// nasce false). Pedir o callback e marcar m_pending=true AQUI, antes
+// de qualquer conteudo jamais commitado nesta superficie, e' pedir
+// um aviso que so viria no commit SEGUINTE: wl_surface.frame vale no proximo
+// wl_surface.commit (wayland.xml), e o primeiro commit desta superficie e' o primeiro
+// eglSwapBuffers(), que esperaria por esse mesmo aviso. As cinco tentativas da primeira
+// apresentacao reprovavam com first_presented_attempt=0 antes deste conserto; a leitura de
+// entao ("este compositor nunca da wl_callback.done para essa superficie sem buffer") era o
+// mesmo defeito de ordem que WL-FRAME-ORDER (D-W8-208) corrigiu no rearme. O rearme real
+// (egl_wire_present_ports::request_frame() logo ANTES de cada eglSwapBuffers(), e
+// arm_pending() depois de um
+// swap bem-sucedido) ja cobre o PROXIMO quadro - esta linha
+// aqui era redundante e, pela medicao, ativamente prejudicial.
 gltfx_rslt<void>
 wayland_egl_context_adapter::open(wayland_window_adapter &window,
                                   std::span<const gltfx_gfx_option_entry> options) noexcept {
-    if (!window.is_open()) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window"));
+    if (const std::optional<gltfx_err> refused = refusal_before_egl(window, options);
+        refused.has_value()) {
+        return gltfx_rslt<void>::err(*refused);
     }
     wl_surface *surface = window.surface();
-    if (surface == nullptr) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window"));
-    }
-
-    // EGL-DEAD-DISPLAY-GUARD S3 (docs/plano-egl-dead-display-guard.md
-    // sec. 3, D-S3): guarda ANTES de create_egl_display() abaixo, sobre
-    // o wl_display obtido do wl_surface que acabou de ser resolvido -
-    // sem isso, um segundo open() (ex.: consumidor tentando reabrir o
-    // contexto depois de um close()) sobre uma conexão já morta chegava
-    // a eglInitialize() e falhava com o nome genérico "egl_display" em
-    // vez da interface que reprovou (plano sec. 2, linha "open() →
-    // create_egl_display()"). Nada foi alocado por este adaptador
-    // ainda neste ponto, então não há nada para close() liberar.
-    if (const std::optional<gltfx_err> dead_on_entry =
-            connection_failure_if_dead(wl_proxy_get_display(reinterpret_cast<wl_proxy *>(surface)));
-        dead_on_entry.has_value()) {
-        return gltfx_rslt<void>::err(*dead_on_entry);
-    }
-
-    // D-W6b-18: `adaptive` has no Wayland/EGL equivalent - refused BY
-    // NAME here too, not only from a LATER set_option() call, since
-    // `vsync` is `live` and this fatia's own resolved-options span may
-    // already carry it if a consumer asked for `adaptive` straight in
-    // the opening list (gl_context_desc_validation.cpp's own shape
-    // check accepts any value in [0, 2] - refusing the THIRD one is
-    // this adapter's own job, never silently downgraded to `on`).
-    for (const gltfx_gfx_option_entry &entry : options) {
-        if (entry.id == gltfx_gfx_option::vsync && entry.value == 2) {
-            return gltfx_rslt<void>::err(
-                gltfx_err(gltfx_err_code::unsupported).with_rejected_value("vsync"));
-        }
-    }
-
     if (const gltfx_rslt<void> display_ok = create_egl_display(*surface); display_ok.has_error()) {
         close();
         return display_ok;
     }
-
     void *config = nullptr;
     if (const gltfx_rslt<void> config_ok = choose_config(options, config); config_ok.has_error()) {
         close();
         return config_ok;
     }
-
     const window_size pixel_size = window.state().pixel_size();
     if (const gltfx_rslt<void> window_ok = create_egl_window(*surface, config, pixel_size.width,
                                                              pixel_size.height, m_srgb_requested);
@@ -967,40 +1022,13 @@ wayland_egl_context_adapter::open(wayland_window_adapter &window,
         close();
         return window_ok;
     }
-
     if (const gltfx_rslt<void> context_ok = create_context(config); context_ok.has_error()) {
         close();
         return context_ok;
     }
-
-    for (const gltfx_gfx_option_entry &entry : options) {
-        if (entry.id == gltfx_gfx_option::vsync) {
-            m_vsync_on = entry.value != 0;
-        }
-    }
-
+    m_vsync_on = vsync_on_after(options, m_vsync_on);
     m_surface = surface;
     m_window = &window;
-    // MEDIDO (docs/plano-w6b-fatias-5.md, esta fatia, achado do
-    // implementador contra kwin_wayland --virtual isolado, GODS_LAWS.md
-    // L-44/L-50): open() NAO arma um wl_surface.frame aqui. Fazer isso
-    // contradiz o proprio contrato que frame_callback_sequence.hpp ja
-    // documenta (frame_wait_plan::present_immediately - "either this is
-    // the very first frame this context has ever presented... the
-    // adapter may call eglSwapBuffers() right now, no socket I/O needed
-    // first") e o que frame_callback_sequence.cpp implementa (m_pending
-    // nasce false). Pedir o callback e marcar m_pending=true AQUI, antes
-    // de qualquer conteudo jamais commitado nesta superficie, e' pedir
-    // um aviso que so viria no commit SEGUINTE: wl_surface.frame vale no proximo
-    // wl_surface.commit (wayland.xml), e o primeiro commit desta superficie e' o primeiro
-    // eglSwapBuffers(), que esperaria por esse mesmo aviso. As cinco tentativas da primeira
-    // apresentacao reprovavam com first_presented_attempt=0 antes deste conserto; a leitura de
-    // entao ("este compositor nunca da wl_callback.done para essa superficie sem buffer") era o
-    // mesmo defeito de ordem que WL-FRAME-ORDER (D-W8-208) corrigiu no rearme. O rearme real
-    // (egl_wire_present_ports::request_frame() logo ANTES de cada eglSwapBuffers(), e
-    // arm_pending() depois de um
-    // swap bem-sucedido) ja cobre o PROXIMO quadro - esta linha
-    // aqui era redundante e, pela medicao, ativamente prejudicial.
     return gltfx_rslt<void>::ok();
 }
 

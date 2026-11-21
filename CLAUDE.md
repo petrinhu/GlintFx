@@ -30,14 +30,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | criar repo, `LICENSE`, cabeçalho, publicar qualquer coisa | L-08 público, AGPL-3.0 |
 | ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 container, nunca a sessão viva |
 | ⚖ | escolher entre abordagens, decidir design ou arquitetura | L-10 opções via AskUserQuestion |
-| ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto | L-11 push por onda, ou onda com mais de 7 dias envia ao ramo dela só o revisado, e cópia privada diária; ao fim de onda com tudo verde, merge e marca sem perguntar, número pela L-26; ramo da onda apagado ao mesclar; a cada push, apagar as imagens de teste de fatias fechadas |
+| ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto | L-11 push por onda, ou onda com mais de 7 dias envia ao ramo dela só o revisado, e cópia privada diária; ao fim de onda com tudo verde, merge e marca só com o OK do líder ou com o modo autônomo do projeto ligado e dentro do prazo, número pela L-26; ramo da onda apagado ao mesclar; a cada push, apagar as imagens de teste de fatias fechadas |
 | ⚖ | escrever ou revisar código de produto | L-12 agente especialista, papéis distintos |
 | ⚖ | escrever qualquer mensagem ao líder | L-13 timestamp real |
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
 | ⚖ | fechar um marco ou notar a hora | L-15 nunca mandar descansar |
 | ⚖ | abrir sessão, precisar de algo de outro projeto, receber ideia do Gus | L-16 bus `gusworld_ia_autocomm` |
 | ⚖ | escrever função, arquivo, classe ou módulo novo, ou revisar fatia | L-17 proibido monolito **e** proibida fragmentação; números duros mais as cinco perguntas do revisor |
-| ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; C-level no modelo de `/modelos_sessao` audita e cria (fable só advisor, 02/10), sonnet implementa |
+| ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; C-level audita e cria, agente operacional implementa, cada um no modelo de `/modelos_sessao` (20/11); prosa para leitor humano em opus com effort max; fable só advisor (02/10) |
 | ⚖ | criar módulo, tocar a fronteira do SO, desenhar API pública | L-19 camadas, portas em compile-time, fronteira opaca |
 | ⚖ | escrever qualquer código com comportamento | L-20 TDD estrito, vermelho antes de verde |
 | ⚖ | nomear qualquer coisa, escrever comentário, commit **ou documento** | L-21 inglês e `snake_case` no código; **commit legível por quem não estava lá: texto explicativo em pt-br e em inglês, códigos internos só na linha de referências**; **documento se decide pelo LEITOR** |
@@ -53,8 +53,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |
 | ⚖ | escolher a próxima fatia, antes de a demo rodar | L-32 caminho principal sempre, mais no máximo UMA trilha paralela |
 | ⚖ | tocar qualquer coisa de mapa | L-33 avisar o `mapeditor`; se fora do ar, pelo bus |
-| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, C-level opus (esforço alto) planeja, main verifica, sonnet implementa |
-| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level `opus` (esforço alto), depois de pesquisar, decide no lugar do líder; o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
+| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, C-level planeja, main verifica, agentes implementam, cada um no modelo de `/modelos_sessao` (20/11) |
+| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level, no modelo de `/modelos_sessao`, depois de pesquisar, decide no lugar do líder; o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
 | ⚖ | tocar a superfície de entrada, ou a entrega de evento | L-35 entrega determinística, sem duplicar e sem reordenar; é promessa pública |
 | ⚖ | tocar cursor, áudio, gamepad ou compose | L-36 as quatro decisões de escopo de 23/08; nenhuma é mais pergunta |
 | ⚖ | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | L-37 avisar o Gus Dragon sem ele perguntar |

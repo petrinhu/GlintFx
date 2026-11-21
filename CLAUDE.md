@@ -31,7 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 container, nunca a sessão viva |
 | ⚖ | escolher entre abordagens, decidir design ou arquitetura | L-10 opções via AskUserQuestion |
 | ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto | L-11 push por onda, ou onda com mais de 7 dias envia ao ramo dela só o revisado, e cópia privada diária; ao fim de onda com tudo verde, merge e marca só com o OK do líder ou com o modo autônomo do projeto ligado e dentro do prazo, número pela L-26; ramo da onda apagado ao mesclar; a cada push, apagar as imagens de teste de fatias fechadas |
-| ⚖ | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | L-12 agente especialista, papéis distintos; revisão com no máximo duas rodadas, só sobre o critério de pronto escrito antes da fatia (20/11) |
+| ⚖ | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | L-12 agente especialista, papéis distintos; revisão com no máximo duas rodadas, só sobre o critério de pronto escrito antes da fatia, que pode ficar mais exigente e nunca mais frouxo (20/11) |
 | ⚖ | escrever qualquer mensagem ao líder | L-13 timestamp real |
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
 | ⚖ | fechar um marco ou notar a hora | L-15 nunca mandar descansar |

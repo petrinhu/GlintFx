@@ -35,7 +35,7 @@
 | [L-09](#l-09) | rodar teste que abre janela, injeta input ou captura tela | Container com compositor Wayland dentro; nunca a sessão viva |
 | [L-10](#l-10) | escolher entre duas abordagens, decidir design ou arquitetura | Opções ao líder via `AskUserQuestion`, sem painel lateral |
 | [L-11](#l-11) | `git push`, merge em `main`, criar tag, publicar release, **ou apagar ramo remoto** | Push por onda completa, ou, com a onda passando de 7 dias, ao ramo da onda só o revisado limpo, mais cópia privada diária por `git bundle` (14/11); merge e tag, mesmo ao fim de onda com tudo verde, só com o OK do líder no contexto ou com o modo autônomo do projeto ligado e dentro do prazo (20/11); **ramo da onda apagado ao mesclar, provado ancestral de `main` antes**; **a cada push, apagar as imagens de teste de fatias fechadas (09/10)** |
-| [L-12](#l-12) | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | Agente especialista executa; implementer, reviewer e orquestrador são distintos; a revisão tem no máximo duas rodadas e só aponta o que quebra o critério de pronto, escrito antes da fatia (20/11) |
+| [L-12](#l-12) | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | Agente especialista executa; implementer, reviewer e orquestrador são distintos; a revisão tem no máximo duas rodadas e só aponta o que quebra o critério de pronto, escrito antes da fatia, que pode ficar mais exigente e nunca mais frouxo (20/11) |
 | [L-13](#l-13) | escrever qualquer mensagem ao líder | Timestamp real `[DD/MM/YY - HH:MM:SS]` obtido do `date` |
 | [L-14](#l-14) | instalar, remover ou atualizar pacote de sistema | Pedir autorização; não instalar sozinho |
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
@@ -389,12 +389,12 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **Aplicação:** verificação de entregável **visual ou renderizado** é do `qa-engineer`, independente do implementer, nunca do orquestrador inline e nunca do líder. Ao verificar trabalho de outro agente, leia o **blob commitado** (`git show <sha>:<arquivo>`), não a árvore de trabalho, que pode estar sob mutation testing.
 
-**Emenda de 20/11/2026: a revisão tem teto de duas rodadas e só olha o critério de pronto.** Ordem do líder, por `AskUserQuestion`, verbatim: *"Revisão com teto de 2"*. O motivo é a medição de 20/11/2026 descrita na L-32. **A regra** (os quatro primeiros itens são decisão dele; o último é desdobramento do agente, para a regra ser executável):
+**Emenda de 20/11/2026: a revisão tem teto de duas rodadas e só olha o critério de pronto.** Ordem do líder, por `AskUserQuestion`, verbatim: *"Revisão com teto de 2"*. O motivo é a medição de 20/11/2026 descrita na L-32. **A regra:**
 - **A revisão de uma fatia tem no máximo duas rodadas**, em qualquer camada. Acaba o "até sair limpa".
-- **O critério de pronto é escrito ANTES da fatia.** O padrão: funciona, os portões passam e não há risco de segurança ou privacidade.
+- **O critério de pronto é escrito ANTES da fatia.** O padrão tem três partes: funciona, os portões passam e não há risco de segurança ou privacidade. A fatia pode acrescentar exigência a esse critério, escrita antes dela (por exemplo, uma promessa pública de forma), e nunca afrouxa nenhuma das três partes. Decisão do líder de 20/11/2026, verbatim: *"Só pode ficar mais exigente (Recomendado)"* (D-W8-1199).
 - **A revisão só aponta o que quebra esse critério.** O resto não é listado e não vira item do `TODO.md`. Esta parte é a mesma da L-43 global, refinada em 20/11/2026; o teto de duas rodadas é deste projeto.
 - **Transição:** na W8 em curso, as revisões já abertas terminam e as fatias seguem sem rodada nova, pela escolha do líder, verbatim: *"Terminam e seguem sem nova revisão (Recomendado)"*.
-- Quebra do critério que ainda apareça na segunda rodada não abre uma terceira: no N3 ela vira limite declarado e a fatia fecha, como abaixo; nas outras camadas, vai ao líder (L-10).
+- **Quebra do critério que ainda apareça na segunda rodada não abre uma terceira:** no N3 ela vira limite declarado e a fatia fecha, como abaixo; nas outras camadas, vai ao líder (L-10). Decisão do líder de 20/11/2026, verbatim: *"Sobe ao senhor decidir (Recomendado)"* (D-W8-1199).
 
 **Emenda de 11/10/2026: o rigor da revisão é por CAMADA.** O líder, ao ver dois dias sem código da biblioteca e cerca de 15 voltas de revisão sobre ferramentas que testam ferramentas de teste, disse, verbatim: *"Já sao mais de DOIS DIAS de teste! Isso definitivamente não é normal. Otimize isso! Descubra como!"* e *"Está incompatível o rigor dos testes com o código. Ou os códigos estão PÉSSIMOS ou o rigor dos testes está com OE"*. Perguntado por AskUserQuestion, escolheu **"Por camada (Recomendado)"**. Isso refina a ordem de 21/08 ("mantenha a verificação profunda"), que continua valendo **para o código da biblioteca**, dentro do teto de duas rodadas da emenda de 20/11/2026, acima:
 
@@ -1029,10 +1029,10 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 
 **O sinal do modo é o mecanismo de flag que já existe nesta máquina** (`autonomo_mode.py`, com escopos), ou a ordem direta dele na conversa. **Na dúvida se o modo está ligado, ele está desligado** — presumir autonomia é o erro caro, e presumir que não há é o barato.
 
-**Emenda de 20/11/2026: a pesquisa só vale para a decisão que sobe ao líder.** Ordem do líder, por `AskUserQuestion`, verbatim: *"Pesquisa só se vai a você"*. O motivo é a medição de 20/11/2026 descrita na L-32. **A regra** (os dois primeiros itens são decisão dele; o terceiro é a leitura do agente, para a regra ser executável):
+**Emenda de 20/11/2026: a pesquisa só vale para a decisão que sobe ao líder.** Ordem do líder, por `AskUserQuestion`, verbatim: *"Pesquisa só se vai a você"*. O motivo é a medição de 20/11/2026 descrita na L-32. **A regra:**
 - **Só a decisão que sobe ao líder passa pela pesquisa:** as cinco fontes da emenda de 09/09/2026, logo abaixo, os três passos de 29/09/2026, as bibliotecas e a comunidade da emenda de 10/10/2026, o piso de 10 queixas de 13/10/2026, a L-44 e a completude pesquisada da L-32.
 - **Escolha de rotina vira uma linha, sem pesquisa:** o que se escolheu e por quê.
-- Sobe ao líder a decisão que iria a ele por `AskUserQuestion` (L-10), também quando, no modo autônomo, quem a toma é o C-level na cadeira dele. Escolha de rotina é a que não iria.
+- **Sobe ao líder a decisão que iria a ele por `AskUserQuestion` (L-10), também quando, no modo autônomo, quem a toma é o C-level na cadeira dele:** nesse caso, o C-level pesquisa no lugar do líder. Escolha de rotina é a que não iria. Decisão do líder de 20/11/2026, verbatim: *"Sim, no lugar do senhor pesquisa (Recomendado)"* (D-W8-1199).
 
 **O efeito:** a pesquisa e o registro longo ficam para o que o líder decide ou ratifica, e a escolha do dia a dia cabe numa linha.
 

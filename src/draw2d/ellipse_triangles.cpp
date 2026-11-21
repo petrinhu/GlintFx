@@ -44,7 +44,7 @@ struct triangle_corners {
 };
 
 void write_triangle(std::span<std::uint32_t> out, std::size_t at,
-                    triangle_corners corners) noexcept {
+                    const triangle_corners &corners) noexcept {
     out[at] = static_cast<std::uint32_t>(corners.a);
     out[at + 1U] = static_cast<std::uint32_t>(corners.b);
     out[at + 2U] = static_cast<std::uint32_t>(corners.c);

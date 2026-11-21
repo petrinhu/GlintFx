@@ -15,8 +15,8 @@
 // resolver exchange NEVER change shape: new data comes in a packet of a new type, as Vulkan does
 // (D-W8-1247, ratified 20/11/2026). This test is what makes that promise fail loudly if someone
 // breaks it: adding, removing, retyping or reordering a field of gltfx_image_reference,
-// gltfx_image_resolution or gltfx_image_resolver stops this file from compiling, and the run-time
-// checks below say the same in the test report.
+// gltfx_image_resolution or gltfx_image_resolver, or of what they hold by value, stops this file
+// from compiling. The run-time case below only reports the sizes the file was built with.
 //
 // The header tells the CONSUMER never to take the size of gltfx_image_reference; the library
 // takes it here only to guard its own promise. Every expected size is written from the field
@@ -122,6 +122,29 @@ static_assert(offsetof(region, source) == 0 && offsetof(region, mirror) == k_rec
                   sizeof(region) == k_region_size,
               "gltfx_texture_region must stay source then mirror: a new field breaks D-W8-1247");
 
+// The NUMBER of fields of each packet is frozen too (D-W8-1189, D-W8-2058): a small field added at
+// the end of a type can fit in its alignment padding (gltfx_texture_region has 7 bytes of it after
+// `mirror`), so size and offsets alone would not see it. A structured binding with N names is
+// ill-formed when the type has another number of members, so this stops the build.
+constexpr bool k_field_counts_frozen = [] {
+    auto [vec2_x, vec2_y] = vec2_texel{};
+    auto [rect_corner, rect_size] = rect_texel{};
+    auto [region_source, region_mirror] = region{};
+    auto [answer_texture, answer_region] = resolution{};
+    auto [reference_text] = reference{};
+    static_cast<void>(vec2_x);
+    static_cast<void>(vec2_y);
+    static_cast<void>(rect_corner);
+    static_cast<void>(rect_size);
+    static_cast<void>(region_source);
+    static_cast<void>(region_mirror);
+    static_cast<void>(answer_texture);
+    static_cast<void>(answer_region);
+    static_cast<void>(reference_text);
+    return true;
+}();
+static_assert(k_field_counts_frozen, "the field counts of the packets are frozen (D-W8-1189)");
+
 // gltfx_image_resolver: the function, then the context, and nothing else.
 static_assert(
     std::is_same_v<glintfx::gltfx_image_resolver_fn, expected_function>,
@@ -135,6 +158,15 @@ static_assert(offsetof(resolver, context) == sizeof(glintfx::gltfx_image_resolve
               "context must stay right after function");
 static_assert(sizeof(resolver) == sizeof(glintfx::gltfx_image_resolver_fn) + sizeof(void *),
               "gltfx_image_resolver must stay function plus context: a new field breaks D-W8-1247");
+
+// The same pin for the registration, after its own asserts above.
+constexpr bool k_resolver_field_count_frozen = [] {
+    auto [registration_function, registration_context] = resolver{};
+    static_cast<void>(registration_function);
+    static_cast<void>(registration_context);
+    return true;
+}();
+static_assert(k_resolver_field_count_frozen, "the field count of gltfx_image_resolver is frozen");
 
 GLINTFX_TEST(image_resolver_packets_keep_the_frozen_layout_at_run_time) {
     // A broken layout never reaches this point: the static_asserts above stop the build. This case

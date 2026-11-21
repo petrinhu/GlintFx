@@ -232,6 +232,16 @@ void GLINTFX_GL_APIENTRY f_generate_mipmap(GLenum) {
     ++card.mipmap_generations;
 }
 
+// The first level's upload runs out of memory and the second leaves an invalid enum: two flags of
+// different kinds from ONE creation (D-W8-2050).
+void GLINTFX_GL_APIENTRY f_tex_image_leaving_two_kinds(GLenum target, GLint level,
+                                                       GLint internal_format, GLsizei width,
+                                                       GLsizei height, GLint border, GLenum format,
+                                                       GLenum type, const void *pixels) {
+    f_tex_image(target, level, internal_format, width, height, border, format, type, pixels);
+    card.error_queue.push_back(level == 0 ? k_out_of_memory : k_invalid_enum);
+}
+
 [[nodiscard]] gl_function_table fake_table() {
     gl_function_table t;
     t.glGetError = &f_get_error;
@@ -650,6 +660,36 @@ GLINTFX_TEST(the_stale_errors_the_consumer_left_are_said_in_the_log_by_the_creat
     GLINTFX_CHECK(made.has_value());
     GLINTFX_CHECK(said_the_consumers_two_errors(k_invalid_operation, k_invalid_enum));
     release(made);
+}
+
+// The upload that fails leaves TWO flags of its own (OpenGL keeps one per kind): both are the
+// creation's, so neither may reach the next entry as the consumer's (W8 deep verification, R2-B
+// fix1 I-1, D-W8-2050; the probe of the N1 review).
+GLINTFX_TEST(the_second_flag_of_a_failed_creation_is_not_said_as_the_consumers) {
+    reset();
+    gl_function_table two_kinds = fake_table();
+    two_kinds.glTexImage2D = &f_tex_image_leaving_two_kinds;
+    const texture_gl_access failing{&context, &fake_make_current, &two_kinds, &owner_token};
+    const auto failed =
+        create_texture_object(failing, white(4, 4), levels(1), default_batch_allocator());
+    GLINTFX_CHECK(refused_as(failed, gltfx_err_code::out_of_memory, "texture_create"));
+    GLINTFX_CHECK(card.error_queue.empty()); // the creation's own flags do not outlive it
+    const armed_log log;
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK(prior_errors_logged().empty());
+    release(made);
+}
+
+// The consumer's errors are drained on ENTRY, before anything else, so they are said even when the
+// creation is then refused by the card's limit (D-B3c-2; kills the mutant M8 of the N1 review).
+GLINTFX_TEST(the_consumers_errors_are_said_even_when_the_card_refuses_the_size) {
+    reset();
+    card.max_side = 4;
+    const armed_log log;
+    card.error_queue = {k_invalid_operation, k_invalid_enum};
+    GLINTFX_CHECK(refused_as(make(white(5, 1)), gltfx_err_code::unsupported, "width"));
+    GLINTFX_CHECK(said_the_consumers_two_errors(k_invalid_operation, k_invalid_enum));
 }
 
 // The library's own memory: refused before any GL object exists.

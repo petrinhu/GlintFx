@@ -16,6 +16,7 @@
 
 #include "draw2d/mipmap_chain.hpp"
 #include "draw2d/mipmap_reduce.hpp"
+#include "draw2d/own_gl_errors.hpp"
 #include "draw2d/pixel_premultiply.hpp"
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/prior_gl_errors.hpp"
@@ -255,7 +256,8 @@ void delete_gl_texture(const gl_function_table &gl, const texture_2d_impl &recor
     gl.glDeleteTextures(1, &name);
 }
 
-// The GL object: unpack state, the texture, every level, then the first error after the upload.
+// The GL object: unpack state, the texture, every level, then the first error after the upload; the
+// flags after the first are emptied too (own_gl_errors.hpp), so none reaches a later call.
 // The binding of unit 0 is cleared in every case, and a failed texture is deleted.
 [[nodiscard]] gltfx_rslt<texture_2d_impl *> create_gl_texture(
     const creation &plan, texture_2d_impl &record,
@@ -265,7 +267,7 @@ void delete_gl_texture(const gl_function_table &gl, const texture_2d_impl &recor
     set_unpack_state(gl);
     prepare_gl_texture(gl, record, plan.sampling);
     const bool uploaded = upload_levels(gl, record, std::span<gltfx_rgba8>(chain.data, chain.size));
-    const GLenum error = gl.glGetError();
+    const GLenum error = first_own_gl_error(gl);
     gl.glBindTexture(k_gl_texture_2d, 0);
     if (!uploaded) {
         delete_gl_texture(gl, record);

@@ -13,6 +13,7 @@
 #include "draw2d/kept_texels.hpp"
 #include "draw2d/mipmap_chain.hpp"
 #include "draw2d/mipmap_reduce.hpp"
+#include "draw2d/own_gl_errors.hpp"
 #include "draw2d/pixel_premultiply.hpp"
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/prior_gl_errors.hpp"
@@ -50,7 +51,6 @@ constexpr GLenum k_gl_pixel_unpack_buffer = 0x88EC;
 constexpr GLenum k_gl_texture0 = 0x84C0;
 constexpr GLenum k_gl_no_error = 0;
 constexpr GLenum k_gl_out_of_memory = 0x0505;
-constexpr std::uint32_t k_max_error_drain = 32U;
 
 // One level as it goes to the card: its number, the rectangle written, the row length of the
 // texels read (0 for tightly packed rows) and the texels the rectangle is read from.
@@ -65,14 +65,6 @@ struct level_write {
     gltfx_err failure(code);
     failure.with_rejected_value("texture_update").with_os_error_code(os_code);
     return failure;
-}
-
-void drain_gl_errors(const gl_function_table &gl) noexcept {
-    for (std::uint32_t attempt = 0; attempt < k_max_error_drain; ++attempt) {
-        if (gl.glGetError() == k_gl_no_error) {
-            return;
-        }
-    }
 }
 
 [[nodiscard]] std::uint32_t side_of(const covered_range &range) noexcept {
@@ -117,8 +109,7 @@ void reset_unpack(const gl_function_table &gl) noexcept {
 // a later call of the consumer.
 [[nodiscard]] gltfx_rslt<void> finish_writes(const gl_function_table &gl) noexcept {
     reset_unpack(gl);
-    const GLenum error = gl.glGetError();
-    drain_gl_errors(gl); // the flags after the first: none is blamed on a later call
+    const GLenum error = first_own_gl_error(gl); // the flags after the first are emptied too
     gl.glBindTexture(k_gl_texture_2d, 0);
     if (error == k_gl_no_error) {
         return gltfx_rslt<void>::ok();

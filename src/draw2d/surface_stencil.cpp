@@ -7,6 +7,7 @@
 #include <glintfx/core/log/severity.hpp>
 
 #include "core/log/emit.hpp"
+#include "draw2d/own_gl_errors.hpp"
 #include "draw2d/prior_gl_errors.hpp"
 
 namespace glintfx::draw2d {
@@ -25,22 +26,6 @@ constexpr GLenum k_gl_attachment_object_type = 0x8CD0;
 constexpr GLenum k_gl_attachment_stencil_size = 0x8217;
 constexpr GLint k_gl_none = 0;
 
-// More than any driver keeps: a lost context can answer the same error for ever.
-constexpr int k_max_gl_error_reads = 16;
-
-// Empties the queue, and says the first error that was in it (0 for none).
-[[nodiscard]] GLenum first_gl_error(const render::gl_function_table &gl) noexcept {
-    GLenum first = 0;
-    for (int read = 0; read < k_max_gl_error_reads; ++read) {
-        const GLenum error = gl.glGetError();
-        if (error == 0) {
-            return first;
-        }
-        first = first != 0 ? first : error;
-    }
-    return first;
-}
-
 // The card answered a question about its bits with an error: the library goes on trusting what it
 // asked for, and whoever reads the log sees it.
 [[nodiscard]] bool present_because_the_reading_failed(GLenum error) noexcept {
@@ -56,7 +41,7 @@ constexpr int k_max_gl_error_reads = 16;
     GLint type = k_gl_none;
     gl.glGetFramebufferAttachmentParameteriv(k_gl_draw_framebuffer, k_gl_stencil,
                                              k_gl_attachment_object_type, &type);
-    if (const GLenum error = first_gl_error(gl); error != 0) {
+    if (const GLenum error = first_own_gl_error(gl); error != 0) {
         return present_because_the_reading_failed(error);
     }
     if (type == k_gl_none) {
@@ -65,7 +50,7 @@ constexpr int k_max_gl_error_reads = 16;
     GLint bits = 0;
     gl.glGetFramebufferAttachmentParameteriv(k_gl_draw_framebuffer, k_gl_stencil,
                                              k_gl_attachment_stencil_size, &bits);
-    if (const GLenum error = first_gl_error(gl); error != 0) {
+    if (const GLenum error = first_own_gl_error(gl); error != 0) {
         return present_because_the_reading_failed(error);
     }
     return bits > 0;

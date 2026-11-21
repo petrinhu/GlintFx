@@ -273,10 +273,9 @@ Diante de dúvida ou de mais de uma opção viável, apresentar 2 a 3 alternativ
 - **Flag vencida conta como desligada, e na dúvida se a flag vale, ela não vale** (a mesma regra que a L-34 dá ao modo autônomo).
 - **No modo autônomo, quem autoriza é a flag que o líder ligou, e não o C-level sentado na cadeira dele.** É esta a forma de aval a que a L-34 remete quando diz que merge e marca seguem pedindo aval.
 - **O portão não muda:** todas as fatias concluídas, o servidor verde lido da ferramenta e a linha `CI-VERDE-<onda>` em ✅. O aval não dispensa o portão, e o portão não dispensa o aval.
-- **O que sai da terceira emenda (22/09/2026, mais abaixo) é só a licença de fazer o merge e a marca sem perguntar e relatar depois**, a primeira linha da tabela dela. Nesse ponto, esta emenda vence a terceira, pelo mesmo critério da nota de 08/10/2026 desta lei (vale a mais recente). O resto da terceira emenda continua: o número da marca pela L-26, nada de marca antes do veredito do servidor, nada de marca no meio da onda.
 - Casa com a L-24 global, que desde 20/11/2026 também pede o OK do líder para merge e marca.
 
-**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag, mesmo ao fim de onda com tudo verde, só saem com o OK do líder no contexto ou com o modo autônomo do projeto ligado e dentro do prazo** (sexta emenda, 20/11/2026, logo acima; ela substitui a licença permanente da terceira emenda, de 22/09/2026). Fora do fim de onda, continuam exigindo aval explícito no contexto.
+**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag, mesmo ao fim de onda com tudo verde, só saem com o OK do líder no contexto ou com o modo autônomo do projeto ligado e dentro do prazo** (sexta emenda, 20/11/2026, logo acima). Fora do fim de onda, continuam exigindo aval explícito no contexto.
 
 **EMENDA de 28/08/2026, ordem do líder. Verbatim:** *"qualquer push sem verificacao fica sendo branch. push / merge para main apenas apoś fim de onda com tudo verde"*.
 
@@ -329,18 +328,17 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **É sempre a ÚLTIMA linha da onda**, por construção: depende de todas as outras. E o `Depende de` dela é a onda inteira, não um item específico.
 
-**TERCEIRA EMENDA, de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Verbatim, na ordem em que vieram:
-*"autorizo push/merge/tag ao fim de ondas"*; em seguida *"Ao fim da onda, a tag é sempre aumentar um ponto no segundo número"*. Essa segunda frase alteraria a L-26, e foi contestada antes (o aumento do segundo número avisa incompatibilidade ao consumidor, porque antes da 1.0 o pacote usa compatibilidade pela versão menor, e a subida para 0.5 tinha acabado de quebrar o consumidor de teste e deixar 8 trabalhos vermelhos; e o número deixaria de distinguir recurso de correção). Levada a escolha, o líder respondeu *"opcao 2 e nao precisa ficar me perguntando a cada tag"*: **a tabela da L-26 fica como está**, e o pedido de não ser perguntado alterava esta L-11, que foi contestada também (a marca é pública e na prática permanente; em 08/09 uma saiu antes do veredito do servidor). Confirmação final do líder, por `AskUserQuestion`: *"Confirmar a alteração"*.
+**TERCEIRA EMENDA, de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Verbatim:
+*"Ao fim da onda, a tag é sempre aumentar um ponto no segundo número"*. Essa frase alteraria a L-26, e foi contestada antes (o aumento do segundo número avisa incompatibilidade ao consumidor, porque antes da 1.0 o pacote usa compatibilidade pela versão menor, e a subida para 0.5 tinha acabado de quebrar o consumidor de teste e deixar 8 trabalhos vermelhos; e o número deixaria de distinguir recurso de correção). Levada a escolha, o líder respondeu *"opcao 2"*: **a tabela da L-26 fica como está**.
 
 **A regra que fica:**
 
 | Momento | O que o agente faz |
 |---|---|
-| Fim de onda, com a linha `CI-VERDE-<onda>` fechada (todos os trabalhos do servidor lidos da ferramenta, nunca do painel) | **Merge em `main` e cria a marca, sem perguntar.** Relata depois. |
 | Número da marca | **Pela tabela da L-26**: recurso novo sobe o segundo; só correção sobe o terceiro; só construção, empacotamento ou teste sobe o quarto. Nunca "sempre o segundo". |
 | Onda em andamento | Continua valendo a primeira e a segunda emenda: ramo próprio, nunca `main`. |
 
-**O que esta emenda NÃO autoriza:** marca antes do veredito do servidor; marca no meio de onda; merge de onda com qualquer trabalho vermelho ou item fora de concluído. A autorização é para o fim de onda **com tudo verde**, e o portão de fechamento é o que prova isso, e não a impressão do agente.
+**Continuam proibidos:** marca antes do veredito do servidor; marca no meio de onda; merge de onda com qualquer trabalho vermelho ou item fora de concluído. O portão de fechamento é o que prova o verde, e não a impressão do agente.
 
 **Marca por fatia e marca de fecho por onda: emendas de 08/09/2026 e 09/09/2026, transferidas para cá em 08/10/2026.** Estavam dentro da L-05 do `GODS_LAWS.md` global e saíram de lá por decisão do líder, verbatim: *"De projeto (Recomendado)"*. **Onde este texto conflitar com a terceira emenda de 22/09/2026 acima, vale a de 22/09/2026, por ser mais recente** (decisão do líder em 08/10/2026, verbatim: *"Com nota: vale a de 22/09 (Recomendado)"*).
 
@@ -361,7 +359,7 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **O que gerou a emenda:** depois de empurrar uma fatia consertada, o agente anunciou que criaria a marca *"quando as 22 fecharem"*, apresentando isso como o padrão ratificado. O líder não tinha pedido essa espera para fatia; a espera pelo verde tinha sido decidida para o fechamento de uma ONDA, num caso específico, e o agente a generalizou sozinho para outro caso.
 
-**A regra:** fatia consertada e empurrada ganha marca `vA.B.C.D` **na hora**, com o terceiro componente crescendo +1. A marca acompanha a fatia, não a onda. Não se espera resultado de servidor para criá-la, e não se pergunta de novo a cada fatia: a ordem acima é a autorização permanente para o ato de marcar. O que continua exigindo confirmação no momento é o que a LEI DAS LEIS e a L-24 global já pedem para ação visível em remoto quando a ordem do líder não está no contexto.
+**A regra:** fatia consertada e empurrada ganha marca `vA.B.C.D` **na hora**, com o terceiro componente crescendo +1. A marca acompanha a fatia, não a onda. Não se espera resultado de servidor para criá-la. O que continua exigindo confirmação no momento é o que a LEI DAS LEIS e a L-24 global já pedem para ação visível em remoto quando a ordem do líder não está no contexto.
 
 **A armadilha específica, e ela é sobre honestidade de processo:** transformar uma decisão dada para UM caso em regra geral, e depois apresentá-la ao líder como se fosse ordem dele, é inventar regra e atribuí-la a quem não a deu. Decisão do líder vale para o caso em que ele a deu; estendê-la a outro caso é decisão NOVA, e decisão nova vai a ele (L-01 global), nunca é anunciada como se já fosse dele.
 
@@ -535,11 +533,11 @@ Regra qualitativa sem lugar no processo é regra que ninguém aplica.
 **Data:** 21/08/2026. **Verbatim:** *"a partir de agora, é regra, decore: main apenas orquestra, delega agentes, avalia retorno de agentes. Usa apenas agentes bigtech. Auditoria e criacao de projetos: clevel fable sempre. Implementadores sonnet."*
 
 **EMENDA de 20/11/2026, ordem do líder: esta lei deixa de fixar modelo.** Na sessão `configs`, o líder escolheu, verbatim, *"Seguir o /modelos_sessao"*. Na sessão deste projeto, confirmou, verbatim, *"Confirmar a mudança (Recomendado)"*. **O que vale daqui em diante** (os dois primeiros itens são a decisão dele; os outros são desdobramento do agente, para que nenhum texto antigo a contradiga):
-- **Modelo e esforço de todo agente despachado são os que `/modelos_sessao` tiver gravado para o grupo dele:** o C-level que planeja, audita, cria ou decide no modo autônomo, o implementador e o revisor operacional. Saem o "sonnet implementa" e o "C-level `opus` com esforço alto".
+- **Modelo e esforço de todo agente despachado são os que `/modelos_sessao` tiver gravado para o grupo dele:** o C-level que planeja, audita, cria ou decide no modo autônomo, o implementador e o revisor operacional.
 - **Regra por tarefa, por cima do grupo:** prosa ou texto longo cujo leitor final é humano vai com `opus` (ou maior) e `effort` max. O alcance exato dessa regra é o que a `/modelos_sessao` define, e não se repete aqui.
 - **`fable` continua só de advisor** (emenda de 02/10/2026, mais abaixo).
 - **A exceção nomeada da D-W8-1182 continua valendo:** os dois verificadores da verificação profunda da W8 rodam em `opus`, por decisão do líder, verbatim *"Opus só nesta verificação"*, e só nela.
-- **Fora a regra por tarefa e a exceção da D-W8-1182, onde este arquivo ainda nomear modelo para um papel, é registro datado e não fixa nada:** a coluna Modelo da tabela abaixo, as citações verbatim antigas que nomeiam `fable`, `opus` ou `sonnet` (nesta lei, na L-32 e na L-34), a emenda de 22/09/2026 da L-34 e o refinamento de 22/09/2026 da L-32.
+- **Fora a regra por tarefa e a exceção da D-W8-1182, nome de modelo em citação verbatim antiga (nesta lei, na L-32 e na L-34) é registro do que foi dito e não fixa nada.**
 
 **A thread principal (`main`) não executa trabalho de produto.** Ela faz exatamente três coisas: **orquestra**, **delega a agentes** e **avalia o retorno dos agentes**. Escrever código, escrever documento de produto, auditar, testar: nada disso é do `main`.
 
@@ -548,15 +546,14 @@ Regra qualitativa sem lugar no processo é regra que ninguém aplica.
 **EMENDA de 02/10/2026, ordem do líder, levada pela LEI DAS LEIS.** Primeiro a ordem *"fable é so advisor!"* (11:02, depois que o main despachou um revisor em `fable`). Depois, à pergunta sobre o texto desta lei, feita com o contra-argumento escrito (o `fable` era o revisor mais forte da casa, e a variedade de família diante do planejador `opus` era o contrapeso da emenda de 22/09 da L-34), o líder respondeu, verbatim: *"clevel: respeitar o que for configurado na skill de modelos da sessao"*. **O texto que manda daqui em diante:**
 - o modelo do C-level que planeja, audita e cria é o configurado em `/modelos_sessao`, para o grupo Orquestrador + C-levels;
 - o modelo do implementador e do revisor operacional é o do grupo Demais agents;
-- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado;
-- a tabela abaixo e as citações de 21/08 que dizem `fable` ficam como registro datado do que foi dito.
+- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado.
 A L-12 continua intacta: implementador, revisor e orquestrador são agentes DISTINTOS, qualquer que seja o modelo.
 
-| Tipo de trabalho | Agente | Modelo |
-|---|---|---|
-| Auditoria | C-level da constelação bigtech | **`fable`, sempre** |
-| Criação de projeto | C-level da constelação bigtech | **`fable`, sempre** |
-| Implementação | agente operacional bigtech (`backend-engineer`, `frontend-engineer`, `qa-engineer`, `technical-writer`, etc.) | **`sonnet`** |
+| Tipo de trabalho | Agente |
+|---|---|
+| Auditoria | C-level da constelação bigtech |
+| Criação de projeto | C-level da constelação bigtech |
+| Implementação | agente operacional bigtech (`backend-engineer`, `frontend-engineer`, `qa-engineer`, `technical-writer`, etc.) |
 
 **Somente agentes da constelação bigtech.** Nada de agente genérico, anônimo ou improvisado.
 
@@ -914,7 +911,7 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
    **AMPLIAÇÃO de 17/09/2026, ordem do líder, verbatim:** *"Nunca decidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web."* A regra acima proibia escolher a FATIA mais fácil; esta ampliação leva o mesmo critério para **dentro** da fatia, onde ele é mais fácil de burlar sem ninguém perceber: entre dois desenhos que passam nos mesmos testes, **vence o mais completo**, e completude se mede pela necessidade real de quem usa a biblioteca, pesquisada na web e em prior art, nunca pelo que dá menos trabalho hoje. **Consequência operacional:** quando duas saídas empatam em esforço aparente, a escolha vira DECISÃO e precisa de razão escrita; quando a mais completa custa mais, ela ainda vence, e só o líder pode cortá-la. Isto é o antídoto do defeito que ele mesmo diagnosticou nesta casa e que a memória `feedback_caminho_menos_dificil` registra: o agente converge para o caminho menos difícil e apresenta o resultado como se fosse o desenho certo.
 
-   **REFINAMENTO de 22/09/2026, ordem do líder, verbatim:** *"continue até fechar w8 ou até eu acordar. Se tiver dúvidas, peça a clevel opus effort high que busque na comunidade, na web, nos docs, nas bibliotecas semelhantes apenas para aprender, nunca linkar. NUNCA busque o caminho mais fácil, buque sempre o mais completo e que resolva as dores da comunidade, mesmo que crie nocas fatias ou ondas."* Três acréscimos ao critério de 17/09, e só eles: **(1) a dúvida tem dono** - não é o main quem a resolve por conta própria, é um C-level `opus` com esforço alto, **depois** de pesquisar comunidade, web, documentação e bibliotecas semelhantes (a pesquisa é para APRENDER, nunca para ligar nem copiar: L-29); **(2) o critério de completude é a dor da comunidade**, não só a necessidade de quem usa a biblioteca hoje - o que outros projetos do tipo erraram, reclamaram e consertaram tarde entra no desenho desde já; **(3) completude pode criar trabalho novo** - se a saída completa exige fatia ou onda que não existia, ela é criada e registrada, e isso **não** conta como expansão indevida de escopo (a L-32 continua limitando a UMA trilha paralela, mas não limita o tamanho do que a completude exige dentro do caminho). **A parte temporal da ordem** (*"até fechar w8 ou até eu acordar"*) vale para a sessão de 22/09/2026 e não é regra permanente; as outras três partes são.
+   **REFINAMENTO de 22/09/2026, ordem do líder, verbatim:** *"continue até fechar w8 ou até eu acordar. Se tiver dúvidas, peça a clevel opus effort high que busque na comunidade, na web, nos docs, nas bibliotecas semelhantes apenas para aprender, nunca linkar. NUNCA busque o caminho mais fácil, buque sempre o mais completo e que resolva as dores da comunidade, mesmo que crie nocas fatias ou ondas."* Três acréscimos ao critério de 17/09, e só eles: **(1) a dúvida tem dono** - não é o main quem a resolve por conta própria, é um C-level, **depois** de pesquisar comunidade, web, documentação e bibliotecas semelhantes (a pesquisa é para APRENDER, nunca para ligar nem copiar: L-29); **(2) o critério de completude é a dor da comunidade**, não só a necessidade de quem usa a biblioteca hoje - o que outros projetos do tipo erraram, reclamaram e consertaram tarde entra no desenho desde já; **(3) completude pode criar trabalho novo** - se a saída completa exige fatia ou onda que não existia, ela é criada e registrada, e isso **não** conta como expansão indevida de escopo (a L-32 continua limitando a UMA trilha paralela, mas não limita o tamanho do que a completude exige dentro do caminho). **A parte temporal da ordem** (*"até fechar w8 ou até eu acordar"*) vale para a sessão de 22/09/2026 e não é regra permanente; as outras três partes são.
 2. **Achou que uma fatia não pertence à onda? MOVA-A para outra onda, explicitamente, com o motivo escrito na própria linha.** O que está proibido é pular: deixar a fatia onde está e seguir para a próxima, porque isso deixa a onda com um buraco que ninguém vê — a linha continua ali, marcada como pendente, e a onda é declarada fechada em cima dela.
 
 **Por que a segunda metade existe, e ela é o coração da ordem:** pular e mover parecem a mesma coisa e não são. Pular é decisão invisível, tomada por conveniência, que não deixa rastro; mover é decisão registrada, que muda o plano de propósito e pode ser conferida depois. O líder não proibiu mudar de ideia sobre onde uma fatia mora — proibiu mudar de ideia **sem dizer**.
@@ -954,10 +951,9 @@ O líder ordenou, verbatim: *"quero que volte a codar o framework 18:30 no máxi
 
 **EMENDA de 20/11/2026, ordem do líder: o ciclo deixa de fixar modelo.** Na sessão `configs`, o líder escolheu, verbatim, *"Seguir o /modelos_sessao"*. Na sessão deste projeto, confirmou, verbatim, *"Confirmar a mudança (Recomendado)"*. A regra inteira está na L-18, na emenda da mesma data. Para este ciclo (desdobramento do agente sobre a decisão dele):
 - **O C-level do passo 2 e do modo autônomo e os agentes do passo 4 rodam no modelo e no esforço que `/modelos_sessao` grava para o grupo de cada um.** Prosa ou texto longo cujo leitor final é humano segue a regra por tarefa da skill (`opus` ou maior, `effort` max).
-- **A emenda de 22/09/2026, logo abaixo, deixa de valer só na parte que fixava o C-level em `opus` com esforço alto.** O contrapeso dela continua: em qualquer plano do C-level, a re-verificação do main, com sabotagem de família diferente da do implementador e da do planejador (L-12), é obrigatória.
-- As citações verbatim que dizem `clevel fable` ficam como registro do que foi dito, e não fixam modelo.
+- As citações verbatim que nomeiam `fable` ficam como registro do que foi dito, e não fixam modelo.
 
-**EMENDA de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Na ordem *"Se tiver dúvidas, peça a clevel opus effort high..."* (texto inteiro no refinamento da L-32, mesma data), o C-level que planeja, audita e decide no lugar do líder deixa de ser o `fable` e passa a ser **`opus` com esforço alto**. Contestada antes de cumprir: o orquestrador também é Opus, e com o planejador da mesma família, quem planeja e quem confere passam a ter os mesmos pontos cegos prováveis. Confirmação do líder por `AskUserQuestion`: *"Confirmar a alteração"*. As citações verbatim de 22/08/2026 abaixo, que dizem `clevel fable`, ficam como registro datado do que foi dito; **o texto que manda, daqui em diante, é o desta emenda.** **Contrapeso que a troca exige:** como planejador e orquestrador passam a ser da mesma família, a re-verificação do main (L-12: sabotagem de família DIFERENTE da do implementador e do planejador) deixa de ser opcional em qualquer plano deste C-level.
+**Contrapeso (22/09/2026):** a re-verificação do main (L-12: sabotagem de família DIFERENTE da do implementador e do planejador) não é opcional em nenhum plano do C-level.
 
 
 **Todo trabalho de produto passa por este ciclo de quatro passos, na ordem, sem pular nenhum.** O ciclo abre em cada **fatia** ou em cada **onda** — **quem define a unidade é o líder no pedido**, não o agente. Na dúvida sobre qual das duas ele quis, **pergunte antes de começar**; adivinhar o tamanho é começar errado.

@@ -353,7 +353,7 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **Por que o fecho de onda NÃO cresce um componente de versão, e esta é decisão de execução do agente, declarada:** o quarto componente já tem dono: a L-26 deste projeto o define como componente **de empacotamento**, e usá-lo para contar onda o descaracterizaria. O segundo componente significa mudança de comportamento público, que uma onda pode ou não ter. Sobraria disputar o terceiro com a marca de fatia, e duas regras crescendo o mesmo número é exatamente a ambiguidade que o líder pagou para evitar. **Rótulo com nome próprio não disputa nada**, e responde à pergunta que a marca de onda existe para responder: *qual commit fechou a W5?*
 
-**A ordem completa do fim de onda, e nenhum passo se pula:** todas as fatias ✅ → empurrar → servidor fecha VERDE em todos os trabalhos (a linha `CI-VERDE-<onda>` é o portão, ver a emenda `CI-VERDE-<onda>` desta lei) → marcar essa linha ✅ → juntar, se houver ramo → marca de rótulo da onda. **O verde vem ANTES da marca**, sempre: foi por inverter isso que a `v0.3.0.0` nasceu prematura e que o líder me pegou de novo na W4.
+**A ordem completa do fim de onda, e nenhum passo se pula:** todas as fatias ✅ → empurrar → servidor fecha VERDE em todos os trabalhos (a linha `CI-VERDE-<onda>` é o portão, ver a emenda `CI-VERDE-<onda>` desta lei) → marcar essa linha ✅ → aval: OK do líder, ou modo autônomo ligado (flag dentro do prazo), pela sexta emenda → juntar, se houver ramo → marca de rótulo da onda. **O verde vem ANTES da marca**, sempre: foi por inverter isso que a `v0.3.0.0` nasceu prematura e que o líder me pegou de novo na W4.
 
 **Emenda de 08/09/2026: a marca sai a cada FATIA consertada, não a cada onda, e não se espera o servidor para criá-la.** Ordem do líder, verbatim: *"é para criar a tag a cada fatia consertada, não invente regra"*, precedida de *"cada fatia que está atrasada será empurrada no final por mim e cresce +1 no terceiro numero"* (mesma data).
 
@@ -532,22 +532,17 @@ Regra qualitativa sem lugar no processo é regra que ninguém aplica.
 
 **Data:** 21/08/2026. **Verbatim:** *"a partir de agora, é regra, decore: main apenas orquestra, delega agentes, avalia retorno de agentes. Usa apenas agentes bigtech. Auditoria e criacao de projetos: clevel fable sempre. Implementadores sonnet."*
 
-**EMENDA de 20/11/2026, ordem do líder: esta lei deixa de fixar modelo.** Na sessão `configs`, o líder escolheu, verbatim, *"Seguir o /modelos_sessao"*. Na sessão deste projeto, confirmou, verbatim, *"Confirmar a mudança (Recomendado)"*. **O que vale daqui em diante** (os dois primeiros itens são a decisão dele; os outros são desdobramento do agente, para que nenhum texto antigo a contradiga):
-- **Modelo e esforço de todo agente despachado são os que `/modelos_sessao` tiver gravado para o grupo dele:** o C-level que planeja, audita, cria ou decide no modo autônomo, o implementador e o revisor operacional.
+**EMENDAS de 02/10/2026 e de 20/11/2026, ordens do líder: o modelo dos agentes.** A de 02/10/2026 foi levada pela LEI DAS LEIS: primeiro veio a ordem *"fable é so advisor!"* (11:02, depois que o main despachou um revisor em `fable`); depois, à pergunta sobre o texto desta lei, feita com o contra-argumento escrito (o `fable` era o revisor mais forte da casa, e a variedade de família diante do planejador `opus` era o contrapeso de 22/09/2026 da L-34), o líder respondeu, verbatim: *"clevel: respeitar o que for configurado na skill de modelos da sessao"*. Em 20/11/2026, na sessão `configs`, ele escolheu, verbatim, *"Seguir o /modelos_sessao"*, e na sessão deste projeto confirmou, verbatim, *"Confirmar a mudança (Recomendado)"*. **O que vale** (os três primeiros itens são as decisões dele; os outros são desdobramento do agente):
+- **Modelo e esforço de todo agente despachado são os que `/modelos_sessao` tiver gravado para o grupo dele:** o C-level que planeja, audita, cria ou decide no modo autônomo segue o grupo Orquestrador + C-levels; o implementador e o revisor operacional seguem o grupo Demais agents.
 - **Regra por tarefa, por cima do grupo:** prosa ou texto longo cujo leitor final é humano vai com `opus` (ou maior) e `effort` max. O alcance exato dessa regra é o que a `/modelos_sessao` define, e não se repete aqui.
-- **`fable` continua só de advisor** (emenda de 02/10/2026, mais abaixo).
+- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado.
 - **A exceção nomeada da D-W8-1182 continua valendo:** os dois verificadores da verificação profunda da W8 rodam em `opus`, por decisão do líder, verbatim *"Opus só nesta verificação"*, e só nela.
 - **Fora a regra por tarefa e a exceção da D-W8-1182, nome de modelo em citação verbatim antiga (nesta lei, na L-32 e na L-34) é registro do que foi dito e não fixa nada.**
+- A L-12 continua intacta: implementador, revisor e orquestrador são agentes DISTINTOS, qualquer que seja o modelo.
 
 **A thread principal (`main`) não executa trabalho de produto.** Ela faz exatamente três coisas: **orquestra**, **delega a agentes** e **avalia o retorno dos agentes**. Escrever código, escrever documento de produto, auditar, testar: nada disso é do `main`.
 
 **Aplicação, quem chamar:**
-
-**EMENDA de 02/10/2026, ordem do líder, levada pela LEI DAS LEIS.** Primeiro a ordem *"fable é so advisor!"* (11:02, depois que o main despachou um revisor em `fable`). Depois, à pergunta sobre o texto desta lei, feita com o contra-argumento escrito (o `fable` era o revisor mais forte da casa, e a variedade de família diante do planejador `opus` era o contrapeso da emenda de 22/09 da L-34), o líder respondeu, verbatim: *"clevel: respeitar o que for configurado na skill de modelos da sessao"*. **O texto que manda daqui em diante:**
-- o modelo do C-level que planeja, audita e cria é o configurado em `/modelos_sessao`, para o grupo Orquestrador + C-levels;
-- o modelo do implementador e do revisor operacional é o do grupo Demais agents;
-- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado.
-A L-12 continua intacta: implementador, revisor e orquestrador são agentes DISTINTOS, qualquer que seja o modelo.
 
 | Tipo de trabalho | Agente |
 |---|---|

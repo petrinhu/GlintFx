@@ -104,7 +104,8 @@ GLINTFX_TEST(table_rows_match_the_formula_within_one_level_and_keep_alpha_exact)
         {{50, 0, 0, 0}, gltfx_pixel_format::rgba8_srgb_premultiplied, {0.0, 0.0, 0.0, 0.0}},
         // W8 deep verification I-1 (D-W8-2009): a premultiplied sRGB channel that is neither 0
         // nor the alpha, so decoding it as sRGB and as linear give different texels (92.172
-        // against 137.207 for the red one): the rows above all land on 0 or 1, where the two agree.
+        // against 137.207 for the red one): the other premultiplied sRGB rows above land on 0 or 1,
+        // where the two agree.
         {{64, 32, 16, 128},
          gltfx_pixel_format::rgba8_srgb_premultiplied,
          {92.172, 44.336, 20.417, 128.0}},

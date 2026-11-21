@@ -7,6 +7,7 @@
 #include <glintfx/core/log/severity.hpp>
 
 #include "core/log/emit.hpp"
+#include "draw2d/prior_gl_errors.hpp"
 
 namespace glintfx::draw2d {
 
@@ -73,7 +74,8 @@ constexpr int k_max_gl_error_reads = 16;
 } // namespace
 
 bool surface_has_stencil(const render::gl_function_table &gl) noexcept {
-    (void)first_gl_error(gl); // what is in the queue is not an answer to these questions
+    // What the consumer left is said in the log, and is not an answer to these questions (D-B3c-2).
+    drain_prior_gl_errors(gl);
     GLint consumer_framebuffer = 0;
     gl.glGetIntegerv(k_gl_draw_framebuffer_binding, &consumer_framebuffer);
     gl.glBindFramebuffer(k_gl_draw_framebuffer, 0);

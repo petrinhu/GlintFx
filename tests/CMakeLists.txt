@@ -1952,6 +1952,7 @@ target_include_directories(texture_upload_test PRIVATE
 )
 target_sources(texture_upload_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
@@ -2035,6 +2036,7 @@ target_include_directories(vertex_stream_test PRIVATE
 )
 target_sources(vertex_stream_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
@@ -2061,6 +2063,7 @@ target_include_directories(surface_stencil_test PRIVATE
 )
 target_sources(surface_stencil_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/surface_stencil.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
 )
 
 # R2D-BATCH B4: the frame machine behind the public handle, against a FAKE host and a table of FAKE GL functions.
@@ -2086,6 +2089,7 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_stencil_contract.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
@@ -2150,6 +2154,7 @@ target_include_directories(texture_update_test PRIVATE
 )
 target_sources(texture_update_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
@@ -2204,6 +2209,7 @@ target_sources(texture_atlas_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/core/atlas_slots.cpp"
     "${PROJECT_SOURCE_DIR}/src/core/atlas_request_check.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"

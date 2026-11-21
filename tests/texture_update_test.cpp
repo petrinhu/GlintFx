@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <map>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -13,6 +14,9 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/core/log/event.hpp>
+#include <glintfx/core/log/severity.hpp>
+#include <glintfx/core/log/sink.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
 
 #include "draw2d/mipmap_reduce.hpp"
@@ -363,6 +367,68 @@ void *refuse_everything(void *, std::size_t) noexcept { return nullptr; }
 
 constexpr texel_rect k_two_by_one_at_1_2{{1U, 2U}, {2U, 2U}};
 
+// The log of the case: the name, category, severity and first field of every event, copied out
+// during the call (an event is valid only inside it). W8 deep verification I-2 (D-W8-2018).
+struct logged_event {
+    std::string name;
+    std::string category;
+    glintfx::gltfx_log_severity severity = glintfx::gltfx_log_severity::unknown;
+    std::string field;
+    std::uint64_t value = 0;
+};
+std::vector<logged_event> logged;
+
+void log_sink(void *, const glintfx::gltfx_log_event &event) noexcept {
+    logged_event entry;
+    entry.name = std::string(event.name());
+    entry.category = std::string(event.category());
+    entry.severity = event.severity();
+    if (!event.fields().empty()) {
+        entry.field = std::string(event.fields()[0].name);
+        entry.value = event.fields()[0].value.unsigned_integer();
+    }
+    logged.push_back(entry);
+}
+
+// The prior-error events of the case, in order; every other event is left out.
+[[nodiscard]] std::vector<logged_event> prior_errors_logged() {
+    std::vector<logged_event> prior;
+    for (const logged_event &entry : logged) {
+        if (entry.name == "draw2d_prior_gl_error") {
+            prior.push_back(entry);
+        }
+    }
+    return prior;
+}
+
+// Arms the capture for one case and disarms it at the end, even when a check fails.
+struct armed_log {
+    armed_log() {
+        logged.clear();
+        glintfx::gltfx_log_set_sink(
+            glintfx::gltfx_log_sink{&log_sink, nullptr, glintfx::gltfx_log_severity::trace});
+    }
+    ~armed_log() { glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{}); }
+    armed_log(const armed_log &) = delete;
+    armed_log &operator=(const armed_log &) = delete;
+};
+
+// The two errors the consumer left, said in the order they were in the queue, as warn events of
+// the draw2d category with the GL code in the field gl_error (vertex_stream_test.cpp, the twin).
+[[nodiscard]] bool said_the_consumers_two_errors(GLenum first, GLenum second) {
+    const std::vector<logged_event> prior = prior_errors_logged();
+    if (prior.size() != 2U) {
+        return false;
+    }
+    for (const logged_event &entry : prior) {
+        if (entry.category != "draw2d" || entry.severity != glintfx::gltfx_log_severity::warn ||
+            entry.field != "gl_error") {
+            return false;
+        }
+    }
+    return prior[0].value == first && prior[1].value == second;
+}
+
 } // namespace
 
 GLINTFX_TEST(an_update_makes_the_context_current_before_the_first_gl_call) {
@@ -565,6 +631,21 @@ GLINTFX_TEST(a_stale_gl_error_is_not_blamed_on_the_update) {
     GLINTFX_CHECK(update_texture_object(*texture, k_two_by_one_at_1_2, view_of(patch),
                                         default_batch_allocator())
                       .has_value());
+    delete texture;
+}
+
+// D-B3c-2: what the consumer left in the queue before an update is drained on entry and SAID in
+// the log, never swallowed (W8 deep verification I-2, D-W8-2018).
+GLINTFX_TEST(the_stale_errors_the_consumer_left_are_said_in_the_log_by_the_update) {
+    reset();
+    texture_2d_impl *texture = made(image_of(varied(4U, 4U, 1U), 4U, 4U), 0U);
+    const owned_image patch = image_of({{255, 0, 0, 128}, {0, 255, 0, 255}}, 2U, 1U);
+    const armed_log log;
+    card.error_queue = {k_invalid_enum, k_invalid_operation};
+    GLINTFX_CHECK(update_texture_object(*texture, k_two_by_one_at_1_2, view_of(patch),
+                                        default_batch_allocator())
+                      .has_value());
+    GLINTFX_CHECK(said_the_consumers_two_errors(k_invalid_enum, k_invalid_operation));
     delete texture;
 }
 

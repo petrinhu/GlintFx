@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <map>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -13,6 +14,9 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/image_view.hpp>
+#include <glintfx/core/log/event.hpp>
+#include <glintfx/core/log/severity.hpp>
+#include <glintfx/core/log/sink.hpp>
 #include <glintfx/draw2d/texture_2d_desc.hpp>
 
 #include "draw2d/texture_upload.hpp"
@@ -300,6 +304,68 @@ void release(const gltfx_rslt<texture_2d_impl *> &made) {
     }
 }
 
+// The log of the case: the name, category, severity and first field of every event, copied out
+// during the call (an event is valid only inside it). W8 deep verification I-2 (D-W8-2018).
+struct logged_event {
+    std::string name;
+    std::string category;
+    glintfx::gltfx_log_severity severity = glintfx::gltfx_log_severity::unknown;
+    std::string field;
+    std::uint64_t value = 0;
+};
+std::vector<logged_event> logged;
+
+void log_sink(void *, const glintfx::gltfx_log_event &event) noexcept {
+    logged_event entry;
+    entry.name = std::string(event.name());
+    entry.category = std::string(event.category());
+    entry.severity = event.severity();
+    if (!event.fields().empty()) {
+        entry.field = std::string(event.fields()[0].name);
+        entry.value = event.fields()[0].value.unsigned_integer();
+    }
+    logged.push_back(entry);
+}
+
+// The prior-error events of the case, in order; every other event is left out.
+[[nodiscard]] std::vector<logged_event> prior_errors_logged() {
+    std::vector<logged_event> prior;
+    for (const logged_event &entry : logged) {
+        if (entry.name == "draw2d_prior_gl_error") {
+            prior.push_back(entry);
+        }
+    }
+    return prior;
+}
+
+// Arms the capture for one case and disarms it at the end, even when a check fails.
+struct armed_log {
+    armed_log() {
+        logged.clear();
+        glintfx::gltfx_log_set_sink(
+            glintfx::gltfx_log_sink{&log_sink, nullptr, glintfx::gltfx_log_severity::trace});
+    }
+    ~armed_log() { glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{}); }
+    armed_log(const armed_log &) = delete;
+    armed_log &operator=(const armed_log &) = delete;
+};
+
+// The two errors the consumer left, said in the order they were in the queue, as warn events of
+// the draw2d category with the GL code in the field gl_error (vertex_stream_test.cpp, the twin).
+[[nodiscard]] bool said_the_consumers_two_errors(GLenum first, GLenum second) {
+    const std::vector<logged_event> prior = prior_errors_logged();
+    if (prior.size() != 2U) {
+        return false;
+    }
+    for (const logged_event &entry : prior) {
+        if (entry.category != "draw2d" || entry.severity != glintfx::gltfx_log_severity::warn ||
+            entry.field != "gl_error") {
+            return false;
+        }
+    }
+    return prior[0].value == first && prior[1].value == second;
+}
+
 void *refuse_everything(void *, std::size_t) noexcept { return nullptr; }
 
 // A texture parameter as last set, or -999 when it was never set (a check fails, never throws).
@@ -571,6 +637,18 @@ GLINTFX_TEST(a_stale_gl_error_is_not_blamed_on_the_texture) {
     card.error_queue = {k_invalid_operation, k_invalid_enum};
     const auto made = make(white(2, 2));
     GLINTFX_CHECK(made.has_value());
+    release(made);
+}
+
+// D-B3c-2: what the consumer left in the queue is drained on entry and SAID in the log, never
+// swallowed (W8 deep verification I-2, D-W8-2018).
+GLINTFX_TEST(the_stale_errors_the_consumer_left_are_said_in_the_log_by_the_creation) {
+    reset();
+    const armed_log log;
+    card.error_queue = {k_invalid_operation, k_invalid_enum};
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK(said_the_consumers_two_errors(k_invalid_operation, k_invalid_enum));
     release(made);
 }
 

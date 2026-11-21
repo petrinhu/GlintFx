@@ -207,3 +207,14 @@ GLINTFX_TEST(surface_stencil_an_error_already_in_the_queue_is_not_the_answer) {
     GLINTFX_CHECK(!surface_has_stencil(table));
     GLINTFX_CHECK(model.queue.empty());
 }
+
+// D-B3c-2: the stray error the consumer left is SAID in the log as a prior error, and the answer
+// is the card's (W8 deep verification I-2, D-W8-2018).
+GLINTFX_TEST(surface_stencil_an_error_the_consumer_left_is_said_as_prior) {
+    const gl_function_table table = fake_table();
+    model.queue.push_back(k_invalid_operation);
+    GLINTFX_CHECK(surface_has_stencil(table));
+    GLINTFX_CHECK_EQ(event_names.size(), std::size_t{1});
+    GLINTFX_CHECK(!event_names.empty() && event_names[0] == "draw2d_prior_gl_error");
+    GLINTFX_CHECK(!event_errors.empty() && event_errors[0] == k_invalid_operation);
+}

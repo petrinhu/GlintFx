@@ -18,6 +18,7 @@
 #include "draw2d/mipmap_reduce.hpp"
 #include "draw2d/pixel_premultiply.hpp"
 #include "draw2d/pod_buffer.hpp"
+#include "draw2d/prior_gl_errors.hpp"
 #include "draw2d/texture_request_check.hpp"
 #include "draw2d/texture_sampling.hpp"
 #include "gl_functions.hpp"
@@ -63,7 +64,6 @@ constexpr GLenum k_gl_max_texture_size = 0x0D33;
 constexpr GLenum k_gl_texture0 = 0x84C0;
 constexpr GLenum k_gl_no_error = 0;
 constexpr GLenum k_gl_out_of_memory = 0x0505;
-constexpr std::uint32_t k_max_error_drain = 32U;
 
 // What one creation needs, gathered once: the request, its checked number of reduced levels, and
 // the allocator of the texel storage.
@@ -91,14 +91,6 @@ struct creation {
     const gltfx_err_code code = error == k_gl_out_of_memory ? gltfx_err_code::out_of_memory
                                                             : gltfx_err_code::platform_failure;
     return texture_refusal(code, "texture_create", static_cast<std::int64_t>(error));
-}
-
-void drain_gl_errors(const gl_function_table &gl) noexcept {
-    for (std::uint32_t attempt = 0; attempt < k_max_error_drain; ++attempt) {
-        if (gl.glGetError() == k_gl_no_error) {
-            return;
-        }
-    }
 }
 
 // The card's limit is read from the card; each side is compared with it on its own, so a width or a
@@ -342,7 +334,7 @@ gltfx_rslt<texture_2d_impl *> create_texture_object(const texture_gl_access &acc
         return gltfx_rslt<texture_2d_impl *>::err(current.err());
     }
     const gl_function_table &gl = *access.gl;
-    drain_gl_errors(gl);
+    drain_prior_gl_errors(gl);
     const gltfx_rslt<void> limit = check_card_limit(gl, image);
     if (limit.has_error()) {
         return gltfx_rslt<texture_2d_impl *>::err(limit.err());

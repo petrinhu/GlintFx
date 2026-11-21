@@ -122,21 +122,6 @@ struct buffer_upload {
     return gl.glUnmapBuffer(target) != 0;
 }
 
-// Reads the queue the CONSUMER left (D-B3c-2) and says each error in the log: never swallowed,
-// never ours.
-void drain_prior_gl_errors(const render::gl_function_table &gl) noexcept {
-    for (int read = 0; read < k_max_gl_error_reads; ++read) {
-        const GLenum error = gl.glGetError();
-        if (error == 0) {
-            return;
-        }
-        const std::array<gltfx_log_field, 1> fields = {
-            gltfx_log_field{k_gl_error_field, gltfx_log_value::make_unsigned_integer(error)},
-        };
-        log_emit_fields(gltfx_log_severity::warn, "draw2d", k_prior_gl_error_event, fields);
-    }
-}
-
 // What the operation left in the queue: the first error, and whether any of them was out-of-memory.
 struct gl_errors_of_operation {
     GLenum first = 0;

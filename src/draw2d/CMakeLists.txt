@@ -22,6 +22,7 @@ target_sources(glintfx_library PRIVATE
     gl_state_contract.cpp
     gl_stencil_contract.cpp
     vertex_stream.cpp
+    prior_gl_errors.cpp
     piece_list.cpp
     triangle_store.cpp
     gl_load_refusal.cpp

@@ -7,6 +7,7 @@
 
 #include <glintfx/core/err.hpp>
 
+#include "draw2d/prior_gl_errors.hpp"
 #include "draw2d/triangle_batch.hpp"
 #include "gl_abi.hpp"
 #include "gl_functions.hpp"
@@ -58,11 +59,8 @@ inline constexpr std::string_view k_reject_vertex_upload = "vertex_upload";
 inline constexpr std::string_view k_reject_index_upload = "index_upload";
 inline constexpr std::string_view k_reject_draw = "draw";
 
-inline constexpr std::string_view k_prior_gl_error_event = "draw2d_prior_gl_error";
-inline constexpr std::string_view k_gl_error_field = "gl_error";
-// The most queue reads one drain or one check makes: a GL that never empties its queue cannot hold
-// us.
-inline constexpr int k_max_gl_error_reads = 16;
+// k_prior_gl_error_event, k_gl_error_field and k_max_gl_error_reads live in prior_gl_errors.hpp,
+// with the drain every library entry shares (D-B3c-2; W8 deep verification I-2, D-W8-2018).
 
 struct vertex_stream {
     std::uint32_t vertex_array = 0;

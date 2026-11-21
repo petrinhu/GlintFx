@@ -15,6 +15,7 @@
 #include "draw2d/mipmap_reduce.hpp"
 #include "draw2d/pixel_premultiply.hpp"
 #include "draw2d/pod_buffer.hpp"
+#include "draw2d/prior_gl_errors.hpp"
 #include "draw2d/texture_update_kept.hpp"
 #include "gl_functions.hpp"
 
@@ -214,7 +215,7 @@ gltfx_rslt<void> update_texture_object(texture_2d_impl &texture, const texel_rec
         return gltfx_rslt<void>::err(current.err());
     }
     const gl_function_table &gl = *texture.access.gl;
-    drain_gl_errors(gl);
+    drain_prior_gl_errors(gl);
     pod_buffer<gltfx_rgba8> stored{};
     const gltfx_rslt<void> converted = stored_texels_of(image, allocator, stored);
     if (converted.has_error()) {

@@ -910,7 +910,8 @@ bool wayland_egl_context_adapter::resize_surface_if_due() noexcept {
 namespace {
 
 // The window open() can use: open, and with a surface (W8 deep verification C2-1, D-W8-2022).
-[[nodiscard]] std::optional<gltfx_err> window_refusal(const wayland_window_adapter &window) noexcept {
+[[nodiscard]] std::optional<gltfx_err>
+window_refusal(const wayland_window_adapter &window) noexcept {
     if (!window.is_open() || window.surface() == nullptr) {
         return gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window");
     }

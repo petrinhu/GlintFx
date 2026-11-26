@@ -11845,3 +11845,12 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Recomendação do main:** sim. A F1 não tem ato irreversível, e o merge e a tag continuam esperando o OK dele.
   - **25/11 20:50:** o CI do `onda-w8` em `a25e4971` (run 45721554041) deu VERDE. Os 15 commits da W8 que ainda não tinham sido testados passaram.
 - **25/11 21:07 (main):** o C7-1 tirou o caminho pessoal no clone, de 25 achados para 0, com os autotestes ok. O commit dele leva também estas linhas do diário, que entram ANTES, num commit separado. Depois do CI-PIN e do C7-1, a sessão PAUSA (D-W8-1204).
+
+- **D-W8-1205 (main, 25/11 22:56): a sessão pausa conforme D-W8-1204, com o C7-1 sem commit.**
+  - **CI-PIN:** commit `9adf8cf9`, `preci --fast` verde (399 testes passaram, 1 pulado).
+  - **Diário:** commit `7a2336d9`.
+  - **C7-1 parou sem commit.** O `preci --fast` do clone `.trabalho/cto-w8/verif-w8/c71/snap` reprovou duas vezes no mesmo teste, `win_vm_lab_sessao_selftest` (19 s), e esse teste passa no worktree principal. Os logs estão em `c71/preci.log` e `c71/preci-r1.log`.
+  - **Causa ainda não provada.** O agente suspeita de ambiente do clone (trava, pid e arquivos locais que não vão para o clone), mas não verificou.
+  - **O que já está pronto no clone:** a troca deu `achados=0` (eram 25), e os dois autotestes passaram.
+  - **O portão NÃO foi alargado.**
+  - **Na retomada:** investigar o `sessao.sh` no clone (L-49), sem afrouxar portão. A W8 continua aberta: faltam o C7-1, as linhas do `TODO.md` e a F1.

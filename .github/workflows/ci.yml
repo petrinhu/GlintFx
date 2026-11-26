@@ -1,19 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 name: CI
 
+# Imagens e actions fixadas por digest e SHA; pacotes instalados no job ainda
+# NAO congelados: isso fica para a troca de onda (D-W8-1200).
 # Cinco alvos distintos, por ordem do lider (GODS_LAWS.md, L-04):
 # Fedora, Ubuntu, CachyOS, Arch e Windows.
-# Fedora e o ALVO PRIMARIO: e o sistema que o lider usa. O PINO EM
-# fedora:44 FOI SOLTO em 27/08/2026, por ordem dele (ESCOPO.md S1,
-# verbatim "solte para latest estavel" e depois "ponha todos como
-# latest e instale a ferramenta nos que precisarem"): a matriz inteira
-# usa :latest agora, nao so os alvos que ja estavam assim. A razao do
-# pino continua satisfeita, nao anulada: MEDIDO ao vivo em 27/08/2026
-# que fedora:latest e a MESMA versao 44 da maquina dele, com a mesma
-# ferramenta de build na mesma versao (4.3.0) - o alvo primario ainda
-# falha quando a maquina dele falharia, so que agora acompanha sozinho
-# quando ele atualizar, em vez de exigir alguem subindo o numero a
-# mao. Os demais alvos sao de portabilidade.
+# Fedora e o ALVO PRIMARIO: e o sistema que o lider usa. Desde
+# 27/08/2026 a matriz usa a tag :latest (ordem dele, ESCOPO.md S1), e
+# cada imagem agora traz o digest da tag, para o que roda ser o que foi
+# medido. A imagem fica fixa durante a onda e so troca na virada de
+# onda (L-04, 20/11/2026). Os demais alvos sao de portabilidade.
 # CachyOS NAO e coberto pelo job de Arch: imagem propria, repositorios
 # proprios, toolchain propria. Verde no Arch nao autoriza declarar
 # CachyOS suportado.
@@ -145,7 +141,7 @@ jobs:
   # ============================================================
   linux:
     name: ${{ matrix.nome }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: ${{ matrix.imagem }}
@@ -236,16 +232,17 @@ jobs:
           # mitigacao de design, nao uma confirmacao de que funciona.
           # Se a primeira execucao real no Windows reprovar aqui,
           # é a estreia que mede o nome certo, nao suposicao.
+          # Imagens fixas por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
           - nome: Fedora (primario) - compartilhado
             slug: fedora
-            imagem: fedora:latest
+            imagem: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Fedora (primario) - estatico
             slug: fedora
-            imagem: fedora:latest
+            imagem: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -273,42 +270,42 @@ jobs:
           # CI a partir desta fatia.
           - nome: Ubuntu - compartilhado
             slug: ubuntu
-            imagem: ubuntu:latest
+            imagem: ubuntu:latest@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Ubuntu - estatico
             slug: ubuntu
-            imagem: ubuntu:latest
+            imagem: ubuntu:latest@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: Arch - compartilhado
             slug: arch
-            imagem: archlinux:latest
+            imagem: archlinux:latest@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Arch - estatico
             slug: arch
-            imagem: archlinux:latest
+            imagem: archlinux:latest@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: CachyOS - compartilhado
             slug: cachyos
-            imagem: cachyos/cachyos:latest
+            imagem: cachyos/cachyos:latest@sha256:8d6a83bd74bb39298cbb4fc9de3151bc2870408f37e5ecd86569e2018b47a180
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: CachyOS - estatico
             slug: cachyos
-            imagem: cachyos/cachyos:latest
+            imagem: cachyos/cachyos:latest@sha256:8d6a83bd74bb39298cbb4fc9de3151bc2870408f37e5ecd86569e2018b47a180
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -345,7 +342,7 @@ jobs:
       # pelo passo "Checkout e' repositorio git" logo abaixo. Nenhum
       # passo ANTES do checkout REAL pode usar git (G1 confere isso).
       - name: Checkout de bootstrap (so' o preparo)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: _bootstrap
 
@@ -379,7 +376,7 @@ jobs:
       # via "reachable_v_tags=0" numa arvore que genuinamente tem
       # etiquetas e reprovava por um checkout raso, nunca por deriva
       # real. Mesmo par usado no job version-tag.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -678,7 +675,7 @@ jobs:
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-${{ matrix.slug }}-${{ matrix.modo }}
           path: parity_inventory.txt
@@ -689,7 +686,7 @@ jobs:
       # maiores. O JUnit inteiro sai como artefato, igual nos dois sistemas.
       - name: Publicar JUnit do ctest (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
           path: |
@@ -761,7 +758,7 @@ jobs:
 
       - name: Publicar MEASURED (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: measured-${{ matrix.slug }}-${{ matrix.modo }}
           path: measured_linux.txt
@@ -800,7 +797,7 @@ jobs:
 
       - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
         if: ${{ !cancelled() && matrix.oracle_flag != '' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-linux-${{ strategy.job-index }}
           path: layers_oracle_report.txt
@@ -808,7 +805,7 @@ jobs:
 
   windows:
     name: Windows - ${{ matrix.modo }}
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
@@ -834,7 +831,7 @@ jobs:
       # 19/09/2026): mesmo motivo do job `linux` acima - esta matriz
       # roda a suite ctest INTEIRA sem filtro de rotulo, e
       # version_matches_tag_test (LABELS consume) esta nela.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -1161,7 +1158,7 @@ jobs:
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-${{ matrix.slug }}-${{ matrix.modo }}
           path: parity_inventory.txt
@@ -1172,7 +1169,7 @@ jobs:
       # maiores. O JUnit inteiro sai como artefato, igual nos dois sistemas.
       - name: Publicar JUnit do ctest (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
           path: |
@@ -1269,7 +1266,7 @@ jobs:
 
       - name: Publicar MEASURED (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: measured-${{ matrix.slug }}-${{ matrix.modo }}
           path: measured_windows.txt
@@ -1281,7 +1278,7 @@ jobs:
       # passo de testes vermelho: o quadro e para olhar quando falha.
       - name: Publicar a captura no Windows (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-${{ matrix.slug }}-${{ matrix.modo }}
           path: ${{ matrix.builddir }}/tests/capture_known_color_win32_out
@@ -1291,7 +1288,7 @@ jobs:
       # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
       - name: Publicar a captura do exemplo first_window no Windows (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-first-window-${{ matrix.slug }}-${{ matrix.modo }}
           path: ${{ matrix.builddir }}/tests/first_window_capture_out
@@ -1301,7 +1298,7 @@ jobs:
       # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
       - name: Publicar a captura do exemplo shapes no Windows (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-shapes-${{ matrix.slug }}-${{ matrix.modo }}
           path: ${{ matrix.builddir }}/tests/shapes_capture_out
@@ -1311,7 +1308,7 @@ jobs:
       # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
       - name: Publicar a captura do exemplo textures no Windows (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-textures-${{ matrix.slug }}-${{ matrix.modo }}
           path: ${{ matrix.builddir }}/tests/textures_capture_out
@@ -1321,7 +1318,7 @@ jobs:
       # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
       - name: Publicar a captura do exemplo sprite_shadows no Windows (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-sprite_shadows-${{ matrix.slug }}-${{ matrix.modo }}
           path: ${{ matrix.builddir }}/tests/sprite_shadows_capture_out
@@ -1453,10 +1450,10 @@ jobs:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
     needs: [linux, windows, wayland-container, lint]
     if: ${{ !cancelled() && github.ref_type != 'tag' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45  # classe `dependente` - ver o bloco de classes logo abaixo de `jobs:`
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
@@ -1484,7 +1481,7 @@ jobs:
       # (`parity-inv-<slug>-<modo|container|lint>`), entao um pattern
       # so' recolhe tudo, e o passo seguinte separa por sistema.
       - name: Baixar inventarios (todos os sistemas)
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: parity-inv-*
           path: inventarios/todos
@@ -1619,7 +1616,7 @@ jobs:
       # escreve os dois arquivos legados (para o `--compare` que
       # continua igual).
       - name: Baixar MEASURED (todos os sistemas)
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: measured-*
           path: medidas/todos
@@ -1696,7 +1693,8 @@ jobs:
   # demais jobs (L-18): job que nao consegue ficar verde nao entra no
   # push.
   # KWIN-68-SEM-PLACA (decisao do lider, 07/11/2026): a imagem segue o
-  # fedora:latest e o KWin do repositorio do dia. Desde o 6.8 o KWin so
+  # a imagem fica fixa por digest durante a onda (L-04, 20/11/2026), e o
+  # KWin e o do repositorio na virada de onda. Desde o 6.8 o KWin so
   # compoe com um dispositivo de renderizacao, e o conteiner recebe
   # EXATAMENTE um, /dev/udmabuf (o alocador do nucleo que faz de memoria
   # do processo um dma-buf; sem entrada, sem tela, sem placa). E desvio
@@ -1712,7 +1710,7 @@ jobs:
   # legendas (`plain`, `asan`) carregam informacao distinta.
   wayland-container:
     name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
@@ -1756,9 +1754,9 @@ jobs:
         --env ASAN_OPTIONS=detect_stack_use_after_return=1:abort_on_error=1:detect_leaks=0:strict_string_checks=1
         --env UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1:abort_on_error=1
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # KWIN-68-SEM-PLACA: o executor hospedado tem /dev/udmabuf? Este passo
       # responde com nome, antes de o `docker run` do compositor responder
@@ -1854,7 +1852,7 @@ jobs:
       # compositor`, e as fixturas passam a depender dos DOIS.
       - name: Build da imagem
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: tests/container
           file: tests/container/Containerfile
@@ -1910,7 +1908,7 @@ jobs:
       # nao um segundo trabalho pesado) tagueia o estagio que de fato
       # tem o compilador, sem tocar o Containerfile so' para isto.
       - name: Build da imagem do estagio builder (para inspecionar o compilador)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: tests/container
           file: tests/container/Containerfile
@@ -2536,7 +2534,7 @@ jobs:
       # para que uma falha deixe o quadro para olhar. Roda mesmo com o passo anterior vermelho.
       - name: Publicar a captura no protocolo (${{ matrix.perna }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-${{ matrix.perna }}
           path: capture_out
@@ -2547,7 +2545,7 @@ jobs:
       # Windows (o artefato acima continua inteiro): quem procura pelo nome do exemplo acha as do Linux.
       - name: Publicar a captura do exemplo textures no protocolo (${{ matrix.perna }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-textures-${{ matrix.perna }}
           path: capture_out/textures
@@ -2558,7 +2556,7 @@ jobs:
       # como as do textures acima.
       - name: Publicar a captura do exemplo sprite_shadows no protocolo (${{ matrix.perna }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-sprite_shadows-${{ matrix.perna }}
           path: capture_out/sprite_shadows
@@ -3036,7 +3034,7 @@ jobs:
       # artefato A MAIS, nunca substituindo o outro).
       - name: Publicar MEASURED do container (MEASURED-COLLECTOR)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: measured-fedora-container${{ matrix.perna == 'asan' && '-asan' || '' }}
           path: measured_linux_container.txt
@@ -3092,7 +3090,7 @@ jobs:
       # nunca passa calado.
       - name: Publica o inventario do container (P-0)
         if: ${{ !cancelled() && matrix.perna == 'plain' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-fedora-container
           path: publicado/parity_inventory.txt
@@ -3238,17 +3236,18 @@ jobs:
 
   lint:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       - name: Instalar toolchain e ferramentas de lint
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck clang
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -3353,7 +3352,7 @@ jobs:
 
       - name: Publicar inventario de paridade (lint)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-fedora-lint
           path: parity_inventory.txt
@@ -3400,11 +3399,11 @@ jobs:
   # e' exatamente a classe de gemeo que diverge, GODS_LAWS.md L-17).
   ps-syntax:
     name: Sintaxe PowerShell (GATE-PS-SYNTAX, container pwsh)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Popular o cache da imagem pwsh (GLINTFX_PS_IMAGE)
         run: |
@@ -3472,11 +3471,11 @@ jobs:
   #     depender de plataforma nenhuma.
   windows-lint:
     name: Windows - Lint (clang-tidy sobre src/)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 65  # classe `estatica_windows` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Mesmo passo CI-WIN-ENV do job `windows` acima: sem o ambiente do
       # MSVC preparado, o cl.exe que o CMake vai gravar dentro do
@@ -3972,10 +3971,11 @@ jobs:
 
   sanitizer:
     name: Sanitizer (Fedora - ASan/UBSan)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       # libasan/libubsan: pacotes de RUNTIME, separados de gcc-c++ no
       # Fedora. gcc-c++ traz so a copia interna em
@@ -3992,7 +3992,7 @@ jobs:
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel libasan libubsan
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -4077,17 +4077,18 @@ jobs:
   # outras pernas da matriz.
   gl-codegen-host-cross:
     name: GL-CODEGEN-HOST-TOOL (Fedora - construcao cruzada MinGW, 4 vias)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       - name: Instalar toolchain (nativo + cruzado MinGW)
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel mingw64-gcc-c++
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -4166,11 +4167,11 @@ jobs:
   # nos quatro trabalhos Windows (shared, estatico, Debug e ASan).
   windows-sanitizer:
     name: Windows - Sanitizer (ASan)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE).
       # Mesmo passo CI-WIN-ENV do job `windows` acima.
@@ -4301,7 +4302,7 @@ jobs:
       # dos outros dois: o upload-artifact recusa nome repetido no mesmo run.
       - name: Publicar a captura no Windows (ASan)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-windows-sanitizer
           path: build-shared/tests/capture_known_color_win32_out
@@ -4311,7 +4312,7 @@ jobs:
       # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
       - name: Publicar a captura do exemplo first_window no Windows (sanitizer)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-first-window-windows-sanitizer
           path: build-shared/tests/first_window_capture_out
@@ -4321,7 +4322,7 @@ jobs:
       # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
       - name: Publicar a captura do exemplo shapes no Windows (sanitizer)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-shapes-windows-sanitizer
           path: build-shared/tests/shapes_capture_out
@@ -4331,7 +4332,7 @@ jobs:
       # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
       - name: Publicar a captura do exemplo textures no Windows (sanitizer)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-textures-windows-sanitizer
           path: build-shared/tests/textures_capture_out
@@ -4341,7 +4342,7 @@ jobs:
       # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
       - name: Publicar a captura do exemplo sprite_shadows no Windows (sanitizer)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-sprite_shadows-windows-sanitizer
           path: build-shared/tests/sprite_shadows_capture_out
@@ -4350,10 +4351,11 @@ jobs:
 
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       # Mesmo toolchain do job `lint` acima (nenhum runtime de
       # sanitizer aqui - GATE-DEBUG e sobre NDEBUG/assert(), nao sobre
@@ -4377,7 +4379,7 @@ jobs:
       # 19/09/2026): este job roda `preci.sh --debug-only`, que executa
       # a suite ctest INTEIRA sem filtro `-L unit` (ver comentario logo
       # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -4471,7 +4473,7 @@ jobs:
   # numero escrito aqui apodrece, o comando que mede nao).
   windows-debug:
     name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
@@ -4479,7 +4481,7 @@ jobs:
       # 19/09/2026): este job roda a suite ctest INTEIRA sem filtro de
       # rotulo (ver "ctest --test-dir build-debug --output-on-failure"
       # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -4679,7 +4681,7 @@ jobs:
 
       - name: Publicar relatorio do oraculo de camadas (Debug)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-windows-debug
           path: layers_oracle_report.txt
@@ -4688,7 +4690,7 @@ jobs:
       # QA-SCREEN-CAPTURE C2b-4: o mesmo artefato do job `windows` acima, para o build Debug (a suite inteira roda aqui).
       - name: Publicar a captura no Windows (Debug)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-windows-debug
           path: build-debug/tests/capture_known_color_win32_out
@@ -4698,7 +4700,7 @@ jobs:
       # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
       - name: Publicar a captura do exemplo first_window no Windows (debug)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-first-window-windows-debug
           path: build-debug/tests/first_window_capture_out
@@ -4708,7 +4710,7 @@ jobs:
       # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
       - name: Publicar a captura do exemplo shapes no Windows (debug)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-shapes-windows-debug
           path: build-debug/tests/shapes_capture_out
@@ -4718,7 +4720,7 @@ jobs:
       # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
       - name: Publicar a captura do exemplo textures no Windows (debug)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-textures-windows-debug
           path: build-debug/tests/textures_capture_out
@@ -4728,7 +4730,7 @@ jobs:
       # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
       - name: Publicar a captura do exemplo sprite_shadows no Windows (debug)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: capture-out-sprite_shadows-windows-debug
           path: build-debug/tests/sprite_shadows_capture_out
@@ -4751,10 +4753,11 @@ jobs:
   # antes deste job existir: os DOIS modos compilam limpos, zero aviso.
   clang:
     name: Clang (Fedora - segundo compilador, ${{ matrix.modo }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     strategy:
       fail-fast: false
       matrix:
@@ -4773,7 +4776,7 @@ jobs:
           dnf -y install clang cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -4920,7 +4923,7 @@ jobs:
 
       - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
         if: always() && matrix.oracle_flag != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-clang-${{ strategy.job-index }}
           path: layers_oracle_report.txt
@@ -4928,7 +4931,7 @@ jobs:
 
   gitleaks:
     name: Gitleaks (scan de segredo)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
@@ -4937,7 +4940,7 @@ jobs:
       # .gitleaksignore); o checkout raso default (profundidade 1) so
       # exporia o ultimo commit ao scanner, dando falsa sensacao de
       # cobertura completa.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -4968,11 +4971,11 @@ jobs:
 
   leis:
     name: Gate das leis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
@@ -5077,11 +5080,11 @@ jobs:
   # `version-tag.yml`, contra o servidor de verdade.
   version-tag:
     name: Versao == etiqueta (VERSION-TAG-SYNC)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type == 'tag'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true

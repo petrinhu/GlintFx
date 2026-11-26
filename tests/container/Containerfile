@@ -236,7 +236,7 @@
 # Fedora ships libasan/libubsan as packages SEPARATE from gcc-c++, and
 # a link that never installed them died with "cannot find
 # libasan.so") - not repeated here a second time.
-FROM fedora:latest AS arch-ports-builder
+FROM fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c AS arch-ports-builder
 # ARG must come AFTER this stage's own FROM to be visible to the RUN
 # lines below (a global ARG declared before the first FROM only ever
 # seeds that FROM's own image reference, never a build stage's shell
@@ -1247,7 +1247,7 @@ RUN cmake -S /build/_arch_ports_examples -B /build/examples-build -G Ninja -DCMA
         "-DCMAKE_CXX_FLAGS=-g -Wall -Wextra -Werror $GLINTFX_FIXTURE_SANITIZE" \
     && cmake --build /build/examples-build
 
-FROM fedora:latest
+FROM fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
 
 # libasan/libubsan/binutils: always installed, one recipe for both
 # legs (D-CAUDA-6, /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.2) - a

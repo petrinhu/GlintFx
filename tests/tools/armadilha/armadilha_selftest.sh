@@ -87,6 +87,55 @@ g2_tmpdir_dentro_da_raiz_coberto() {
   printf '%s' "$saida" | grep -q "fim-do-comando" || falha "o comando de dentro nao chegou ao fim: $saida"
 }
 
+# E2c (rodada 2, CTO 26/11 20:30): a .trabalho/ da raiz, ignorada pelo git, e' coberta por tmpfs na
+# caixa. Sem a condicao (ignorada e filha direta da raiz), nada se cobre, e o laboratorio aparece.
+g2_trabalho_raiz() {  # $1 = raiz de mentira; $2 = linha do .gitignore ("" = sem .gitignore)
+  mkdir -p "$1/tests/tools/armadilha"
+  cp -r "$DIR/." "$1/tests/tools/armadilha/"
+  git -C "$1" init -q
+  [ -n "$2" ] && printf '%s\n' "$2" >"$1/.gitignore"
+  return 0
+}
+
+g2_trabalho_coberta() {
+  local raiz="$work/trab-coberta" saida rc
+  g2_trabalho_raiz "$raiz" "/.trabalho/"
+  mkdir -p "$raiz/.trabalho/x/glintfx-win-lab"
+  printf 'x' >"$raiz/.trabalho/sentinela"
+  saida="$("$raiz/tests/tools/armadilha/run_com_armadilha.sh" bash -c "ls '$raiz/.trabalho/sentinela' >/dev/null 2>&1; echo rc-ls=\$?; echo fim-do-comando" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || falha ".trabalho coberta: o envoltorio devia sair 0 (saiu $rc): $saida"
+  printf '%s' "$saida" | grep -q "rc-ls=0" && falha ".trabalho coberta: a sentinela esta VISIVEL dentro da caixa: $saida"
+  printf '%s' "$saida" | grep -q "fim-do-comando" || falha ".trabalho coberta: o comando de dentro nao chegou ao fim: $saida"
+  printf '%s' "$saida" | grep -q "coberta por tmpfs na caixa" || falha ".trabalho coberta: aviso de cobertura ausente: $saida"
+}
+
+g2_trabalho_nao_ignorada_reprova() {
+  local raiz="$work/trab-nao-ignorada" saida rc
+  g2_trabalho_raiz "$raiz" ""
+  mkdir -p "$raiz/.trabalho/x/glintfx-win-lab"
+  saida="$("$raiz/tests/tools/armadilha/run_com_armadilha.sh" /usr/bin/true 2>&1)"; rc=$?
+  [ "$rc" -eq 1 ] || falha ".trabalho nao ignorada devia REPROVAR a caixa (rc=1), obteve $rc: $saida"
+  printf '%s' "$saida" | grep -q "glintfx-win-lab VISIVEL" || falha ".trabalho nao ignorada: a reprovacao nao nomeia o laboratorio: $saida"
+}
+
+g2_trabalho_fora_da_raiz_reprova() {
+  local raiz="$work/trab-fora-raiz" saida rc
+  g2_trabalho_raiz "$raiz" "/.trabalho/"
+  mkdir -p "$raiz/src/.trabalho/glintfx-win-lab"
+  saida="$("$raiz/tests/tools/armadilha/run_com_armadilha.sh" /usr/bin/true 2>&1)"; rc=$?
+  [ "$rc" -eq 1 ] || falha ".trabalho em src/ (fora da raiz) devia REPROVAR a caixa (rc=1), obteve $rc: $saida"
+  printf '%s' "$saida" | grep -q "glintfx-win-lab VISIVEL" || falha ".trabalho fora da raiz: a reprovacao nao nomeia o laboratorio: $saida"
+}
+
+g2_trabalho_prefixo_reprova() {
+  local raiz="$work/trab-prefixo" saida rc
+  g2_trabalho_raiz "$raiz" "/.trabalho-x/"
+  mkdir -p "$raiz/.trabalho-x/x/glintfx-win-lab"
+  saida="$("$raiz/tests/tools/armadilha/run_com_armadilha.sh" /usr/bin/true 2>&1)"; rc=$?
+  [ "$rc" -eq 1 ] || falha ".trabalho-x (prefixo) devia REPROVAR a caixa (rc=1), obteve $rc: $saida"
+  printf '%s' "$saida" | grep -q "glintfx-win-lab VISIVEL" || falha ".trabalho-x: a reprovacao nao nomeia o laboratorio: $saida"
+}
+
 g1_simulacao_so_neste_script() {
   # GLINTFX_ARMADILHA_SIMULAR_SEM_BWRAP so' pode ser lida por este selftest, e so' move para o lado seguro
   if grep -q "GLINTFX_ARMADILHA_SIMULAR_SEM_BWRAP" "$WRAP" "$DIR/dentro_da_sandbox.sh"; then
@@ -221,7 +270,7 @@ g2_armadilha_na_frente_do_path() {
 }
 
 GRUPO1=(g1_ferramentas_saem_97 g1_qemu_img_nao_e_armadilha g1_gates_estaticos_do_envoltorio g1_simulacao_so_neste_script g1_sem_bwrap_sai_77 g1_auto_prova_recusa_raiz_gravavel g1_duble_e_envoltorio_com_o_mesmo_contrato)
-GRUPO2=(g2_toca_virsh_reprova g2_rc_atravessa g2_sentinela_do_hospedeiro_invisivel g2_lab_visivel_na_raiz_reprova g2_raiz_por_symlink_resolve_fisico g2_reflink_dentro g2_raiz_sob_var_tmp g2_disco_do_hospedeiro_imune g2_armadilha_na_frente_do_path g2_tmpdir_dentro_da_raiz_coberto)
+GRUPO2=(g2_toca_virsh_reprova g2_rc_atravessa g2_sentinela_do_hospedeiro_invisivel g2_lab_visivel_na_raiz_reprova g2_raiz_por_symlink_resolve_fisico g2_reflink_dentro g2_raiz_sob_var_tmp g2_disco_do_hospedeiro_imune g2_armadilha_na_frente_do_path g2_tmpdir_dentro_da_raiz_coberto g2_trabalho_coberta g2_trabalho_nao_ignorada_reprova g2_trabalho_fora_da_raiz_reprova g2_trabalho_prefixo_reprova)
 
 roda_grupo() {  # roda_grupo <funcoes...>: imprime nada; devolve em $ok_grupo quantos controles passaram
   local f antes

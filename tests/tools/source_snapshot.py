@@ -30,12 +30,29 @@ def _is_scratch_or_inside(path, real_scratch):
     return path == real_scratch or _inside(path, real_scratch)
 
 
+def _git_env(real_source):
+    """O git nunca sobe para ALEM do pai da fonte: uma fonte de tarball dentro de outro repositorio
+    (o clone com TMPDIR dentro, E2c) nao herda a lista do repositorio que a contem."""
+    env = dict(os.environ)
+    env["GIT_CEILING_DIRECTORIES"] = os.path.dirname(real_source)
+    return env
+
+
 def _git_listing(real_source):
-    """O rastreado e o nao rastreado nao ignorado, do git. None quando o git nao responde."""
+    """O rastreado e o nao rastreado nao ignorado, do git. None quando a fonte NAO e' um repositorio
+    seu: o toplevel do git tem de ser a propria fonte. Outro toplevel (fonte de tarball dentro de
+    outro repositorio) e' pasta comum, sem git, nunca varredura vazia."""
+    env = _git_env(real_source)
     try:
+        top = subprocess.run(["git", "-C", real_source, "rev-parse", "--show-toplevel"],
+                             capture_output=True, env=env)
+        if top.returncode != 0:
+            return None
+        if os.path.realpath(top.stdout.decode("utf-8", "surrogateescape").strip()) != real_source:
+            return None
         done = subprocess.run(
             ["git", "-C", real_source, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-            capture_output=True,
+            capture_output=True, env=env,
         )
     except OSError:
         return None
@@ -162,6 +179,34 @@ def _control_nogit_inside(work):
     return _verdict("rascunho dentro de fonte sem git", checks)
 
 
+def _control_nogit_dentro_de_outro_repo(work):
+    """E2c-fix (revisao N3 da E2c): uma fonte SEM .git dentro de OUTRO repositorio git, no mesmo
+    sistema de arquivos, e' fonte de tarball, nao de git. O git sobe ate o repositorio externo e,
+    com a fonte ignorada por ele, devolveria lista vazia (varredura vazia falsa). A fonte tem de
+    ser varrida pelo disco, como sem git."""
+    outer = os.path.join(work, "repo-externo")
+    _repo(outer)
+    _put(outer, ".gitignore", "fonte-sem-git/\n")
+    src = os.path.join(outer, "fonte-sem-git")
+    os.makedirs(os.path.join(src, "sub"))
+    _put(src, "a.txt", "a\n")
+    _put(src, os.path.join("sub", "b.txt"), "b\n")
+    scratch = os.path.join(src, "rascunho")
+    os.makedirs(scratch)
+    _put(scratch, "lixo.txt", "do rascunho\n")
+    try:
+        dst, copied = resolve_source(src, scratch)
+    except SnapshotError as error:
+        return _verdict("fonte sem git dentro de outro repositorio",
+                        [(False, f"varredura vazia falsa, o git do repositorio externo respondeu: {error}")])
+    checks = [
+        (copied == 2, f"fonte sem .git dentro de outro repo: esperados 2 arquivos, vieram {copied}"),
+        (os.path.isfile(os.path.join(dst, "sub", "b.txt")), "o subdiretorio devia ser copiado"),
+        (not os.path.exists(os.path.join(dst, "rascunho")), "o rascunho nao pode entrar na copia"),
+    ]
+    return _verdict("fonte sem git dentro de outro repositorio", checks)
+
+
 def _control_outside(work):
     """Rascunho fora da fonte: devolve a original, sem copiar nada."""
     src = os.path.join(work, "fonte-fora")
@@ -211,6 +256,7 @@ def selftest():
         controls = [
             _control_git_inside(work),
             _control_nogit_inside(work),
+            _control_nogit_dentro_de_outro_repo(work),
             _control_outside(work),
             _control_empty(work),
         ]

@@ -35,7 +35,14 @@ LISTA_REL = "tools/ci/varreduras-de-arvore.txt"
 
 # Primitivas de varredura de arvore. Um script rastreado sob tests/ ou tools/ que as contenha precisa de ao
 # menos uma linha em LISTA_REL. Casa prosa tambem ("find " em comentario): e de proposito, o custo e uma linha.
-PRIMITIVAS = re.compile(r"git ls-files|git grep|os\.walk|rglob|glob\.glob|\.glob\(|Get-ChildItem|find ")
+# Forma em texto (git ls-files, os.walk, ...) e forma em lista de argumentos (["git", ..., "ls-files"],
+# ["find", ...], os.scandir, os.listdir, .iterdir(). A lista de argumentos e' a que um script em Python usa para
+# chamar o git por subprocess, e o texto "git ls-files" nao aparece nela: por isso as duas formas.
+PRIMITIVAS = re.compile(
+    r"git ls-files|git grep|os\.walk|rglob|glob\.glob|\.glob\(|Get-ChildItem|find |os\.scandir|os\.listdir|\.iterdir\("
+    r"|[\"']git[\"'][^\n\]]*[\"'](?:ls-files|ls-tree|grep|status)[\"']"
+    r"|[\"']find[\"']"
+)
 
 # Arquivos que a conferencia embutida le: scripts e CMake, que sao o que escreve varredura.
 CONFERIDOS_SUFIXOS = (".py", ".sh", ".ps1", ".cmake")
@@ -273,10 +280,10 @@ def classificar(raiz, base, head, arvore):
     elif not caminhos:
         modo, motivo = "completo", "zero caminhos tocados"
     else:
-        completos = [e for e in por_caminho if e["classe"] in COMPLETA]
+        completos = [e for e in por_caminho if e["classe"] in COMPLETA or _lido_por_completo(e)]
         if completos:
             modo = "completo"
-            motivo = "caminho completo: " + ", ".join(f"{e['caminho']} ({e['classe']})" for e in completos)
+            motivo = "caminho completo: " + ", ".join(_motivo_completo(e) for e in completos)
         elif all(e["classe"] == "C5" and not e["leitores"] for e in por_caminho):
             modo = "texto-sem-leitor"
             motivo = f"todo caminho e texto sem leitor ({len(por_caminho)} caminhos)"
@@ -295,6 +302,24 @@ def classificar(raiz, base, head, arvore):
         "por_caminho": por_caminho,
         "contagem": contagem,
     }
+
+
+LEITOR_COMPLETO = ("C1", "C4b", "C6")
+
+
+def _lido_por_completo(entrada):
+    """Caminho C5 com leitor C1, C4b ou C6 (estrutura, dado de teste, codigo desconhecido) vira completo: o leitor
+    pode mudar o que a mudanca afeta, e nao sabemos quanto. Lado seguro (critério B1)."""
+    if entrada["classe"] != "C5":
+        return False
+    return any(classe_de(leitor)[0] in LEITOR_COMPLETO for leitor in entrada["leitores"])
+
+
+def _motivo_completo(entrada):
+    if entrada["classe"] in COMPLETA:
+        return f"{entrada['caminho']} ({entrada['classe']})"
+    lidos = [leitor for leitor in entrada["leitores"] if classe_de(leitor)[0] in LEITOR_COMPLETO]
+    return f"{entrada['caminho']} (C5 lido por {', '.join(lidos)})"
 
 
 def cmd_classificar(args):
@@ -372,6 +397,15 @@ def _alvo_do_teste(teste):
     return teste["name"]
 
 
+def _testes_de_fonte(testes, alvos, caminho):
+    """Nomes dos testes cujo alvo tem `caminho` entre as fontes do codemodel (ou cujo comando o cita)."""
+    nomes = set()
+    for teste in testes:
+        if caminho in alvos.get(_alvo_do_teste(teste), set()) or _cita(teste, caminho):
+            nomes.add(teste["name"])
+    return nomes
+
+
 def _includers(raiz, unidades, cabecalho):
     """Unidades .cpp que incluem o cabecalho, por sufixo do caminho do include (sem include/ nem src/)."""
     chave = cabecalho.split("/", 1)[1] if cabecalho.startswith(("include/", "src/")) else cabecalho
@@ -425,9 +459,16 @@ def resolver(mudancas, build, ctest_json):
                     if caminho in alvos.get(alvo, set()) or _cita(teste, caminho):
                         selecionados.add(teste["name"])
             elif classe in ("C4", "C5"):
-                for teste in testes:
-                    if _cita(teste, caminho) or any(_cita(teste, leitor) for leitor in leitores):
-                        selecionados.add(teste["name"])
+                if classe == "C4":
+                    selecionados |= {t["name"] for t in testes if _cita(t, caminho)}
+                for leitor in sorted(leitores):
+                    classe_leitor = classe_de(leitor)[0]
+                    if classe_leitor == "C3":
+                        # leitor .cpp sob tests/: os testes dos alvos que o tem entre as fontes (regra do C3)
+                        selecionados |= _testes_de_fonte(testes, alvos, leitor)
+                    elif classe_leitor == "C4":
+                        selecionados |= {t["name"] for t in testes if _cita(t, leitor)}
+                    # leitor C5 (texto) nao executa nada; leitor C1, C4b e C6 ja deixou o caminho completo
         if not selecionados and not lint:
             raise SemAlvo("subconjunto sem teste nem unidade de lint: a classificacao disse que havia o que conferir "
                           "(L-40 do projeto)")

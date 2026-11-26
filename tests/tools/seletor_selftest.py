@@ -18,6 +18,9 @@
 #   7d base inexistente e base nao ancestral: completo com motivo, sem erro
 #   7e linha orfa na lista (script que nao existe) -> sai com 2
 #   8 teste sem 'command' no json-v1 (glintfx_add_test): o alvo se acha pelo nome do teste
+#   9 leitor C3 seleciona o alvo que o tem; leitor C1 deixa o caminho C5 em completo
+#   A1 docs/z.md que casa glob da lista e ninguem cita: subconjunto
+#   A6 script que varre por argv sem linha na lista sai com 2
 #
 # O codigo deste arquivo escreve os scripts que pegam no caso 6 em tempo de execucao, dentro do repositorio
 # temporario: como arquivo rastreado da arvore real, ele reprovaria a propria arvore.
@@ -225,6 +228,76 @@ def caso_teste_sem_command(scratch):
           f"rc={rc_r} testes={tests} {text_r.strip()}")
 
 
+def caso_leitor_c3(scratch):
+    # B1: leitor .cpp sob tests/ (classe C3) seleciona os testes do alvo que o tem entre as fontes
+    files = dict(BASE_FILES)
+    files["tests/leitor_test.cpp"] = "// le docs/a.md em tempo de execucao\nint main() { return 0; }\n"
+    repo = make_repo(scratch, "leitor_c3", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "leitor_c3", "--base", base, "--head", head)
+    leitores = data["por_caminho"][0].get("leitores", []) if data else []
+    check("9 leitor C3: docs/a.md tem o leitor tests/leitor_test.cpp",
+          rc == 0 and "tests/leitor_test.cpp" in leitores, f"rc={rc} leitores={leitores} {text.strip()}")
+    targets = dict(TARGETS_FIXTURE)
+    targets["leitor_test"] = ["tests/leitor_test.cpp"]
+    ctest_data = {"tests": CTEST_FIXTURE["tests"] + [{"name": "leitor_test", "command": ["/build/tests/leitor_test"]}]}
+    build = make_build(scratch, targets)
+    ctest = write_ctest(scratch, ctest_data)
+    rc_r, tests, text_r = resolver(scratch, "leitor_c3", os.path.join(scratch, "leitor_c3.json"), build, ctest)
+    check("9 leitor C3: resolver seleciona leitor_test (C3) e lendo_test (C4)",
+          rc_r == 0 and sorted(tests) == ["leitor_test", "lendo_test"], f"rc={rc_r} testes={tests} {text_r.strip()}")
+
+
+def caso_leitor_c1(scratch):
+    # B1: leitor C1 (tests/CMakeLists.txt) deixa o caminho C5 em completo, com motivo
+    files = dict(BASE_FILES)
+    files["tests/CMakeLists.txt"] = "# le docs/a.md\n"
+    repo = make_repo(scratch, "leitor_c1", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "leitor_c1", "--base", base, "--head", head)
+    check("9 leitor C1: docs/a.md lido por C1 vira completo, com motivo",
+          rc == 0 and data and data["modo"] == "completo" and "tests/CMakeLists.txt" in data["motivo"],
+          f"rc={rc} {text.strip()}")
+
+
+def caso_glob_sem_citacao(scratch):
+    # A1: docs/z.md que ninguem cita, mas que casa um glob da lista, nunca e texto-sem-leitor
+    files = dict(BASE_FILES)
+    files["docs/z.md"] = "# z\n"
+    files["tools/ci/varreduras-de-arvore.txt"] = LISTA_FIXTURE + "tests/tools/lendo.py docs/*\n"
+    repo = make_repo(scratch, "glob_sem_citacao", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "z.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "glob_sem_citacao", "--base", base, "--head", head)
+    leitores = data["por_caminho"][0].get("leitores", []) if data else []
+    check("A1 glob sem citacao: docs/z.md -> subconjunto, nunca texto-sem-leitor",
+          rc == 0 and data and data["modo"] == "subconjunto" and "tests/tools/lendo.py" in leitores,
+          f"rc={rc} modo={data and data['modo']} leitores={leitores} {text.strip()}")
+
+
+def caso_argv_sem_linha(scratch):
+    # A6: script que varre por argv (["git", ..., "ls-files"]) sem linha na lista sai com 2
+    files = dict(BASE_FILES)
+    files["tests/tools/argv_varre.py"] = (
+        "# varre a arvore por argv\nimport subprocess\nsubprocess.run([\"git\", \"-C\", \".\", \"ls-files\"])\n")
+    repo = make_repo(scratch, "argv_sem_linha", files)
+    rc, _data, text = classificar(repo, scratch, "argv_sem_linha", "--arvore")
+    check("A6 argv sem linha: script ['git', ..., 'ls-files'] sai com 2",
+          rc == 2 and "argv_varre.py" in text, f"rc={rc} {text.strip()}")
+    with open(os.path.join(repo, "tools", "ci", "varreduras-de-arvore.txt"), "a", encoding="utf-8") as handle:
+        handle.write("tests/tools/argv_varre.py tests/*\n")
+    rc2, _d2, text2 = classificar(repo, scratch, "argv_com_linha", "--arvore")
+    check("A6 argv com linha: passa", rc2 == 0, f"rc={rc2} {text2.strip()}")
+
+
 def caso_negativo(scratch):
     repo = make_repo(scratch, "negativo", BASE_FILES)
     base = head_of(repo)
@@ -380,7 +453,8 @@ def caso_base_invalida(scratch):
 def main():
     scratch = make_fenced_scratch_dir("seletor-selftest-", parent=os.environ.get("TMPDIR") or None)
     try:
-        for caso in (caso_positivo, caso_teste_sem_command, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
+        for caso in (caso_positivo, caso_teste_sem_command, caso_leitor_c3, caso_leitor_c1,
+                     caso_glob_sem_citacao, caso_argv_sem_linha, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
                      caso_varredura, caso_orfa, caso_arvore, caso_dado_de_teste, caso_renomeacao,
                      caso_base_invalida):
             sub = tempfile.mkdtemp(prefix=caso.__name__ + "-", dir=scratch)

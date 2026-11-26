@@ -409,3 +409,18 @@ Quem decide é o CTO, e o líder onde o item diz. O revisor NÃO decide nenhum d
 
 md5 do corpo deste parecer, sem esta linha: 23f1c085f3e6fa3ca690728eb3708cb2 (corpo de origem, antes das errata; o texto desta cópia traz as errata e tem outro md5).
 Arquivo de origem: `/var/tmp/cto-w8/r0/auditoria-api-image-resolver.md`, md5 `8ebef427dd989873017dd8313ee2346a`.
+<!-- MANIFESTO-INICIO: saida de tools/auditoria_manifesto.py, nunca editar a mao -->
+
+## Apêndice: manifesto do texto público congelado
+
+Gerado por `tools/auditoria_manifesto.py generate` no commit de fechamento da onda. Cada linha é um cabeçalho público que a seção 2 nomeia, com o blob do git (conteúdo com fim de linha LF) e o número de linhas: `git cat-file -p <blob>` mostra o texto exato que foi congelado.
+
+corpo-md5: 070da963c8b29b0b04d74c710a3b7897
+
+| Cabeçalho | Blob git | Linhas |
+|---|---|---|
+| `include/glintfx/draw2d/image_resolver.hpp` | `28aa2c0cac8122999fe6aec3daa3707be0b4e97d` | 92 |
+| `include/glintfx/draw2d/renderer_2d.hpp` | `093690c193016a6f8b106ac2e57fb653be08df93` | 938 |
+
+manifesto-md5: ad947da3ba6e0765414a148ca1a393ea
+<!-- MANIFESTO-FIM -->

@@ -6345,6 +6345,32 @@ add_test(
 )
 set_tests_properties(auditoria_texto_congelado_test PROPERTIES LABELS consume)
 
+# W8 closure F1 (D-W8-1997): the appendix of each W8 API review is a manifest of the public headers its
+# section 2 names, by git blob id (tools/auditoria_manifesto.py). The selftest count is exact, so a dropped
+# control fails. `verify` proves that no one edited an appendix by hand nor changed a review body after the
+# freeze; it never reads the headers, because later waves change them on purpose. `check-headers` runs
+# only at the closing commit, before the tag, and is never registered here (it would freeze the headers).
+add_test(
+    NAME auditoria_manifesto_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 12 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_manifesto.py" --selftest
+)
+set_tests_properties(auditoria_manifesto_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME auditoria_manifesto_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_manifesto.py" verify "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-shapes.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-texture.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-image-resolver.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-sprite-shade.md"
+)
+set_tests_properties(auditoria_manifesto_test PROPERTIES LABELS consume)
+
 # CI-SPLIT-PER-OS (achado 4 da revisao do CTO, 29/09/2026): o agregado
 # declarados/executados/passaram/falharam dos jobs de ctest e' medido por
 # este script nos dois sistemas (era `executados=$declarados`, uma

@@ -1431,3 +1431,23 @@ Crescer o relatório é mudança de ABI, permitida antes da 1.0 e anunciada pela
 3. **A declaração antecipada fica no lugar do `#include`.** Trocar por um `#include` depois não quebra ninguém, e o contrário quebraria.
 
 **Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros, que é o CI do push; a recusa `texture_other_renderer` pela biblioteca num contexto real (a fixture abre um desenhador só, e ela é provada na máquina do quadro, em `renderer_2d_impl_test`).
+<!-- MANIFESTO-INICIO: saida de tools/auditoria_manifesto.py, nunca editar a mao -->
+
+## Apêndice: manifesto do texto público congelado
+
+Gerado por `tools/auditoria_manifesto.py generate` no commit de fechamento da onda. Cada linha é um cabeçalho público que a seção 2 nomeia, com o blob do git (conteúdo com fim de linha LF) e o número de linhas: `git cat-file -p <blob>` mostra o texto exato que foi congelado.
+
+corpo-md5: 598416739572321872fc4892ac662cee
+
+| Cabeçalho | Blob git | Linhas |
+|---|---|---|
+| `include/glintfx/core/atlas_allocator.hpp` | `6f796f68ba20907530ae35ca2fc14b53734ea316` | 156 |
+| `include/glintfx/core/image_view.hpp` | `1a857dd4950e321ae0fff3ca196b3cf172ef7557` | 68 |
+| `include/glintfx/draw2d/renderer_2d.hpp` | `093690c193016a6f8b106ac2e57fb653be08df93` | 938 |
+| `include/glintfx/draw2d/texture_2d.hpp` | `27300b62759a56fca496b2faa96dd0252079f531` | 65 |
+| `include/glintfx/draw2d/texture_2d_desc.hpp` | `10bf7558af7a7ec6bc2a7c85077922abe32a09d4` | 90 |
+| `include/glintfx/draw2d/texture_atlas.hpp` | `e96ca0a5f89aada7e56cd8d6556d50720ab3cf23` | 203 |
+| `include/glintfx/draw2d/texture_region.hpp` | `af02f5650429b44195934859570bea98eea6c69a` | 103 |
+
+manifesto-md5: 0abf383067eafd90177f7c6c68829fe4
+<!-- MANIFESTO-FIM -->

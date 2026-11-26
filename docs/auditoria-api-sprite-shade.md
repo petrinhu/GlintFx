@@ -665,3 +665,20 @@ Arquivo de origem: `/var/tmp/cto-w8/h0/auditoria-api-sprite-shade.md`, md5 `a360
 **A decisão da porta de mão única, dita aqui para o líder (D-W8-1553):** quatro cantos numa reta (o sol a pino, a peça de altura zero) são desenhados e não cobrem pixel, em vez de `degenerate_quad`. É o que `fill_shadow` faz, é o que `projected_shadow.hpp` já promete, e evita que uma cena com o sol a pino encha o relatório de recusas que não são erro.
 
 **Não medido nesta revisão:** a execução no Windows de verdade e nas outras distros (é o CI do push).
+<!-- MANIFESTO-INICIO: saida de tools/auditoria_manifesto.py, nunca editar a mao -->
+
+## Apêndice: manifesto do texto público congelado
+
+Gerado por `tools/auditoria_manifesto.py generate` no commit de fechamento da onda. Cada linha é um cabeçalho público que a seção 2 nomeia, com o blob do git (conteúdo com fim de linha LF) e o número de linhas: `git cat-file -p <blob>` mostra o texto exato que foi congelado.
+
+corpo-md5: dbca605fcbaeed022aa98709420b7756
+
+| Cabeçalho | Blob git | Linhas |
+|---|---|---|
+| `include/glintfx/core/light_2d.hpp` | `47de5008927e59593618458608946f504b5e3101` | 50 |
+| `include/glintfx/core/projected_shadow.hpp` | `9c5a08b3307577156e7867e0d64f0e924e420fae` | 89 |
+| `include/glintfx/draw2d/frame_2d_report.hpp` | `55f1a0da1467f8a1ad48fa7f2842fe153f267f3d` | 204 |
+| `include/glintfx/draw2d/renderer_2d.hpp` | `093690c193016a6f8b106ac2e57fb653be08df93` | 938 |
+
+manifesto-md5: cc85d2d401024d1f690f54c60ba5c1e8
+<!-- MANIFESTO-FIM -->

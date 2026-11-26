@@ -681,3 +681,23 @@ Nenhuma divergência tem efeito sobre as decisões D-W8-05, 07, 18 e 30 além do
 
 md5 do corpo deste parecer, sem esta linha: `b3d6816bc44885aef84571feb8b6ca67` (corpo de origem, antes das errata; o texto desta cópia traz as errata e tem outro md5).
 Arquivo de origem: `/var/tmp/cto-w8/s0/auditoria-api-shapes.md`, md5 `2fb68acc39757cce3053f9f7e9c568e8`.
+<!-- MANIFESTO-INICIO: saida de tools/auditoria_manifesto.py, nunca editar a mao -->
+
+## Apêndice: manifesto do texto público congelado
+
+Gerado por `tools/auditoria_manifesto.py generate` no commit de fechamento da onda. Cada linha é um cabeçalho público que a seção 2 nomeia, com o blob do git (conteúdo com fim de linha LF) e o número de linhas: `git cat-file -p <blob>` mostra o texto exato que foi congelado.
+
+corpo-md5: ccb4645ee7a2550bec0ab20905497de8
+
+| Cabeçalho | Blob git | Linhas |
+|---|---|---|
+| `include/glintfx/core/ellipse.hpp` | `a766038ef50a9965362b50dfea5d4ea17f09b573` | 28 |
+| `include/glintfx/core/segment.hpp` | `b374b09034df920cbe8b58fe5ef5a82a4d97ea01` | 18 |
+| `include/glintfx/draw2d/frame_2d_report.hpp` | `55f1a0da1467f8a1ad48fa7f2842fe153f267f3d` | 204 |
+| `include/glintfx/draw2d/renderer_2d.hpp` | `093690c193016a6f8b106ac2e57fb653be08df93` | 938 |
+| `include/glintfx/draw2d/renderer_2d_desc.hpp` | `39fc4984b7d9fc8759840d2a096aeaa87d9519b4` | 45 |
+| `include/glintfx/draw2d/stroke.hpp` | `41ab23386302ead9281a2367a592329281aadf3e` | 69 |
+| `include/glintfx/draw2d/vertex_2d.hpp` | `7d625445c8c25a72405844c4e0d100f3094081e3` | 26 |
+
+manifesto-md5: d326f69e1271b01539dc54cd0bfb2bd1
+<!-- MANIFESTO-FIM -->

@@ -115,3 +115,4 @@ tools/preci.sh *
 tools/win-vm-lab/check-sem-segredo.sh tools/win-vm-lab/*
 tools/win-vm-lab/coletar-resultados.sh *
 tools/win-vm-lab/criar-vm.sh *
+tests/tools/source_snapshot.py *

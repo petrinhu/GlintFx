@@ -65,6 +65,28 @@ g1_gates_estaticos_do_envoltorio() {
   grep -q -- '--bind "$vt" /var/tmp' "$WRAP" || falha 'run_com_armadilha.sh nao liga um /var/tmp privado (--bind "$vt" /var/tmp)'
 }
 
+g2_tmpdir_dentro_da_raiz_coberto() {
+  # E2c (TMPDIR-NA-ARVORE): um TMPDIR que mora DENTRO da raiz do repositorio e' coberto por tmpfs na
+  # caixa, e a sentinela plantada la' nao aparece. Quem nao esta no TMPDIR segue visivel e so' leitura,
+  # e o /var/tmp de dentro continua vazio e gravavel.
+  local raizin tmpin saida rc
+  raizin="$work/raizin"
+  tmpin="$raizin/.trabalho/tmp"
+  mkdir -p "$raizin/tests/tools/armadilha" "$tmpin/sentinela.d"
+  cp -r "$DIR/." "$raizin/tests/tools/armadilha/"
+  printf 'x' >"$tmpin/sentinela.d/arquivo"
+  printf 'visivel' >"$raizin/visivel.txt"
+  saida="$(TMPDIR="$tmpin" "$raizin/tests/tools/armadilha/run_com_armadilha.sh" bash -c "ls '$tmpin/sentinela.d' >/dev/null 2>&1; echo rc-ls=\$?; cat '$raizin/visivel.txt'; echo; (: >/var/tmp/gravavel) && echo gravavel-ok; (: >'$raizin/escrita') 2>/dev/null && echo raiz-gravavel-ERRO; echo fim-do-comando" 2>&1)"; rc=$?
+  printf '%s' "$saida" | grep -q "TMPDIR dentro da raiz, coberto por tmpfs na caixa" \
+    || falha "TMPDIR dentro da raiz sem o aviso de cobertura: $saida"
+  printf '%s' "$saida" | grep -q "rc-ls=0" && falha "a sentinela do TMPDIR dentro da raiz esta VISIVEL dentro da caixa: $saida"
+  printf '%s' "$saida" | grep -q "rc-ls=" || falha "o comando de dentro nao rodou: $saida"
+  printf '%s' "$saida" | grep -q "visivel" || falha "arquivo fora do TMPDIR deixou de ser visivel (cobriu demais): $saida"
+  printf '%s' "$saida" | grep -q "gravavel-ok" || falha "o /var/tmp de dentro nao e gravavel: $saida"
+  printf '%s' "$saida" | grep -q "raiz-gravavel-ERRO" && falha "a raiz ficou gravavel dentro da caixa: $saida"
+  printf '%s' "$saida" | grep -q "fim-do-comando" || falha "o comando de dentro nao chegou ao fim: $saida"
+}
+
 g1_simulacao_so_neste_script() {
   # GLINTFX_ARMADILHA_SIMULAR_SEM_BWRAP so' pode ser lida por este selftest, e so' move para o lado seguro
   if grep -q "GLINTFX_ARMADILHA_SIMULAR_SEM_BWRAP" "$WRAP" "$DIR/dentro_da_sandbox.sh"; then
@@ -199,7 +221,7 @@ g2_armadilha_na_frente_do_path() {
 }
 
 GRUPO1=(g1_ferramentas_saem_97 g1_qemu_img_nao_e_armadilha g1_gates_estaticos_do_envoltorio g1_simulacao_so_neste_script g1_sem_bwrap_sai_77 g1_auto_prova_recusa_raiz_gravavel g1_duble_e_envoltorio_com_o_mesmo_contrato)
-GRUPO2=(g2_toca_virsh_reprova g2_rc_atravessa g2_sentinela_do_hospedeiro_invisivel g2_lab_visivel_na_raiz_reprova g2_raiz_por_symlink_resolve_fisico g2_reflink_dentro g2_raiz_sob_var_tmp g2_disco_do_hospedeiro_imune g2_armadilha_na_frente_do_path)
+GRUPO2=(g2_toca_virsh_reprova g2_rc_atravessa g2_sentinela_do_hospedeiro_invisivel g2_lab_visivel_na_raiz_reprova g2_raiz_por_symlink_resolve_fisico g2_reflink_dentro g2_raiz_sob_var_tmp g2_disco_do_hospedeiro_imune g2_armadilha_na_frente_do_path g2_tmpdir_dentro_da_raiz_coberto)
 
 roda_grupo() {  # roda_grupo <funcoes...>: imprime nada; devolve em $ok_grupo quantos controles passaram
   local f antes

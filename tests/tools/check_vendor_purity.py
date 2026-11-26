@@ -413,6 +413,26 @@ def _is_under_any(rel_path, ancestors):
     return False
 
 
+# E2c (VENDOR-PURITY-TRABALHO, GODS_LAWS.md L-09 do projeto, emenda de 22/10/2026): a area de
+# trabalho do projeto, `.trabalho/`, e a UNICA poda por nome deste gate, e so' quando e a filha
+# DIRETA da raiz e o git a confirma como ignorada (`git check-ignore -q -- .trabalho/` sai 0). Nao e
+# regra de prefixo, nem de profundidade, nem de "qualquer ignorado": um .trabalho em outro lugar,
+# ou um que o git nao ignora, e varrido inteiro. Qualquer outra saida do git (1, sem git, erro) e
+# NAO podar: falha na direcao de varrer, como o cabecalho manda.
+TRABALHO_DIR = ".trabalho"
+
+
+def trabalho_ignorada(root):
+    try:
+        done = subprocess.run(
+            ["git", "-C", root, "check-ignore", "-q", "--", TRABALHO_DIR + "/"],
+            capture_output=True,
+        )
+    except OSError:
+        return False
+    return done.returncode == 0
+
+
 def scan_tree(root):
     """Single os.walk pass from root, feeding BOTH E2 (vendor_files)
     and E3 (artifacts) at once - see this file's header for why E3 is
@@ -444,12 +464,13 @@ def scan_tree(root):
     subtree prunes nothing.
 
     Returns (vendor_files, artifacts, pruned_build_dirs,
-    pruned_worktrees), all POSIX-
+    pruned_worktrees, pruned_trabalho), all POSIX-
     relative to root, all de-duplicated and sorted.
     """
     vendor_dirs = []
     pruned_build_dirs = []
     pruned_worktrees = []
+    pruned_trabalho = []
     vendor_files = []
     artifacts = []
 
@@ -501,6 +522,9 @@ def scan_tree(root):
             if under_vendor_dir:
                 keep.append(name)
                 continue
+            if rel_dirpath == "" and name == TRABALHO_DIR and trabalho_ignorada(root):
+                pruned_trabalho.append(name)
+                continue
             if is_linked_worktree_of(root, os.path.join(dirpath, name)):
                 pruned_worktrees.append(_join_posix(rel_dirpath, name))
                 continue
@@ -523,6 +547,7 @@ def scan_tree(root):
         sorted(set(artifacts)),
         sorted(set(pruned_build_dirs)),
         sorted(set(pruned_worktrees)),
+        sorted(set(pruned_trabalho)),
     )
 
 
@@ -579,7 +604,7 @@ def check_vendor_purity(root):
         )
         return False
 
-    vendor_files, artifacts, pruned_build_dirs, pruned_worktrees = scan_tree(root)
+    vendor_files, artifacts, pruned_build_dirs, pruned_worktrees, pruned_trabalho = scan_tree(root)
 
     # GODS_LAWS.md DECISAO AUTONOMA 2 (plan SS3.4): zero files under
     # ANY vendor-form directory is its own, DISTINCT reprove from the
@@ -630,8 +655,12 @@ def check_vendor_purity(root):
         f"{len(KNOWN_VENDOR_FILES)} na lista fechada - nenhum intruso "
         f"({len(pruned_build_dirs)} diretorio(s) build*/ podado(s), "
         f"{len(pruned_worktrees)} copia(s) de trabalho ligada(s) podada(s), "
-        f"{staged_accepted} copia(s) estagiada(s) aceita(s))"
+        f"{staged_accepted} copia(s) estagiada(s) aceita(s), "
+        f"{len(pruned_trabalho)} area(s) de trabalho .trabalho/ podada(s) "
+        "(L-09 do projeto, ignorada pelo git))"
     )
+    for podada in pruned_trabalho:
+        print(f"{SCRIPT_NAME}: poda: {podada}/ (area de trabalho da L-09 do projeto, ignorada pelo git)")
     return True
 
 
@@ -1420,6 +1449,110 @@ def selftest_non_git_control(scratch, capture):
     return True
 
 
+# --- E2c (VENDOR-PURITY-TRABALHO, L-09 do projeto, emenda de 22/10): a poda de .trabalho/ ---
+# Casos 1 a 6 da ordem E2c, §3(a). A unica poda por nome e a area de trabalho da raiz, ignorada
+# pelo git. Qualquer outra forma (profundidade, prefixo, nao ignorada, dentro de forma vendorizada)
+# varre inteira.
+def _write_fixture_file(root, rel, text="fixture, nao um arquivo real\n"):
+    path = os.path.join(root, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+def _trabalho_fixture(scratch, name, gitignore, files):
+    root = os.path.join(scratch, name)
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    if gitignore is not None:
+        _write_fixture_file(root, ".gitignore", gitignore)
+    for rel in files:
+        _write_fixture_file(root, rel)
+    return root
+
+
+def selftest_trabalho_podada_positive_control(scratch, capture):
+    root = _trabalho_fixture(scratch, "trabalho-ignorado", "/.trabalho/\n",
+                             [".trabalho/third_party/x/LICENSE", ".trabalho/libx.a"])
+    outcome = capture(lambda: check_vendor_purity(root))
+    if not outcome.result or "1 area(s) de trabalho .trabalho/ podada(s)" not in outcome.text:
+        print("selftest: controle TRABALHO-PODADA FALHOU (a area de trabalho ignorada deveria "
+              "ser podada e declarada)", file=sys.stderr)
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle TRABALHO-PODADA OK (.trabalho/ da raiz, ignorado pelo git, podado e declarado)")
+    return True
+
+
+def selftest_trabalho_nao_ignorada_control(scratch, capture):
+    root = _trabalho_fixture(scratch, "trabalho-nao-ignorado", None, [".trabalho/libx.a"])
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result or "libx.a" not in outcome.text:
+        print("selftest: controle TRABALHO-NAO-IGNORADA FALHOU (sem a linha no .gitignore, a "
+              ".trabalho/ deveria ser varrida e reprovar citando libx.a)", file=sys.stderr)
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle TRABALHO-NAO-IGNORADA OK (.trabalho/ nao ignorada e varrida: reprova citando o arquivo)")
+    return True
+
+
+def selftest_trabalho_fora_da_raiz_control(scratch, capture):
+    root = _trabalho_fixture(scratch, "trabalho-fora-raiz", "/.trabalho/\n", ["src/.trabalho/libx.a"])
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result or "src/.trabalho/libx.a" not in outcome.text:
+        print("selftest: controle TRABALHO-FORA-DA-RAIZ FALHOU (.trabalho/ em outra profundidade nao "
+              "e podada: deveria reprovar citando src/.trabalho/libx.a)", file=sys.stderr)
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle TRABALHO-FORA-DA-RAIZ OK (.trabalho/ em outra profundidade e varrida)")
+    return True
+
+
+def selftest_trabalho_prefixo_control(scratch, capture):
+    root = _trabalho_fixture(scratch, "trabalho-prefixo", "/.trabalho-x/\n",
+                             [".trabalho-x/third_party/foo/LICENSE"])
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result or ".trabalho-x/third_party/foo/LICENSE" not in outcome.text:
+        print("selftest: controle TRABALHO-PREFIXO FALHOU (a poda nao e por prefixo: .trabalho-x/ "
+              "deveria ser varrida e reprovar)", file=sys.stderr)
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle TRABALHO-PREFIXO OK (.trabalho-x/ nao e podada: nome por prefixo nao vale)")
+    return True
+
+
+def selftest_trabalho_contencao_control(scratch, capture):
+    root = _trabalho_fixture(scratch, "trabalho-contencao", ".trabalho/\n",
+                             ["third_party/foo/.trabalho/x.h"])
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result or "third_party/foo/.trabalho/x.h" not in outcome.text:
+        print("selftest: controle TRABALHO-CONTENCAO FALHOU (sob forma vendorizada nada se poda: "
+              "deveria reprovar citando third_party/foo/.trabalho/x.h)", file=sys.stderr)
+        print(outcome.text, file=sys.stderr)
+        return False
+    print("selftest: controle TRABALHO-CONTENCAO OK (.trabalho/ dentro de forma vendorizada e varrida)")
+    return True
+
+
+def selftest_trabalho_sem_checkignore_control(scratch, capture):
+    """Sem o check-ignore (ele falha), a poda nao acontece: o arquivo e varrido. Monkeypatch so'
+    no auxiliar que pergunta ao git, dentro deste controle."""
+    root = _trabalho_fixture(scratch, "trabalho-sem-checkignore", "/.trabalho/\n", [".trabalho/libx.a"])
+    original = trabalho_ignorada
+    try:
+        globals()["trabalho_ignorada"] = lambda _root: False
+        pruned, artifacts = [], []
+        _vf, artifacts, _b, _w, pruned = scan_tree(root)
+    finally:
+        globals()["trabalho_ignorada"] = original
+    if pruned or ".trabalho/libx.a" not in [path for path, _form in artifacts]:
+        print("selftest: controle TRABALHO-SEM-CHECKIGNORE FALHOU (sem a confirmacao do git, a "
+              "poda devia ser recusada e o arquivo varrido)", file=sys.stderr)
+        return False
+    print("selftest: controle TRABALHO-SEM-CHECKIGNORE OK (sem check-ignore confirmado, nada e podado)")
+    return True
+
+
 def selftest_main():
     # Nothing that can fail runs between creating the scratch folder
     # and the try whose finally removes it.
@@ -1444,6 +1577,12 @@ def selftest_main():
             selftest_staged_copy_changed_byte_control(scratch, capture),
             selftest_staged_copy_extra_file_control(scratch, capture),
             selftest_staged_copy_undeclared_root_control(scratch, capture),
+            selftest_trabalho_podada_positive_control(scratch, capture),
+            selftest_trabalho_nao_ignorada_control(scratch, capture),
+            selftest_trabalho_fora_da_raiz_control(scratch, capture),
+            selftest_trabalho_prefixo_control(scratch, capture),
+            selftest_trabalho_contencao_control(scratch, capture),
+            selftest_trabalho_sem_checkignore_control(scratch, capture),
         ]
         if not all(controls):
             print("check_vendor_purity.py --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -5342,6 +5342,16 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(pkgconfig_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # E2c (TMPDIR-NA-ARVORE): o shell chama source_snapshot.py pelo interpretador que o configure achou.
+    set_tests_properties(pkgconfig_test PROPERTIES ENVIRONMENT "GLINTFX_PYTHON3=${GLINTFX_PYTHON3_EXECUTABLE}")
+
+    # E2c: o autoteste do auxiliar que copia a fonte para o rascunho (tests/tools/source_snapshot.py).
+    add_test(
+        NAME source_snapshot_selftest
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/source_snapshot.py" --selftest
+    )
+    set_tests_properties(source_snapshot_selftest PROPERTIES LABELS selftest)
 
     # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44,
     # same precedent as public_name_collision_test's own TIMEOUT 300

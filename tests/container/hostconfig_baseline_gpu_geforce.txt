@@ -19,7 +19,9 @@
 # Lowered by text on 20/11/2026 (G3-LIM, D-W8-1944): "PidsLimit" went from 512 to 256, the container limit of
 # this machine, and nothing else changed; every other field is the live capture of 14/11. The G4b preparation
 # creates the recipe above again with --pids-limit 256, never started, and proves it equal BEFORE the GeForce
-# is touched; until then this one field is the only hand-written one.
+# is touched. Done on 20/11/2026 (G4b, part P2, D-W8-1979): a docker create of that recipe, never started,
+# on Docker 29.9.3 and NVIDIA driver 620.70.06, normalizes equal to the line below (hc_igual=1), so no
+# field of this file is hand-written any more.
 #
 # The container was NEVER started: docker create only builds the HostConfig, and a create with a device path that
 # does not exist returned 0, so create does not resolve devices; no GPU was opened (GODS_LAWS.md L-09).

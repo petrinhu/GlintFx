@@ -11954,3 +11954,48 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - os avisos vão ao bus `gusworld`, ao Gus Dragon e à manutenção;
     - a imagem `glintfx-wltest:g3` e os clones de `.trabalho/` saem pela L-53.
   - **Este registro vai direto no `main`,** como a L-11 permite para registro de decisão.
+
+- **D-W8-1220 (LÍDER, 26/11 08:23): a L-11 do projeto perde a exceção do registro direto no `main`.**
+  - **Pergunta:** a contradição entre a tabela "O que vai | Destino" da L-11 do projeto e a L-24 geral ("Mande o trabalho a um ramo próprio, nunca ao `main`").
+  - **Resposta verbatim:** *"Sem exceção: só vai no ramo da onda"*.
+  - **Origem:** levantada pelo CTO, com as opções e o argumento contra. O líder tinha lembrado antes: *"nao esqueça que as leis mudaram"*.
+  - **Efeito:**
+    - todo registro, de decisão ou de memória, vai no ramo da onda viva;
+    - entre uma onda e outra, ele fica no `main` LOCAL, protegido pela cópia diária, e sai com o ramo da onda seguinte;
+    - o `main` remoto só muda no fechamento de onda.
+  - **O que já estava publicado:** o `6cdfe621`, mandado direto ao `main` antes desta decisão, fica como está, sem reescrever o publicado. O `6c6f8335` fica local.
+  - **A quebra da L-10 geral pelo main nesta sessão** ("a sessão principal não escreve no repositório"): o main acrescentou linhas a este arquivo por heredoc, umas dez vezes, em 25 e 26/11. A quebra foi nomeada ao líder, e desde 26/11 08:18 o main redige fora do repositório e um agente aplica.
+- **D-W8-1221 (LÍDER, 26/11 08:3x): o compositor estrito vai ao CI (STRICT-COMPOSITOR-LAB).** Resposta verbatim: *"Weston no CI (Recomendado)"*.
+  - A linha entra ⏳ na INFRA-CI e vale na troca de onda (L-04).
+  - Ela liga com a WL-ACK-SMOKE-BLUNT.
+  - Instalar o Weston pede a L-51 na hora.
+- **D-W8-1222 (LÍDER, 26/11 08:3x): cortar o pico de memória ao abrir o atlas (T6B-OPEN-PEAK).** Resposta verbatim: *"Cortar o pico (Recomendado)"*.
+  - A linha entra ⏳ na W9-B.
+  - O texto público de `open()` troca o pico por um bloco fixo, e o que o atlas guarda depois não muda.
+  - Camada N1, com revisão de API do texto.
+- **D-W8-1223 (LÍDER, 26/11 08:3x): o contexto que não desenha (R2D-NULL-CONTEXT).** Resposta verbatim: *"Depois, com revisão de API (Recomendado)"*.
+  - A linha entra ⏳ na W9-B.
+  - Ele só liga por opção explícita, nunca como recuo automático.
+  - Pesquisa (L-34) e revisão de API antes do plano.
+- **D-W8-1224 (LÍDER, 26/11 08:3x): a suíte rodada por um caminho com atalho (SANDBOX-SYMLINK-CONSUMER).** Resposta verbatim: *"Corrigir a ferramenta (Recomendado)"*.
+  - A linha entra ⏳ na INFRA-CI, camada N3.
+  - A decisão C de outubro, de que as ordens usam caminho real, continua valendo.
+- **D-W8-1225 (LÍDER, 26/11 08:4x): o atlas, uma pergunta por vez.**
+  - **Na pergunta da família**, a resposta verbatim foi: *"opcao 2. Veja se pode atomizar"*. As três perguntas separadas vieram depois.
+  - **Desenho girado:** *"Onda de render, com revisão (Recomendado)"*. Ele foi atomizado em DUAS linhas na W9-B:
+    - `DRAW-ATLAS-QUAD`, o quadrilátero com o recibo conferido;
+    - `DRAW-ATLAS-TRIANGLES`, os triângulos com o recibo conferido.
+    Cada uma tem a sua função pública, a pesquisa e a revisão de API (D-W8-1059).
+  - **Ocupação:** *"Com o cache de letras (Recomendado)"*. A `ATLAS-USAGE-QUERY` entra na W12, antes da FONT-ATLAS (D-W8-927).
+  - **Crescer:** *"Com o cache de letras (Recomendado)"*. A `ATLAS-GROW` entra na W12, antes da FONT-ATLAS.
+  - As quatro escolhas de 20/11 (D-W8-1155) não mudam.
+- **D-W8-1226 (LÍDER, 26/11 08:4x): a tabela de sinais do conferidor de citações não entra (CITATION-SENTENCE-TABLE).** Resposta verbatim: *"Não entra (Recomendado)"*.
+  - A linha passa a 🚫 Cancelado, com o motivo: o que os controles de hoje não cobrem vira limite declarado (L-12 N3).
+- **D-W8-1227 (LÍDER, 26/11 08:4x): os pedidos sobre o guarda global contra travessão vão à configuração da máquina.** Resposta verbatim: *"Mandar à configuração (Recomendado)"*.
+  - Os bullets `NO-MDASH-PUBLIC-DOC-ZERO` e `HOOK-ZERO-VARREDURA` saem da INBOX.
+  - A `GLOBAL-NO-MDASH-SHELL-EDIT`, da WM20, passa a 🚫 Cancelado, com a nota "encaminhado à configuração global em 26/11".
+  - O main manda a sugestão à sessão `claude_configs`.
+- **D-W8-1228 (main, 26/11): o veredito do CTO sobre a `CI-VERDE-W7C`.** Ela é o portão vivo da onda INFRA-CI, porque a W7-C foi renomeada para INFRA-CI em 29/09. Fica como está.
+- **D-W8-1229 (main, 26/11): o que fica fora deste pedido do líder,** que abrangia as ondas de W1 até o fim da W8.
+  - 20 linhas de ondas futuras (W9-I, W9-D, W9-G, W9-H, W9-K, WM4, WM12, WM15, WM20, W11c e W17) ainda trazem "PERGUNTA AO LÍDER" no texto. As três da W9-I são as mais próximas. Sobem na abertura de cada onda (lista em `.trabalho/cto-w8/perguntas-inbox-pos-w8.md` §5).
+  - A seção "Decisões abertas" do topo do `TODO.md` está velha, pela leitura do CTO. A limpeza fica para a abertura da W-PNG-1.

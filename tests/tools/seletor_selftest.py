@@ -298,6 +298,23 @@ def caso_argv_sem_linha(scratch):
     check("A6 argv com linha: passa", rc2 == 0, f"rc={rc2} {text2.strip()}")
 
 
+def caso_glob_c1(scratch):
+    # Rodada 2b: documento que so casa o glob de um varredor C1 (tools/ci/) e ninguem cita. O glob nao torna o
+    # caminho completo: so a CITACAO de leitor C1/C4b/C6 faz isso. Aqui o varredor so le por glob -> subconjunto.
+    files = dict(BASE_FILES)
+    files["tools/ci/varredor.ps1"] = "# varre a arvore em silencio\n"
+    files["docs/z.md"] = "# z\n"
+    files["tools/ci/varreduras-de-arvore.txt"] = LISTA_FIXTURE + "tools/ci/varredor.ps1 docs/*\n"
+    repo = make_repo(scratch, "glob_c1", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "z.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "glob_c1", "--base", base, "--head", head)
+    check("9b leitor C1 so por glob: docs/z.md -> subconjunto, nao completo",
+          rc == 0 and data and data["modo"] == "subconjunto", f"rc={rc} modo={data and data['modo']} {text.strip()}")
+
+
 def caso_negativo(scratch):
     repo = make_repo(scratch, "negativo", BASE_FILES)
     base = head_of(repo)
@@ -454,7 +471,7 @@ def main():
     scratch = make_fenced_scratch_dir("seletor-selftest-", parent=os.environ.get("TMPDIR") or None)
     try:
         for caso in (caso_positivo, caso_teste_sem_command, caso_leitor_c3, caso_leitor_c1,
-                     caso_glob_sem_citacao, caso_argv_sem_linha, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
+                     caso_glob_sem_citacao, caso_argv_sem_linha, caso_glob_c1, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
                      caso_varredura, caso_orfa, caso_arvore, caso_dado_de_teste, caso_renomeacao,
                      caso_base_invalida):
             sub = tempfile.mkdtemp(prefix=caso.__name__ + "-", dir=scratch)

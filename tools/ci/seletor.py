@@ -242,6 +242,14 @@ def leitores_de(caminho, classe, textos, varreduras):
     return sorted(set(achados))
 
 
+def leitores_por_citacao(caminho, textos):
+    """Leitores que citam o caminho ou o nome dele (sem contar a lista de varreduras)."""
+    nome = caminho.rsplit("/", 1)[-1].encode("utf-8")
+    alvo = caminho.encode("utf-8")
+    return sorted(leitor for leitor, bruto in textos.items()
+                  if leitor != caminho and (alvo in bruto or nome in bruto))
+
+
 def classificar(raiz, base, head, arvore):
     rastreados = tracked(raiz)
     varreduras = ler_varreduras(raiz, set(rastreados))
@@ -271,8 +279,10 @@ def classificar(raiz, base, head, arvore):
     for caminho in caminhos:
         classe, regra = classe_de(caminho)
         leitores = leitores_de(caminho, classe, textos, varreduras) if classe in ("C4", "C5") else []
+        citacao = leitores_por_citacao(caminho, textos) if classe == "C5" else []
         contagem[classe] += 1
-        por_caminho.append({"caminho": caminho, "classe": classe, "regra": regra, "leitores": leitores})
+        por_caminho.append({"caminho": caminho, "classe": classe, "regra": regra, "leitores": leitores,
+                            "leitores_citacao": citacao})
     contagem["total"] = len(caminhos)
 
     if motivo_base:
@@ -308,17 +318,18 @@ LEITOR_COMPLETO = ("C1", "C4b", "C6")
 
 
 def _lido_por_completo(entrada):
-    """Caminho C5 com leitor C1, C4b ou C6 (estrutura, dado de teste, codigo desconhecido) vira completo: o leitor
-    pode mudar o que a mudanca afeta, e nao sabemos quanto. Lado seguro (critério B1)."""
+    """Caminho C5 CITADO por leitor C1, C4b ou C6 (estrutura, dado de teste, codigo desconhecido) vira completo:
+    o leitor pode mudar o que a mudanca afeta, e nao sabemos quanto. Lado seguro (critério B1). Leitor que chega
+    so por glob da lista de varreduras NAO torna o caminho completo: ele segue a regra do C4 (ver resolver)."""
     if entrada["classe"] != "C5":
         return False
-    return any(classe_de(leitor)[0] in LEITOR_COMPLETO for leitor in entrada["leitores"])
+    return any(classe_de(leitor)[0] in LEITOR_COMPLETO for leitor in entrada["leitores_citacao"])
 
 
 def _motivo_completo(entrada):
     if entrada["classe"] in COMPLETA:
         return f"{entrada['caminho']} ({entrada['classe']})"
-    lidos = [leitor for leitor in entrada["leitores"] if classe_de(leitor)[0] in LEITOR_COMPLETO]
+    lidos = [leitor for leitor in entrada["leitores_citacao"] if classe_de(leitor)[0] in LEITOR_COMPLETO]
     return f"{entrada['caminho']} (C5 lido por {', '.join(lidos)})"
 
 
@@ -466,9 +477,12 @@ def resolver(mudancas, build, ctest_json):
                     if classe_leitor == "C3":
                         # leitor .cpp sob tests/: os testes dos alvos que o tem entre as fontes (regra do C3)
                         selecionados |= _testes_de_fonte(testes, alvos, leitor)
-                    elif classe_leitor == "C4":
+                    elif classe_leitor == "C5":
+                        pass  # texto nao executa nada
+                    else:
+                        # C4, C1, C4b, C6 que chegaram por glob: os testes que citam o script, um nivel, qualquer
+                        # que seja a classe dele (regra do C4). Os que citaram o caminho ja deixaram completo.
                         selecionados |= {t["name"] for t in testes if _cita(t, leitor)}
-                    # leitor C5 (texto) nao executa nada; leitor C1, C4b e C6 ja deixou o caminho completo
         if not selecionados and not lint:
             raise SemAlvo("subconjunto sem teste nem unidade de lint: a classificacao disse que havia o que conferir "
                           "(L-40 do projeto)")

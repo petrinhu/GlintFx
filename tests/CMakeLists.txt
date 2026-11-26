@@ -3798,6 +3798,16 @@ add_test(
 )
 set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
+# Seletor unico do espelho e do CI (EFIC-SELETOR, lote de eficacia, D-W8-1231): autoteste da classificacao
+# (tools/ci/seletor.py) sobre repositorios git temporarios sob TMPDIR. So biblioteca padrao (L-07 do projeto).
+# Sem PASS_REGULAR_EXPRESSION e sem expect_exit_and_line: o codigo de saida conta.
+add_test(
+    NAME seletor_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/seletor_selftest.py" --selftest
+)
+set_tests_properties(seletor_selftest PROPERTIES LABELS selftest)
+
 # W8 deep verification C7-1 (D-W8-2025; AUDITORIAS.md chapter 7; the leader's answer of 20/11/2026):
 # no tracked text file names the home folder of a person's machine. Rule A reads the home of whoever
 # runs the gate, rule B the shape /home/<name>/ and /Users/<name>/ outside a closed list of stand-ins;

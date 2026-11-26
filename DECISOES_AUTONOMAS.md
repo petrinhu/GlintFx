@@ -12034,3 +12034,44 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - o `ci_verde_completo.py`, porque um verde com zero teste reprova (L-40 do projeto);
   - a guarda de teto, porque o líder pediu o teste sem janela "com teto".
   Cada uma protege uma condição que o líder pôs.
+- **D-W8-1242 (main, 26/11 13:30): o espelho da fatia roda num clone limpo.** O `tools/preci.sh --fast` da E1 rodou em `.trabalho/efic/clone-e1`, com `TMPDIR` em `.trabalho/tmp`, que fica fora da árvore do clone. É a prática da W8, e não abre exceção. Na árvore principal, cinco testes caem por causa do ambiente:
+  - o `vendor_purity`, que varre o `.trabalho/` não rastreado;
+  - o `pkgconfig`, o `pkgconfig_validate`, o `libdir_includedir_mix_rejected` e a `armadilha`, que recusam um `TMPDIR` dentro do repositório.
+
+  Isso fica como trabalho descoberto da E2.
+- **D-W8-1243 (main, 26/11 13:30): os commits da E1 foram feitos na árvore principal, e não em `$W/repo`.** A cópia `$W/repo` da ordem não existia. A ordem proibia commit na árvore principal (§4 E1, Proibições), e este é um desvio do main, não do implementador.
+- **D-W8-1244 (main, 26/11 14:00): a revisão 1 da E1 reprovou por dois achados bloqueantes, e o main aceitou os dois.**
+  - B1: o leitor compilado de um arquivo C5 não chegava aos testes.
+  - B2: `check_machine_paths.py` estava declarado com `-`, mas varre o `git ls-files`.
+
+  O main exigiu no mesmo conserto o caso do leitor por glob (A1) e a conferência da forma argv (A6, o gêmeo do B2).
+- **D-W8-1245 (main, 26/11 14:04): a regra "leitor C1 ou C4b dá completo", que o main pôs na rodada 2, ia além da ordem.** Aplicada também ao leitor por glob, ela levou o `completo` de 7 para 24 nos 30 commits medidos. O main a restringiu ao leitor por citação. Não foi afrouxamento do critério, porque o acréscimo tinha sido dele.
+- **D-W8-1246 (líder, 26/11 14:16): o modo autônomo foi ligado.** As palavras dele, verbatim: *"ligue modo autonomo"*. A flag vale até 27/11 14:16. Logo depois, também verbatim: *"autorizo tag/merge/push/rm"*. O `rm` segue a L-53 global: listar os caminhos absolutos antes de apagar.
+- **D-W8-1248 (CTO no lugar do líder, modo autônomo, 26/11 14:31): o efeito da citação de um arquivo C5 depende do papel de quem cita.** A tabela completa está em `.trabalho/efic/e1/decisao-cto-leitor-c1.md`.
+  - CMake: o comentário sai. A citação em `add_test` seleciona aquele teste; em `message` ou em texto de ajuda não conta; qualquer outra invocação dá `completo`.
+  - Orquestrador: a citação é leitor, mas não seleciona teste.
+  - Script: seleciona os testes que o citam, com piso de dois níveis.
+  - Compilado ou dado sem consumidor: dá `completo`.
+
+  A medida que sustenta a regra: das 23 citações do `tests/CMakeLists.txt`, 13 estão em comentário e 8 são argumento de `add_test`; nenhuma está em `configure_file`, `file()` ou `install`. O glob de `tools/win-vm-lab/check-sem-segredo.sh` passou a `tools/win-vm-lab/*`, porque o `DIR` padrão dele é a própria pasta, e nenhum CI ou teste o chama. Não é porta de mão única. Se o líder reverter, volta a regra de 24 de 30 em `completo`.
+- **D-W8-1249 (main, 26/11 14:45): o ganho da E1 ficou em 15 de 30 em `completo`, contra 10 previstos.** As causas da diferença vão todas para o lado seguro: `unset(v)`, o piso de `tools/bench_core_error.sh`, o `GODS_LAWS.md` em literal de `.cpp` e a colisão de nome `README.md`. O refinamento fica como melhoria futura, fora da E1.
+- **D-W8-1250 (main, 26/11 14:55): a revisão 2 da E1, que era a última, aprovou.** O main aplicou e conferiu pontualmente dois ajustes no `2c0dd901`, com o autoteste em 34 de 34 e `classificar --arvore` saindo com 0:
+  - N1: citação só em comentário de CMake não é leitor;
+  - N2: o glob de `tests/CMakeLists.txt` passou a `include/*`.
+
+  O `--fast` inteiro do ramo fica para antes do primeiro envio (L-23). A `EFIC-SELETOR` fica em 🔍 até o CI verde.
+- **D-W8-1251 (main, 26/11 14:19): limpeza de hora em hora (L-53 global), a pedido da sessão `manutencao` e com o OK do líder ("pode executar o que manutencao pedir").** Saíram 506 caminhos, ou 11,8 GiB, com a lista em `.trabalho/tmp/limpeza-1426-lista.txt`. Eram cópias de árvore e builds das fatias da W8, que já está fechada, e os clones já usados da E1. Ficaram os registros, os relatórios e o `r21`.
+- **D-W8-1252 (CTO no lugar do líder, modo autônomo, 26/11 15:53, a ratificar): o `host_alert_gate_test` herda o escopo da fila.** O portão passa a atribuir o core dump ao escopo `pesado-*.scope` que o espelho já ocupa, sem criar escopo próprio e sem usar o barramento da sessão.
+  - Opções recusadas: (1) exceção com o XDG da sessão, porque afrouxaria a L-09 do projeto; (2) passar só o DBUS, que não funciona, porque o systemd 262 ignora o DBUS quando o XDG está definido (medido, F1); (3) pular, que fere a L-40 do projeto; (4) estágio próprio, porque mexe na lei.
+  - Não é porta de mão única. Fontes e medições: `.trabalho/efic/e2/decisao-cto-e2.md`, seção D-A.
+- **D-W8-1253 (CTO, 26/11 15:53): o isolamento do espelho também retira o `DBUS_SESSION_BUS_ADDRESS`, como faz o `GTestDBus.unset()` da GLib.** Nenhum teste rastreado usa D-Bus.
+- **D-W8-1254 (CTO, 26/11 15:53): o lint da C3 é defeito da E1.** O `--changed` conferia menos que o `--fast`. A ordem E1-fix1 conserta isso e também o gêmeo: o modo `completo` só listava `src/`.
+- **D-W8-1255 (CTO, 26/11 15:53): a E2 não commita vermelha.** A ordem é a E1-fix1, depois a E2 rodada 2, a reprova dos itens 3 e 4 e um commit só, verde (L-12 do projeto). O patch está guardado e conferido por `cmp`.
+- **D-W8-1256 (CTO, 26/11 15:53): os cinco testes que caem com o `TMPDIR` dentro da árvore ficam fora da alçada do CTO.** Ampliar o lote é do líder (L-32 do projeto, emenda de 26/11), e a pergunta foi levada a ele. Até a resposta, o espelho do lote roda em cópia sob `.trabalho/`. Para a INBOX, fora do lote, vai `HOST-ALERT-SCOPE-CEILING`: fora da fila, o escopo do `systemd-run` do portão não tem `TasksMax` nem `MemoryMax`.
+- **D-W8-1257 (líder, 26/11 16:01, por AskUserQuestion): o lote de eficácia ganha a fatia E2c,** que consome os dois itens da INBOX de 13/11 (`VENDOR-PURITY-TRABALHO` e `TMPDIR-NA-ARVORE`), com o desenho da seção D-B de `.trabalho/efic/e2/decisao-cto-e2.md`. A resposta dele, verbatim: *"opcao 1 e fiz upgrade para github pro"*. A E2c entra depois do commit da E2, com um agente por vez na árvore. A troca do líder para o plano GitHub Pro fica registrada como fato. O efeito dela sobre o CI do lote vai ao CTO, para ser medido na E3 e na E4.
+- **D-W8-1258 (main, 26/11 16:29): a E1-fix1 (`f280892a`) foi aprovada na revisão 1.**
+  - O que mudou: a lista de lint do `resolver` passou a levar a unidade C3, e o modo `completo` passou a levar todo o codemodel, com 436 unidades.
+  - Provas: o autoteste passou 37 de 37; os dois mutantes e a sabotagem do revisor ficaram vermelhos; o `--fast` no clone saiu com rc=0, com 404 testes passando e 1 pulado.
+  - Limite declarado: o `_includers` segue um nível só. Um cabeçalho que só é incluído por outro cabeçalho não chega ao `.cpp`.
+- **D-W8-1259 (líder, 26/11 18:18): o modo autônomo foi ligado de novo.** As palavras dele, verbatim: *"ligue modo autonomo"*. A flag vale até 27/11 18:18. Antes disso, às 17:16, ele tinha pausado a sessão pela `manutencao` e, às 18:10, mandou retomar pela `gerencia`, com confirmação dele por AskUserQuestion: *"Sim, retome (Recomendado)"*.
+- **D-W8-1260 (líder, 26/11 18:19, por AskUserQuestion): o envio, a mescla e a versão estão liberados no modo autônomo.** Resposta dele, verbatim: *"Tudo liberado"*. Isso desfaz a restrição posta na pausa. Os três saem sem nova pergunta, mas só com tudo verde (L-11 e L-24 do projeto, e L-15 global, item 3).

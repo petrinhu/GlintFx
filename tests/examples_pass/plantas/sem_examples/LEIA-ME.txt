@@ -1,0 +1,4 @@
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+Planta sem_examples: este diretorio nao tem examples/ de proposito.
+A passada deve reprovar com a mensagem de GLINTFX_BUILD_EXAMPLES=ON sem examples/.

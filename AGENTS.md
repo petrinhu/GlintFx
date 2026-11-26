@@ -91,7 +91,7 @@ that was tested - the failure mode ranges from a compiler error to a
 runtime bug with no compile-time signal at all.
 
 **Several versions have been tagged; the most recent at the time of
-writing is `v0.6.1.0`, cut 10/10/2026.** Run
+writing is `v0.7.0.0`, cut 26/11/2026.** Run
 `git tag --list 'v*' --sort=-v:refname` against a clone to see all of
 them, newest first. None is accompanied by a formal GitHub Release
 (checked directly against the repository: no entry exists on the
@@ -102,7 +102,7 @@ together describe what it marks. `CHANGELOG.md` has one dated section per versio
 Pin `GIT_TAG` to the tag name directly:
 
 ```bash
-GIT_TAG v0.6.1.0
+GIT_TAG v0.7.0.0
 ```
 
 A raw commit hash still works in the same field (find one with

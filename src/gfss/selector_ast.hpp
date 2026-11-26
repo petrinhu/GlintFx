@@ -225,9 +225,8 @@ inline constexpr std::array<gfss_attribute_operator_entry, gfss_attribute_operat
     gfss_attribute_operator_table{
 #define GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE(name, prefix_char)                                    \
     gfss_attribute_operator_entry{.op = gfss_attribute_operator::name, .prefix = (prefix_char)},
-        GLINTFX_GFSS_ATTR_OPERATOR_LIST(GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE)
+        GLINTFX_GFSS_ATTR_OPERATOR_LIST(GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE)};
 #undef GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE
-    };
 
 #undef GLINTFX_GFSS_ATTR_OPERATOR_LIST
 

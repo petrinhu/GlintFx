@@ -4,22 +4,36 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <utility>
 
+#include <glintfx/core/ellipse.hpp>
 #include <glintfx/core/err.hpp>
+#include <glintfx/core/image_view.hpp>
 #include <glintfx/core/quad.hpp>
 #include <glintfx/core/rect.hpp>
+#include <glintfx/core/segment.hpp>
 #include <glintfx/core/transform.hpp>
 #include <glintfx/draw2d/draw_layer.hpp>
 #include <glintfx/draw2d/frame_2d_desc.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
+#include <glintfx/draw2d/stroke.hpp>
+#include <glintfx/draw2d/texture_region.hpp>
+#include <glintfx/draw2d/vertex_2d.hpp>
 
+#include "draw2d/ellipse_pixels.hpp"
 #include "draw2d/embedded_program.hpp"
 #include "draw2d/frame_report_tally.hpp"
+#include "draw2d/image_resolution.hpp"
 #include "draw2d/piece_list.hpp"
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
+#include "draw2d/stroke_line_pixels.hpp"
+#include "draw2d/stroke_rect_pixels.hpp"
+#include "draw2d/texture_2d_impl.hpp"
+#include "draw2d/texture_release_queue.hpp"
 #include "draw2d/triangle_batch.hpp"
+#include "draw2d/triangle_pixel_vertices.hpp"
 #include "draw2d/vertex_stream.hpp"
 #include "gl_functions.hpp"
 
@@ -38,22 +52,59 @@
 // Nothing here includes a header of src/platform/ or of the operating system (GODS_LAWS.md L-19).
 namespace glintfx {
 
+namespace draw2d {
+// What one textured call submits (T4b-B1): grouped so submit_textured() stays within four
+// parameters. `projective` is false for draw_texture() (q = 1 at every corner). `stencil` is the
+// role of a silhouette (H3b-3). `texture` and `paint` are read only during the call.
+struct textured_submission {
+    const texture_2d_impl *texture = nullptr;
+    const gltfx_texture_paint *paint = nullptr;
+    gltfx_quad_world corners{};
+    bool projective = false;
+    stencil_role stencil = stencil_role::ordinary;
+};
+
+// What one textured triangle call submits (T5): the texture, the vertices and the indices (read
+// only during the call), and whether the call is indexed. Grouped so submit_textured_triangles()
+// stays within four parameters.
+struct textured_triangle_call {
+    const texture_2d_impl *texture = nullptr;
+    std::span<const gltfx_textured_vertex_2d> vertices;
+    std::span<const std::uint32_t> indices;
+    bool indexed = false;
+};
+
+// What one draw_atlas_image() call submits (T6-B2), the atlas already read by the facade
+// (renderer_2d_facade_atlas.cpp), so the frame machine never knows an atlas: the texture of the
+// atlas (null for a moved-from atlas), the paint with the region of the image, and the reason the
+// receipt gave (none when it is current; then the region is the image's).
+struct atlas_image_call {
+    const texture_2d_impl *texture = nullptr;
+    gltfx_texture_paint paint{};
+    gltfx_draw_2d_refusal receipt = gltfx_draw_2d_refusal::none;
+};
+} // namespace draw2d
+
 // What the renderer asks of its context (D-API-07: it makes ITS OWN context current before it
 // touches GL).
 struct renderer_2d_host {
     void *context = nullptr;
     gltfx_rslt<void> (*make_current)(void *context) noexcept = nullptr;
-    // The size of the surface in physical pixels {width, height}, read at begin_frame().
-    std::pair<std::uint32_t, std::uint32_t> (*surface_size)(void *context) noexcept = nullptr;
+    // The size of the surface in physical pixels {width, height}, read at begin_frame(). It only
+    // reads the context, so it takes a pointer to const.
+    std::pair<std::uint32_t, std::uint32_t> (*surface_size)(const void *context) noexcept = nullptr;
 };
 
 // What create() is told besides the host and the GL functions (D-B7-1, Introduce Parameter Object):
 // the surface encoding the context was opened with, how many pieces to make room for (0 lets the
-// renderer choose), and the allocator of the piece and batch storage (a test arms its own).
+// renderer choose), the allocator of the piece and batch storage (a test arms its own), and the
+// largest distance of a drawn curve from the true one on the screen (open() checked it: finite and
+// above zero; S5-C1, D-W8-566).
 struct renderer_2d_options {
     bool srgb_framebuffer = false;
     std::size_t reserve_pieces = 0;
     draw2d::batch_allocator allocator = draw2d::default_batch_allocator();
+    double curve_max_error_pixels = 0.25;
 };
 
 struct renderer_2d_impl {
@@ -75,9 +126,85 @@ struct renderer_2d_impl {
     void fill_rect(const gltfx_rect_world &rect, gltfx_rgba color, gltfx_draw_layer layer) noexcept;
     void fill_quad(const gltfx_quad_world &corners, gltfx_rgba color,
                    gltfx_draw_layer layer) noexcept;
+    // A shadow (R2D-SPRITE-SHADE H3b, renderer_2d_impl_shadows.cpp): a filled quadrilateral of one
+    // color, `tint`, refused for its corners and tint as fill_quad() is, then for a surface with no
+    // stencil bits (piece_refusal.hpp), and kept as one piece with the stencil role shadow
+    // (shadow_group.hpp), so its run marks what it darkens.
+    void fill_shadow(const gltfx_quad_world &shadow, gltfx_rgba tint,
+                     gltfx_draw_layer layer) noexcept;
+    // A silhouette (H3b-3): the alpha of the region of `paint` is the shape of a shadow. Refused
+    // for what draw_texture_quad() is, the surface after the texture's reasons; on one line, it is
+    // the fill_shadow() of zero area: drawn, covering no pixel.
+    void draw_shadow_texture(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                             const gltfx_quad_world &shadow, gltfx_draw_layer layer) noexcept;
+    // The triangle methods (S2b): an empty call is nothing; the rest is checked, and refused whole
+    // or kept as one piece (triangle_list_check.hpp).
+    void fill_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                        gltfx_draw_layer layer) noexcept;
+    void fill_indexed_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                                std::span<const std::uint32_t> indices,
+                                gltfx_draw_layer layer) noexcept;
+    // A straight line (S3): checked (stroke_line_check.hpp), turned into pixel triangles on the
+    // screen of this frame (stroke_line_pixels.hpp; the rounded cap reads the surface and the curve
+    // distance since S5-C2) and kept as one piece; refused whole and counted once otherwise.
+    void stroke_line(const gltfx_segment_world &segment, const gltfx_line_style &style,
+                     gltfx_rgba color, gltfx_draw_layer layer) noexcept;
+    // A rectangle outline (S4): checked (stroke_rect_check.hpp), turned into pixel triangles by
+    // the batch transform in force (stroke_rect_pixels.hpp) and kept as one piece; refused whole
+    // and counted once otherwise.
+    void stroke_rect(const gltfx_rect_world &rect, const gltfx_rect_outline_style &style,
+                     gltfx_rgba color, gltfx_draw_layer layer) noexcept;
+    // The ellipse methods (S5-C1, renderer_2d_impl_ellipses.cpp): checked (ellipse_check.hpp),
+    // turned into pixel triangles by the batch transform in force, on the surface of the frame,
+    // with the curve distance given to create() (ellipse_pixels.hpp), and kept as one piece;
+    // refused whole and counted once otherwise.
+    void fill_ellipse(const gltfx_ellipse_world &ellipse, gltfx_rgba color,
+                      gltfx_draw_layer layer) noexcept;
+    void stroke_ellipse(const gltfx_ellipse_world &ellipse, const gltfx_stroke &stroke,
+                        gltfx_rgba color, gltfx_draw_layer layer) noexcept;
+    // The textured methods (T4b-B1, renderer_2d_impl_textures.cpp): checked in the order of
+    // texture_region_check.hpp, the texture last of the values (not open, another renderer's, a
+    // source outside it), then the shape (degenerate_quad, the quadrilateral only), then the pixel
+    // range; refused whole and counted once, or kept as one textured quad. The rectangle reads the
+    // texture affinely (q = 1); the quadrilateral projectively (projective_quad.hpp).
+    void draw_texture(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                      const gltfx_rect_world &rect, gltfx_draw_layer layer) noexcept;
+    void draw_texture_quad(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                           const gltfx_quad_world &corners, gltfx_draw_layer layer) noexcept;
+    // The image of an atlas receipt (T6-B2): the checks of draw_texture(), with the reason of the
+    // receipt between the texture's and the pixel range, and then kept as draw_texture() keeps it.
+    void draw_atlas_image(const draw2d::atlas_image_call &call, const gltfx_rect_world &rect,
+                          gltfx_draw_layer layer) noexcept;
+    // The textured triangles (T5, renderer_2d_impl_textures.cpp): an empty call is nothing; the
+    // rest is checked in the order of triangle_list_check.hpp (the counts, the indices, the values
+    // with the texel coordinates), then the texture (not open, another renderer's, a texel
+    // coordinate outside it), then the pixel range; refused whole and counted once, or kept as one
+    // textured triangle piece, which reads the texture affinely (q = 1).
+    void fill_textured_triangles(const texture_2d_impl *texture,
+                                 std::span<const gltfx_textured_vertex_2d> vertices,
+                                 gltfx_draw_layer layer) noexcept;
+    void fill_indexed_textured_triangles(const texture_2d_impl *texture,
+                                         std::span<const gltfx_textured_vertex_2d> vertices,
+                                         std::span<const std::uint32_t> indices,
+                                         gltfx_draw_layer layer) noexcept;
     void flush() noexcept;
     [[nodiscard]] gltfx_rslt<gltfx_frame_2d_report> finish_frame() noexcept;
     [[nodiscard]] gltfx_frame_2d_report last_frame_report() const noexcept;
+
+    // What a texture of this renderer needs of it (texture_2d_impl.hpp): the context and the GL
+    // table, read by the atoms that make GL objects in its context (texture_upload.hpp), this
+    // renderer as the owner, and the door of its release queue (T3, D-W8-288).
+    [[nodiscard]] draw2d::texture_gl_access texture_access() noexcept;
+    // Overwrites a rectangle of `texture` with `image` (texture_update_check.hpp checks it, then
+    // texture_update.hpp writes it; T3). It sends nothing: a texture is read when the batch is
+    // sent.
+    [[nodiscard]] gltfx_rslt<void> update_texture(texture_2d_impl *texture, std::uint32_t x,
+                                                  std::uint32_t y,
+                                                  const gltfx_image_view &image) noexcept;
+
+    // Installs the image resolver of this renderer and returns the one installed before
+    // (image_resolution.hpp; R2b). In this version no draw call asks it (D-W8-328).
+    gltfx_image_resolver set_image_resolver(gltfx_image_resolver resolver) noexcept;
 
     renderer_2d_impl(const renderer_2d_impl &) = delete;
     renderer_2d_impl &operator=(const renderer_2d_impl &) = delete;
@@ -85,10 +212,59 @@ struct renderer_2d_impl {
   private:
     renderer_2d_impl(const renderer_2d_host &host_in, const render::gl_function_table &gl_in,
                      bool srgb, draw2d::batch_allocator allocator) noexcept;
+    // Only destroy() deletes the interior: it makes the context current and deletes the GL objects
+    // first. Private, as since B4 (renderer_2d_impl_test asserts it).
     ~renderer_2d_impl() = default;
 
     void submit(const draw2d::quad_corners_world &corners, gltfx_rgba color, gltfx_draw_layer layer,
                 gltfx_draw_2d_refusal refusal) noexcept;
+    // The head of every quad call (fill_rect, fill_quad, fill_shadow; H3b, the third, rule of 3):
+    // with no frame open the call is counted outside the frame; with a reason, or with a corner the
+    // batch transform takes out of the pixel range, it is refused and counted once. True only when
+    // the quad goes on to be kept, with `pixel_corners` turned NOW by the batch transform in force.
+    [[nodiscard]] bool quad_call_goes_on(const draw2d::quad_corners_world &corners,
+                                         gltfx_draw_2d_refusal refusal,
+                                         draw2d::quad_corners_pixel &pixel_corners) noexcept;
+    // The head of every shape call (line, rectangle outline, ellipse; S5-C1, the third shape, rule
+    // of 3): with no frame open the call is counted outside the frame; with a reason, it is refused
+    // whole and counted once. True only when the call goes on to be built.
+    [[nodiscard]] bool shape_call_goes_on(gltfx_draw_2d_refusal refusal) noexcept;
+    // The tail of every shape call: a build that did not answer `built` is refused as
+    // pixel_position_out_of_range; a built one is kept as one piece in its layer, or counted as
+    // dropped when the piece list has no memory for it.
+    void keep_shape_triangles(bool built, std::span<const draw2d::colored_pixel_vertex> vertices,
+                              std::span<const std::uint32_t> indices,
+                              gltfx_draw_layer layer) noexcept;
+    // The screen an ellipse, or the rounded cap of a line (a half ellipse, S5-C2), is built on: the
+    // batch transform in force, the surface of the frame and the curve distance given to create().
+    [[nodiscard]] draw2d::ellipse_screen ellipse_screen_now() const noexcept;
+    // Why a textured quadrilateral is refused, the values and then the texture's reasons (`none`
+    // when it is not): draw_texture_quad() and draw_shadow_texture().
+    [[nodiscard]] gltfx_draw_2d_refusal
+    refusal_of_textured_quad(const texture_2d_impl *texture, const gltfx_texture_paint &paint,
+                             const gltfx_quad_world &corners) const noexcept;
+    // The one path of both textured methods: `refusal` is the first reason of the values and the
+    // texture (none when they pass); the shape and the pixel range are asked here.
+    void submit_textured(const draw2d::textured_submission &submission,
+                         gltfx_draw_2d_refusal refusal, gltfx_draw_layer layer) noexcept;
+    // The one path of both textured triangle methods (T5): an empty call is nothing; the rest is
+    // checked, refused whole and counted once, or kept as one piece in the paint order.
+    void submit_textured_triangles(const draw2d::textured_triangle_call &call,
+                                   gltfx_draw_layer layer) noexcept;
+    // One accepted textured triangle call kept as one piece (T5): its pixel vertices and their
+    // reads (triangle_pixel_vertices) go into the piece list with the texture's GL name.
+    void keep_textured_triangle_call(const draw2d::textured_triangle_call &call,
+                                     gltfx_draw_layer layer) noexcept;
+    // The one path of both triangle methods: an empty call is nothing; the rest is checked, refused
+    // whole and counted once, or kept as one piece in the paint order (S2b).
+    void submit_triangles(std::span<const gltfx_vertex_2d_world> vertices,
+                          std::span<const std::uint32_t> indices, bool indexed,
+                          gltfx_draw_layer layer) noexcept;
+    // One accepted triangle call kept as one piece: its pixel vertices (triangle_pixel_vertices)
+    // go into the piece list; what could not be kept is counted (S2b-fix1, I-8).
+    void keep_triangle_call(std::span<const gltfx_vertex_2d_world> vertices,
+                            std::span<const std::uint32_t> indices,
+                            gltfx_draw_layer layer) noexcept;
     // Sends the pending pieces to the card, in paint order, and leaves GL as the closed list says.
     // `explicit_barrier` is true for flush(), false for the implicit one of finish_frame().
     void send_pending(bool explicit_barrier) noexcept;
@@ -99,10 +275,16 @@ struct renderer_2d_impl {
     // graphics side.
     void drop_pending_without_context() noexcept;
     [[nodiscard]] std::size_t batch_pending_in_paint_order() noexcept;
+    // One pending piece into the batch: a quad through add_quad(), a triangle piece (S2a) through
+    // add_triangles(). False when memory ran out.
+    [[nodiscard]] bool add_piece_to_batch(const draw2d::pending_piece &piece) noexcept;
     [[nodiscard]] bool upload_and_draw_batch() noexcept;
     void settle_piece_counts(std::size_t added, bool drawn) noexcept;
     void remember_error(const gltfx_err &error) noexcept;
     [[nodiscard]] bool context_current() noexcept;
+    // The door of the release queue (texture_gl_access::hold): takes the record of a texture of
+    // this renderer while a frame is open (T3, D-W8-288); false otherwise.
+    static bool hold_texture_release(void *renderer, texture_2d_impl *texture) noexcept;
 
     renderer_2d_host host;
     render::gl_function_table gl;
@@ -115,9 +297,31 @@ struct renderer_2d_impl {
     std::uint32_t surface_width = 0;
     std::uint32_t surface_height = 0;
     bool srgb_framebuffer = false;
+    // What surface_has_stencil() answered in create() (D-W8-1328): read once, the surface of a
+    // context does not change.
+    bool surface_stencil_present = true;
     bool frame_open = false;
     bool gl_ready = false; // the context was made current for this frame
     std::optional<gltfx_err> frame_error;
+    // The textures destroyed while a frame is open, released when it ends (T3, D-W8-288).
+    draw2d::texture_release_queue held_textures;
+    // The pixel vertices of the triangle call being kept: the piece list copies them, so they are
+    // reused by every call, and grow through the same allocator as the rest (S2b-fix1, I-8).
+    draw2d::triangle_pixel_vertices triangle_pixels;
+    // The pixel triangles of the line being kept (S3): fixed storage, reused by every call; the
+    // piece list copies them.
+    draw2d::stroke_line_pixels stroke_pixels;
+    // The pixel triangles of the rectangle outline being kept (S4): fixed storage, reused by every
+    // call; the piece list copies them.
+    draw2d::stroke_rect_pixels rect_pixels;
+    // The largest distance of a drawn curve from the true one on the screen (S5-C1, D-W8-566).
+    double curve_max_error_pixels = 0.25;
+    // The pixel triangles of the ellipse being kept (S5-C1): fixed storage of about 240 KB, reused
+    // by every call; it lives inside this interior, which create() puts on the heap, as
+    // ellipse_pixels.hpp asks. The piece list copies them.
+    draw2d::ellipse_pixels ellipse_triangles;
+    // The image resolver the consumer installed (R2b): kept here, asked by nobody in this version.
+    draw2d::installed_image_resolver image_resolver;
 };
 
 } // namespace glintfx

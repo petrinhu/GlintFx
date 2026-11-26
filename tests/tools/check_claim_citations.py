@@ -26,9 +26,14 @@
 #
 # TRES FORMAS DE CITACAO ACEITAS, no MESMO bloco de comentario
 # contiguo (GODS_LAWS.md L-40: enumeradas, fechado):
-#   1. Teste citado: "Proved by:"/"proven by"/"see" + nome que EXISTE
-#      no inventario fechado (test_name_inventory.py, E1) -
-#      citation_grammar.has_cited_test_reference().
+#   1. Teste citado: uma frase-gatilho ("Proved by:", "proven by",
+#      "proved live by" e as outras formas de "proved"/"proven" ate
+#      "by", ou "see") SEGUIDA, NA MESMA FRASE, por um nome que EXISTE
+#      no inventario fechado (test_name_inventory.py, E1), na forma de
+#      identificador (um nome so de minusculas, como "shapes", so conta
+#      entre crases) - citation_grammar.has_cited_test_reference(), cujo
+#      cabecalho tem as tres regras e os vermelhos delas
+#      (CITATION-COMMON-WORD, TODO.md).
 #   2. static_assert nomeado: o bloco menciona a palavra "static_
 #      assert" E um static_assert(...) REAL aparece nas proximas
 #      _STATIC_ASSERT_WINDOW_LINES linhas do MESMO arquivo (a prova
@@ -53,10 +58,10 @@
 #
 # O QUE ESTE PORTAO NAO VE (GODS_LAWS.md L-40, declarado tambem no
 # relatorio de cada execucao):
-#   - Um nome de teste citado longe (outro paragrafo) da frase-
-#     gatilho, dentro do MESMO bloco de comentario contiguo, e aceito
-#     por coincidencia - citation_grammar.py's own header comment
-#     declara o mesmo limite.
+#   - Uma citacao escrita fora das formas de frase-gatilho ("Exercised
+#     by `x`", "`x` proves this") nao conta, e o fim de frase e' uma
+#     regra de texto, nao gramatica - os limites estao declarados no
+#     cabecalho de citation_grammar.py.
 #   - static_assert cuja mensagem NAO prova de fato a alegacao do
 #     comentario (o portao so confere que um static_assert real
 #     existe perto, nunca que o PREDICADO dele corresponde ao texto
@@ -488,6 +493,17 @@ _FIXTURE_HPP_TEXT_BY_CONSTRUCTION = (
 
 _FIXTURE_HPP_TEXT_NO_CLAIM = "// A comment with no claim vocabulary at all.\nstruct thing {};\n"
 
+# A forma do achado da S6 (D-W8-1086, CITATION-COMMON-WORD): a alegacao
+# e um "see" num paragrafo, a palavra comum que tambem e nome de teste
+# (o exemplo `shapes`) na prosa de outro.
+_FIXTURE_HPP_TEXT_COMMON_WORD = (
+    "// Every compiler on all five platforms lays this out identically\n"
+    "// (see the unit enum's own comment below).\n"
+    "//\n"
+    "// The cost of three parallel {magnitude, unit} shapes is three enums.\n"
+    "struct thing {};\n"
+)
+
 
 def _selftest_find_claim_terms():
     terms = find_claim_terms("This value is measured to be identical on every platform.")
@@ -549,6 +565,22 @@ def _selftest_cited_real_test_resolved():
         print(f"selftest: CITACAO-REAL FALHOU: {resolved}", file=sys.stderr)
         return False
     print("selftest: CITACAO-REAL OK (nome real do inventario resolve como 'cited_test')")
+    return True
+
+
+# VERMELHO de regressao (S6): a palavra comum da prosa, que tambem e o
+# nome do exemplo `shapes` no inventario, nao resolve a alegacao. Com a
+# gramatica de antes de CITATION-COMMON-WORD, resolvia como
+# "cited_test" pelo "see" do outro paragrafo.
+def _selftest_common_word_in_prose_unresolved():
+    known = {"shapes", "draw2d_shapes_parity_test"}
+    blocks = extract_comment_blocks(_FIXTURE_HPP_TEXT_COMMON_WORD)
+    file_lines = _FIXTURE_HPP_TEXT_COMMON_WORD.splitlines()
+    resolved = [resolve_block(b, file_lines, known) for b in blocks if find_claim_terms(b["spaced_text"])]
+    if not resolved or any(r["status"] != "unresolved" for r in resolved):
+        print(f"selftest: PALAVRA-COMUM FALHOU (a prosa virou citacao): {resolved}", file=sys.stderr)
+        return False
+    print("selftest: PALAVRA-COMUM OK (palavra comum da prosa, que tambem e nome de teste, nao resolve a alegacao)")
     return True
 
 
@@ -743,6 +775,7 @@ def selftest_main():
         _selftest_uncited_claim_unresolved(),
         _selftest_cited_but_unknown_test_unresolved(),
         _selftest_cited_real_test_resolved(),
+        _selftest_common_word_in_prose_unresolved(),
         _selftest_static_assert_nearby_resolved(),
         _selftest_static_assert_mentioned_without_real_one_unresolved(),
         _selftest_by_construction_resolved_and_counted_apart(),

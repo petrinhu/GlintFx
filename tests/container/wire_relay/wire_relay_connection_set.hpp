@@ -36,8 +36,16 @@ namespace glintfx::test::wire_relay {
 // sao sempre consumidos na mesma ordem em que chegaram.
 class pending_fds {
   public:
+    pending_fds() = default;
+    pending_fds(const pending_fds &) = delete;
+    pending_fds &operator=(const pending_fds &) = delete;
+    // Descriptors still queued when the connection ends belong to the
+    // relay: close them (QA-SCREEN-CAPTURE P1 review, round 4).
+    ~pending_fds();
     void push(const std::vector<int> &fds);
     [[nodiscard]] std::vector<int> take(std::size_t count);
+    // How many descriptors are queued (wire_fd_plan.hpp plans a batch against this).
+    [[nodiscard]] std::size_t size() const noexcept { return m_queue.size(); }
 
   private:
     std::deque<int> m_queue;
@@ -77,6 +85,9 @@ struct active_connection {
     int upstream_fd = -1;
     bool client_open = true;
     bool upstream_open = true;
+    // Relay-wide running number of this connection (QA-SCREEN-CAPTURE
+    // P1): names the files wire_frame_writer saves for it.
+    std::size_t serial = 0;
     relay_session session;
 };
 
@@ -88,7 +99,17 @@ using connection_list = std::vector<std::unique_ptr<active_connection>>;
 struct relay_endpoints {
     int listen_fd = -1;
     std::string upstream_path;
+    // Directory where the last committed frame of every closed
+    // connection is saved (wire_frame_writer.hpp). Empty = capture off:
+    // nothing is written and the relay behaves exactly as before.
+    std::string capture_dir;
 };
+
+// Rejeita uma mensagem do cliente que violou R1/R2: fecha os
+// descritores que ela trouxe (nada e encaminhado), conta a violacao,
+// injeta o erro no cliente e meia-fecha os dois lados.
+void reject_client_message(active_connection &conn, const rule_violation &violation,
+                           const std::vector<int> &message_fds);
 
 // Bombeia a direcao CLIENTE de uma conexao ja aceita (chamador ja
 // filtrou os revents). Atualiza conn.client_open para false quando a

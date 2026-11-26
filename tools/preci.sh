@@ -21,7 +21,11 @@
 #                                     requirement and its declared-
 #                                     exception shape).
 #   tools/preci.sh --fast            same, minus the sanitizer stage, the
-#                                     debug stage and the win32-link stage -
+#                                     debug stage, the win32-link stage, the
+#                                     container-link stage and stage 11 (the
+#                                     test suite of the Clang builds; stage
+#                                     3b, the Clang build itself, stays in
+#                                     --fast) -
 #                                     for a documentation-only push. Still
 #                                     runs GATE-PS-SYNTAX: it is cheap (no
 #                                     C++ build involved) and a
@@ -35,6 +39,15 @@
 #   tools/preci.sh --sanitizer-only  guard, then the sanitizer stage
 #                                     only (what the CI `sanitizer` job
 #                                     runs).
+#   tools/preci.sh --clang-only      guard, then the mirror of the CI
+#                                     `clang` job (PRECI-CLANG-BUILD): the
+#                                     WHOLE tree built with clang++ and
+#                                     -DGLINTFX_WERROR=ON, shared and
+#                                     static (stage 3b, also in the full
+#                                     pipeline and in --fast), then the
+#                                     full test suite of both builds
+#                                     (stage 11, also in the full
+#                                     pipeline). See stage_clang_build.
 #   tools/preci.sh --debug-only      guard, then the debug stage only
 #                                     (what the CI `debug` job runs):
 #                                     counts every real `assert()` in
@@ -166,6 +179,8 @@ readonly ROOT_DIR
 readonly BUILD_DIR="${ROOT_DIR}/build-preci"
 readonly SANITIZE_BUILD_DIR="${ROOT_DIR}/build-preci-sanitize"
 readonly DEBUG_BUILD_DIR="${ROOT_DIR}/build-preci-debug"
+readonly CLANG_BUILD_DIR="${ROOT_DIR}/build-preci-clang"
+readonly CLANG_STATIC_BUILD_DIR="${ROOT_DIR}/build-preci-clang-static"
 readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"
 
 # GODS_LAWS.md INBOX achado (rodada 2 da revisao do FUND-4, 24/08/2026):
@@ -185,13 +200,25 @@ readonly CTEST_UNIT_LABEL_FILTER='^unit$'
 
 # GATE-PS-SYNTAX (TODO.md W2, GODS_LAWS.md L-36/L-40). Pinned image
 # name, single source of truth for both the availability check and the
-# `docker run` call in stage_ps_syntax below - never re-typed. Already
+# container launch in stage_ps_syntax below - never re-typed. Already
 # cached on this machine before this fatia (docker images), so this
 # stage never runs `docker pull`: pulling would be a silent network
 # call the very first time the image is missing, and this project's
 # whole point with this stage is "nada de rede, nada a instalar" (see
 # TODO.md's own item text).
 readonly GLINTFX_PS_IMAGE='mcr.microsoft.com/powershell:latest'
+
+# PRECI-TETO (20/11/2026, GODS_LAWS.md L-11 global, item 2b): the ceiling
+# of every pwsh container stage_ps_syntax starts. dockerd starts the
+# container outside the caller's systemd scope, so the scope's TasksMax
+# never reaches it: the container needs a ceiling of its own. Fixed here,
+# never read from the environment: a ceiling the caller can unset is not
+# a ceiling. 128 processes (the peak measured on 20/11/2026 was 12) and
+# 2 GiB, in bytes, the unit docker inspect reads back. --memory-swap is
+# the same number, asking for no swap on top (L-11 global, item 4).
+readonly GLINTFX_PS_PIDS_LIMIT=128
+readonly GLINTFX_PS_MEMORY_BYTES=2147483648
+readonly GLINTFX_PS_CEILING_FORMAT='{{.HostConfig.PidsLimit}} {{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}'
 
 # --- enumeration (GODS_LAWS.md L-23/L-24 spirit: a gate has to prove it
 # looked at something). Each *_stage function below prints how many
@@ -432,6 +459,48 @@ stage_format() {
     clang-format --dry-run -Werror "${FILES[@]}"
 }
 
+# PRECI-TETO: status 0 only when $1, the line docker inspect printed with
+# GLINTFX_PS_CEILING_FORMAT, starts with the processes and the memory of
+# the ceiling above. The third field, the swap, is printed and never
+# compared: on a host without the swap controller docker drops it and
+# reads back -1, while processes and memory still hold (L-11 global,
+# item 2b, asks for those two).
+ps_ceiling_is_set() {
+    [ "${1% *}" = "$GLINTFX_PS_PIDS_LIMIT $GLINTFX_PS_MEMORY_BYTES" ]
+}
+
+# PRECI-TETO: creates one pwsh container with the ceiling and reads the
+# ceiling back from the container object itself (GODS_LAWS.md L-36: the
+# object, never the options we believe we passed). Prints the container
+# id on stdout. A container without the ceiling is removed before it ever
+# starts, and the status is 1. "$@" is what follows the ceiling options:
+# mounts, image and command. The `--pids-limit` stays on the same line as
+# the create: the launch count of --selftest reads that one line.
+ps_container_create() {
+    local cid ceiling
+    cid="$(docker create --pull never --pids-limit "$GLINTFX_PS_PIDS_LIMIT" --memory "$GLINTFX_PS_MEMORY_BYTES" --memory-swap "$GLINTFX_PS_MEMORY_BYTES" "$@")" \
+        || { echo "GATE-PS-SYNTAX: a criacao do conteiner pwsh falhou" >&2; return 1; }
+    ceiling="$(docker inspect --format "$GLINTFX_PS_CEILING_FORMAT" "$cid")" || ceiling=""
+    echo "GATE-PS-SYNTAX: teto do conteiner ${cid:0:12} (PidsLimit Memory MemorySwap): ${ceiling:-ilegivel}" >&2
+    if ! ps_ceiling_is_set "$ceiling"; then
+        docker rm -f "$cid" > /dev/null 2>&1 || true
+        echo "GATE-PS-SYNTAX: conteiner sem o teto, removido sem subir (esperado $GLINTFX_PS_PIDS_LIMIT $GLINTFX_PS_MEMORY_BYTES e o swap)" >&2
+        return 1
+    fi
+    echo "$cid"
+}
+
+# PRECI-TETO: the replacement of `docker run --rm` for the pwsh
+# containers: create with the ceiling, start attached, remove. Returns the
+# container's own exit status (docker start --attach hands it back).
+run_ps_container() {
+    local cid status=0
+    cid="$(ps_container_create "$@")" || return 1
+    docker start --attach "$cid" || status=$?
+    docker rm -f "$cid" > /dev/null 2>&1 || echo "GATE-PS-SYNTAX: aviso: a remocao do conteiner ${cid:0:12} falhou" >&2
+    return "$status"
+}
+
 # GATE-PS-SYNTAX (03/09/2026, TODO.md W2). Nasce de dois erros de
 # sintaxe seguidos que so o runner Windows do GitHub Actions pegou
 # (medido): nao ha PowerShell nativo nesta maquina, entao os oito
@@ -524,7 +593,7 @@ if ($falharam -gt 0) {
 exit 0
 GLINTFX_PS_SYNTAX_EOF
 
-    if ! docker run --rm \
+    if ! run_ps_container \
         -v "${ROOT_DIR}:/glintfx-src:ro,z" \
         -v "${scratch_dir}:/glintfx-scratch:ro,z" \
         "$GLINTFX_PS_IMAGE" \
@@ -539,7 +608,7 @@ GLINTFX_PS_SYNTAX_EOF
     # Windows: guarda de versao do CMake vazia/antiga, sonda do cl.exe
     # com /Fo e /Fe dentro do temp) roda no MESMO container pwsh e no
     # MESMO estagio - so' parseia-lo nao provaria que o piso reprova.
-    docker run --rm -v "${ROOT_DIR}:/glintfx-src:ro,z" "$GLINTFX_PS_IMAGE" \
+    run_ps_container -v "${ROOT_DIR}:/glintfx-src:ro,z" "$GLINTFX_PS_IMAGE" \
         pwsh -NoProfile -NonInteractive -File /glintfx-src/tools/ci/windows/prep.ps1 -Autoteste \
         || fail "estagio sintaxe PowerShell recusado (prep.ps1 -Autoteste reprovou; ver saida acima; GATE-PS-SYNTAX)"
 }
@@ -562,6 +631,140 @@ stage_configure() {
 
 stage_build() {
     cmake --build "$BUILD_DIR"
+}
+
+# PRECI-CLANG-BUILD (stage 3b): the local mirror of the CI `clang` job
+# (.github/workflows/ci.yml, "Clang (Fedora - segundo compilador, ...)").
+# The CI builds the whole tree twice with clang++ and -DGLINTFX_WERROR=ON,
+# shared and static, and runs the full test suite of each. Until this stage
+# existed the local mirror compiled only with GCC, and a Clang-only warning
+# reached the trunk with the mirror green at least three times between
+# 30/09 and 30/10/2026 (-Wunused-const-variable; a warning in
+# vertex_stream_test; -Wunneeded-internal-declaration in
+# image_resolution_test, CI run 41147749287). Stage 3b is the BUILD half
+# and runs in the full pipeline, in --fast and in --clang-only; the test
+# half is stage 11 (stage_clang_ctest), in the full pipeline and in
+# --clang-only only.
+#
+# What this mirror does NOT cover, on purpose:
+#  - the differential oracle of the layers gate, which the CI shared leg
+#    turns on: it runs only on the CI server, never on this machine
+#    (GODS_LAWS.md L-45 of the project); the guard O-13 of
+#    tests/tools/check_layers_oracle.py fails if this script so much as
+#    names the CMake option, so it is never named here;
+#  - the CI preparation steps (floor.sh, prova_checkout.sh, rerun_guard);
+#  - the environment: the CI job runs in fedora:latest as root, this stage
+#    runs the host clang++ as the current user, through ccache when it is
+#    on (the same clang 22.1.8 on 30/10/2026; a newer image can bring a
+#    newer clang, with new warnings, before the host gets it);
+#  - the test suite under Clang in --fast (stage 11).
+# What it does MORE than the CI: `-k 0` (Ninja stops at the first failed
+# edge by default, so one error could hide a second one in another
+# translation unit) and one summary line per mode that counts the errors
+# and names the files.
+#
+# No clang++ on PATH REFUSES by default; GLINTFX_PRECI_CLANG=skip turns
+# that one case into a declared, printed skip (GODS_LAWS.md L-02, the same
+# shape as GLINTFX_PRECI_WIN32=skip of stage 9).
+clang_compiler_present() {
+    command -v clang++ > /dev/null 2>&1
+}
+
+# Configures and builds <src> into <build> with clang++, -Werror and
+# `-k 0`. Prints the build output without Ninja's progress lines and ONE
+# summary line, always, even when it passes (GODS_LAWS.md L-40):
+#   clang[<mode>]: unidades=<entries of the compile database>
+#   rc_configure=<n> rc_build=<n> erros=<n> passos=<last [k/n] printed>
+#   arquivos_com_erro=[<files>]
+# The counts come from clang_build_count. Returns 0 only with
+# rc_configure=0, rc_build=0, erros=0 and unidades>0 (zero translation
+# units is a broken scan, never a clean build). Never calls fail: the
+# selftest observes the red without leaving.
+clang_build_tree() {
+    _cl_src="$1"; _cl_build="$2"; _cl_mode="$3"
+    case "$_cl_mode" in
+        compartilhado) _cl_flags=() ;;
+        estatico) _cl_flags=(-DBUILD_SHARED_LIBS=OFF) ;;
+        *) echo "clang[$_cl_mode]: modo desconhecido (esperado compartilhado|estatico)"; return 1 ;;
+    esac
+    mkdir -p "$_cl_build" || { echo "clang[$_cl_mode]: mkdir '$_cl_build' falhou"; return 1; }
+    _cl_cfg_log="$_cl_build/preci-clang-configure.log"
+    _cl_log="$_cl_build/preci-clang-build.log"
+    : > "$_cl_log"
+    _cl_rc_cfg=0
+    cmake -S "$_cl_src" -B "$_cl_build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ "${_cl_flags[@]}" \
+        -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+        > "$_cl_cfg_log" 2>&1 || _cl_rc_cfg=$?
+    _cl_rc_build=nao-rodou
+    if [ "$_cl_rc_cfg" = 0 ]; then
+        _cl_rc_build=0
+        cmake --build "$_cl_build" -- -k 0 > "$_cl_log" 2>&1 || _cl_rc_build=$?
+        grep -v -E '^\[[0-9]+/[0-9]+\] ' "$_cl_log" || true
+    else
+        cat "$_cl_cfg_log"
+    fi
+    clang_build_count "$_cl_src" "$_cl_build"
+    echo "clang[$_cl_mode]: unidades=$_cl_units rc_configure=$_cl_rc_cfg rc_build=$_cl_rc_build erros=$_cl_errors passos=${_cl_steps:-0/0} arquivos_com_erro=[${_cl_files% }]"
+    [ "$_cl_rc_cfg" = 0 ] && [ "$_cl_rc_build" = 0 ] && [ "$_cl_errors" = 0 ] && [ "$_cl_units" -gt 0 ]
+}
+
+# Counts what the Clang build of <src> in <build> left behind, into four
+# variables: _cl_units (entries of the compile database), _cl_errors
+# (lines with "error:" in the build log), _cl_steps and _cl_files (the
+# files named by an error, relative to <src>). _cl_steps is the LAST
+# "[k/n]" Ninja printed in that call, not a count of finished edges: a
+# build that succeeds can end at [n-1/n] (measured on 31/10/2026), and a
+# build directory that already exists prints only the edges it reran.
+clang_build_count() {
+    _cc_src="$1"; _cc_log="$2/preci-clang-build.log"
+    _cl_units=0
+    if [ -f "$2/compile_commands.json" ]; then
+        _cl_units="$(grep -c '"file":' "$2/compile_commands.json" || true)"
+    fi
+    _cl_errors="$(grep -c 'error:' "$_cc_log" || true)"
+    _cl_steps="$(grep -o -E '^\[[0-9]+/[0-9]+\]' "$_cc_log" | tail -n 1 | tr -d '[]' || true)"
+    _cl_files="$(grep -o -E '^[^ :]+\.(cpp|hpp|cc|h):[0-9]+:[0-9]+: (fatal )?error' "$_cc_log" \
+        | sed -E -e "s#^${_cc_src}/##" -e 's#^(\.\./)+##' -e 's#:[0-9]+:[0-9]+: (fatal )?error$##' \
+        | LC_ALL=C sort -u | tr '\n' ' ' || true)"
+}
+
+# Absent clang++: refuses, or the declared skip. Prints which, every time.
+clang_presence_or_skip() {
+    if clang_compiler_present; then
+        return 0
+    fi
+    if [ "${GLINTFX_PRECI_CLANG:-}" = "skip" ]; then
+        echo "estagio $1: PULADO POR DECLARACAO (GLINTFX_PRECI_CLANG=skip, clang++ ausente) - a prova do segundo compilador fica so no servidor"
+        return 1
+    fi
+    fail "estagio $1 recusado: clang++ ausente do PATH - instalar o clang e' pedido ao lider (L-14 do projeto), ou defina GLINTFX_PRECI_CLANG=skip para um pulo DECLARADO (PRECI-CLANG-BUILD, GODS_LAWS.md L-02)"
+}
+
+stage_clang_build() {
+    clang_presence_or_skip 3b || return 0
+    _cs_version="$(clang++ --version 2>&1 | head -n 1 || true)"
+    echo "clang: $_cs_version"
+    _cs_bad=""
+    clang_build_tree "$ROOT_DIR" "$CLANG_BUILD_DIR" compartilhado || _cs_bad="$_cs_bad compartilhado"
+    clang_build_tree "$ROOT_DIR" "$CLANG_STATIC_BUILD_DIR" estatico || _cs_bad="$_cs_bad estatico"
+    [ -z "$_cs_bad" ] || fail "estagio 3b recusado (modo(s):${_cs_bad}): o segundo compilador do CI reprova esta arvore - ver os erros e as linhas clang[...] acima (PRECI-CLANG-BUILD)"
+    echo "estagio 3b: os dois modos compilam com clang++ -Werror"
+}
+
+# Stage 11: the full test suite of both Clang builds, serial, like the
+# `ctest` step of the CI `clang` job. Needs stage 3b first.
+stage_clang_ctest() {
+    clang_presence_or_skip 11 || return 0
+    _ck_bad=""
+    for _ck_mode in compartilhado estatico; do
+        if [ "$_ck_mode" = compartilhado ]; then _ck_dir="$CLANG_BUILD_DIR"; else _ck_dir="$CLANG_STATIC_BUILD_DIR"; fi
+        _ck_count="$(count_ctest_tests "$_ck_dir")"
+        require_nonempty_tests "ctest sob Clang ($_ck_mode)" "$_ck_count" \
+            || fail "estagio 11 recusado (varredura vazia de testes no build Clang $_ck_mode - o estagio 3b rodou?)"
+        ctest --test-dir "$_ck_dir" --output-on-failure || _ck_bad="$_ck_bad $_ck_mode"
+    done
+    [ -z "$_ck_bad" ] || fail "estagio 11 recusado (modo(s):${_ck_bad}): a suite reprova sob Clang - ver acima (PRECI-CLANG-BUILD)"
 }
 
 # PORTAO-DE-ESTILO-CONTA-O-QUE-NAO-ANALISA (TODO.md INBOX, medido em
@@ -623,7 +826,29 @@ for entry in entries:
     if [ "${#in_bank[@]}" -eq 0 ]; then
         fail "estagio clang-tidy recusado: 0 arquivo(s) no banco de compilacao (GODS_LAWS.md L-40, piso de varredura nao-vazia)"
     fi
-    run-clang-tidy -p "$BUILD_DIR" -quiet "${in_bank[@]}"
+    run_tidy_batch "$BUILD_DIR" "$PRECI_JOBS" "${in_bank[@]}"
+}
+
+# The two batch calls of stages 4 and 5, with the degree as an explicit
+# argument (PRECI-LINT-JOBS): the selftest calls them against stub tools
+# and reads the -j that arrives.
+run_tidy_batch() {
+    _tb_build="$1"; _tb_jobs="$2"; shift 2
+    require_jobs "$_tb_jobs" "run_tidy_batch"
+    run-clang-tidy -p "$_tb_build" -quiet -j "$_tb_jobs" "$@"
+}
+
+# cppcheck -j: the same findings as the serial run, measured on
+# 31/10/2026 over the whole tracked tree and over the dirty fixture (this
+# stage never enables unusedFunction, the one check that needs to see
+# every file in one process; see the --enable note below).
+run_cppcheck_batch() {
+    _cb_build="$1"; _cb_jobs="$2"; shift 2
+    require_jobs "$_cb_jobs" "run_cppcheck_batch"
+    cppcheck -j "$_cb_jobs" --enable=warning,performance,portability --inline-suppr \
+        --error-exitcode=1 --suppress=missingIncludeSystem --std=c++20 \
+        -I "$ROOT_DIR/include" -I "$_cb_build/generated/include" -I "$ROOT_DIR/src" \
+        "$@"
 }
 
 # --enable is deliberately warning,performance,portability, NOT `all`:
@@ -662,10 +887,7 @@ for entry in entries:
 stage_cppcheck() {
     enumerate_tracked_cpp_hpp
     require_nonempty "cppcheck" || fail "estagio cppcheck recusado (varredura vazia)"
-    cppcheck --enable=warning,performance,portability --inline-suppr \
-        --error-exitcode=1 --suppress=missingIncludeSystem --std=c++20 \
-        -I "$ROOT_DIR/include" -I "$BUILD_DIR/generated/include" -I "$ROOT_DIR/src" \
-        "${FILES[@]}"
+    run_cppcheck_batch "$BUILD_DIR" "$PRECI_JOBS" "${FILES[@]}"
 }
 
 # .clang-tidy's own header comment states the policy: every
@@ -763,7 +985,9 @@ stage_noexcept_alloc() {
 # text describes ("por padrao, olha a arvore e nao o historico") - a
 # discrepancy reported alongside this slice, not silently absorbed.
 # .gitleaksignore carries the two known documentation false positives
-# (CONTRACT.md 7.1's deliberately-fake example key).
+# (CONTRACT.md 7.1's deliberately-fake example key). gitleaks has no
+# option for its own parallelism: it gets the degree through the
+# GOMAXPROCS that apply_preci_jobs exports.
 stage_gitleaks() {
     gitleaks detect --no-banner --source "$ROOT_DIR"
 }
@@ -801,6 +1025,80 @@ stage_gitleaks() {
 stage_container_link() {
     sh "${ROOT_DIR}/tests/container/prepare_arch_ports_fixture.sh" "$ROOT_DIR" ||
         fail "estagio container-link recusado: prepare_arch_ports_fixture.sh reprovou (ver acima) - GATE-CONT-LINK, GODS_LAWS.md L-17/L-36/L-40"
+}
+
+# PRECI-LINT-JOBS (GODS_LAWS.md L-11 global, section 5: at most 13 threads
+# and 3 cores always free on this machine; plus the leader's quota of 8
+# cores while the machine is shared with another project, which reaches
+# this script through the caller's CMAKE_BUILD_PARALLEL_LEVEL): ONE degree
+# for every parallel tool this script starts (run-clang-tidy, cppcheck,
+# every `cmake --build`, the nested ones included, and gitleaks), picked
+# once in main() by apply_preci_jobs. The containers the test suite starts
+# are outside it: their processes belong to the docker daemon, not to this
+# script. Measured on 30/10/2026 before it existed: run-clang-tidy
+# started 16 workers whatever the caller exported (its default is Python's
+# cpu_count, which ignores the environment and the CPU affinity), cppcheck
+# ran on one core, and a `cmake --build` with the variable unset took
+# Ninja's own default (nproc + 2). The rule: CMAKE_BUILD_PARALLEL_LEVEL when
+# the caller set it (a positive integer, capped at nproc; the CI jobs set it
+# to the nproc of their runner); otherwise nproc - 3, at least 1 and at most
+# 13. Anything else is REFUSED, never replaced by a default in silence (the
+# same closed refusals as pick_ctest_jobs below). Pure function, for the
+# selftest: prints the degree, or "RECUSA: <reason>" with status 1.
+pick_preci_jobs() {
+    requested="$1"; nproc_now="$2"
+    case "$nproc_now" in
+        ''|*[!0-9]*|0) echo "RECUSA: nproc ilegivel ('$nproc_now')"; return 1 ;;
+    esac
+    case "$requested" in
+        '')
+            cap=$((nproc_now - 3))
+            [ "$cap" -gt 13 ] && cap=13
+            [ "$cap" -lt 1 ] && cap=1
+            echo "$cap"
+            return 0
+            ;;
+        *[!0-9]*|0*)
+            echo "RECUSA: CMAKE_BUILD_PARALLEL_LEVEL='$requested' nao e' um inteiro positivo sem zero a esquerda"
+            return 1
+            ;;
+    esac
+    # Past 18 digits the number may not fit the 64-bit integer of `[ -gt ]`,
+    # which then errors out (status 2), and the else branch below would hand
+    # the raw request on (measured on 31/10/2026 with 20 digits). A request
+    # that long is above any nproc, so it is capped like the others.
+    if [ "${#requested}" -gt 18 ] || [ "$requested" -gt "$nproc_now" ]; then
+        echo "$nproc_now"
+    else
+        echo "$requested"
+    fi
+}
+
+# Picks the degree and EXPORTS it as CMAKE_BUILD_PARALLEL_LEVEL: that is
+# what makes every `cmake --build` of this script, and every nested build
+# the test suite starts, take it. And as GOMAXPROCS, for gitleaks: it runs
+# a fixed 40 goroutines (semgroup.NewGroup(ctx, 40), detect/detect.go of
+# v8.30.0) with no option to change it, on as many threads as GOMAXPROCS,
+# whose default is every core (measured on 31/10/2026: 16 running threads
+# without it, 8 with GOMAXPROCS=8). A GOMAXPROCS the caller set is
+# replaced as well: there is one degree. Printed on every run, in every mode.
+apply_preci_jobs() {
+    _pj_requested="${CMAKE_BUILD_PARALLEL_LEVEL:-}"
+    _pj_nproc="$(nproc 2> /dev/null || true)"
+    PRECI_JOBS="$(pick_preci_jobs "$_pj_requested" "$_pj_nproc")" \
+        || fail "grau de paralelismo recusado: $PRECI_JOBS (PRECI-LINT-JOBS)"
+    export CMAKE_BUILD_PARALLEL_LEVEL="$PRECI_JOBS"
+    export GOMAXPROCS="$PRECI_JOBS"
+    echo "paralelismo do preci: $PRECI_JOBS (CMAKE_BUILD_PARALLEL_LEVEL pedido=${_pj_requested:-<vazio>}, nproc=$_pj_nproc; vale para todo cmake --build, inclusive os aninhados, e' o -j do run-clang-tidy e do cppcheck e o GOMAXPROCS do gitleaks)"
+}
+
+# The degree is checked again where it is used: a caller that forgets it,
+# or passes garbage, fails loud instead of falling back to the tool's own
+# default (every core of the machine, for run-clang-tidy).
+require_jobs() {
+    case "$1" in
+        ''|*[!0-9]*|0*) fail "$2: grau de paralelismo invalido ('$1') - recusado, nunca o padrao da ferramenta (PRECI-LINT-JOBS)" ;;
+    esac
 }
 
 # A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): grau do ctest LOCAL. Padrao
@@ -844,7 +1142,8 @@ pick_ctest_jobs() {
     cap=$((nproc_now - 3))
     [ "$cap" -gt 13 ] && cap=13
     [ "$cap" -lt 1 ] && cap=1
-    if [ "$requested" -gt "$cap" ]; then
+    # The 18-digit guard of pick_preci_jobs: past it `[ -gt ]` errors out.
+    if [ "${#requested}" -gt 18 ] || [ "$requested" -gt "$cap" ]; then
         echo "$cap"
     else
         echo "$requested"
@@ -1888,11 +2187,25 @@ run_selftest_untracked_guard_ignored_control() {
 # aborting loud. Runs enumerate_untracked_cpp_hpp in an isolated
 # subshell (own process, like run_selftest_rootdir_cd_failure_control
 # above) against a directory that is not a git repository at all.
+# Prints the GIT_CEILING_DIRECTORIES value that fences git inside the
+# directory $1: the PARENT of $1 first (a ceiling equal to the starting
+# directory does not stop git; git(1), ENVIRONMENT), then the ceiling the
+# caller already set, kept after ours. The same rule as
+# tests/tools/selftest_git_fence.py, the fence of the five Python gates.
+git_ceiling_fencing() {
+    printf '%s' "${1%/*}${GIT_CEILING_DIRECTORIES:+:$GIT_CEILING_DIRECTORIES}"
+}
+
 run_selftest_untracked_guard_git_failure_control() {
     log "selftest: guarda de untracked - varredura vazia por falha real do comando (nao presumida)"
     nogit_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-untracked-nogit.XXXXXX")"
     rc=0
-    out="$(bash -c "
+    # The same fence the five Python gates put over their scratch folder
+    # (SUITE-TMPDIR-PATHS, tests/tools/selftest_git_fence.py): git must
+    # not walk up out of nogit_dir into a repository around TMPDIR (a
+    # TMPDIR inside a checkout); see git_ceiling_fencing. Only this
+    # subshell sees it; run_selftest already dropped GIT_DIR and siblings.
+    out="$(GIT_CEILING_DIRECTORIES="$(git_ceiling_fencing "$nogit_dir")" bash -c "
         $(declare -f fail)
         $(declare -f enumerate_untracked_cpp_hpp)
         FILES=()
@@ -1960,12 +2273,30 @@ run_selftest_untracked_guard_newline_name_control() {
     echo "selftest: guarda de untracked - controle de nome com quebra de linha OK (arquivo hostil reportado pelo caminho real, GATE-DEPZERO-NOFORK)"
 }
 
+# The composition rule of git_ceiling_fencing, on fixed paths (no git
+# runs here): without a caller ceiling, only the parent; with one, the
+# parent first and the caller's kept after it. The not-a-repository
+# control above cannot see the difference (git runs only inside
+# nogit_dir, where the parent is already the strictest ceiling), so the
+# rule is proved here, on the function's own output.
+run_selftest_git_ceiling_fencing_control() {
+    log "selftest: guarda de untracked - cerca do git preserva a de quem chama"
+    got="$(unset GIT_CEILING_DIRECTORIES; git_ceiling_fencing /fixture/tmp/nogit)"
+    [ "$got" = "/fixture/tmp" ] \
+        || fail "controle da cerca do git FALHOU: sem cerca de quem chama esperava '/fixture/tmp', teve '$got'"
+    got="$(GIT_CEILING_DIRECTORIES=/caller/a:/caller/b git_ceiling_fencing /fixture/tmp/nogit)"
+    [ "$got" = "/fixture/tmp:/caller/a:/caller/b" ] \
+        || fail "controle da cerca do git FALHOU: com cerca de quem chama esperava '/fixture/tmp:/caller/a:/caller/b', teve '$got'"
+    echo "selftest: guarda de untracked - cerca do git preserva a de quem chama OK (pai primeiro, a de quem chama depois)"
+}
+
 run_selftest_untracked_guard_controls() {
     log "selftest: guarda de arquivo novo nao rastreado (stage_untracked_guard)"
     run_selftest_untracked_guard_positive_control
     run_selftest_untracked_guard_negative_control
     run_selftest_untracked_guard_ignored_control
     run_selftest_untracked_guard_git_failure_control
+    run_selftest_git_ceiling_fencing_control
     run_selftest_untracked_guard_accented_name_control
     run_selftest_untracked_guard_newline_name_control
 }
@@ -2123,7 +2454,7 @@ run_selftest_floor_controls() {
 # A5 etapa 2: pick_ctest_jobs (funcao pura) - cada limite da L-11 recusa ou
 # recorta, e serial e' o padrao.
 run_selftest_ctest_jobs_controls() {
-    log "selftest: pick_ctest_jobs e count_project_builds (grau do ctest local limitado pela L-11, recusas fechadas)"
+    log "selftest: pick_ctest_jobs (grau do ctest local limitado pela L-11, recusas fechadas)"
     esperar() {
         nome="$1"; esperado="$2"; shift 2
         obtido="$(pick_ctest_jobs "$@")" || true
@@ -2149,6 +2480,14 @@ run_selftest_ctest_jobs_controls() {
     esperar "RECUSA com a varredura de processos falhando" "RECUSA" 8 16 0 20000000 erro
     esperar "RECUSA com contagem de builds vazia" "RECUSA" 8 16 0 20000000 ""
     esperar "RECUSA pedido nao numerico" "RECUSA" abc 16 0 20000000 0
+    esperar "pedido de 2^63, o primeiro que nao cabe no [ -gt ], vira o teto" 13 9223372036854775808 16 0 20000000 0
+    echo "selftest: pick_ctest_jobs OK"
+}
+
+# J2 (CTO 29/09): count_project_builds, the scan of the builds of the
+# machine that pick_ctest_jobs refuses to run alongside.
+run_selftest_count_project_builds_controls() {
+    log "selftest: count_project_builds (builds da maquina fora da arvore do preci)"
     # ordem das colunas: pid ppid args. J2 (CTO 29/09): conta QUALQUER cmake/ctest/
     # ninja/ninja-build da maquina, seja qual for o caminho, exceto a ARVORE do proprio preci.
     ps_fixture="    1     0 /sbin/init
@@ -2167,7 +2506,287 @@ run_selftest_ctest_jobs_controls() {
     [ "$(count_project_builds "    1     0 /sbin/init" 900)" = 0 ] || fail "selftest count_project_builds: listagem sem build deve ser 0"
     [ "$(count_project_builds "" 900)" = erro ] || fail "selftest count_project_builds: listagem vazia deve ser 'erro' (fechado)"
     echo "selftest: count_project_builds OK"
-    echo "selftest: pick_ctest_jobs OK"
+}
+
+# A selftest control that made a scratch directory removes it before it
+# fails (fail leaves the script).
+selftest_cleanup_fail() {
+    rm -rf "$1"
+    shift
+    fail "$@"
+}
+
+# PRECI-LINT-JOBS: the rule of pick_preci_jobs, the degree that really
+# reaches run-clang-tidy, cppcheck, `cmake --build` and gitleaks (stub
+# tools that only write down their arguments and environment; the real
+# ones are never called here), the refusals that never call a tool, and
+# the exports of apply_preci_jobs read back from a child process.
+run_selftest_preci_jobs_controls() {
+    log "selftest: pick_preci_jobs e o grau que chega ao run-clang-tidy, ao cppcheck, ao cmake --build e ao gitleaks (PRECI-LINT-JOBS, L-11)"
+    run_selftest_preci_jobs_rule_controls
+    stub="$(mktemp -d "${TMPDIR}/glintfx-preci-jobs-stub.XXXXXX")" \
+        || fail "selftest preci_jobs: mktemp falhou"
+    preci_jobs_write_stubs "$stub"
+    run_selftest_preci_jobs_reach_controls "$stub"
+    run_selftest_preci_jobs_refusal_controls "$stub"
+    run_selftest_preci_jobs_export_controls "$stub"
+    rm -rf "$stub"
+    echo "selftest: preci_jobs OK (15 regras, 5 chamadas com o grau certo, 7 recusas sem chamar a ferramenta, 3 exportacoes lidas por um processo filho)"
+}
+
+# The rule of pick_preci_jobs, one row per case (a pure function).
+run_selftest_preci_jobs_rule_controls() {
+    esperar_grau() {
+        nome="$1"; esperado="$2"; shift 2
+        obtido="$(pick_preci_jobs "$@")" || true
+        if [ "$esperado" = RECUSA ]; then
+            case "$obtido" in "RECUSA:"*) echo "selftest: preci_jobs $nome OK" ; return 0 ;; esac
+        elif [ "$obtido" = "$esperado" ]; then
+            echo "selftest: preci_jobs $nome OK"
+            return 0
+        fi
+        fail "selftest preci_jobs $nome: esperado '$esperado', obtido '$obtido'"
+    }
+    # order: CMAKE_BUILD_PARALLEL_LEVEL nproc
+    esperar_grau "pedido 8 em 16 nucleos (a cota do lider)" 8 8 16
+    esperar_grau "sem pedido, 16 nucleos: 13 (3 livres)" 13 "" 16
+    esperar_grau "sem pedido, 32 nucleos: 13 (teto da L-11)" 13 "" 32
+    esperar_grau "sem pedido, 12 nucleos: 9 (3 livres)" 9 "" 12
+    esperar_grau "sem pedido, 4 nucleos: 1 (3 livres)" 1 "" 4
+    esperar_grau "sem pedido, 2 nucleos: piso 1" 1 "" 2
+    esperar_grau "pedido 4 em 4 nucleos (um executor do CI)" 4 4 4
+    esperar_grau "pedido acima do nproc vira o nproc" 16 32 16
+    esperar_grau "RECUSA pedido nao numerico" RECUSA abc 16
+    esperar_grau "RECUSA pedido zero" RECUSA 0 16
+    esperar_grau "RECUSA zero a esquerda" RECUSA 08 16
+    esperar_grau "RECUSA pedido negativo" RECUSA -2 16
+    esperar_grau "RECUSA nproc vazio" RECUSA 8 ""
+    esperar_grau "RECUSA nproc nao numerico" RECUSA 8 abc
+    esperar_grau "pedido de 2^63, o primeiro que nao cabe no [ -gt ], vira o nproc" 16 9223372036854775808 16
+}
+
+# Stub tools in <dir>: run-clang-tidy, cppcheck, cmake and gitleaks only
+# write down their arguments and the degree they got, into <dir>/calls.txt;
+# nproc says 16.
+preci_jobs_write_stubs() {
+    for ferramenta in run-clang-tidy cppcheck cmake; do
+        printf '#!/bin/sh\necho "%s cbpl=${CMAKE_BUILD_PARALLEL_LEVEL:-} $*" >> "%s/calls.txt"\n' \
+            "$ferramenta" "$1" > "$1/$ferramenta"
+    done
+    printf '#!/bin/sh\necho "gitleaks gmp=${GOMAXPROCS:-} $*" >> "%s/calls.txt"\n' "$1" > "$1/gitleaks"
+    printf '#!/bin/sh\necho 16\n' > "$1/nproc"
+    chmod +x "$1/run-clang-tidy" "$1/cppcheck" "$1/cmake" "$1/gitleaks" "$1/nproc" \
+        || selftest_cleanup_fail "$1" "selftest preci_jobs: chmod das ferramentas falsas falhou"
+}
+
+# The degree that reaches each tool, read in the stub calls of <stub>.
+run_selftest_preci_jobs_reach_controls() {
+    # Unset CMAKE_BUILD_PARALLEL_LEVEL and GOMAXPROCS on a 16-core stub: the
+    # exports are what give `cmake --build` 13 instead of Ninja's nproc + 2,
+    # and gitleaks 13 threads instead of every core.
+    (
+        PATH="$1:$PATH"
+        unset CMAKE_BUILD_PARALLEL_LEVEL GOMAXPROCS
+        apply_preci_jobs > /dev/null
+        run_tidy_batch /selftest-build "$PRECI_JOBS" a.cpp b.cpp
+        run_cppcheck_batch /selftest-build "$PRECI_JOBS" a.cpp
+        stage_build
+        stage_gitleaks
+    ) > /dev/null 2>&1 || selftest_cleanup_fail "$1" "selftest preci_jobs: a rodada com as ferramentas falsas falhou"
+    # The caller's 6 wins (the leader's quota reaches this script this way).
+    (
+        PATH="$1:$PATH"
+        CMAKE_BUILD_PARALLEL_LEVEL=6
+        export CMAKE_BUILD_PARALLEL_LEVEL
+        apply_preci_jobs > /dev/null
+        run_tidy_batch /selftest-build "$PRECI_JOBS" c.cpp
+    ) > /dev/null 2>&1 || selftest_cleanup_fail "$1" "selftest preci_jobs: a rodada com o pedido 6 falhou"
+    chamadas="$(cat "$1/calls.txt" 2> /dev/null || true)"
+    for esperado_linha in \
+        "run-clang-tidy cbpl=13 -p /selftest-build -quiet -j 13 a.cpp b.cpp" \
+        "cppcheck cbpl=13 -j 13 --enable=warning,performance,portability" \
+        "cmake cbpl=13 --build $BUILD_DIR" \
+        "gitleaks gmp=13 detect --no-banner --source $ROOT_DIR" \
+        "run-clang-tidy cbpl=6 -p /selftest-build -quiet -j 6 c.cpp"; do
+        case "$chamadas" in
+            *"$esperado_linha"*) echo "selftest: preci_jobs chegou: '$esperado_linha' OK" ;;
+            *) selftest_cleanup_fail "$1" "selftest preci_jobs: esperado '$esperado_linha' entre as chamadas; obtido '$chamadas'" ;;
+        esac
+    done
+    n_chamadas="$(grep -c . "$1/calls.txt" || true)"
+    [ "$n_chamadas" = 5 ] || selftest_cleanup_fail "$1" "selftest preci_jobs: esperado 5 chamadas registradas, obtido $n_chamadas"
+}
+
+# A missing or invalid degree never falls back to the tool's default:
+# refused, and the tool is never called (the 5 calls of
+# run_selftest_preci_jobs_reach_controls stay 5).
+run_selftest_preci_jobs_refusal_controls() {
+    for grau_ruim in "" abc 0; do
+        if ( PATH="$1:$PATH"; run_tidy_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
+            selftest_cleanup_fail "$1" "selftest preci_jobs: run_tidy_batch aceitou o grau '$grau_ruim'"
+        fi
+        if ( PATH="$1:$PATH"; run_cppcheck_batch /selftest-build "$grau_ruim" d.cpp ) > /dev/null 2>&1; then
+            selftest_cleanup_fail "$1" "selftest preci_jobs: run_cppcheck_batch aceitou o grau '$grau_ruim'"
+        fi
+    done
+    if ( PATH="$1:$PATH"; CMAKE_BUILD_PARALLEL_LEVEL=abc; export CMAKE_BUILD_PARALLEL_LEVEL; apply_preci_jobs ) > /dev/null 2>&1; then
+        selftest_cleanup_fail "$1" "selftest preci_jobs: apply_preci_jobs aceitou CMAKE_BUILD_PARALLEL_LEVEL=abc"
+    fi
+    n_depois="$(grep -c . "$1/calls.txt" || true)"
+    [ "$n_depois" = 5 ] || selftest_cleanup_fail "$1" "selftest preci_jobs: um grau recusado chegou a chamar a ferramenta ($n_depois chamadas, esperado 5)"
+}
+
+# What apply_preci_jobs EXPORTS, read by a child process: the nproc it
+# reads (a 4-core runner with no request gets 1, not this machine's 13),
+# the nproc cap on a request above it, and the caller's GOMAXPROCS (99 in
+# every case) replaced by the one degree. The stub nproc of <stub> is
+# rewritten per case.
+run_selftest_preci_jobs_export_controls() {
+    stub_dir="$1"
+    esperar_exportado() {
+        nome="$1"; esperado="$2"; nucleos="$3"; pedido="$4"
+        printf '#!/bin/sh\necho %s\n' "$nucleos" > "$stub_dir/nproc"
+        obtido="$( PATH="$stub_dir:$PATH"; unset CMAKE_BUILD_PARALLEL_LEVEL; export GOMAXPROCS=99
+            [ "$pedido" = - ] || export CMAKE_BUILD_PARALLEL_LEVEL="$pedido"
+            apply_preci_jobs > /dev/null && sh -c 'echo "cbpl=${CMAKE_BUILD_PARALLEL_LEVEL:-} gmp=${GOMAXPROCS:-}"' )" || true
+        [ "$obtido" = "$esperado" ] && { echo "selftest: preci_jobs exporta, $nome OK"; return 0; }
+        selftest_cleanup_fail "$stub_dir" "selftest preci_jobs exporta, $nome: esperado '$esperado', obtido '$obtido'"
+    }
+    esperar_exportado "sem pedido, 4 nucleos (um executor do CI)" "cbpl=1 gmp=1" 4 -
+    esperar_exportado "pedido 32 em 16 nucleos" "cbpl=16 gmp=16" 16 32
+    esperar_exportado "sem pedido, 16 nucleos" "cbpl=13 gmp=13" 16 -
+}
+
+# PRECI-CLANG-BUILD: clang_build_tree on three throwaway CMake projects
+# that honour GLINTFX_WERROR the way cmake/GlintfxCompileOptions.cmake does:
+# a clean one passes (both modes), one with the exact shape of the
+# R2b defect in TWO files (an internal function used only inside decltype;
+# Clang says -Wunneeded-internal-declaration, GCC says nothing) is REPROVED
+# with both errors counted and both files named, and one with zero
+# translation units is REPROVED (L-40).
+run_selftest_clang_stage_controls() {
+    log "selftest: estagio 3b (build com Clang): limpo passa, a forma do defeito do Clang de 30/10 reprova, projeto sem unidade reprova (PRECI-CLANG-BUILD, L-40)"
+    # The selftest is the ctest case preci_selftest wherever clang-format,
+    # clang-tidy and cppcheck exist (tests/CMakeLists.txt), and clang-tidy
+    # does not bring clang++ along (Fedora's clang-tools-extra pulls only
+    # clang-libs, measured in the CI lint log of 30/10/2026): refusing here
+    # would be the spurious ctest failure that registration rule exists to
+    # avoid. So this control declares itself not applicable, printed; the
+    # real stage 3b still REFUSES without clang++. The CI lint job installs
+    # clang, so the control runs there.
+    if ! clang_compiler_present; then
+        echo "selftest: estagio clang NAO APLICAVEL neste host (clang++ ausente do PATH) - declarado; o estagio 3b de verdade recusa sem ele, ou pula por GLINTFX_PRECI_CLANG=skip, declarado"
+        return 0
+    fi
+    proj="$(mktemp -d "${TMPDIR}/glintfx-preci-clang.XXXXXX")" || fail "selftest clang: mktemp falhou"
+    clang_fixture_write_projects "$proj"
+    run_selftest_clang_clean_control "$proj"
+    run_selftest_clang_dirty_control "$proj"
+    run_selftest_clang_empty_control "$proj"
+    run_selftest_clang_unknown_mode_control "$proj"
+    run_selftest_clang_absence_controls "$proj"
+    rm -rf "$proj"
+    echo "selftest: estagio clang OK (2 limpos, 1 sujo com 2 erros, 1 vazio, 1 modo desconhecido, ausencia recusada e pulo declarado)"
+}
+
+# The three throwaway CMake projects in <dir>: limpo (one clean file), sujo
+# (the shape of the defect in TWO files) and vazio (no translation unit).
+clang_fixture_write_projects() {
+    proj="$1"
+    for caso in limpo sujo vazio; do
+        mkdir -p "$proj/$caso" || selftest_cleanup_fail "$proj" "selftest clang: mkdir falhou"
+        {
+            echo 'cmake_minimum_required(VERSION 4.1)'
+            echo 'project(preci_clang_fixture LANGUAGES CXX)'
+            echo 'set(CMAKE_CXX_STANDARD 23)'
+            echo 'set(CMAKE_CXX_STANDARD_REQUIRED ON)'
+            echo 'add_compile_options(-Wall -Wextra -Wpedantic)'
+            echo 'if(GLINTFX_WERROR)'
+            echo '  add_compile_options(-Werror)'
+            echo 'endif()'
+            case "$caso" in
+                vazio) echo 'add_custom_target(nothing_to_compile)' ;;
+                sujo) echo 'add_library(fixture STATIC fixture.cpp fixture2.cpp)' ;;
+                *) echo 'add_library(fixture STATIC fixture.cpp)' ;;
+            esac
+        } > "$proj/$caso/CMakeLists.txt"
+    done
+    {
+        echo 'int glintfx_preci_clang_fixture() { return 0; }'
+    } > "$proj/limpo/fixture.cpp"
+    {
+        echo '#include <type_traits>'
+        echo 'namespace {'
+        echo 'int only_in_decltype(int value) { return value; }'
+        echo '}'
+        echo 'static_assert(std::is_same_v<decltype(only_in_decltype(1)), int>);'
+        echo 'int glintfx_preci_clang_fixture() { return 0; }'
+    } > "$proj/sujo/fixture.cpp"
+    sed 's/glintfx_preci_clang_fixture/glintfx_preci_clang_fixture2/' "$proj/sujo/fixture.cpp" > "$proj/sujo/fixture2.cpp" \
+        || selftest_cleanup_fail "$proj" "selftest clang: sed falhou"
+}
+
+# The clean project of <dir> passes in both modes, with its summary line.
+run_selftest_clang_clean_control() {
+    saida="$(clang_build_tree "$1/limpo" "$1/limpo/b-compartilhado" compartilhado 2>&1)" \
+        || selftest_cleanup_fail "$1" "selftest clang: o projeto limpo foi reprovado (compartilhado): $saida"
+    case "$saida" in
+        *"clang[compartilhado]: unidades=1 rc_configure=0 rc_build=0 erros=0 "*) echo "selftest: clang limpo (compartilhado) OK" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: linha de resumo do limpo inesperada: $saida" ;;
+    esac
+    saida="$(clang_build_tree "$1/limpo" "$1/limpo/b-estatico" estatico 2>&1)" \
+        || selftest_cleanup_fail "$1" "selftest clang: o projeto limpo foi reprovado (estatico): $saida"
+    echo "selftest: clang limpo (estatico) OK"
+}
+
+# The dirty project of <dir> is reproved by the right warning, with both
+# errors counted and both files named. Built ONE edge at a time: only
+# `-k 0` reaches the second error (Ninja's default stops at the first
+# failed edge).
+run_selftest_clang_dirty_control() {
+    if saida="$(CMAKE_BUILD_PARALLEL_LEVEL=1 clang_build_tree "$1/sujo" "$1/sujo/b" compartilhado 2>&1)"; then
+        selftest_cleanup_fail "$1" "selftest clang: a forma do defeito de 30/10 PASSOU (o estagio nao morde): $saida"
+    fi
+    case "$saida" in
+        *"Wunneeded-internal-declaration"*"clang[compartilhado]: unidades=2 rc_configure=0 rc_build="[1-9]*" erros=2 "*"arquivos_com_erro=[fixture.cpp fixture2.cpp]"*) echo "selftest: clang sujo reprovado pelo aviso certo, os dois arquivos nomeados (-k 0, um passo por vez) OK" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: o sujo reprovou, mas nao pelo aviso esperado, sem os dois erros (-k 0) ou sem nomear os arquivos: $saida" ;;
+    esac
+}
+
+# The project of <dir> with no translation unit is reproved (L-40).
+run_selftest_clang_empty_control() {
+    if saida="$(clang_build_tree "$1/vazio" "$1/vazio/b" compartilhado 2>&1)"; then
+        selftest_cleanup_fail "$1" "selftest clang: o projeto SEM unidade de traducao passou (varredura vazia aprovada): $saida"
+    fi
+    case "$saida" in
+        *"clang[compartilhado]: unidades=0 "*) echo "selftest: clang sem unidade reprovado (piso de varredura) OK" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: o vazio reprovou sem dizer unidades=0: $saida" ;;
+    esac
+}
+
+# A mode other than compartilhado or estatico is refused.
+run_selftest_clang_unknown_mode_control() {
+    if clang_build_tree "$1/limpo" "$1/limpo/b-x" outro > /dev/null 2>&1; then
+        selftest_cleanup_fail "$1" "selftest clang: modo desconhecido aceito"
+    fi
+}
+
+# The real stage without clang++ on PATH (GODS_LAWS.md L-02): refuses by
+# default, and skips only when the caller declares it. <dir> is the
+# scratch directory removed on failure.
+run_selftest_clang_absence_controls() {
+    saida="$( PATH=/nonexistent; unset GLINTFX_PRECI_CLANG; clang_presence_or_skip 3b 2>&1 )" || true
+    case "$saida" in
+        *"PULADO"*) selftest_cleanup_fail "$1" "selftest clang: sem clang++ e sem declaracao, o estagio pulou (a ausencia passou calada): $saida" ;;
+        *"estagio 3b recusado: clang++ ausente do PATH"*) ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: sem clang++ e sem declaracao, o estagio nao recusou: $saida" ;;
+    esac
+    saida="$( PATH=/nonexistent; GLINTFX_PRECI_CLANG=skip; clang_presence_or_skip 3b 2>&1 )" \
+        && selftest_cleanup_fail "$1" "selftest clang: com o pulo declarado, o estagio seguiu como se o clang++ existisse: $saida"
+    case "$saida" in
+        *"PULADO POR DECLARACAO (GLINTFX_PRECI_CLANG=skip, clang++ ausente)"*) echo "selftest: clang ausente recusa, e o pulo so com declaracao, impresso OK" ;;
+        *) selftest_cleanup_fail "$1" "selftest clang: o pulo declarado nao saiu impresso: $saida" ;;
+    esac
 }
 
 run_selftest_ccache_controls() {
@@ -2210,17 +2829,22 @@ run_selftest_ccache_mask_controls() {
     mask_root="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-mask.XXXXXX")" \
         || fail "selftest ccache mascara: mktemp falhou"
     falhar() { rm -rf "$mask_root"; fail "$@"; }
-    mkdir "$mask_root/bin" "$mask_root/mask" || falhar "selftest ccache mascara: mkdir falhou"
+    mkdir "$mask_root/bin" "$mask_root/mask" "$mask_root/maskclang" || falhar "selftest ccache mascara: mkdir falhou"
     printf '#!/bin/sh\nexit 0\n' > "$mask_root/bin/ccache"
     chmod +x "$mask_root/bin/ccache"
     for nome in c++ cc g++ gcc; do
         ln -s "$mask_root/bin/ccache" "$mask_root/mask/$nome" || falhar "selftest ccache mascara: ln falhou"
     done
+    # A second mask dir with ONLY clang++/clang (PRECI-CLANG-BUILD): stage 3b
+    # compiles with clang++, so this one has to leave PATH as well.
+    for nome in clang++ clang; do
+        ln -s "$mask_root/bin/ccache" "$mask_root/maskclang/$nome" || falhar "selftest ccache mascara: ln falhou"
+    done
     observar() {
         (
             unset CCACHE_DISABLE
             GLINTFX_PRECI_CCACHE="$1"
-            PATH="$mask_root/mask:$mask_root/bin:$PATH"
+            PATH="$mask_root/mask:$mask_root/maskclang:$mask_root/bin:$PATH"
             estado="$(setup_ccache /selftest-root)" || true
             # setup_ccache exports: re-run it in this shell for the environment.
             setup_ccache /selftest-root > /dev/null
@@ -2228,19 +2852,23 @@ run_selftest_ccache_mask_controls() {
                 *":$mask_root/mask:"*) echo "mascara=no-PATH" ;;
                 *) echo "mascara=fora-do-PATH" ;;
             esac
+            case ":$PATH:" in
+                *":$mask_root/maskclang:"*) echo "mascara_clang=no-PATH" ;;
+                *) echo "mascara_clang=fora-do-PATH" ;;
+            esac
             echo "disable=${CCACHE_DISABLE:-}"
             echo "$estado" | grep '^ccache: mascaras retiradas' || echo "mascaras retiradas: linha ausente"
         )
     }
     obtido="$(observar 0)"
     case "$obtido" in
-        *"mascara=fora-do-PATH"*"disable=1"*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave desligada OK" ;;
-        *) falhar "selftest ccache mascara (chave 0): esperado mascara fora do PATH, CCACHE_DISABLE=1 e '1' retirada; obtido '$obtido'" ;;
+        *"mascara=fora-do-PATH"*"mascara_clang=fora-do-PATH"*"disable=1"*"mascaras retiradas do PATH: 2"*) echo "selftest: ccache mascara com a chave desligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 0): esperado as duas mascaras fora do PATH, CCACHE_DISABLE=1 e '2' retiradas; obtido '$obtido'" ;;
     esac
     obtido="$(observar 1)"
     case "$obtido" in
-        *"mascara=fora-do-PATH"*"disable="*"mascaras retiradas do PATH: 1"*) echo "selftest: ccache mascara com a chave ligada OK" ;;
-        *) falhar "selftest ccache mascara (chave 1): esperado mascara fora do PATH e '1' retirada; obtido '$obtido'" ;;
+        *"mascara=fora-do-PATH"*"mascara_clang=fora-do-PATH"*"disable="*"mascaras retiradas do PATH: 2"*) echo "selftest: ccache mascara com a chave ligada OK" ;;
+        *) falhar "selftest ccache mascara (chave 1): esperado as duas mascaras fora do PATH e '2' retiradas; obtido '$obtido'" ;;
     esac
     rm -rf "$mask_root"
 }
@@ -2375,7 +3003,138 @@ run_selftest_cache_state_controls() {
     echo "selftest: cronometro cobre todos os modos ($cobertos chamadas de timed_stage, nenhuma chamada de estagio sem ele)"
 }
 
+# PRECI-TETO (GODS_LAWS.md L-11 global, item 2b; L-36 global): every pwsh
+# container of stage_ps_syntax is created with its own ceiling, the
+# ceiling is read back from the container object before it starts, and a
+# container without it is removed without ever starting. A stub `docker`
+# on PATH writes down every call and answers `inspect` with the line each
+# case wants; the real docker is never called here. The numbers are the
+# ones DECIDED for this ceiling (128 processes, 2 GiB, and the swap asked
+# equal to the memory), written here by hand and never read from the
+# constants under test.
+ps_container_write_stub() {
+    cat > "$1/docker" <<'GLINTFX_PS_STUB_EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$PS_STUB_LOG"
+case "$1" in
+    create) echo 0123456789abcdef0123456789abcdef ;;
+    inspect) [ -n "$PS_STUB_CEILING" ] || exit 1; echo "$PS_STUB_CEILING" ;;
+    start) exit "$PS_STUB_START_RC" ;;
+esac
+exit 0
+GLINTFX_PS_STUB_EOF
+    chmod +x "$1/docker"
+}
+
+# One case against the stub: prints "rc=<status>", then every call the
+# stub wrote down, one per line.
+ps_container_case() {
+    : > "$1/calls.log"
+    case_rc=0
+    (
+        PATH="$1:$PATH"
+        PS_STUB_LOG="$1/calls.log"
+        PS_STUB_CEILING="$2"
+        PS_STUB_START_RC="$3"
+        export PATH PS_STUB_LOG PS_STUB_CEILING PS_STUB_START_RC
+        run_ps_container -v /a:/b:ro,z glintfx-ps-stub-image pwsh -File /b/x.ps1
+    ) > "$1/out.log" 2>&1 || case_rc=$?
+    echo "rc=$case_rc"
+    cat "$1/calls.log"
+}
+
+# Status 0 when the case output ($1) has the line $2, whole.
+ps_case_has() {
+    grep -q -x -F -- "$2" <<<"$1"
+}
+
+# Status 0 when the case output ($1) never started a container.
+ps_case_never_started() {
+    ! grep -q '^start' <<<"$1"
+}
+
+run_selftest_ps_container_controls() {
+    log "selftest: o teto dos conteineres pwsh do GATE-PS-SYNTAX (PRECI-TETO, L-11 global item 2b)"
+    stub="$(mktemp -d "${TMPDIR}/glintfx-ps-stub.XXXXXX")" || fail "selftest ps_container: mktemp falhou"
+    ps_container_write_stub "$stub"
+    cid=0123456789abcdef0123456789abcdef
+    made="create --pull never --pids-limit 128 --memory 2147483648 --memory-swap 2147483648 -v /a:/b:ro,z glintfx-ps-stub-image pwsh -File /b/x.ps1"
+    ruins=0
+    out="$(ps_container_case "$stub" "128 2147483648 2147483648" 0)"
+    { ps_case_has "$out" rc=0 && ps_case_has "$out" "$made" && ps_case_has "$out" "start --attach $cid" \
+        && ps_case_has "$out" "rm -f $cid"; } \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: A, teto lido igual ao decidido (esperado rc=0, o create com o teto, start e rm): $out"; }
+    # A host without the swap controller: docker drops --memory-swap and
+    # reads back -1. Processes and memory still hold, so the container
+    # runs, and the line printed says what the object carries.
+    out="$(ps_container_case "$stub" "128 2147483648 -1" 0)"
+    { ps_case_has "$out" rc=0 && ps_case_has "$out" "$made" && ps_case_has "$out" "start --attach $cid" \
+        && ps_case_has "$out" "rm -f $cid"; } \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: G, swap descartado pelo hospedeiro (esperado rc=0, start e rm): $out"; }
+    for lido in "<nil> 0 0" "128 0 0" ""; do
+        out="$(ps_container_case "$stub" "$lido" 0)"
+        { ! ps_case_has "$out" rc=0 && ps_case_never_started "$out" && ps_case_has "$out" "rm -f $cid"; } \
+            || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: teto lido '$lido' (esperado rc diferente de 0, nenhum start, e o rm): $out"; }
+    done
+    out="$(ps_container_case "$stub" "128 2147483648 2147483648" 7)"
+    { ps_case_has "$out" rc=7 && ps_case_has "$out" "rm -f $cid"; } \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_container FALHOU: E, o conteiner saiu 7 (esperado rc=7 e o rm): $out"; }
+    rm -rf "$stub"
+    echo "selftest: ps_container casos=6 falhas=$ruins"
+    [ "$ruins" = 0 ] || fail "selftest ps_container: $ruins caso(s) reprovado(s) (PRECI-TETO)"
+}
+
+# PRECI-TETO-FIX1 (GODS_LAWS.md L-36 global; L-40 of the project): the
+# container launch lines of the file $1, outside comments: `docker run`,
+# `docker create`, `docker container run` and `docker container create`.
+# The regex stays on one line, and the selftest fixture spells the word
+# through a variable, so no line of this script counts itself.
+ps_launch_lines() {
+    grep -E '^[^#]*docker[[:space:]]+(container[[:space:]]+)?(run|create)([[:space:]]|$)' "$1" || true
+}
+
+# PRECI-TETO-FIX1: prints "<launches> <launches with --pids-limit>" for
+# the file $1.
+ps_launch_counts() {
+    local lines n m
+    lines="$(ps_launch_lines "$1")"
+    n="$(grep -c . <<<"$lines" || true)"
+    m="$(grep -c -F -- '--pids-limit' <<<"$lines" || true)"
+    echo "$n $m"
+}
+
+# PRECI-TETO-FIX1: the launch count, first on a fixture (H: every spelling
+# of a launch is seen, a comment and a look-alike word are not) and then on
+# this script itself (F: exactly one launch, the ceilinged create of
+# ps_container_create). A launch written anywhere else would carry no
+# ceiling.
+run_selftest_ps_launch_count_controls() {
+    log "selftest: contagem de lancamentos de conteiner no proprio preci.sh (PRECI-TETO, L-36 global)"
+    fixture="$(mktemp "${TMPDIR}/glintfx-ps-launch.XXXXXX")" || fail "selftest ps_launch: mktemp falhou"
+    d=docker
+    printf '%s\n' "$d run --rm img" "    $d container create img" "# $d run img" \
+        "out=\"\$($d container run --pids-limit 1 img)\"" "echo $d-runner" > "$fixture"
+    ruins=0
+    got="$(ps_launch_counts "$fixture")"
+    [ "$got" = "3 1" ] \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_launch FALHOU: H, fixture com as quatro grafias e um comentario (esperado 3 1, lido $got): $(ps_launch_lines "$fixture")"; }
+    got="$(ps_launch_counts "$ROOT_DIR/tools/preci.sh")"
+    [ "$got" = "1 1" ] \
+        || { ruins=$((ruins + 1)); echo "selftest: ps_launch FALHOU: F, lancamentos no script (esperado 1 1, lido $got): $(ps_launch_lines "$ROOT_DIR/tools/preci.sh")"; }
+    rm -f "$fixture"
+    echo "selftest: ps_launch casos=2 falhas=$ruins"
+    [ "$ruins" = 0 ] || fail "selftest ps_launch: $ruins caso(s) reprovado(s) (PRECI-TETO)"
+}
+
 run_selftest() {
+    # Variables that pin a repository whatever directory git runs in, and
+    # that GIT_CEILING_DIRECTORIES does not reach (git(1), ENVIRONMENT).
+    # Inherited from a caller (a git hook, say), they would send the git
+    # calls of the fixtures below into the caller's repository instead of
+    # the fixture's own (SUITE-TMPDIR-PATHS). This process is --selftest
+    # only, so dropping them here touches nothing else.
+    unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+        GIT_ALTERNATE_OBJECT_DIRECTORIES
     run_selftest_positive_control
     run_selftest_negative_control
     run_selftest_empty_scan_control
@@ -2387,11 +3146,16 @@ run_selftest() {
     run_selftest_noexcept_alloc_controls
     run_selftest_floor_controls
     run_selftest_ctest_jobs_controls
+    run_selftest_count_project_builds_controls
+    run_selftest_preci_jobs_controls
+    run_selftest_clang_stage_controls
     run_selftest_ccache_controls
     run_selftest_ccache_mask_controls
     run_selftest_ccache_preconfigured_controls
     run_selftest_stage_times_controls
     run_selftest_cache_state_controls
+    run_selftest_ps_container_controls
+    run_selftest_ps_launch_count_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -2413,6 +3177,13 @@ run_sanitizer_only() {
     timed_stage "7: sanitizer (ASan/UBSan)" stage_sanitizer
     report_stage_times
     echo "preci.sh --sanitizer-only: VERDE"
+}
+
+run_clang_only() {
+    timed_stage "3b: build com Clang (segundo compilador do CI, -Werror, -k 0, os dois modos)" stage_clang_build
+    timed_stage "11: ctest sob Clang (os dois modos, como o job clang do CI)" stage_clang_ctest
+    report_stage_times
+    echo "preci.sh --clang-only: VERDE"
 }
 
 run_debug_only() {
@@ -2564,6 +3335,7 @@ run_full_pipeline() {
     timed_stage "2: configure (-Werror)" stage_configure
     timed_stage "2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real" stage_blob
     timed_stage "3: build" stage_build
+    timed_stage "3b: build com Clang (segundo compilador do CI, -Werror, -k 0, os dois modos)" stage_clang_build
     timed_stage "4: clang-tidy" stage_tidy
     timed_stage "5: cppcheck" stage_cppcheck
     timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
@@ -2575,11 +3347,13 @@ run_full_pipeline() {
         echo "preci.sh --fast: estagio 8 (debug) PULADO"
         echo "preci.sh --fast: estagio 9 (win32-link) PULADO"
         echo "preci.sh --fast: estagio 10 (container-link) PULADO - custo medido ~3m30s, ver o cabecalho de stage_container_link()"
+        echo "preci.sh --fast: estagio 11 (ctest sob Clang) PULADO - o build com Clang (3b) rodou; a suite sob Clang roda em --clang-only e no servidor"
     else
         timed_stage "7: sanitizer (ASan/UBSan)" stage_sanitizer
         timed_stage "8: debug (NDEBUG indefinido, assert() de produto ligado)" stage_debug
         timed_stage "9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)" stage_win32_link strict
         timed_stage "10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)" stage_container_link
+        timed_stage "11: ctest sob Clang (os dois modos, como o job clang do CI)" stage_clang_ctest
     fi
     report_stage_times
     record_green_baseline
@@ -2623,7 +3397,9 @@ setup_ccache() {
     CCACHE_STATE="desligado"
     # Hosts that mask the compiler (Fedora: /usr/lib64/ccache on PATH via
     # /etc/profile.d) would make c++/cc BE ccache, so the switch could not
-    # turn it off. Drop every PATH component whose c++/cc/g++/gcc resolves to
+    # turn it off. Stage 3b runs clang++, so a mask dir holding only clang++/
+    # clang counts too (PRECI-CLANG-BUILD).
+    # Drop every PATH component whose c++/cc/g++/gcc/clang++/clang resolves to
     # the ccache binary; ccache then enters only through the explicit launcher.
     _cc_masks=0
     _cc_bin="$(command -v ccache 2> /dev/null)" || _cc_bin=""
@@ -2634,7 +3410,7 @@ setup_ccache() {
         IFS=:
         for _cc_dir in $PATH; do
             _cc_is_mask=0
-            for _cc_name in c++ cc g++ gcc; do
+            for _cc_name in c++ cc g++ gcc clang++ clang; do
                 if [ -n "$_cc_dir" ] && [ -e "$_cc_dir/$_cc_name" ] \
                     && [ "$(readlink -f "$_cc_dir/$_cc_name")" = "$_cc_bin" ]; then
                     _cc_is_mask=1
@@ -2674,13 +3450,13 @@ setup_ccache() {
     echo "ccache: ligado (dir=$CCACHE_DIR, limite=$CCACHE_MAXSIZE, basedir=$CCACHE_BASEDIR)"
 }
 
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
@@ -2691,6 +3467,7 @@ main() {
     fi
 
     setup_ccache "$ROOT_DIR"
+    apply_preci_jobs
 
     if [ "$mode" != "--selftest" ]; then
         case "$mode" in
@@ -2713,6 +3490,9 @@ main() {
             ;;
         --sanitizer-only)
             run_sanitizer_only
+            ;;
+        --clang-only)
+            run_clang_only
             ;;
         --debug-only)
             run_debug_only

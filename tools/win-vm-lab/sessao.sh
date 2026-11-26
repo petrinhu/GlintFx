@@ -118,6 +118,14 @@ PRAZO_PING_DEFAULT=120
 SCRIPT_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)/$(basename -- "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
 
+# O fixture guarda o espaco reservado da raiz do projeto (W8 deep verification C7-1); a copia que
+# vai ao portao de isolamento recebe a raiz de quem roda, a mesma que o portao aceita como ALLOW_RO.
+copiar_fixture_limpo() {
+  local destino="$1" raiz
+  raiz="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+  sed -e "s|/caminho/do/projeto/GlintFx|${raiz}|" "${SCRIPT_DIR}/fixtures/dominio-limpo.xml" > "$destino"
+}
+
 uso() {
   echo "Uso: $0 [--dom <nome>] [--connect <uri>] [--lock <caminho>] [--base <qcow2>] [--overlay <qcow2>]" >&2
   echo "          [--ligar [--nvram-overlay <qcow2>] [--tpm-state-dir <dir>] [--tpm-state-dir-permanente <dir>] [--prazo-ping <segundos>]]" >&2
@@ -828,7 +836,7 @@ selftest_v5b_diff_exato() {
   local permanente copia rc_ok rc_listen rc_link rc_extra rc_duas
 
   permanente="${work_dir}/v5b-permanente.xml"
-  cp -- "${SCRIPT_DIR}/fixtures/dominio-limpo.xml" "$permanente"
+  copiar_fixture_limpo "$permanente"
 
   echo ">>> V5B-DIFF 1/5: copia legitima (as tres trocas, nada mais) -- esperado APROVAR"
   copia="${work_dir}/v5b-copia-legitima.xml"
@@ -889,7 +897,7 @@ selftest_v5b_portao_antes_do_create() {
   local chamadas_sabotada chamadas_legitima
 
   permanente="${work_dir}/v5b2-permanente.xml"
-  cp -- "${SCRIPT_DIR}/fixtures/dominio-limpo.xml" "$permanente"
+  copiar_fixture_limpo "$permanente"
 
   copia_legitima="${work_dir}/v5b2-copia-legitima.xml"
   aplicar_tres_trocas "$permanente" "$copia_legitima" \
@@ -1026,7 +1034,7 @@ selftest_v5b_tres_copias() {
   echo "duble-tpm-state" >"${tpm_perm}/tpm2-00.permall"
 
   permanente_fix="${work_dir}/v5b4-permanente.xml"
-  cp -- "${SCRIPT_DIR}/fixtures/dominio-limpo.xml" "$permanente_fix"
+  copiar_fixture_limpo "$permanente_fix"
   xmlstarlet ed -L -u "/domain/devices/disk[@device='disk']/source/@file" -v "$base_disco" "$permanente_fix"
   xmlstarlet ed -L -u "/domain/os/nvram" -v "$base_nvram" "$permanente_fix"
 
@@ -1196,7 +1204,7 @@ selftest_v5c_nvram_sem_backing() {
   echo "duble-tpm-state" >"${tpm_perm}/tpm2-00.permall"
 
   permanente_fix="${work_dir}/v5c-permanente.xml"
-  cp -- "${SCRIPT_DIR}/fixtures/dominio-limpo.xml" "$permanente_fix"
+  copiar_fixture_limpo "$permanente_fix"
   xmlstarlet ed -L -u "/domain/devices/disk[@device='disk']/source/@file" -v "$base_disco" "$permanente_fix"
   xmlstarlet ed -L -u "/domain/os/nvram" -v "$base_nvram" "$permanente_fix"
 

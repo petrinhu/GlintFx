@@ -22,6 +22,7 @@
 #include <glintfx/platform/gl/gpu.hpp>
 
 #include "platform/gl/gpu_kind_state.hpp"
+#include "platform/win32/first_present_map.hpp"
 
 // platform/win32/wgl_context_adapter.hpp - X-WGL (docs/plano-w6b-
 // placa-e-laco.md fatia 4, D-W6b-1/4/6/7/17/18, GODS_LAWS.md L-04/L-07/
@@ -180,6 +181,12 @@ class win32_gl_context_adapter {
     // `skipped_hidden` never touches the real GDI call), the one fact
     // no return-value assertion alone could distinguish from "SwapBuffers
     // was called and coincidentally reported success".
+    // Test seam (win32_first_present_maps_test): replaces the function that shows the window on the
+    // first presented frame; nullptr restores the real one.
+    void set_first_present_show_for_test(first_present_show_fn show) noexcept {
+        m_first_present_map.set_show_for_test(show);
+    }
+
     [[nodiscard]] std::uint32_t swap_calls_issued() const noexcept { return m_swap_calls_issued; }
 
   private:
@@ -201,6 +208,9 @@ class win32_gl_context_adapter {
     gpu_kind_state m_gpu;
 
     std::uint32_t m_swap_calls_issued = 0;
+
+    // WIN-MAP-FIRST-PRESENT (D-W8-38): shows the window once, right before the first SwapBuffers.
+    first_present_map m_first_present_map;
 
     bool m_msaa_supported = false;
     // D-SRGB2-1: the three facts srgb_option_support() (gfx_format_decision.hpp) reads, the same

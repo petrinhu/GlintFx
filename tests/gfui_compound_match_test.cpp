@@ -363,8 +363,9 @@ struct class_visit_relay {
     std::size_t *visit_count = nullptr;
 };
 
+// NOLINTNEXTLINE(misc-const-correctness) reason: the visit callback fixes this type
 [[nodiscard]] bool count_then_forward_visit(void *raw_relay, std::string_view class_name) noexcept {
-    auto *relay = static_cast<class_visit_relay *>(raw_relay);
+    const auto *relay = static_cast<const class_visit_relay *>(raw_relay);
     ++(*relay->visit_count);
     return relay->original_visit(relay->original_context, class_name);
 }

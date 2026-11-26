@@ -158,3 +158,63 @@ GLINTFX_TEST(take_serial_to_ack_is_single_use) {
     const std::optional<std::uint32_t> second = sequence.take_serial_to_ack();
     GLINTFX_CHECK(!second.has_value());
 }
+
+GLINTFX_TEST(serial_for_commit_has_nothing_before_any_configure) {
+    window_configure_sequence sequence;
+
+    GLINTFX_CHECK(!sequence.serial_for_commit(false).has_value());
+    GLINTFX_CHECK(!sequence.serial_for_commit(true).has_value());
+}
+
+GLINTFX_TEST(serial_for_commit_answers_at_once_a_configure_that_did_not_resize) {
+    window_configure_sequence sequence;
+    static_cast<void>(sequence.apply_configure(640, 480, {}, 7));
+
+    GLINTFX_CHECK(sequence.serial_for_commit(false) == std::optional<std::uint32_t>{7});
+    // Once per serial, the same rule as take_serial_to_ack() (D-W5-7).
+    GLINTFX_CHECK(!sequence.serial_for_commit(false).has_value());
+}
+
+GLINTFX_TEST(serial_for_commit_holds_a_resizing_configure_for_one_commit) {
+    window_configure_sequence sequence;
+    static_cast<void>(sequence.apply_configure(800, 600, {}, 7));
+
+    // This commit carries the buffer drawn before the resize: no ack yet.
+    GLINTFX_CHECK(!sequence.serial_for_commit(true).has_value());
+    GLINTFX_CHECK(sequence.serial_for_commit(false) == std::optional<std::uint32_t>{7});
+    GLINTFX_CHECK(!sequence.serial_for_commit(false).has_value());
+}
+
+GLINTFX_TEST(serial_for_commit_never_starves_under_a_resize_on_every_commit) {
+    window_configure_sequence sequence;
+
+    // A compositor that sends a new size before every commit (an interactive
+    // resize): each commit still answers the configure held by the one before.
+    static_cast<void>(sequence.apply_configure(800, 600, {}, 7));
+    GLINTFX_CHECK(!sequence.serial_for_commit(true).has_value());
+    static_cast<void>(sequence.apply_configure(801, 600, {}, 9));
+    GLINTFX_CHECK(sequence.serial_for_commit(true) == std::optional<std::uint32_t>{7});
+    static_cast<void>(sequence.apply_configure(802, 600, {}, 11));
+    GLINTFX_CHECK(sequence.serial_for_commit(true) == std::optional<std::uint32_t>{9});
+    GLINTFX_CHECK(sequence.serial_for_commit(false) == std::optional<std::uint32_t>{11});
+}
+
+GLINTFX_TEST(serial_for_commit_prefers_a_newer_configure_over_the_held_one) {
+    window_configure_sequence sequence;
+    static_cast<void>(sequence.apply_configure(800, 600, {}, 7));
+    GLINTFX_CHECK(!sequence.serial_for_commit(true).has_value());
+
+    // A later configure that changes no size, like losing the activated state:
+    // xdg-shell.xml, "it only has to ack the last configure event".
+    static_cast<void>(sequence.apply_configure(800, 600, {}, 9));
+    GLINTFX_CHECK(sequence.serial_for_commit(false) == std::optional<std::uint32_t>{9});
+    GLINTFX_CHECK(!sequence.serial_for_commit(false).has_value());
+}
+
+GLINTFX_TEST(serial_for_commit_does_not_repeat_the_first_ack) {
+    window_configure_sequence sequence;
+    static_cast<void>(sequence.apply_configure(640, 480, {}, 1));
+    GLINTFX_CHECK(sequence.take_serial_to_ack() == std::optional<std::uint32_t>{1});
+
+    GLINTFX_CHECK(!sequence.serial_for_commit(false).has_value());
+}

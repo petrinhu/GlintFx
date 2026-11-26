@@ -129,9 +129,8 @@ inline constexpr std::size_t k_color_expected_vocabulary_count = [] {
 inline constexpr std::array<std::string_view, k_color_expected_vocabulary_count>
     k_color_expected_vocabulary{
 #define GLINTFX_GFSS_COLOR_EXPECTED_ARRAY_ONE(name) k_color_expected_##name,
-        GLINTFX_GFSS_COLOR_EXPECTED_LIST(GLINTFX_GFSS_COLOR_EXPECTED_ARRAY_ONE)
+        GLINTFX_GFSS_COLOR_EXPECTED_LIST(GLINTFX_GFSS_COLOR_EXPECTED_ARRAY_ONE)};
 #undef GLINTFX_GFSS_COLOR_EXPECTED_ARRAY_ONE
-    };
 
 #undef GLINTFX_GFSS_COLOR_EXPECTED_LIST
 

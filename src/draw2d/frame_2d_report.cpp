@@ -13,6 +13,30 @@ std::string_view gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal reason) noexce
         return "infinite";
     case gltfx_draw_2d_refusal::negative_size:
         return "negative_size";
+    case gltfx_draw_2d_refusal::index_out_of_range:
+        return "index_out_of_range";
+    case gltfx_draw_2d_refusal::count_not_multiple_of_three:
+        return "count_not_multiple_of_three";
+    case gltfx_draw_2d_refusal::unknown_option:
+        return "unknown_option";
+    case gltfx_draw_2d_refusal::too_many_vertices:
+        return "too_many_vertices";
+    case gltfx_draw_2d_refusal::pixel_position_out_of_range:
+        return "pixel_position_out_of_range";
+    case gltfx_draw_2d_refusal::texture_not_open:
+        return "texture_not_open";
+    case gltfx_draw_2d_refusal::texture_other_renderer:
+        return "texture_other_renderer";
+    case gltfx_draw_2d_refusal::region_out_of_range:
+        return "region_out_of_range";
+    case gltfx_draw_2d_refusal::degenerate_quad:
+        return "degenerate_quad";
+    case gltfx_draw_2d_refusal::stencil_unavailable:
+        return "stencil_unavailable";
+    case gltfx_draw_2d_refusal::stale_region:
+        return "stale_region";
+    case gltfx_draw_2d_refusal::region_other_atlas:
+        return "region_other_atlas";
     }
     return "unknown"; // a value a NEWER glintfx produced (docs/api-conventions.md R4)
 }

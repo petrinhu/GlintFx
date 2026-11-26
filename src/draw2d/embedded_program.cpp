@@ -34,29 +34,53 @@ constexpr char k_vertex_source[] =
     "layout(location = 0) in vec2 a_position;\n"
     "layout(location = 1) in vec2 a_texcoord;\n"
     "layout(location = 2) in vec4 a_color;\n"
+    "layout(location = 3) in float a_texcoord_q;\n"
     "uniform vec2 u_viewport_pixels;\n"
-    "out vec2 v_texcoord;\n"
+    "out vec3 v_texcoord;\n"
     "out vec4 v_color;\n"
     "void main() {\n"
     "    vec2 clip = vec2(a_position.x / u_viewport_pixels.x * 2.0 - 1.0,\n"
     "                     1.0 - a_position.y / u_viewport_pixels.y * 2.0);\n"
     "    gl_Position = vec4(clip, 0.0, 1.0);\n"
-    "    v_texcoord = a_texcoord;\n"
+    "    v_texcoord = vec3(a_texcoord, a_texcoord_q);\n"
     "    v_color = a_color;\n"
     "}\n";
 
-// The color is already premultiplied (triangle_batch.hpp). With the context option
-// `srgb_framebuffer` ON the surface encodes for us and the color is written as it is; with it OFF
+// The color is already premultiplied (triangle_batch.hpp). A TEXTURED run (`u_textured` = 1,
+// T4b-B1, D-W8-473) multiplies it by the texel, read PROJECTIVELY: textureProj divides (u q, v q)
+// by q (projective_quad.hpp). A SILHOUETTE (`u_textured` = 2, R2D-SPRITE-SHADE H3b-3) multiplies it
+// by the ALPHA of the texel alone: the texture is the shape, the color is the tint's. The texel
+// comes out linear and premultiplied (the texture is stored sRGB with the premultiplied color
+// encoded, pixel_premultiply.hpp), so the product is the tint of gltfx_texture_paint applied as
+// texture_region.hpp promises. With the context option `srgb_framebuffer` ON the surface encodes
+// for us and the color is written as it is; with it OFF
 // (`u_encode_srgb` = 1) the program encodes to sRGB before the blend does its work, which is what
 // most 2D libraries do (D-W7D-12): un-premultiply, encode the straight color, premultiply again.
+// After the texel and before the encoding, a stencil pass of shadow_group.hpp may discard the
+// fragment by its alpha (`u_stencil_discard`, embedded_program.hpp; R2D-SPRITE-SHADE H3a).
 constexpr char k_fragment_source[] =
     "#version 330 core\n"
-    "in vec2 v_texcoord;\n"
+    "in vec3 v_texcoord;\n"
     "in vec4 v_color;\n"
     "uniform int u_encode_srgb;\n"
+    "uniform int u_textured;\n"
+    "uniform sampler2D u_texture;\n"
+    "uniform int u_stencil_discard;\n"
     "out vec4 frag_color;\n"
     "void main() {\n"
     "    vec4 color = v_color;\n"
+    "    if (u_textured == 1) {\n"
+    "        color *= textureProj(u_texture, v_texcoord);\n"
+    "    }\n"
+    "    if (u_textured == 2) {\n"
+    "        color *= textureProj(u_texture, v_texcoord).a;\n"
+    "    }\n"
+    "    if (u_stencil_discard == 1 && color.a < 0.5 / 255.0) {\n"
+    "        discard;\n"
+    "    }\n"
+    "    if (u_stencil_discard == 2 && color.a < 1.0 - 0.5 / 255.0) {\n"
+    "        discard;\n"
+    "    }\n"
     "    if (u_encode_srgb != 0 && color.a > 0.0) {\n"
     "        vec3 straight = color.rgb / color.a;\n"
     "        vec3 low = straight * 12.92;\n"
@@ -220,7 +244,20 @@ gltfx_rslt<embedded_program> create_embedded_program(const render::gl_function_t
     result.program = program.value();
     result.viewport_location = gl.glGetUniformLocation(result.program, "u_viewport_pixels");
     result.encode_srgb_location = gl.glGetUniformLocation(result.program, "u_encode_srgb");
+    result.textured_location = gl.glGetUniformLocation(result.program, "u_textured");
+    result.texture_location = gl.glGetUniformLocation(result.program, "u_texture");
+    result.stencil_discard_location = gl.glGetUniformLocation(result.program, "u_stencil_discard");
     return gltfx_rslt<embedded_program>::ok(result);
+}
+
+std::int32_t stencil_discard_of(stencil_pass pass) noexcept {
+    if (pass == stencil_pass::mark_shadow) {
+        return k_stencil_discard_transparent;
+    }
+    if (pass == stencil_pass::release_marks) {
+        return k_stencil_discard_not_opaque;
+    }
+    return k_stencil_discard_none;
 }
 
 void destroy_embedded_program(const render::gl_function_table &gl,

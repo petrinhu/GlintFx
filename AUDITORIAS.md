@@ -270,6 +270,11 @@ abrir a primeira janela.
   uinput — ele escreve no kernel, não numa sessão, e atravessa o container.
 - Prova de isolamento **antes** de interagir: `ss -xp` do processo sob teste aponta para o socket
   do compositor do container; `lsof -p <pid>` não mostra caminho do `XDG_RUNTIME_DIR` do host.
+- O container do compositor recebe **um** dispositivo, `/dev/udmabuf`, e nenhum outro (decisão do
+  líder de 07/11/2026; desvio de risco, `docs/adr-udmabuf-no-conteiner-de-teste.md`). Qualquer outro
+  `--device` em script de teste ou no `ci.yml` é achado, salvo as variantes de placa já registradas em
+  `tests/container/check_isolation.sh`. A cada auditoria, releia esse documento e confira que cada
+  passo da tabela de controles dele ainda existe no `ci.yml` com o nome escrito lá (L-77 global).
 
 **Estado hoje:** nenhum teste de janela existe ainda (não há backend, capítulo 5). Pré-registrado
 para quando a L-05/L-09 tiverem código a testar.

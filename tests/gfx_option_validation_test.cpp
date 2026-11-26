@@ -43,6 +43,24 @@ GLINTFX_TEST(validate_gfx_option_entry_refuses_an_id_outside_the_table) {
     GLINTFX_CHECK(result.err().rejected_value() == "1000");
 }
 
+// The widest id a std::uint16_t can carry prints in full. Five digits
+// is exactly the buffer validate_gfx_option_entry() prints into, so a
+// buffer one byte shorter degrades this case to the placeholder token
+// and fails here, while the four-digit case above would still pass
+// (GODS_LAWS.md L-43 global: the boundary itself, not a comfortable
+// value below it).
+GLINTFX_TEST(validate_gfx_option_entry_prints_the_widest_unknown_id_in_full) {
+    // The out-of-range cast below is the point of this case, not a
+    // mistake (the same pattern as the case above).
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: see comment above
+    const auto widest_id = static_cast<gltfx_gfx_option>(static_cast<std::uint16_t>(65535));
+    const glintfx::gltfx_rslt<void> result =
+        validate_gfx_option_entry(gltfx_gfx_option_entry{.id = widest_id, .value = 0}, false);
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "65535");
+}
+
 GLINTFX_TEST(validate_gfx_option_entry_refuses_a_value_below_the_range_naming_the_option) {
     // frame_rate_cap (id 1) has min_value 0.
     const glintfx::gltfx_rslt<void> result = validate_gfx_option_entry(

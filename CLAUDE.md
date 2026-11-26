@@ -23,24 +23,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | procurar prior art, base de código ou "como era antes" | L-01 projeto do zero |
 | ⚖ | desenhar API, escopo ou entregável | L-02 é biblioteca, não aplicação |
 | ⚖ | criar build, escolher padrão de linguagem | L-03 C++23 + CMake |
-| ⚖ | escrever CI, declarar suporte de plataforma, **fechar qualquer fatia, ou escrever ramo condicional por sistema** | L-04 alvos suportados (cinco originais mais as distros do astrometrica), CachyOS próprio; **comportamento igual em todo sistema, provado em cada um** |
+| ⚖ | escrever CI, declarar suporte de plataforma, **fechar qualquer fatia, escrever ramo condicional por sistema, ou trocar a imagem ou uma ferramenta do CI** | L-04 alvos suportados (cinco originais mais as distros do astrometrica), CachyOS próprio; **comportamento igual em todo sistema, provado em cada um**; **imagem e ferramentas do CI fixas durante a onda, as novas só na troca de onda** (20/11) |
 | ⚖ | tocar janela, input, display, ou copiar exemplo de internet | L-05 Wayland puro, sem X11 |
 | ⚖ | implementar teclado, keymap ou texto digitado | L-06 parser XKB próprio |
 | ⚖ | adicionar dependência, `FetchContent`, vendorizar | L-07 dependência zero |
 | ⚖ | criar repo, `LICENSE`, cabeçalho, publicar qualquer coisa | L-08 público, AGPL-3.0 |
 | ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 container, nunca a sessão viva |
 | ⚖ | escolher entre abordagens, decidir design ou arquitetura | L-10 opções via AskUserQuestion |
-| ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto | L-11 push por onda; ao fim de onda com tudo verde, merge e marca sem perguntar, número pela L-26; ramo da onda apagado ao mesclar |
-| ⚖ | escrever ou revisar código de produto | L-12 agente especialista, papéis distintos |
+| ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto | L-11 push por onda, ou onda com mais de 7 dias envia ao ramo dela só o revisado, e cópia privada diária; ao fim de onda com tudo verde, merge e marca só com o OK do líder ou com o modo autônomo do projeto ligado e dentro do prazo, número pela L-26; ramo da onda apagado ao mesclar; a cada push, apagar as imagens de teste de fatias fechadas |
+| ⚖ | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | L-12 agente especialista, papéis distintos; revisão com no máximo duas rodadas, só sobre o critério de pronto escrito antes da fatia, que pode ficar mais exigente e nunca mais frouxo (20/11) |
 | ⚖ | escrever qualquer mensagem ao líder | L-13 timestamp real |
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
 | ⚖ | fechar um marco ou notar a hora | L-15 nunca mandar descansar |
 | ⚖ | abrir sessão, precisar de algo de outro projeto, receber ideia do Gus | L-16 bus `gusworld_ia_autocomm` |
-| ⚖ | escrever função, arquivo, classe ou módulo novo, ou revisar fatia | L-17 proibido monolito **e** proibida fragmentação; números duros mais as cinco perguntas do revisor |
-| ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; C-level no modelo de `/modelos_sessao` audita e cria (fable só advisor, 02/10), sonnet implementa |
+| ⚖ | escrever função, arquivo, classe ou módulo novo do framework (`include/`, `src/`), ou revisar fatia que mexe nele | L-17 proibido monolito **e** proibida fragmentação no código do framework; números duros mais as cinco perguntas do revisor valem só ali; teste, ferramenta e documento se organizam como for melhor (20/11) |
+| ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; C-level audita e cria, agente operacional implementa, cada um no modelo de `/modelos_sessao` (20/11); prosa para leitor humano em opus com effort max; fable só advisor (02/10) |
 | ⚖ | criar módulo, tocar a fronteira do SO, desenhar API pública | L-19 camadas, portas em compile-time, fronteira opaca |
 | ⚖ | escrever qualquer código com comportamento | L-20 TDD estrito, vermelho antes de verde |
-| ⚖ | nomear qualquer coisa, escrever comentário, commit **ou documento** | L-21 inglês e `snake_case` no código, commit em pt-br; **documento se decide pelo LEITOR** |
+| ⚖ | nomear qualquer coisa, escrever comentário, commit **ou documento** | L-21 inglês e `snake_case` no código; **commit legível por quem não estava lá: texto explicativo em pt-br e em inglês, códigos internos só na linha de referências**; **documento se decide pelo LEITOR** |
 | ⚖ | projetar assinatura pública ou tratar erro | L-22 nenhuma exceção cruza a API pública |
 | ⚖ | commitar, fechar uma fatia, ou dar push | L-23 portões de qualidade e `preci.sh` |
 | ⚖ | pensar em cobertura, formatação ou auditoria | L-24 sem meta de cobertura, clang-format LLVM, dossiê na 1.0 |
@@ -51,10 +51,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | não saber como implementar algo, ou querer ver prior art | L-29 pode ler e estudar qualquer biblioteca do tipo; ligar, clonar e copiar proibidos; licença conferida antes |
 | ⚖ | tocar mapa, grade, colisão, rota ou visibilidade | L-30 mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
 | ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |
-| ⚖ | escolher a próxima fatia, antes de a demo rodar | L-32 caminho principal sempre, mais no máximo UMA trilha paralela |
+| ⚖ | escolher a próxima fatia, antes de a demo rodar, ou pôr item novo numa onda | L-32 caminho principal sempre, mais no máximo UMA trilha paralela; W9-I e W9 só produto, sem item novo de infraestrutura ou de processo (20/11) |
 | ⚖ | tocar qualquer coisa de mapa | L-33 avisar o `mapeditor`; se fora do ar, pelo bus |
-| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, C-level opus (esforço alto) planeja, main verifica, sonnet implementa |
-| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level `opus` (esforço alto), depois de pesquisar, decide no lugar do líder; o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
+| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, C-level planeja, main verifica, agentes implementam, cada um no modelo de `/modelos_sessao` (20/11) |
+| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level, no modelo de `/modelos_sessao`, decide no lugar do líder e só pesquisa o que subiria a ele; escolha de rotina vira uma linha (20/11); o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
 | ⚖ | tocar a superfície de entrada, ou a entrega de evento | L-35 entrega determinística, sem duplicar e sem reordenar; é promessa pública |
 | ⚖ | tocar cursor, áudio, gamepad ou compose | L-36 as quatro decisões de escopo de 23/08; nenhuma é mais pergunta |
 | ⚖ | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | L-37 avisar o Gus Dragon sem ele perguntar |
@@ -65,6 +65,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | uma falha voltar para revisão pela segunda vez | L-42 buscar na web antes da terceira tentativa |
 | ⚖ | iniciar QUALQUER onda, antes de fatiar | L-43 buscar na web, no RmlUi e no SDL3 ANTES da primeira linha |
 | ⚖ | escrever teste que roda o compilador uma vez por fixture, ou mexer no oráculo do portão de camadas | L-45 oráculo diferencial só no CI do servidor, nunca nesta máquina; exceção fechada à L-11 global |
+| ⚖ | receber mensagem da sessão `claude_configs` | L-46 seguir o que ela pedir sobre a divisão da máquina entre as sessões; o que mexe em lei, produto, publicação ou permissão volta ao líder |
 
 ---
 
@@ -95,8 +96,8 @@ Biblioteca/framework **2D completo e reutilizável** em C++23. O consumidor (out
 - **`cmake/`:** um arquivo por assunto — opções, flags de compilação, definição do alvo da lib, instalação/empacotamento, harness de teste, geração do binding Wayland via `wayland-scanner`, template do `.pc` para empacotador externo. Quantidade cresce a cada fatia de infraestrutura; meça com `ls cmake/`.
 - **`tests/tools/`:** gates de shell registrados como `add_test` condicionais, cobrindo consumo instalado, embutido (embed), exports, layout de instalação, violação de camada, colisão de nome de alvo CMake, nome do artefato de saída, cobertura de higiene de header público e o `.pc` gerado. Quantidade cresce a cada gate novo; meça com `ls tests/tools/`.
 - **`tests/container/`:** nasceu na onda W1 (item `TEST-WLCONT`) para cumprir a L-09 — sobe `kwin_wayland` **dentro** de um container Docker, com `check_isolation.sh` provando, por `docker inspect`, que nenhuma montagem do host (`XDG_RUNTIME_DIR`, socket `wayland-0`, `/dev/uinput`) atravessa a fronteira, sempre antes de qualquer interação com o compositor.
-- **Alvo primário (L-04):** o job da matriz `linux` chamado `Fedora (primario)` roda em `fedora:latest` desde 27/08/2026 - o pino em `fedora:44` foi solto por ordem do líder, e a matriz inteira (Fedora e Ubuntu; Arch e CachyOS já eram `:latest`) passou a usar `:latest`. **Não leia o número da versão daqui:** a razão do pino (o alvo primário falhar quando a máquina do líder falharia) e o estado atual estão em `ESCOPO.md` §1, que é quem acompanha essa decisão.
-- **Os portões que a onda W1 acrescentou (L-23):** `-Werror`/`/WX` ligado nos dois modos (shared e estático) dos jobs Linux e Windows via `-DGLINTFX_WERROR=ON`; três jobs de CI dedicados — `lint` (clang-format, clang-tidy, cppcheck), `sanitizer` (ASan/UBSan) e `gitleaks` (scan de segredo, `fetch-depth 0`, histórico inteiro) — todos rodando só no alvo primário (Fedora, `fedora:latest` — não leia o número da versão daqui, ver o bullet acima); e o script local `tools/preci.sh`, espelho do CI, com os modos `--fast`, `--lint-only`, `--sanitizer-only` e `--selftest` (este último provado contra fixtures em `tests/preci_fixtures/`, não contra a árvore real).
+- **Alvo primário (L-04):** o job da matriz `linux` chamado `Fedora (primario)`. **Desde 20/11/2026, por decisão do líder, a imagem do CI fica fixa durante a onda, e CMake, KWin e Clang novos só entram na troca de onda** (regra e verbatim na L-04 do `GODS_LAWS.md`). **Não leia daqui qual imagem o CI usa:** meça com `grep -nE '(container|imagem): ' .github/workflows/ci.yml`.
+- **Os portões que a onda W1 acrescentou (L-23):** `-Werror`/`/WX` ligado nos dois modos (shared e estático) dos jobs Linux e Windows via `-DGLINTFX_WERROR=ON`; três jobs de CI dedicados — `lint` (clang-format, clang-tidy, cppcheck), `sanitizer` (ASan/UBSan) e `gitleaks` (scan de segredo, `fetch-depth 0`, histórico inteiro) — todos rodando só no alvo primário (Fedora, na imagem fixa da onda — não leia o número da versão daqui, ver o bullet acima); e o script local `tools/preci.sh`, espelho do CI, com os modos `--fast`, `--lint-only`, `--sanitizer-only` e `--selftest` (este último provado contra fixtures em `tests/preci_fixtures/`, não contra a árvore real).
 - **Os quatro jobs acrescentados pela onda W1 (`lint`, `sanitizer`, `gitleaks`, `wayland-container`) estrearam no GHA real em 25/08/2026, e um deles quebrou na estreia.** O `sanitizer` morreu no link com `cannot find libasan.so`: no Fedora, `libasan`/`libubsan` são pacotes **separados** do `gcc-c++`, e o job nunca os instalava — **passava localmente porque a máquina do líder os tem**. Consertado e verde. **A regra que fica, e vale para todo job novo:** portão que nunca rodou no ambiente real **não é portão** — o verde que ele exibe é o de rodada local, e rodada local compartilha a máquina com quem o escreveu. **Antes de confiar num job, compare as duas listas:** a local (leia o `.github/workflows/ci.yml`) contra a da última execução empurrada (`gh run view $(gh run list --limit 1 --json databaseId -q '.[0].databaseId') --json jobs -q '.jobs[].name'`). Se a segunda for menor, o que falta ainda não foi exercido.
 - **Quarto componente de versão (item `VER-4C`, L-26):** `struct version` em `include/glintfx/core/version.hpp` ganhou `tweak_version` como quarto e último campo, casando com a tag `vA.B.C.D`. Reabertura de layout aceita só porque o projeto é pré-1.0 (`SOVERSION` ainda fixo em zero, sem consumidor externo conhecido).
 
@@ -117,7 +118,7 @@ Estas foram tomadas explicitamente via AskUserQuestion e são o ponto de partida
 
 ### Plataformas: Fedora é o alvo primário; CachyOS é alvo próprio
 
-**Fedora é o alvo primário**, por ser o sistema que o líder usa (ordem dele, 21/08/2026). **A partir de 27/08/2026, a imagem do CI é `fedora:latest`** (o pino antigo em `fedora:44` foi solto por ordem dele - texto completo e verbatim em `ESCOPO.md` §1, não repetido aqui para não apodrecer): o alvo primário continua tendo de falhar quando a máquina dele falharia, e a troca para `:latest` é o que garante isso sem exigir alguém subindo o número à mão a cada atualização dele. Os demais alvos são de portabilidade (desde 24/09/2026 incluem as distros varridas pelo astrometrica; ver `ESCOPO.md` §1).
+**Fedora é o alvo primário**, por ser o sistema que o líder usa (ordem dele, 21/08/2026). **Desde 20/11/2026, a imagem do CI fica fixa durante a onda, e CMake, KWin e Clang novos só entram na troca de onda** (decisão do líder; regra e verbatim na L-04 do `GODS_LAWS.md`). O efeito é que uma atualização no meio da onda não derruba trabalho que estava verde; o custo é que o alvo primário só acompanha a máquina do líder na troca de onda. Os demais alvos são de portabilidade (desde 24/09/2026 incluem as distros varridas pelo astrometrica; ver `ESCOPO.md` §1).
 
 **CachyOS não é "Arch renomeado" e não é coberto pelo job de Arch.** Ordem explícita do líder. Toolchain, flags de otimização, kernel e empacotamento do CachyOS diferem; a matriz de CI precisa de **uma entrada distinta por plataforma suportada** (as cinco originais, Fedora, Ubuntu, CachyOS, Arch e Windows, mais as distros do astrometrica desde 24/09/2026), e um verde no Arch não autoriza declarar CachyOS suportado.
 
@@ -166,7 +167,7 @@ Comandos provados verdes em 21/08/2026 (FUND-3), na forma exata usada pelo job `
 - Um único teste: `ctest --test-dir build -R <nome> --output-on-failure` (ex.: `-R version_test`)
 - Lint / análise estática: `<a definir>`
 
-Sempre com `export TMPDIR=/var/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs). **Número de casos por modo não é fixo aqui** — meça com `ctest --test-dir build -N` (shared) e `ctest --test-dir build-static -N` (estático); os dois modos diferem só por `visibility_test`, que exige `BUILD_SHARED_LIBS=ON` em Unix (é `nm -D` numa `.a`, não faz sentido no modo estático). Esta linha já gravou "3/2" e depois "9/8" como se fossem constantes; as duas versões apodreceram em dias — não repita o erro.
+Sempre com `export TMPDIR=<projeto>/.trabalho/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs; emenda de 22/10/2026 na L-09: fora da partição `/`). **Número de casos por modo não é fixo aqui** — meça com `ctest --test-dir build -N` (shared) e `ctest --test-dir build-static -N` (estático); os dois modos diferem só por `visibility_test`, que exige `BUILD_SHARED_LIBS=ON` em Unix (é `nm -D` numa `.a`, não faz sentido no modo estático). Esta linha já gravou "3/2" e depois "9/8" como se fossem constantes; as duas versões apodreceram em dias — não repita o erro.
 
 ## Isolamento obrigatório de teste (teclado, mouse, tela)
 
@@ -185,13 +186,14 @@ Ferramental presente nesta máquina (verificado 21/08/2026):
 | Xvfb, `xvfb-run`, injetor de input X11 | presentes no host, mas **PROIBIDOS aqui**: são X11, e o projeto é Wayland puro |
 | injetor via `/dev/uinput` | presente e com acesso de escrita para o usuário, e por isso **PROIBIDO**: uinput injeta no kernel, ou seja **na sessão real do líder**, container ou não |
 | `/dev/dri` | `card0`, `card1`, `renderD128`, `renderD129` |
+| `/dev/udmabuf` | presente (**meça, não leia daqui:** `ls -l /dev/udmabuf` e `uname -r`); é o **único** dispositivo que entra no container do compositor, e só na grafia da regra 4 abaixo |
 
 Regras de execução:
 
 1. **O container é a fronteira externa; o compositor vive dentro dele.** Suba `kwin_wayland` **dentro** do container (`--virtual` para headless de CI, `--socket <nome>` com `--width`/`--height` quando precisar de janela), e faça o app sob teste conectar nesse socket. Nada de Xvfb: é X11, e este projeto não tem backend X11.
 2. **NUNCA monte no container o `XDG_RUNTIME_DIR` do host nem o socket `wayland-0` do host.** Montar devolve ao processo a superfície do líder e anula todo o isolamento. `wl_display_connect(NULL)` cai no nome embutido `wayland-0` sozinho e resolve dentro do `XDG_RUNTIME_DIR`; desfazer a variável de ambiente **não** protege, só a ausência do socket protege.
 3. **NUNCA monte `/dev/uinput`, e não use injetor de input baseado nele.** uinput injeta evento no **kernel**, não numa sessão: o container não contém nada disso, e a tecla vai parar na sessão real do líder. Este é exatamente o caminho que já travou o touchpad dele. Input sintético de teste sai da **entrada virtual do compositor aninhado**, nunca do kernel.
-4. **GPU só quando o teste exigir GL real.** Sem `--device /dev/dri`, o render sai por software (llvmpipe) e o resultado é reprodutível na matriz de CI. Passar `/dev/dri` é decisão consciente por teste, não default.
+4. **GPU só quando o teste exigir GL real.** Sem `--device /dev/dri`, o render sai por software (llvmpipe) e o resultado é reprodutível na matriz de CI. Passar `/dev/dri` é decisão consciente por teste, não default. **O único dispositivo que o container do compositor recebe por padrão é `/dev/udmabuf`** (decisão do líder de 07/11/2026: desde a versão 6.8 o KWin só compõe por software com ele), sempre na grafia `--device /dev/udmabuf:/dev/udmabuf:rw`. Ele não é placa, não dá entrada e não dá tela; o `check_isolation.sh`, chamado com a variante `ci_udmabuf`, reprova qualquer outro dispositivo, um a mais ao lado dele e ele mesmo com permissão mais larga, e chamado sem variante reprova todos. Risco aceito e controles: `docs/adr-udmabuf-no-conteiner-de-teste.md`.
 5. **Prove o isolamento antes de interagir**, não depois: `ss -xp` do processo sob teste deve apontar para o socket do compositor do container, e `lsof -p <pid>` não pode mostrar nenhum caminho do `XDG_RUNTIME_DIR` do host.
 6. Quando o cenário não for testável ponta a ponta no ambiente disponível, **teste o seam de decisão e declare o downgrade**. Jamais venda teste de seam como e2e.
 7. A mesma imagem de container usada localmente é a que roda na matriz de CI das cinco plataformas. Teste que só passa fora do container não conta como passando.
@@ -218,11 +220,11 @@ Estado em 21/08/2026: `inbox/glintfx/` **vazia**, 28 mensagens no `archive/`. As
 
 Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e um framework 2D bate em todas elas.
 
-- **Build pesado vai para `/var/tmp`, com `export TMPDIR=/var/tmp`.** `/tmp` aqui é tmpfs (sai da RAM); build C++ grande enche o tmpfs e o link falha com "no space on device".
+- **Build pesado, temporários e provas vão para `<projeto>/.trabalho/`, com `export TMPDIR=<projeto>/.trabalho/tmp`** (emenda de 22/10/2026 na L-09 do `GODS_LAWS.md`: tirar da partição `/`, que tem só ~21 GiB; a pasta do projeto fica na partição `home`). `/tmp` aqui é tmpfs (sai da RAM) e continua proibido. As pastas antigas de `/var/tmp` deste projeto são atalhos para `.trabalho/`, para as ordens congeladas seguirem válidas. O orquestrador limpa `.trabalho/` depois de cada uso.
 - **Espaço em disco se mede com `btrfs filesystem usage /`** (sem `sudo`), lendo `Device unallocated` e o `min` de `Free (estimated)`. O `df` mente em btrfs.
 - **Teste que toca teclado, mouse ou tela roda em container, com compositor Wayland aninhado dentro dele.** Ver a seção "Isolamento obrigatório de teste" acima; é regra, não preferência. Injetor de input X11 ou de kernel está fora.
 - **Verificação de entregável visual é do `qa-engineer`**, independente de quem implementou, e o orquestrador reconfere o relatório do QA.
-- **Toda montagem de diretório do host num `docker run`/`docker create` nesta máquina precisa do sufixo SELinux de relabel** (`:Z` privado por padrão, `:ro,Z` quando só leitura, `:z` minúsculo só quando dois containers precisam do mesmo diretório ao mesmo tempo) — sem isso, `container_t` toma AVC `denied` do SELinux (`ausearch`/`journalctl -g denied`) mesmo com o `docker run` saindo com código correto de erro de permissão do processo interno, não do Docker. GODS_LAWS.md L-60: nunca `semodule`/`audit2allow` para contornar. Medido e corrigido em 06/09/2026 em `tools/msvc-container/armadilhas/compare.sh` e `tools/msvc-container/README.md` (`tools/preci.sh` já fazia certo, com `:ro,z`).
+- **Toda montagem de diretório do host num `docker run`/`docker create` nesta máquina precisa do sufixo SELinux de relabel, e o sufixo é SEMPRE o minúsculo** (`:z`, e `:ro,z` quando só leitura). A etiqueta privada (`:Z`) é proibida em pasta do projeto, ou em qualquer pasta que outra sessão ou o líder também usem. Decisão do líder de 20/11/2026, por AskUserQuestion, verbatim: *"Minúscula sempre (Recomendado)"*. Motivo: em 06/09/2026 a etiqueta privada tirou o acesso da sessão dele à pasta e gerou 10 mil alertas por minuto (memória "Container rouba etiqueta de segurança") — sem isso, `container_t` toma AVC `denied` do SELinux (`ausearch`/`journalctl -g denied`) mesmo com o `docker run` saindo com código correto de erro de permissão do processo interno, não do Docker. GODS_LAWS.md L-60: nunca `semodule`/`audit2allow` para contornar. Medido e corrigido em 06/09/2026 em `tools/msvc-container/armadilhas/compare.sh` e `tools/msvc-container/README.md` (`tools/preci.sh` já fazia certo, com `:ro,z`).
 
 ## Pendências
 

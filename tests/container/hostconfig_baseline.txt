@@ -1,5 +1,11 @@
 # tests/container/hostconfig_baseline.txt - SPDX-License-Identifier: AGPL-3.0-or-later
 #
+# KWIN-68-SEM-PLACA (11/11/2026): this file is the baseline of a check_isolation.sh call that names NO
+# variant, and it stays the shape with no device at all. Since KWin 6.8 the wayland-container CI job starts
+# its container with one device and is judged by the variant ci_udmabuf
+# (hostconfig_baseline_ci_udmabuf.txt). Where the text below says "the exact invocation the
+# wayland-container CI job [...] use", read: the invocation that job used when this file was measured.
+#
 # Measured baseline for check_isolation.sh's whole-block HostConfig
 # compare (GODS_LAWS.md L-40, ISO-BASELINE). This is a live capture,
 # not hand-written: `docker create --cap-drop=ALL --cap-add=SYS_NICE

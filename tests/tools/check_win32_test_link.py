@@ -412,6 +412,72 @@ def extract_win32_test_targets(cmake_text):
     return targets, exclusion_counts
 
 
+# --- 1b. extract_win32_tool_targets: executaveis Win32 que nao sao teste -------
+
+# QA-SCREEN-CAPTURE C2b-2 (desvio 1 da revisao C2b-1..3): a ferramenta de captura
+# (tests/tools/win32_window_capture.cpp) e' um `add_executable` sob `if(WIN32)`, nao um
+# glintfx_add_test(), e por isso este portao nunca a ligava: o link real so' acontecia no
+# servidor. Um executavel dentro de `if(WIN32)` que NAO liga glintfx::glintfx nem o harness e'
+# uma FERRAMENTA (fontes proprias, sem harness, sem glintfx.lib); o que liga um dos dois
+# (os *_parity_test, win32_facade_pin_test) continua fora deste portao e e' CONTADO como fora do
+# escopo, nunca silenciado (GODS_LAWS.md L-40).
+
+
+_ADD_EXECUTABLE_RE = re.compile(r"add_executable\(\s*(\w+)\s+(.*?)\)", re.DOTALL)
+_NOT_A_TOOL_LIBS = ("glintfx::glintfx", "glintfx_test_harness")
+
+
+def _line_under_win32(lines):
+    """True em cada linha que esta dentro de um if(WIN32) literal e de nenhum bloco que exclua o
+    Windows (mesmo walker if/elseif/else/endif de _line_exclusion_reasons)."""
+    flags = []
+    stack = []
+    for i, line in enumerate(lines):
+        if_match = _IF_RE.match(line)
+        elseif_match = _ELSEIF_RE.match(line)
+        if if_match:
+            stack.append(if_match.group(1).strip())
+        elif elseif_match:
+            if not stack:
+                fail(f"elseif() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack[-1] = elseif_match.group(1).strip()
+        elif _ELSE_RE.match(line):
+            if not stack:
+                fail(f"else() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack[-1] = "__else__"
+        elif _ENDIF_RE.match(line):
+            if not stack:
+                fail(f"endif() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack.pop()
+        flags.append("WIN32" in stack and not any(_excludes_windows(cond) for cond in stack))
+    return flags
+
+
+def extract_win32_tool_targets(cmake_text):
+    """(tools, out_of_scope_count): cada `add_executable(<nome> <fontes>)` dentro de if(WIN32) que
+    NAO liga glintfx::glintfx nem glintfx_test_harness e' uma ferramenta {name, kind, sources, libs}; os que ligam sao
+    contados em out_of_scope_count (nunca silenciados)."""
+    stripped_text = cmake_lexer.strip_comments(cmake_text)
+    under_win32 = _line_under_win32(stripped_text.splitlines())
+    tools = []
+    out_of_scope = 0
+    for match in _ADD_EXECUTABLE_RE.finditer(stripped_text):
+        if not under_win32[stripped_text.count("\n", 0, match.start())]:
+            continue
+        name = match.group(1)
+        libs = _extract_call_args(stripped_text, "target_link_libraries", name)
+        if any(lib in libs for lib in _NOT_A_TOOL_LIBS):
+            out_of_scope += 1
+            continue
+        sources = [
+            _resolve_project_source_dir_token(token)
+            for token in _tokenize_cmake_args(match.group(2))
+            if token.endswith((".cpp", ".cc", ".cxx"))
+        ]
+        tools.append({"name": name, "kind": "tool", "sources": sources, "libs": libs})
+    return tools, out_of_scope
+
+
 # --- 2. collect_win32_library_layout: src/**/CMakeLists.txt --------------
 
 
@@ -898,6 +964,47 @@ def build_harness_objects(image, repo_root, scratch, timeout_seconds):
 # --- 5. link_one_test -------------------------------------------------------
 
 
+def tool_link_command(tool):
+    """O `cl` de UMA ferramenta: so as fontes e libs dela (nada de harness nem glintfx.lib, que
+    trariam um segundo main() e uma DLL que ela nao usa)."""
+    name = tool["name"]
+    source_args = " ".join(shlex.quote(f"/src/{src}") for src in tool["sources"])
+    lib_flags = " ".join(f"{lib}.lib" for lib in dict.fromkeys(tool["libs"]))
+    link_clause = f"/link {lib_flags}".rstrip()
+    return (
+        "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /WX "
+        "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 "
+        f'/Fo"/build/objs_{name}/" /Fe"/build/{name}.exe" '
+        f"{source_args} {link_clause}"
+    )
+
+
+class DockerContext(NamedTuple):
+    """Tudo que uma chamada `docker run` do gate precisa e que nao muda de alvo para alvo (L-17:
+    quatro parametros no maximo, entao os quatro viram um)."""
+
+    image: str
+    repo_root: str
+    scratch: str
+    timeout_seconds: int
+    harness_objs: tuple = ()
+
+
+def link_one_tool(context, tool):
+    os.makedirs(os.path.join(context.scratch, f"objs_{tool['name']}"), exist_ok=True)
+    returncode, stdout, stderr, elapsed, timed_out = _run_docker(
+        context.image, context.repo_root, context.scratch, tool_link_command(tool), context.timeout_seconds
+    )
+    return {
+        "name": tool["name"],
+        "returncode": returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "elapsed": elapsed,
+        "timed_out": timed_out,
+    }
+
+
 def link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs=None):
     """UMA chamada `cl ... /link glintfx.lib <libs>` por alvo - o
     harness (tests/harness/*.cpp, ou os .obj pre-compilados por
@@ -1180,6 +1287,12 @@ def _count_add_test_comment_mentions_in_text(cmake_text):
 def _count_add_test_comment_mentions(repo_root):
     text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
     return _count_add_test_comment_mentions_in_text(text)
+
+
+def test_targets_found(summary):
+    """Os glintfx_add_test() ligados: `alvos_encontrados` soma testes E ferramentas, e o bruto do
+    bloco 'NAO MEDIDO AQUI' conta so' 'glintfx_add_test(' (as ferramentas sao add_executable)."""
+    return summary["alvos_encontrados"] - summary.get("ferramentas", 0)
 
 
 def _reconcile_add_test_counts(bruto, encontrados, excluidos, comentario):
@@ -1468,27 +1581,84 @@ def new_summary():
         "falharam": 0,
         "ambiente": 0,
         "exclusion_counts": {},
+        "ferramentas": 0,
+        "ferramentas_fora_do_escopo": 0,
         "tempo_total_s": 0.0,
     }
+
+
+def link_all_targets(context, targets, tools, summary):
+    """Liga cada alvo no ligador do SEU tipo (teste: harness e glintfx.lib; ferramenta: so as fontes
+    dela), classifica o resultado, conta em `summary` e devolve os detalhes das falhas."""
+    detalhes = []
+    for target in targets + tools:
+        if target.get("kind") == "tool":
+            result = link_one_tool(context, target)
+        else:
+            result = link_one_test(
+                context.image, context.repo_root, context.scratch, target, context.timeout_seconds,
+                context.harness_objs,
+            )
+        summary["tempo_total_s"] += result["elapsed"]
+        classification, note = classify_link_result(result)
+        if classification == "ligou":
+            summary["ligados"] += 1
+        elif classification == "falhou":
+            summary["falharam"] += 1
+            detalhes.append(f"{result['name']}: nao ligou -> {stderr_tail(result['stdout'] + result['stderr'])}")
+        else:
+            summary["ambiente"] += 1
+            detalhes.append(f"{result['name']}: ambiente -> {note}")
+    return detalhes
+
+
+def reconcile_summary(summary, detalhes_lnk):
+    """Erros do fechamento: a soma classificada tem de bater com o encontrado (L-36), e as falhas
+    ou o ambiente indisponivel levam seus detalhes."""
+    errors = []
+    total_classificado = summary["ligados"] + summary["falharam"] + summary["ambiente"]
+    if total_classificado != summary["alvos_encontrados"]:
+        errors.append(
+            "reconciliacao falhou (GODS_LAWS.md L-36): "
+            f"ligados({summary['ligados']}) + falharam({summary['falharam']}) + "
+            f"ambiente({summary['ambiente']}) = {total_classificado} != "
+            f"alvos_encontrados({summary['alvos_encontrados']})"
+        )
+    if summary["falharam"] > 0 or summary["ambiente"] > 0:
+        errors.extend(detalhes_lnk)
+    return errors
+
+
+def empty_scan_errors(targets, tools):
+    """Piso de varredura (L-40): zero ferramentas ou zero testes e' coleta quebrada, nunca 'nada a ligar'."""
+    if len(tools) == 0:
+        return [
+            "varredura vazia: nenhum add_executable() de ferramenta dentro de if(WIN32) em tests/CMakeLists.txt "
+            "(a ferramenta de captura existe) - GODS_LAWS.md L-40, sinal de coleta quebrada"
+        ]
+    if len(targets) == 0:
+        return [
+            "varredura vazia: nenhum glintfx_add_test() aplicavel ao Windows (incondicional ou "
+            "if(WIN32)) em tests/CMakeLists.txt - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca "
+            "de 'nenhum teste win32 existe'"
+        ]
+    return []
 
 
 def run_link_check(repo_root, image, timeout_seconds):
     cmake_text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
     targets, exclusion_counts = extract_win32_test_targets(cmake_text)
+    tools, tools_out_of_scope = extract_win32_tool_targets(cmake_text)
 
     summary = new_summary()
-    summary["alvos_encontrados"] = len(targets)
+    summary["ferramentas"] = len(tools)
+    summary["ferramentas_fora_do_escopo"] = tools_out_of_scope
+    summary["alvos_encontrados"] = len(targets) + len(tools)
     summary["exclusion_counts"] = exclusion_counts
-    errors = []
-    detalhes_lnk = []
-
-    if len(targets) == 0:
-        errors.append(
-            "varredura vazia: nenhum glintfx_add_test() aplicavel ao Windows (incondicional ou "
-            "if(WIN32)) em tests/CMakeLists.txt - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca "
-            "de 'nenhum teste win32 existe'"
-        )
+    errors = empty_scan_errors(targets, tools)
+    if errors:
         return summary, errors
+    detalhes_lnk = []
 
     sources, libs, needs_gl_loader, visited_files = collect_win32_library_layout(repo_root)
     summary["fontes_biblioteca_encontradas"] = len(sources)
@@ -1527,7 +1697,7 @@ def run_link_check(repo_root, image, timeout_seconds):
             # (nao "falhou": o link.exe de cada teste individual nunca
             # rodou) para que ligados+falharam+ambiente==encontrados
             # continue batendo (GODS_LAWS.md L-36/L-40).
-            summary["ambiente"] = len(targets)
+            summary["ambiente"] = len(targets) + len(tools)
             reason = "timeout" if dll_result["timed_out"] else f"rc={dll_result['returncode']}"
             errors.append(
                 f"glintfx.dll (pre-requisito de todo alvo win32_*) nao compilou/ligou ({reason}):\n"
@@ -1542,7 +1712,7 @@ def run_link_check(repo_root, image, timeout_seconds):
         harness_result = build_harness_objects(image, repo_root, scratch, timeout_seconds)
         summary["tempo_total_s"] += harness_result["elapsed"]
         if not harness_result["ok"]:
-            summary["ambiente"] = len(targets)
+            summary["ambiente"] = len(targets) + len(tools)
             reason = "timeout" if harness_result["timed_out"] else f"rc={harness_result['returncode']}"
             errors.append(
                 f"harness (pre-requisito de todo alvo) nao compilou ({reason}):\n"
@@ -1551,33 +1721,12 @@ def run_link_check(repo_root, image, timeout_seconds):
             return summary, errors
         harness_objs = harness_result["obj_paths"]
 
-        for target in targets:
-            result = link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs)
-            summary["tempo_total_s"] += result["elapsed"]
-            classification, note = classify_link_result(result)
-            if classification == "ligou":
-                summary["ligados"] += 1
-            elif classification == "falhou":
-                summary["falharam"] += 1
-                detalhes_lnk.append(
-                    f"{result['name']}: nao ligou -> {stderr_tail(result['stdout'] + result['stderr'])}"
-                )
-            else:
-                summary["ambiente"] += 1
-                detalhes_lnk.append(f"{result['name']}: ambiente -> {note}")
+        context = DockerContext(image, repo_root, scratch, timeout_seconds, harness_objs)
+        detalhes_lnk = link_all_targets(context, targets, tools, summary)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
-    total_classificado = summary["ligados"] + summary["falharam"] + summary["ambiente"]
-    if total_classificado != summary["alvos_encontrados"]:
-        errors.append(
-            "reconciliacao falhou (GODS_LAWS.md L-36): "
-            f"ligados({summary['ligados']}) + falharam({summary['falharam']}) + "
-            f"ambiente({summary['ambiente']}) = {total_classificado} != "
-            f"alvos_encontrados({summary['alvos_encontrados']})"
-        )
-    if summary["falharam"] > 0 or summary["ambiente"] > 0:
-        errors.extend(detalhes_lnk)
+    errors.extend(reconcile_summary(summary, detalhes_lnk))
 
     return summary, errors
 
@@ -1597,7 +1746,8 @@ def print_summary(summary):
         f"{SCRIPT_NAME}: alvos encontrados={summary['alvos_encontrados']} | "
         f"fontes biblioteca encontradas={summary['fontes_biblioteca_encontradas']} | "
         f"ligados={summary['ligados']} | falharam={summary['falharam']} | "
-        f"ambiente={summary['ambiente']} | pulados={total_pulados} por: "
+        f"ambiente={summary['ambiente']} | ferramentas={summary.get('ferramentas', 0)} "
+        f"(fora do escopo, ligam glintfx::glintfx: {summary.get('ferramentas_fora_do_escopo', 0)}) | pulados={total_pulados} por: "
         f"{_format_exclusion_counts(summary['exclusion_counts'])} | "
         f"tempo total (s)={summary['tempo_total_s']:.1f}"
     )
@@ -1660,7 +1810,7 @@ def real_main(repo_root, image, timeout_seconds, strict=False):
         image,
         abs_repo_root,
         timeout_seconds,
-        summary["alvos_encontrados"],
+        test_targets_found(summary),
         sum(summary["exclusion_counts"].values()),
     )
 
@@ -2163,8 +2313,187 @@ def _selftest_real_toolchain(scratch, image, timeout_seconds):
 # a tabela pura de resultados sem dependencia externa, a parte que
 # depende de docker/scratch, e o relatorio final - nenhuma delas
 # reusada em outro lugar, e' so' quebra de tamanho.
+_TOOLS_FIXTURE = """
+if(WIN32)
+    add_executable(fake_tool
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/fake_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/fake_part.cpp")
+    target_link_libraries(fake_tool PRIVATE user32 gdi32)
+    add_executable(fake_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/fake_parity_test.cpp")
+    target_link_libraries(fake_parity_test PRIVATE glintfx::glintfx)
+    add_executable(fake_pin_test "${CMAKE_CURRENT_SOURCE_DIR}/fake_pin_test.cpp")
+    target_link_libraries(fake_pin_test PRIVATE glintfx_test_harness user32)
+endif()
+add_executable(fake_everywhere "${CMAKE_CURRENT_SOURCE_DIR}/fake_everywhere.cpp")
+if(UNIX)
+    add_executable(fake_unix_only "${CMAKE_CURRENT_SOURCE_DIR}/fake_unix.cpp")
+endif()
+# add_executable(fake_in_comment fake_comment.cpp)
+"""
+
+
+def _selftest_tool_targets():
+    tools, out_of_scope = extract_win32_tool_targets(_TOOLS_FIXTURE)
+    names = [tool["name"] for tool in tools]
+    ok = (
+        names == ["fake_tool"]
+        and tools[0]["sources"] == ["tests/tools/fake_main.cpp", "tests/tools/fake_part.cpp"]
+        and tools[0]["libs"] == ["user32", "gdi32"]
+        and out_of_scope == 2
+    )
+    if not ok:
+        print(f"selftest: FERRAMENTAS-PARSING FALHOU: tools={tools} fora_do_escopo={out_of_scope}", file=sys.stderr)
+        return False
+    print(f"selftest: FERRAMENTAS-PARSING OK: tools={names} fora_do_escopo={out_of_scope}")
+    return True
+
+
+def _selftest_tool_targets_real_tree():
+    # L-40: piso sobre a arvore REAL. A ferramenta de captura existe e esta sob if(WIN32); zero
+    # ferramentas aqui seria a coleta quebrada (o defeito original: nenhuma era enumerada).
+    here = os.path.dirname(os.path.abspath(__file__))
+    tools, _ = extract_win32_tool_targets(read_file(os.path.join(here, "..", "CMakeLists.txt")))
+    names = [tool["name"] for tool in tools]
+    if "win32_window_capture" not in names:
+        print(f"selftest: FERRAMENTAS-ARVORE-REAL FALHOU: win32_window_capture fora de {names}", file=sys.stderr)
+        return False
+    print(f"selftest: FERRAMENTAS-ARVORE-REAL OK: {len(names)} ferramenta(s): {names}")
+    return True
+
+
+def _selftest_tool_link_command():
+    tool = {"name": "fake_tool", "kind": "tool", "sources": ["tests/tools/a.cpp"], "libs": ["user32", "gdi32"]}
+    command = tool_link_command(tool)
+    ok = (
+        "/src/tests/tools/a.cpp" in command
+        and "user32.lib" in command
+        and "gdi32.lib" in command
+        and "/Fe\"/build/fake_tool.exe\"" in command
+        and "glintfx.lib" not in command
+        and "harness" not in command
+    )
+    if not ok:
+        print(f"selftest: FERRAMENTA-COMANDO FALHOU: {command}", file=sys.stderr)
+        return False
+    print("selftest: FERRAMENTA-COMANDO OK (fontes e libs proprias, sem glintfx.lib nem harness)")
+    return True
+
+
+def _fake_summary():
+    summary = new_summary()
+    summary["alvos_encontrados"] = 3
+    return summary
+
+
+def _selftest_link_all_targets_dispatch():
+    """Cada alvo vai para o ligador do SEU tipo, e o resultado e classificado e contado."""
+    calls = []
+    original_test, original_tool = link_one_test, link_one_tool
+
+    def fake_test(image, repo_root, scratch, target, timeout_seconds, harness_objs=None):
+        calls.append(("test", target["name"], harness_objs))
+        return dict(_fake_link_result(0, stdout="ok"), name=target["name"])
+
+    def fake_tool(context, tool):
+        calls.append(("tool", tool["name"]))
+        return dict(_fake_link_result(2, stdout="main.obj : error LNK2019: unresolved external symbol\n"),
+                    name=tool["name"])
+
+    globals()["link_one_test"], globals()["link_one_tool"] = fake_test, fake_tool
+    try:
+        summary = _fake_summary()
+        context = DockerContext("img", "/repo", "/scratch", 5, ["h.obj"])
+        detalhes = link_all_targets(context, [{"name": "t1"}, {"name": "t2"}],
+                                    [{"name": "tool1", "kind": "tool"}], summary)
+    finally:
+        globals()["link_one_test"], globals()["link_one_tool"] = original_test, original_tool
+    ok = (
+        calls == [("test", "t1", ["h.obj"]), ("test", "t2", ["h.obj"]), ("tool", "tool1")]
+        and (summary["ligados"], summary["falharam"], summary["ambiente"]) == (2, 1, 0)
+        and len(detalhes) == 1 and detalhes[0].startswith("tool1: nao ligou")
+    )
+    if not ok:
+        print(f"selftest: LIGACAO-DESPACHO FALHOU: calls={calls} summary={summary} detalhes={detalhes}", file=sys.stderr)
+        return False
+    print("selftest: LIGACAO-DESPACHO OK (teste e ferramenta vao cada um ao seu ligador, contados e classificados)")
+    return True
+
+
+def _selftest_reconcile_summary():
+    good = _fake_summary()
+    good["ligados"], good["falharam"] = 2, 1
+    short = _fake_summary()
+    short["ligados"] = 2
+    errors_good = reconcile_summary(good, ["x: nao ligou -> y"])
+    errors_short = reconcile_summary(short, [])
+    clean = _fake_summary()
+    clean["ligados"] = 3
+    ok = (
+        len(errors_good) == 1 and errors_good[0].startswith("x: nao ligou")
+        and len(errors_short) == 1 and "reconciliacao falhou" in errors_short[0]
+        and reconcile_summary(clean, []) == []
+    )
+    if not ok:
+        print(f"selftest: RECONCILIACAO FALHOU: {errors_good} {errors_short}", file=sys.stderr)
+        return False
+    print("selftest: RECONCILIACAO OK (soma errada reprova, falha detalhada e repassada, tudo ligado passa)")
+    return True
+
+
+_COUNT_FIXTURE = """
+if(WIN32)
+    glintfx_add_test(fake_a_test)
+    add_executable(fake_tool "${CMAKE_CURRENT_SOURCE_DIR}/tools/fake.cpp")
+    target_link_libraries(fake_tool PRIVATE user32)
+endif()
+glintfx_add_test(fake_b_test)
+if(UNIX)
+    glintfx_add_test(fake_unix_test)
+endif()
+# prosa: o glintfx_add_test(x) citado em comentario
+"""
+
+
+def _selftest_not_measured_counts_with_tools():
+    """O bruto conta SO glintfx_add_test( ; `alvos_encontrados` soma testes E ferramentas. A
+    reconciliacao usa a contagem de testes, e fecha com ferramenta na arvore (achado da revisao da
+    WIN-MAP-1: 154 contra 155 na arvore real)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, "tests"))
+        with open(os.path.join(tmp, "tests", "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write(_COUNT_FIXTURE)
+        targets, exclusion_counts = extract_win32_test_targets(_COUNT_FIXTURE)
+        tools, _ = extract_win32_tool_targets(_COUNT_FIXTURE)
+        summary = new_summary()
+        summary["ferramentas"] = len(tools)
+        summary["alvos_encontrados"] = len(targets) + len(tools)
+        bruto = _raw_add_test_grep_count(tmp)
+        comentario = _count_add_test_comment_mentions(tmp)
+        try:
+            _reconcile_add_test_counts(bruto, test_targets_found(summary), sum(exclusion_counts.values()), comentario)
+        except SystemExit:
+            print(
+                f"selftest: CONTAGEM-COM-FERRAMENTA FALHOU: bruto={bruto} testes={test_targets_found(summary)} "
+                f"(alvos_encontrados={summary['alvos_encontrados']}, ferramentas={len(tools)})",
+                file=sys.stderr,
+            )
+            return False
+    ok = len(tools) == 1 and test_targets_found(summary) == 2 and summary["alvos_encontrados"] == 3
+    if not ok:
+        print(f"selftest: CONTAGEM-COM-FERRAMENTA FALHOU: {summary}", file=sys.stderr)
+        return False
+    print("selftest: CONTAGEM-COM-FERRAMENTA OK (bruto fecha contra os testes, a ferramenta fica de fora do bruto)")
+    return True
+
+
 def _selftest_parsing_result_table():
     return [
+        ("contagem-com-ferramenta", _selftest_not_measured_counts_with_tools()),
+        ("ligacao-despacho", _selftest_link_all_targets_dispatch()),
+        ("reconciliacao", _selftest_reconcile_summary()),
+        ("ferramentas-parsing", _selftest_tool_targets()),
+        ("ferramentas-arvore-real", _selftest_tool_targets_real_tree()),
+        ("ferramenta-comando", _selftest_tool_link_command()),
         ("parsing-positivo", _selftest_parsing_positive()),
         ("comentario-de-bloco-fantasma", _selftest_bracket_comment_never_a_phantom_target()),
         ("hash-em-aspas-nao-trunca", _selftest_hash_inside_quotes_does_not_truncate_real_source()),

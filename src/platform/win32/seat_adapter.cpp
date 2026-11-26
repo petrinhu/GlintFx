@@ -154,6 +154,7 @@ void win32_seat_adapter::translate(std::span<const win32_raw_device_facts> devic
     }
 
     const bool touch_present =
+        // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: GetSystemMetrics answers an int
         (digitizer_bitmask & (k_nid_integrated_touch | k_nid_external_touch)) != 0;
 
     out.set_capability(seat_capability::pointer, pointer_present);

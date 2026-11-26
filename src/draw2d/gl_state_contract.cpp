@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/gl_state_contract.hpp"
 
+#include "draw2d/gl_stencil_contract.hpp"
+
 namespace glintfx::draw2d {
 
 namespace {
@@ -52,6 +54,7 @@ void set_common_state(const render::gl_function_table &gl, std::uint32_t viewpor
     gl.glBindFramebuffer(k_gl_draw_framebuffer, 0);
     gl.glDisable(k_gl_depth_test);
     gl.glDisable(k_gl_stencil_test);
+    leave_stencil_at_gl_defaults(gl);
     gl.glDisable(k_gl_scissor_test);
     gl.glDisable(k_gl_cull_face);
     gl.glColorMask(1, 1, 1, 1);

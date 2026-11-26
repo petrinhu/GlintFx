@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -23,12 +24,15 @@
 //   - one quad is 4 vertices and 6 indices, the two triangles of the frozen diagonal
 //     (top_left, top_right, bottom_right) and (top_left, bottom_right, bottom_left)
 //     (docs/auditoria-api-draw2d.md B0-I4);
-//   - the vertex is 32 bytes: position float2 in pixels, texture coordinate float2, color float4
+//   - the vertex is 36 bytes (R2D-TEXTURE T4a, D-W8-23 and D-W8-406): position float2 in pixels,
+//     texture coordinate float2, color float4, and the homogeneous coordinate q, 1 until T4b;
+//     color float4
 //     LINEAR and PREMULTIPLIED (a half-transparent red of alpha 0.5 is stored as 0.5 in the red
 //     channel and 0.5 in alpha) - the mutant that stores the straight color is the one B7 repeats;
 //   - the index is 32 bits (a batch of more than 16 384 pieces does not wrap);
-//   - CONSECUTIVE pieces with the SAME state key (program, texture, blend) are ONE run, and a
-//     change in ANY of the three starts another - both directions of the raylib#6110/#4849 pain;
+//   - CONSECUTIVE pieces with the SAME state key (program, texture, blend, stencil role) are ONE
+//     run, and a change in ANY of the four starts another - both directions of the
+//     raylib#6110/#4849 pain;
 //   - MEMORY: an armed allocator that fails at EVERY possible point of a growing batch never
 //     throws, never leaves half a piece (vertices, indices and runs stay consistent), counts the
 //     dropped piece, and lets later pieces through once the allocator works again.
@@ -41,6 +45,7 @@ using glintfx::gltfx_vec2_screen;
 using glintfx::draw2d::batch_allocator;
 using glintfx::draw2d::batch_state;
 using glintfx::draw2d::batch_vertex;
+using glintfx::draw2d::colored_pixel_vertex;
 using glintfx::draw2d::default_batch_allocator;
 using glintfx::draw2d::quad_corners_pixel;
 using glintfx::draw2d::triangle_batch;
@@ -119,10 +124,10 @@ GLINTFX_TEST(triangle_batch_assembly_cells) {
         }
         ++analyzed;
     }
-    // 3. The vertex is 32 bytes, and the color is stored LINEAR and PREMULTIPLIED: alpha 0.5 over
+    // 3. The vertex is 36 bytes, and the color is stored LINEAR and PREMULTIPLIED: alpha 0.5 over
     //    a red of 1.0 is 0.5 in the channel (and alpha stays 0.5).
     {
-        static_assert(sizeof(batch_vertex) == 32);
+        static_assert(sizeof(batch_vertex) == 36);
         triangle_batch batch;
         GLINTFX_CHECK(
             batch.add_quad(square_at(0, 0, 1), gltfx_rgba{1.0F, 0.5F, 0.0F, 0.5F}, k_state_a));
@@ -331,12 +336,12 @@ GLINTFX_TEST(triangle_batch_reserve_cells) {
     // 2. A request of MORE THAN DOUBLE the capacity in one call takes exactly what was asked, not
     // the
     //    doubled capacity (`grown = needed`): 1000 pieces from an empty batch are 4000 vertices of
-    //    32 bytes, 6000 indices of 4 bytes, and one run.
+    //    36 bytes, 6000 indices of 4 bytes, and one run.
     {
         g_armed = armed_state{};
         triangle_batch batch(armed());
         GLINTFX_CHECK(batch.reserve(1000));
-        GLINTFX_CHECK_EQ(g_armed.requested[0], std::size_t{128000});
+        GLINTFX_CHECK_EQ(g_armed.requested[0], std::size_t{144000});
         GLINTFX_CHECK_EQ(g_armed.requested[1], std::size_t{24000});
         GLINTFX_CHECK(g_armed.requested[2] >= sizeof(glintfx::draw2d::draw_run));
         // ... and they all fit: no more calls while a thousand pieces are added
@@ -393,4 +398,303 @@ GLINTFX_TEST(triangle_batch_reserve_covers_one_run_per_piece) {
     }
     GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{100});
     GLINTFX_CHECK_EQ(g_armed.calls, after_reserve);
+}
+
+// S2a: TRIANGLE pieces. The vertices are in pixels with a color each; the indices are local to the
+// piece (0..n-1), or none at all (then the piece is 0..n-1 in order). Same atomicity as add_quad.
+namespace {
+
+[[nodiscard]] colored_pixel_vertex vertex_at(float x, float y, gltfx_rgba color) {
+    return colored_pixel_vertex{gltfx_vec2_screen{x, y}, color};
+}
+
+// Three vertices at (x, y), (x + 1, y), (x + 1, y + 1), all of `color`.
+[[nodiscard]] std::array<colored_pixel_vertex, 3> triangle_at(float x, float y, gltfx_rgba color) {
+    return {vertex_at(x, y, color), vertex_at(x + 1.0F, y, color),
+            vertex_at(x + 1.0F, y + 1.0F, color)};
+}
+
+constexpr gltfx_rgba k_half_red{1.0F, 0.0F, 0.0F, 0.5F};
+
+} // namespace
+
+// quad, triangles, quad, all in one state: 11 vertices, ONE run of 15 indices, and the indices of
+// the three pieces (the quad 0..3, the triangle 4..6, the quad 7..10).
+GLINTFX_TEST(triangle_batch_quad_triangles_quad_is_one_run_of_fifteen_indices) {
+    triangle_batch batch;
+    const auto tri = triangle_at(5.0F, 0.0F, k_white);
+    const std::array<std::uint32_t, 3> local{0U, 1U, 2U};
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_white, k_state_a));
+    GLINTFX_CHECK(batch.add_triangles(tri, local, k_state_a));
+    GLINTFX_CHECK(batch.add_quad(square_at(10, 0, 1), k_white, k_state_a));
+    GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{11});
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(batch.runs()[0].index_count, std::size_t{15});
+    const std::array<std::uint32_t, 15> expected{0U, 1U, 2U, 0U, 2U, 3U, 4U, 5U,
+                                                 6U, 7U, 8U, 9U, 7U, 9U, 10U};
+    const auto indices = batch.indices();
+    GLINTFX_CHECK_EQ(indices.size(), expected.size());
+    for (std::size_t i = 0; i < expected.size() && i < indices.size(); ++i) {
+        GLINTFX_CHECK_EQ(indices[i], expected[i]);
+    }
+}
+
+// A triangle piece with NO indices, after a quad (base 4): six vertices give the indices 4..9.
+GLINTFX_TEST(triangle_batch_triangles_without_indices_are_sequential_from_their_base) {
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_white, k_state_a));
+    std::array<colored_pixel_vertex, 6> six{};
+    for (std::size_t i = 0; i < six.size(); ++i) {
+        six[i] = vertex_at(static_cast<float>(i), 5.0F, k_white);
+    }
+    GLINTFX_CHECK(batch.add_triangles(six, {}, k_state_a));
+    GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{10});
+    GLINTFX_CHECK_EQ(batch.runs()[0].index_count, std::size_t{12});
+    const std::array<std::uint32_t, 12> expected{0U, 1U, 2U, 0U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U};
+    const auto indices = batch.indices();
+    GLINTFX_CHECK_EQ(indices.size(), expected.size());
+    for (std::size_t i = 0; i < expected.size() && i < indices.size(); ++i) {
+        GLINTFX_CHECK_EQ(indices[i], expected[i]);
+    }
+}
+
+// The allocator refuses the SECOND call, which is the index store (the first is the vertex store).
+// The batch is left as it was - no vertex, no index, no run - and the piece is counted, whole.
+GLINTFX_TEST(triangle_batch_triangles_out_of_memory_on_the_index_store_leaves_it_as_it_was) {
+    g_armed = armed_state{};
+    g_armed.fail_at = 2;
+    triangle_batch batch(armed());
+    const auto tri = triangle_at(0.0F, 0.0F, k_white);
+    const std::array<std::uint32_t, 3> local{0U, 1U, 2U};
+    GLINTFX_CHECK(!batch.add_triangles(tri, local, k_state_a));
+    GLINTFX_CHECK_EQ(g_armed.failures, 1);
+    GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(batch.indices().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(batch.pieces_dropped_out_of_memory(), std::size_t{1});
+    // the allocator works again: the same piece goes through, whole
+    GLINTFX_CHECK(batch.add_triangles(tri, local, k_state_a));
+    GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{3});
+    GLINTFX_CHECK_EQ(batch.indices().size(), std::size_t{3});
+}
+
+// The color of each vertex is premultiplied on its own: (1, 0, 0, 0.5) becomes (0.5, 0, 0, 0.5).
+// The texture coordinate of a triangle vertex is inert: 0.
+GLINTFX_TEST(triangle_batch_triangle_vertex_colors_are_premultiplied_one_by_one) {
+    triangle_batch batch;
+    const std::array<colored_pixel_vertex, 3> tri{vertex_at(0.0F, 0.0F, k_half_red),
+                                                  vertex_at(1.0F, 0.0F, k_half_red),
+                                                  vertex_at(1.0F, 1.0F, k_white)};
+    GLINTFX_CHECK(batch.add_triangles(tri, {}, k_state_a));
+    const auto stored = batch.vertices();
+    GLINTFX_CHECK_EQ(stored.size(), std::size_t{3});
+    GLINTFX_CHECK(stored[0].r == 0.5F && stored[0].g == 0.0F && stored[0].b == 0.0F);
+    GLINTFX_CHECK(stored[0].a == 0.5F);
+    GLINTFX_CHECK(stored[2].r == 1.0F && stored[2].a == 1.0F);
+    GLINTFX_CHECK(stored[0].u == 0.0F && stored[0].v == 0.0F);
+}
+
+// The batch COPIES the vertices: the caller overwrites its array after the add, and the batch keeps
+// the values submitted. The expected values are the literals written here.
+GLINTFX_TEST(triangle_batch_triangle_vertices_are_copied_not_referenced) {
+    triangle_batch batch;
+    std::array<colored_pixel_vertex, 3> source = triangle_at(2.0F, 3.0F, k_white);
+    GLINTFX_CHECK(batch.add_triangles(source, {}, k_state_a));
+    source = triangle_at(90.0F, 90.0F, k_half_red);
+    const auto stored = batch.vertices();
+    GLINTFX_CHECK_EQ(stored.size(), std::size_t{3});
+    GLINTFX_CHECK(stored[0].x == 2.0F && stored[0].y == 3.0F);
+    GLINTFX_CHECK(stored[1].x == 3.0F && stored[2].y == 4.0F);
+    GLINTFX_CHECK(stored[2].r == 1.0F && stored[2].a == 1.0F);
+}
+
+// S2a-fix1: a run OPENED by a triangle piece counts the indices it was given, not six.
+// The batch starts with the triangle, so the run is opened (not extended) by it.
+GLINTFX_TEST(triangle_batch_a_run_opened_by_a_triangle_counts_its_given_indices) {
+    triangle_batch batch;
+    const auto tri = triangle_at(0.0F, 0.0F, k_white);
+    const std::array<std::uint32_t, 3> local{0U, 1U, 2U};
+    GLINTFX_CHECK(batch.add_triangles(tri, local, k_state_a));
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(batch.runs()[0].index_count, std::size_t{3});
+}
+
+// R2D-TEXTURE T4a (D-W8-23, D-W8-406): every vertex carries the homogeneous coordinate q LAST, and
+// for an untextured piece it is 1, for a quad and for a triangle piece alike (T4b-B1). The quad
+// keeps its texture coordinates by role, the triangle piece keeps them at 0.
+GLINTFX_TEST(triangle_batch_every_vertex_carries_q_of_one) {
+    static_assert(offsetof(batch_vertex, q) == 8U * sizeof(float),
+                  "q is the ninth float, after the color");
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_white, k_state_a));
+    GLINTFX_CHECK(batch.add_triangles(triangle_at(2.0F, 3.0F, k_white), {}, k_state_a));
+    const auto stored = batch.vertices();
+    GLINTFX_CHECK_EQ(stored.size(), std::size_t{7});
+    int with_q_of_one = 0;
+    for (const batch_vertex &vertex : stored) {
+        with_q_of_one += vertex.q == 1.0F ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(with_q_of_one, 7);
+    GLINTFX_CHECK(stored[2].u == 1.0F && stored[2].v == 1.0F);
+    GLINTFX_CHECK(stored[4].u == 0.0F && stored[4].v == 0.0F);
+}
+
+// R2D-TEXTURE T4b-B1 (D-W8-470): a textured quad stores, at each corner, the coordinate TIMES its
+// weight q and q itself last; the program divides. The weights are powers of two, so every product
+// is exact in float and compared with ==.
+GLINTFX_TEST(triangle_batch_textured_quad_stores_the_coordinate_times_q_and_q_last) {
+    const glintfx::draw2d::quad_texture_corners reads{
+        {{0.25F, 0.5F, 2.0F}, {0.75F, 0.5F, 0.5F}, {0.75F, 1.0F, 4.0F}, {0.25F, 1.0F, 0.25F}}};
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(0, 0, 8), reads,
+                                          gltfx_rgba{1.0F, 0.5F, 0.25F, 0.5F}, k_state_a));
+    const auto v = batch.vertices();
+    GLINTFX_CHECK_EQ(v.size(), std::size_t{4});
+    GLINTFX_CHECK(v[0].u == 0.5F && v[0].v == 1.0F && v[0].q == 2.0F);      // top_left
+    GLINTFX_CHECK(v[1].u == 0.375F && v[1].v == 0.25F && v[1].q == 0.5F);   // top_right
+    GLINTFX_CHECK(v[2].u == 3.0F && v[2].v == 4.0F && v[2].q == 4.0F);      // bottom_right
+    GLINTFX_CHECK(v[3].u == 0.0625F && v[3].v == 0.25F && v[3].q == 0.25F); // bottom_left
+    // the tint is stored premultiplied, like every color
+    GLINTFX_CHECK(v[0].r == 0.5F && v[0].g == 0.25F && v[0].b == 0.125F && v[0].a == 0.5F);
+    GLINTFX_CHECK(v[3].x == 0.0F && v[3].y == 8.0F); // the positions are the corners by role
+}
+
+// add_quad() is add_textured_quad() with the coordinates by role and q = 1, byte for byte: what
+// keeps every untextured piece drawn exactly as before the textured drawing came.
+GLINTFX_TEST(triangle_batch_add_quad_is_the_textured_quad_with_the_role_corners) {
+    const glintfx::draw2d::quad_texture_corners &role = glintfx::draw2d::k_role_texture_corners;
+    GLINTFX_CHECK(role[0].u == 0.0F && role[0].v == 0.0F && role[0].q == 1.0F);
+    GLINTFX_CHECK(role[1].u == 1.0F && role[1].v == 0.0F && role[1].q == 1.0F);
+    GLINTFX_CHECK(role[2].u == 1.0F && role[2].v == 1.0F && role[2].q == 1.0F);
+    GLINTFX_CHECK(role[3].u == 0.0F && role[3].v == 1.0F && role[3].q == 1.0F);
+    triangle_batch plain;
+    triangle_batch textured;
+    const gltfx_rgba color{0.25F, 0.5F, 1.0F, 0.5F};
+    GLINTFX_CHECK(plain.add_quad(square_at(3, 4, 5), color, k_state_a));
+    GLINTFX_CHECK(textured.add_textured_quad(square_at(3, 4, 5), role, color, k_state_a));
+    GLINTFX_CHECK_EQ(plain.vertices().size(), textured.vertices().size());
+    // Bit for bit: each vertex as its nine 32-bit words (std::bit_cast, never memcmp of floats).
+    using vertex_words = std::array<std::uint32_t, 9>;
+    int equal_bits = 0;
+    for (std::size_t i = 0; i < plain.vertices().size(); ++i) {
+        const bool same = std::bit_cast<vertex_words>(plain.vertices()[i]) ==
+                          std::bit_cast<vertex_words>(textured.vertices()[i]);
+        equal_bits += same ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(equal_bits, 4);
+}
+
+// A change of texture between two quads starts another run, in order, never reordered (D-W8-13):
+// textures A, B, A are three runs, A, B, A.
+GLINTFX_TEST(triangle_batch_textures_a_b_a_are_three_runs_in_order) {
+    const batch_state a{1, 7, 0};
+    const batch_state b{1, 9, 0};
+    const auto &role = glintfx::draw2d::k_role_texture_corners;
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(0, 0, 1), role, k_white, a));
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(1, 0, 1), role, k_white, b));
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(2, 0, 1), role, k_white, a));
+    const auto runs = batch.runs();
+    GLINTFX_CHECK_EQ(runs.size(), std::size_t{3});
+    GLINTFX_CHECK(runs[0].state.texture == 7U && runs[0].first_index == 0U);
+    GLINTFX_CHECK(runs[1].state.texture == 9U && runs[1].first_index == 6U);
+    GLINTFX_CHECK(runs[2].state.texture == 7U && runs[2].first_index == 12U);
+}
+
+// R2D-TEXTURE T5 (D-W8-675): a TEXTURED triangle piece stores, at each vertex, the read of the same
+// position (u, v) and q = 1 (a triangle is drawn affinely), and the tint premultiplied like every
+// colour. The reads are powers of two, so each one is compared with ==.
+GLINTFX_TEST(triangle_batch_textured_triangles_store_each_read_with_q_of_one) {
+    const auto tri = triangle_at(0.0F, 0.0F, k_half_red);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{
+        {{0.25F, 0.5F}, {0.75F, 0.5F}, {0.5F, 1.0F}}};
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}},
+                                               batch_state{1, 7, 0}));
+    const auto v = batch.vertices();
+    GLINTFX_CHECK_EQ(v.size(), std::size_t{3});
+    GLINTFX_CHECK(v[0].u == 0.25F && v[0].v == 0.5F && v[0].q == 1.0F);
+    GLINTFX_CHECK(v[1].u == 0.75F && v[1].v == 0.5F && v[1].q == 1.0F);
+    GLINTFX_CHECK(v[2].u == 0.5F && v[2].v == 1.0F && v[2].q == 1.0F);
+    GLINTFX_CHECK(v[1].r == 0.5F && v[1].g == 0.0F && v[1].a == 0.5F); // the tint, premultiplied
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(batch.runs()[0].state.texture, 7U);
+}
+
+// add_triangles() is add_textured_triangles() with no reads, bit for bit: what keeps every
+// untextured triangle piece drawn exactly as before the textured triangles came (T5).
+GLINTFX_TEST(triangle_batch_add_triangles_is_the_textured_call_with_no_reads) {
+    const auto tri = triangle_at(3.0F, 4.0F, k_half_red);
+    const std::array<std::uint32_t, 3> local{2U, 0U, 1U};
+    triangle_batch plain;
+    triangle_batch textured;
+    GLINTFX_CHECK(plain.add_triangles(tri, local, k_state_a));
+    GLINTFX_CHECK(textured.add_textured_triangles(
+        glintfx::draw2d::textured_triangles{tri, {}, local}, k_state_a));
+    using vertex_words = std::array<std::uint32_t, 9>;
+    int equal_bits = 0;
+    for (std::size_t i = 0; i < plain.vertices().size() && i < textured.vertices().size(); ++i) {
+        const bool same = std::bit_cast<vertex_words>(plain.vertices()[i]) ==
+                          std::bit_cast<vertex_words>(textured.vertices()[i]);
+        equal_bits += same ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(equal_bits, 3);
+    GLINTFX_CHECK(textured.vertices()[0].u == 0.0F && textured.vertices()[0].v == 0.0F);
+    GLINTFX_CHECK(plain.indices()[0] == textured.indices()[0] && textured.indices()[0] == 2U);
+}
+
+// A textured triangle piece with the texture of the textured quad before it joins its run: one
+// draw call for a sprite and a mesh from the same texture; another texture starts another run (T5).
+GLINTFX_TEST(triangle_batch_textured_triangles_join_the_run_of_a_quad_with_the_same_texture) {
+    const batch_state a{1, 7, 0};
+    const batch_state b{1, 9, 0};
+    const auto tri = triangle_at(5.0F, 0.0F, k_white);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{
+        {{0.0F, 0.0F}, {1.0F, 0.0F}, {1.0F, 1.0F}}};
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_textured_quad(square_at(0, 0, 1),
+                                          glintfx::draw2d::k_role_texture_corners, k_white, a));
+    GLINTFX_CHECK(
+        batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}}, a));
+    GLINTFX_CHECK(
+        batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}}, b));
+    const auto runs = batch.runs();
+    GLINTFX_CHECK_EQ(runs.size(), std::size_t{2});
+    GLINTFX_CHECK(runs[0].state.texture == 7U && runs[0].index_count == 9U);
+    GLINTFX_CHECK(runs[1].state.texture == 9U && runs[1].first_index == 9U);
+}
+
+// Memory as for every piece: a refused growth leaves the batch as it was and counts the drop (T5).
+GLINTFX_TEST(triangle_batch_textured_triangles_out_of_memory_leave_the_batch_as_it_was) {
+    g_armed = armed_state{};
+    g_armed.fail_at = 1;
+    const auto tri = triangle_at(0.0F, 0.0F, k_white);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{};
+    triangle_batch batch(armed());
+    GLINTFX_CHECK(!batch.add_textured_triangles(glintfx::draw2d::textured_triangles{tri, reads, {}},
+                                                k_state_a));
+    GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{0});
+    GLINTFX_CHECK_EQ(batch.pieces_dropped_out_of_memory(), std::size_t{1});
+}
+
+// A shadow never shares a run with an ordinary piece of the same program and texture, and two
+// shadows in a row are one run (R2D-SPRITE-SHADE H3a): the stencil role is the fourth part of the
+// state key, and the runs keep paint order.
+GLINTFX_TEST(triangle_batch_a_shadow_starts_its_own_run_and_shadows_in_a_row_share_one) {
+    batch_state shadow = k_state_a;
+    shadow.stencil = glintfx::draw2d::stencil_role::shadow;
+    triangle_batch batch;
+    GLINTFX_CHECK(batch.add_quad(square_at(0, 0, 1), k_white, k_state_a));
+    GLINTFX_CHECK(batch.add_quad(square_at(1, 0, 1), k_white, shadow));
+    GLINTFX_CHECK(batch.add_quad(square_at(2, 0, 1), k_white, shadow));
+    GLINTFX_CHECK(batch.add_quad(square_at(3, 0, 1), k_white, k_state_a));
+    const auto runs = batch.runs();
+    GLINTFX_CHECK_EQ(runs.size(), std::size_t{3});
+    GLINTFX_CHECK(runs[0].state.stencil == glintfx::draw2d::stencil_role::ordinary);
+    GLINTFX_CHECK(runs[1].state.stencil == glintfx::draw2d::stencil_role::shadow);
+    GLINTFX_CHECK(runs[2].state.stencil == glintfx::draw2d::stencil_role::ordinary);
+    GLINTFX_CHECK(runs[0].first_index == 0U && runs[0].index_count == 6U);
+    GLINTFX_CHECK(runs[1].first_index == 6U && runs[1].index_count == 12U);
+    GLINTFX_CHECK(runs[2].first_index == 18U && runs[2].index_count == 6U);
 }

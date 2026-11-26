@@ -37,12 +37,23 @@ enum class known_interface {
 
 [[nodiscard]] known_interface interface_from_name(std::string_view name);
 
-// Number of file descriptor arguments the given (interface, opcode)
-// request/event carries, per the fixed table this relay knows about.
-// Today only wl_shm.create_pool(new_id, fd, int32) does (opcode 0) -
-// the vehicle WL-ACK-SMOKE-BLUNT A1's "descritor chegando junto do
-// pedaco certo" control exercises.
-[[nodiscard]] std::size_t fd_argument_count(known_interface interface, std::uint16_t opcode);
+// Which way a message travels: a request from the client, or an event from the compositor. The same
+// opcode means different messages in the two directions (wl_shm request 0 is create_pool, wl_shm
+// event 0 is format).
+enum class wire_direction {
+    from_client,
+    from_compositor,
+};
+
+// Number of file descriptor arguments the given message carries, for the interfaces this relay
+// models: among them only the request wl_shm.create_pool(new_id, fd, int32) has one, and every
+// other message of a modelled interface has none (wayland.xml). std::nullopt for an interface the
+// relay does not model, whose messages may carry any number (format_table of
+// zwp_linux_dmabuf_feedback_v1, wl_keyboard.keymap, ...): the caller hands such a message every
+// descriptor still pending, which libwayland accepts, because it reads descriptors as a queue
+// (WIRE-RELAY-FD-PASSTHROUGH, D-W8-F07).
+[[nodiscard]] std::optional<std::size_t>
+fd_argument_count(known_interface interface, std::uint16_t opcode, wire_direction direction);
 
 class wire_object_table {
   public:
@@ -67,10 +78,12 @@ class wire_object_table {
     // wl_display.get_registry, wl_registry.bind, wl_compositor.create_
     // surface, xdg_wm_base.get_xdg_surface and wl_shm.create_pool each
     // declare a new object; wl_display.delete_id retires one (xdg_
-    // surface.get_toplevel and wl_shm_pool.create_buffer are NOT
-    // tracked - nothing WL-ACK-SMOKE-BLUNT A1/A2 needs, R1/R2 only
-    // ever look at the xdg_surface/wl_surface pair, GODS_LAWS.md L-33:
-    // no creator this fatia's own tests never exercise). Returns the
+    // surface.get_toplevel is NOT tracked - nothing
+    // WL-ACK-SMOKE-BLUNT A1/A2 needs, R1/R2 only ever look at the xdg_
+    // surface/wl_surface pair, GODS_LAWS.md L-33: no creator this
+    // fatia's own tests never exercise; wl_shm_pool.create_buffer is,
+    // since QA-SCREEN-CAPTURE P1, because wire_shm_snapshot must
+    // recognise wl_buffer.destroy). Returns the
     // new object id when this message created one. Malformed payloads
     // (too short for the arguments this message's (interface, opcode)
     // demands) never crash - they are ignored, exactly like an

@@ -102,6 +102,7 @@ target_sources(glintfx_library PRIVATE
     wgl_proc_address.cpp
     wgl_pixel_format_cascade.cpp
     wgl_context_adapter.cpp
+    first_present_map.cpp
     selected_gl_context_adapter_check.cpp
     dxcore_adapter_match.cpp
     dxcore_gpu_kind.cpp

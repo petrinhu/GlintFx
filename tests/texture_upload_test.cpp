@@ -1,0 +1,739 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <initializer_list>
+#include <map>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <glintfx/core/color.hpp>
+#include <glintfx/core/err.hpp>
+#include <glintfx/core/err_code.hpp>
+#include <glintfx/core/image_view.hpp>
+#include <glintfx/core/log/event.hpp>
+#include <glintfx/core/log/severity.hpp>
+#include <glintfx/core/log/sink.hpp>
+#include <glintfx/draw2d/texture_2d_desc.hpp>
+
+#include "draw2d/texture_upload.hpp"
+
+#include "harness/check.hpp"
+#include "harness/test_registry.hpp"
+
+// texture_upload_test.cpp - R2D-TEXTURE, fatia T2a: the making of the GL texture object
+// (draw2d/texture_upload.hpp; its release is texture_release_test.cpp), against a FAKE context and
+// a table of FAKE GL functions that keep what the code asked of the card: the order against the
+// context, the unpack state at each upload, every glTexImage2D with its bytes, the texture
+// parameters, the deletions.
+//
+// A DECLARED DOWNGRADE (GODS_LAWS.md L-09): no window, no driver. What a real card does with the
+// texture is the live cell of the texture parity test (fatia T4b). The literal GL enumerators are
+// the registry's (third_party/khronos/gl.xml), never the constants of the code under test, and the
+// stored bytes are literals from the formula (the T1 order and the T2a order, item 3).
+
+using glintfx::gltfx_all_mipmap_levels;
+using glintfx::gltfx_err_code;
+using glintfx::gltfx_image_view;
+using glintfx::gltfx_pixel_format;
+using glintfx::gltfx_rslt;
+using glintfx::gltfx_texture_2d_desc;
+using glintfx::gltfx_texture_filter;
+using glintfx::texture_2d_impl;
+using glintfx::draw2d::batch_allocator;
+using glintfx::draw2d::create_texture_object;
+using glintfx::draw2d::default_batch_allocator;
+using glintfx::draw2d::texture_gl_access;
+using glintfx::render::gl_function_table;
+using glintfx::render::GLenum;
+using glintfx::render::GLint;
+using glintfx::render::GLsizei;
+using glintfx::render::GLuint;
+
+namespace {
+
+// gl.xml
+constexpr GLenum k_texture_2d = 0x0DE1;
+constexpr GLenum k_srgb8_alpha8 = 0x8C43;
+constexpr GLenum k_rgba = 0x1908;
+constexpr GLenum k_unsigned_byte = 0x1401;
+constexpr GLenum k_base_level = 0x813C;
+constexpr GLenum k_max_level = 0x813D;
+constexpr GLenum k_unpack_alignment = 0x0CF5;
+constexpr GLenum k_unpack_row_length = 0x0CF2;
+constexpr GLenum k_unpack_skip_rows = 0x0CF3;
+constexpr GLenum k_unpack_skip_pixels = 0x0CF4;
+constexpr GLenum k_pixel_unpack_buffer = 0x88EC;
+constexpr GLenum k_max_texture_size = 0x0D33;
+constexpr GLenum k_texture0 = 0x84C0;
+constexpr GLenum k_out_of_memory = 0x0505;
+constexpr GLenum k_invalid_enum = 0x0500;
+constexpr GLenum k_invalid_operation = 0x0502;
+
+// One glTexImage2D as the card received it, with the state around it at that moment.
+struct upload {
+    GLenum target = 0;
+    GLint level = -1;
+    GLint internal_format = 0;
+    GLsizei width = 0;
+    GLsizei height = 0;
+    GLint border = -1;
+    GLenum format = 0;
+    GLenum type = 0;
+    std::vector<unsigned char> bytes;
+    std::map<GLenum, GLint> unpack; // glPixelStorei values at this moment
+    GLuint unpack_buffer = 0;
+    GLuint bound_texture = 0;
+    GLenum active_unit = 0;
+};
+
+struct fake_card {
+    int gl_calls = 0;
+    GLint max_side = 4096;
+    std::vector<GLenum> error_queue;
+    GLenum error_after_upload = 0;
+    GLuint next_name = 40;
+    std::vector<GLuint> generated;
+    std::vector<GLuint> deleted;
+    std::map<GLenum, GLint> unpack;
+    GLuint unpack_buffer = 0;
+    GLuint bound_texture = 0;
+    GLenum active_unit = 0;
+    std::map<GLenum, GLint> parameters; // glTexParameteri on GL_TEXTURE_2D
+    // The texture bound when each parameter was set (fatia T2b).
+    std::map<GLenum, GLuint> parameter_texture;
+    // How many levels were already uploaded when each parameter was set (fatia T2b-fix1).
+    std::map<GLenum, std::size_t> parameter_uploads_before;
+    std::vector<upload> uploads;
+    int mipmap_generations = 0;
+    int gl_calls_at_delete = -1;
+};
+fake_card card;
+
+struct fake_context {
+    bool fail = false;
+    int current_calls = 0;
+    int gl_calls_at_first_current = -1;
+};
+fake_context context;
+
+int owner_token = 0;
+
+void reset() {
+    card = fake_card{};
+    // State a careless consumer could have left behind: every one of these must be overwritten.
+    card.unpack = {{k_unpack_alignment, 8},
+                   {k_unpack_row_length, 3},
+                   {k_unpack_skip_rows, 2},
+                   {k_unpack_skip_pixels, 1}};
+    card.unpack_buffer = 77;
+    card.active_unit = k_texture0 + 3;
+    context = fake_context{};
+}
+
+gltfx_rslt<void> fake_make_current(void *) noexcept {
+    ++context.current_calls;
+    if (context.gl_calls_at_first_current < 0) {
+        context.gl_calls_at_first_current = card.gl_calls;
+    }
+    if (context.fail) {
+        return gltfx_rslt<void>::err(
+            glintfx::gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("context"));
+    }
+    return gltfx_rslt<void>::ok();
+}
+
+GLenum GLINTFX_GL_APIENTRY f_get_error() {
+    ++card.gl_calls;
+    if (card.error_queue.empty()) {
+        return 0;
+    }
+    const GLenum first = card.error_queue.front();
+    card.error_queue.erase(card.error_queue.begin());
+    return first;
+}
+void GLINTFX_GL_APIENTRY f_get_integer(GLenum pname, GLint *data) {
+    ++card.gl_calls;
+    *data = pname == k_max_texture_size ? card.max_side : 0;
+}
+void GLINTFX_GL_APIENTRY f_bind_buffer(GLenum target, GLuint name) {
+    ++card.gl_calls;
+    if (target == k_pixel_unpack_buffer) {
+        card.unpack_buffer = name;
+    }
+}
+void GLINTFX_GL_APIENTRY f_pixel_store(GLenum pname, GLint value) {
+    ++card.gl_calls;
+    card.unpack[pname] = value;
+}
+void GLINTFX_GL_APIENTRY f_active_texture(GLenum unit) {
+    ++card.gl_calls;
+    card.active_unit = unit;
+}
+void GLINTFX_GL_APIENTRY f_gen_textures(GLsizei n, GLuint *names) {
+    ++card.gl_calls;
+    for (GLsizei i = 0; i < n; ++i) {
+        names[i] = card.next_name++;
+        card.generated.push_back(names[i]);
+    }
+}
+void GLINTFX_GL_APIENTRY f_delete_textures(GLsizei n, const GLuint *names) {
+    ++card.gl_calls;
+    card.gl_calls_at_delete = card.gl_calls;
+    for (GLsizei i = 0; i < n; ++i) {
+        card.deleted.push_back(names[i]);
+    }
+}
+void GLINTFX_GL_APIENTRY f_bind_texture(GLenum target, GLuint name) {
+    ++card.gl_calls;
+    if (target == k_texture_2d) {
+        card.bound_texture = name;
+    }
+}
+void GLINTFX_GL_APIENTRY f_tex_parameter(GLenum target, GLenum pname, GLint value) {
+    ++card.gl_calls;
+    if (target == k_texture_2d) {
+        card.parameters[pname] = value;
+        card.parameter_texture[pname] = card.bound_texture;
+        card.parameter_uploads_before[pname] = card.uploads.size();
+    }
+}
+void GLINTFX_GL_APIENTRY f_tex_image(GLenum target, GLint level, GLint internal_format,
+                                     GLsizei width, GLsizei height, GLint border, GLenum format,
+                                     GLenum type, const void *pixels) {
+    ++card.gl_calls;
+    upload sent{target,
+                level,
+                internal_format,
+                width,
+                height,
+                border,
+                format,
+                type,
+                {},
+                card.unpack,
+                card.unpack_buffer,
+                card.bound_texture,
+                card.active_unit};
+    if (pixels != nullptr && width > 0 && height > 0) {
+        const auto *first = static_cast<const unsigned char *>(pixels);
+        sent.bytes.assign(first, first + static_cast<std::size_t>(width) * height * 4);
+    }
+    card.uploads.push_back(sent);
+    if (card.error_after_upload != 0) {
+        card.error_queue.push_back(card.error_after_upload);
+    }
+}
+void GLINTFX_GL_APIENTRY f_generate_mipmap(GLenum) {
+    ++card.gl_calls;
+    ++card.mipmap_generations;
+}
+
+// The first level's upload runs out of memory and the second leaves an invalid enum: two flags of
+// different kinds from ONE creation (D-W8-2050).
+void GLINTFX_GL_APIENTRY f_tex_image_leaving_two_kinds(GLenum target, GLint level,
+                                                       GLint internal_format, GLsizei width,
+                                                       GLsizei height, GLint border, GLenum format,
+                                                       GLenum type, const void *pixels) {
+    f_tex_image(target, level, internal_format, width, height, border, format, type, pixels);
+    card.error_queue.push_back(level == 0 ? k_out_of_memory : k_invalid_enum);
+}
+
+[[nodiscard]] gl_function_table fake_table() {
+    gl_function_table t;
+    t.glGetError = &f_get_error;
+    t.glGetIntegerv = &f_get_integer;
+    t.glBindBuffer = &f_bind_buffer;
+    t.glPixelStorei = &f_pixel_store;
+    t.glActiveTexture = &f_active_texture;
+    t.glGenTextures = &f_gen_textures;
+    t.glDeleteTextures = &f_delete_textures;
+    t.glBindTexture = &f_bind_texture;
+    t.glTexParameteri = &f_tex_parameter;
+    t.glTexImage2D = &f_tex_image;
+    t.glGenerateMipmap = &f_generate_mipmap;
+    return t;
+}
+const gl_function_table k_table = fake_table();
+
+[[nodiscard]] texture_gl_access access() {
+    return texture_gl_access{&context, &fake_make_current, &k_table, &owner_token};
+}
+
+// Bytes the tests own; every view reads from here.
+std::vector<std::byte> pixels;
+
+[[nodiscard]] gltfx_image_view view_of(std::initializer_list<std::uint8_t> rgba,
+                                       std::uint32_t width, std::uint32_t height) {
+    pixels.clear();
+    for (const std::uint8_t value : rgba) {
+        pixels.push_back(std::byte{value});
+    }
+    return gltfx_image_view{.pixels = std::span<const std::byte>(pixels),
+                            .width = width,
+                            .height = height,
+                            .bytes_per_row = static_cast<std::size_t>(width) * 4,
+                            .pixel_format = gltfx_pixel_format::rgba8_srgb_straight};
+}
+
+// A width x height opaque white image.
+[[nodiscard]] gltfx_image_view white(std::uint32_t width, std::uint32_t height) {
+    pixels.assign(static_cast<std::size_t>(width) * height * 4, std::byte{255});
+    return gltfx_image_view{.pixels = std::span<const std::byte>(pixels),
+                            .width = width,
+                            .height = height,
+                            .bytes_per_row = static_cast<std::size_t>(width) * 4,
+                            .pixel_format = gltfx_pixel_format::rgba8_srgb_straight};
+}
+
+// A prvalue, never a named local: MSVC /O2 /fsanitize=address copied the padding of a named local
+// after the end of its scope, a stack-use-after-scope that no line of this file commits (T2a-win).
+[[nodiscard]] gltfx_texture_2d_desc levels(std::uint32_t count) {
+    return gltfx_texture_2d_desc{.mipmap_levels = count};
+}
+
+[[nodiscard]] gltfx_rslt<texture_2d_impl *> make(const gltfx_image_view &image,
+                                                 const gltfx_texture_2d_desc &desc = {}) {
+    return create_texture_object(access(), image, desc, default_batch_allocator());
+}
+
+[[nodiscard]] bool refused_as(const gltfx_rslt<texture_2d_impl *> &result, gltfx_err_code code,
+                              std::string_view field) {
+    return result.has_error() && result.err().code() == code &&
+           result.err().rejected_value() == field;
+}
+
+// Frees the record a successful make() returned, so no case leaks. The fake card keeps no object
+// alive, so nothing is released through GL here (that is texture_release_test's subject).
+void release(const gltfx_rslt<texture_2d_impl *> &made) {
+    if (made.has_value()) {
+        delete made.value();
+    }
+}
+
+// The log of the case: the name, category, severity and first field of every event, copied out
+// during the call (an event is valid only inside it). W8 deep verification I-2 (D-W8-2018).
+struct logged_event {
+    std::string name;
+    std::string category;
+    glintfx::gltfx_log_severity severity = glintfx::gltfx_log_severity::unknown;
+    std::string field;
+    std::uint64_t value = 0;
+};
+std::vector<logged_event> logged;
+
+void log_sink(void *, const glintfx::gltfx_log_event &event) noexcept {
+    logged_event entry;
+    entry.name = std::string(event.name());
+    entry.category = std::string(event.category());
+    entry.severity = event.severity();
+    if (!event.fields().empty()) {
+        entry.field = std::string(event.fields()[0].name);
+        entry.value = event.fields()[0].value.unsigned_integer();
+    }
+    logged.push_back(entry);
+}
+
+// The prior-error events of the case, in order; every other event is left out.
+[[nodiscard]] std::vector<logged_event> prior_errors_logged() {
+    std::vector<logged_event> prior;
+    for (const logged_event &entry : logged) {
+        if (entry.name == "draw2d_prior_gl_error") {
+            prior.push_back(entry);
+        }
+    }
+    return prior;
+}
+
+// Arms the capture for one case and disarms it at the end, even when a check fails.
+struct armed_log {
+    armed_log() {
+        logged.clear();
+        glintfx::gltfx_log_set_sink(
+            glintfx::gltfx_log_sink{&log_sink, nullptr, glintfx::gltfx_log_severity::trace});
+    }
+    ~armed_log() { glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{}); }
+    armed_log(const armed_log &) = delete;
+    armed_log &operator=(const armed_log &) = delete;
+};
+
+// The two errors the consumer left, said in the order they were in the queue, as warn events of
+// the draw2d category with the GL code in the field gl_error (vertex_stream_test.cpp, the twin).
+[[nodiscard]] bool said_the_consumers_two_errors(GLenum first, GLenum second) {
+    const std::vector<logged_event> prior = prior_errors_logged();
+    if (prior.size() != 2U) {
+        return false;
+    }
+    for (const logged_event &entry : prior) {
+        if (entry.category != "draw2d" || entry.severity != glintfx::gltfx_log_severity::warn ||
+            entry.field != "gl_error") {
+            return false;
+        }
+    }
+    return prior[0].value == first && prior[1].value == second;
+}
+
+void *refuse_everything(void *, std::size_t) noexcept { return nullptr; }
+
+// A texture parameter as last set, or -999 when it was never set (a check fails, never throws).
+[[nodiscard]] GLint parameter(GLenum pname) {
+    const auto found = card.parameters.find(pname);
+    return found == card.parameters.end() ? -999 : found->second;
+}
+
+} // namespace
+
+GLINTFX_TEST(an_invalid_request_is_refused_before_the_context_is_touched) {
+    reset();
+    const auto made = make(white(0, 2));
+    GLINTFX_CHECK(refused_as(made, gltfx_err_code::invalid_argument, "width"));
+    GLINTFX_CHECK_EQ(context.current_calls, 0);
+    GLINTFX_CHECK_EQ(card.gl_calls, 0);
+}
+
+GLINTFX_TEST(the_context_is_made_current_before_the_first_gl_call) {
+    reset();
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK(context.current_calls >= 1);
+    GLINTFX_CHECK_EQ(context.gl_calls_at_first_current, 0);
+    release(made);
+}
+
+GLINTFX_TEST(a_context_that_cannot_be_made_current_passes_its_error_on_untouched) {
+    reset();
+    context.fail = true;
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(refused_as(made, gltfx_err_code::platform_failure, "context"));
+    GLINTFX_CHECK_EQ(card.gl_calls, 0);
+}
+
+// The limit is read from the card, and each side is compared with it: a texture exactly at the
+// limit is made, one texel more on EITHER side is not.
+GLINTFX_TEST(a_side_larger_than_the_card_allows_is_unsupported_by_name) {
+    reset();
+    card.max_side = 4;
+    const auto at_limit = make(white(4, 4));
+    GLINTFX_CHECK(at_limit.has_value());
+    release(at_limit);
+    reset();
+    card.max_side = 4;
+    GLINTFX_CHECK(refused_as(make(white(5, 1)), gltfx_err_code::unsupported, "width"));
+    reset();
+    card.max_side = 4;
+    GLINTFX_CHECK(refused_as(make(white(1, 5)), gltfx_err_code::unsupported, "height"));
+    GLINTFX_CHECK(card.generated.empty());
+}
+
+GLINTFX_TEST(the_texture_is_uploaded_as_srgb8_alpha8_from_rgba_bytes) {
+    reset();
+    const auto made = make(white(3, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(card.uploads.size(), 1U);
+    const upload &sent = card.uploads.at(0);
+    GLINTFX_CHECK_EQ(sent.target, k_texture_2d);
+    GLINTFX_CHECK_EQ(sent.level, 0);
+    GLINTFX_CHECK_EQ(sent.internal_format, static_cast<GLint>(k_srgb8_alpha8));
+    GLINTFX_CHECK_EQ(sent.width, 3);
+    GLINTFX_CHECK_EQ(sent.height, 2);
+    GLINTFX_CHECK_EQ(sent.border, 0);
+    GLINTFX_CHECK_EQ(sent.format, k_rgba);
+    GLINTFX_CHECK_EQ(sent.type, k_unsigned_byte);
+    GLINTFX_CHECK_EQ(card.mipmap_generations, 0);
+    release(made);
+}
+
+// The bytes on the card are the STORED texels (pixel_premultiply.hpp), not the caller's: sRGB
+// straight (255, 0, 0, 128) stores as (188, 0, 0, 128), the exact case of the T1-fix1 order.
+GLINTFX_TEST(the_bytes_uploaded_are_the_stored_texels) {
+    reset();
+    const auto made = make(view_of({255, 0, 0, 128, 0, 255, 0, 255}, 2, 1));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(card.uploads.size(), 1U);
+    const std::vector<unsigned char> expected = {188, 0, 0, 128, 0, 255, 0, 255};
+    GLINTFX_CHECK(card.uploads.at(0).bytes == expected);
+    release(made);
+}
+
+// Whatever the consumer left, the upload reads tightly packed rows from client memory, on unit 0.
+GLINTFX_TEST(the_unpack_state_is_set_before_the_upload) {
+    reset();
+    const auto made = make(white(3, 3));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(card.uploads.size(), 1U);
+    const upload &sent = card.uploads.at(0);
+    GLINTFX_CHECK_EQ(sent.unpack_buffer, 0U);
+    GLINTFX_CHECK_EQ(sent.unpack.at(k_unpack_alignment), 1);
+    GLINTFX_CHECK_EQ(sent.unpack.at(k_unpack_row_length), 0);
+    GLINTFX_CHECK_EQ(sent.unpack.at(k_unpack_skip_rows), 0);
+    GLINTFX_CHECK_EQ(sent.unpack.at(k_unpack_skip_pixels), 0);
+    GLINTFX_CHECK_EQ(sent.active_unit, k_texture0);
+    GLINTFX_CHECK_EQ(card.generated.size(), 1U);
+    GLINTFX_CHECK_EQ(sent.bound_texture, card.generated.at(0));
+    GLINTFX_CHECK_EQ(card.bound_texture, 0U);
+    release(made);
+}
+
+// R2D-TEXTURE, fatia T2b: the sampling parameters (draw2d/texture_sampling.hpp) are set on the NEW
+// texture, while it is bound, for every filter, with and without reduced levels. The table itself
+// is proved in texture_sampling_test; here, that the upload applies it. Literals of gl.xml.
+namespace {
+
+constexpr GLenum k_mag_filter = 0x2800;
+constexpr GLenum k_min_filter = 0x2801;
+constexpr GLenum k_wrap_s = 0x2802;
+constexpr GLenum k_wrap_t = 0x2803;
+constexpr GLint k_nearest = 0x2600;
+constexpr GLint k_linear = 0x2601;
+constexpr GLint k_nearest_mipmap_nearest = 0x2700;
+constexpr GLint k_linear_mipmap_linear = 0x2703;
+constexpr GLint k_clamp_to_edge = 0x812F;
+
+// A prvalue, never a named local, like levels() above (T2a-win): MSVC /O2 /fsanitize=address
+// copied the 3 padding bytes of the named local after the end of its scope, a
+// stack-use-after-scope that no line of this file commits (CI run 38340544829, T2b-win).
+[[nodiscard]] gltfx_texture_2d_desc sampled(gltfx_texture_filter filter, std::uint32_t count) {
+    return gltfx_texture_2d_desc{.filter = filter, .mipmap_levels = count};
+}
+
+// True when each of the four sampling parameters was set while the ONE texture this creation
+// generated was bound (not before the bind, not after the unbind).
+[[nodiscard]] bool set_on_the_new_texture() {
+    if (card.generated.size() != 1U) {
+        return false;
+    }
+    const GLuint name = card.generated.front();
+    for (const GLenum pname : {k_mag_filter, k_min_filter, k_wrap_s, k_wrap_t}) {
+        const auto found = card.parameter_texture.find(pname);
+        if (found == card.parameter_texture.end() || found->second != name) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+GLINTFX_TEST(the_nearest_filter_without_reduced_levels_reads_one_texel_and_clamps_the_edges) {
+    reset();
+    const auto made = make(white(2, 1), sampled(gltfx_texture_filter::nearest, 0U));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_nearest);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_nearest);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_s), k_clamp_to_edge);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_t), k_clamp_to_edge);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(made);
+}
+
+GLINTFX_TEST(the_default_request_is_linear_without_reduced_levels_and_clamps_the_edges) {
+    reset();
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_linear);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_linear);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_s), k_clamp_to_edge);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_t), k_clamp_to_edge);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(made);
+}
+
+// A 4 x 4 texture with every reduced level has two (4 x 4, 2 x 2, 1 x 1): minification uses them.
+GLINTFX_TEST(with_reduced_levels_nearest_keeps_one_level_and_linear_blends_two) {
+    reset();
+    const auto near =
+        make(white(4, 4), sampled(gltfx_texture_filter::nearest, gltfx_all_mipmap_levels));
+    GLINTFX_CHECK(near.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_max_level), 2);
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_nearest);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_nearest_mipmap_nearest);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(near);
+    reset();
+    const auto blended = make(white(4, 4), sampled(gltfx_texture_filter::linear, 1U));
+    GLINTFX_CHECK(blended.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_max_level), 1);
+    GLINTFX_CHECK_EQ(parameter(k_mag_filter), k_linear);
+    GLINTFX_CHECK_EQ(parameter(k_min_filter), k_linear_mipmap_linear);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_s), k_clamp_to_edge);
+    GLINTFX_CHECK_EQ(parameter(k_wrap_t), k_clamp_to_edge);
+    GLINTFX_CHECK(set_on_the_new_texture());
+    release(blended);
+}
+
+// R2D-TEXTURE, fatia T2b-fix1 (F-2 of the N1 review): the four sampling parameters are set BEFORE
+// the first level is uploaded (texture_upload.hpp, step 7), not merely while the texture is bound.
+GLINTFX_TEST(the_sampling_parameters_are_set_before_the_first_level_is_uploaded) {
+    reset();
+    const auto made =
+        make(white(4, 4), sampled(gltfx_texture_filter::linear, gltfx_all_mipmap_levels));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(card.uploads.size(), std::size_t{3});
+    std::size_t checked = 0;
+    for (const GLenum pname : {k_mag_filter, k_min_filter, k_wrap_s, k_wrap_t}) {
+        const auto found = card.parameter_uploads_before.find(pname);
+        GLINTFX_CHECK(found != card.parameter_uploads_before.end());
+        GLINTFX_CHECK_EQ(found->second, std::size_t{0});
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, std::size_t{4});
+    release(made);
+}
+
+// Without mipmaps the texture is complete with level 0 alone: GL_TEXTURE_MAX_LEVEL 0.
+GLINTFX_TEST(no_mipmap_sets_the_max_level_to_zero) {
+    reset();
+    const auto made = make(white(4, 4));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(parameter(k_base_level), 0);
+    GLINTFX_CHECK_EQ(parameter(k_max_level), 0);
+    GLINTFX_CHECK_EQ(card.uploads.size(), 1U);
+    release(made);
+}
+
+// 4 x 2 with every level: 4 x 2, 2 x 1 and 1 x 1, computed by the library and uploaded one by
+// one; glGenerateMipmap is never called. The 2 x 2 block of three white and one transparent
+// texel reduces to (225, 225, 225, 191) (mipmap_reduce_test, the same formula).
+GLINTFX_TEST(every_reduced_level_is_computed_and_uploaded) {
+    reset();
+    const auto made =
+        make(view_of({255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255,
+                      255, 255, 255, 255, 0,   0,   0,   0,   0, 0, 0, 255, 0, 0, 0, 255},
+                     4, 2),
+             levels(gltfx_all_mipmap_levels));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(card.mipmap_generations, 0);
+    GLINTFX_CHECK_EQ(parameter(k_max_level), 2);
+    GLINTFX_CHECK_EQ(card.uploads.size(), 3U);
+    GLINTFX_CHECK_EQ(card.uploads.at(1).level, 1);
+    GLINTFX_CHECK_EQ(card.uploads.at(1).width, 2);
+    GLINTFX_CHECK_EQ(card.uploads.at(1).height, 1);
+    GLINTFX_CHECK_EQ(card.uploads.at(1).internal_format, static_cast<GLint>(k_srgb8_alpha8));
+    const std::vector<unsigned char> level_1 = {225, 225, 225, 191, 0, 0, 0, 255};
+    GLINTFX_CHECK(card.uploads.at(1).bytes == level_1);
+    GLINTFX_CHECK_EQ(card.uploads.at(2).level, 2);
+    GLINTFX_CHECK_EQ(card.uploads.at(2).width, 1);
+    GLINTFX_CHECK_EQ(card.uploads.at(2).height, 1);
+    GLINTFX_CHECK(made.has_value() && made.value()->reduced_levels == 2U);
+    release(made);
+}
+
+GLINTFX_TEST(the_card_running_out_of_memory_is_out_of_memory_with_the_gl_code) {
+    reset();
+    card.error_after_upload = k_out_of_memory;
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(refused_as(made, gltfx_err_code::out_of_memory, "texture_create"));
+    GLINTFX_CHECK(made.has_error() && made.err().os_error_code() == k_out_of_memory);
+    GLINTFX_CHECK_EQ(card.generated.size(), 1U);
+    GLINTFX_CHECK(card.deleted == card.generated);
+    GLINTFX_CHECK_EQ(card.bound_texture, 0U);
+}
+
+GLINTFX_TEST(another_gl_error_is_a_platform_failure_with_the_gl_code) {
+    reset();
+    card.error_after_upload = k_invalid_enum;
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(refused_as(made, gltfx_err_code::platform_failure, "texture_create"));
+    GLINTFX_CHECK(made.has_error() && made.err().os_error_code() == k_invalid_enum);
+    GLINTFX_CHECK(card.deleted == card.generated);
+}
+
+// An error the consumer left in the queue is not this call's.
+GLINTFX_TEST(a_stale_gl_error_is_not_blamed_on_the_texture) {
+    reset();
+    card.error_queue = {k_invalid_operation, k_invalid_enum};
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    release(made);
+}
+
+// D-B3c-2: what the consumer left in the queue is drained on entry and SAID in the log, never
+// swallowed (W8 deep verification I-2, D-W8-2018).
+GLINTFX_TEST(the_stale_errors_the_consumer_left_are_said_in_the_log_by_the_creation) {
+    reset();
+    const armed_log log;
+    card.error_queue = {k_invalid_operation, k_invalid_enum};
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK(said_the_consumers_two_errors(k_invalid_operation, k_invalid_enum));
+    release(made);
+}
+
+// The upload that fails leaves TWO flags of its own (OpenGL keeps one per kind): both are the
+// creation's, so neither may reach the next entry as the consumer's (W8 deep verification, R2-B
+// fix1 I-1, D-W8-2050; the probe of the N1 review).
+GLINTFX_TEST(the_second_flag_of_a_failed_creation_is_not_said_as_the_consumers) {
+    reset();
+    gl_function_table two_kinds = fake_table();
+    two_kinds.glTexImage2D = &f_tex_image_leaving_two_kinds;
+    const texture_gl_access failing{&context, &fake_make_current, &two_kinds, &owner_token};
+    const auto failed =
+        create_texture_object(failing, white(4, 4), levels(1), default_batch_allocator());
+    GLINTFX_CHECK(refused_as(failed, gltfx_err_code::out_of_memory, "texture_create"));
+    GLINTFX_CHECK(card.error_queue.empty()); // the creation's own flags do not outlive it
+    const armed_log log;
+    const auto made = make(white(2, 2));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK(prior_errors_logged().empty());
+    release(made);
+}
+
+// The consumer's errors are drained on ENTRY, before anything else, so they are said even when the
+// creation is then refused by the card's limit (D-B3c-2; kills the mutant M8 of the N1 review).
+GLINTFX_TEST(the_consumers_errors_are_said_even_when_the_card_refuses_the_size) {
+    reset();
+    card.max_side = 4;
+    const armed_log log;
+    card.error_queue = {k_invalid_operation, k_invalid_enum};
+    GLINTFX_CHECK(refused_as(make(white(5, 1)), gltfx_err_code::unsupported, "width"));
+    GLINTFX_CHECK(said_the_consumers_two_errors(k_invalid_operation, k_invalid_enum));
+}
+
+// The library's own memory: refused before any GL object exists.
+GLINTFX_TEST(the_library_running_out_of_memory_is_out_of_memory_with_no_gl_object) {
+    reset();
+    const batch_allocator refusing{&refuse_everything, default_batch_allocator().release};
+    const auto made = create_texture_object(access(), white(2, 2), {}, refusing);
+    GLINTFX_CHECK(refused_as(made, gltfx_err_code::out_of_memory, "texture_create"));
+    GLINTFX_CHECK(made.has_error() && made.err().os_error_code() == 0);
+    GLINTFX_CHECK(card.generated.empty());
+}
+
+GLINTFX_TEST(the_record_names_the_texture_its_size_and_its_owner) {
+    reset();
+    gltfx_texture_2d_desc desc = levels(1);
+    desc.filter = gltfx_texture_filter::nearest;
+    const auto made = make(white(5, 3), desc);
+    GLINTFX_CHECK(made.has_value());
+    const texture_2d_impl *record = made.has_value() ? made.value() : nullptr;
+    GLINTFX_CHECK(record != nullptr);
+    GLINTFX_CHECK_EQ(card.generated.size(), 1U);
+    GLINTFX_CHECK_EQ(record->gl_name, card.generated.at(0));
+    GLINTFX_CHECK_EQ(record->width, 5U);
+    GLINTFX_CHECK_EQ(record->height, 3U);
+    GLINTFX_CHECK_EQ(record->reduced_levels, 1U);
+    GLINTFX_CHECK(record->filter == gltfx_texture_filter::nearest);
+    GLINTFX_CHECK(record->access.owner == &owner_token);
+    release(made);
+}
+
+// renderer_2d.hpp: create_texture "sets the pixel-unpack state it reads with ... and leaves it so,
+// with no texture bound and texture unit 0 active". Read AFTER the call returns, from state the
+// consumer had left otherwise (reset() plants alignment 8, row length 3, skips 2 and 1, unpack
+// buffer 77 and unit 3).
+GLINTFX_TEST(the_unpack_state_is_left_as_set_after_the_creation) {
+    reset();
+    const auto made = make(white(3, 3), levels(gltfx_all_mipmap_levels));
+    GLINTFX_CHECK(made.has_value());
+    GLINTFX_CHECK_EQ(card.unpack_buffer, 0U);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_alignment), 1);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_row_length), 0);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_skip_rows), 0);
+    GLINTFX_CHECK_EQ(card.unpack.at(k_unpack_skip_pixels), 0);
+    GLINTFX_CHECK_EQ(card.active_unit, k_texture0);
+    GLINTFX_CHECK_EQ(card.bound_texture, 0U);
+    release(made);
+}

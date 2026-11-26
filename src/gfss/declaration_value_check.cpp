@@ -167,9 +167,22 @@ struct component_outcome {
     gltfx_gfss_diagnostic diagnostic{};
 };
 
-[[nodiscard]] component_outcome
-check_one_component(const gltfx_gfss_token &token,
-                    const property_value_contract &contract) noexcept {
+// NOT noexcept, on purpose. accepted_keyword_detail() below builds its
+// program-lifetime table on its first call, by std::string
+// concatenation, so the first keyword refusal of a process can raise
+// std::bad_alloc. Every other link of this parse chain lets that reach
+// the caller (sheet_parse.hpp's own header comment: the chain is not
+// noexcept, and std::bad_alloc is never caught on it); a noexcept here
+// was the one link that turned it into std::terminate() instead.
+// clang-tidy 23's bugprone-exception-escape reached this path over the
+// Microsoft STL, through the size-overflow throw its headers carry
+// inline (std::bad_array_new_length); the check ignores std::bad_alloc
+// itself by name, and libstdc++ keeps its throws out of line, so no
+// analyzer guards the out-of-memory case here.
+// tests/gfss_keyword_detail_oom_test.cpp does: it forces that first
+// build to fail and checks that the std::bad_alloc arrives.
+[[nodiscard]] component_outcome check_one_component(const gltfx_gfss_token &token,
+                                                    const property_value_contract &contract) {
     value_parse_result parsed = parse_value(token);
     if (!parsed.ok) {
         return component_outcome{.ok = false, .diagnostic = parsed.diagnostic};
@@ -298,7 +311,7 @@ declaration_value_check_result check_comma_separated(const std::vector<gltfx_gfs
     std::size_t group_start = span.first;
     int depth = 0;
 
-    auto close_group = [&](std::size_t group_end) -> const gltfx_gfss_diagnostic * {
+    const auto close_group = [&](std::size_t group_end) -> const gltfx_gfss_diagnostic * {
         static gltfx_gfss_diagnostic diagnostic{};
         const trimmed_token_span group = trim_whitespace_tokens(tokens, group_start, group_end);
         if (!group.has_content || group.first != group.last) {

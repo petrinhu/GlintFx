@@ -83,7 +83,7 @@ std::string render_header(const std::vector<gl_command> &commands) {
         out += "using " + typedef_name(command) + " = " + command.return_type +
                " (GLINTFX_GL_APIENTRY *)(" + parameter_list_text(command) + ");\n";
     }
-    out += "\n";
+    out += '\n';
 
     out += "struct gl_function_table {\n";
     for (const gl_command &command : commands) {

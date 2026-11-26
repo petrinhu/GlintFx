@@ -2,11 +2,12 @@
 #include "draw2d/piece_list.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 namespace glintfx::draw2d {
 
 piece_list::piece_list(batch_allocator allocator_in, std::size_t max_pieces) noexcept
-    : allocator(allocator_in), bound(max_pieces) {}
+    : allocator(allocator_in), bound(max_pieces), triangles(allocator_in) {}
 
 piece_list::~piece_list() { allocator.release(piece_store.data); }
 
@@ -19,19 +20,111 @@ bool piece_list::reserve(std::size_t pieces) noexcept {
 
 bool piece_list::add(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                      std::int32_t layer) noexcept {
+    return append_quad(pending_piece{corners, color, layer, 0, piece_kind::quad});
+}
+
+bool piece_list::add_textured(const quad_corners_pixel &corners, const textured_quad_paint &paint,
+                              std::int32_t layer) noexcept {
+    pending_piece piece{corners, paint.tint, layer, 0, piece_kind::quad};
+    piece.texture = paint.texture;
+    piece.texture_corners = paint.texture_corners;
+    piece.stencil = paint.stencil;
+    return append_quad(piece);
+}
+
+bool piece_list::add_shadow(const quad_corners_pixel &corners, glintfx::gltfx_rgba tint,
+                            std::int32_t layer) noexcept {
+    pending_piece piece{corners, tint, layer, 0, piece_kind::quad};
+    piece.stencil = stencil_role::shadow;
+    return append_quad(piece);
+}
+
+bool piece_list::append_quad(pending_piece piece) noexcept {
     if (piece_store.size >= bound || !ensure_room<pending_piece>(allocator, piece_store, 1)) {
         return false;
     }
-    pending_piece &piece = piece_store.data[piece_store.size];
-    piece.corners = corners;
-    piece.color = color;
-    piece.layer = layer;
     piece.submission = static_cast<std::uint32_t>(piece_store.size);
+    piece_store.data[piece_store.size] = piece;
+    note_layer(piece.layer);
+    ++piece_store.size;
+    return true;
+}
+
+void piece_list::note_layer(std::int32_t layer) noexcept {
     if (piece_store.size > 0 && layer != piece_store.data[0].layer) {
         one_layer = false;
     }
+}
+
+// The vertices and the indices are COPIED into the triangle store before the piece is written: the
+// piece keeps offsets into it, never a pointer to the caller's arrays.
+bool piece_list::add_triangles(std::span<const colored_pixel_vertex> vertices,
+                               std::span<const std::uint32_t> local_indices,
+                               std::int32_t layer) noexcept {
+    return add_textured_triangles(
+        textured_triangle_piece{textured_triangles{vertices, {}, local_indices}, 0}, layer);
+}
+
+bool piece_list::add_textured_triangles(const textured_triangle_piece &piece,
+                                        std::int32_t layer) noexcept {
+    const textured_triangles &data = piece.geometry;
+    assert(piece.texture == 0 || data.reads.size() == data.vertices.size());
+    if (piece_store.size >= bound || !room_for_triangle_piece(data)) {
+        return false;
+    }
+    triangle_position where{};
+    std::size_t first_read = 0;
+    if (!triangles.append(data.vertices, data.local_indices, where) ||
+        !triangles.append_reads(data.reads, first_read)) {
+        return false; // not reached: room_for_triangle_piece() made room in every store above
+    }
+    const pending_piece added{
+        .layer = layer,
+        .submission = static_cast<std::uint32_t>(piece_store.size),
+        .kind = piece_kind::triangles,
+        .first_vertex = where.first_vertex,
+        .vertex_count = data.vertices.size(),
+        .first_index = where.first_index,
+        .index_count = data.local_indices.size(),
+        .first_read = first_read,
+        .texture = piece.texture,
+    };
+    piece_store.data[piece_store.size] = added;
+    note_layer(layer);
     ++piece_store.size;
     return true;
+}
+
+std::span<const colored_pixel_vertex>
+piece_list::triangle_vertices(const pending_piece &piece) const noexcept {
+    if (piece.kind != piece_kind::triangles) {
+        return {};
+    }
+    return triangles.vertices(piece.first_vertex, piece.vertex_count);
+}
+
+std::span<const std::uint32_t>
+piece_list::triangle_indices(const pending_piece &piece) const noexcept {
+    if (piece.kind != piece_kind::triangles) {
+        return {};
+    }
+    return triangles.indices(piece.first_index, piece.index_count);
+}
+
+std::span<const triangle_texture_read>
+piece_list::triangle_reads(const pending_piece &piece) const noexcept {
+    if (piece.kind != piece_kind::triangles || piece.texture == 0) {
+        return {};
+    }
+    return triangles.reads(piece.first_read, piece.vertex_count);
+}
+
+// The piece store grows first, then the triangle store (the reads last, and only a textured piece
+// asks for any); nothing is written before all have room.
+bool piece_list::room_for_triangle_piece(const textured_triangles &piece) noexcept {
+    return ensure_room<pending_piece>(allocator, piece_store, 1) &&
+           triangles.room_for(piece.vertices.size(), piece.local_indices.size()) &&
+           triangles.room_for_reads(piece.reads.size());
 }
 
 std::size_t piece_list::size() const noexcept { return piece_store.size; }
@@ -55,6 +148,7 @@ const pending_piece &piece_list::painted(std::size_t position) const noexcept {
 
 void piece_list::clear() noexcept {
     piece_store.size = 0;
+    triangles.clear();
     one_layer = true;
 }
 

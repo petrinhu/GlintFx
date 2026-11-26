@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# sprite_shadows_probes.txt - R2D-SPRITE-SHADE H5: the probes of the example sprite_shadows, read on both systems (the
+# Linux capture in the protocol and the two Windows captures); the drivers' tables fix how many. Format:
+# tests/tools/image_probe.py ("<x> <y> <RRGGBBAA> [<tol>]", origin top-left, alpha included). Fixed BEFORE the data
+# existed (GODS_LAWS.md L-43): every value comes from the scene and the public rules of the headers, never from a
+# capture. The scene is in the header comment of examples/sprite_shadows/sprite_shadows.cpp.
+#
+# THE RULES OF EACH PROBE. The example does not ask for srgb_framebuffer, so a colour is encoded to sRGB BEFORE it is
+# blended (draw2d/renderer_2d.hpp, COLOR). A shadow is black with alpha 0.5: over white it gives 0.5 * 0 + 0.5 * 255 =
+# 127.5, so 0x80 with tolerance 2, the same tolerance draw2d_shadow_parity_test gives a blend (one level of rounding,
+# one of the driver's). A pixel darkened TWICE would be 63.75 (0x40), far outside it. A pure colour read from one
+# opaque piece, or the white background, has tolerance 0. Every probe is 5 pixels or more from the edge of a piece, of
+# a shadow and of a texel, so none depends on how an edge is cut.
+#
+# WHAT THE PROBES PROVE: the projection puts each shadow on the side the light does not come from, as long as the
+# piece is tall; two shadows that cover each other darken the ground once; a piece painted after the shadows is not
+# darkened by them; the shadow of an image darkens only where the image is opaque, and the colour of its texels never
+# enters it; the image itself is drawn next to its shadow. WHAT THEY DO NOT PROVE: where an edge falls to the pixel;
+# the point light (the example uses only the sun; core/projected_shadow.hpp has projected_shadow_test); the blend with
+# srgb_framebuffer on (draw2d_shadow_parity_test reads it); a shadow drawn after a barrier, which darkens again; and
+# anything between the probes.
+#
+# the background: the four corners and a point between the pieces
+0 0 FFFFFFFF 0
+639 0 FFFFFFFF 0
+0 479 FFFFFFFF 0
+639 479 FFFFFFFF 0
+500 400 FFFFFFFF 0
+#
+# the shadows of A (x 180 to 300, y 100 to 160) and B (x 240 to 360, y 130 to 190): only A, only B, and the part they
+#  share (x 240 to 300, y 130 to 160), which is darkened once; then the ground left of the shadow of A, which is as
+#  long as A is tall
+200 115 808080FF 2
+250 175 808080FF 2
+270 145 808080FF 2
+170 130 FFFFFFFF 0
+#
+# the boxes, painted after the shadows: A outside the shadow of B, A inside it (still pure blue), B; then the ground
+#  right of B, where no shadow falls
+320 110 0000FFFF 0
+320 145 0000FFFF 0
+380 160 FF0000FF 0
+420 160 FFFFFFFF 0
+#
+# the shadow of C (x 20 to 100, y 300 to 360): darkened where the image is opaque (y 300 to 330), white where it is
+#  transparent (y 330 to 360)
+60 315 808080FF 2
+60 345 FFFFFFFF 0
+#
+# the image of C (x 100 to 160, y 300 to 360): the opaque green texel on the left half, the transparent one on the
+#  right half, over the white background
+115 330 00FF00FF 0
+145 330 FFFFFFFF 0

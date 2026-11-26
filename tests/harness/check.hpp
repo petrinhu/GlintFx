@@ -84,6 +84,7 @@ void ensure_check_failure_was_recorded();
 
 } // namespace glintfx::test
 
+// NOLINTBEGIN(bugprone-std-exception-baseclass) reason: harness signal by design, see above
 #define GLINTFX_CHECK(cond)                                                                        \
     do {                                                                                           \
         if (!(cond)) {                                                                             \
@@ -91,5 +92,6 @@ void ensure_check_failure_was_recorded();
             throw ::glintfx::test::case_check_failed{};                                            \
         }                                                                                          \
     } while (false)
+// NOLINTEND(bugprone-std-exception-baseclass) reason: same region
 
 #define GLINTFX_CHECK_EQ(a, b) GLINTFX_CHECK((a) == (b))

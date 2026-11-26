@@ -41,8 +41,11 @@ Each of those pieces is documented on its own wiki page, in this same
 order: [Window and Display](API-Window-and-Display), [Graphics Context](API-Graphics-Context),
 [Main Loop](API-Main-Loop), [Draw 2D](API-Draw-2D). What still has no
 public API, and so no page here, is the rest of what a finished program
-would need: keyboard, mouse and gamepad input, drawing images and text,
-sound, and decoding image, font and sound files. See the main README's
+would need: keyboard, mouse and gamepad input, drawing text, sound, and
+decoding image, font and sound files. Drawing images now has public names,
+in the texture API. That API is still under review and may change: see
+[Texture atlas](API-Texture-Atlas), which puts many small pictures into
+one texture. See the main README's
 ["Status"](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction)
 section for the current, dated list of what exists versus what is only
 planned.

@@ -33,7 +33,7 @@
 // plain ctest) compiles and exercises ONLY the pure atom (src/platform/
 // gl/gl_surface_size_policy.{hpp,cpp}), against SYNTHETIC values,
 // never the real caller (egl_context_adapter.cpp's own private
-// resize_surface_if_due(), called from swap_buffers() on every frame).
+// resize_surface_if_due(), called from present_through_egl() on every frame).
 // Measured by mutation on 06/09/2026 (eighth appearance in this onda of
 // "afirma que mede e nao mede", feedback_afirma_que_mede_e_nao_mede.md):
 // a deliberate change to the pixel size at the REAL call site passed
@@ -79,6 +79,15 @@
 // mutation, on a COPY outside the tree, GODS_LAWS.md L-27) leaves the
 // EGL surface at the OLD size forever - this fixture's own final
 // comparison is exactly where that surfaces.
+//
+// WL-ACK-CONFIGURE-SEGUINTES: this fixture is also the trace the ack rule is
+// judged on (tests/tools/check_configure_ack_trace.py, ci.yml). It clears the
+// buffer before every swap, as a consumer's frame does: a resize asked after
+// that clear cannot reach the buffer already drawn, which is the one case where
+// an ack sent too early commits the old size under the new configure. It calls
+// no ack itself, so the library's own call site is the only one in the trace.
+// The last stage leaves fullscreen with no roundtrip: that configure lands
+// during the wait for the frame callback, inside swap_buffers().
 namespace {
 
 // Deliberately NOT a common screen/virtual-output resolution (kWidth x
@@ -93,9 +102,13 @@ constexpr std::int32_t kHeight = 277;
 using glintfx::platform::window_size;
 using glintfx::platform::window_state_bit;
 
+using gl_clear_fn = void (*)(unsigned int);
+constexpr unsigned int k_gl_color_buffer_bit = 0x4000; // GL_COLOR_BUFFER_BIT, gl.h
+
 [[nodiscard]] bool reach_presented(glintfx::platform::wayland_egl_context_adapter &context,
-                                   const char *label) {
+                                   gl_clear_fn clear, const char *label) {
     for (int attempt = 0; attempt < 10; ++attempt) {
+        clear(k_gl_color_buffer_bit);
         const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
         if (swapped.has_error()) {
             glintfx::container_fixture::checked_fprintf(
@@ -113,6 +126,31 @@ using glintfx::platform::window_state_bit;
         stderr,
         "surface_size_policy_adapter_test: never reached `presented` (%s) within 10 attempts\n",
         label);
+    return false;
+}
+
+// Presents until the window's pixel_size() moves away from `from`, then two frames
+// more: the first of them may still carry the old size, and the second is the one
+// that answers the configure. A compositor that never answers fails the fixture.
+[[nodiscard]] bool present_until_size_changes(
+    glintfx::platform::wayland_egl_context_adapter &context, gl_clear_fn clear,
+    const glintfx::platform::wayland_window_adapter &window, window_size from) {
+    constexpr int kMaxFrames = 120;
+    for (int frame = 0; frame < kMaxFrames; ++frame) {
+        if (!reach_presented(context, clear, "leaving fullscreen")) {
+            return false;
+        }
+        const window_size current = window.state().pixel_size();
+        if (current.width != from.width || current.height != from.height) {
+            return reach_presented(context, clear, "after leaving fullscreen") &&
+                   reach_presented(context, clear, "after leaving fullscreen, second frame");
+        }
+    }
+    glintfx::container_fixture::checked_fprintf(
+        stderr,
+        "surface_size_policy_adapter_test: pixel_size() never changed after "
+        "xdg_toplevel_unset_fullscreen() within %d frames\n",
+        kMaxFrames);
     return false;
 }
 
@@ -175,10 +213,24 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    void *clear_addr = context.proc_address("glClear");
+    if (clear_addr == nullptr) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "surface_size_policy_adapter_test: proc_address(glClear) failed\n");
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the universal
+    // dlsym-style function-to-object-pointer cast every GL loader relies on.
+    const auto clear = reinterpret_cast<gl_clear_fn>(clear_addr);
+
     // First presented frame, BEFORE any resize - the baseline this
     // fixture's own final comparison needs a real "it worked once
     // already" starting point.
-    if (!reach_presented(context, "before resize")) {
+    if (!reach_presented(context, clear, "before resize")) {
         context.close();
         window.close();
         shell.close();
@@ -252,7 +304,6 @@ int main() {
         adapter.close();
         return EXIT_FAILURE;
     }
-    window.ack_pending_configure();
 
     const window_size resized_pixel_size = window.state().pixel_size();
     glintfx::container_fixture::checked_fprintf(
@@ -266,7 +317,10 @@ int main() {
     // adapter.cpp) is the ONE place this new pixel_size() is supposed to
     // reach wl_egl_window_resize() - the exact call SURFACE-SIZE-
     // POLICY-ADAPTER-GAP says no test alcancava.
-    if (!reach_presented(context, "after resize")) {
+    // Two frames, not one: the first still carries the buffer drawn before the
+    // resize, and the second is the one that answers the configure.
+    if (!reach_presented(context, clear, "after resize") ||
+        !reach_presented(context, clear, "after resize, second frame")) {
         context.close();
         window.close();
         shell.close();
@@ -275,6 +329,18 @@ int main() {
     }
 
     const auto [final_surface_width, final_surface_height] = context.egl_surface_pixel_size();
+
+    // Leaving fullscreen with no roundtrip: the configure lands during the frame
+    // wait of one of these swaps (this file's own header comment).
+    xdg_toplevel_unset_fullscreen(window.toplevel());
+    if (!present_until_size_changes(context, clear, window, resized_pixel_size)) {
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
+
     glintfx::container_fixture::checked_fprintf(
         stdout, "MEASURED surface_size_policy_adapter_test.final_surface_width=%u\n",
         final_surface_width);

@@ -116,7 +116,7 @@ std::vector<std::uint8_t> pad_message(std::string_view data) {
         padded.push_back(0x00);
     }
     for (int shift = 56; shift >= 0; shift -= 8) {
-        padded.push_back(static_cast<std::uint8_t>(bit_length >> shift));
+        padded.push_back(static_cast<std::uint8_t>(bit_length >> static_cast<unsigned>(shift)));
     }
     return padded;
 }

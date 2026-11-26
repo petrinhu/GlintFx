@@ -7,6 +7,7 @@
 #include <new>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -43,7 +44,10 @@
 #include "platform/wayland/egl_config_attribs.hpp"
 #include "platform/wayland/egl_device_enumeration.hpp"
 #include "platform/wayland/egl_incoming_poll_step.hpp"
+#include "platform/wayland/egl_present_wire.hpp"
 #include "platform/wayland/egl_srgb_surface.hpp"
+#include "platform/wayland/frame_callback_wait.hpp"
+#include "platform/wayland/frame_request_present.hpp"
 #include "platform/wayland/incoming_poll_outcome.hpp"
 #include "platform/wayland/incoming_poll_reaction.hpp"
 #include "platform/wayland/window_adapter.hpp"
@@ -547,32 +551,88 @@ classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcep
         .count();
 }
 
-// WL-FRAME-WAIT (D-W8-213): waits for THIS surface's frame callback, never for "any event".
-// One poll_and_dispatch_with_budget() returns after the first batch of events read from the
-// socket, and that batch is often not ours: Mesa's wl_buffer.release lands on Mesa's private
-// queue but wakes the same fd, and the callback was still pending - every other frame became
-// skipped_hidden (loop_parity_test measured rendered_frames=15 of 30). So it polls again, with
-// what is left of the ONE budget, until `sequence` says the callback arrived or the budget
-// ends. Returns false only when a poll found the connection unusable.
-[[nodiscard]] bool wait_for_frame_callback(wl_display *display,
-                                           const frame_callback_sequence &sequence,
-                                           std::uint32_t budget_ms) noexcept {
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
-    while (sequence.decide_after_wait() == gltfx_present_outcome::skipped_hidden) {
-        const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                      deadline - std::chrono::steady_clock::now())
-                                      .count();
-        if (remaining_ms <= 0) {
-            return true;
-        }
-        if (!poll_and_dispatch_with_budget(display, static_cast<std::uint32_t>(remaining_ms))) {
-            return false;
-        }
+} // namespace
+
+// WL-FRAME-ORDER-ARM-TEST-fix1 (D-W8-F11): the real calls behind egl_present_wire.hpp, one system
+// call each and nothing else, and the ports bound to them. tests/egl_present_wiring_test.cpp
+// proves the ports with scripted calls, and that these are the defaults; the bodies below are the
+// part only the container suite exercises (llvmpipe), declared in the order of the fix.
+static_assert(std::is_same_v<EGLBoolean, unsigned int>, "egl_present_wire.hpp's EGLBoolean");
+static_assert(std::is_same_v<EGLDisplay, void *>, "egl_present_wire.hpp's EGLDisplay");
+static_assert(std::is_same_v<EGLSurface, void *>, "egl_present_wire.hpp's EGLSurface");
+
+unsigned int real_egl_swap_buffers(void *egl_display, void *egl_surface) noexcept {
+    return eglSwapBuffers(egl_display, egl_surface);
+}
+
+wl_callback *real_surface_frame(wl_surface *surface) noexcept { return wl_surface_frame(surface); }
+
+int real_callback_add_listener(wl_callback *callback, const wl_callback_listener *listener,
+                               void *data) noexcept {
+    return wl_callback_add_listener(callback, listener, data);
+}
+
+void real_callback_destroy(wl_callback *callback) noexcept { wl_callback_destroy(callback); }
+
+std::optional<gltfx_err> real_connection_failure_if_dead(wl_display *display) noexcept {
+    return connection_failure_if_dead(display);
+}
+
+void real_report_frame_callback_request_failed() noexcept {
+    report_frame_callback_request_failed();
+}
+
+bool real_poll_for(wl_display *display, std::uint32_t budget_ms) noexcept {
+    return poll_and_dispatch_with_budget(display, budget_ms);
+}
+
+std::int64_t real_now_ns() noexcept { return steady_now_ns(); }
+
+bool egl_wire_present_ports::request_frame() noexcept {
+    if (*target.pending_callback != nullptr) {
+        calls.callback_destroy(*target.pending_callback);
+        *target.pending_callback = nullptr;
     }
+    // WL-FRAME-ORDER-ARM-TEST (D-W8-226): wl_surface_frame() returns null only when
+    // proxy_create() fails inside libwayland-client (wayland-client.c,
+    // wl_proxy_marshal_array_flags(): that path returns null WITHOUT display_fatal_error(), so
+    // the connection stays alive and connection_failure_if_dead() cannot see it). The caller then
+    // reports it (the frame_callback_request_failed event, D-W8-F01) and arms nothing
+    // (frame_request_present.hpp), so the frame is paced like vsync=off instead of waiting forever
+    // for a callback that was never requested.
+    wl_callback *callback = calls.surface_frame(target.surface);
+    if (callback == nullptr) {
+        return false;
+    }
+    calls.callback_add_listener(callback, target.listener, target.listener_data);
+    *target.pending_callback = callback;
+    *target.request_failure_reported = false;
     return true;
 }
 
-} // namespace
+void egl_wire_present_ports::report_frame_request_failed() noexcept {
+    if (*target.request_failure_reported) {
+        return;
+    }
+    calls.report_frame_callback_request_failed();
+    *target.request_failure_reported = true;
+}
+
+bool egl_wire_present_ports::swap() noexcept {
+    return calls.swap_buffers(target.egl_display, target.egl_surface) == EGL_TRUE;
+}
+
+std::optional<gltfx_err> egl_wire_present_ports::dead_after_swap() noexcept {
+    return calls.connection_failure_if_dead(target.display);
+}
+
+std::int64_t egl_wire_present_ports::now_ns() noexcept { return calls.now_ns(); }
+
+std::int64_t egl_wire_wait_ports::now_ns() noexcept { return clock(); }
+
+bool egl_wire_wait_ports::poll_for(std::uint32_t budget_ms) noexcept {
+    return poll(display, budget_ms);
+}
 
 wayland_egl_context_adapter::~wayland_egl_context_adapter() { close(); }
 
@@ -833,91 +893,129 @@ gltfx_rslt<void> wayland_egl_context_adapter::create_context(void *config) noexc
     return gltfx_rslt<void>::ok();
 }
 
-void wayland_egl_context_adapter::attach_frame_listener() noexcept {
-    if (m_pending_frame_callback != nullptr) {
-        wl_callback_destroy(m_pending_frame_callback);
-        m_pending_frame_callback = nullptr;
-    }
-    // wl_surface_frame() failing (allocation failure inside libwayland-
-    // client) is not treated as a fatal open()/swap_buffers() error:
-    // frame_callback_sequence's own arm_pending() still marks the next
-    // swap as "waiting", and it will degrade to skipped_hidden once the
-    // budget runs out on a callback that was never actually requested -
-    // an honest degrade, never a crash, for a condition this project
-    // has never measured happening.
-    wl_callback *callback = wl_surface_frame(m_surface);
-    if (callback != nullptr) {
-        wl_callback_add_listener(callback, &k_frame_callback_listener, this);
-        m_pending_frame_callback = callback;
-    }
-}
-
-void wayland_egl_context_adapter::resize_surface_if_due() noexcept {
+bool wayland_egl_context_adapter::resize_surface_if_due() noexcept {
     const window_size pixel_size = m_window->state().pixel_size();
     const gltfx_rslt<gl_surface_size_decision> decision = resolve_gl_surface_size(
         pixel_size.width, pixel_size.height, m_buffer_width, m_buffer_height);
     if (decision.has_error() || !decision.value().should_resize) {
-        return;
+        return false;
     }
     wl_egl_window_resize(m_egl_window, static_cast<int>(decision.value().width),
                          static_cast<int>(decision.value().height), 0, 0);
     m_buffer_width = decision.value().width;
     m_buffer_height = decision.value().height;
+    return true;
 }
 
+namespace {
+
+// The window open() can use: open, and with a surface (W8 deep verification C2-1, D-W8-2022).
+[[nodiscard]] std::optional<gltfx_err>
+window_refusal(const wayland_window_adapter &window) noexcept {
+    if (!window.is_open() || window.surface() == nullptr) {
+        return gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window");
+    }
+    return std::nullopt;
+}
+
+// `adaptive` asked in the opening list: refused by name (D-W6b-18, see open()'s preamble).
+[[nodiscard]] std::optional<gltfx_err>
+adaptive_vsync_refusal(std::span<const gltfx_gfx_option_entry> options) noexcept {
+    for (const gltfx_gfx_option_entry &entry : options) {
+        if (entry.id == gltfx_gfx_option::vsync && entry.value == 2) {
+            return gltfx_err(gltfx_err_code::unsupported).with_rejected_value("vsync");
+        }
+    }
+    return std::nullopt;
+}
+
+// Why open() refuses before it touches EGL, in this order: an unusable window, a dead display
+// (EGL-DEAD-DISPLAY-GUARD S3) and `adaptive` (D-W6b-18); see open()'s preamble for each reason.
+[[nodiscard]] std::optional<gltfx_err>
+refusal_before_egl(const wayland_window_adapter &window,
+                   std::span<const gltfx_gfx_option_entry> options) noexcept {
+    if (std::optional<gltfx_err> unusable = window_refusal(window); unusable.has_value()) {
+        return unusable;
+    }
+    if (std::optional<gltfx_err> dead = connection_failure_if_dead(
+            wl_proxy_get_display(reinterpret_cast<wl_proxy *>(window.surface())));
+        dead.has_value()) {
+        return dead;
+    }
+    return adaptive_vsync_refusal(options);
+}
+
+// The vsync the opening list asks for, the last entry winning; `current` when it asks nothing.
+[[nodiscard]] bool vsync_on_after(std::span<const gltfx_gfx_option_entry> options,
+                                  bool current) noexcept {
+    for (const gltfx_gfx_option_entry &entry : options) {
+        if (entry.id == gltfx_gfx_option::vsync) {
+            current = entry.value != 0;
+        }
+    }
+    return current;
+}
+
+} // namespace
+
+// open(): why it is written this way (moved out of the body, L-17: a comment says WHY; W8 deep
+// verification C2-1, D-W8-2022).
+//
+// EGL-DEAD-DISPLAY-GUARD S3 (docs/plano-egl-dead-display-guard.md
+// sec. 3, D-S3): guarda ANTES de create_egl_display() abaixo, sobre
+// o wl_display obtido do wl_surface que acabou de ser resolvido -
+// sem isso, um segundo open() (ex.: consumidor tentando reabrir o
+// contexto depois de um close()) sobre uma conexão já morta chegava
+// a eglInitialize() e falhava com o nome genérico "egl_display" em
+// vez da interface que reprovou (plano sec. 2, linha "open() →
+// create_egl_display()"). Nada foi alocado por este adaptador
+// ainda neste ponto, então não há nada para close() liberar.
+//
+// D-W6b-18: `adaptive` has no Wayland/EGL equivalent - refused BY
+// NAME here too, not only from a LATER set_option() call, since
+// `vsync` is `live` and this fatia's own resolved-options span may
+// already carry it if a consumer asked for `adaptive` straight in
+// the opening list (gl_context_desc_validation.cpp's own shape
+// check accepts any value in [0, 2] - refusing the THIRD one is
+// this adapter's own job, never silently downgraded to `on`).
+//
+// MEDIDO (docs/plano-w6b-fatias-5.md, esta fatia, achado do
+// implementador contra kwin_wayland --virtual isolado, GODS_LAWS.md
+// L-44/L-50): open() NAO arma um wl_surface.frame aqui. Fazer isso
+// contradiz o proprio contrato que frame_callback_sequence.hpp ja
+// documenta (frame_wait_plan::present_immediately - "either this is
+// the very first frame this context has ever presented... the
+// adapter may call eglSwapBuffers() right now, no socket I/O needed
+// first") e o que frame_callback_sequence.cpp implementa (m_pending
+// nasce false). Pedir o callback e marcar m_pending=true AQUI, antes
+// de qualquer conteudo jamais commitado nesta superficie, e' pedir
+// um aviso que so viria no commit SEGUINTE: wl_surface.frame vale no proximo
+// wl_surface.commit (wayland.xml), e o primeiro commit desta superficie e' o primeiro
+// eglSwapBuffers(), que esperaria por esse mesmo aviso. As cinco tentativas da primeira
+// apresentacao reprovavam com first_presented_attempt=0 antes deste conserto; a leitura de
+// entao ("este compositor nunca da wl_callback.done para essa superficie sem buffer") era o
+// mesmo defeito de ordem que WL-FRAME-ORDER (D-W8-208) corrigiu no rearme. O rearme real
+// (egl_wire_present_ports::request_frame() logo ANTES de cada eglSwapBuffers(), e
+// arm_pending() depois de um
+// swap bem-sucedido) ja cobre o PROXIMO quadro - esta linha
+// aqui era redundante e, pela medicao, ativamente prejudicial.
 gltfx_rslt<void>
 wayland_egl_context_adapter::open(wayland_window_adapter &window,
                                   std::span<const gltfx_gfx_option_entry> options) noexcept {
-    if (!window.is_open()) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window"));
+    if (const std::optional<gltfx_err> refused = refusal_before_egl(window, options);
+        refused.has_value()) {
+        return gltfx_rslt<void>::err(*refused);
     }
     wl_surface *surface = window.surface();
-    if (surface == nullptr) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window"));
-    }
-
-    // EGL-DEAD-DISPLAY-GUARD S3 (docs/plano-egl-dead-display-guard.md
-    // sec. 3, D-S3): guarda ANTES de create_egl_display() abaixo, sobre
-    // o wl_display obtido do wl_surface que acabou de ser resolvido -
-    // sem isso, um segundo open() (ex.: consumidor tentando reabrir o
-    // contexto depois de um close()) sobre uma conexão já morta chegava
-    // a eglInitialize() e falhava com o nome genérico "egl_display" em
-    // vez da interface que reprovou (plano sec. 2, linha "open() →
-    // create_egl_display()"). Nada foi alocado por este adaptador
-    // ainda neste ponto, então não há nada para close() liberar.
-    if (const std::optional<gltfx_err> dead_on_entry =
-            connection_failure_if_dead(wl_proxy_get_display(reinterpret_cast<wl_proxy *>(surface)));
-        dead_on_entry.has_value()) {
-        return gltfx_rslt<void>::err(*dead_on_entry);
-    }
-
-    // D-W6b-18: `adaptive` has no Wayland/EGL equivalent - refused BY
-    // NAME here too, not only from a LATER set_option() call, since
-    // `vsync` is `live` and this fatia's own resolved-options span may
-    // already carry it if a consumer asked for `adaptive` straight in
-    // the opening list (gl_context_desc_validation.cpp's own shape
-    // check accepts any value in [0, 2] - refusing the THIRD one is
-    // this adapter's own job, never silently downgraded to `on`).
-    for (const gltfx_gfx_option_entry &entry : options) {
-        if (entry.id == gltfx_gfx_option::vsync && entry.value == 2) {
-            return gltfx_rslt<void>::err(
-                gltfx_err(gltfx_err_code::unsupported).with_rejected_value("vsync"));
-        }
-    }
-
     if (const gltfx_rslt<void> display_ok = create_egl_display(*surface); display_ok.has_error()) {
         close();
         return display_ok;
     }
-
     void *config = nullptr;
     if (const gltfx_rslt<void> config_ok = choose_config(options, config); config_ok.has_error()) {
         close();
         return config_ok;
     }
-
     const window_size pixel_size = window.state().pixel_size();
     if (const gltfx_rslt<void> window_ok = create_egl_window(*surface, config, pixel_size.width,
                                                              pixel_size.height, m_srgb_requested);
@@ -925,39 +1023,13 @@ wayland_egl_context_adapter::open(wayland_window_adapter &window,
         close();
         return window_ok;
     }
-
     if (const gltfx_rslt<void> context_ok = create_context(config); context_ok.has_error()) {
         close();
         return context_ok;
     }
-
-    for (const gltfx_gfx_option_entry &entry : options) {
-        if (entry.id == gltfx_gfx_option::vsync) {
-            m_vsync_on = entry.value != 0;
-        }
-    }
-
+    m_vsync_on = vsync_on_after(options, m_vsync_on);
     m_surface = surface;
     m_window = &window;
-    // MEDIDO (docs/plano-w6b-fatias-5.md, esta fatia, achado do
-    // implementador contra kwin_wayland --virtual isolado, GODS_LAWS.md
-    // L-44/L-50): open() NAO arma um wl_surface.frame aqui. Fazer isso
-    // contradiz o proprio contrato que frame_callback_sequence.hpp ja
-    // documenta (frame_wait_plan::present_immediately - "either this is
-    // the very first frame this context has ever presented... the
-    // adapter may call eglSwapBuffers() right now, no socket I/O needed
-    // first") e o que frame_callback_sequence.cpp implementa (m_pending
-    // nasce false). Pedir o callback e marcar m_pending=true AQUI, antes
-    // de qualquer conteudo jamais commitado nesta superficie, e' pedir
-    // um aviso que so viria no commit SEGUINTE: wl_surface.frame vale no proximo
-    // wl_surface.commit (wayland.xml), e o primeiro commit desta superficie e' o primeiro
-    // eglSwapBuffers(), que esperaria por esse mesmo aviso. As cinco tentativas da primeira
-    // apresentacao reprovavam com first_presented_attempt=0 antes deste conserto; a leitura de
-    // entao ("este compositor nunca da wl_callback.done para essa superficie sem buffer") era o
-    // mesmo defeito de ordem que WL-FRAME-ORDER (D-W8-208) corrigiu no rearme. O rearme real
-    // (attach_frame_listener() logo ANTES de cada eglSwapBuffers(), e arm_pending() depois de um
-    // swap bem-sucedido) ja cobre o PROXIMO quadro - esta linha
-    // aqui era redundante e, pela medicao, ativamente prejudicial.
     return gltfx_rslt<void>::ok();
 }
 
@@ -1051,8 +1123,6 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
         return gltfx_rslt<gltfx_present_outcome>::err(*dead_on_entry);
     }
 
-    resize_surface_if_due();
-
     if (!m_vsync_on) {
         // D-W6b-46: `vsync=off` used to present as fast as the driver
         // allows, UNCONDITIONALLY - the exact paridade defect (F3,
@@ -1076,7 +1146,8 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     }
 
     if (plan == frame_wait_plan::poll_then_decide) {
-        if (!wait_for_frame_callback(display, m_frame_sequence, k_frame_callback_budget_ms)) {
+        egl_wire_wait_ports ports{.display = display};
+        if (!wait_for_frame_callback(ports, m_frame_sequence, k_frame_callback_budget_ms)) {
             // D-W6b-28: poll_and_dispatch_with_budget() only ever
             // returns false when the wl_display connection itself is
             // now unusable (this file's own comment on that function) -
@@ -1092,52 +1163,47 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     return present_through_egl(display);
 }
 
+// The order of one presentation, and when its wait is armed, live in present_after_frame_request()
+// (frame_request_present.hpp, WL-FRAME-ORDER D-W8-208, WL-FRAME-ORDER-ARM-TEST D-W8-226), where
+// tests/frame_request_present_test.cpp makes the swap fail; this binds its five ports to the
+// wire through egl_present_wire.hpp, whose binding tests/egl_present_wiring_test.cpp proves
+// (D-W8-F11). D-W6b-46: a frame callback is requested for EVERY presentation, in BOTH branches of
+// swap_buffers() - the vsync=off branch never WAITS on it (its own present_would_skip() already
+// decided the frame without touching the wire), but present_would_skip()'s own second criterion
+// needs a callback outstanding to age in the first place, or a compositor that stops repainting
+// this surface without ever affirming `suspended` would never be detected at all.
+// The connection is asked whatever the swap answered (EGL-DEAD-DISPLAY-GUARD S2): llvmpipe's
+// dri2_wl_swrast_swap_buffers_with_damage() returns EGL_TRUE even over a dead connection.
+// Arming after the swap cannot miss the done event. This is DOCUMENTED, not measured in the test
+// image (its Mesa version was not checked): wl_display_dispatch_queue() dispatches only the queue
+// it is given (wl_display(3)); Mesa keeps its swap events on a per-surface queue (mesa commit
+// 03dd9a88, "egl/wayland: Use per-surface event queues") and, with swap interval 0, installs no
+// frame callback of its own (mesa commit 992a2dbb). Our callback lives on the default queue,
+// which only poll_and_dispatch_with_budget() and the loop's pump dispatch. Were a future Mesa to
+// break this, loop_parity_test (at least 27 of 30 frames) would fail on every Linux runner.
 gltfx_rslt<gltfx_present_outcome>
 wayland_egl_context_adapter::present_through_egl(wl_display *display) noexcept {
-    // WL-FRAME-ORDER (D-W8-208): the frame request goes out BEFORE eglSwapBuffers(), never
-    // after it. wayland.xml, wl_surface.frame: "The frame request will take effect on the next
-    // wl_surface.commit", and eglSwapBuffers() IS that commit. Requested after it, the callback
-    // belonged to a commit this adapter never sent, because the next swap waited for that very
-    // callback: one frame, then skipped_hidden forever, on any compositor (loop_parity_test
-    // measured rendered_frames=1 in the Linux container from 13/09 to 09/10/2026).
-    attach_frame_listener();
-    const EGLBoolean swapped = eglSwapBuffers(m_egl_display, m_egl_surface);
-
-    // EGL-DEAD-DISPLAY-GUARD S2 (D-S2): checado SEJA QUAL FOR o retorno
-    // do EGL acima, nunca só quando ele falha - a correção do defeito
-    // que motivou esta fatia inteira. O comentário antigo deste sítio
-    // dizia que a mutação D-W6b-12 (ack_configure() removido) "aparece
-    // aqui porque o EGL falha" - FALSO no llvmpipe/swrast (o backend
-    // que este container e todo consumidor sem GPU dedicada usam,
-    // plano sec. 1.1): dri2_wl_swrast_swap_buffers_with_damage()
-    // devolve EGL_TRUE incondicionalmente, erro de protocolo ou não. A
-    // única forma confiável de saber que a conexão morreu é perguntar
-    // a ELA (connection_failure_if_dead(), S1), nunca ao valor de
-    // retorno do EGL.
-    if (const std::optional<gltfx_err> dead_after = connection_failure_if_dead(display);
-        dead_after.has_value()) {
-        return gltfx_rslt<gltfx_present_outcome>::err(*dead_after);
+    // WL-ACK-CONFIGURE-SEGUINTES: the resize and the ack are decided here, right before the commit,
+    // and not at the top of swap_buffers(), because the wait for the frame callback dispatches
+    // events: a configure that lands during it must count for this very commit.
+    const bool buffer_just_resized = resize_surface_if_due();
+    m_window->ack_configure_for_commit(buffer_just_resized);
+    egl_wire_present_ports ports{
+        .target = egl_present_target{.egl_display = m_egl_display,
+                                     .egl_surface = m_egl_surface,
+                                     .surface = m_surface,
+                                     .display = display,
+                                     .pending_callback = &m_pending_frame_callback,
+                                     .request_failure_reported = &m_frame_request_failure_reported,
+                                     .listener = &k_frame_callback_listener,
+                                     .listener_data = this},
+        .calls = egl_present_calls{}};
+    gltfx_rslt<gltfx_present_outcome> outcome =
+        present_after_frame_request(ports, m_frame_sequence);
+    if (!outcome.has_error()) {
+        ++m_swap_calls_issued;
     }
-
-    if (swapped != EGL_TRUE) {
-        return gltfx_rslt<gltfx_present_outcome>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_swap_buffers"));
-    }
-
-    ++m_swap_calls_issued;
-    // D-W6b-46: a frame callback is requested for EVERY presentation (at the top of this
-    // function, before the swap), in BOTH branches - the vsync=off branch never WAITS on it (its
-    // own present_would_skip() already decided the frame without touching the wire), but
-    // present_would_skip()'s own second criterion needs a callback outstanding to age in the
-    // first place, or a compositor that stops repainting this surface without ever affirming
-    // `suspended` would never be detected at all.
-    // D-W8-208: the age starts only after a swap that succeeded. A failed swap returns above
-    // without arming, so the next present plans present_immediately and attach_frame_listener()
-    // destroys the orphan proxy. Arming after the swap cannot miss the done event:
-    // eglSwapBuffers() dispatches only Mesa's own private queue, and this callback lives on the
-    // default queue, which only poll_and_dispatch_with_budget() and the loop's pump dispatch.
-    m_frame_sequence.arm_pending(steady_now_ns());
-    return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);
+    return outcome;
 }
 
 void *wayland_egl_context_adapter::proc_address(std::string_view name) const noexcept {

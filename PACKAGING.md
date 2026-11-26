@@ -136,7 +136,9 @@ story:
   parser** (`cmake_pkg_config(EXTRACT ...)`, `STRICTNESS STRICT` - see
   "CMake version requirement" above) - resolving its `${...}`
   variables, including whitespace around `=` and a trailing `#` comment
-  on a variable line (matching real pkg-config in both cases) - and its
+  on a variable line (matching real pkg-config in both cases, on every
+  CMake version: CMake 4.5.0's parser keeps those blanks inside the
+  value, so glintfx trims them in its private scratch copy first) - and its
   `Cflags:`/`Libs:` fields, **without ever invoking a pkg-config
   binary** - and confirms `includedir`/`libdir` and every `-I`/`-L`
   token resolve to real, populated content: the header tree and the
@@ -152,8 +154,10 @@ story:
   live (see "Where this is tested" below). A relative `--prefix` or a
   relative `DESTDIR` resolve correctly too, without doubling a shared
   path segment. **One form is narrower than real pkg-config,
-  deliberately:** a variable defined twice is refused outright under
-  `STRICTNESS STRICT` - a hand-edited or packager-modified file only,
+  deliberately:** a variable defined twice is refused outright, by
+  glintfx itself before CMake's parser runs (from CMake 4.5.0 on,
+  `STRICTNESS STRICT` no longer refuses it on its own), on every CMake
+  version - a hand-edited or packager-modified file only,
   never glintfx's own generated `glintfx.pc`. This half runs **first**,
   calls no binary, and has full veto power on every platform, Windows
   included, unconditionally: a broken install fails `cmake --install`
@@ -219,6 +223,8 @@ consumer's own install prefix as a side effect of this (`GLINTFX_INSTALL`
 is off by default when embedded - see "What gets installed" above; a
 consumer that *does* want glintfx installed alongside its own artifacts
 can still set `-DGLINTFX_INSTALL=ON` explicitly).
+
+`GLINTFX_BUILD_EXAMPLES` (the consumer programs under `examples/`) is on by default only when glintfx is the top-level project, off when embedded, and nothing from `examples/` is ever installed, whatever its value.
 
 ### On Windows, shared (the default), glintfx places its own DLL next to your executable
 
@@ -355,13 +361,17 @@ in a fixed order:
    the shape any packaging pipeline that stages into a subdirectory of
    its own build tree reaches for routinely) resolve correctly too,
    without doubling a shared path segment. On the syntax `glintfx.pc`
-   itself is written in, CMake's native parser matches real pkg-config
-   for whitespace around `=` and a trailing `#` comment on a variable
-   line - two forms glintfx's own generated `glintfx.pc` never
+   itself is written in, glintfx matches real pkg-config for whitespace
+   around `=` and a trailing `#` comment on a variable line, on every
+   CMake version (CMake 4.5.0's native parser keeps those blanks inside
+   the value, so glintfx trims them in its private scratch copy first,
+   as pkg-config itself does) - two forms glintfx's own generated `glintfx.pc` never
    produces, but a hand-edited or packager-modified one legitimately
    could. **One form is narrower than real pkg-config, deliberately:** a
-   variable defined twice is **refused outright** under
-   `STRICTNESS STRICT` ("variables and keywords must be unique" - real
+   variable defined twice is **refused outright**, by glintfx itself and
+   on every CMake version (up to CMake 4.4, `STRICTNESS STRICT` refused it
+   too, "variables and keywords must be unique"; from CMake 4.5.0 on it
+   no longer does, so glintfx checks it before CMake's parser runs - real
    `pkgconf` instead resolves it to the last definition). glintfx's own
    generated `glintfx.pc` never defines a variable twice, so this only
    ever rejects a hand-edited or packager-modified file that was
@@ -373,7 +383,9 @@ in a fixed order:
    - A **field** (a `Key: value` line, e.g. `Libs:` - what
      `STRICTNESS STRICT`'s own documentation calls a "keyword" in the
      very same sentence that names "variables": "variables and
-     keywords must be unique") defined twice is refused outright too,
+     keywords must be unique") defined twice is refused outright too -
+     by glintfx itself, on every CMake version, since CMake 4.5.0 no
+     longer refuses it on its own -
      the same way a duplicate variable is - real `pkgconf` does NOT
      refuse it: it APPENDS the two occurrences (its own documented
      `PERMISSIVE` behavior for a duplicate keyword, confirmed live
@@ -394,9 +406,12 @@ in a fixed order:
      only ever substituted the `${known-variable}` tokens it
      recognized and left everything else, a literal `$` included,
      untouched. CMake's native parser under `STRICTNESS STRICT`
-     instead refuses the WHOLE FILE with a parse error, even when the
-     stray `$` sits in a field, `Description:`, that is never used to
-     build any `-I`/`-L`/`-l` flag. glintfx's own generated
+     (CMake 4.1 to 4.4) instead refuses the WHOLE FILE with a parse
+     error, even when the stray `$` sits in a field, `Description:`,
+     that is never used to build any `-I`/`-L`/`-l` flag; from CMake
+     4.5.0 on, that parser keeps the `$` as text, so glintfx refuses
+     the file itself, before the parser runs, and the verdict is the
+     same on every CMake version. glintfx's own generated
      `glintfx.pc` has never contained a lone `$` outside a `${...}`
      reference (confirmed, live, across every `glintfx.pc` this
      project's own build tree currently holds - shared, static, and

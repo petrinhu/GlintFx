@@ -11,6 +11,9 @@
 #include <glintfx/core/log/severity.hpp>
 
 #include "core/log/emit.hpp"
+#include "draw2d/embedded_program.hpp"
+#include "draw2d/gl_stencil_contract.hpp"
+#include "draw2d/shadow_group.hpp"
 
 namespace glintfx::draw2d {
 
@@ -30,14 +33,16 @@ constexpr GLenum k_gl_stream_draw = 0x88E0;
 constexpr GLenum k_gl_float = 0x1406;
 constexpr GLenum k_gl_unsigned_int = 0x1405;
 constexpr GLenum k_gl_triangles = 0x0004;
+constexpr GLenum k_gl_texture_2d = 0x0DE1;
 constexpr GLenum k_gl_out_of_memory = 0x0505;
 constexpr GLbitfield k_gl_map_write_bit = 0x0002;
 constexpr GLbitfield k_gl_map_invalidate_buffer_bit = 0x0008;
 
-// The layout of batch_vertex (triangle_batch.hpp): position, texture coordinate, color.
+// The layout of batch_vertex (triangle_batch.hpp): position, texture coordinate, color, q.
 constexpr GLsizei k_stride = static_cast<GLsizei>(sizeof(batch_vertex));
 constexpr std::uintptr_t k_texcoord_offset = 2 * sizeof(float);
 constexpr std::uintptr_t k_color_offset = 4 * sizeof(float);
+constexpr std::uintptr_t k_texcoord_q_offset = 8 * sizeof(float);
 
 void delete_objects(const render::gl_function_table &gl, GLuint vertex_array,
                     const GLuint (&buffers)[2]) noexcept {
@@ -61,6 +66,15 @@ void describe_attribute(const render::gl_function_table &gl, GLuint index, int c
                         std::uintptr_t offset) noexcept {
     gl.glEnableVertexAttribArray(index);
     gl.glVertexAttribPointer(index, components, k_gl_float, 0, k_stride, buffer_offset(offset));
+}
+
+// The four attributes of batch_vertex on the bound array buffer (T4a-fix1, D-W8-447: taken out of
+// create_vertex_stream(), which had reached 39 of the 40 lines GODS_LAWS.md L-17 allows).
+void describe_vertex_layout(const render::gl_function_table &gl) noexcept {
+    describe_attribute(gl, 0, 2, 0);
+    describe_attribute(gl, 1, 2, k_texcoord_offset);
+    describe_attribute(gl, 2, 4, k_color_offset);
+    describe_attribute(gl, 3, 1, k_texcoord_q_offset);
 }
 
 // One buffer of the stream and what goes into it (D-B7-1, Introduce Parameter Object): the GL
@@ -106,21 +120,6 @@ struct buffer_upload {
     }
     std::memcpy(mapped, data, bytes);
     return gl.glUnmapBuffer(target) != 0;
-}
-
-// Reads the queue the CONSUMER left (D-B3c-2) and says each error in the log: never swallowed,
-// never ours.
-void drain_prior_gl_errors(const render::gl_function_table &gl) noexcept {
-    for (int read = 0; read < k_max_gl_error_reads; ++read) {
-        const GLenum error = gl.glGetError();
-        if (error == 0) {
-            return;
-        }
-        const std::array<gltfx_log_field, 1> fields = {
-            gltfx_log_field{k_gl_error_field, gltfx_log_value::make_unsigned_integer(error)},
-        };
-        log_emit_fields(gltfx_log_severity::warn, "draw2d", k_prior_gl_error_event, fields);
-    }
 }
 
 // What the operation left in the queue: the first error, and whether any of them was out-of-memory.
@@ -181,9 +180,7 @@ gltfx_rslt<vertex_stream> create_vertex_stream(const render::gl_function_table &
 
     gl.glBindVertexArray(vertex_array);
     gl.glBindBuffer(k_gl_array_buffer, buffers[0]);
-    describe_attribute(gl, 0, 2, 0);
-    describe_attribute(gl, 1, 2, k_texcoord_offset);
-    describe_attribute(gl, 2, 4, k_color_offset);
+    describe_vertex_layout(gl);
     // The element-array binding is state OF the vertex array: binding it here ties the index buffer
     // to this array.
     gl.glBindBuffer(k_gl_element_array_buffer, buffers[1]);
@@ -262,22 +259,106 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
                              technique, k_reject_index_upload);
 }
 
-gltfx_rslt<std::uint64_t> draw_batch(const render::gl_function_table &gl,
-                                     const triangle_batch &batch) noexcept {
-    std::uint64_t calls = 0;
-    for (const draw_run &run : batch.runs()) {
+namespace {
+
+// What draw_batch() carries from one run to the next for the texture: the one bound to unit 0, and
+// the value u_textured holds. A silhouette and a textured piece can share a texture, so the two
+// change apart: the texture only when it differs, the value when the run asks for another.
+struct texture_cursor {
+    std::uint32_t bound = 0;
+    int textured = 0;
+};
+
+// The value of u_textured a run asks for: 0 for no texture, 1 for a textured piece, 2 for a shadow
+// with a texture, which is a silhouette (embedded_program.hpp).
+[[nodiscard]] int textured_value_of(const batch_state &state) noexcept {
+    if (state.texture == 0) {
+        return 0;
+    }
+    return state.stencil == stencil_role::shadow ? 2 : 1;
+}
+
+// Binds the texture of a run to unit 0 and sets u_textured, when either differs (T4b-B1-fix1,
+// D-W8-505: the binding of a run, an atom of its own). True when it bound: one texture switch
+// (D-W8-471); going from a textured piece to a silhouette of the same texture is not one.
+[[nodiscard]] bool bind_run_texture(const render::gl_function_table &gl,
+                                    std::int32_t textured_location, const batch_state &state,
+                                    texture_cursor &cursor) noexcept {
+    const bool switched = state.texture != cursor.bound;
+    const int textured = textured_value_of(state);
+    if (switched) {
+        gl.glBindTexture(k_gl_texture_2d, state.texture);
+        cursor.bound = state.texture;
+    }
+    if (switched || textured != cursor.textured) {
+        gl.glUniform1i(textured_location, textured);
+        cursor.textured = textured;
+    }
+    return switched;
+}
+
+// What draw_batch() carries from one run to the next for the stencil (R2D-SPRITE-SHADE H3b):
+// whether a shadow came in this segment, and the pass GL is set for. Plain at the start:
+// set_gl_state_for_drawing() turned the stencil test off and every color channel on, and the
+// caller set u_stencil_discard to 0.
+struct stencil_cursor {
+    bool shadow_came = false;
+    stencil_pass set_for = stencil_pass::plain;
+};
+
+// Sets GL for `pass`, the stencil state and u_stencil_discard, when it is not the pass GL is
+// already set for.
+void enter_stencil_pass(const render::gl_function_table &gl, stencil_pass pass,
+                        std::int32_t discard_location, stencil_cursor &cursor) noexcept {
+    if (pass == cursor.set_for) {
+        return;
+    }
+    set_stencil_pass(gl, pass);
+    gl.glUniform1i(discard_location, stencil_discard_of(pass));
+    cursor.set_for = pass;
+}
+
+// Draws `run` with the passes shadow_group.hpp gives it, one draw call per pass, and says how many
+// were issued.
+[[nodiscard]] std::uint64_t draw_run_passes(const render::gl_function_table &gl,
+                                            const draw_run &run, std::int32_t discard_location,
+                                            stencil_cursor &cursor) noexcept {
+    const run_passes passes = passes_of_run(run.state.stencil, cursor.shadow_came);
+    if (passes.clear_stencil_first) {
+        clear_stencil(gl);
+    }
+    for (std::size_t pass = 0; pass < passes.count; ++pass) {
+        enter_stencil_pass(gl, passes.passes[pass], discard_location, cursor);
         gl.glDrawElements(k_gl_triangles, static_cast<GLsizei>(run.index_count), k_gl_unsigned_int,
                           buffer_offset(run.first_index * sizeof(std::uint32_t)));
-        ++calls;
     }
-    if (calls == 0) {
-        return gltfx_rslt<std::uint64_t>::ok(calls);
+    cursor.shadow_came = shadow_came_after(run.state.stencil, cursor.shadow_came);
+    return passes.count;
+}
+
+} // namespace
+
+gltfx_rslt<batch_draw_counts> draw_batch(const render::gl_function_table &gl,
+                                         const triangle_batch &batch,
+                                         const batch_uniforms &uniforms) noexcept {
+    batch_draw_counts counts;
+    texture_cursor texture; // as if none: u_textured is 0 until a run binds its own
+    stencil_cursor cursor;  // one batch is one segment: no shadow has come yet
+    for (const draw_run &run : batch.runs()) {
+        if (bind_run_texture(gl, uniforms.textured_location, run.state, texture)) {
+            ++counts.texture_switches;
+        }
+        counts.calls += draw_run_passes(gl, run, uniforms.stencil_discard_location, cursor);
+    }
+    counts.shadow_segments = cursor.shadow_came ? 1U : 0U;
+    if (counts.calls == 0) {
+        return gltfx_rslt<batch_draw_counts>::ok(counts);
     }
     const gl_errors_of_operation errors = read_gl_errors(gl);
     if (errors.first != 0) {
-        return gltfx_rslt<std::uint64_t>::err(error_of_step(errors, k_reject_draw));
+        return gltfx_rslt<batch_draw_counts>::err(error_of_step(errors, k_reject_draw));
     }
-    return gltfx_rslt<std::uint64_t>::ok(calls);
+    return gltfx_rslt<batch_draw_counts>::ok(counts);
 }
 
 } // namespace glintfx::draw2d

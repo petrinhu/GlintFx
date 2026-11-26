@@ -180,7 +180,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 
 SCRIPT_NAME = "check_vendor_purity.py"
 
@@ -654,13 +653,21 @@ def real_main(args):
 
 def make_scratch_workdir():
     # A hand written Unix path does not exist on every platform
-    # (Windows has no /tmp). dir=os.environ.get("TMPDIR") without a
-    # hardcoded fallback lets tempfile.mkdtemp fall through to
-    # gettempdir(), which already checks TMPDIR/TEMP/TMP and then the
-    # platform default.
-    return tempfile.mkdtemp(
-        prefix="glintfx-vendor-purity-selftest-",
-        dir=os.environ.get("TMPDIR"),
+    # (Windows has no /tmp). os.environ.get("TMPDIR") without a
+    # hardcoded fallback lets the folder fall through to
+    # tempfile.gettempdir(), which already checks TMPDIR/TEMP/TMP and
+    # then the platform default.
+    # Imported here, on the --selftest path only: the check mode of this
+    # gate still runs as a single file, and this file's own escape control
+    # runs an edited copy of it from its scratch folder, where no sibling
+    # module exists. The import comes before anything is created: a copy
+    # without the sibling module fails here and leaves nothing in the
+    # temporary folder.
+    import selftest_git_fence
+
+    return selftest_git_fence.make_fenced_scratch_dir(
+        "glintfx-vendor-purity-selftest-",
+        os.environ.get("TMPDIR"),
     )
 
 
@@ -1414,8 +1421,10 @@ def selftest_non_git_control(scratch, capture):
 
 
 def selftest_main():
-    scratch = make_scratch_workdir()
+    # Nothing that can fail runs between creating the scratch folder
+    # and the try whose finally removes it.
     capture = _make_capture()
+    scratch = make_scratch_workdir()
     try:
         controls = [
             selftest_positive_control(scratch, capture),

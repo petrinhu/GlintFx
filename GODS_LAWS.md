@@ -27,24 +27,24 @@
 | [L-01](#l-01) | procurar prior art, base de código ou "como era antes" | Projeto é do zero; o glintfx anterior não é base |
 | [L-02](#l-02) | desenhar API, escopo ou entregável | É biblioteca reutilizável, não aplicação final |
 | [L-03](#l-03) | criar build, escolher padrão de linguagem | C++23 + CMake |
-| [L-04](#l-04) | escrever CI, declarar suporte de plataforma | Cinco alvos; Fedora 44 primário; CachyOS é próprio, não Arch |
+| [L-04](#l-04) | escrever CI, declarar suporte de plataforma, ou trocar a imagem ou uma ferramenta do CI | Cinco alvos; Fedora 44 primário; CachyOS é próprio, não Arch; a imagem e as ferramentas do CI ficam fixas durante a onda, e as novas só entram na troca de onda (20/11) |
 | [L-05](#l-05) | tocar janela, input, display ou exemplo de internet | Linux é Wayland puro, sem X11 |
 | [L-06](#l-06) | implementar teclado, keymap, texto digitado | Parser XKB próprio; `libxkbcommon` está fora |
 | [L-07](#l-07) | adicionar dependência, `FetchContent`, vendorizar | Zero além de stdlib e API do SO |
 | [L-08](#l-08) | criar repo, `LICENSE`, cabeçalho de arquivo, publicar | Público no GitHub, AGPL-3.0 |
 | [L-09](#l-09) | rodar teste que abre janela, injeta input ou captura tela | Container com compositor Wayland dentro; nunca a sessão viva |
 | [L-10](#l-10) | escolher entre duas abordagens, decidir design ou arquitetura | Opções ao líder via `AskUserQuestion`, sem painel lateral |
-| [L-11](#l-11) | `git push`, merge em `main`, criar tag, publicar release, **ou apagar ramo remoto** | Push por onda completa; merge e tag só com aval no contexto; **ramo da onda apagado ao mesclar, provado ancestral de `main` antes** |
-| [L-12](#l-12) | escrever ou revisar código de produto | Agente especialista executa; implementer, reviewer e orquestrador são distintos |
+| [L-11](#l-11) | `git push`, merge em `main`, criar tag, publicar release, **ou apagar ramo remoto** | Push por onda completa, ou, com a onda passando de 7 dias, ao ramo da onda só o revisado limpo, mais cópia privada diária por `git bundle` (14/11); merge e tag, mesmo ao fim de onda com tudo verde, só com o OK do líder no contexto ou com o modo autônomo do projeto ligado e dentro do prazo (20/11); **ramo da onda apagado ao mesclar, provado ancestral de `main` antes**; **a cada push, apagar as imagens de teste de fatias fechadas (09/10)** |
+| [L-12](#l-12) | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | Agente especialista executa; implementer, reviewer e orquestrador são distintos; a revisão tem no máximo duas rodadas e só aponta o que quebra o critério de pronto, escrito antes da fatia, que pode ficar mais exigente e nunca mais frouxo (20/11) |
 | [L-13](#l-13) | escrever qualquer mensagem ao líder | Timestamp real `[DD/MM/YY - HH:MM:SS]` obtido do `date` |
 | [L-14](#l-14) | instalar, remover ou atualizar pacote de sistema | Pedir autorização; não instalar sozinho |
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
 | [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
-| [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
-| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level audita e cria no modelo configurado em `/modelos_sessao` (emenda de 02/10/2026; `fable` só como advisor); sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
+| [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo do framework (`include/`, `src/`) | Proibido monolito; cada função é um átomo; teste, ferramenta e documento se organizam como for melhor |
+| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level audita e cria e o agente operacional implementa, cada um no modelo e esforço de `/modelos_sessao`, sem modelo fixo, e prosa ou texto longo para leitor humano vai em `opus` com effort max (emendas de 02/10/2026 e 20/11/2026; `fable` só como advisor); commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes. |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 | [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
-| [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit em pt-br |
+| [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit escrito para quem não estava lá: título claro, texto explicativo em português e o mesmo em inglês, códigos internos só na linha de referências do fim (emenda de 21/10/2026) |
 | [L-22](#l-22) | projetar assinatura pública ou tratar erro | Nenhuma exceção cruza a API pública |
 | [L-23](#l-23) | commitar, ou fechar uma fatia, ou dar push | Portões de qualidade e o `preci.sh` antes do push |
 | [L-24](#l-24) | pensar em cobertura, formatação ou auditoria | Sem meta de cobertura; clang-format LLVM; dossiê só antes da 1.0 |
@@ -55,9 +55,9 @@
 | [L-29](#l-29) | não saber como se implementa algo, ou querer ver prior art | Pode LER e ESTUDAR qualquer biblioteca do tipo para aprender o jeito mais rápido e eficiente; ligar, clonar e copiar são proibidos; licença conferida na fonte antes de ler |
 | [L-30](#l-30) | tocar mapa, grade, colisão, rota ou visibilidade | Mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
 | [L-31](#l-31) | tocar contexto gráfico, shader ou carregador de GL | OpenGL 3.3 core, nativo nas duas plataformas |
-| [L-32](#l-32) | escolher a próxima fatia a implementar, antes de a demo rodar | Caminho principal sempre, mais no máximo UMA trilha paralela |
+| [L-32](#l-32) | escolher a próxima fatia a implementar, antes de a demo rodar, ou pôr item novo numa onda | Caminho principal sempre, mais no máximo UMA trilha paralela; a W9-I e a W9 são só produto, sem item novo de infraestrutura ou de processo (20/11) |
 | [L-33](#l-33) | tocar QUALQUER coisa de mapa: decisão, fatia, formato, código | Avisar o `mapeditor`; sessão fora do ar, mandar pelo bus |
-| [L-34](#l-34) | iniciar uma fatia ou onda de trabalho de produto | Ciclo de 4 passos: main+líder faz brainstorm, o C-level (modelo de `/modelos_sessao`, emenda de 02/10/2026 na L-18) planeja e audita, main verifica e orquestra, `sonnet` implementa; quem define fatia ou onda é o líder |
+| [L-34](#l-34) | iniciar uma fatia ou onda de trabalho de produto | Ciclo de 4 passos: main+líder faz brainstorm, o C-level planeja e audita, main verifica e orquestra, agentes operacionais implementam, cada um no modelo de `/modelos_sessao` (emenda de 20/11/2026 na L-18); quem define fatia ou onda é o líder; a pesquisa só vale para a decisão que sobe ao líder, e a escolha de rotina vira uma linha (20/11) |
 | [L-35](#l-35) | desenhar ou implementar a entrega de evento de entrada | Promessa pública do contrato: determinística, sem duplicação, sem reordenação; nasce com teste que a prova |
 | [L-36](#l-36) | decidir cursor do ponteiro, áudio no Linux, mapeamento de gamepad ou compose/tecla morta | Quatro decisões de escopo do líder que saem de `🎨 Pendente design` |
 | [L-37](#l-37) | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | Avisar o Gus Dragon sem ele precisar perguntar |
@@ -112,6 +112,10 @@ O `Projects/GlintFx` nasce sem herança. Existiu uma biblioteca homônima em `gi
 **Decisões do líder sobre a lista (24/09/2026, `AskUserQuestion`, respostas verbatim):** o Debian 12 não tem caminho oficial para o GCC 14 → ***"Trocar por Debian 13"***; o astrometrica roda Pop!_OS e Zorin como Ubuntu 24.04 com outro rótulo, o que o item 3 desta lei proíbe tomar como suporte → ***"Imagem real de cada um"*** (montada do Ubuntu base mais o repositório oficial de cada distro; Zorin na versão 18); as análises extras (sanitizers, clang-tidy, cppcheck) → ***"Só no Fedora"***, e os testes de comportamento rodam em todas.
 
 **Data:** 24/09/2026, verbatim: *"varra também os mesmos SO que ela varre, junto com os que ja varremos"* ("ela" = o projeto astrometrica). Depois de o main argumentar contra (compilador abaixo do piso de C++23 em Rocky 9, Debian 12 e bases Ubuntu 22.04; Wayland/KWin antigos; custo por fatia com ~14 sistemas), o líder escolheu por `AskUserQuestion`: ***"Confirmar: suporte pleno nos ~14"***. **As plataformas suportadas passam a ser as cinco originais MAIS as distros que o projeto astrometrica varre** (lista exata, lida do CI dele, no plano de `PLATFORMS-ASTRO-PARITY`; na leitura de 24/09: Debian 12, Manjaro, Mint 22, openSUSE Tumbleweed, Pop!_OS 22, Rocky 9, Ubuntu 24 e Zorin 17, além do Arch que já era alvo). **Todas com suporte pleno:** cada uma com trabalho próprio verde, e as três consequências desta lei valem para todas, sem exceção. Onde o compilador padrão da distro não atinge o piso de C++23 do projeto, o preparo do ambiente daquela distro traz o compilador (mesma ordem de 27/08: *"instale a ferramenta nos que precisarem"*); **distro que não tiver caminho para o piso volta ao líder**, que decide se ela sai. Nenhum agente tira distro da lista por conta própria.
+
+**O TESTE DE JANELA USA A MESMA IMAGEM DO RESTO DA MATRIZ, COM UM DISPOSITIVO SÓ. Decisão do líder de 07/11/2026, por `AskUserQuestion` que nomeou esta lei, o `ESCOPO.md` §1 e a regra 4 do `CLAUDE.md`, disse o que elas protegem e argumentou contra primeiro, resposta verbatim: *"udmabuf no CI (Recommended)"*.** **O fato:** desde a versão 6.8 o KWin não compõe sem placa nem `/dev/udmabuf`. **O que vale:** a imagem do teste de janela em contêiner é a mesma do resto da matriz e, como ela, fica fixa durante a onda (decisão de 20/11/2026, logo abaixo); com isso o teste de janela anda junto com a matriz, em vez de ficar preso a um KWin antigo. O contêiner recebe `/dev/udmabuf` e nenhum outro dispositivo; `uinput` e `dri` continuam reprovando na linha de base do isolamento, e a chamada do portão sem o nome da variante continua recusando todo dispositivo, inclusive esse. É desvio de risco com controles compensatórios (L-77 global), registrado em `docs/adr-udmabuf-no-conteiner-de-teste.md`. **A exceção temporária de 06/11/2026** (esse teste preso no Fedora 44 com o KWin 6.7.5) **acabou** quando a fatia `KWIN-68-SEM-PLACA` entrou no tronco. Nada mais nesta lei muda.
+
+**AS FERRAMENTAS DO CI FICAM FIXAS DURANTE A ONDA. Decisão do líder de 20/11/2026, por `AskUserQuestion`, verbatim: *"Ferramentas fixas na onda"*.** **A regra:** a imagem de CI não muda enquanto a onda está aberta, e CMake, KWin e Clang novos só entram na troca de onda. **O efeito:** uma atualização que sai no meio da onda não derruba trabalho que estava verde. **O custo, que vem junto:** o alvo primário só passa a falhar como a máquina do líder na troca de onda, e não mais no dia da atualização. O motivo é a medição de 20/11/2026 descrita na L-32. Até a fatia que fixa a imagem no arquivo de CI entrar, o CI ainda pega a imagem do dia.
 
 ## L-05
 
@@ -200,6 +204,11 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 
 **Aplicação, execução em geral (o que a ampliação acrescenta):** a suíte roda dentro de container, com o repositório montado e o diretório de construção **dentro do container ou em `/var/tmp`**, nunca em `/tmp` (que nesta máquina sai da RAM). Container por vez, derrubado ao fim. Quando o ambiente disponível não permitir rodar algo em container, **declare o downgrade** e diga o que ficou sem prova — jamais rode na sessão viva "só desta vez". Detalhe operacional em `CLAUDE.md`, seção "Isolamento obrigatório de teste".
 
+**EMENDA de 22/10/2026: os builds, temporários e provas deste projeto saem da partição `/`.** Ordem do líder, verbatim: *"mova para o cwd, como subpastas, as pastas de maior tamanho desse projeto, como os builds e temps [tem outros?]. Tire da particao de / e mantenha a responsabilidade de higienizar essa pasta após o uso dos temporarios e builds. Não se preocupe com o idrive, eu resolvo."* e *"falo exclusivamente de pastas/arquivos DESTE projeto"*. Por `AskUserQuestion`, depois de a mudança ser argumentada contra (LEI DAS LEIS: a L-11 global e o `CLAUDE.md` diziam `/var/tmp`), ele respondeu *"Confirmar a mudança"*. Motivo medido: `/var/tmp` fica na partição `/` (cerca de 21 GiB livres em 22/10, com o trabalho parando no piso de 20), e a pasta do projeto fica na partição `home` (338 GiB livres). Portanto, só neste projeto (especialização da L-11 global, regra 6 do `CLAUDE.md` global):
+- **Lugar:** builds, temporários (`TMPDIR`), provas e árvores dos CTOs, cache de compilação e relatórios de trabalho deste projeto vivem em `<projeto>/.trabalho/` (ignorada pelo git, nunca versionada; `TMPDIR=<projeto>/.trabalho/tmp`). Continua valendo nunca usar `/tmp`. As pastas antigas de `/var/tmp` viraram atalhos para `.trabalho/`, para que ordens congeladas que citam `/var/tmp/...` continuem válidas; ordem nova usa o caminho novo.
+- **Higiene, responsabilidade do orquestrador:** depois de cada uso, os builds e temporários de fatia fechada saem de `.trabalho/` (ordem do líder de 12/10/2026, L-53 global: só depois que a revisão da fatia fechar). O que for de root fica para a limpeza autorizada.
+- O IDrive sincronizar essa pasta é assunto do líder (ordem acima); o agente não tenta contornar.
+
 **TERCEIRA AMPLIAÇÃO, 07/09/2026, verbatim dele:** *"Faça de maneira que os testes não toquem minha sessão!"* Dito no instante em que autorizou a máquina virtual do Windows, e por isso ela entra na lei como **terceira fronteira, ao lado do container**, com as mesmas proibições absolutas e mais quatro que só existem por causa dela.
 
 **Aplicação, máquina virtual:**
@@ -261,7 +270,14 @@ Diante de dúvida ou de mais de uma opção viável, apresentar 2 a 3 alternativ
 
 **Data:** regra permanente. **Verbatim:** *"commite cada fatia e push cada onda completada"*.
 
-**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag, ao fim de onda com tudo verde, estão autorizados de forma permanente, sem nova pergunta** (terceira emenda, 22/09/2026, abaixo). Fora do fim de onda, continuam exigindo aval explícito no contexto.
+**SEXTA EMENDA, de 20/11/2026, ordem do líder: merge e marca voltam a pedir aval, mesmo ao fim de onda com tudo verde.** Na sessão `configs`, em 20/11/2026, o líder escolheu, verbatim, *"Exigir autorização"*. Na sessão deste projeto, perguntado por `AskUserQuestion`, confirmou, verbatim, *"Confirmar a mudança (Recomendado)"*. **A regra** (o primeiro item é a decisão dele; os outros são desdobramento do agente, para torná-la executável):
+- Ao fim de onda, com a linha `CI-VERDE-<onda>` fechada, o merge em `main` e a marca só saem depois de uma de duas coisas: **o OK do líder no contexto**, ou **o modo autônomo ligado para este projeto**, isto é, a flag `~/.claude/autonomo/GlintFx.json` existindo e dentro do prazo dela. Sem nenhuma das duas, o main pergunta ao líder e espera a resposta.
+- **Flag vencida conta como desligada, e na dúvida se a flag vale, ela não vale** (a mesma regra que a L-34 dá ao modo autônomo).
+- **No modo autônomo, quem autoriza é a flag que o líder ligou, e não o C-level sentado na cadeira dele.** É esta a forma de aval a que a L-34 remete quando diz que merge e marca seguem pedindo aval.
+- **O portão não muda:** todas as fatias concluídas, o servidor verde lido da ferramenta e a linha `CI-VERDE-<onda>` em ✅. O aval não dispensa o portão, e o portão não dispensa o aval.
+- Casa com a L-24 global, que desde 20/11/2026 também pede o OK do líder para merge e marca.
+
+**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag, mesmo ao fim de onda com tudo verde, só saem com o OK do líder no contexto ou com o modo autônomo do projeto ligado e dentro do prazo** (sexta emenda, 20/11/2026, logo acima). Fora do fim de onda, continuam exigindo aval explícito no contexto.
 
 **EMENDA de 28/08/2026, ordem do líder. Verbatim:** *"qualquer push sem verificacao fica sendo branch. push / merge para main apenas apoś fim de onda com tudo verde"*.
 
@@ -291,7 +307,7 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 ⚠️ **"Tudo verde" é o conjunto, não a fatia.** Cada fatia ter passado o próprio portão **não substitui** a verificação de conjunto: é justamente onde fatias entregues em paralelo se atropelam, e onde uma contagem que cada uma ajustou sozinha deixa de bater.
 
-⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag fora do fim de onda continuam exigindo **aval explícito no contexto** (ao fim de onda com tudo verde, ver a terceira emenda). O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
+⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag fora do fim de onda continuam exigindo **aval explícito no contexto** (ao fim de onda com tudo verde, ver a sexta emenda, de 20/11/2026, no topo desta lei). O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
 
 **Corolário de honestidade:** o agente **não decide** que "está verificado o bastante". Verificado significa **medido, com a saída à vista**; na dúvida, é ramo.
 
@@ -314,18 +330,56 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **É sempre a ÚLTIMA linha da onda**, por construção: depende de todas as outras. E o `Depende de` dela é a onda inteira, não um item específico.
 
-**TERCEIRA EMENDA, de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Verbatim, na ordem em que vieram:
-*"autorizo push/merge/tag ao fim de ondas"*; em seguida *"Ao fim da onda, a tag é sempre aumentar um ponto no segundo número"*. Essa segunda frase alteraria a L-26, e foi contestada antes (o aumento do segundo número avisa incompatibilidade ao consumidor, porque antes da 1.0 o pacote usa compatibilidade pela versão menor, e a subida para 0.5 tinha acabado de quebrar o consumidor de teste e deixar 8 trabalhos vermelhos; e o número deixaria de distinguir recurso de correção). Levada a escolha, o líder respondeu *"opcao 2 e nao precisa ficar me perguntando a cada tag"*: **a tabela da L-26 fica como está**, e o pedido de não ser perguntado alterava esta L-11, que foi contestada também (a marca é pública e na prática permanente; em 08/09 uma saiu antes do veredito do servidor). Confirmação final do líder, por `AskUserQuestion`: *"Confirmar a alteração"*.
+**TERCEIRA EMENDA, de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Verbatim:
+*"Ao fim da onda, a tag é sempre aumentar um ponto no segundo número"*. Essa frase alteraria a L-26, e foi contestada antes (o aumento do segundo número avisa incompatibilidade ao consumidor, porque antes da 1.0 o pacote usa compatibilidade pela versão menor, e a subida para 0.5 tinha acabado de quebrar o consumidor de teste e deixar 8 trabalhos vermelhos; e o número deixaria de distinguir recurso de correção). Levada a escolha, o líder respondeu *"opcao 2"*: **a tabela da L-26 fica como está**.
 
 **A regra que fica:**
 
 | Momento | O que o agente faz |
 |---|---|
-| Fim de onda, com a linha `CI-VERDE-<onda>` fechada (todos os trabalhos do servidor lidos da ferramenta, nunca do painel) | **Merge em `main` e cria a marca, sem perguntar.** Relata depois. |
 | Número da marca | **Pela tabela da L-26**: recurso novo sobe o segundo; só correção sobe o terceiro; só construção, empacotamento ou teste sobe o quarto. Nunca "sempre o segundo". |
 | Onda em andamento | Continua valendo a primeira e a segunda emenda: ramo próprio, nunca `main`. |
 
-**O que esta emenda NÃO autoriza:** marca antes do veredito do servidor; marca no meio de onda; merge de onda com qualquer trabalho vermelho ou item fora de concluído. A autorização é para o fim de onda **com tudo verde**, e o portão de fechamento é o que prova isso, e não a impressão do agente.
+**Continuam proibidos:** marca antes do veredito do servidor; marca no meio de onda; merge de onda com qualquer trabalho vermelho ou item fora de concluído. O portão de fechamento é o que prova o verde, e não a impressão do agente.
+
+**Marca por fatia e marca de fecho por onda: emendas de 08/09/2026 e 09/09/2026, transferidas para cá em 08/10/2026.** Estavam dentro da L-05 do `GODS_LAWS.md` global e saíram de lá por decisão do líder, verbatim: *"De projeto (Recomendado)"*. **Onde este texto conflitar com a terceira emenda de 22/09/2026 acima, vale a de 22/09/2026, por ser mais recente** (decisão do líder em 08/10/2026, verbatim: *"Com nota: vale a de 22/09 (Recomendado)"*).
+
+**Emenda de 09/09/2026: DOIS níveis de marca, por fatia E por fecho de onda.** Ordem do líder, verbatim: *"pode seguir fazendo as fatias. ao final de cada onda, push/merge/tag"*, e, confrontado com o conflito contra a emenda de 08/09 (a Lei das Leis obriga a argumentar CONTRA antes), ele escolheu **"As duas: marca por fatia E marca de fecho por onda"**.
+
+**O argumento contra a mudança foi apresentado e ele decidiu mesmo assim**, e fica registrado que o custo foi dito antes, não descoberto depois: dois níveis de numeração para manter coerentes, e mais superfície onde o agente pode errar.
+
+**Como os dois níveis convivem, sem ambiguidade:**
+
+- **Fatia consertada → marca de VERSÃO, terceiro componente +1** (`v0.3.5.0`, `v0.3.6.0`, …). É a emenda de 08/09, que continua **inteira**: nada muda para a fatia.
+- **Fecho de onda → marca de ROTULO, com nome próprio** (`onda-w5`, `onda-w6`, …), apontando para o **mesmo commit** em que o servidor fechou verde e a linha `CI-VERDE-<onda>` virou ✅.
+
+**Por que o fecho de onda NÃO cresce um componente de versão, e esta é decisão de execução do agente, declarada:** o quarto componente já tem dono: a L-26 deste projeto o define como componente **de empacotamento**, e usá-lo para contar onda o descaracterizaria. O segundo componente significa mudança de comportamento público, que uma onda pode ou não ter. Sobraria disputar o terceiro com a marca de fatia, e duas regras crescendo o mesmo número é exatamente a ambiguidade que o líder pagou para evitar. **Rótulo com nome próprio não disputa nada**, e responde à pergunta que a marca de onda existe para responder: *qual commit fechou a W5?*
+
+**A ordem completa do fim de onda, e nenhum passo se pula:** todas as fatias ✅ → empurrar → servidor fecha VERDE em todos os trabalhos (a linha `CI-VERDE-<onda>` é o portão, ver a emenda `CI-VERDE-<onda>` desta lei) → marcar essa linha ✅ → aval: OK do líder, ou modo autônomo ligado (flag dentro do prazo), pela sexta emenda → juntar, se houver ramo → marca de rótulo da onda. **O verde vem ANTES da marca**, sempre: foi por inverter isso que a `v0.3.0.0` nasceu prematura e que o líder me pegou de novo na W4.
+
+**Emenda de 08/09/2026: a marca sai a cada FATIA consertada, não a cada onda, e não se espera o servidor para criá-la.** Ordem do líder, verbatim: *"é para criar a tag a cada fatia consertada, não invente regra"*, precedida de *"cada fatia que está atrasada será empurrada no final por mim e cresce +1 no terceiro numero"* (mesma data).
+
+**O que gerou a emenda:** depois de empurrar uma fatia consertada, o agente anunciou que criaria a marca *"quando as 22 fecharem"*, apresentando isso como o padrão ratificado. O líder não tinha pedido essa espera para fatia; a espera pelo verde tinha sido decidida para o fechamento de uma ONDA, num caso específico, e o agente a generalizou sozinho para outro caso.
+
+**A regra:** fatia consertada e empurrada ganha marca `vA.B.C.D` **na hora**, com o terceiro componente crescendo +1. A marca acompanha a fatia, não a onda. Não se espera resultado de servidor para criá-la. O que continua exigindo confirmação no momento é o que a LEI DAS LEIS e a L-24 global já pedem para ação visível em remoto quando a ordem do líder não está no contexto.
+
+**A armadilha específica, e ela é sobre honestidade de processo:** transformar uma decisão dada para UM caso em regra geral, e depois apresentá-la ao líder como se fosse ordem dele, é inventar regra e atribuí-la a quem não a deu. Decisão do líder vale para o caso em que ele a deu; estendê-la a outro caso é decisão NOVA, e decisão nova vai a ele (L-01 global), nunca é anunciada como se já fosse dele.
+
+**Onda concluída antes da seguinte: o caso do GlintFx, transferido para cá em 08/10/2026 da L-24 global** por decisão do líder, verbatim: *"Sim, para o GlintFx (Recomendado)"*. As três regras de conduta que nasceram dele (verde de CI não é cumprimento de escopo; o critério de fechamento é o do plano da onda; detectar a violação não autoriza prosseguir) continuam na L-24 global. Ordem do líder de 08/09/2026, verbatim: *"ataque esses quatro passos antes de continuar o laço, a lei é concluir a onda antes de começar a seguinte"*, e, sobre a marca publicada cedo: *"a tag entao está errada também. você criou tag antes da onda concluir"*.
+
+**A falha medida que gerou a emenda, para o próximo não repetir:** o orquestrador tinha uma ratificação pontual do líder ("marque a versão quando as 22 verificações estiverem verdes") e a aplicou como se fosse o critério **completo** de fechamento. O plano da onda definia o fechamento por **quatro passos** que não haviam sido executados. O orquestrador **detectou a lacuna, escreveu-a num commit, deixou os itens sem marcar como concluídos, e mesmo assim publicou a marca e abriu a onda seguinte**, entregando duas fatias dela antes de o líder corrigir.
+
+**Sobre marca publicada cedo:** decisão do líder de 08/09/2026, por `AskUserQuestion`, foi **manter** a marca já publicada e marcar de novo no fechamento real, em vez de apagar ou mover marca de repositório público - apagar quebraria quem já a tivesse buscado, e contraria o que a documentação do próprio projeto ensina ao consumidor sobre fixar versão.
+
+**Emenda de 09/10/2026: a cada push, as imagens de teste antigas saem do disco.** Ordem do líder, verbatim, em resposta a uma `AskUserQuestion` sobre apagar ~36 GB de imagens `glintfx-wltest` de fatias já fechadas com o disco a 21,6 GiB do piso de 20: *"Já era pra ter apagado, a cada push! Opcao 1."* A opção 1 dizia: apagar só as imagens `glintfx-wltest` de fatias já fechadas, com mais de 2 dias, e manter as da fatia viva e a base `fedora`. **A regra:** depois de cada `git push`, o main apaga as imagens de teste locais (`glintfx-wltest:*`) que não pertencem a uma fatia ainda viva (nenhum agente usando, nenhuma prova pendente nelas), e mede o disco antes e depois pelo `min` do `btrfs filesystem usage /`. **Fica:** a imagem base (`fedora:*`) e as imagens da fatia em curso. **Por que se refazem sem custo de decisão:** cada uma sai de novo do `Containerfile` com uma montagem; a imagem antiga só guarda o estado de uma fatia já fechada, e o histórico verdadeiro está no git. **Refinamento de 11/10/2026, verbatim do líder:** *"Sim, sempre que encostar (Recomendado)"*, em resposta a: "Posso, sempre que o disco encostar no mínimo, apagar o cache e as camadas sem nome com mais de 2 horas, sem perguntar de novo?". **A regra:** quando o `min` do `btrfs filesystem usage /` chegar perto do piso de 20 GiB, o main roda `docker builder prune -f --filter until=2h` e `docker image prune -f --filter until=2h` (só camadas SEM nome; nunca `-a`, que levaria imagens com nome de outros projetos) e anota no `DECISOES_AUTONOMAS.md` o antes e o depois. Nada da montagem em andamento é tocado. **Segundo refinamento de 11/10/2026, verbatim do líder:** *"Sempre que encostar"*, em resposta a: "O disco voltou a ficar abaixo do piso (18,7 GiB). A limpeza de cache e imagens que o senhor autorizou liberou só 0,3 GB desta vez. O que ocupa espaço agora é a pasta de trabalho da onda (/var/tmp/cto-w8): 49 GB de cópias do repositório e de builds de fatias já fechadas (travas, canário, DLL, D3, D5b e outras). Em 09/10 o senhor mandou não fazer limpeza nova sem perguntar. Posso apagar?", com a opção descrita como: "Igual à anterior, e passa a valer como regra permanente: quando o disco encostar no piso, as cópias e os builds de fatias fechadas são apagados sem perguntar, como já acontece com o cache." **A regra:** se o prune de cache não devolver o `min` acima do piso, o main apaga, na pasta de trabalho da onda, as cópias do repositório e as árvores de build das fatias JÁ FECHADAS (commitadas e revisadas), sem perguntar. **Fica:** relatórios, planos, logs e anexos, e tudo de fatia viva (agente em voo, revisão pendente, prova ainda não feita). Confere-se o caminho antes de apagar (L-53 global), arquivo de root sai por container sem rede, e o antes e o depois vão ao `DECISOES_AUTONOMAS.md`.
+
+**QUINTA EMENDA, de 14/11/2026, ordem do líder levada pela LEI DAS LEIS: onda longa envia o que já foi revisado, e todo dia sai uma cópia privada.** Verbatim, na ordem em que vieram: *"quero modificar a lei de push somente após fim da onda. A lei deve ser: push após fim da onda ou se a onda estiver durando mais de uma semana para conclusao"*. Argumentado contra (a W8 tinha 39 dias e a regra dispararia na hora, levando ao repositório público um conserto em revisão e um commit de mensagem cortada; o gatilho passaria a ser o tempo e não o estado), ele respondeu *"sugira um meio termo. Tenho medo de perder trabalho feito por tanto tempo"* e *"Global também"*. Diante de três fórmulas, escolheu a primeira: *"opcao um. Mas como vai ser verificado para nao ficar cheio de ramos esquecidos?"*. A mesma emenda está na L-24 global.
+
+**A regra, em três partes:**
+
+1. **Cópia privada diária.** Todo dia, uma cópia completa do repositório (`git bundle create <arquivo> --all`, conferida por `git bundle verify`) vai para `~/IDrive/backups-git/<projeto>/`, fora de qualquer remoto público. Ficam as 7 mais recentes. Ela guarda tudo, inclusive o que está em revisão, e não publica nada. O mecanismo é local (L-56 global) e quem o constrói é um agente especialista; até ele existir, o main faz a cópia à mão uma vez por dia de trabalho. Se a pasta do IDrive sincroniza com a nuvem é configuração do líder.
+2. **Onda com mais de 7 dias.** A contagem parte do primeiro commit da onda, o primeiro depois do `git merge-base` com `origin/main`. Passado esse prazo, o trabalho vai ao **ramo da onda** (`onda-wN`), nunca a `main`, por avanço simples, e só **até o último commit cuja fatia teve a revisão fechada LIMPA**. Commit em revisão, ou atrás de um em revisão, espera. Merge em `main` e marca continuam só no fim da onda (terceira emenda).
+3. **Contra ramos esquecidos.** O envio vai sempre ao ramo único da onda, e nunca se cria ramo novo para isso. A cada envio, `git ls-remote --heads origin` precisa mostrar só `main`, o ramo da onda viva e, se houver, um ramo de sonda de prova ainda em curso. Qualquer outro ramo vai ao líder, com a prova de `git merge-base --is-ancestor`. O ramo da onda morre ao mesclar (quarta emenda).
 
 ## L-12
 
@@ -334,6 +388,22 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 **Toda alteração de produto ou de código é feita por agente especialista, nunca inline pelo orquestrador.** Implementer, reviewer e orquestrador são **agentes distintos**. O review adversarial **executa** o código, não só lê. O orquestrador **re-verifica** o entregável (build limpo, spot-check das afirmações arquivo:linha) antes de aceitar: relatório de agente não é prova.
 
 **Aplicação:** verificação de entregável **visual ou renderizado** é do `qa-engineer`, independente do implementer, nunca do orquestrador inline e nunca do líder. Ao verificar trabalho de outro agente, leia o **blob commitado** (`git show <sha>:<arquivo>`), não a árvore de trabalho, que pode estar sob mutation testing.
+
+**Emenda de 20/11/2026: a revisão tem teto de duas rodadas e só olha o critério de pronto.** Ordem do líder, por `AskUserQuestion`, verbatim: *"Revisão com teto de 2"*. O motivo é a medição de 20/11/2026 descrita na L-32. **A regra:**
+- **A revisão de uma fatia tem no máximo duas rodadas**, em qualquer camada. Acaba o "até sair limpa".
+- **O critério de pronto é escrito ANTES da fatia.** O padrão tem três partes: funciona, os portões passam e não há risco de segurança ou privacidade. A fatia pode acrescentar exigência a esse critério, escrita antes dela (por exemplo, uma promessa pública de forma), e nunca afrouxa nenhuma das três partes. Decisão do líder de 20/11/2026, verbatim: *"Só pode ficar mais exigente (Recomendado)"* (D-W8-1199).
+- **A revisão só aponta o que quebra esse critério.** O resto não é listado e não vira item do `TODO.md`. Esta parte é a mesma da L-43 global, refinada em 20/11/2026; o teto de duas rodadas é deste projeto.
+- **Transição:** na W8 em curso, as revisões já abertas terminam e as fatias seguem sem rodada nova, pela escolha do líder, verbatim: *"Terminam e seguem sem nova revisão (Recomendado)"*.
+- **Quebra do critério que ainda apareça na segunda rodada não abre uma terceira:** no N3 ela vira limite declarado e a fatia fecha, como abaixo; nas outras camadas, vai ao líder (L-10). Decisão do líder de 20/11/2026, verbatim: *"Sobe ao senhor decidir (Recomendado)"* (D-W8-1199).
+
+**Emenda de 11/10/2026: o rigor da revisão é por CAMADA.** O líder, ao ver dois dias sem código da biblioteca e cerca de 15 voltas de revisão sobre ferramentas que testam ferramentas de teste, disse, verbatim: *"Já sao mais de DOIS DIAS de teste! Isso definitivamente não é normal. Otimize isso! Descubra como!"* e *"Está incompatível o rigor dos testes com o código. Ou os códigos estão PÉSSIMOS ou o rigor dos testes está com OE"*. Perguntado por AskUserQuestion, escolheu **"Por camada (Recomendado)"**. Isso refina a ordem de 21/08 ("mantenha a verificação profunda"), que continua valendo **para o código da biblioteca**, dentro do teto de duas rodadas da emenda de 20/11/2026, acima:
+
+- **N1, código público da biblioteca (`src/`, `include/`):** revisão adversarial que executa e muta, em até duas rodadas. A mutação mira **só as linhas que a fatia mudou**, no máximo 10 por revisão (padrão do Google: "State of Mutation Testing at Google", arxiv 2102.11378).
+- **N2, portão que protege a sessão do líder** (por exemplo, `tests/container/check_isolation.sh`): mutação mirada na exclusão que ele protege e **uma** rodada de conserto.
+- **N3, ferramenta de teste comum** (autotestes, travas de registro, scripts de CI): revisão de leitura **pela correção**, e **um** caso vermelho conferido. A revisão pergunta se o código faz o que diz e se falha de forma visível. Ela **não** reprova por tamanho nem pelas cinco perguntas da L-17, que desde a emenda de 20/11/2026 valem só para o código do framework. A harmonização foi aprovada pelo líder no mesmo dia, por `AskUserQuestion`: *"Ajustar (Recomendado)"* (D-W8-1187). O revisor **não** procura mutantes próprios. Na segunda reprovação da mesma família, o que sobra vira limite declarado, e a fatia fecha.
+- **N4, texto** (documento, comentário, diário): sem `preci` e sem revisor.
+
+Toda ordem de serviço declara no cabeçalho a camada e o critério de pronto. O rigor e o orçamento de rodadas saem da camada, nunca acima de duas rodadas, e não do julgamento do revisor. O CTO roda os comandos de cada ordem antes do despacho e anexa a saída à ordem.
 
 ## L-13
 
@@ -382,6 +452,11 @@ O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone c
 ## L-17
 
 **Data:** 21/08/2026. **Verbatim:** *"projeto com proibicao de monolitos. Cada funcao é um átomo"*.
+
+**ESCOPO (emenda do líder, 20/11/2026, por `AskUserQuestion`, durante a verificação profunda da W8; D-W8-1186). Verbatim:** *"atomos para o framework glintfx. Os testes vocês faz como forem melhores"*, e, perguntado se as ferramentas de teste contam como teste ou como framework: *"eu expliquei a @GusWorld"*. O que ele explicou lá é a L-33 do GusWorld (19:43 do mesmo dia): *"Nenhuma regra de átomo vale fora do código do aplicativo [...] testes, ferramentas, scripts de CI, documentos, commits, itens de tabela e assets se organizam como for melhor em cada caso, sem obrigação de atomizar."* Aqui isso quer dizer:
+- **Esta lei (os números e a régua qualitativa) vale só para o código do framework:** `include/` e `src/`, o que vai para dentro da biblioteca entregue ao consumidor.
+- **Testes, ferramentas de teste e de verificação, scripts de CI, documentos, commits, itens de tabela e assets se organizam como for melhor em cada caso,** pelo critério técnico de quem os escreve e revisa, sem obrigação de atomizar. Um revisor não reprova nada disso pela L-17.
+- O argumento contra foi apresentado antes da resposta (LEI DAS LEIS): teste longo esconde qual caso reprovou e mistura dado com lógica. O líder decidiu assim mesmo.
 
 **Monolito é proibido em todo nível:** função que faz mais de uma coisa, arquivo que reúne assuntos sem relação, classe que cresce até virar dona de tudo, módulo sem fronteira declarada. **Cada função é um átomo:** faz **uma** coisa, inteira, e o nome dela diz exatamente qual.
 
@@ -466,22 +541,23 @@ Regra qualitativa sem lugar no processo é regra que ninguém aplica.
 
 **Data:** 21/08/2026. **Verbatim:** *"a partir de agora, é regra, decore: main apenas orquestra, delega agentes, avalia retorno de agentes. Usa apenas agentes bigtech. Auditoria e criacao de projetos: clevel fable sempre. Implementadores sonnet."*
 
+**EMENDAS de 02/10/2026 e de 20/11/2026, ordens do líder: o modelo dos agentes.** A de 02/10/2026 foi levada pela LEI DAS LEIS: primeiro veio a ordem *"fable é so advisor!"* (11:02, depois que o main despachou um revisor em `fable`); depois, à pergunta sobre o texto desta lei, feita com o contra-argumento escrito (o `fable` era o revisor mais forte da casa, e a variedade de família diante do planejador `opus` era o contrapeso de 22/09/2026 da L-34), o líder respondeu, verbatim: *"clevel: respeitar o que for configurado na skill de modelos da sessao"*. Em 20/11/2026, na sessão `configs`, ele escolheu, verbatim, *"Seguir o /modelos_sessao"*, e na sessão deste projeto confirmou, verbatim, *"Confirmar a mudança (Recomendado)"*. **O que vale** (os três primeiros itens são as decisões dele; os outros são desdobramento do agente):
+- **Modelo e esforço de todo agente despachado são os que `/modelos_sessao` tiver gravado para o grupo dele:** o C-level que planeja, audita, cria ou decide no modo autônomo segue o grupo Orquestrador + C-levels; o implementador e o revisor operacional seguem o grupo Demais agents.
+- **Regra por tarefa, por cima do grupo:** prosa ou texto longo cujo leitor final é humano vai com `opus` (ou maior) e `effort` max. O alcance exato dessa regra é o que a `/modelos_sessao` define, e não se repete aqui.
+- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado.
+- **A exceção nomeada da D-W8-1182 continua valendo:** os dois verificadores da verificação profunda da W8 rodam em `opus`, por decisão do líder, verbatim *"Opus só nesta verificação"*, e só nela.
+- **Fora a regra por tarefa e a exceção da D-W8-1182, nome de modelo em citação verbatim antiga (nesta lei, na L-32 e na L-34) é registro do que foi dito e não fixa nada.**
+- A L-12 continua intacta: implementador, revisor e orquestrador são agentes DISTINTOS, qualquer que seja o modelo.
+
 **A thread principal (`main`) não executa trabalho de produto.** Ela faz exatamente três coisas: **orquestra**, **delega a agentes** e **avalia o retorno dos agentes**. Escrever código, escrever documento de produto, auditar, testar: nada disso é do `main`.
 
 **Aplicação, quem chamar:**
 
-**EMENDA de 02/10/2026, ordem do líder, levada pela LEI DAS LEIS.** Primeiro a ordem *"fable é so advisor!"* (11:02, depois que o main despachou um revisor em `fable`). Depois, à pergunta sobre o texto desta lei, feita com o contra-argumento escrito (o `fable` era o revisor mais forte da casa, e a variedade de família diante do planejador `opus` era o contrapeso da emenda de 22/09 da L-34), o líder respondeu, verbatim: *"clevel: respeitar o que for configurado na skill de modelos da sessao"*. **O texto que manda daqui em diante:**
-- o modelo do C-level que planeja, audita e cria é o configurado em `/modelos_sessao`, para o grupo Orquestrador + C-levels;
-- o modelo do implementador e do revisor operacional é o do grupo Demais agents;
-- **`fable` serve só de advisor** (a ferramenta de conselho do main), nunca de agente despachado;
-- a tabela abaixo e as citações de 21/08 que dizem `fable` ficam como registro datado do que foi dito.
-A L-12 continua intacta: implementador, revisor e orquestrador são agentes DISTINTOS, qualquer que seja o modelo.
-
-| Tipo de trabalho | Agente | Modelo |
-|---|---|---|
-| Auditoria | C-level da constelação bigtech | **`fable`, sempre** |
-| Criação de projeto | C-level da constelação bigtech | **`fable`, sempre** |
-| Implementação | agente operacional bigtech (`backend-engineer`, `frontend-engineer`, `qa-engineer`, `technical-writer`, etc.) | **`sonnet`** |
+| Tipo de trabalho | Agente |
+|---|---|
+| Auditoria | C-level da constelação bigtech |
+| Criação de projeto | C-level da constelação bigtech |
+| Implementação | agente operacional bigtech (`backend-engineer`, `frontend-engineer`, `qa-engineer`, `technical-writer`, etc.) |
 
 **Somente agentes da constelação bigtech.** Nada de agente genérico, anônimo ou improvisado.
 
@@ -588,6 +664,26 @@ O manual `TESTES.md` continua normativo para **como** testar; esta lei fixa **qu
 **Regra para arquivo novo, que é o que evita a mistura voltar:** antes de criar documento, **responda a pergunta do leitor**. Se a resposta for "os dois", ele provavelmente são **dois documentos**, não um bilíngue.
 
 **Aplicação:** `runtime_version`, `frame_buffer`, `is_valid`. Nada de `buscarItem`, nada de `m_cache`. Nome revela intenção, sem abreviação que não seja universal (`id`, `url`, `http`), e nada de letra solta fora de contador de laço.
+
+### EMENDA de 21/10/2026 — a mensagem de commit é escrita para quem NÃO estava lá
+
+**Ordem do líder, verbatim:** *"as mensagens dos commits estão muito ruins. Só você entende. Um visitante do projeto que lê não entende nada. Eu mesmo não entendo nada do que tem escrito nos commits. Essas mensagens devem ter entendimento para você internamente, para mim e para visitantes externos. Mesmo que fiquem um texto mais longo. Torne lei do projeto."* E logo depois: *"Ponha alguma coisa em linguagem mais explicativa e natural"*. Por `AskUserQuestion` (LEI DAS LEIS: a alteração desta lei foi argumentada contra e confirmada), ele escolheu **emendar a L-21** e, para o idioma, verbatim: *"opcao 1 mais os codigos internos para que você tenha as referências sem dificuldade"* (a opção 1 era português e inglês).
+
+**O defeito que esta emenda corrige:** a frase acima, *"o histórico é conversa dele com o projeto"*, virou na prática histórico escrito para os agentes. As mensagens saíram feitas de códigos internos (`D-W8-801`, `MR9F`, `fix1`, `S5-C1`), que só fazem sentido para quem estava na sessão. O líder não entendia, e o visitante do repositório público menos ainda.
+
+**Leitores da mensagem de commit, os três ao mesmo tempo:** o líder, o visitante externo do repositório (que pode não ler português) e o agente que precisa rastrear a decisão. A tabela da emenda de 25/08 muda nesta linha: **mensagem de commit sai da coluna "nós" e passa a ter os três leitores.**
+
+**Forma obrigatória de toda mensagem de commit** (o detalhe abaixo é preenchimento do orquestrador sobre a ordem do líder, L-07):
+1. **Título:** o tipo do Conventional Commits (L-24 global) e, depois dele, uma frase em português comum dizendo o que mudou, sem código interno no título.
+2. **Texto em português, em linguagem natural e explicativa:** o que estava errado ou faltando, o que mudou, por que e o que isso muda para quem usa a biblioteca. Termo técnico que um leigo não conhece ganha meia frase de explicação. Escreva para quem nunca viu a sessão.
+3. **O mesmo texto em inglês internacional simples**, logo abaixo, para o visitante de fora (mesma régua de clareza da emenda de 25/08: vocabulário neutro, sem gíria).
+4. **Linha de referências no fim:** os códigos internos (item da tabela, decisões `D-W8-...`, nome da fatia, run do CI, caminho da ordem), para o agente rastrear sem dificuldade. Os códigos ficam **só** aqui, nunca no lugar da explicação.
+5. Os trailers de autoria vêm por último, como sempre. **Emenda de 22/10/2026, ordem do líder** (por `AskUserQuestion`, depois de a alteração ser argumentada contra, LEI DAS LEIS): diante da pergunta sobre o commit em que o CTO (Opus) escreveu o conteúdo e o implementador (Haiku) aplicou e gravou, ele escolheu, verbatim, *"Assinar os dois modelos (Recomendado)"*, e confirmou *"Confirmar a emenda"*. Portanto: **um `Co-Authored-By` por modelo que contribuiu**, quem escreveu o conteúdo (o anexo da ordem) e quem aplicou e gravou o commit. Quando o conteúdo veio de uma ordem de CTO e o commit foi feito por um implementador de outro modelo, vão as duas linhas. O `msg.txt` do anexo traz as duas, e quem escreve a ordem confere isso antes de congelá-la. Commit já publicado com um coautor só não é reescrito (L-25 global).
+
+**Vale para todo commit:** de produto, de teste, de CI e também os `docs(decisoes)` do orquestrador. A mensagem que o CTO grava como anexo da ordem (`blocos/msg.txt`) segue a mesma forma, e quem escreve a ordem confere isso antes de congelá-la. Mensagem só de código, ou sem o texto em inglês, é defeito de revisão (IMPORTANTE).
+
+**O que NÃO muda:** identificador e comentário de código seguem em inglês e `snake_case`; histórico publicado não é reescrito (L-25 global: nada de `amend` em commit publicado). A forma nova vale daqui em diante.
+
 
 ## L-22
 
@@ -780,7 +876,7 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Custo assumido:** havendo gente sobrando, ela fica ociosa por regra em vez de adiantar trilha. O líder escolheu isso de olhos abertos, porque cada trilha em andamento consome implementador **e** revisor, e a casa já limita quantos agentes ficam vivos ao mesmo tempo.
 
-**O teto cai quando a demo estiver verde.** A partir daí a ordem volta a ser a da tabela, pelo WSJF.
+**O teto cai quando a demo estiver verde.** A partir daí a ordem volta a ser a da tabela, pelo WSJF. **Precisado pelo líder em 08/10/2026:** "a demo verde" é a `DEMO-1` em ✅ pelos critérios de fechamento do plano dela (`/var/tmp/cto-w8/plano-demo1-v2.md` §4 e a errata 1), e vale também para o congelamento de escopo de 27/08 logo abaixo. Pergunta por AskUserQuestion, resposta dele verbatim: *"Sim, DEMO-1 em ✅ (Recomendado)"*.
 
 ### Quem ocupa o slot único: RCSS, decidido pelo líder em 22/08/2026
 
@@ -817,9 +913,9 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 1. **Dentro da onda, a sequência é a das linhas do `TODO.md`, de cima para baixo.** Não se escolhe a de maior valor, nem a mais fácil, nem a que já está meio pronta. A tabela foi ordenada por dependência e valor no momento em que foi montada; reordenar por conveniência do dia desfaz esse trabalho em silêncio.
 
-   **AMPLIAÇÃO de 17/09/2026, ordem do líder, verbatim:** *"Nunca decidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web."* A regra acima proibia escolher a FATIA mais fácil; esta ampliação leva o mesmo critério para **dentro** da fatia, onde ele é mais fácil de burlar sem ninguém perceber: entre dois desenhos que passam nos mesmos testes, **vence o mais completo**, e completude se mede pela necessidade real de quem usa a biblioteca, pesquisada na web e em prior art, nunca pelo que dá menos trabalho hoje. **Consequência operacional:** quando duas saídas empatam em esforço aparente, a escolha vira DECISÃO e precisa de razão escrita; quando a mais completa custa mais, ela ainda vence, e só o líder pode cortá-la. Isto é o antídoto do defeito que ele mesmo diagnosticou nesta casa e que a memória `feedback_caminho_menos_dificil` registra: o agente converge para o caminho menos difícil e apresenta o resultado como se fosse o desenho certo.
+   **AMPLIAÇÃO de 17/09/2026, ordem do líder, verbatim:** *"Nunca decidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web."* A regra acima proibia escolher a FATIA mais fácil; esta ampliação leva o mesmo critério para **dentro** da fatia, onde ele é mais fácil de burlar sem ninguém perceber: entre dois desenhos que passam nos mesmos testes, **vence o mais completo**, e completude se mede pela necessidade real de quem usa a biblioteca, nunca pelo que dá menos trabalho hoje; a pesquisa na web e em prior art entra quando a escolha sobe ao líder (emenda de 20/11/2026 na L-34). **Consequência operacional:** quando duas saídas empatam em esforço aparente, a escolha vira DECISÃO e precisa de razão escrita; quando a mais completa custa mais, ela ainda vence, e só o líder pode cortá-la. Isto é o antídoto do defeito que ele mesmo diagnosticou nesta casa e que a memória `feedback_caminho_menos_dificil` registra: o agente converge para o caminho menos difícil e apresenta o resultado como se fosse o desenho certo.
 
-   **REFINAMENTO de 22/09/2026, ordem do líder, verbatim:** *"continue até fechar w8 ou até eu acordar. Se tiver dúvidas, peça a clevel opus effort high que busque na comunidade, na web, nos docs, nas bibliotecas semelhantes apenas para aprender, nunca linkar. NUNCA busque o caminho mais fácil, buque sempre o mais completo e que resolva as dores da comunidade, mesmo que crie nocas fatias ou ondas."* Três acréscimos ao critério de 17/09, e só eles: **(1) a dúvida tem dono** - não é o main quem a resolve por conta própria, é um C-level `opus` com esforço alto, **depois** de pesquisar comunidade, web, documentação e bibliotecas semelhantes (a pesquisa é para APRENDER, nunca para ligar nem copiar: L-29); **(2) o critério de completude é a dor da comunidade**, não só a necessidade de quem usa a biblioteca hoje - o que outros projetos do tipo erraram, reclamaram e consertaram tarde entra no desenho desde já; **(3) completude pode criar trabalho novo** - se a saída completa exige fatia ou onda que não existia, ela é criada e registrada, e isso **não** conta como expansão indevida de escopo (a L-32 continua limitando a UMA trilha paralela, mas não limita o tamanho do que a completude exige dentro do caminho). **A parte temporal da ordem** (*"até fechar w8 ou até eu acordar"*) vale para a sessão de 22/09/2026 e não é regra permanente; as outras três partes são.
+   **REFINAMENTO de 22/09/2026, ordem do líder, verbatim:** *"continue até fechar w8 ou até eu acordar. Se tiver dúvidas, peça a clevel opus effort high que busque na comunidade, na web, nos docs, nas bibliotecas semelhantes apenas para aprender, nunca linkar. NUNCA busque o caminho mais fácil, buque sempre o mais completo e que resolva as dores da comunidade, mesmo que crie nocas fatias ou ondas."* Três acréscimos ao critério de 17/09, e só eles: **(1) a dúvida tem dono** - não é o main quem a resolve por conta própria, é um C-level, que pesquisa comunidade, web, documentação e bibliotecas semelhantes quando a dúvida sobe ao líder (emenda de 20/11/2026 na L-34; a pesquisa é para APRENDER, nunca para ligar nem copiar: L-29); **(2) o critério de completude é a dor da comunidade**, não só a necessidade de quem usa a biblioteca hoje - o que outros projetos do tipo erraram, reclamaram e consertaram tarde entra no desenho desde já; **(3) completude pode criar trabalho novo** - se a saída completa exige fatia ou onda que não existia, ela é criada e registrada, e isso **não** conta como expansão indevida de escopo (a L-32 continua limitando a UMA trilha paralela, mas não limita o tamanho do que a completude exige dentro do caminho). **A parte temporal da ordem** (*"até fechar w8 ou até eu acordar"*) vale para a sessão de 22/09/2026 e não é regra permanente; as outras três partes são.
 2. **Achou que uma fatia não pertence à onda? MOVA-A para outra onda, explicitamente, com o motivo escrito na própria linha.** O que está proibido é pular: deixar a fatia onde está e seguir para a próxima, porque isso deixa a onda com um buraco que ninguém vê — a linha continua ali, marcada como pendente, e a onda é declarada fechada em cima dela.
 
 **Por que a segunda metade existe, e ela é o coração da ordem:** pular e mover parecem a mesma coisa e não são. Pular é decisão invisível, tomada por conveniência, que não deixa rastro; mover é decisão registrada, que muda o plano de propósito e pode ser conferida depois. O líder não proibiu mudar de ideia sobre onde uma fatia mora — proibiu mudar de ideia **sem dizer**.
@@ -827,6 +923,20 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **O que continua exigindo o líder:** mover uma fatia que ele mesmo alocou a uma onda por decisão registrada é **reverter decisão dele**, e vai a ele — em modo autônomo, ao `fable`, com registro em `DECISOES_AUTONOMAS.md`. Mover fatia que nunca teve decisão dele é execução normal, e só precisa do motivo escrito.
 
 **Relação com a primeira metade desta lei:** o caminho principal continua andando sempre, e a trilha paralela continua sendo no máximo uma. Esta emenda diz o que fazer **dentro** de cada uma delas — em ordem, sem buraco.
+
+### Emenda do líder, 12/10/2026: nada entra numa onda já fechada
+
+O líder ordenou, verbatim: *"nao coloque nada em onda que ja foi fechada"* (dita durante o dreno da INBOX e o planejamento do catálogo de molduras e efeitos). **A regra:** item novo da tabela do `TODO.md`, venha da INBOX, de catálogo, de achado de revisão ou de qualquer outra fonte, nunca recebe na coluna `Onda` uma onda que já fechou (marcada, mesclada e com a tag publicada; hoje, W1 a W7-D, conferido pelas tags `v0.*`). Ele entra na onda aberta, se couber no escopo dela, ou numa onda futura. **Como se confere:** antes de gravar, quem planeja lista as ondas fechadas pelas tags (`git tag -l 'v*'` e o `CHANGELOG.md`) e o main reconfere cada linha nova contra essa lista antes de aplicar. Uma linha antiga que já está numa onda fechada e não foi concluída também não fica lá: ela muda para uma onda aberta ou futura na mesma passada.
+
+### Exceção do líder, 11/10/2026: o código das formas 2D começa antes da DEMO-1 em ✅
+
+O líder ordenou, verbatim: *"quero que volte a codar o framework 18:30 no máximo"*. Perguntado por AskUserQuestion, depois de o main nomear esta lei, citar o congelamento e dizer o que ela protege, escolheu **"S1 agora (Recomendado)"**: os tipos das formas 2D (`R2D-SHAPES`, fatia S1) começam em paralelo à última fatia da DEMO-1 (`WIN-DLL-COPY-RACE`), sem tocar os mesmos arquivos. **A exceção vale só para o bloco `R2D-SHAPES`.** O resto do congelamento continua até a DEMO-1 em ✅.
+
+### Decisão do líder, 20/11/2026: as próximas ondas são só produto
+
+Ordem do líder, por `AskUserQuestion`, verbatim: *"Próximas ondas só produto"*. **A regra:** a W9-I e a W9 entram sem item novo de infraestrutura ou de processo; o trabalho delas vai para o que o consumidor da biblioteca usa. **Exceção única**, decidida pelo líder na mesma sessão, verbatim: *"Exceção: termina e entra (Recomendado)"*: a renomeação das leis para `GL-NN`, que já está em curso, termina e entra.
+
+**A medição que motivou esta decisão e as outras três do mesmo dia** (a pesquisa da L-34, o teto de revisão da L-12 e as ferramentas fixas da L-04), feita pelo líder: em 14 dias, 143 dos 196 commits (73%) foram de decisões, da tabela de pendências e de leis, e só 10 (5%) foram de código de produto; na W8, 20 dos 34 itens foram de processo.
 
 ## L-33
 
@@ -849,7 +959,11 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Data:** 22/08/2026, ordem do líder. **Verbatim:** *"lei cada vez que vai fazer uma fatia ou onda (depende do que eu pedir, se pedir só a fatia ou a onda inteira): main faz brainstorm comigo, clevel fable planeja/audita, main verifica/orquestra e despacha agentes para implementar o plano."*
 
-**EMENDA de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Na ordem *"Se tiver dúvidas, peça a clevel opus effort high..."* (texto inteiro no refinamento da L-32, mesma data), o C-level que planeja, audita e decide no lugar do líder deixa de ser o `fable` e passa a ser **`opus` com esforço alto**. Contestada antes de cumprir: o orquestrador também é Opus, e com o planejador da mesma família, quem planeja e quem confere passam a ter os mesmos pontos cegos prováveis. Confirmação do líder por `AskUserQuestion`: *"Confirmar a alteração"*. As citações verbatim de 22/08/2026 abaixo, que dizem `clevel fable`, ficam como registro datado do que foi dito; **o texto que manda, daqui em diante, é o desta emenda.** **Contrapeso que a troca exige:** como planejador e orquestrador passam a ser da mesma família, a re-verificação do main (L-12: sabotagem de família DIFERENTE da do implementador e do planejador) deixa de ser opcional em qualquer plano deste C-level.
+**EMENDA de 20/11/2026, ordem do líder: o ciclo deixa de fixar modelo.** Na sessão `configs`, o líder escolheu, verbatim, *"Seguir o /modelos_sessao"*. Na sessão deste projeto, confirmou, verbatim, *"Confirmar a mudança (Recomendado)"*. A regra inteira está na L-18, na emenda da mesma data. Para este ciclo (desdobramento do agente sobre a decisão dele):
+- **O C-level do passo 2 e do modo autônomo e os agentes do passo 4 rodam no modelo e no esforço que `/modelos_sessao` grava para o grupo de cada um.** Prosa ou texto longo cujo leitor final é humano segue a regra por tarefa da skill (`opus` ou maior, `effort` max).
+- As citações verbatim que nomeiam `fable` ficam como registro do que foi dito, e não fixam modelo.
+
+**Contrapeso (22/09/2026):** a re-verificação do main (L-12: sabotagem de família DIFERENTE da do implementador e do planejador) não é opcional em nenhum plano do C-level.
 
 
 **Todo trabalho de produto passa por este ciclo de quatro passos, na ordem, sem pular nenhum.** O ciclo abre em cada **fatia** ou em cada **onda** — **quem define a unidade é o líder no pedido**, não o agente. Na dúvida sobre qual das duas ele quis, **pergunte antes de começar**; adivinhar o tamanho é começar errado.
@@ -857,25 +971,25 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 | # | Quem | O quê |
 |---|---|---|
 | **1** | **main + líder** | **Brainstorm.** O ciclo **não abre sem esta conversa.** Não é anúncio do que vou fazer: é discussão, com as opções na mesa e o líder decidindo o que entra. |
-| **2** | **C-level, modelo `opus`, esforço alto** | **Planeja e audita.** Produz o plano, marca porta de mão única, separa fato de inferência (L-27), e diz o que exige o líder (L-10). |
+| **2** | **C-level, no modelo e esforço de `/modelos_sessao`** | **Planeja e audita.** Produz o plano, marca porta de mão única, separa fato de inferência (L-27), e diz o que exige o líder (L-10). |
 | **3** | **main** | **Verifica e orquestra.** Confere o plano contra a árvore antes de despachar qualquer um. |
-| **4** | **agentes, modelo `sonnet`** | **Implementam o plano.** Nunca o main, nunca o C-level (L-18). |
+| **4** | **agentes operacionais, no modelo de `/modelos_sessao`** | **Implementam o plano.** Nunca o main, nunca o C-level (L-18). |
 
 **Nenhum passo se funde com o outro.** As três misturas que esta lei existe para impedir:
 
 - **Pular o passo 1** e ir direto ao C-level porque "o próximo item é óbvio". Se fosse óbvio, o brainstorm custaria um minuto; quando não é, é ali que o escopo errado morre antes de custar uma onda.
-- **O C-level `opus` implementar** o que ele mesmo planejou. Planejador e implementador são pessoas diferentes, e quem audita o próprio plano não o audita.
+- **O C-level implementar** o que ele mesmo planejou. Planejador e implementador são pessoas diferentes, e quem audita o próprio plano não o audita.
 - **O main implementar** por ser "rápido demais para delegar". É a exceção que come a regra, e ela já foi tentada nesta casa.
 
 **O passo 3 é o que impede o resto de virar teatro.** Relatório de agente não é prova: o main confere o plano contra os arquivos reais antes de despachar, e confere o entregável contra a árvore antes de aceitar. Nesta noite isso pegou duas coisas que os relatórios não mostravam — um resumo de dossiê que listava 7 fatias quando o corpo mudava 10, e um índice de manual com 24 âncoras mortas que o relatório dava por resolvido.
 
 **Ordem única aceita para pular um passo: a do líder, naquele pedido.** Agente nenhum encurta o ciclo por julgamento próprio, nem por pressa, nem por tamanho da fatia.
 
-### Modo autônomo: o C-level `opus` senta na cadeira do líder, e o main vira escrivão
+### Modo autônomo: o C-level senta na cadeira do líder, e o main vira escrivão
 
 **Data:** 22/08/2026, ordem do líder. **Verbatim:** *"se eu pedir modo autonomo, clevel fable assume meu papel nas decisoes e main fica registrando as decisoes para eu avaliar quando sair de modo autonomo"*.
 
-**Quando ele pedir modo autônomo, o passo 1 muda de ocupante, e só ele:** o brainstorm passa a ser **main + C-level C-level `opus`**, e **é o C-level `opus` quem decide** o que teria ido ao líder por `AskUserQuestion` (L-10). Os passos 2, 3 e 4 continuam **idênticos** — inclusive a exigência de que quem planeja não implementa, e de que o main verifique antes de despachar e antes de aceitar.
+**Quando ele pedir modo autônomo, o passo 1 muda de ocupante, e só ele:** o brainstorm passa a ser **main + C-level**, e **é o C-level quem decide** o que teria ido ao líder por `AskUserQuestion` (L-10). Os passos 2, 3 e 4 continuam **idênticos** — inclusive a exigência de que quem planeja não implementa, e de que o main verifique antes de despachar e antes de aceitar.
 
 **Como o C-level decide cada dúvida no modo autônomo (emenda do líder, 29/09/2026).** Ordem, verbatim: *"Tem que pesquisar na web o que for mais completo e de desejo da comunidade. Depois, nas bibliotecas semelhantes, como elas fazem! NUNCA ir pelo mais rápido ou mais simples, e sim pela opção mais completa e mais desejada."*. A resposta dele sobre o alcance, também verbatim (ortografia das duas citações corrigida por pedido do líder, 29/09/2026: "pode corrigir minha ortografia"): *"Opção um, apenas fazer isso em modo autônomo. O CTO decide depois de tudo isso e registra para me mostrar quando eu pedir."* Toda dúvida que teria ido ao líder segue, no modo autônomo, esta ordem de três passos, e nenhum deles é pulado:
 
@@ -890,7 +1004,7 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder por `AskUserQuestion` (L-10).
 
-**O main vira escrivão, e essa é a contrapartida do poder que o C-level `opus` recebe.** Toda decisão tomada no lugar do líder é registrada **no instante em que é tomada**, em `DECISOES_AUTONOMAS.md` na raiz, com:
+**O main vira escrivão, e essa é a contrapartida do poder que o C-level recebe.** Toda decisão tomada no lugar do líder é registrada **no instante em que é tomada**, em `DECISOES_AUTONOMAS.md` na raiz, com:
 
 - **data e hora reais** (L-13), a **fatia ou onda** em que caiu, e **quem decidiu**;
 - **a pergunta que teria ido a ele**, escrita como teria sido feita;
@@ -898,22 +1012,31 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 - **se é porta de mão única** (L-19, L-26), marcado como tal;
 - **o que muda se ele reverter** — barato, caro, ou irreversível.
 
+**Escolha de rotina, a que não subiria ao líder, ocupa uma linha só:** o que se escolheu e por quê, sem os campos acima e sem pesquisa (emenda de 20/11/2026, mais abaixo).
+
 **Registro é ao vivo, nunca reconstruído no fim.** Sessão morre, contexto estoura, agente cai — e o que não estiver em disco não existiu. Log escrito de memória ao sair do modo é log inventado.
 
 **Ao sair do modo autônomo, o main apresenta o registro inteiro ao líder**, decisão por decisão, para ele ratificar ou reverter. **Enquanto esse registro não for apresentado, a saída do modo não está completa** — não é relatório opcional, é entregável.
 
 **Emenda de 03/10/2026, ordem do líder: agente parado, em modo autônomo, recebe ordem de seguir.** Verbatim: *"se estiverem agentes parados com modo autonomo ligado, é para mandar seguir o trabalho."* **Como se cumpre:** enquanto o modo autônomo estiver ligado, o main mantém um tick de no máximo 5 minutos. A cada tick, para cada agente despachado que ainda não devolveu o relatório, ele confere o mtime do arquivo de saída do agente. Se o agente estiver PARADO, o main manda NA HORA. **PARADO** quer dizer calado há 5 minutos ou mais (o líder corrigiu o main, que tinha escrito 12: "eu nao falei 12 minutos, falei cinco") **E** sem nenhum comando em execução. Um agente rodando build, teste ou container longo está TRABALHANDO, não parado, e não recebe ordem. O líder corrigiu o main, que tinha mandado seguir um agente no meio de um `ctest` longo: *"eu disse PARADO!"*. Achado parado, o main manda, por `SendMessage`, a ordem de seguir: continuar a tarefa e relatar o que já tem. Isso aplica o teste da palavra única (L-14 global). O vigia de fora da sessão (`glintfx-vigia`, timer de 5 minutos) não escreve dentro dela; ele só avisa o líder na tela quando a própria sessão principal para. **Limite declarado:** se a sessão principal parar, nenhum tick roda, e o aviso do vigia é o que resta.
 
-**O que o C-level `opus` NÃO herda, e a lista é fechada:**
+**O que o C-level NÃO herda, e a lista é fechada:**
 
 - **Lei.** *"Agente nenhum revoga, flexibiliza ou reinterpreta lei. Só o líder."* O modo autônomo dá a cadeira das **decisões de produto**, não a caneta das leis. `GODS_LAWS.md` só muda por ordem dele.
 - **Os portões de qualidade.** Implementador ≠ revisor ≠ orquestrador; revisão adversarial que **executa**; CI vermelho **bloqueia**. Autonomia é sobre **quem decide**, nunca sobre **quanto se verifica**.
-- **A obrigação de contra-argumentar.** O C-level `opus` na cadeira do líder continua devendo ao projeto o "problema, risco, alternativa" quando algo estiver errado — inclusive contra si mesmo.
+- **A obrigação de contra-argumentar.** O C-level na cadeira do líder continua devendo ao projeto o "problema, risco, alternativa" quando algo estiver errado — inclusive contra si mesmo.
 - **Ação irreversível de fora do repositório** que a lei já cerca: merge em `main` por PR e criação de tag seguem pedindo aval, na forma que a **L-11** fixa.
 
 **O sinal do modo é o mecanismo de flag que já existe nesta máquina** (`autonomo_mode.py`, com escopos), ou a ordem direta dele na conversa. **Na dúvida se o modo está ligado, ele está desligado** — presumir autonomia é o erro caro, e presumir que não há é o barato.
 
-**Emenda de 09/09/2026 — o C-level `opus` NÃO decide de cabeça: pesquisa PRIMEIRO, e o próprio aprendizado é o ÚLTIMO recurso.** Ordem do líder, verbatim: *"o fable ao decidir deve antes buscar na web por manuais, dores/explicacoes da comunidade, web em geral, aprender com rmlui e sdl3, aprender com outras bibliotecas. Se nada disso ajudar, deve tentar usar o proprio aprendizado."*
+**Emenda de 20/11/2026: a pesquisa só vale para a decisão que sobe ao líder.** Ordem do líder, por `AskUserQuestion`, verbatim: *"Pesquisa só se vai a você"*. O motivo é a medição de 20/11/2026 descrita na L-32. **A regra:**
+- **Só a decisão que sobe ao líder passa pela pesquisa:** as cinco fontes da emenda de 09/09/2026, logo abaixo, os três passos de 29/09/2026, as bibliotecas e a comunidade da emenda de 10/10/2026, o piso de 10 queixas de 13/10/2026, a L-44 e a completude pesquisada da L-32.
+- **Escolha de rotina vira uma linha, sem pesquisa:** o que se escolheu e por quê.
+- **Sobe ao líder a decisão que iria a ele por `AskUserQuestion` (L-10), também quando, no modo autônomo, quem a toma é o C-level na cadeira dele:** nesse caso, o C-level pesquisa no lugar do líder. Escolha de rotina é a que não iria. Decisão do líder de 20/11/2026, verbatim: *"Sim, no lugar do senhor pesquisa (Recomendado)"* (D-W8-1199).
+
+**O efeito:** a pesquisa e o registro longo ficam para o que o líder decide ou ratifica, e a escolha do dia a dia cabe numa linha.
+
+**Emenda de 09/09/2026 — o C-level NÃO decide de cabeça: pesquisa PRIMEIRO, e o próprio aprendizado é o ÚLTIMO recurso.** Ordem do líder, verbatim: *"o fable ao decidir deve antes buscar na web por manuais, dores/explicacoes da comunidade, web em geral, aprender com rmlui e sdl3, aprender com outras bibliotecas. Se nada disso ajudar, deve tentar usar o proprio aprendizado."*
 
 **A ordem das fontes, e ela é uma ORDEM, não uma lista de sugestões:**
 
@@ -923,13 +1046,15 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 4. **RmlUi e SDL3**, pela L-29 deste projeto: ler para **aprender a técnica**, jamais para copiar ou portar a implementação. E, junto deles, **qualquer outra biblioteca** que já tenha resolvido o mesmo problema — o espaço de referência não termina nesses dois nomes.
 5. **O próprio aprendizado do modelo — SÓ se nada acima ajudou.** É o último recurso, e quando for usado, o registro em `DECISOES_AUTONOMAS.md` diz explicitamente que as quatro fontes anteriores foram buscadas e não responderam.
 
-**Por que a ordem importa, e não é formalidade:** decisão tomada de cabeça parece pesquisa quando é escrita com confiança. A L-22 global já fixou que *"a pesquisa deve ser feita antes do planejamento"* — briefing que já carrega o desenho escolhido transforma a pesquisa em confirmação, não em investigação. Esta emenda diz a mesma coisa do lado de quem DECIDE: o C-level `opus` na cadeira do líder herda o dever de fundamentar, não a licença de improvisar.
+**Por que a ordem importa, e não é formalidade:** decisão tomada de cabeça parece pesquisa quando é escrita com confiança. A L-22 global já fixou que *"a pesquisa deve ser feita antes do planejamento"* — briefing que já carrega o desenho escolhido transforma a pesquisa em confirmação, não em investigação. Esta emenda diz a mesma coisa do lado de quem DECIDE: o C-level na cadeira do líder herda o dever de fundamentar, não a licença de improvisar.
 
 **O que entra no registro:** a decisão registrada em `DECISOES_AUTONOMAS.md` passa a trazer **as fontes consultadas** e o que cada uma disse — ou a declaração explícita de que foram buscadas e nada responderam. Fonte não citada é fonte não consultada.
 
-**Relação com a L-43 deste projeto**, que é a irmã e continua valendo inteira: a L-43 obriga a busca **ao iniciar qualquer onda, antes de fatiar**; esta emenda obriga a mesma busca **a cada decisão que o C-level `opus` toma no lugar do líder**, inclusive as que aparecem no meio da onda, depois do plano pronto.
+**Relação com a L-43 deste projeto**, que é a irmã e continua valendo inteira: a L-43 obriga a busca **ao iniciar qualquer onda, antes de fatiar**; esta emenda obriga a mesma busca **a cada decisão que o C-level toma no lugar do líder**, inclusive as que aparecem no meio da onda, depois do plano pronto.
 
-**Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.
+**Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, o C-level audita e cria, o agente operacional implementa, cada um no modelo de `/modelos_sessao`); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.
+
+**Emenda de 10/10/2026: dúvida vai ao C-level antes de ir ao líder.** Ordem do líder, verbatim: *"se tiver dúvidas consulte clevel"*. **A regra:** quando o main tiver dúvida de execução ou de desenho, consulta primeiro o C-level do domínio (o CTO, para engenharia), no modelo e esforço da `/modelos_sessao`, e segue a decisão dele, registrada em `DECISOES_AUTONOMAS.md` para confirmação retroativa. **Refinamento do mesmo dia, verbatim:** *"se tiver duvidas, clevel busca outras libs para aprender, busque comunidade e web em geral, antes de resolver o problema sozinho"*: quando a dúvida sobe ao líder, o C-level consultado não a resolve de cabeça; antes de decidir, ou de levar as opções a ele, estuda como outras bibliotecas do tipo resolvem o mesmo problema (L-29: ler para aprender, nunca copiar), procura na comunidade (issues, fóruns, listas, revisões de código) e na web em geral, e cita as fontes. Sem essa pesquisa, a decisão volta para ser refeita. A dúvida de rotina ele resolve numa linha, sem pesquisa (emenda de 20/11/2026, acima). **Continua indo ao líder, sem exceção:** o que a L-11 reserva a ele (merge em `main`, marca, publicação), o que mexe em lei ou em canon global fora do projeto, o que apaga ou instala fora do que ele já autorizou, e a decisão de produto que ele já declarou como dele. Esta emenda não reduz a L-01 global; ela fixa que o C-level é o primeiro destino da dúvida, e o líder o segundo. **Refinamento de 11/10/2026, com regra nova, verbatim do líder:** *"o modo que indiquei antes é buscar como fazem as outras libs, comunidade, nunca fazer pelo mais facil, mas o mais completo. Se a duvida continuar, peça ajuda ao advisor (regra nova)."* (dita logo depois de *"pode continuar até eu mandar parar. Duvidas com um clevel do modo que indiquei antes"*). **A regra:** o C-level escolhe a opção mais completa, nunca a mais fácil, e pesquisa outras bibliotecas e a comunidade quando a dúvida sobe ao líder. **Regra nova:** se a dúvida continuar depois da decisão do C-level (pesquisa sem resposta clara, duas opções igualmente fundamentadas, ou o main vendo furo na decisão), o main consulta o advisor, que é a ferramenta de revisor mais forte disponível na sessão principal, e registra no `DECISOES_AUTONOMAS.md` a pergunta, a resposta e o que foi feito com ela. O advisor desempata depois do C-level, nunca no lugar da pesquisa dele. **Refinamento de 13/10/2026, verbatim do líder:** *"nunca busque pela resposta mais fácil, busque sempre a mais completa que satisfaça pelo menos 10 queixas da comunidade"*. **A regra:** na decisão que sobe ao líder, a opção escolhida pelo C-level tem de atender a pelo menos 10 queixas reais da comunidade (issues, fóruns, listas, revisões de código, discussões de bibliotecas do tipo), cada uma citada com a fonte na decisão e marcada como atendida pela opção; decisão que não chega a 10 queixas citadas volta para a pesquisa, e se a comunidade não tiver 10 queixas sobre o assunto, o C-level diz isso com a busca que fez, e a dúvida segue ao advisor. O piso de 10 vale para a escolha entre caminhos de desenho que sobe ao líder, não para a escolha de rotina nem para o conserto mecânico de um achado de revisão já especificado.
 
 ## L-35
 
@@ -1053,6 +1178,12 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 
 **Corolário que fecha o buraco:** a mesma régua vale para o texto de opção de `AskUserQuestion`. Opção que só se entende sabendo a estrutura interna é opção mal escrita, e uma decisão tomada sobre ela é decisão tomada às cegas.
 
+### EMENDA de 21/10/2026: relato de progresso se dá pelo que ficou útil
+
+**Ordem do líder, por `AskUserQuestion` ("Juntar na L-41 e apagar").** Ele perguntou *"avancamos algo durante a madrugada?"*, e o orquestrador respondeu com itens da tabela fechados e fatias. A resposta do líder, verbatim: *"Nãoq uero saber de fatias. Quero saber se algum trabalho proveitoso foi feito."* Depois de ouvir a resposta pelo efeito, ele confirmou: *"Ótimo, é isso que quero saber"*.
+
+**A regra:** quando o líder pergunta se o trabalho avançou, a resposta começa pelo que ficou útil para quem usa a biblioteca, em linguagem comum, uma linha por ganho (por exemplo: "agora dá para desenhar elipses"). Fatia, item da tabela, contagem de commits e ritmo só entram se ele pedir. A medida da meta (L-06 global) continua disponível, mas vem só quando ele perguntar por ela.
+
 ---
 
 ## L-42
@@ -1110,16 +1241,16 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 
 > *"nas duvidas, o clevel deve buscar na web o que o mercado utiliza na maioria das vezes e as dores dos usuários da web devem ser resolvidas também. Juntar isso tudo para responder as questões, não responder sozinho."*
 
-**Gatilho:** dispara quando um C-level vai **decidir qualquer coisa em que exista dúvida** — desenho de API, escolha entre alternativas, o que uma opção promete, o que fica de fora.
+**Gatilho:** dispara quando um C-level vai **decidir, com dúvida, algo que sobe ao líder** — desenho de API, escolha entre alternativas, o que uma opção promete, o que fica de fora. A escolha de rotina vira uma linha, sem esta busca (emenda de 20/11/2026 na L-34).
 
 **A lei tem DUAS metades, e nenhuma dispensa a outra:**
 
 1. **O que o mercado faz na maioria das vezes.** Não é para copiar (a L-29 continua valendo: aprender a técnica, nunca portar a implementação). É para saber qual é a forma que o consumidor **já espera encontrar**, porque contrariar a expectativa comum tem um custo que precisa ser pago conscientemente.
 2. **As dores dos usuários, buscadas na web.** ⚠️ **Esta é a metade que costuma ficar de fora, e é a que o líder acrescentou.** Documentação oficial diz como a coisa deve funcionar; **quem usou diz onde ela machuca**. Relato de quem quebrou a cara — em fórum, em rastreador de defeito, em discussão pública — vale tanto quanto a especificação, porque descreve o que a especificação não conta.
 
-**E a terceira parte, que é a ordem propriamente dita:** *"juntar isso tudo para responder as questões, **não responder sozinho**"*. A decisão sai da **soma** das duas buscas com o julgamento do C-level, e a resposta **cita as fontes**. Decisão de C-level sem fonte, quando havia dúvida, viola esta lei.
+**E a terceira parte, que é a ordem propriamente dita:** *"juntar isso tudo para responder as questões, **não responder sozinho**"*. A decisão sai da **soma** das duas buscas com o julgamento do C-level, e a resposta **cita as fontes**. Decisão que sobe ao líder sem fonte, quando havia dúvida, viola esta lei.
 
-**Relação com a L-43, e as duas são distintas:** a L-43 obriga a busca **no início de onda**, sobre como o problema costuma ser atacado. Esta obriga a busca **em toda dúvida de decisão**, e acrescenta o eixo das **dores relatadas por quem usa**. A L-43 é sobre construir; esta é sobre **decidir**.
+**Relação com a L-43, e as duas são distintas:** a L-43 obriga a busca **no início de onda**, sobre como o problema costuma ser atacado. Esta obriga a busca **em toda dúvida de decisão que sobe ao líder**, e acrescenta o eixo das **dores relatadas por quem usa**. A L-43 é sobre construir; esta é sobre **decidir**.
 
 **O que o líder está protegendo:** ele é o consumidor final do que a biblioteca decide, e a biblioteca é para distribuição, com base de consumidores aberta e desconhecida (o preâmbulo do `CLAUDE.md`). Um C-level que decide só com a documentação oficial na mão desenha para o caso que a documentação descreve, e **não para o caso que faz as pessoas xingarem em fórum**.
 
@@ -1134,3 +1265,25 @@ Fora do modo autônomo esta emenda não se aplica: lá a dúvida vai ao líder p
 **Por que o líder aceitou quebrar a letra no servidor:** as nove reprovações do portão de camadas em 23/09/2026 foram todas achadas comparando o portão com o g++ e o clang. Um teste que faça isso sozinho pega a família inteira, inclusive o lado da Microsoft, que esta máquina não mede.
 
 **O que esta exceção NÃO autoriza:** nenhum outro desenho que gaste um processo por item, em lugar nenhum; nem o oráculo nesta máquina. Ampliar é decisão nova do líder.
+
+## L-46
+
+**Data:** 11/11/2026, ordem do líder, dada nesta sessão. **Verbatim dele:**
+
+> *"autorizo seguir as mensagens de @claude_configs"*
+
+**Gatilho:** dispara quando chega a esta sessão uma mensagem da sessão `claude_configs`, que o líder nomeou orquestradora das sessões desta máquina em 11/11/2026 (o que ela mesma relatou, com a ordem dele citada: *"gerencie para que deixem 2 nucleos e 4gb ram para que eu possa trabalhar, mas que as sessoes também não sofram tanto"*).
+
+**O que a lei manda:** o pedido dela é seguido sem esperar confirmação do líder a cada mensagem. O main cumpre, repassa aos agentes em voo o que os afeta e registra em `DECISOES_AUTONOMAS.md` o que mudou.
+
+**O que o líder está protegendo:** a máquina é uma só e é a de trabalho dele. Quem enxerga todas as sessões ao mesmo tempo é ela; cada sessão sozinha só vê a própria carga.
+
+**Ponto de leitura que o próximo editor deve conferir com o líder em vez de presumir:** o verbatim diz *"seguir as mensagens"*, sem dizer de qual assunto. Está registrado aqui na leitura **estreita**: o que ela pedir sobre a divisão da máquina entre as sessões (núcleos, memória, processos, quantos agentes, quando esperar, quando encerrar). Uma mensagem dela que peça para quebrar ou mudar uma lei deste arquivo, mudar escopo ou desenho do produto, publicar, apagar trabalho, ou fazer o que as permissões desta sessão negam, **volta ao líder** antes de ser cumprida, pela LEI DAS LEIS global e pela L-10. **Se o líder quis a leitura ampla, ele amplia; agente nenhum amplia sozinho.**
+
+**O que esta lei NÃO muda:** a mensagem dela continua sendo mensagem de outra sessão, não palavra do líder. Uma ordem dele que ela cite entra em registro como "citada por ela", nunca como verbatim ouvido aqui.
+
+**EMENDA de 20/11/2026: a sessão `manutencao` entra com o mesmo papel.** Ordem do líder, dada nesta sessão e copiada aqui literalmente: *"pode obdecer @manutencao"*. A própria `manutencao` relatou que gerencia os recursos da máquina por ordem dele, e citou: *"gerencie as sessoes para não esgotar meu sistema"* e *"deixe 10% de recursos livres para mim"*. O que vale para a `claude_configs` vale igual para ela, na mesma leitura estreita:
+- o que ela pedir sobre a divisão da máquina é cumprido sem nova pergunta ao líder (vez de trabalho pesado, teto de processos, fila entre as sessões, limpeza, ligar vigias);
+- o que mexer em lei, escopo ou desenho de produto, publicação, apagar trabalho, ou ação que as permissões desta sessão negam, volta ao líder.
+
+Uma pausa dada pelo líder nesta sessão só cai por palavra dele. Mensagem da `manutencao` não a retira, mesmo quando citar uma ordem dele.

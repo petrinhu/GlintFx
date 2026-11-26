@@ -238,7 +238,11 @@ def _run_one(root, entrada):
     try:
         r = subprocess.run(
             cmd, cwd=root, capture_output=True, text=True, timeout=PER_SCRIPT_TIMEOUT_S,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            # TEST-CRASH-QUIET (13/10/2026): o interpretador destes selftests vai a quem precisa dele pelo
+            # nome (o exec_fixture.sh --selftest roda o die_quietly.py com ele), como o ctest faz pelo
+            # ENVIRONMENT; nunca presumido. PYTHONNOUSERSITE=1: nenhum le a pasta de pacotes do usuario.
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "GLINTFX_PYTHON3": sys.executable,
+                 "PYTHONNOUSERSITE": "1"},
         )
         ok, saida = r.returncode == 0, (r.stdout + r.stderr)
     except subprocess.TimeoutExpired:

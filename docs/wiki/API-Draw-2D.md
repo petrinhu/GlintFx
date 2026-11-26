@@ -117,7 +117,7 @@ The four counters add up to the pieces submitted.
 | `pieces_dropped_outside_frame` | Pieces submitted with no frame open, since the previous report. |
 | `frames_abandoned` | Frames begun and never finished, since the previous report. |
 | `batches`, `flushes` | How many times the transform changed, and how many barriers the frame had. |
-| `draw_calls` | How many draw calls reached the card. Printed for you to measure, never promised as a number. |
+| `draw_calls` | How many draw calls reached the graphics card. A flush whose data or drawing the card refuses counts none of its draw calls: its pieces count in `pieces_dropped_graphics_failure`, and the frame then ends with an error. Printed for you to measure, never promised as a number. |
 
 ## Errors
 
@@ -167,3 +167,8 @@ the middle of a frame.
   the robustness extension cannot detect it.
 - A color brighter than white on an 8-bit surface: a value above one is
   clipped by the surface, not by the type.
+
+## Related
+
+- [API Reference: Draw 2D shapes](API-Draw-2D-Shapes): the filled and
+  outlined shapes, the line caps and the curve smoothness.

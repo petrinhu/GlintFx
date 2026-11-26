@@ -18,6 +18,10 @@
 #      by surprise.
 #   3. A consumer that opts IN (GLINTFX_INSTALL=ON) genuinely gets
 #      glintfx's headers and CMake package installed alongside its own.
+#   4. glintfx does NOT build its consumer examples (GLINTFX_BUILD_EXAMPLES)
+#      when embedded: the value is read from the CMakeCache.txt of the
+#      really embedded glintfx, the same assertion check_embed.sh makes on
+#      Linux (the function alone is proved by examples_option_default_test).
 #
 # Usage: check-embed.ps1 -GlintfxSourceDir <path> -EmbedSrcDir <path>
 #
@@ -196,6 +200,24 @@ function Assert-GeneratedHeadersScoped([string]$embedBuild) {
     Write-Host "check-embed.ps1: generated headers scoped correctly under glintfx-build/"
 }
 
+# The cache of the build directory holds the value the REAL option() took:
+# an embedded glintfx must have GLINTFX_BUILD_EXAMPLES at OFF (D-W8-77). A
+# variable absent from the cache fails too - absence proves nothing.
+function Assert-ExamplesOffInCache([string]$embedBuild) {
+    $cache = Join-Path $embedBuild "CMakeCache.txt"
+    if (-not (Test-Path $cache)) {
+        Write-Error "check-embed.ps1: CMakeCache.txt not found in the embed build: $cache"
+        exit 1
+    }
+    $found = @(Select-String -Path $cache -Pattern '^GLINTFX_BUILD_EXAMPLES' | ForEach-Object { $_.Line })
+    if ($found -notcontains "GLINTFX_BUILD_EXAMPLES:BOOL=OFF") {
+        $shown = if ($found.Count -gt 0) { $found -join "; " } else { "nothing" }
+        Write-Error "check-embed.ps1: GLINTFX_BUILD_EXAMPLES:BOOL=OFF not in the embed build cache (found: '$shown')"
+        exit 1
+    }
+    Write-Host "check-embed.ps1: embedded glintfx has GLINTFX_BUILD_EXAMPLES:BOOL=OFF in the cache"
+}
+
 function Assert-InstallDoesNotLeakHeaders([string]$embedBuild, [string]$scratchPrefix) {
     cmake --install $embedBuild --prefix $scratchPrefix *> $null
     $leaked = Join-Path $scratchPrefix "include/glintfx"
@@ -253,6 +275,7 @@ try {
     $scratchPrefix = Join-Path $scratch "prefix"
 
     Invoke-ConfigureEmbed $EmbedSrcDir $embedBuild $GlintfxSourceDir
+    Assert-ExamplesOffInCache $embedBuild
     Invoke-BuildEmbed $embedBuild
     Invoke-RunEmbed $embedBuild
     Assert-GeneratedHeadersScoped $embedBuild

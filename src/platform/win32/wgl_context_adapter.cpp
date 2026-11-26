@@ -400,6 +400,8 @@ void win32_gl_context_adapter::close() noexcept {
     m_swap_interval_ext = nullptr;
     m_gpu = gpu_kind_state{};
     m_swap_calls_issued = 0;
+    // A reopened context shows its (new) window on the first frame again.
+    m_first_present_map.reset();
     m_msaa_supported = false;
     m_srgb_requested = false;
     m_srgb_advertised = false;
@@ -419,47 +421,63 @@ gltfx_rslt<void> win32_gl_context_adapter::make_current() noexcept {
     return gltfx_rslt<void>::ok();
 }
 
+// swap_buffers(): why it is written this way (moved out of the body, L-17: a comment says WHY;
+// W8 deep verification C2-1, D-W8-2022). In the order of the code they explain:
+//
+// D-W6b-6's own Windows mechanism: present_would_skip() (IsIconic()
+// under the hood) in place of the Wayland side's own frame-callback
+// budget - checked UNCONDITIONALLY (never gated on the current
+// vsync value, unlike Wayland where vsync=off skips the wait
+// entirely): a minimized top-level window costs CPU to paint into
+// for no observer on this platform regardless of v-sync, the
+// busca's own finding (sec. 0, "Janela minimizada no Windows:
+// SwapBuffers nao bloqueia... mas desenhar para janela minimizada
+// e CPU jogado fora"). LOOP-RUN fatia 7 (D-W6b-46): this is now the
+// SAME atom gltfx_loop's own oculto-wait sonda calls through the
+// gl_context_adapter_port, one check instead of two.
+//
+// GEMEO DO GEMEO (GODS_LAWS.md L-17/L-22, INCIDENTE-FONTE desta
+// fatia, medido no integrador run 34171429194, "Windows -
+// estatico"): a fatia anterior (comentario logo abaixo) ja tinha
+// anexado ::GetLastError() aqui, mas NUNCA limpava o thread-local
+// antes de chamar ::SwapBuffers() - a chamada real relatou
+// os_error_code=203 (ERROR_ENVVAR_NOT_FOUND, "o sistema nao
+// conseguiu encontrar a opcao de ambiente informada",
+// learn.microsoft.com/windows/win32/debug/system-error-codes--0-
+// 499-), um erro sem relacao nenhuma com apresentar um quadro -
+// residuo de alguma chamada bem-sucedida anterior, nunca a causa
+// real. ::SetLastError(0) IMEDIATAMENTE antes e' o idioma que a
+// propria documentacao do GetLastError() recomenda (ver o header
+// comment deste arquivo).
+// WIN-MAP-FIRST-PRESENT (D-W8-38, D-W5-8): the first frame that is not skipped maps the window,
+// BEFORE SwapBuffers, as on Wayland the first committed buffer maps the surface. A window that
+// was never shown is not "hidden": only IsIconic() skips (above), so the loop reaches this
+// line.
+// The error is the atom's own non-zero code (never GetLastError() here: it can be 0 on a
+// failure).
+//
+// with_os_error_code(::GetLastError()) - THE GEMEO this file
+// itself was missing (GODS_LAWS.md L-17/CLAUDE.md "ao corrigir,
+// procurar o gemeo"): every OTHER win32/ adapter that returns
+// platform_failure from a failed Win32 call already attaches
+// ::GetLastError() this same way (display_adapter.cpp,
+// window_adapter.cpp, seat_adapter.cpp, app_user_model_id.cpp)
+// - this file's nine platform_failure sites, swap_buffers()
+// included, were the one place in src/platform/win32/ that did
+// not, leaving a caller (and this file's own iconic_present
+// test) with no way to see WHY a real SwapBuffers() call
+// failed on the real Windows runner, only THAT it did.
 gltfx_rslt<gltfx_present_outcome> win32_gl_context_adapter::swap_buffers() noexcept {
-    // D-W6b-6's own Windows mechanism: present_would_skip() (IsIconic()
-    // under the hood) in place of the Wayland side's own frame-callback
-    // budget - checked UNCONDITIONALLY (never gated on the current
-    // vsync value, unlike Wayland where vsync=off skips the wait
-    // entirely): a minimized top-level window costs CPU to paint into
-    // for no observer on this platform regardless of v-sync, the
-    // busca's own finding (sec. 0, "Janela minimizada no Windows:
-    // SwapBuffers nao bloqueia... mas desenhar para janela minimizada
-    // e CPU jogado fora"). LOOP-RUN fatia 7 (D-W6b-46): this is now the
-    // SAME atom gltfx_loop's own oculto-wait sonda calls through the
-    // gl_context_adapter_port, one check instead of two.
     if (present_would_skip()) {
         return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::skipped_hidden);
     }
-    // GEMEO DO GEMEO (GODS_LAWS.md L-17/L-22, INCIDENTE-FONTE desta
-    // fatia, medido no integrador run 34171429194, "Windows -
-    // estatico"): a fatia anterior (comentario logo abaixo) ja tinha
-    // anexado ::GetLastError() aqui, mas NUNCA limpava o thread-local
-    // antes de chamar ::SwapBuffers() - a chamada real relatou
-    // os_error_code=203 (ERROR_ENVVAR_NOT_FOUND, "o sistema nao
-    // conseguiu encontrar a opcao de ambiente informada",
-    // learn.microsoft.com/windows/win32/debug/system-error-codes--0-
-    // 499-), um erro sem relacao nenhuma com apresentar um quadro -
-    // residuo de alguma chamada bem-sucedida anterior, nunca a causa
-    // real. ::SetLastError(0) IMEDIATAMENTE antes e' o idioma que a
-    // propria documentacao do GetLastError() recomenda (ver o header
-    // comment deste arquivo).
+    if (const DWORD map_error = m_first_present_map.map_once(m_window); map_error != 0) {
+        return gltfx_rslt<gltfx_present_outcome>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                                          .with_rejected_value("show_window")
+                                                          .with_os_error_code(map_error));
+    }
     ::SetLastError(0);
     if (::SwapBuffers(m_dc) == 0) {
-        // with_os_error_code(::GetLastError()) - THE GEMEO this file
-        // itself was missing (GODS_LAWS.md L-17/CLAUDE.md "ao corrigir,
-        // procurar o gemeo"): every OTHER win32/ adapter that returns
-        // platform_failure from a failed Win32 call already attaches
-        // ::GetLastError() this same way (display_adapter.cpp,
-        // window_adapter.cpp, seat_adapter.cpp, app_user_model_id.cpp)
-        // - this file's nine platform_failure sites, swap_buffers()
-        // included, were the one place in src/platform/win32/ that did
-        // not, leaving a caller (and this file's own iconic_present
-        // test) with no way to see WHY a real SwapBuffers() call
-        // failed on the real Windows runner, only THAT it did.
         return gltfx_rslt<gltfx_present_outcome>::err(gltfx_err(gltfx_err_code::platform_failure)
                                                           .with_rejected_value("swap_buffers")
                                                           .with_os_error_code(::GetLastError()));

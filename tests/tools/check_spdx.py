@@ -322,7 +322,13 @@ def real_main(args):
 
 
 def make_scratch_workdir():
-    return tempfile.mkdtemp(prefix="glintfx-spdx-selftest-")
+    # Imported here, on the --selftest path only, so the check mode of
+    # this gate still runs when the file is copied and called on its own.
+    # The import comes before anything is created: a copy without the
+    # sibling module fails here and leaves nothing in the temporary folder.
+    import selftest_git_fence
+
+    return selftest_git_fence.make_fenced_scratch_dir("glintfx-spdx-selftest-")
 
 
 def _clear_readonly_and_retry(func, path, _exc_info_or_exc):
@@ -706,7 +712,7 @@ def selftest_untracked_header_present_control(scratch, capture):
     return True
 
 
-def selftest_readonly_cleanup_control():
+def selftest_readonly_cleanup_control(parent=None, removal=remove_tree_tolerant):
     """DUPLICATED from check_dep_zero.py's own control of the same
     name - see that file for the full MEASURED account (CI server
     run 33878869418, commit 9288916). This gate's own
@@ -721,24 +727,62 @@ def selftest_readonly_cleanup_control():
     bit, so a read-only FILE inside a normal directory deletes fine
     there, and the control would silently pass under the OLD code
     even on Linux. A read-only directory blocks deletion on every
-    platform this gate targets."""
-    root = tempfile.mkdtemp(prefix="glintfx-spdx-readonly-selftest-")
-    locked_dir = os.path.join(root, "locked")
-    os.makedirs(locked_dir)
-    with open(os.path.join(locked_dir, "readonly.txt"), "w", encoding="utf-8") as handle:
-        handle.write("locked\n")
-    os.chmod(locked_dir, 0o555)
+    platform this gate targets. `parent` and `removal` let the
+    on-failure control below make this one fail half way."""
+    root = tempfile.mkdtemp(prefix="glintfx-spdx-readonly-selftest-", dir=parent)
     try:
-        remove_tree_tolerant(root)
-    except OSError as exc:
-        print(f"selftest: controle READONLY-CLEANUP FALHOU (remove_tree_tolerant levantou: {exc})", file=sys.stderr)
-        os.chmod(locked_dir, 0o755)
+        locked_dir = os.path.join(root, "locked")
+        os.makedirs(locked_dir)
+        with open(os.path.join(locked_dir, "readonly.txt"), "w", encoding="utf-8") as handle:
+            handle.write("locked\n")
+        os.chmod(locked_dir, 0o555)
+        try:
+            removal(root)
+        except OSError as exc:
+            print(f"selftest: controle READONLY-CLEANUP FALHOU (remove_tree_tolerant levantou: {exc})", file=sys.stderr)
+            os.chmod(locked_dir, 0o755)
+            return False
+        if os.path.exists(root):
+            print("selftest: controle READONLY-CLEANUP FALHOU (diretorio ainda em disco apos a remocao)", file=sys.stderr)
+            return False
+    finally:
+        # The setup above can fail after the folder exists; the folder
+        # goes in every case (a no-op when the control removed it).
         remove_tree_tolerant(root, ignore_errors=True)
-        return False
-    if os.path.exists(root):
-        print("selftest: controle READONLY-CLEANUP FALHOU (diretorio ainda em disco apos a remocao)", file=sys.stderr)
-        return False
     print("selftest: controle READONLY-CLEANUP OK (subdiretorio somente-leitura removido, arvore realmente sumiu)")
+    return True
+
+
+class _InjectedRemovalFault(Exception):
+    """Raised by the stand-in removal of the on-failure control. Not an
+    OSError, so the read-only control's own except clause lets it
+    through and only that control's finally can clean up."""
+
+
+def _removal_that_fails(_path):
+    raise _InjectedRemovalFault()
+
+
+def selftest_readonly_cleanup_on_failure_control(scratch):
+    """Proves that the read-only control leaves nothing behind when it
+    fails half way: the subfolder is already read-only when the removal
+    under test raises, and the folder must still go. Counted in a folder
+    this control owns, never in the shared temporary folder, where other
+    runs leave their own entries."""
+    parent = os.path.join(scratch, "readonly-cleanup-on-failure")
+    os.makedirs(parent)
+    try:
+        selftest_readonly_cleanup_control(parent, _removal_that_fails)
+    except _InjectedRemovalFault:
+        pass
+    else:
+        print("selftest: controle READONLY-CLEANUP-ON-FAILURE FALHOU (a falha injetada nao chegou ao controle read-only)", file=sys.stderr)
+        return False
+    left = sorted(os.listdir(parent))
+    if left:
+        print(f"selftest: controle READONLY-CLEANUP-ON-FAILURE FALHOU ({len(left)} pasta(s) sobraram depois da falha: {left})", file=sys.stderr)
+        return False
+    print("selftest: controle READONLY-CLEANUP-ON-FAILURE OK (o controle read-only falhou no meio e nada sobrou)")
     return True
 
 
@@ -770,8 +814,10 @@ def _make_capture():
 
 
 def selftest_main():
-    scratch = make_scratch_workdir()
+    # Nothing that can fail runs between creating the scratch folder
+    # and the try whose finally removes it.
     capture = _make_capture()
+    scratch = make_scratch_workdir()
     try:
         controls = [
             selftest_positive_control(scratch),
@@ -785,6 +831,7 @@ def selftest_main():
             selftest_untracked_header_missing_control(scratch, capture),
             selftest_untracked_header_present_control(scratch, capture),
             selftest_readonly_cleanup_control(),
+            selftest_readonly_cleanup_on_failure_control(scratch),
         ]
         if not all(controls):
             print("check_spdx.py --selftest: FALHOU (ver acima)", file=sys.stderr)

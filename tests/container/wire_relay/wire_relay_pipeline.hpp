@@ -4,6 +4,7 @@
 #include "wire_message.hpp"
 #include "wire_object_table.hpp"
 #include "wire_rule_engine.hpp"
+#include "wire_shm_snapshot.hpp"
 
 #include <optional>
 
@@ -24,9 +25,13 @@
 // without something gluing them.
 namespace glintfx::test::wire_relay {
 
+// `snapshot` is NOT fed by observe_and_evaluate(): it needs the
+// descriptors that arrive with a message, which only the connection
+// set holds (wire_relay_connection_set.cpp, forward_client_message).
 struct wire_relay_pipeline {
     wire_object_table table;
     wire_rule_engine engine;
+    shm_snapshot snapshot;
 };
 
 // Classifies `message` (wire_object_table::observe) and, for the

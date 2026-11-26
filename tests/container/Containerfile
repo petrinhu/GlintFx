@@ -8,9 +8,14 @@
 # invocation that starts it, may reach back into the host session -
 # see check_isolation.sh for the proof.
 #
-# Pinned on fedora:44, the primary target (GODS_LAWS.md L-04): this
-# gate has to fail exactly when the leader's own machine would fail,
-# never drift to a moving `:latest`.
+# Built on fedora:latest, like the whole CI matrix (ESCOPO.md S1, the
+# leader's order of 27/08/2026): the primary target (GODS_LAWS.md L-04)
+# has to fail exactly when the leader's own machine would fail, and a
+# version written here would have to be raised by hand every time his
+# machine moved. The compositor and every other package come from the
+# Fedora repository of the day (KWIN-68-SEM-PLACA, the leader's decision
+# of 07/11/2026); what proves that a given image really is of the day
+# is check_image_freshness.sh, never a version written in a file.
 #
 # kwin is the compositor by the leader's own registered decision
 # (CLAUDE.md, "Isolamento obrigatório de teste"; GODS_LAWS.md L-09) -
@@ -22,6 +27,10 @@
 # which is why mesa-dri-drivers (llvmpipe) is here and /dev/dri is
 # not: L-09 rule 4 says no real GPU device by default, precisely so
 # this image renders the same way on every runner in the CI matrix.
+# The one device the container does get is /dev/udmabuf, the kernel's
+# memory-to-dma-buf allocator: since 6.8 KWin builds its software
+# render device on it (see the comment on the dnf layer below, and
+# docs/adr-udmabuf-no-conteiner-de-teste.md for the risk it accepts).
 #
 # ARCH-PORTS, TDD case R4: a SECOND, throwaway build stage compiles
 # connect_smoke.cpp against the REAL wayland_display_adapter/err.cpp/
@@ -227,7 +236,7 @@
 # Fedora ships libasan/libubsan as packages SEPARATE from gcc-c++, and
 # a link that never installed them died with "cannot find
 # libasan.so") - not repeated here a second time.
-FROM fedora:44 AS arch-ports-builder
+FROM fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c AS arch-ports-builder
 # ARG must come AFTER this stage's own FROM to be visible to the RUN
 # lines below (a global ARG declared before the first FROM only ever
 # seeds that FROM's own image reference, never a build stage's shell
@@ -302,12 +311,13 @@ RUN wayland-scanner client-header \
     && gcc -O2 -Wall -Wextra -Werror $(pkg-config --cflags wayland-client) \
         -c /build/xdg-shell-protocol.c -o /build/xdg-shell-protocol.o
 # R2D-BATCH B5 (errata sec. 25, D-B5-1): the library built and INSTALLED the way a consumer gets it (static,
-# Release, warnings as errors, no tests), in a prefix INSIDE the image, with the same sanitizer the fixtures use.
+# Release, warnings as errors, no tests, and no examples: the staged tree is a partial copy without examples/, so
+# GLINTFX_BUILD_EXAMPLES=OFF is explicit, DEMO-1), in a prefix INSIDE the image, with the same sanitizer the fixtures use.
 # The fixtures that use only the PUBLIC API are linked against THAT install through its glintfx.pc (see
 # draw2d_parity_test below), never against sources listed by hand. cmake and ninja-build are packages of this
 # TEST image only (authorized by the leader, GODS_LAWS.md L-51).
 RUN cmake -S /build/_arch_ports_lib -B /build/lib-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=OFF \
+        -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF \
         -DCMAKE_INSTALL_PREFIX=/build/lib-prefix "-DCMAKE_CXX_FLAGS=$GLINTFX_FIXTURE_SANITIZE" \
     && cmake --build /build/lib-build \
     && cmake --install /build/lib-build
@@ -318,6 +328,50 @@ RUN cmake -S /build/_arch_ports_lib -B /build/lib-build -G Ninja -DCMAKE_BUILD_T
 RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -o /build/draw2d_parity_test \
         /build/_arch_ports_src/tests/parity/draw2d_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
+# R2D-SHAPES S2b (docs/plano-fechamento-w8-r19.md, §3 S2b): the triangle cell of the shape family, the same recipe as
+# draw2d_parity_test right above. The source is the ONE fixture of both systems, tests/parity/ (staged by
+# prepare_arch_ports_fixture.sh like draw2d_parity_test.cpp), never a copy in this directory.
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/draw2d_shapes_parity_test \
+        /build/_arch_ports_src/tests/parity/draw2d_shapes_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
+# R2D-SPRITE-SHADE H3b-2 (docs/auditoria-api-sprite-shade.md, sec. 2): the shadow cell of the same family, the same
+# recipe as draw2d_shapes_parity_test right above, from the ONE fixture of both systems in tests/parity/.
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/draw2d_shadow_parity_test \
+        /build/_arch_ports_src/tests/parity/draw2d_shadow_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
+# R2D-TEXTURE T4b-B2 (D-W8-475 a 480): the textured cell of the same family, the same recipe as
+# draw2d_shapes_parity_test right above, from the ONE fixture of both systems in tests/parity/.
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/draw2d_texture_parity_test \
+        /build/_arch_ports_src/tests/parity/draw2d_texture_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
+
+# PRESENT-EMPTY-FRAME (D-W8-53): the fifth public-API fixture, same recipe as draw2d_parity_test right above. The
+# source is the ONE fixture of both systems, tests/parity/ (staged by prepare_arch_ports_fixture.sh), never a copy.
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/present_empty_frame_parity_test \
+        /build/_arch_ports_src/tests/parity/present_empty_frame_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
+# QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33; C2b-4, D-W8-39): the second consumer of the installed library, same
+# recipe as draw2d_parity_test right above. The source is the ONE fixture of both systems, tests/parity/ (staged
+# by prepare_arch_ports_fixture.sh like draw2d_parity_test.cpp), not a copy of it in this directory. It is the fixture whose frame the wire relay captures in the
+# protocol; the driver tests/container/run_capture_known_color.sh runs it twice (srgb_framebuffer off and on) through a second relay.
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/capture_known_color_smoke \
+        /build/_arch_ports_src/tests/parity/capture_known_color_smoke.cpp \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp \
         $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
@@ -1173,10 +1227,27 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/wire_relay/wire_transport.cpp \
         /build/wire_relay/wire_relay_pipeline.cpp \
         /build/wire_relay/wire_message.cpp \
+        /build/wire_relay/wire_shm_snapshot.cpp \
+        /build/wire_relay/wire_frame_writer.cpp \
+        /build/wire_relay/wire_capture_verdict.cpp \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp
 
-FROM fedora:44
+# DEMO-1 D6-red (D-W8-74, D-W8-86, D-W8-186, D-W8-187): the examples (first_window; shapes since R2D-SHAPES S6;
+# textures since R2D-TEXTURE T7; sprite_shadows since R2D-SPRITE-SHADE H5),
+# each built by ITS OWN CMakeLists.txt
+# (examples/ configured on its own: the find_package branch) against the library installed above, the way a consumer
+# builds it. The test allocation counter reaches it through CMAKE_PROJECT_INCLUDE (inject_alloc_counter.cmake), never
+# through a line of the example. Warnings and sanitizer are the fixtures' own. Last in this stage on purpose: a change
+# to the example rebuilds only these layers.
+COPY _arch_ports_examples /build/_arch_ports_examples
+COPY inject_alloc_counter.cmake /build/inject_alloc_counter.cmake
+RUN cmake -S /build/_arch_ports_examples -B /build/examples-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_PREFIX_PATH=/build/lib-prefix -DCMAKE_PROJECT_INCLUDE=/build/inject_alloc_counter.cmake \
+        "-DCMAKE_CXX_FLAGS=-g -Wall -Wextra -Werror $GLINTFX_FIXTURE_SANITIZE" \
+    && cmake --build /build/examples-build
+
+FROM fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
 
 # libasan/libubsan/binutils: always installed, one recipe for both
 # legs (D-CAUDA-6, /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.2) - a
@@ -1187,7 +1258,30 @@ FROM fedora:44
 # sanitizer report still needs `addr2line` (binutils) in the final
 # image to symbolize a stack trace either way, so static linking saves
 # nothing but makes every fixture binary bigger.
-RUN dnf -y install \
+#
+# kwin comes from the Fedora repository of the day, like every other package of
+# this layer (the leader's decision of 07/11/2026, KWIN-68-SEM-PLACA). Since 6.8
+# KWin needs a render device even on its virtual backend: without /dev/dri and
+# without /dev/udmabuf it logs "Found no render device!", keeps the socket open
+# and never paints, so no surface ever gets a frame callback (measured
+# 06/11/2026: first_window renders one frame and then waits forever). So the
+# container gets exactly ONE device, /dev/udmabuf, and KWin builds its software
+# render device (llvmpipe) on it. It still gets no /dev/dri and no /dev/uinput
+# (CLAUDE.md "Isolamento" rule 4; check_isolation.sh, variant ci_udmabuf).
+#
+# GLINTFX_IMAGE_STAMP: a build cache keeps this layer for as long as the base
+# image and the text of this instruction stay the same, and that would freeze
+# "the KWin of the day" on the day the cache was filled, in silence (it
+# happened on 06/11/2026: a local round came out green on a layer of 31/10).
+# Whoever builds passes a value that is new for that build (the CI passes the
+# run id, a local round passes the clock); the value is part of this
+# instruction, so a new value runs dnf again, and the layer writes it to
+# /etc/glintfx-image-stamp, where check_image_freshness.sh reads it back. The
+# builder stage above is NOT stamped: its compiler may be as old as the cache,
+# and the library it links against is never newer than the one of this layer.
+ARG GLINTFX_IMAGE_STAMP=""
+RUN printf '%s\n' "$GLINTFX_IMAGE_STAMP" > /etc/glintfx-image-stamp \
+    && dnf -y install \
         kwin \
         mesa-dri-drivers \
         mesa-libEGL \
@@ -1220,6 +1314,11 @@ COPY --from=arch-ports-builder /build/two_seats_test /usr/local/bin/two_seats_te
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 COPY --from=arch-ports-builder /build/gl_context_parity_test /usr/local/bin/gl_context_parity_test
 COPY --from=arch-ports-builder /build/draw2d_parity_test /usr/local/bin/draw2d_parity_test
+COPY --from=arch-ports-builder /build/draw2d_shapes_parity_test /usr/local/bin/draw2d_shapes_parity_test
+COPY --from=arch-ports-builder /build/draw2d_shadow_parity_test /usr/local/bin/draw2d_shadow_parity_test
+COPY --from=arch-ports-builder /build/draw2d_texture_parity_test /usr/local/bin/draw2d_texture_parity_test
+COPY --from=arch-ports-builder /build/present_empty_frame_parity_test /usr/local/bin/present_empty_frame_parity_test
+COPY --from=arch-ports-builder /build/capture_known_color_smoke /usr/local/bin/capture_known_color_smoke
 COPY --from=arch-ports-builder /build/egl_protocol_error_smoke /usr/local/bin/egl_protocol_error_smoke
 COPY --from=arch-ports-builder /build/egl_error_read_inside_swap_smoke /usr/local/bin/egl_error_read_inside_swap_smoke
 COPY --from=arch-ports-builder /build/egl_device_reader_probe /usr/local/bin/egl_device_reader_probe
@@ -1231,6 +1330,10 @@ COPY --from=arch-ports-builder /build/loop_parity_test /usr/local/bin/loop_parit
 COPY --from=arch-ports-builder /build/loop_hidden_test /usr/local/bin/loop_hidden_test
 COPY --from=arch-ports-builder /build/surface_size_policy_adapter_test /usr/local/bin/surface_size_policy_adapter_test
 COPY --from=arch-ports-builder /build/wire_relay_bin /usr/local/bin/wire_relay
+COPY --from=arch-ports-builder /build/examples-build/first_window/first_window /usr/local/bin/first_window
+COPY --from=arch-ports-builder /build/examples-build/shapes/shapes /usr/local/bin/shapes
+COPY --from=arch-ports-builder /build/examples-build/textures/textures /usr/local/bin/textures
+COPY --from=arch-ports-builder /build/examples-build/sprite_shadows/sprite_shadows /usr/local/bin/sprite_shadows
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \
@@ -1239,12 +1342,17 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
         /usr/local/bin/seat_test /usr/local/bin/two_seats_test /usr/local/bin/window_parity_test \
         /usr/local/bin/gl_context_parity_test /usr/local/bin/draw2d_parity_test /usr/local/bin/egl_protocol_error_smoke \
+        /usr/local/bin/draw2d_shapes_parity_test \
+        /usr/local/bin/draw2d_shadow_parity_test \
+        /usr/local/bin/draw2d_texture_parity_test \
+        /usr/local/bin/present_empty_frame_parity_test \
         /usr/local/bin/egl_error_read_inside_swap_smoke \
         /usr/local/bin/egl_device_reader_probe \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke \
         /usr/local/bin/gpu_kind_report_smoke /usr/local/bin/alloc_cycle_growth_smoke \
         /usr/local/bin/loop_parity_test /usr/local/bin/loop_hidden_test \
-        /usr/local/bin/surface_size_policy_adapter_test
+        /usr/local/bin/surface_size_policy_adapter_test \
+        /usr/local/bin/capture_known_color_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the
@@ -1263,7 +1371,10 @@ CMD ["glintfx-test"]
 # verified live to still start the compositor, and is strictly smaller
 # than the default Docker capability set. Nothing else beyond that one
 # capability is required: no --privileged, no --pid=host, no
-# --device=/dev/dri or any other --device (GODS_LAWS.md L-09 rule 4:
-# no real GPU device by default, so the render stays reproducible
-# across the whole CI matrix on software rasterization; check_isolation.sh
-# allow-lists this exact HostConfig and fails on any wider grant).
+# --device=/dev/dri (GODS_LAWS.md L-09 rule 4: no real GPU device by
+# default, so the render stays reproducible across the whole CI matrix
+# on software rasterization). Exactly one device goes in, spelled
+# `--device /dev/udmabuf:/dev/udmabuf:rw` (see the dnf layer above);
+# check_isolation.sh, variant ci_udmabuf, allow-lists this exact
+# HostConfig and fails on any other device, on one more device and on
+# any wider grant.

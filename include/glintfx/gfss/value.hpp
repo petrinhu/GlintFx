@@ -132,7 +132,7 @@
 // entre as tres primeiras existe porque mistura-las esconde erro"
 // already named for number/integer/length, extended here to the two
 // new categories on the SAME reasoning, not a new one. The cost of
-// three parallel {magnitude, unit} shapes instead of one shared one is
+// three parallel {magnitude, unit} layouts instead of one shared one is
 // three enums and three name functions instead of one - paid once, in
 // this pre-1.0 window (ESCOPO.md SS3's own L-26 duplicate: "SOVERSION
 // 0 e nada de estabilidade prometida"), against a defect that would

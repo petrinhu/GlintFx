@@ -35,7 +35,7 @@
     </interface>
     <filesystem type="mount" accessmode="mapped">
       <driver type="virtiofs"/>
-      <source dir="/home/petrus/IDrive/Documentos/projetos_claudebrain/Projects/GlintFx"/>
+      <source dir="/caminho/do/projeto/GlintFx"/>
       <target dir="glintfx_ro"/>
       <readonly/>
     </filesystem>

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <print>
+#include <span>
 
 #include <glintfx/core/angle.hpp>
 #include <glintfx/core/transform.hpp>
@@ -33,7 +35,9 @@
 using glintfx::gltfx_angle;
 using glintfx::gltfx_transform;
 using glintfx::gltfx_vec2_world;
+using glintfx::draw2d::all_pixel_positions_in_range;
 using glintfx::draw2d::pixel_affine_from_transform;
+using glintfx::draw2d::pixel_position_wide;
 using glintfx::draw2d::quad_corners_pixel;
 using glintfx::draw2d::quad_corners_world;
 using glintfx::draw2d::quad_vertices;
@@ -193,4 +197,87 @@ GLINTFX_TEST(quad_vertices_precision_and_transform_cells) {
 
     GLINTFX_CHECK_EQ(analyzed, 14);
     std::println("quad_vertices_test: {} celula(s) conferida(s)", analyzed);
+}
+
+namespace {
+// The edge, written from its derivation and not read from the code (S2b-fix2, F-3). Half the
+// largest float lies in [2^126, 2^127), where one unit in the last place (ULP) of a float is 2^103.
+// The vertex program multiplies by 2.0 after a division whose float result may be 2.5 ULP away
+// from the exact one (GL_ARB_shader_precision), so the coordinate stays 2.5 ULP below FLT_MAX / 2,
+// which on the float grid is 3 ULP. The edge is a float itself, so narrowing adds nothing.
+const double k_ulp_near_the_edge = std::ldexp(1.0, 103);
+const double k_shader_edge =
+    0.5 * static_cast<double>(std::numeric_limits<float>::max()) - 3.0 * k_ulp_near_the_edge;
+} // namespace
+
+// S2b-fix1 (I-7 of the N1 review): a pixel position is in range only up to the edge where the
+// vertex program would overflow (quad_vertices.cpp derives it from embedded_program.cpp). The edge
+// itself is in, the next double out; one step further, the half and the whole of the largest float,
+// which the narrowing alone would allow, are out too.
+GLINTFX_TEST(quad_vertices_pixel_position_in_range_stops_where_the_shader_would_overflow) {
+    using glintfx::draw2d::pixel_position_in_range;
+    using glintfx::draw2d::pixel_position_wide;
+    constexpr double infinity = std::numeric_limits<double>::infinity();
+    constexpr float largest_float = std::numeric_limits<float>::max();
+    const double just_above = std::nextafter(k_shader_edge, infinity);
+    GLINTFX_CHECK(pixel_position_in_range(pixel_position_wide{k_shader_edge, 0.0}));
+    GLINTFX_CHECK(pixel_position_in_range(pixel_position_wide{0.0, -k_shader_edge}));
+    GLINTFX_CHECK(!pixel_position_in_range(pixel_position_wide{just_above, 0.0}));
+    GLINTFX_CHECK(!pixel_position_in_range(pixel_position_wide{0.0, -just_above}));
+    GLINTFX_CHECK(!pixel_position_in_range(pixel_position_wide{0.5 * largest_float, 0.0}));
+    GLINTFX_CHECK(!pixel_position_in_range(pixel_position_wide{largest_float, 0.0}));
+    GLINTFX_CHECK(!pixel_position_in_range(
+        pixel_position_wide{std::numeric_limits<double>::quiet_NaN(), 0.0}));
+    GLINTFX_CHECK(!pixel_position_in_range(pixel_position_wide{0.0, infinity}));
+    // Why the edge is there: it is a float, the ULP there is 2^103, and with the worst division the
+    // card may do (2.5 ULP above) the program's line stays finite; just past half the largest
+    // float, it overflows even with an exact division.
+    const float edge_as_float = static_cast<float>(k_shader_edge);
+    GLINTFX_CHECK(static_cast<double>(edge_as_float) == k_shader_edge);
+    GLINTFX_CHECK(static_cast<double>(std::nextafter(edge_as_float, largest_float)) -
+                      k_shader_edge ==
+                  k_ulp_near_the_edge);
+    const double worst = (k_shader_edge + 2.5 * k_ulp_near_the_edge) * 2.0;
+    GLINTFX_CHECK(worst <= static_cast<double>(largest_float));
+    const float past = std::nextafter(0.5F * largest_float, std::numeric_limits<float>::infinity());
+    GLINTFX_CHECK(std::isinf(past / 1.0F * 2.0F - 1.0F));
+}
+
+// A quad is in range when its four corners, turned by the transform, all are: a finite world
+// position the transform carries out of range is not (the case Skia's DrawPathTest
+// test_big_hairpath pins: finite before the transform, not after it), and a transform that is not
+// a number spoils every corner.
+GLINTFX_TEST(quad_vertices_a_quad_is_in_range_only_when_all_four_turned_corners_are) {
+    using glintfx::draw2d::pixel_affine;
+    using glintfx::draw2d::quad_in_pixel_range;
+    const quad_corners_world near_the_edge = at(1.5e38, -1.5e38);
+    GLINTFX_CHECK(quad_in_pixel_range(near_the_edge, pixel_affine_from_transform(k_identity)));
+    GLINTFX_CHECK(!quad_in_pixel_range(near_the_edge,
+                                       pixel_affine_from_transform(make(0.0, 0.0, 0.0, 2.0, 2.0))));
+    GLINTFX_CHECK(!quad_in_pixel_range(at(1.0e39, 0.0), pixel_affine_from_transform(k_identity)));
+    quad_corners_world one_far = at(1.0, 1.0);
+    one_far[2] = gltfx_vec2_world{1.0, 1.0e39}; // only the bottom-right corner is out
+    GLINTFX_CHECK(!quad_in_pixel_range(one_far, pixel_affine_from_transform(k_identity)));
+    pixel_affine not_a_number{};
+    not_a_number.translation_x = std::numeric_limits<double>::quiet_NaN();
+    GLINTFX_CHECK(!quad_in_pixel_range(at(1.0, 1.0), not_a_number));
+}
+
+// The check of a whole outline at once (S5-B, D-W8-410, extracted at its third use): true for no
+// position, true when every one is in range, false when one is a NaN, an infinity or past the
+// range, wherever it sits in the list.
+GLINTFX_TEST(quad_vertices_all_positions_in_range_asks_every_one) {
+    GLINTFX_CHECK(all_pixel_positions_in_range(std::span<const pixel_position_wide>{}));
+    const std::array<pixel_position_wide, 3> inside{{{0.0, 0.0}, {-1.0e38, 1.0e38}, {5.0, 6.0}}};
+    GLINTFX_CHECK(all_pixel_positions_in_range(inside));
+    std::size_t refused = 0;
+    for (std::size_t at = 0; at < 3U; ++at) {
+        for (const double bad : {std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::infinity(), 1.0e39, -1.0e39}) {
+            std::array<pixel_position_wide, 3> one_out = inside;
+            one_out[at].y = bad;
+            refused += all_pixel_positions_in_range(one_out) ? 0U : 1U;
+        }
+    }
+    GLINTFX_CHECK_EQ(refused, std::size_t{12});
 }

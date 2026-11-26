@@ -416,7 +416,13 @@ DIRTY_CXX = (
 
 
 def make_scratch_workdir():
-    return tempfile.mkdtemp(prefix="glintfx-format-selftest-")
+    # Imported here, on the --selftest path only, so the check mode of
+    # this gate still runs when the file is copied and called on its own.
+    # The import comes before anything is created: a copy without the
+    # sibling module fails here and leaves nothing in the temporary folder.
+    import selftest_git_fence
+
+    return selftest_git_fence.make_fenced_scratch_dir("glintfx-format-selftest-")
 
 
 def init_fixture_repo(root):
@@ -614,22 +620,62 @@ def selftest_missing_tool_control(scratch, capture):
     return ok
 
 
-def selftest_readonly_cleanup_control():
+def selftest_readonly_cleanup_control(parent=None, removal=remove_tree_tolerant):
     """DUPLICADO do mesmo controle em check_dep_zero.py/check_spdx.py -
     prova que remove_tree_tolerant() de fato remove uma arvore com
     arquivo read-only (o que shutil.rmtree(ignore_errors=True) sozinho
     apenas ENGOLE, sem remover, no Windows - ver o header daquele
-    controle nos outros dois arquivos para o incidente MEDIDO)."""
-    scratch = tempfile.mkdtemp(prefix="glintfx-format-selftest-readonly-")
-    target = os.path.join(scratch, "readonly.txt")
-    with open(target, "w", encoding="utf-8") as handle:
-        handle.write("conteudo\n")
-    os.chmod(target, stat.S_IREAD)
-    remove_tree_tolerant(scratch, ignore_errors=True)
-    if os.path.exists(scratch):
-        print("selftest: controle de LIMPEZA READ-ONLY FALHOU (arvore com arquivo read-only nao foi removida)", file=sys.stderr)
-        return False
+    controle nos outros dois arquivos para o incidente MEDIDO).
+    `parent` and `removal` let the on-failure control below make this
+    one fail half way."""
+    scratch = tempfile.mkdtemp(prefix="glintfx-format-selftest-readonly-", dir=parent)
+    try:
+        target = os.path.join(scratch, "readonly.txt")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("conteudo\n")
+        os.chmod(target, stat.S_IREAD)
+        removal(scratch, ignore_errors=True)
+        if os.path.exists(scratch):
+            print("selftest: controle de LIMPEZA READ-ONLY FALHOU (arvore com arquivo read-only nao foi removida)", file=sys.stderr)
+            return False
+    finally:
+        # The setup above can fail after the folder exists; the folder
+        # goes in every case (a no-op when the control removed it).
+        remove_tree_tolerant(scratch, ignore_errors=True)
     print("selftest: controle de LIMPEZA READ-ONLY OK")
+    return True
+
+
+class _InjectedRemovalFault(Exception):
+    """Raised by the stand-in removal of the on-failure control. Not an
+    OSError, the same as in check_spdx.py, so only the read-only
+    control's finally can clean up."""
+
+
+def _removal_that_fails(_path, ignore_errors=False):
+    raise _InjectedRemovalFault()
+
+
+def selftest_readonly_cleanup_on_failure_control(scratch):
+    """Proves that the read-only control leaves nothing behind when it
+    fails half way: the file is already read-only when the removal
+    under test raises, and the folder must still go. Counted in a folder
+    this control owns, never in the shared temporary folder, where other
+    runs leave their own entries."""
+    parent = os.path.join(scratch, "readonly-cleanup-on-failure")
+    os.makedirs(parent)
+    try:
+        selftest_readonly_cleanup_control(parent, _removal_that_fails)
+    except _InjectedRemovalFault:
+        pass
+    else:
+        print("selftest: controle de LIMPEZA READ-ONLY NA FALHA FALHOU (a falha injetada nao chegou ao controle read-only)", file=sys.stderr)
+        return False
+    left = sorted(os.listdir(parent))
+    if left:
+        print(f"selftest: controle de LIMPEZA READ-ONLY NA FALHA FALHOU ({len(left)} pasta(s) sobraram depois da falha: {left})", file=sys.stderr)
+        return False
+    print("selftest: controle de LIMPEZA READ-ONLY NA FALHA OK (o controle read-only falhou no meio e nada sobrou)")
     return True
 
 
@@ -645,8 +691,10 @@ def selftest_main():
         print(SELFTEST_SKIP_BANNER, file=sys.stderr)
         sys.exit(GATE_SKIP_RETURN_CODE)
 
-    scratch = make_scratch_workdir()
+    # Nothing that can fail runs between creating the scratch folder
+    # and the try whose finally removes it.
     capture = _make_capture()
+    scratch = make_scratch_workdir()
     try:
         controls = [
             selftest_positive_control(scratch, capture),
@@ -656,6 +704,7 @@ def selftest_main():
             selftest_not_a_repo_control(scratch, capture),
             selftest_missing_tool_control(scratch, capture),
             selftest_readonly_cleanup_control(),
+            selftest_readonly_cleanup_on_failure_control(scratch),
         ]
         if not all(controls):
             print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

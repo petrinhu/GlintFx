@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# first_window_probes.txt - DEMO-1 D6-red (D-W8-72): the 12 static probes of the example first_window, read on
+# both systems (the Linux capture in the protocol and the two Windows captures). Format: tests/tools/image_probe.py
+# ("<x> <y> <RRGGBBAA> [<tol>]", origin top-left, alpha included). Fixed BEFORE the data existed (GODS_LAWS.md
+# L-43): every value comes from the sRGB formula, never from a capture. No probe in the band y 400 to 431, where
+# the green square moves. The scene is in the header comment of examples/first_window/first_window.cpp.
+#
+# the four corners: the background, 0.2 encoded by the CPU = 124 = 0x7C
+0 0 7C7C7CFF 1
+639 0 7C7C7CFF 1
+0 479 7C7C7CFF 1
+639 479 7C7C7CFF 1
+# A, red, outside the overlap with B
+80 80 FF0000FF 0
+# B, blue, outside the overlap with A
+250 150 0000FFFF 0
+# the overlap of A and B: B is on layer 1, so blue
+200 150 0000FFFF 0
+# C, half-transparent white, over the background: 0.5 * 255 + 0.5 * 124 = 189.5
+450 300 BDBDBDFF 2
+# C over B: 0.5 * 255 on red and green, blue stays 255
+330 230 8080FFFF 2
+# the first column INSIDE the left edge of C (x = 300), over the background and over B: no fringe
+300 300 BDBDBDFF 2
+300 230 8080FFFF 2
+# a background point between the pieces
+560 100 7C7C7CFF 1

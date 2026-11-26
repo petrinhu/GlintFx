@@ -59,11 +59,11 @@ namespace glintfx::gfui {
 // the enum, the count and the first_missing() if-chain below (this
 // header's own three uses).
 #define GLINTFX_NODE_STATE_LIST(X)                                                                 \
-    X(hover, 0)                                                                                    \
-    X(active, 1)                                                                                   \
-    X(focus, 2)                                                                                    \
-    X(focus_visible, 3)                                                                            \
-    X(checked, 4)
+    X(hover, 0U)                                                                                   \
+    X(active, 1U)                                                                                  \
+    X(focus, 2U)                                                                                   \
+    X(focus_visible, 3U)                                                                           \
+    X(checked, 4U)
 
 enum class gltfx_node_state : std::uint8_t {
     none = 0,

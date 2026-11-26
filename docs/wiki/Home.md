@@ -72,9 +72,21 @@ section for what is still being built.
   quadrilaterals (four-cornered shapes) drawn into a graphics context, in
   layers, in as few draw calls (one instruction sent to the graphics card
   each) as the order allows, with one report per frame.
+- **[API Reference: Draw 2D shapes](API-Draw-2D-Shapes)** - the filled and
+  outlined shapes (triangles, lines, rectangles, ellipses), the line caps,
+  the outline alignments, and how smooth curves are drawn.
 - **[API Reference: Node View](API-Node-View)** - the one contract from
   the future style engine that is already public and stable: the table
   of callbacks your own UI tree implements so glintfx can inspect it.
+
+### In progress
+
+Areas whose public names are still under review. They are not finished, and
+they may change before they are called stable.
+
+- **[API Reference: Texture atlas](API-Texture-Atlas)** - packing many small
+  pictures into one texture, and where each one sits in it. Still under
+  review as part of the texture API (as of 2026-11-13).
 
 ### Experimental parts
 

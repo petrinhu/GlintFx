@@ -211,6 +211,25 @@ stage_lib_tree() {
     echo "prepare_arch_ports_fixture.sh: _arch_ports_lib (arvore do CMake) - $lib_found arquivo(s) estagiado(s)"
 }
 
+# DEMO-1 D6-red (D-W8-74, D-W8-186): the examples/ tree the IMAGE builds the examples from, as a consumer would
+# (examples/ configured on its own against the installed library). EVERY file (CMakeLists.txt and sources, which
+# copy_source_tree() would filter out), into its own staged directory, counted at both ends like stage_lib_tree().
+stage_examples_tree() {
+    repo_root="$1"
+    examples_target="$repo_root/tests/container/_arch_ports_examples"
+    [ -d "$repo_root/examples" ] || fail "raiz dos exemplos nao encontrada: examples"
+    rm -rf "$examples_target"
+    mkdir -p "$examples_target"
+    n=$(find "$repo_root/examples" -type f | wc -l | tr -d ' ')
+    [ "$n" -gt 0 ] || fail "varredura vazia em examples (GODS_LAWS.md L-40)"
+    find "$repo_root/examples" -type f -printf '%P\0' |
+        tar --null -C "$repo_root/examples" -T - -cf - |
+        tar -xf - -C "$examples_target"
+    c=$(find "$examples_target" -type f | wc -l | tr -d ' ')
+    [ "$c" -eq "$n" ] || fail "examples: $n encontrado(s) mas $c copiado(s) (GODS_LAWS.md L-36/L-40)"
+    echo "prepare_arch_ports_fixture.sh: _arch_ports_examples (exemplos) - $n encontrado(s) / $c copiado(s)"
+}
+
 write_export_header_stub() {
     target="$1"
     mkdir -p "$target/include/glintfx"
@@ -303,6 +322,7 @@ main() {
     reset_stage "$target"
     copy_real_sources "$repo_root" "$target"
     stage_lib_tree "$repo_root"
+    stage_examples_tree "$repo_root"
     write_export_header_stub "$target"
 
     echo "prepare_arch_ports_fixture.sh: staged $(find "$target" -type f | wc -l | tr -d ' ') file(s) under $target"

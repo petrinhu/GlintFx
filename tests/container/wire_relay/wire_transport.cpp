@@ -61,6 +61,7 @@ wire_transport::read_result wire_transport::read_once() const {
         return result;
     }
     result.bytes.resize(static_cast<std::size_t>(received));
+    // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: recvmsg(2) types the flags as int
     result.control_truncated = (msg.msg_flags & MSG_CTRUNC) != 0;
     collect_fds(msg, result.fds);
     return result;

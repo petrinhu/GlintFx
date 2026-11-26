@@ -168,6 +168,7 @@ def assert_configure_for_scenario(glintfx_src, build_dir, cxx_compiler, scenario
                 f"-DCMAKE_INSTALL_LIBDIR={libdir_value}",
                 f"-DCMAKE_INSTALL_INCLUDEDIR={includedir_value}",
                 "-DGLINTFX_BUILD_TESTS=OFF",
+                "-DGLINTFX_BUILD_EXAMPLES=OFF",
             ],
             capture_output=True,
             text=True,

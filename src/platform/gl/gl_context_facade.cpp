@@ -640,7 +640,8 @@ void *gl_context_interior_resolve(void *interior, const char *name) noexcept {
     return gl_context_resolve_proc(interior, name);
 }
 
-std::pair<std::uint32_t, std::uint32_t> gl_context_interior_surface_size(void *interior) noexcept {
+std::pair<std::uint32_t, std::uint32_t>
+gl_context_interior_surface_size(const void *interior) noexcept {
     return gl_context_surface_pixel_size(interior);
 }
 

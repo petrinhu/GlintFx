@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/triangle_batch.hpp"
 
+#include <cassert>
 #include <limits>
 
 namespace glintfx::draw2d {
@@ -32,6 +33,12 @@ bool triangle_batch::reserve(std::size_t pieces) noexcept {
 
 bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                               batch_state state) noexcept {
+    return add_textured_quad(corners, k_role_texture_corners, color, state);
+}
+
+bool triangle_batch::add_textured_quad(const quad_corners_pixel &corners,
+                                       const quad_texture_corners &texture_corners,
+                                       glintfx::gltfx_rgba color, batch_state state) noexcept {
     const bool starts_a_run =
         run_store.size == 0 || !(run_store.data[run_store.size - 1].state == state);
 
@@ -46,22 +53,24 @@ bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_
 
     // Straight linear color in, premultiplied color stored (the one place it happens).
     const std::size_t first_index = index_store.size;
-    write_quad(corners, glintfx::gltfx_rgba_premultiplied(color));
-    record_run(state, first_index, starts_a_run);
+    write_quad(corners, texture_corners, glintfx::gltfx_rgba_premultiplied(color));
+    record_run(state, first_index, k_quad_indices, starts_a_run);
     return true;
 }
 
 // The four vertices and the six indices of one piece, room already made (D-B7-1, Extract Function).
 void triangle_batch::write_quad(const quad_corners_pixel &corners,
+                                const quad_texture_corners &texture_corners,
                                 glintfx::gltfx_rgba premultiplied) noexcept {
-    // Texture coordinates by ROLE: top_left, top_right, bottom_right, bottom_left.
-    constexpr float k_u[k_quad_vertices] = {0.0F, 1.0F, 1.0F, 0.0F};
-    constexpr float k_v[k_quad_vertices] = {0.0F, 0.0F, 1.0F, 1.0F};
+    // By ROLE: top_left, top_right, bottom_right, bottom_left. The coordinate is stored times q,
+    // and q itself last (the program divides).
     const auto base = static_cast<std::uint32_t>(vertex_store.size);
     for (std::size_t corner = 0; corner < k_quad_vertices; ++corner) {
-        vertex_store.data[vertex_store.size + corner] = batch_vertex{
-            corners[corner].x, corners[corner].y,   k_u[corner],        k_v[corner],
-            premultiplied.red, premultiplied.green, premultiplied.blue, premultiplied.alpha};
+        const quad_texture_corner &texture = texture_corners[corner];
+        vertex_store.data[vertex_store.size + corner] =
+            batch_vertex{corners[corner].x,     corners[corner].y,   texture.u * texture.q,
+                         texture.v * texture.q, premultiplied.red,   premultiplied.green,
+                         premultiplied.blue,    premultiplied.alpha, texture.q};
     }
     vertex_store.size += k_quad_vertices;
 
@@ -76,13 +85,80 @@ void triangle_batch::write_quad(const quad_corners_pixel &corners,
 }
 
 // The piece either opens a run of its own or extends the last one.
-void triangle_batch::record_run(batch_state state, std::size_t first_index,
+void triangle_batch::record_run(batch_state state, std::size_t first_index, std::size_t index_count,
                                 bool starts_a_run) noexcept {
     if (starts_a_run) {
-        run_store.data[run_store.size] = draw_run{state, first_index, k_quad_indices};
+        run_store.data[run_store.size] = draw_run{state, first_index, index_count};
         ++run_store.size;
     } else {
-        run_store.data[run_store.size - 1].index_count += k_quad_indices;
+        run_store.data[run_store.size - 1].index_count += index_count;
+    }
+}
+
+// A triangle piece (S2a): room first, then the vertices and the indices, then its run. The indices
+// are shifted by the base of the piece, so the batch keeps one index space for every kind of piece.
+// Validation of the indices (count, range) is S2b's; this unit takes what it is given.
+bool triangle_batch::add_triangles(std::span<const colored_pixel_vertex> vertices,
+                                   std::span<const std::uint32_t> local_indices,
+                                   batch_state state) noexcept {
+    return add_textured_triangles(textured_triangles{vertices, {}, local_indices}, state);
+}
+
+bool triangle_batch::add_textured_triangles(const textured_triangles &piece,
+                                            batch_state state) noexcept {
+    assert(piece.reads.empty() || piece.reads.size() == piece.vertices.size());
+    if (piece.vertices.empty()) {
+        return true; // nothing to draw: a piece with no vertices adds nothing, and is not dropped
+    }
+    const std::size_t index_count =
+        piece.local_indices.empty() ? piece.vertices.size() : piece.local_indices.size();
+    const bool starts_a_run =
+        run_store.size == 0 || !(run_store.data[run_store.size - 1].state == state);
+    if (!make_room_for_triangles(piece.vertices.size(), index_count, starts_a_run)) {
+        ++dropped;
+        return false;
+    }
+    const std::size_t first_index = index_store.size;
+    write_triangles(piece);
+    record_run(state, first_index, index_count, starts_a_run);
+    return true;
+}
+
+// The vertex store, then the index store, then the run store: the order the growth is counted in.
+bool triangle_batch::make_room_for_triangles(std::size_t vertex_count, std::size_t index_count,
+                                             bool starts_a_run) noexcept {
+    return ensure_room<batch_vertex>(allocator, vertex_store, vertex_count) &&
+           ensure_room<std::uint32_t>(allocator, index_store, index_count) &&
+           (!starts_a_run || ensure_room<draw_run>(allocator, run_store, 1));
+}
+
+// Called only with the room made. Each vertex keeps its position and gets its color premultiplied
+// (one by one, so a half-transparent vertex never grows a dark fringe); the texture coordinate is
+// the vertex's read (T5), and inert (0, 0) for an untextured piece, as before. q is 1: a triangle
+// is drawn affinely.
+void triangle_batch::write_triangles(const textured_triangles &piece) noexcept {
+    const auto base = static_cast<std::uint32_t>(vertex_store.size);
+    for (std::size_t i = 0; i < piece.vertices.size(); ++i) {
+        const colored_pixel_vertex &vertex = piece.vertices[i];
+        const triangle_texture_read read =
+            piece.reads.empty() ? triangle_texture_read{} : piece.reads[i];
+        const glintfx::gltfx_rgba premultiplied = glintfx::gltfx_rgba_premultiplied(vertex.color);
+        vertex_store.data[vertex_store.size++] = batch_vertex{vertex.position.x,
+                                                              vertex.position.y,
+                                                              read.u,
+                                                              read.v,
+                                                              premultiplied.red,
+                                                              premultiplied.green,
+                                                              premultiplied.blue,
+                                                              premultiplied.alpha,
+                                                              1.0F};
+    }
+    const std::span<const std::uint32_t> local_indices = piece.local_indices;
+    const std::size_t count = local_indices.empty() ? piece.vertices.size() : local_indices.size();
+    for (std::size_t i = 0; i < count; ++i) {
+        const std::uint32_t local =
+            local_indices.empty() ? static_cast<std::uint32_t>(i) : local_indices[i];
+        index_store.data[index_store.size++] = base + local;
     }
 }
 

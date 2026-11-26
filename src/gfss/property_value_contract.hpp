@@ -64,12 +64,12 @@ namespace glintfx::style::detail {
 // v1 property (mechanically confirmed: no SS6 row names an <angle>) -
 // kept for the SAME reason value.hpp itself keeps the nature as its own
 // closed member, completeness over present use.
-inline constexpr std::uint8_t k_nature_length = 1U << 0;
-inline constexpr std::uint8_t k_nature_percentage = 1U << 1;
-inline constexpr std::uint8_t k_nature_number = 1U << 2;
-inline constexpr std::uint8_t k_nature_integer = 1U << 3;
-inline constexpr std::uint8_t k_nature_angle = 1U << 4;
-inline constexpr std::uint8_t k_nature_time = 1U << 5;
+inline constexpr unsigned k_nature_length = 1U << 0;
+inline constexpr unsigned k_nature_percentage = 1U << 1;
+inline constexpr unsigned k_nature_number = 1U << 2;
+inline constexpr unsigned k_nature_integer = 1U << 3;
+inline constexpr unsigned k_nature_angle = 1U << 4;
+inline constexpr unsigned k_nature_time = 1U << 5;
 
 struct property_value_contract {
     gltfx_gfss_property id = gltfx_gfss_property::display;

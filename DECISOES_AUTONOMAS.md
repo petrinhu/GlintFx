@@ -3593,7 +3593,7 @@ A questão de interpretação registrada em `17/09/26 - 23:30` **foi ao líder e
 
 **O teste objetivo que ele ratificou, e que passa a separar os dois casos:** a cópia sobrevive ao fim do comando e alguém vai editar código nela? É cópia de trabalho, nasce em subpasta do projeto com as três condições da lei. Ela existe só enquanto um portão roda, sem nenhuma edição de código dentro, e morre no fim? É rascunho.
 
-**Registrado onde manda o protocolo:** o corpo da L-55 em `/home/petrus/.claude/GODS_LAWS.md`, refundido na lei existente em vez de virar entrada nova (L-68), com a data e a razão medida.
+**Registrado onde manda o protocolo:** o corpo da L-55 em `~/.claude/GODS_LAWS.md`, refundido na lei existente em vez de virar entrada nova (L-68), com a data e a razão medida.
 
 **Consequência para o que eu já fiz:** o método que venho usando há noites fica regular, e a declaração de interesse que eu mesmo escrevi (*"se a leitura dele estiver certa e a minha errada, a irregularidade é minha e é repetida"*) fica resolvida a favor do método. **O mérito do agente que barrou a ordem continua de pé**: ele fez exatamente o que a LEI DAS LEIS exige, e a dúvida dele era legítima o bastante para o líder ter de decidir.
 
@@ -4825,7 +4825,7 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - 2f501b2 (F0): o vazamento de raízes glintfx-blob-*; o main apagou 460 antigas;
   - 39eb670: dublê do envoltório na raiz falsa; blob_selftests_selftest em if(UNIX); as 2 exceções de paridade; armadilha_selftest em dois grupos. Provado num container cachyos sem bwrap, com o vermelho do CI reproduzido;
   - d04f908: auto-prova sem -maxdepth (I-1 do CTO, que corrige o aceite dele no 55cd3d5); grupo 1 com a raiz gravável e o contrato do dublê;
-  - 886a8ec: as checagens baratas vêm antes de qualquer find, com um find armadilha no 6º controle. É um achado do main: no d04f908 a auto-prova fora da sandbox varria o hospedeiro inteiro (só leitura de nomes, incluindo /home/petrus/VM-Windows e /run/user/1000), durante os preci de ~12:24 a ~12:45. O d04f908 foi aceito só com a condição de subir junto com o 886a8ec.
+  - 886a8ec: as checagens baratas vêm antes de qualquer find, com um find armadilha no 6º controle. É um achado do main: no d04f908 a auto-prova fora da sandbox varria o hospedeiro inteiro (só leitura de nomes, incluindo ~/VM-Windows e /run/user/1000), durante os preci de ~12:24 a ~12:45. O d04f908 foi aceito só com a condição de subir junto com o 886a8ec.
 - **VM:** a janela de 12h terminou às 12:25, com o standby-timeout-ac de volta a 15 min (conferido por /query). A VM continua ligada.
 - **Ordem do líder, verbatim:** "suspenda a janela de 12h, pode continuar trabalhando normalmente e pause somente 16:00h de hoje" e "16:00h horário de recife pernambuco brasil". Cron e56c483c às 16:00 America/Recife; o fuso da máquina foi conferido.
 
@@ -5965,3 +5965,5963 @@ Parecer: `/var/tmp/cto-w7d/parecer-runC.md` (md5 `9542c4c9`). Linha de base: `/v
   - D-FECH-16 (`3d88900`);
   - D-FECH-17 (`dc0ff8c`, provada no run D).
 - Nenhuma decisão autônoma da onda W7-D fica pendente de ratificação.
+
+## Onda W8 (modo autônomo ligado pelo líder em 06/10/2026, 09:13; ordem verbatim: "modo autonomo")
+
+### Abertura e plano do CTO (06/10/2026, 09:42; registrado pelo main)
+- **Plano:** `/var/tmp/cto-w8/plano-w8.md`, md5 `621513d0`, com cópia congelada ao lado (`plano-w8.congelado-621513d0.md`).
+  - Caetano (CTO, `opus`, esforço alto) pesquisou antes de planejar (L-43, L-22 global).
+  - Decidiu no lugar do líder (L-34, emenda de 29/09).
+  - O ramo `onda-w8` foi criado de `e31aa77`.
+- **Passo 3 da L-34, feito pelo main:** 14 citações arquivo:linha conferidas na árvore, nenhuma falhou.
+  - Exemplos: o stencil de 8 bits no EGL e no WGL, o "stencil test off" do `renderer_2d.hpp:224`, o `dbus-run-session` do `run_compositor.sh:111`, a ausência de `examples/` e as dependências intra-onda da W7 (`TODO.md:645,646,657`).
+  - Um ataque adversarial ao plano, só de leitura, está em curso antes da primeira linha de código. A memória da casa o dá como o melhor retorno.
+- **Correção à premissa do main:** a W8 tinha seis linhas, não quatro. O main as contou com uma busca estreita, que não pegou as duas linhas de célula larga (`TODO.md:698-699`).
+
+### D-W8-01 a D-W8-19 (CTO, modo autônomo, 06/10/2026, ~09:33; a confirmar retroativamente)
+Texto completo de cada uma (pergunta, opções, fontes) na §4 do plano. Abaixo: a pergunta que teria ido ao líder, a escolha, porta de mão única (PMU) e custo de reverter.
+- **D-W8-01:** "A W8 leva as seis linhas, com dependência dentro da onda?"
+  - Sim, na ordem das linhas, como a W7 LOOP-* já fazia.
+  - PMU: não. Custo de reverter: baixo.
+- **D-W8-02:** "Como o QA captura a tela dentro do container?"
+  - Por um cliente D-Bus mínimo escrito em casa, que chama o `org.kde.KWin.ScreenShot2`, mais a leitura de pixel interna. A janela é posta sobre um fundo conhecido não preto, para o alfa errado aparecer.
+  - Sem pacote novo. Se a sonda C0 reprovar, o pacote vai ao líder (L-14).
+  - Nasce a linha `QA-SCREEN-CAPTURE`.
+  - PMU: não. Custo: baixo.
+- **D-W8-03:** a demo mora em `examples/`, como consumidor da biblioteca instalada.
+  - A opção `GLINTFX_BUILD_EXAMPLES` vem ligada só quando o GlintFx é o projeto de topo.
+  - A demo aceita `--frames N`, e há um exemplo por fatia visual.
+  - PMU: fraca (o nome da opção). Custo: baixo antes da 1.0.
+- **D-W8-04:** no Windows, a prova roda no executor do CI, com captura Win32 em casa (`PrintWindow` com `PW_RENDERFULLCONTENT`). A VM só entra com ônus da prova.
+  - PMU: não. Custo: baixo.
+- **D-W8-05:** a espessura do traço é em unidade de mundo por padrão, com a unidade pixel por campo nomeado. Número negativo não vale como unidade.
+  - PMU: sim. Custo: alto.
+- **D-W8-06:** o contorno do retângulo alinha dentro, centrado ou fora, com centrado por padrão. Os cantos não se sobrepõem.
+  - PMU: sim. Custo: alto.
+- **D-W8-07:** há uma única elipse com rotação, preenchida e contornada (`stroke_ellipse` entra por completude). Os segmentos saem do erro na tela, 0,25 px por padrão, ajustável no descritor.
+  - PMU: sim. Custo: alto.
+- **D-W8-08:** o vértice público é `gltfx_vertex_2d_world`, separado do interno.
+  - Índices de 32 bits opcionais; inválidos são recusados por peça e contados.
+  - A ponta da linha pode ser reta, quadrada ou redonda.
+  - PMU: sim. Custo: alto.
+- **D-W8-09:** polilinha com junção e antialiasing ficam declarados como ausência na W8, com linhas novas `R2D-STROKE-PATH` e `R2D-EDGE-SMOOTHING` na W9-B.
+  - PMU: não. Custo: baixo.
+- **D-W8-10:** a textura guarda cor pré-multiplicada em luz linear, codificada em sRGB, com alfa linear. O formato de entrada é um enum que só cresce.
+  - PMU: sim. Custo: alto.
+- **D-W8-11:** amostragem e mipmap ficam no descritor da textura; a palavra de folha `image-rendering` continua na W9-B. Nasce a linha `R2D-TEXTURE-TILED`, na W9-B.
+  - PMU: sim. Custo: alto.
+- **D-W8-12:** a textura não sobrevive ao desenhador (pré-condição). Destruir uma textura com peça na fila envia o lote antes.
+  - PMU: sim. Custo: alto.
+- **D-W8-13:** desenho com textura:
+  - região com espelhamento nomeado;
+  - quadrilátero com interpolação projetiva;
+  - tinta multiplicada;
+  - triângulos texturizados;
+  - contagem de trocas de textura no relatório. Trocar de textura parte o lote, mas nunca reordena.
+  - PMU: sim. Custo: alto.
+- **D-W8-14:** o atlas usa alocador de prateleira com liberação, público e no núcleo, mais um atlas de conveniência com margem e extrusão.
+  - PMU: sim. Custo: alto.
+- **D-W8-15:** o resolvedor de imagem segue o contrato R8 e é consultado a cada pintura. Aceita `url("a")` e `url(a)`. Referência sem dono é contada, com o evento `image_reference_unresolved`. Não nasce natureza de valor nova.
+  - PMU: sim. Custo: alto.
+- **D-W8-16:** luz e sombra são um mecanismo genérico (direcional e pontual), com as quatro formas pedidas na W8.
+  - A ordem vem da chave de camada.
+  - O stencil impede escurecimento duplo.
+  - A luz é aplicada por vértice.
+  - A geometria é idêntica byte a byte nos dois sistemas.
+  - `R2D-LIGHTMAP` vai para a W10 e `R2D-PIXEL-SNAP` para a INBOX.
+  - PMU: sim. Custo: alto.
+- **D-W8-17:** `R2D-SPRITE-SHADE` passa a depender também de `R2D-TEXTURE`. Os WSJF provisórios (`R2D-IMAGE-RESOLVER` 4,67, `R2D-SPRITE-SHADE` 2,25, `QA-SCREEN-CAPTURE` 4,20) são inferência, a ratificar pelo CPO.
+  - PMU: não. Custo: nulo.
+- **D-W8-18:** a fachada do desenhador se divide em arquivos por assunto; a classe pública continua uma só.
+  - PMU: não. Custo: baixo.
+- **D-W8-19:** a onda fecha com a marca `v0.7.0.0`, só depois do CI do `main` verde.
+  - PMU: sim (marca pública). Custo: irreversível depois de publicada.
+
+### Sonda C0 de `QA-SCREEN-CAPTURE` (06/10/2026, 09:50): a premissa da D-W8-02 caiu pela metade
+Relatório: `/var/tmp/cto-w8/c0-sonda.md`, do `qa-engineer` sonnet. Isolamento provado antes de interagir, na configuração exata do CI. Nada foi construído, baixado, instalado ou commitado.
+- **FATO:** a imagem testada é a local `glintfx-wltest:p4-base`, de 03/10, e pode diferir da imagem do CI atual.
+  - O KWin é o 6.7.5, e a interface `org.kde.KWin.ScreenShot2` existe, na versão 5.
+  - O `busctl --user` já presente na imagem passa descritor (tipo `h`), sem pacote novo.
+- **(a) PROVADO:** sem as variáveis de permissão, a captura é recusada ("The process is not authorized to take a screenshot").
+- **(b) FALHOU:** com as duas variáveis, a autorização passa, mas toda forma de captura devolve "Screenshot got cancelled" com 0 bytes: `CaptureWorkspace`, `CaptureActiveScreen`, `CaptureScreen` e `CaptureArea`.
+- **Hipótese do agente, não confirmada:** sem `/dev/dri`, o KWin compõe com QPainter, e o plugin de captura só tem o caminho OpenGL. `KWIN_COMPOSE=O2` não mudou isso.
+- **Consequência:** a §9 do plano previa, para este caso, pacote novo (líder) ou o downgrade para leitura interna. A sonda abriu outras vias. A escolha volta ao CTO (L-34), junto com o resultado do ataque ao plano, que está em curso.
+
+### Plano v2 da W8 (CTO, modo autônomo, 06/10/2026, ~09:55; registrado às 09:57)
+Plano: `/var/tmp/cto-w8/plano-w8-v2.md` (md5 `98a211e1`, cópia congelada ao lado). O v1 (`621513d0`) continua intocado. Origem:
+- a sonda C0;
+- o ataque adversarial ao v1 (`/var/tmp/cto-w8/ataque-plano-w8.md`, md5 `2465a5c6`), com 22 achados: 20 aceitos, 2 prejudicados pela rota nova, 0 recusados, 0 adiados.
+
+O main conferiu na árvore:
+- `egl_error_read_inside_swap_smoke.cpp:35-36` registra o Mesa por software (swrast) sem `/dev/dri`;
+- `wire_object_table.hpp:31-42` conhece `wl_shm` e `wl_shm_pool`.
+
+**Revogada:** D-W8-02 (captura no compositor).
+
+**Mudadas:**
+- D-W8-03, 04, 10, 11, 12, 13, 14, 15 e 16;
+- D-W8-18 foi ampliada.
+
+**Novas:**
+- **D-W8-20:** a prova visual é a captura NO PROTOCOLO. No `commit`, o relé estrito escrito em casa copia o buffer `wl_shm` que o KWin recebe, com formato, passo de linha e alfa byte a byte. O `glReadPixels` interno é a segunda evidência.
+  - Motivo: o backend virtual do KWin só compõe em GL e exige um dispositivo de render.
+  - Recusadas:
+    - GPU no container, que não roda no CI (L-09 regra 7);
+    - `vgem`, que exige mudar o núcleo do hospedeiro;
+    - pacote ou compositor novo.
+  - PMU: não.
+- **D-W8-21:** no Windows, uma sonda escolhe entre `PrintWindow` e `BitBlt` antes de escrever a ferramenta. O alfa vira ausência contada no Windows.
+- **D-W8-22:** o exemplo fotografado é construído pelo próprio CMake dele.
+- **D-W8-23:** o vértice interno passa de 32 para 36 bytes, para levar a coordenada q da textura projetiva.
+- **D-W8-24:** a leitura do `<image>` vai para `gfss`. O resolvedor recebe só texto, e o contexto é emprestado. O evento sai só na borda, com cópia fixa de 256 bytes. Um teste de direção de inclusão prova a fronteira.
+- **D-W8-25:** a conversão tem tolerância de 1 nível, a promessa sobre o filtro sRGB é honesta e a margem do atlas, com mipmap, é ≥ 2^k.
+- **D-W8-26:** destruir uma textura torna o contexto corrente, com evento quando isso falha.
+- **D-W8-27:** o determinismo é byte a byte no mesmo binário e de 4 ULP entre sistemas. A trigonometria própria vai para a INBOX.
+- **D-W8-28:** o grupo de sombra é partido em parte pura e parte de pixel.
+- **D-W8-29:** o arquivo de paridade de desenho se divide em três, um por assunto.
+- **D-W8-30:** o layout do relatório do quadro da onda inteira é decidido uma vez, na S0.
+- **D-W8-31:** entram na INBOX `WL-OPAQUE-REGION` e `CORE-DETERMINISTIC-TRIG`.
+
+**AFROUXAMENTO do critério de fechamento, depois de ver o dado (L-43 global): vai ao líder.**
+- A prova visual deixa de ver a composição do próprio KWin.
+- No Windows, se a sonda M2 não achar mecanismo, a captura externa também deixa de existir.
+- Sem resposta do líder, a onda anda, mas NÃO fecha. Os demais itens do fechamento ficaram mais estritos.
+
+**Despachado às 09:56:** a medição M1 (`qa-engineer`). Ela confere se o cliente realmente entrega `wl_shm` em ARGB pela cadeia real; com `dmabuf` ou XRGB, a rota volta ao CTO.
+
+### Decisão do líder sobre a prova visual da W8 (06/10/2026, 10:13)
+- **Pergunta (AskUserQuestion):** "A prova de que a demo aparece certa na tela não pode mais vir de uma foto tirada pelo compositor do container: sem placa de vídeo, ele cancela a captura. O CTO propõe fotografar a imagem no caminho entre o programa e o compositor, que pega cor e transparência exatas, mas não a composição final. Isso afrouxa o critério de fechamento. O senhor aceita?"
+- **Resposta do líder, verbatim:** "exigir 2 fotos compostas locais. Uma da geforce e outra da integrada."
+- **Leitura do main, marcada como interpretação (L-07 global), a confirmar:**
+  - A captura no protocolo (D-W8-20) continua como prova do CI, porque somar provas só endurece o critério.
+  - A onda passa a exigir, além dela, duas capturas COMPOSTAS pelo KWin, nesta máquina: uma com a GeForce e outra com a placa integrada. O caminho é o `ScreenShot2`, que exige GL.
+- **Leis que isso aciona:**
+  - L-09 global: antes de cada rodada que toque a GeForce, tocar o alerta 5 vezes, dizer o que vai rodar e AGUARDAR a autorização explícita do líder para começar.
+  - L-09 do projeto, regra 4: a placa dada ao container é decisão consciente por teste, e é esta.
+  - O `check_isolation.sh` reprova com `/dev/dri`: a rodada local usa uma variante declarada, sem nunca montar o `XDG_RUNTIME_DIR` nem o `wayland-0` do hospedeiro.
+- **Medição M1 (`/var/tmp/cto-w8/m1-medicao.md`):**
+  - Pela cadeia real, o cliente entrega `wl_shm` em ARGB8888 (formato 0), sem `dmabuf` e sem XRGB: a rota da D-W8-20 tem chão.
+  - **Achado que muda o desenho:** o `draw2d_parity_test` cria o buffer, mas nunca faz `attach`/`commit` (lê por `glReadPixels` sem trocar de quadro, `draw2d_parity_test.cpp:495`). Já o `gl_context_parity_test` apresenta 3 buffers rotativos.
+  - A captura no `commit` exige uma fixture que apresente o quadro.
+  - A imagem usada é a `p4-base` de 03/10 (binários anteriores ao HEAD).
+
+### Plano v3 da W8 (CTO, modo autônomo, 06/10/2026, ~10:16; registrado às 10:21)
+Plano: `/var/tmp/cto-w8/plano-w8-v3.md` (md5 `2280c673`, cópia congelada). O plano vigente é o v2 mais o delta do v3, em 41 linhas de fatia. O main conferiu a lista do `wire_relay_selftest` em `tests/CMakeLists.txt:6485-6505`.
+- **D-W8-32:** só programa que apresenta quadro pelo caminho público é alvo da captura no protocolo: os quatro exemplos, pelo laço, e o `capture_known_color_smoke`, pelo `swap_buffers()`.
+  - O relé copia a cada `commit` com buffer, antes de encaminhá-lo.
+  - O relé duplica o descritor no `create_pool`, porque a M1 mostrou o pool destruído logo depois.
+  - O `draw2d_parity_test` continua sem troca de quadro, para não perder a célula "quadro sem clear".
+- **D-W8-33:** a captura do relé bate pixel a pixel com a leitura interna, alfa incluído (ordem B, G, R, A).
+- **D-W8-34:** as fotos compostas (ordem do líder) seguem estes passos:
+  - as placas são identificadas só por `/sys`;
+  - cada sessão recebe um único nó de render, com linha de base de isolamento própria por placa (a do CI fica intacta);
+  - a prova de qual placa compôs é o `supportInformation`, com "Compositing Type: OpenGL" e o renderizador;
+  - se o driver da GeForce for o proprietário, o espaço de usuário NVIDIA do hospedeiro é montado só leitura. Se não bastar, a decisão vai ao líder (L-14).
+  - **Rodada na GeForce (G4), passos literais da L-09 global:** o agente prepara e para; o main toca o alerta 5 vezes, diz o que vai rodar e espera o "sim" do líder por `AskUserQuestion`, registrado verbatim. A autorização vale para essa rodada só.
+- **D-W8-35:** toda captura e toda foto rodam em imagem montada do HEAD, citando o id da imagem e o SHA.
+- **Mudada:** D-W8-20. A captura no protocolo é a prova do CI, e as fotos compostas são prova adicional obrigatória. O afrouxamento do v2 deixa de existir.
+- **Fechamento:** só endureceu.
+  - O piso sobe para 9 linhas da W8.
+  - O item 5 ganha imagem do HEAD, pelo menos uma imagem por alvo e a igualdade da D-W8-33.
+  - O item 11 é novo: as fotos das duas placas, com o renderizador, a tabela do G0 e a autorização verbatim da G4.
+- **Interpretação do CTO, marcada:** as "2 fotos" do líder viram duas sessões, uma por placa, cada uma cobrindo os quatro exemplos.
+
+### Tabela da W8 aplicada e placas identificadas (06/10/2026, 10:21)
+- **`914a092`:** as mudanças de tabela do v1 §7, do v2 §6 e do v3 §6, feitas pelo `technical-writer` e conferidas pelo main.
+  - Só o `TODO.md` mudou: 12 linhas tocadas, 6 delas novas.
+  - A W8 tem 9 linhas, na ordem.
+  - Todas as 347 linhas da tabela têm 10 colunas, exceto a `VERSION-TAG-SYNC`, cujo defeito de fecho é anterior a este commit e não foi tocado.
+  - **WSJF das 4 linhas R2D novas** (`R2D-STROKE-PATH` 2,40, `R2D-EDGE-SMOOTHING` 2,00, `R2D-TEXTURE-TILED` 2,33, `R2D-LIGHTMAP` 1,13): palpite do redator, marcado INFERÊNCIA, a ratificar pelo CPO junto com os provisórios do CTO.
+  - Os pré-requisitos dessas linhas também são escolha do redator.
+- **G0, placas identificadas** (`/var/tmp/cto-w8/g0-placas.md`, md5 `a5516bee`). Só leitura de `/sys`, nada tocou a GeForce; o main reconferiu vendor e driver dos nós de render.
+
+  | Placa | Vendor:device | Driver | Nó para o container |
+  |---|---|---|---|
+  | Intel integrada | `8086:46a6` | `i915` (`boot_vga=1`) | `renderD128` |
+  | GeForce | `10de:25a2` | `nvidia` proprietário 615.71.09, sem nouveau | `renderD129` + `/dev/nvidia*` |
+
+  - **Consequência:** a G4 precisa montar só leitura o espaço de usuário NVIDIA do hospedeiro. Se não bastar, a decisão vai ao líder (L-14).
+- **P1 despachada entre 10:18 e 10:21** ao `qa-engineer`: o relé guarda o último quadro `wl_shm` comprometido.
+
+### Autorização do líder para a W8 (06/10/2026, 10:24:01)
+- **Verbatim:** "autorizo push/tag/merge". Vale para a onda W8, dentro do contrato de onda: push por fatia aceita, e merge em `main` mais a marca `v0.7.0.0` só com a definição de fechamento inteira cumprida (L-11 do projeto, L-24 global).
+
+### Atualização das ferramentas de teste (06/10/2026, 11:22 a 11:27; decisões do líder)
+- **Origem:** a pesquisa que o líder ordenou às ~11:10 ("Instalei plugin docker. Procure documentacao. E também leia a documentacao de todos os apps de apoio de testes [...] e registre tudo") resultou em `docs/ferramentas-de-apoio-aos-testes.md` e em quatro itens de INBOX. O texto completo da ordem está no commit do documento.
+- **Primeira pergunta (AskUserQuestion):** atualizar o Docker (29.8.2 corrige 10 falhas de segurança), o CMake, o ccache e o gh?
+  - **Resposta verbatim:** "Agora, todas".
+- **Medição do main:** os quatro vêm do repositório do Fedora (`moby-engine`, `docker-cli`, `cmake`, `ccache` e `gh`, todos `fc44`).
+  - `dnf check-upgrade --repo=fedora --repo=updates` não devolveu nenhuma atualização (rc=0): o Fedora ainda não empacotou as versões novas.
+  - A primeira consulta, sem filtro de repositório, parou pedindo para importar a chave OpenPGP do repositório `libnvidia-container` da NVIDIA (`C95B321B61E88C1809C4F759DDCAE044F796ECB0`). **A chave NÃO foi aceita**, porque confiar numa chave é decisão do líder, e esse repositório nada tem com as ferramentas pedidas.
+- **Segunda pergunta:** esperar o Fedora, trocar o Docker pelo repositório oficial dele, ou baixar todos de fora?
+  - **Resposta verbatim:** "Esperar o Fedora (Recomendado)".
+  - Nada foi instalado.
+  - O item `TOOLCHAIN-UPDATES-PENDENTES` fica, para ser conferido a cada onda.
+- **Pendência do líder:** o repositório da NVIDIA continua configurado nesta máquina, com a chave não importada. Uma atualização geral do sistema vai voltar a pedir a chave.
+
+### P1 de `QA-SCREEN-CAPTURE` aceita (06/10/2026, 12:53): o relé guarda o último quadro `wl_shm` comprometido
+- **Commits:** `16168b9` (P1), `caff9f4`, `282c8bc` e `96f6ef9` (consertos), mais `b2af85d` (INBOX `CAPTURE-ZERO-FRAME-VERDICT`).
+  - O implementador e o revisor foram agentes `sonnet` distintos (L-12). O main conferiu os rc por arquivo em cada rodada.
+- **Revisão adversarial que executa e muta**, em quatro rodadas, até sair limpa:
+  - 1ª: 3 IMPORTANTE;
+  - 2ª: 1 IMPORTANTE;
+  - 3ª: 1 IMPORTANTE latente. O implementador tinha REMOVIDO um `close_all` defensivo como "mutante equivalente", e o revisor mediu +10 fds com uma regra forçada. A defesa foi restaurada, com costura de teste declarada (`reject_client_message`);
+  - 4ª: ACEITAR, com 0 CRÍTICO, 0 IMPORTANTE e 3 COSMÉTICO.
+- **Medido na 4ª rodada:**
+  - `wire_relay_selftest` com 32 casos e 0 falhas, em build ASan/UBSan;
+  - as mutações A, B, C, C2 e D reprovam cada uma só o caso declarado;
+  - o caso da ordem da cópia ficou estável em 600 execuções;
+  - `preci --fast` e `--sanitizer-only` com rc=0.
+- **Defeitos reais achados pela revisão, e não pelo implementador:**
+  - vazamento de fds no encaminhamento;
+  - cópia que podia sair depois do encaminhamento;
+  - dois clientes gravando no mesmo arquivo;
+  - fds deixados na fila ao fim da conexão.
+- **Não provado, declarado:**
+  - o link do `wire_relay_bin` na imagem, que só o CI prova;
+  - o argv do `wire_relay_main`, sem teste até a C2;
+  - nada com KWin e `wl_shm` reais (P3);
+  - o veredito "zero reprova" é do leitor (`CAPTURE-ZERO-FRAME-VERDICT`);
+  - a fiação `forward_client_message` → `reject_client_message` com fd real é impossível hoje, porque nenhuma regra viola mensagem com fd (sobrevivente E, declarado);
+  - fds perdidos em `control_truncated` (`wire_relay_connection_set.cpp:233-238`, anterior a esta fatia), que vai para a INBOX `WIRE-RELAY-CONTROL-TRUNCATED-FDS`.
+- **Erro do main nesta fatia:** commitei o documento de ferramentas sem rodar o espelho, e o portão `docs_count_vocab` o barrou na rodada 3. Foi corrigido em `1ebadf0`.
+- **O `Status` de `QA-SCREEN-CAPTURE` continua ⏳:** a linha ainda tem P2, P3, C2a e C2b.
+
+### P2 de `QA-SCREEN-CAPTURE` aceita (06/10/2026, 13:39): conversão para PNG e sondas de pixel
+- **Commits:** `84f6652` (P2) e `74ec5a7` (conserto). Implementador e revisor foram agentes `sonnet` distintos (L-12).
+- **Rodada 1, NÃO ACEITAR:** 6 IMPORTANTE. O principal foi o veredito "zero imagens reprova", que não chegava ao código de saída do processo: os autotestes chamavam `real_main` dentro do mesmo processo. Faltava também `PASS_REGULAR_EXPRESSION`, havia funções de 129 linhas e 3 mutantes sobreviviam.
+- **Rodada 2, ACEITAR, conferida pelo revisor:**
+  - os autotestes rodam por subprocess;
+  - a regex foi provada dentro de um CTest real (sem o guarda `__main__`, rc=8 com "Required regular expression not found");
+  - nenhum mutante sobrevivente além de 2 equivalentes provados;
+  - L-17 limpa, medida por ast;
+  - o `env_sweep` passa sem o comentário de isenção e reprova um CRLF real.
+- **O que a P3 precisa medir, segundo o revisor (`/var/tmp/cto-w8/rev-p2b.md` §5):**
+  - o esperado por modo `srgb_framebuffer`: ligado, codifica o valor pré-multiplicado; desligado, codifica e depois multiplica, o que dá bytes diferentes;
+  - o alfa do destino;
+  - o formato 1 força alfa 255, então a sonda de alfa 0,5 só vale com formato 0;
+  - o arredondamento 127 contra 128, com tolerância declarada;
+  - a sabotagem de estreia em cada modo.
+- **Alfa:** a conversão NÃO des-multiplica. O `wl_shm` ARGB8888 é pré-multiplicado, e isso está documentado no cabeçalho do `raw_to_png.py`.
+
+### 06/10/2026 14:53:42 - P3 de QA-SCREEN-CAPTURE: revisão adversarial, primeira rodada
+
+- **Revisor:** agente distinto do implementador (L-12). Relatório em `/var/tmp/cto-w8/rev-p3.md`. Veredito: ACEITAR com ressalvas.
+- **Reproduzido:** dez de dez rodadas verdes, com 76800 pixels e zero diferentes nos dois modos. Esperados refeitos à mão pela especificação. Dezesseis mutantes, catorze mortos.
+- **QA observador (L-13):** aprovou geometria, cores e orientação nos dois PNGs. Relatório em `/var/tmp/cto-w8/qa-p3-observacao.md`.
+- **Decisão do main: não aceitar ainda.** Volta ao implementador para corrigir:
+  - H1: o diretório do host não era limpo por modo, o que dava falso verde em rodada repetida;
+  - S2: o mutante `off off` sobreviveu;
+  - S4: a espera aceitava o marcador da conexão errada;
+  - `write_case` com 5 parâmetros, acima do teto de 4 da L-17.
+- **S1 rejeitada:** o modo off não codifica por definição, e o semitransparente do modo on já exerce a codificação.
+- **Item 8 do revisor já respondido:** o líder respondeu ao afrouxamento da D-W8-20 com a ordem das duas fotos compostas (D-W8-32). O revisor leu o plano v2, sem o v3.
+
+### 06/10/2026 15:54:21 - Ordem do líder: pausa geral às 16:15
+
+- **Texto do líder, verbatim:** "pause tudo 16:15h". Perguntado se era às 16:15 ou até as 16:15, respondeu: "Pausar às 16:15 (Recomendado)".
+- **Até lá:** fechar a P3 de QA-SCREEN-CAPTURE (rodada 4 curta de revisão sobre 9c04619), registrar o aceite e empurrar onda-w8. Nada novo começa.
+- **Às 16:15:** os agentes param, o monitor também, e o estado fica gravado. A retomada é só por ordem do líder.
+- **Observação, causa NÃO medida:** na primeira rodada, o `preci --fast` do 9c04619 deu rc=1 só pelo `preci_compare_times`. O `contido_dentro_selftest_varredura` levou 31,7 s contra a base de 1,77 s. Na segunda rodada deu verde, e os 303 testes passaram nas duas.
+
+### 06/10/2026 15:57:11 - P3 de QA-SCREEN-CAPTURE ACEITA na quarta rodada
+
+- **Ponta aceita:** `9c04619`. Rodadas de revisão: 1 (H1, S2, S4, L-17), 2 (N1, o autoteste sem `if(UNIX)` quebraria o Windows), 3 (R3-S1) e 4, que aceitou. Relatório completo em `/var/tmp/cto-w8/rev-p3.md`.
+- **Prova:** 76800 pixels iguais à leitura interna nos dois modos de cor. md5 dos PNG estável em todas as rodadas (off `6a50c0fc`, on `a7651f75`). QA observador aprovou (L-13). `preci --fast` e `--sanitizer-only` com rc=0 na ponta.
+- **Lacuna declarada, não bloqueante:** a fiação de `one_mode` não é exercida pelo autoteste (R4-A). Vai para a INBOX como `CAPTURE-DRIVER-WIRING-UNTESTED`.
+- **NÃO provado:** CI do servidor, incluindo o Windows. A prova vem com o push.
+- **Status:** `QA-SCREEN-CAPTURE` segue ⏳. Faltam C2a e C2b.
+
+### 06/10/2026 17:43:41 - Ordem do líder: retomada
+
+- **Texto do líder, verbatim:** "continue tudo". A pausa das 16:15 está encerrada e o marcador de parada foi apagado.
+- **Estado na retomada:** o run 37515318202, sobre `3d4ae4e` no ramo `onda-w8`, deu 24 verdes, 1 pulado por desenho e 1 vermelho, o `Windows - estatico`.
+  - Os 286 testes executados passaram.
+  - O vermelho veio do `ctest_aggregate.py`, a régua de pesados: quatro testes anteriores à W8 passaram de 40 s sem RESOURCE_LOCK nem PROCESSORS (layers_selftest 45,1 s, dep_zero_trace_selftest 51,0 s, version_matches_tag_selftest 64,2 s e win32_test_link_selftest 92,2 s).
+  - Conserto num SHA novo, sem reexecutar (D-A4). Mexer na régua seria afrouxamento e vai ao líder.
+
+### 06/10/2026 17:44:20 - Ordem do líder: modo autônomo religado
+
+- **Texto do líder, verbatim:** "ligue modo autonomo". A flag foi renovada e vale até 07/10/2026 17:44:04. Escopos: push e clean.
+- **Em voo:** o diagnóstico e o conserto do vermelho do run 37515318202, régua de pesados no Windows estático.
+- **Próximo, pelo v3 §4:** C2a, a sonda M2 no Windows. A preparação começa agora, sem trabalho pesado, porque o conserto do CI ocupa a vaga de pesado (L-11 global).
+
+### 06/10/2026 17:53:05 - C2a de QA-SCREEN-CAPTURE: sonda M2 medida no executor Windows
+
+- **Como:** ramo descartável `sonda-c2a` (`1a40e1a`, saído de `onda-w8` `7707968`) com workflow próprio disparado por push. O run 37529525377 saiu verde. Depois da leitura, o ramo remoto e a cópia de trabalho foram apagados; o ramo local continua como referência para a C2b.
+- **Resultado, saída bruta em `/var/tmp/cto-w8/c2a-m2_saida.txt`:** janela GL de cor conhecida 20/80/C0, área cliente 320x240.
+  - `glreadpixels`: 76800 de 76800 exatos.
+  - `printwindow` (`PW_RENDERFULLCONTENT`): 76800 de 76800 exatos.
+  - `bitblt_tela` (tela 1024x768, origem do cliente em 60,83): 76800 de 76800 exatos.
+  - A sonda saiu com código 0.
+- **Consequência para a D-W8-21:** os dois mecanismos externos devolvem a cor exata. O afrouxamento previsto, ficar só com a leitura interna, NÃO acontece. A escolha entre PrintWindow e BitBlt vai ao CTO.
+- **Como a sonda achou a janela (fato):** a API pública não expõe o HWND. A sonda usou `FindWindowW` pelo título, que leva o PID. A janela nasce oculta e a sonda a mostrou com `ShowWindow(SW_SHOWNOACTIVATE)`.
+
+### 06/10/2026 18:12:23 - C2b planejada pelo CTO: D-W8-36 a D-W8-41 (decisões autônomas, a confirmar retroativamente pelo líder)
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-c2b.md` (md5 `f3600c637edf5190c7a0ac0e469f113c`), com pesquisa citada.
+- **D-W8-36:** a C2b usa OS DOIS mecanismos.
+  - `PrintWindow(PW_RENDERFULLCONTENT)` prova o conteúdo da janela.
+  - `BitBlt` da tela, com `CAPTUREBLT`, prova que o quadro chegou à tela. Antes dele, uma guarda de oclusão por `WindowFromPoint` faz a falha sair como "OCLUIDA", não como "cor errada".
+- **D-W8-37:** a API pública NÃO ganha HWND. A ferramenta lança a fixture e acha a janela pelo PID do filho mais o título; o resultado tem de ser exatamente uma janela. Nem a ferramenta nem a fixture mostram a janela. O identificador nativo vai à INBOX como `PLATFORM-NATIVE-HANDLE`, porta de mão única que fica com o líder.
+- **D-W8-38 (defeito de produto):** no Windows, a janela de um consumidor nunca aparece.
+  - **Verificado pelo main:** `src/platform/win32/window_adapter.hpp:34` diz "open() never calls ShowWindow", e não há `ShowWindow` em `src/`.
+  - No Wayland, anexar o primeiro buffer mapeia a janela (D-W5-8). No Windows, apresentar não mostra. O efeito observável difere entre os sistemas, o que contraria a L-04, e `docs/plano-w6a-janela.md:50` afirma o contrário.
+  - **Conserto na W8:** linha nova `WIN-MAP-FIRST-PRESENT`, antes da `DEMO-1`. Critérios escritos antes do dado; se a janela não puder aparecer sob um lançador que pede `SW_HIDE`, a fatia volta ao CTO.
+- **D-W8-39:** a fixture tem fonte única nos dois sistemas. O alfa e o sRGB ligado do Windows são ausências contadas em `tests/measured_exceptions.txt` (corrige o v2, que apontava `parity_absences.txt`).
+- **D-W8-40:** o executor Windows do CI roda a C2b.
+- **D-W8-41:** `win32_first_present_maps_test` entra como apelido bilateral em `tests/parity_aliases.txt`, nunca como exceção.
+- **Contagem:** C2b em 5 passos, mais a fatia de produto WIN-MAP-1 entre o 4 e o 5. O piso de linhas do fechamento sobe de 9 para 10. **Nenhum afrouxamento.**
+- **Ordem:** a C2b só começa depois do conserto do CI Windows em voo, porque os dois tocam `tests/CMakeLists.txt`. O vermelho de C2b-4 e o conserto WIN-MAP-1 vão em commits consecutivos, com o vermelho provado em ramo descartável.
+
+### 06/10/2026 18:18:43 - Vermelho do run 37515318202: conserto c9b70ba em revisão
+
+- **Causa medida pelo devops (`/var/tmp/cto-w8/ci-pesados-win.md`):** o executor Windows estático estava lento. O ctest inteiro levou 680 s, contra 488 s no main e 284 s no PR #14. Os quatro testes sem trinco disputavam os 4 núcleos. A W8 não causou o problema: acrescentou 3 testes de menos de 1 s, e a fixação, o paralelismo e o `ctest_aggregate.py` não mudaram.
+- **Conserto `c9b70ba`:** trinco `glintfx_nested_build` nos quatro testes, mais a lista MEASURED_HEAVY (14 testes medidos acima de 40 s) no portão de paralelismo, com 3 controles novos. A régua de 40 s não mudou. A revisão adversarial está em voo.
+- **Segunda ocorrência local, padrão nascendo (L-22):** `contido_dentro_selftest_varredura` levou 31,7 s e depois 32,8 s no espelho local, contra base de 1,6 s; sozinho, leva 2,6 s. A revisão foi mandada medir a causa antes de qualquer conserto.
+- **Em paralelo:** C2b-1 a C2b-3 despachados ao implementador, com a ordem de não iniciar trabalho pesado enquanto houver outro rodando.
+
+### 06/10/2026 18:22:29 - Conserto c9b70ba ACEITO; duas correções em voo
+
+- **Revisão adversarial** (`/var/tmp/cto-w8/rev-ci-pesados.md`): ACEITAR.
+  - A régua de 40 s está intacta (`HEAVY_LIMIT_S=40.0`).
+  - Os mutantes de trinco, regra, contagem e comentário morreram.
+- **Furo apontado:** tirar um nome da MEASURED_HEAVY passa com rc 0, porque a lista não tem piso. Volta ao devops para pôr um piso, com vermelho primeiro.
+- **Causa medida do lento local:** o controle 12f5 do `contido_dentro_selftest_varredura` roda `strace -f` sem `--seccomp-bpf`. Com ptrace sob carga, passa de 2 s para 11-12 s; com o filtro, leva 0,24 s.
+  - Os 31-33 s observados não se reproduziram em 5 medições.
+  - Volta ao devops: trocar pelo filtro, provando antes que o controle continua mordendo.
+
+### 06/10/2026 18:38:30 - 5ab50c4 e ad035f9 ACEITOS na rodada 2; push e CI para provar o Windows
+
+- **Revisão** (`/var/tmp/cto-w8/rev-ci-pesados.md`, rodada 2): ACEITAR.
+  - **Piso da MEASURED_HEAVY:** reprova quando um nome é removido ou escrito errado. Encolher a lista de propósito exige mudar o piso, e as duas linhas literais aparecem no diff.
+  - **Controle 12f5 com `--seccomp-bpf`:** continua pegando o fork escondido. O controle positivo pega o filtro cego.
+  - **`contido_dentro` com 64 spinners:** de 19-21 s para 1,7-2,1 s.
+- **Push** do `onda-w8` e dispatch do CI para provar no executor Windows o conserto do run 37515318202. A ponta inclui `ee0c57b` (C2b-1), ainda não revisado: o CI dele é evidência, não aceite.
+
+### 06/10/2026 19:04:03 - CI 37535326010 sobre 4297b97: verde
+
+- **Resultado:** 25 verdes e 1 pulado por desenho (VERSION-TAG-SYNC). A lista de jobs é igual à do run 37515318202.
+- **Windows estático:** 289 testes declarados, 287 executados e 287 passaram; 2 pulados por desenho. Suíte em 328 s, contra 680 s no run vermelho. A régua de pesados não acusou nada.
+- **O que isto prova:** no servidor, o conserto `c9b70ba`, `5ab50c4` e `ad035f9`. Os passos C2b-1 e C2b-2 rodaram neste CI só como evidência; ainda não foram revisados.
+
+### 06/10/2026 19:19:34 - C2b-1 a C2b-3: primeira revisão, de volta para correção
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b-123.md`): ACEITAR com 3 achados IMPORTANTES; 40 mutantes. O main não aceita ainda, porque a verificação vai até sair limpa.
+  - **A1:** a guarda de oclusão só é testada com um ponto; os mutantes de centro e de ponto único sobrevivem.
+  - **A3:** a janela nunca mostrada sai como OCLUIDA, o que confunde o vermelho da C2b-4. Vai ganhar veredito próprio, INVISIVEL.
+  - **A4:** os códigos de timeout (124) e de erro (127) de `run_process` não têm controle.
+  - **Mais dois pontos:** o gate win32-link não enumera a ferramenta, e o caminho com `DwmFlush` ausente não tem teste.
+- **Ao CTO:** a contradição do plano. A sabotagem `occlude` da C2b-5 exige código na ferramenta, e o plano diz "sem mudança em ferramenta". O vermelho esperado da C2b-4 também muda com o INVISIVEL.
+- **Processo órfão do agente devops** (PID 3318092): um laço `until ! pgrep -f 'bash tools/preci.sh'` que encontra a própria linha de comando e nunca termina. O classificador de permissões recusou o encerramento pelo main; ficou com o líder.
+
+### 06/10/2026 19:20:51 - D-W8-42 e D-W8-43 (CTO, decisão autônoma a confirmar retroativamente)
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-c2b.md`, seção 7 (md5 `ff935c0c95e1d5490b5d8e7682ef66cd`).
+- **D-W8-42:** a sabotagem `occlude` vira o modo de teste `--sabotage-occlude` da ferramenta, num arquivo próprio (`tests/tools/win32_capture_occluder.cpp`). Ela põe sobre a janela uma janela opaca da própria ferramenta, sempre no topo e sem ativar. Entra na C2b-4, e a C2b-5 volta a não mexer na ferramenta. Na estreia, o veredito tem de ser OCLUIDA, e não "cor errada".
+- **D-W8-43, ordem dos vereditos:** janelas, INVISIVEL, ICONICA, FORA DA TELA, OCLUIDA, bytes. O único vermelho aceito na C2b-4 é `janelas=1`, `visivel=0`, veredito INVISIVEL, com as 5 sondas internas passando. Qualquer outro volta ao CTO. O A4 (tubo herdado) vem antes da rodada vermelha.
+- **Nenhum afrouxamento do fechamento.**
+
+### 06/10/2026 20:18:20 - Retomada após reinício da sessão; modo autônomo religado
+
+- **Texto do líder, verbatim:** "ligue modo autonomo". A flag vale até 07/10/2026 20:17:43.
+- **Recuperado do disco (L-54 global):** árvore limpa. Os 7 commits de correção da C2b, de `a74bca4` a `b05afee`, estão no ramo; 13 commits locais ainda não empurrados.
+- **Interrompido no reinício:** o `preci --fast` do implementador sobre `b05afee` (`/var/tmp/cto-w8/fin-fast.log` truncado). Fica sem prova até a rodada 2 da revisão rodá-lo de novo.
+- **Rodada 2 da revisão de C2b-1 a C2b-3:** despachada ao mesmo revisor, com o preci na ponta.
+
+### 06/10/2026 20:19:26 - Ordem do líder: autorização de merge, tag e push renovada
+
+- **Texto do líder, verbatim:** "autorizo merge/tag/push".
+- **Como se aplica:**
+  - O push do `onda-w8` segue na cadência de fatias aceitas.
+  - O merge em `main` e a marca `v0.7.0.0` só acontecem quando a W8 cumprir a definição de fechamento do plano (v2 §3 e v3 §5), sem nenhum item aberto.
+  - Pela L-24 global, o critério é o fechamento escrito no plano, não o CI verde.
+- **Estado agora:** a onda está aberta. QA-SCREEN-CAPTURE está na rodada 2 da revisão da C2b-1 a C2b-3. Faltam C2b-4, C2b-5, WIN-MAP-1, DEMO-1, QA-COMPOSED-PATH, as quatro R2D-*, QA-COMPOSED-PHOTOS e F1.
+
+### 06/10/2026 20:30:37 - C2b-1 a C2b-3: rodada 2 da revisão
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b-123.md`, rodada 2): ACEITAR.
+  - `preci --fast` na ponta: rc 0.
+  - Os sobreviventes da rodada 1 morreram, assim como as 23 permutações da ordem dos vereditos.
+  - O gate win32-link agora enumera a ferramenta.
+- **Ainda não limpo, voltou:**
+  - **N2 (L-17):** `run_link_check` tem 120 linhas e `link_one_tool` tem 5 parâmetros.
+  - **N3:** os mutantes D9 e D14 continuam vivos.
+  - Os dois voltaram ao implementador.
+- **Ao CTO, N1:** `PrintWindow` falho em janela invisível sai com 2 antes do veredito 3. INVISIVEL e ICONICA saem com o mesmo código, e o driver não extrai a linha do veredito.
+
+### 06/10/2026 20:31:36 - D-W8-44 e D-W8-45 (CTO, decisão autônoma a confirmar retroativamente)
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-c2b.md`, seção 8 (md5 `bc52f38418eb23987a0df53f9b0489e4`).
+- **D-W8-44:** a prontidão da janela é decidida inteira antes de qualquer captura; a janela não pronta nunca chega ao `PrintWindow`. Falha de `PrintWindow` ou de `BitBlt` em janela pronta vira o veredito CAPTURA RECUSADA. O código 2 fica só para falha da ferramenta. Perde-se a medição I-2, que não é item de fechamento e fica declarada como não medida.
+- **D-W8-45:** códigos de saída por veredito: 10 janelas, 11 INVISIVEL, 12 ICONICA, 13 FORA DA TELA, 14 OCLUIDA, 15 CAPTURA RECUSADA. O driver exige que código e linha concordem. A tabela tem fonte única no `.hpp` e a cópia Python é vigiada por `check_sibling_lists.py`.
+- **Vermelho aceito na C2b-4:** saída 11, `veredito: INVISIVEL`, `janelas=1`, `visivel=0`, sondas internas 5/5, nenhuma captura tentada. A estreia `occlude` exige 14 com OCLUIDA.
+- **Nenhum afrouxamento.** Implementação na fila do implementador, depois do N2 e do N3.
+
+### 06/10/2026 20:51:41 - C2b-1 a C2b-3: rodada 3 da revisão
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b-123.md`, rodada 3): ACEITAR.
+  - Morreram N3, D-W8-44 (23/23 permutações) e D-W8-45 (SIBLING-LIST nos dois sentidos).
+  - O selftest do driver tem 76 controles; `window_capture_rules_test`, 29 casos.
+- **Ainda volta antes do aceite:**
+  - **R3-1:** nenhum controle prova que INCOERENTE e CODIGO_DESCONHECIDO reprovam o driver. Sem ele, um `passed()` mutado dá falso verde.
+  - **R3-2:** `pontos=N` rejeita com código 0.
+- **Dívida antiga da L-17:** `run_link_check` tem 84 linhas, contra o teto de 40. Foi para a INBOX como `WIN32-LINK-GATE-RUN-LINK-CHECK-L17`.
+
+### 06/10/2026 21:03:06 - C2b-1 a C2b-3 de QA-SCREEN-CAPTURE ACEITOS na rodada 4
+
+- **Ponta aceita:** `e256931`. Quatro rodadas de revisão, em `/var/tmp/cto-w8/rev-c2b-123.md`. A rodada 4 não achou nada novo; os mutantes de R3-1 e R3-2 morreram.
+- **Prova:** `preci --fast` e `--sanitizer-only` com rc 0 na ponta (implementador). A rodada 2 rodou o `--fast` por conta própria. O `cl.exe` real compilou com `/W4 /WX`. Selftest do driver: 81 controles, número exato no CMake (conferido pelo main no blob). `window_capture_rules_test`: 31 casos.
+- **NÃO provado aqui:** a ferramenta abrindo janela no Windows real. Isso nasce na C2b-4, em ramo descartável.
+- **Pendência:** `WIN32-LINK-GATE-RUN-LINK-CHECK-L17` (INBOX).
+- **Próximo:** C2b-4, com o vermelho aceito definido pela D-W8-45 (saída 11, INVISIVEL), seguida da WIN-MAP-1.
+
+### 06/10/2026 21:39:04 - Ordem do líder: laços de espera órfãos dos agentes podem ser encerrados
+
+- **Pergunta do main:** "Posso encerrar este e os próximos desse tipo, sempre conferindo antes pela linha de comando?" **Resposta do líder:** "Sim, este e os próximos (Recomendado)".
+- **Escopo:** só laços de espera órfãos criados por agentes desta sessão, do tipo `until ... pgrep -f '<texto>'` que encontra a própria linha de comando, e sempre depois de conferir a linha de comando. Cada encerramento é registrado aqui.
+- **Encerrado agora:** PID 154428, `until [ /var/tmp/cto-w8/c4-fast.rc -nt ... ] && ! pgrep -f 'tools/preci.sh --fast'`, deixado pelo implementador da C2b-4.
+
+### 06/10/2026 21:39:34 - Ordem do líder: pausar a sessão às 23:50
+
+- **Texto do líder, verbatim:** "Pause a sessão 23:50h". Leitura igual à da ordem das 16:15, em que o líder escolheu "Pausar às 16:15": o trabalho segue até 23:50 e pausa nessa hora.
+- **Até lá:** seguem a C2b-4 (revisão e leitura do run 37552985243) e, se houver tempo, a WIN-MAP-1. Nada novo começa se não couber antes de 23:50.
+- **Às 23:50:** agentes parados, monitor desligado, estado gravado na memória e marcador de parada do líder. A retomada é só por ordem dele.
+
+### 06/10/2026 21:40:02 - C2b-4: o defeito da janela invisível PROVADO no executor Windows
+
+- **Run 37552985243** no ramo descartável `sonda-c2b4` (`80c8c1c`, que sai de `64cb199`). Saída copiada em `/var/tmp/cto-w8/c2b4-run/`.
+- **Ferramenta:** `janelas=1 visivel=0 iconico=0`, `veredito: INVISIVEL`, "nenhuma captura tentada". O driver registra `motivo=INVISIVEL codigo=11`. O modo `on` saiu como ausência declarada.
+- **Leitura:** `VERMELHO_ACEITO` (o único da D-W8-45), piso com `linhas_veredito=1`. Na máquina real, a janela de um consumidor no Windows nunca aparece.
+- **Próximo:** WIN-MAP-1, o conserto de produto. Depois dele, o mesmo teste tem de virar verde no executor. O ramo `sonda-c2b4` fica até essa prova. A revisão adversarial da C2b-4 está em voo.
+
+### 06/10/2026 22:00:19 - C2b-4 de QA-SCREEN-CAPTURE ACEITA
+
+- **Revisão** (`/var/tmp/cto-w8/rev-c2b4.md`): ACEITAR.
+  - `check_c2b4` aceita só o vermelho da D-W8-45; 14 saídas sintéticas produzidas pelo driver confirmam.
+  - Containerfile construído uma vez com rc 0. Caminho Linux da P3 verde, as 3 sabotagens com rc 1, md5 do PNG `on` igual ao da P3.
+  - A exceção de paridade apagada não quebra o portão.
+- **Prova no executor:** run 37552985243, VERMELHO_ACEITO (registro anterior).
+- **Obrigatórios na C2b-5**, não ficam para depois da onda:
+  - o `windows-sanitizer` não roda o teste e a ausência está declarada só em bloco, sem contagem; tem de virar ausência contada com o motivo;
+  - o orçamento do `--hold-until-close` não é fixado por controle (o mutante de 1 ms sobrevive);
+  - o cabeçalho "never shows" sem ressalva para o oclusor.
+  Ficam para a C2b-5 porque a WIN-MAP-1 está em voo em `tests/CMakeLists.txt`, e dois agentes na mesma árvore colidem.
+- **Vigiar:** o driver Python tem 982 linhas, metade de selftest.
+
+### 06/10/2026 22:42:32 - WIN-MAP-1 implementada; provas no servidor e revisão em voo
+
+- **Commits:** `df22cf8` (teste vermelho `win32_first_present_maps_test` com apelido bilateral) e `efe2734` (conserto), consecutivos como o plano pede. `onda-w8` empurrado em `efe2734`.
+- **Comportamento novo, pelo efeito:** a janela segue invisível depois de `open()`. O primeiro quadro apresentado a mostra uma vez, mesmo sob `SW_HIDE` do lançador. A ativação é pedida e o sistema arbitra (`SW_SHOW`). **Decisão de foco tomada pelo implementador, a confirmar.** A API pública não muda; só comentários.
+- **Provas no servidor:**
+  - run 37558358855: sonda C2b-4 sobre `efe2734`, no ramo `sonda-c2b4` refeito a partir de `sonda-c2b4-verde`. O remoto antigo (`80c8c1c`) foi apagado e o ramo local ficou como registro;
+  - run 37558373506: CI inteiro no ramo descartável `w8-vermelho-df22cf8`, que deve reprovar o teste novo no Windows;
+  - run 37558376457: CI inteiro em `efe2734`.
+- **Achado do implementador, não verificado:** o portão win32-link reprova a reconciliação depois que a ferramenta entrou na contagem (bruto 154 contra 155). Pode vir de `905a9b6`; a revisão verifica.
+- **Correção do implementador:** ele disse que a linha `WIN-MAP-FIRST-PRESENT` não existe na TODO.md. Existe: o grep conta 5.
+
+### 06/10/2026 22:43:54 - WIN-MAP-1: a janela aparece no executor Windows (verde da captura)
+
+- **Run 37558358855:** sonda C2b-4 sobre `efe2734`, o conserto. Saída em `/var/tmp/cto-w8/c2b4-verde-run/`.
+- **Resultado:**
+  - `janelas=1 visivel=1 iconico=0`; a janela está pronta nos 5 pontos;
+  - leitura interna com 5 sondas e 0 falhas;
+  - PrintWindow e BitBlt com 76800 pixels cada e 0 diferentes;
+  - `DRIVER_EXIT codigo=0`; o modo `on` saiu como ausência declarada.
+- **Antes e depois, no mesmo teste e no mesmo executor:** o vermelho em `64cb199` (run 37552985243) deu INVISIVEL 11; o conserto deu janela visível, com a cor exata nos dois mecanismos externos. O "FORA_DO_ACEITO" do `check_c2b4` aqui é esperado, porque ele só conhece o vermelho.
+- **Pendente:** CI inteiro no `df22cf8` (o teste novo tem de reprovar) e no `efe2734`, mais a revisão adversarial da WIN-MAP-1.
+
+### 06/10/2026 22:45:11 - WIN-MAP-1: revisão NÃO ACEITA; correções em voo
+
+- **Revisão** (`/var/tmp/cto-w8/rev-winmap1.md`): NÃO ACEITAR.
+  - **Defeito de produto:** `close()` não zera `m_first_present_map`, então um contexto reaberto sobre outra janela nunca a mostra.
+  - A ordem "mostrar ANTES do SwapBuffers" não é testada.
+  - O retorno do `SetWindowPos` é ignorado, e o `GetLastError` pode vir 0 na falha.
+  - Foco: sem conflito com nenhuma decisão escrita. A sonda X-0 do plano-w6a usava SHOWNOACTIVATE (nota).
+- **Defeito do 905a9b6, já aceito antes:** o portão win32-link soma testes e ferramentas na reconciliação e reprova (154 contra 155). Quebra `preci --win32-link-only` e o estágio 9 do preci completo; o CI não chama o script. O aceite da C2b-1 a C2b-3 não pegou isso, porque o `--fast` não roda esse estágio. Volta ao implementador dele.
+- **Despachados:** o implementador da WIN-MAP-1 cuida dos três itens e o da C2b cuida do portão, em arquivos separados. Prazo de ambos: 23:30, por causa da pausa das 23:50.
+
+### 06/10/2026 22:54:30 - Conserto do portão win32-link (b7c3131) ACEITO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-winmap1.md`, seção 2): ACEITAR.
+  - O controle CONTAGEM-COM-FERRAMENTA morde em 4 mutantes.
+  - A conta fecha: 154 = 126 testes + 18 + 10.
+  - O implementador declara `preci --win32-link-only` com rc 0.
+- **Ressalva menor, foi para a INBOX:** a fiação em `print_not_measured_block` não tem guarda (`WIN32-LINK-GATE-NOT-MEASURED-WIRING`).
+- **WIN-MAP-1:** o veredito NÃO ACEITAR da revisão é anterior às correções `44789bd` e `db3e7ac` (reabertura). Os itens 2 e 3 seguem com o implementador. A nova rodada de revisão vem quando ele entregar.
+
+### 06/10/2026 23:07:58 - WIN-MAP-1: rodada 2 da revisão ACEITA por leitura; aceite final depende do executor
+
+- **Revisão** (`/var/tmp/cto-w8/rev-winmap1.md`, seção 3): ACEITAR, mas só por leitura dos blobs. Os 3 casos do teste só se executam no Windows real, e aqui os mutantes não foram executados.
+  - **Reabertura:** `close()` agora chama `reset()`, e nenhum estado por janela fica esquecido.
+  - **Ordem:** provada por seam, declarado como seam. O fake lê o contador de swaps no instante do show; depende de o `++` ficar depois do `SwapBuffers`.
+  - **Falha ao mostrar:** vira `platform_failure`/"show_window" com código não zero, sem swap e com nova tentativa no quadro seguinte.
+- **Decisão do main:** a WIN-MAP-1 NÃO fica aceita só com isso. A regra do líder é revisão que EXECUTA. O aceite final exige:
+  - o CI do servidor na ponta mostrando `win32_first_present_maps_test` verde nos jobs Windows;
+  - o run 37558373506 (`df22cf8`) mostrando o mesmo teste VERMELHO.
+- **Menor:** o hook de teste mora no header de produção, que é interno.
+
+### 06/10/2026 23:08:10 - Ordem do líder: a pausa passa a ser no fim da fatia, não às 23:50
+
+- **Texto do líder, verbatim:** "não pare mais no horário que falei. Pause após acabar e commitar essa fatia".
+- **A fatia é a WIN-MAP-1.** "Acabar" segue o critério do plano: correções commitadas, `preci` verde e o executor Windows provando o teste novo VERMELHO no `df22cf8` e VERDE na ponta. Depois do aceite, o registro, o push e o snapshot, a sessão pausa.
+- **O prazo de 23:30 dado aos agentes está revogado.** A ordem anterior, de pausar às 23:50, foi substituída.
+
+### 06/10/2026 23:09:07 - Run 37558373506 (df22cf8): o vermelho da WIN-MAP-1 confirmado; paridade reprova
+
+- **Jobs Windows** (compartilhado, estático, Debug e ASan): `win32_first_present_maps_test` e `capture_known_color_smoke` reprovam antes do conserto, como esperado. É o vermelho do teste novo no executor real.
+- **Job de paridade também reprova:** `win32_first_present_maps_test` falta em arch, cachyos e ubuntu sem exceção. O apelido de `tests/parity_aliases.txt:373` usa como gêmeo `capture_known_color_smoke`, que é ausência declarada nessas três distros. A mesma configuração está na ponta, então o CI verde também reprovaria aqui. Voltou ao implementador da WIN-MAP-1.
+- O CI da ponta anterior (run 37558376457, `efe2734`) segue rodando. O definitivo será disparado depois do conserto da paridade.
+
+### 06/10/2026 23:15:22 - Run 37558376457 (efe2734): o conserto mostra a janela, mas o segundo swap falha
+
+- **`capture_known_color_smoke` PASSA nos jobs Windows:** a janela aparece com a cor certa.
+- **`win32_first_present_maps_test` REPROVA nos 4 jobs Windows.**
+  - O primeiro quadro mostra a janela: `first_swap_presented=true`, `visible_after_first_present=true`.
+  - O SEGUNDO `swap_buffers()` devolve `platform_failure`/`swap_buffers` com o erro do SO igual a 0, nos 3 casos e no filho sob SW_HIDE.
+- **É a segunda falha desta fatia no executor:** pela L-22, a pesquisa vem antes da próxima tentativa. Voltou ao implementador com a ordem de pesquisar e medir antes de consertar, e de não ajustar o teste para passar.
+- **Paridade das distros:** segue pendente, depois deste.
+- **A WIN-MAP-1 NÃO está pronta.** A pausa ordenada pelo líder espera o fim da fatia.
+
+### 06/10/2026 23:24:31 - WIN-MAP-1: revisões fechadas; o defeito do segundo swap vai para medição
+
+- **Commits:**
+  - `44789bd` e `db3e7ac`: reabertura;
+  - `5aea867`: ordem por seam e falha não ambígua;
+  - `fe68a0c`: cppcheck;
+  - `a4137fd`: paridade nas 3 distros, no padrão de `win32_wait_events_test`, provada com `--per-system` sobre os inventários reais do run 37558373506.
+  - `preci --fast` e `--sanitizer-only` com rc 0.
+- **Segundo swap, hipótese do implementador, NÃO medida:** o teste esconde a janela por fora (`SW_HIDE`) e depois apresenta. É o caso `WIN-PRESENT-HIDDEN-EXTERNAL`, sem comportamento definido. O `win32_iconic_present_test` já tolera essa assinatura (software renderer, `GetLastError` 0).
+- **Decisão do main: MEDIR antes de mudar o teste** (L-22, segunda falha). Sonda no ramo descartável `sonda-swap2`, com 4 variantes:
+  1. dois swaps com a janela visível;
+  2. o mesmo, com bombeamento entre eles;
+  3. esconder antes do segundo swap;
+  4. janela mostrada por fora.
+- **Regra escrita antes do dado:** só a variante 3 falhando significa defeito do teste, e a prova de "uma vez só" passa para o seam. A variante 1 ou a 2 falhando significa defeito do produto.
+
+### 06/10/2026 23:29:15 - Sonda swap2 (run 37562036206): o segundo swap falha em TODAS as variantes; defeito de produto
+
+- **Medido no executor Windows** (`862adf0`, 2 rodadas idênticas): nas 4 variantes, `swap1=ok` e `swap2=erro:platform_failure:swap_buffers os_error=0`.
+  - Variante 1: janela visível.
+  - Variante 2: com bombeamento.
+  - Variante 3: escondida por fora.
+  - Variante 4: mostrada por fora, sem o código novo da WIN-MAP-1.
+- **Pela regra escrita antes do dado:** a variante 1 e a 2 falhando significa DEFEITO DO PRODUTO, e não do teste. A variante 4 mostra mais: o defeito não vem do código de mostrar da WIN-MAP-1. Numa janela VISÍVEL, o segundo `SwapBuffers` falha com erro do SO 0. Até hoje toda janela nascia escondida no Windows, e é provável que isso escondesse o defeito (inferência, não medida).
+- **Terceira falha nesta fatia:** pela L-22, a pesquisa vem antes da próxima tentativa. Vai ao CTO, que pesquisa, decide o caminho e planeja. A WIN-MAP-1 não fecha sem isso.
+- **A pausa ordenada pelo líder** ("após acabar e commitar essa fatia") segue esperando o fim da fatia.
+
+### 06/10/2026 23:43:42 - D-W8-46 a D-W8-49 (CTO): causa provável do segundo swap, e quatro perguntas ao líder
+
+- **Fonte:** `/var/tmp/cto-w8/decisao-swap2.md`.
+- **Causa provável, INFERÊNCIA por leitura do Mesa:** o Mesa 26.x (o CI fixa a 26.2.0) devolve FALSE num `SwapBuffers` sem nenhum comando GL desde o anterior, com `GetLastError` 0. Veio do commit `21e5d19f` (MR !39077), desde a mesa-26.0.0.
+- **Evidência indireta do CI (run 37535326010):**
+  - `loop_parity_test` limpa a tela antes de cada apresentação e apresentou 30/30;
+  - `gl_context_parity_test` não desenha entre os swaps e teve 124 de 125 swaps falhos no Windows, contra 0 no Fedora.
+- **Correção pela L-44:** a tolerância de 07/09 ("o renderizador às vezes recusa") tinha justificativa errada. A falha é determinística e tem causa nomeada. Os tempos de vsync medidos no Windows cronometram falhas, não apresentações.
+- **Plano:**
+  - sonda v2 com 5 variantes no ramo `sonda-swap2` (despachada);
+  - a WIN-MAP-1 fecha sem tocar no produto: o teste passa a desenhar antes de cada swap, e o revisor prova que remover o desenho traz a reprovação de volta;
+  - o quadro vazio vira a fatia própria `PRESENT-EMPTY-FRAME`.
+- **Para o líder, por AskUserQuestion:** o contrato do quadro vazio, a tolerância de 07/09, se `PRESENT-EMPTY-FRAME` entra na W8 e se relatamos ao Mesa ou baixamos o Mesa 25.3.
+
+### 07/10/2026 07:44:08 - Decisões do líder sobre o quadro vazio (respostas ao AskUserQuestion)
+
+- **Contrato do quadro vazio:** "Indefinido, recusa relatada (Recomendado)". O sistema pode recusar apresentar um quadro sem desenho; a lib relata a recusa fielmente. A API não muda.
+- **Tolerância de 07/09:** "Remover dos 4 testes (Recomendado)". Os testes passam a desenhar antes de cada apresentação.
+- **`PRESENT-EMPTY-FRAME`:** "Nesta onda, a W8 (Recomendado)". O piso de linhas da W8 sobe de 10 para 11.
+- **Mesa:** "Relatar o comportamento ao Mesa" E "Rodar a sonda com o Mesa 25.3". Os dois ficam autorizados. Só rodam depois de a sonda v2 confirmar a causa, para o relato levar dado medido.
+- **Sonda v2** pronta em `56975af` (ramo `sonda-swap2`): 9 variantes, mais a cópia do teste com desenho entre os swaps.
+
+### 07/10/2026 07:48:34 - Sonda swap2 v2 (run 37609364838): CONFIRMADO pela regra escrita antes do dado
+
+- **Aparato medido:** `GL_RENDERER=D3D12 (Microsoft Basic Render Driver)`, `GL_VERSION=4.6 Mesa 26.2.0`. Log em `/var/tmp/cto-w8/swap2-v2-run/job.log`.
+- **Resultado:**
+  - as variantes 1 a 4 falham no segundo swap (o controle reproduziu);
+  - a 5 (desenho entre os swaps) passou nos 2 swaps, e a 7 (dez quadros com desenho) passou nos 10;
+  - a 6 falha no segundo swap e passa no terceiro;
+  - a 9 (só `glFlush`) falha no segundo;
+  - a 8 (contexto reaberto) passou nos 2.
+- **Veredito pela regra da seção 2 de `decisao-swap2.md`: CONFIRMADO.** A falha é do Mesa 26.x diante de um quadro sem desenho, não do nosso caminho WGL nem da WIN-MAP-1. A premissa da minha regra anterior ("variante 1 ou 2 = produto") foi escrita sem conhecer o mecanismo e fica corrigida pela medição.
+- **A cópia do teste com desenho entre os swaps passou nos 6 casos no executor:** mapeia a janela, mapeia sob SW_HIDE, mapeia depois de reabrir o contexto, mostra antes do swap e relata e repete a falha ao mostrar.
+- **Próximo:** aplicar o desenho ao `win32_first_present_maps_test` verdadeiro, CI verde na ponta e revisão que executa. Aí a WIN-MAP-1 fecha.
+
+### 07/10/2026 08:02:18 - WIN-MAP-1: teste com desenho (6b19876d) empurrado; o CI da ponta e o mutante estão rodando
+
+- **Implementador (sonnet):** 6b19876d, só `tests/win32_first_present_maps_test.cpp`, +24/-0. Acrescenta `clear_frame` antes de cada um dos 7 `swap_buffers()` e não muda nenhuma asserção da D-W8-38. O `preci --fast` deu rc=0. O main conferiu o diff.
+- **CI da ponta:** run 37611152408, em `6b19876d`. O main empurrou e conferiu com `ls-remote`.
+- **Revisor distinto (sonnet):** a leitura aprova. Há só um achado cosmético, sem ação. Relatório em `/var/tmp/cto-w8/rev-winmap1-desenho.md`.
+- **Mutante:** ramo descartável `w8-mutante-winmap1` (e097960d). Tira o `clear_frame` antes do segundo swap de `check_first_present_maps_and_only_once` (diff de -1 linha, conferido pelo main). CI do mutante: run 37611317076.
+- **Previsão pré-registrada pelo revisor, antes do dado:**
+  - reprovam `win32_first_present_maps_window`, `..._under_sw_hide_child` e `..._window_under_sw_hide` (este último pelo código de saída do filho), com `second_swap_error_code=platform_failure` e `swap_buffers`;
+  - continuam verdes `after_context_reopen`, `before_the_swap` e `show_failure_is_reported_and_retried`.
+- **Regra de aceite:** a WIN-MAP-1 fecha quando os dois runs concluírem:
+  - o da ponta verde nos 4 trabalhos Windows e nos demais;
+  - o do mutante reprovando exatamente como previsto nos 4 trabalhos Windows.
+  Qualquer outro desfecho volta ao CTO.
+
+### 07/10/2026 08:30:05 - WIN-MAP-1 ACEITA e fechada (WIN-MAP-FIRST-PRESENT ✅)
+
+- **Ponta `6b19876d`, CI 37611152408:** `success` (25 sucessos e 1 pulo de rotina, o VERSION-TAG-SYNC). O `win32_first_present_maps_test` passou nos 4 trabalhos Windows: compartilhado, estático, Debug e ASan.
+- **Mutante `e097960d` (`w8-mutante-winmap1`), CI 37611317076:** reprovou nos 4 trabalhos Windows **exatamente como previsto pelo revisor antes do dado**.
+  - Caíram 3 casos: `..._window`, `..._under_sw_hide_child` e `..._window_under_sw_hide`.
+  - Passaram os 3 casos previstos como verdes.
+  - A falha foi `second_swap_error_code=platform_failure` / `swap_buffers`, e o teste foi o único a cair em cada trabalho (1/292 ou 1/136).
+  - Logs em `/var/tmp/cto-w8/mutante-winmap1-run/`.
+- **Regra de aceite pré-registrada cumprida inteira.** A fatia fecha: a janela do consumidor no Windows aparece no primeiro quadro apresentado, uma vez só, com falha de exibição relatada e repetida.
+- **TODO.md:**
+  - `WIN-MAP-FIRST-PRESENT` passou a ✅;
+  - a linha `PRESENT-EMPTY-FRAME` entrou na W8 por decisão do líder. A onda tem agora 11 linhas, e o piso subiu de 10 para 11.
+- **Em seguida:** push do onda-w8 e retrato da sessão. Depois, **pausa por ordem do líder** ("Pause após acabar e commitar essa fatia").
+- **O próximo trabalho fica para a retomada:** PRESENT-EMPTY-FRAME, a C2b-5, DEMO-1 e as demais. O ramo descartável `w8-mutante-winmap1` fica no remoto até a limpeza.
+
+### 07/10/2026 08:37:01 - Retomada por ordem do líder ("continue")
+
+- A parada que o líder ordenou ao fim da WIN-MAP-1 foi encerrada pela ordem verbatim dele: "continue". O arquivo `parada_do_lider` foi apagado.
+- O modo autônomo segue válido até 07/10/2026 20:17:43.
+- O watchcode foi religado; estava inativo, com origem não identificada, e o monitor foi rearmado.
+- **Próxima fatia: PRESENT-EMPTY-FRAME (W8).** Pela L-34 em modo autônomo, o brainstorm é entre o main e o C-level opus (CTO), que decide no lugar do líder o que não foi decidido por ele. O líder já decidiu o contrato ("indefinido, recusa relatada"), a tolerância ("remover dos 4 testes") e a onda (W8).
+- **Pela L-43, a pesquisa vem antes do plano:** web, RmlUi e SDL3, para ver como tratam a apresentação de quadro sem desenho, as falhas de SwapBuffers e as tolerâncias de renderer por software.
+
+### 07/10/2026 09:05:01 - PRESENT-EMPTY-FRAME: pesquisa e plano do CTO aceitos pelo main (L-34, passo 3)
+
+- **Pesquisa (L-43), gravada antes do plano:** `/var/tmp/cto-w8/pesquisa-empty-frame.md`. Nenhuma biblioteca do tipo escreve um contrato para o quadro vazio:
+  - GLFW, RmlUi e Qt engolem o retorno do swap;
+  - SDL3 relata a falha, como nós;
+  - RmlUi e os testes do SDL desenham antes de cada apresentação.
+- **Plano:** `/var/tmp/cto-w8/plano-empty-frame.md`. Tem 8 fatias: F1, F2, F3-RED e F3 a F7. Traz 16 critérios de fechamento escritos antes do dado (§4) e 5 runs de vermelho com previsão pré-registrada (R-G, A, B, R1 e R2), mais o mutante M3, que roda em container local.
+- **Decisões do CTO em modo autônomo:** D-W8-50 a D-W8-59 (plano §7). Ficam para o líder confirmar retroativamente.
+- **Conferência do main antes de despachar:**
+  - Citações: `context.hpp:50`, `loop.hpp:373-376` (P9), `loop.hpp:337-342` (P4), `tests/CMakeLists.txt:2626`/`:2654` e `install-mesa-opengl32.ps1:100` batem com o HEAD.
+  - O ps1 do Mesa roda antes do ctest nos 4 trabalhos Windows (`ci.yml:1075/1118`, `:3809/3833`, `:4103/4127`), então a variável de expectativa chega ao teste.
+  - Gêmeos da tolerância fora de `tests/`: só aparecem em documentos (TODO, DECISOES, `docs/plano-loop-callbacks.md`, que a F7 cobre, e uma auditoria datada, que fica). Nenhum leitor em `tools/` ou `.github/`.
+- **Correção do CTO pela L-44, aceita:** sob o contrato do líder, o teste novo passa nos dois sistemas desde o primeiro dia. O vermelho dele vem só de sabotagem pré-registrada.
+- **Item L1 do plano, levado ao líder por AskUserQuestion (L-01):** no Windows sob Mesa 26, o `run()` encerra quando o `on_render` não desenha. A opção que ele escolheu não dizia isso. **A F2 (o texto do contrato, porta de mão única) espera a resposta dele. A F1 segue, porque não depende disso.** A D-W8-51 é preenchimento do CTO sobre a decisão do líder (L-07).
+- **Próximo:** F1 com o implementador sonnet.
+
+### 07/10/2026 10:36:31 - Decisão do líder sobre o laço com quadro vazio; F1 entregue; previsões dos vermelhos registradas ANTES dos runs
+
+- **Pergunta L1, por AskUserQuestion.** O líder respondeu, verbatim: **"Encerra e documenta (Recomendado)"**. No Windows sob Mesa 26, o `run()` termina com a recusa do quadro vazio, e o texto público passa a dizer isso e a mandar desenhar todo quadro. A D-W8-51 fica confirmada pelo líder, e a **F2 está liberada**.
+- **F1 (implementador sonnet): `9a02f87c`**, 7 arquivos, +573. O main conferiu o diff --stat e os 3 mutantes.
+  - Os portões locais deram rc 0. O `preci --fast` deu rc 0, e o `--container-link-only` também.
+  - Container Linux local (isolamento provado):
+    - com `presented`: rc 0;
+    - sem a expectativa: rc 1, por causa da guarda;
+    - com `refused`: rc 1;
+    - sem nenhuma variável: rc 0, com `none`.
+  - O `cl.exe` compilou o alvo Windows com rc 0. Sem o define, deu rc 2 (C4996).
+  - M3 local: rc 1, `regua_celulas=12 celulas, 1 erradas`. A mutação chegou ao binário.
+- **Desvios do implementador, aceitos pelo main:**
+  - (1) No R-G, o Linux mantém `GITHUB_ACTIONS=true`, porque o `exec_fixture.sh` não repassa o ambiente. Com isso, o R-G e o M4 ficam iguais no Linux.
+  - (2) **O teste roda em 3 trabalhos Windows, não em 4.** O `windows-sanitizer` só roda `-L unit`, e o teste é `consume`. As previsões abaixo valem para 3.
+- **Previsões pré-registradas (plano §2.5, ajustadas pelos desvios 1 e 2):**
+  - **Ponta `9a02f87c`:**
+    - `present_empty_frame_parity_test` verde em `windows` (compartilhado e estático), em `windows-debug` e nas 2 pernas do `wayland-container`;
+    - nos 3 Windows, `context_empty_1/2` e `loop_empty` = `refused`, e `expectation=refused`;
+    - no container, essas três chaves = `presented`;
+    - `*_recovery_presented` = 1 em todos;
+    - o CI inteiro verde.
+  - **R-G (`w8-pef-rg`, dc80542b):** o teste reprova nos 3 Windows e nas 2 pernas, com "aparato de CI sem expectativa declarada".
+  - **A (`w8-pef-a`, dcac287e):**
+    - M1 reprova a P1 nos 3 Windows, com `context_empty_1=presented` contra a expectativa `refused`;
+    - M-L reprova a P1 nas 2 pernas, com `refused` contra `presented`;
+    - outros testes podem cair junto; o que conta é este cair pela P1.
+  - **B (`w8-pef-b`, 5773c032):**
+    - M2 reprova a P2 (recuperação) nos 3 Windows;
+    - M4 reprova com "sem expectativa declarada" nas 2 pernas.
+  - **Qualquer outro desfecho volta ao CTO.**
+
+### 07/10/2026 11:13:20 - F1 da PRESENT-EMPTY-FRAME: CI da ponta verde e previsões confirmadas; F2 reprovada na revisão de API
+
+- **Ponta `36997a09` (F1), CI 37629860222: `success`.** Leitura pelos artefatos `measured-*`, guardados em `/var/tmp/cto-w8/pef-runs/tip/`:
+  - **Windows** (compartilhado e estático): `expectation=refused`, e `context_empty_1`, `context_empty_2`, `loop_empty` e `draw2d_empty` todos `refused`;
+  - **container Fedora** (plain e asan): as mesmas chaves todas `presented`;
+  - `*_recovery_presented=1`, `loop_should_render_after_refusal=1` e `regua_celulas=12` nos dois lados;
+  - **o resultado bate com a previsão pré-registrada.**
+- **Dado novo:**
+  - `draw2d_empty=refused` no Windows. A inferência C2 do CTO se confirma: o desenho 2D com `clear_color` vazio e sem peças gera quadro vazio. Isso dispara o item 4 da INBOX do plano §8 (uma frase em `frame_2d_desc.hpp`).
+  - `context_empty_2=refused` também: depois de recusado, o quadro vazio SEGUE recusado até um desenho. A L4 do CTO ("só o segundo swap") fica mais estreita do que ele disse, e o contrato não muda.
+- **Mutantes (runs ainda terminando).** Todos os trabalhos já concluídos reprovaram pelo motivo previsto, e só esse teste caiu em cada um:
+  - **R-G**: "aparato de CI sem expectativa declarada" no Windows compartilhado e Debug e no container asan;
+  - **A**: Windows com `presented` contra `refused` (M1); container com `refused` contra `presented` (M-L);
+  - **B**: Windows com `context_recovery_presented` falhando (M2); container com a guarda (M4).
+- **F2 (cd16154c): a revisão de API dedicada REPROVOU,** com 2 achados IMPORTANTES e 3 COSMÉTICOS (`/var/tmp/cto-w8/rev-f2-pmu.md`):
+  - **I-2:** "Mesa 26.0", "of a window" e "other drivers present it" não foram medidos assim, e congelariam um fato de terceiro em include/.
+  - **I-1:** o mesmo `platform_failure` também sai de uma conexão morta, que nunca se recupera.
+  - O main aceitou tudo. A rodada 2 está com o mesmo redator.
+- **L-11:** dois `preci --fast` rodaram ao mesmo tempo (o da F2 e o do preparo de R1/R2). O main avisou o agente: vermelho de tempo nessa rodada não vale, e a rodada se repete sozinha.
+
+### 07/10/2026 11:22:27 - Laço de espera órfão encerrado (autorização do líder: "Sim, este e os próximos")
+
+- PID 864347, vivo há ~7600 s: `until ! pgrep -f 'tools/preci.sh --fast' ...; do sleep 10; done`. Ele casa com a própria linha de comando e nunca termina ([[feedback_pgrep_encontra_a_si_mesmo]]). Deixado pelo implementador da F1. O main conferiu a cmdline e encerrou.
+
+### 07/10/2026 11:25:26 - Os vermelhos R-G, A e B da F1 batem com a previsão pré-registrada (linha 15 do §4, parte 1)
+
+- **R-G** (run 37629864317, dc80542b): reprovou nos 3 Windows e nas 2 pernas do container, todos pela guarda "aparato de CI sem expectativa declarada". Nenhum outro teste caiu.
+- **A** (run 37629868939, dcac287e): a P1 reprovou nos 3 Windows (M1, `presented` contra `refused`), e só esse teste caiu. Também reprovou nas 2 pernas do container (M-L, `refused` contra `presented`). Lá outros testes caíram junto, porque o mutante recusa todo swap a partir do segundo, como o plano previa.
+- **B** (run 37629875564, 5773c032): a P2 (`context_recovery_presented`) reprovou nos 3 Windows (M2). As 2 pernas reprovaram pela guarda (M4). Nenhum outro teste caiu.
+- **M3** local, no container: a régua reprovou, como relatado pelo implementador da F1.
+- **Falta, na linha 15:** R1 e R2 (F3-RED), em preparo.
+- **F2:** a revisão PMU reprovou a rodada 2 pelo I-3 ("Only a refusal..." é falso: o `show_window` do Windows também se recupera). A rodada 3 está com o redator.
+
+### 07/10/2026 11:32:17 - F3-RED: R1 e R2 entregues; previsões pré-registradas antes dos runs (plano §3.3)
+
+- **R1** (`w8-pef-r1`, c059679a): os 5 testes sem a tolerância e SEM desenho novo. Sai também a linha `measured_exceptions.txt:190`. O diff tem +72/-605; o main conferiu o --stat.
+  - Grep dos nomes da tolerância em `tests/`: 0, em 240 `.cpp` varridos.
+  - `preci --fast`: rc=0, rodado sozinho. Uma rodada anterior com outro preci ao lado deu rc=8 por um autoteste sem relação com a mudança, e foi descartada.
+  - O `cl.exe` compilou os 4 alvos Windows.
+- **R2** (`w8-pef-r2`, 708428bf): o R1 sem o `g_clear` do laço 1 do `loop_parity_test` e do primeiro sítio do `loop_hidden_test` do Windows (-4 linhas).
+- **Rótulos medidos:** `gl_context_parity_test` e `loop_parity_test` são `consume` e rodam em 3 trabalhos Windows. `loop_hidden_test` é `unit` e roda nos 4, ASan incluído. O rótulo do `win32_iconic_present_test` está na linha abaixo, medido.
+- **Previsão R1:**
+  - `gl_context_parity_test` reprova em todo trabalho Windows que o roda, no primeiro swap do laço `vsync_off_60`, com `platform_failure`/`swap_buffers`; verde nas 2 pernas do container.
+  - `win32_iconic_present_test` reprova em todo trabalho Windows que o roda, no `after_restore`; o `presented_before_minimize` passa.
+  - `loop_parity_test` fica **verde** no Windows. É a prova da inferência C1 do CTO; se reprovar, a C1 cai e o caso volta ao CTO, sem mudar a fatia.
+  - `loop_hidden_test` fica verde em todos.
+- **Previsão R2:**
+  - `loop_parity_test` reprova em todo trabalho Windows que o roda (falha de swap no laço 1, contada e reprovada no check final);
+  - `loop_hidden_test` reprova nos 4 Windows;
+  - verde no Linux.
+- **Qualquer outro desfecho volta ao CTO antes da F3.**
+
+### 07/10/2026 12:21:11 - F2 aceita (texto público aprovado na revisão PMU); R1 e R2 batem com a previsão; pausa por ordem do líder
+
+- **F2 aceita.** São 4 commits, só de comentário: cd16154c, 649971c1, 7cf57ba1 e 38392036.
+  - A revisão de API dedicada (PMU) reprovou as rodadas 1 (I-1 e I-2) e 2 (I-3), e APROVOU a rodada 3. Os cosméticos C-6, C-7 e C-8 entraram na rodada 4. Relatório em `/var/tmp/cto-w8/rev-f2-pmu.md`.
+  - O texto final não cita Mesa nem versão de terceiro. Ele diz que a recusa é `platform_failure` e que o contexto segue usável. Diz também que a conexão morta (só no Wayland) devolve o mesmo código e nunca se recupera, e manda desenhar todo quadro.
+  - O `Proved by:` cita 4 testes. O `run()` termina com o erro, conforme a decisão do líder "Encerra e documenta".
+  - Portões: a última rodada do `preci --fast` deu rc=0, sem nenhum outro pesado rodando.
+- **R1** (run 37637534422, c059679a), sem tolerância e sem desenho:
+  - reprovaram só o `gl_context_parity_test` (no swap do laço vsync=off) e o `win32_iconic_present_test` (`after_restore`, com `platform_failure`/`swap_buffers`/0, e `presented_before_minimize=true`), nos trabalhos Windows que rodam cada um;
+  - `loop_parity_test` e `loop_hidden_test` ficaram verdes, o que **confirma a inferência C1** do CTO;
+  - o container ficou verde.
+- **R2** (run 37637539844, 708428bf): além dos dois do R1, reprovaram o `loop_parity_test` (`present() #2` em diante, com `platform_failure`/`swap_buffers`) e o `loop_hidden_test` nos Windows. O container ficou verde.
+- **Com isso, a linha 15 do §4 do plano fecha:** os runs R-G, A, B, R1 e R2 bateram todos com a previsão, e o M3 também. **A F3 pode entrar.**
+- **Pausa:** ordem do líder, verbatim, "pause quando acabar essa fatia". Por AskUserQuestion ele escolheu **"F2, o texto público (Recomendado)"**. A F2 está fechada e o ramo vai ser empurrado agora.
+- **Fica para a retomada:** F3 a F7 (tirar a tolerância dos 5 testes, desenhar antes de cada apresentação, os critérios de vsync e a limpeza dos documentos), a revisão que executa e o CI da ponta.
+
+### 07/10/2026 22:53:44 - Retomada do GlintFx em modo autônomo (ordem do líder)
+
+- O líder ligou o modo autônomo nesta sessão ("ligue modo autonomo", com validade até 08/10/2026 22:51:57) e disse "aqui é glintfx". A edição #6 do site passou para uma sessão própria, na pasta do site ("#6 está só lá"). O agente do conversor do site foi parado aqui; o trabalho dele está no repositório do site, em a7e308c, já empurrado.
+- A parada de 12:21 (fim da F2) foi encerrada por essa ordem, e o arquivo `parada_do_lider` foi apagado.
+- O CI da ponta `3fd749cf` (run 37643211805) deu `success`.
+- **Próximo:** F3 a F6 da PRESENT-EMPTY-FRAME (plano §3 e §5). Partem da remoção já feita no ramo `w8-pef-r1` e acrescentam o desenho antes de cada apresentação (D-W8-55/56), uma fatia por arquivo, cada uma com o seu commit. O vermelho já está provado pelos runs R1 e R2.
+
+### 07/10/2026 23:15:00 - Ordem de pausa do líder: 08/10/2026 às 05:00; plano da C2b-5 entregue
+
+- **Ordem, verbatim:** "pausa quando for 07/10/2026 05:00 AM". Por AskUserQuestion o líder confirmou: "Sim, 08/10 às 05:00". O horário está em `~/.config/olhe_agentes/GlintFx/fim_ordenado` (epoch 1791446400), e o monitor confere a cada tick.
+  - Ao chegar a hora, o main faz o registro, empurra o que estiver commitado e verde, atualiza o snapshot e grava `parada_do_lider`.
+  - Agente no meio de fatia recebe ordem de commitar ou de parar sem commitar trabalho vermelho.
+- **Plano da C2b-5 (CTO):** `/var/tmp/cto-w8/plano-c2b5.md` (md5 0d66bd0c055e90a14f7ab1f03b775a15).
+  - São 5 fatias, com as decisões D-W8-60 a D-W8-69, que ficam para o líder confirmar retroativamente.
+  - Ela entra DEPOIS da PRESENT-EMPTY-FRAME (D-W8-69, porque as duas mexem em `tests/CMakeLists.txt`).
+  - Há 3 itens novos para a INBOX: dividir o driver de captura (cerca de 1000 linhas); a nova tentativa sem desenho na fixture, que nunca ocorreu; e a justificativa errada do rótulo `consume` no ASan.
+
+### 07/10/2026 23:35:44 - CI da ponta d1a9ffff (run 37717216300): o critério 1 do §4 dispara; volta ao CTO
+
+- **Medido:** `gl_context_parity_test` reprova no Windows compartilhado e no estático, e é o único teste que cai.
+  - Os valores são `vsync_off_60_swaps_ms=950` (compartilhado) e `=800` (estático), contra o orçamento de 700 ms do próprio teste.
+  - `vsync_off_60_swaps_presented=60`, `_skipped=0` e `first_presented_attempt=1`.
+  - O `RUN_SERIAL TRUE` estava ativo (`tests/CMakeLists.txt:2629`, desde a F3), então a "leitura obrigatória" do critério 1 está cumprida: não é carga concorrente.
+- **Leitura:** antes, a maioria desses 60 swaps falhava rápido no quadro vazio e era tolerada, e o cronômetro media falhas. Agora são 60 apresentações reais no renderizador por software do executor, cerca de 13 a 16 ms cada.
+- **Pela regra pré-registrada:** "Se passar de 700, é achado sobre o custo do present por software e volta ao CTO; o orçamento nunca é alargado em silêncio." O main NÃO mexe no orçamento. O caso vai ao CTO.
+
+### 07/10/2026 23:48:40 - D-W8-70 (CTO, modo autônomo): no Windows, a régua de vsync passa a ser o ESTADO lido do driver, não o tempo
+
+- **Arquivo:** `/var/tmp/cto-w8/decisao-orcamento-60.md`.
+- **Base medida:**
+  - antes da F3, o Windows cronometrava falhas (`swap_tolerated_downgrades=124`, de 82 a 96 ms);
+  - os 700 ms do D-W6b-29 (282e7a60) foram calibrados só no Linux e estendidos ao Windows por suposição (`measured_exceptions.txt:129`);
+  - com 60 apresentações reais, o Windows deu 950 (compartilhado), 800 (estático) e no máximo 700 (Debug passou).
+- **Causa, segundo o CTO:** o Mesa 26.2.0 espera a composição do Windows depois de cada present. Por isso nenhum orçamento de tempo separa vsync desligado de vsync ligado no executor.
+- **Decisão:**
+  - A classe de apresentação é declarada no preparo de cada sistema (`GLINTFX_PRESENT_PACING`, com valores `free` ou `compositor`). Em CI, se ela faltar ou vier inválida, o teste reprova.
+  - **Linux (`free`):** os 700 ms ficam.
+  - **Windows (`compositor`):** o teste lê o intervalo de troca do próprio driver (`wglGetSwapIntervalEXT` pelo `proc_address()` público, nunca o valor guardado pela biblioteca) e exige 0 com vsync desligado e 1 com ligado. O tempo fica só como teto de travamento, 6000 ms.
+  - Substitui pelo nome o ramo (ii) da D-W6b-29.
+- **Conferência do main:** a leitura vem do driver, e não do cache. Por isso o mutante R-a (forçar intervalo 1 com vsync desligado em `wgl_context_adapter.cpp:515`) consegue morrer, e a régua não é tautológica.
+- **Critério pré-registrado:**
+  - a fatia só fecha com R-a e R-b vermelhos no Windows;
+  - se o tempo do R-a der 2 vezes ou mais o do run sem mutante, a hipótese da composição cai e o caso volta ao CTO.
+- **Para o líder confirmar retroativamente:** a D-W8-70 e a emenda da linha 4 do §4.
+- **Próximo:** o implementador (§7 da decisão) entra quando o revisor sair de `worktrees/pef-rev`.
+
+### 07/10/2026 23:50:58 - Revisão adversarial F3 a F7 (relatório `/var/tmp/cto-w8/rev-pef-f3f7.md`) e o que o main decide
+
+- **Veredito do revisor: REPROVADO pelo critério do próprio plano.**
+  - Uma razão é o orçamento de 700 ms, já decidido pela D-W8-70.
+  - A outra é que a linha 16 do §4 não fecha: a ponta com a F7 nunca passou por CI.
+- **I1, IMPORTANTE:** `loop_parity_test` chama `loop.run()` em cinco sítios (:569, :844, :862, :884, :885). O `app::render` (:228) não desenha, então cerca de 14 swaps chegam ao driver sem desenho e passam só pela inferência C1.
+  - **Decisão do main:** a ordem verbatim do líder é "desenhando antes de cada apresentação", e o `run()` apresenta. Portanto o `render` passa a chamar `draw_clear_frame`.
+  - Não vai ao CTO, porque a ordem do líder é o critério ([[feedback_ordem_do_lider_e_criterio]]).
+- **I2, IMPORTANTE:** restaurar no `gl_context_parity_test` o diagnóstico `rejected_value`/`os_error_code` nas falhas de vsync_off (:695), vsync_on (:738) e toggle (:804).
+- **Cosméticos aceitos:**
+  - `docs/plano-loop-callbacks.md:607`, onde ainda se lê "1 de tolerância" (L-67);
+  - as referências a `print_swap_tolerance_refusal` em `TODO.md:196` e em `docs/plano-egl-dead-display-guard.md:102,108`, que viram texto sem o nome morto;
+  - a frase quebrada em `loop_parity_test.cpp:167-171`;
+  - um nome para o `0x00004000` do iconic.
+- **Mutantes** (`w8-pef-rev`, c266c69b), com previsões pré-registradas pelo revisor:
+  - M1 cai em 3 Windows;
+  - M2 cai em 4 Windows;
+  - M3 **sobrevive** nos 3. O desenho no laço de teto é proteção, não prova.
+  - O main empurra e dispara o CI agora.
+- **Próximo:** um implementador aplica a D-W8-70 (§7 da decisão), o I1, o I2 e os cosméticos, com um commit por assunto. Depois vêm o push e o CI na ponta.
+
+### 08/10/2026 00:12:38 - Mutantes do revisor (w8-pef-rev c266c69b, run 37719883057): batem com a previsão
+
+- **M1** (`gl_context_parity_test`, primeiro swap do vsync_off sem desenho): reprovou em compartilhado, estático e Debug com `swap_buffers() (vsync=off) failed: platform_failure`. O teste é `consume`, por isso não roda no ASan. **Previsto.**
+- **M2** (iconic, `after_restore` sem desenho): reprovou nos 4 trabalhos Windows com `win32_iconic_present_test.cpp:213: failed: !after_restore.has_error()`. **Previsto.**
+- **M3** (laço de teto do `loop_parity_test` sem desenho): **sobreviveu** nos 3, como o revisor previu.
+- **Leitura:** o desenho antes do primeiro swap e antes do restore é PROVA. O desenho no laço de teto é proteção, que só a ordem do líder mantém ("desenhando antes de cada apresentação"). A inferência C1 do CTO ganha mais um dado a favor.
+
+### 08/10/2026 00:21:47 - Rodada 2 entregue (D-W8-70, I1, I2, cosméticos); CI da ponta e mutantes R-a/R-b com previsão escrita antes
+
+- **Commits:** 14706afc (D-W8-70), fd16ebec (I1), 854f85ac (I2), 26ea9572 e 3960e631 (cosméticos) e 82c960be (`_CRT_SECURE_NO_WARNINGS` no alvo, depois que o `cl.exe` reprovou o `getenv` com C4996).
+- **Provas locais:**
+  - `preci --fast` rc 0 e `--sanitizer-only` rc 0;
+  - container com `free` rc 0 (`vsync_off` 39 ms, leituras -1), sem a variável e com CI rc 1 (R-d), com `bogus` rc 1 (R-e);
+  - o `cl.exe` compilou os 4 alvos Windows.
+  - O I1 foi só compilado: o llvmpipe não recusa quadro vazio, então só o executor Windows prova.
+- **Mutantes, conferidos pelo main:** cada um difere de 82c960be por UMA mudança em `wgl_context_adapter.cpp`.
+  - **R-a** (`w8-pef-ra`, a3a9e498): o vsync desligado vira `call_swap_interval(1)`.
+  - **R-b** (`w8-pef-rb`, 1257bed9): com o valor 0, o adaptador devolve ok sem chamar o driver.
+- **Previsão do implementador, gravada antes do run:**
+  - em R-a e R-b, os 3 Windows que rodam o `gl_context_parity_test` (compartilhado, estático e Debug) ficam vermelhos com "leitura de volta 1, esperado 0 (vsync=off)", depois de imprimir `readback=1` e `vsync_off_60_swaps_ms`;
+  - o container Linux fica inalterado;
+  - **critério do CTO:** se o `ms` de R-a ficar em 2 vezes ou mais o da ponta (V1), a hipótese do DWM cai e o caso volta ao CTO.
+- **CI da ponta (V1):** espera-se `gl_context_parity_test` verde nos 3 Windows, com `vsync_off_swap_interval_readback=0`, `vsync_on_swap_interval_readback=1` e os dois tempos abaixo de 6000 ms.
+- **TODO:** o `PARITY-SWAP-REFUSAL-GEMEO` fica resolvido pelo I2. O main decide o status quando a ponta ficar verde.
+
+### 08/10/2026 00:41:35 - V1 (ponta b75e5e27, run 37722363592): os 4 trabalhos Windows verdes e os critérios do §4 lidos dos artefatos
+
+- **Windows** (compartilhado / estático, de `measured-windows-*`):
+  - `vsync_off_swap_interval_readback=0`, `vsync_on_swap_interval_readback=1`;
+  - `vsync_off_60_swaps_ms` 1171 / 928; `vsync_on_60_swaps_ms` 1174 / 979. Todos abaixo de 6000, e ligado é praticamente igual a desligado, o que é coerente com a hipótese da composição;
+  - `vsync_off_60_swaps_presented=60`, `vsync_on_60_swaps_presented=60`, `vsync_toggle_presented=4`, `first_presented_attempt=1`;
+  - `presented_after_restore=true`, `swap_interval_honored=1`, `rendered_frames=30`;
+  - `context_empty_1`, `loop_empty` e `draw2d_empty` = `refused`.
+- **Linhas 1 a 11 do §4** (com a 1 e a 4 emendadas pela D-W8-70): todas passam.
+- **Falta, para fechar:**
+  - a linha 15 (R-a e R-b, ainda na fila);
+  - a linha 16 (o run da ponta terminar, porque o Windows Lint ainda roda);
+  - a releitura das linhas 13 e 14.
+
+### 08/10/2026 00:46:20 - Plano da C2b-5 aceito pelo main (L-34, passo 3); a C2b-5 começa
+
+- **Conferência:** o plano (`/var/tmp/cto-w8/plano-c2b5.md`) tem:
+  - vermelho por item (§3) e previsões pré-registradas das 6 pernas da sonda (§4), cada uma com a verificação que tem de morder e as outras em 0;
+  - critério de fechamento escrito antes do dado (§5);
+  - fatias com arquivos (§6).
+- **D-W8-69 cumprida:** a F7 e a rodada da revisão da PRESENT-EMPTY-FRAME estão commitadas, e a ponta deu verde (run 37722363592). Só faltam os mutantes R-a/R-b no executor, que não tocam a árvore.
+- **D-W8-68 aplicada na tabela:** `CI-VERDE-W8` passa a depender de `CAPTURE-DRIVER-WIRING-UNTESTED`.
+- **Próximo:** um implementador sonnet faz a F1, a F2 e a F3, uma por vez.
+
+### 08/10/2026 01:04:45 - PRESENT-EMPTY-FRAME ACEITA e fechada (✅)
+
+- **R-a** (run 37722366203): reprovou nos 3 Windows com "leitura de volta 1, esperado 0 (vsync=off)". `vsync_off_60_swaps_ms` deu 971 (compartilhado), 1094 (estático) e 963 (Debug), contra 1171 e 928 do V1. A razão fica entre 0,83 e 1,18 vez, abaixo das 2 vezes: **a hipótese da composição (D-W8-70) se mantém.**
+- **R-b** (run 37722369485): reprovou nos 3 Windows com a mesma mensagem, e mais nada caiu.
+- **Os 16 critérios do §4** (linhas 1 e 4 emendadas pela D-W8-70) estão cumpridos:
+  - V1 verde e lido dos artefatos;
+  - grep da tolerância em `tests/` igual a 0, em 240 `.cpp`;
+  - zero chaves MEASURED antigas em 923 linhas;
+  - todos os vermelhos (R-G, A, B, R1, R2, M1/M2/M3 do revisor, R-a e R-b) batem com a previsão;
+  - revisão adversarial feita, e os achados dela foram tratados.
+- **TODO:**
+  - `PRESENT-EMPTY-FRAME` passa a ✅;
+  - `PARITY-SWAP-REFUSAL-GEMEO` fica resolvido pelo I2;
+  - entra na INBOX `LOOP-PARITY-700-TWIN`.
+- **Para o líder confirmar retroativamente:** D-W8-50 a D-W8-70.
+
+### 08/10/2026 01:27:18 - C2b-5: F1, F2 e F3 entregues; a linha passa a 🔍
+
+- **F1 44090997** (D-W8-61): o selftest passa de 91 para 102 controles, e os mutantes H2 a H5 morreram numa cópia fora da árvore.
+- **F2 990c05d5** (D-W8-64): os 2 casos novos foram vistos vermelhos por conteúdo antes do verde.
+- **F3 21a6cfaa** (D-W8-60, a troca `consume` para `unit`): commit próprio, reversível se a perna P-ASAN cair no ramo AMBIENTE.
+- **Provas:** `preci --fast` e `--sanitizer-only` rc 0 depois de cada fatia, `--win32-link-only` rc 0 e `cl.exe` rc 0.
+- **TODO:** `QA-SCREEN-CAPTURE` passa a 🔍, como o plano §5 item 6 manda.
+- **Próximo:** F4 (a sonda `sonda-c2b5`, com 6 pernas, e o leitor `check_c2b5.py` com selftest), depois a revisão que executa, os runs S, R e T e a observação do QA.
+
+### 08/10/2026 01:41:53 - Run S da C2b-5 (sonda-c2b5 c4f5cf12, run 37728500175): as 6 pernas batem com o §4, lidas linha a linha pelo main
+
+- **P-CTRL:**
+  - `veredito: 5 pontos da propria janela`;
+  - `probes=5 failed=0`;
+  - os dois comparadores com `differing=0`;
+  - `DRIVER_EXIT codigo=0` e ACEITO.
+- **P-SWAP:** `FAIL probe ... expected (255, 0, 0, 255) ... got (0, 0, 255, 255)`, com `failed=1` e os comparadores com `differing=0`. ACEITO.
+- **P-ALFA:** `got (127, 0, 0, 128)`. R e A ficam em {127, 128}, então o alfa chegou à sonda, como a previsão exigia. ACEITO.
+- **P-CORR:** `FAIL pixel (0,239) capture=(0, 0, 0) readback=(255, 0, 0)`, com `differing=1` e `probes failed=0`. ACEITO.
+- **P-OCL:** `veredito: OCLUIDA por classe=GlintFxCaptureOccluder`, `codigo=14 status=refused` e `checks={tool:14, readback_png:0, probes:0}`, sem captura. **A estreia do código 14 está feita.** ACEITO.
+- **P-ASAN:**
+  - igual à P-CTRL, com zero `ERROR: AddressSanitizer`;
+  - `capture_known_color_smoke` aparece na lista `-L unit`;
+  - ACEITO. **A regra da D-W8-60 caiu no ramo verde: a troca de rótulo (F3 21a6cfaa) fica.**
+- **Pisos do leitor:** `analisadas` vai de 33 a 41 e `driver_exit_presente=1` em todas as pernas.
+- **Próximo:** Run R (perna escolhida pelo revisor), push do `onda-w8` com o Run T, e a observação do QA sobre os PNG do Run T.
+
+### 08/10/2026 01:53:19 - Revisão adversarial da C2b-5 (`/var/tmp/cto-w8/rev-c2b5.md`): aprovada com ressalvas; o main manda consertar os 3 IMPORTANTES
+
+- **I-1:** o leitor não distingue a P-ASAN da P-CTRL pelo artefato. O revisor provou isso reexecutando o leitor com a saída da P-CTRL rotulada como P-ASAN, e saiu ACEITO.
+  - **Conserto:** a perna grava no artefato o `GLINTFX_SANITIZE` do CMakeCache, e a regra da P-ASAN passa a exigi-lo.
+- **I-2:** o `budgets_are_coherent` prova a relação só para o hold. Os mutantes de `PRESENT_BUDGET_MS`, `EXIT_BUDGET_MS` e `KILL_GRACE_SECONDS` sobrevivem.
+  - **Conserto:** um piso para cada um, com o porquê medido (F-1 do plano), e os mutantes do revisor mortos.
+- **I-3:** o `describe_fixture_overstay` ainda mente: diz "janela nao encontrada" quando a fixture não apresentou e a janela nem foi procurada. Além disso, o retorno de `PostMessageW` é ignorado.
+  - **Conserto:** distinguir os três casos (não apresentou, não encontrada, WM_CLOSE postado de fato).
+- **Decisão do main, sem CTO:** os três consertos restauram o critério que o próprio plano escreveu (provar a RELAÇÃO, nenhum texto que mente, a P-ASAN provada pelo artefato). Não é decisão nova de desenho.
+- **Run R:** fica para depois dos consertos. A sonda muda com o I-1, então um Run S novo é obrigatório e o Run R reproduz a P-OCL sobre ele.
+- **Cosméticos:** `ON_ABSENT` morto, `analisadas` equivalente a `has_exit` e o `// 1000`. Entram no mesmo implementador, se forem triviais.
+
+### 08/10/2026 02:09:56 - C2b-5: Run T verde e observação visual do QA APROVADA (§5 itens 4 e 5)
+
+- **Run T** (ponta 6a3fb2db, run 37728732871): `success`.
+  - `capture_known_color_smoke` deu Passed nos 4 Windows: compartilhado, estático, Debug e **ASan**, este pela primeira vez.
+  - Os artefatos `capture-out-windows-*` estão presentes nos 4.
+- **QA visual** (`/var/tmp/cto-w8/qa-c2b5-observacao.md`):
+  - **APROVADO**, com checklist K1 a K8 e R1 a R2 escrito antes de abrir as imagens;
+  - os md5 no início, no fim e o esperado da F-1 batem (captura `fc3241af...` igual nos dois mecanismos, `readback.png` `33aac7dd...`);
+  - o main conferiu que a lista de md5 do início é igual à do fim.
+- **Pendente para fechar a C2b-5:**
+  - os consertos I-1, I-2 e I-3 da revisão (em curso);
+  - a sonda de novo (por causa do I-1);
+  - o Run R da P-OCL;
+  - o CI da ponta depois dos consertos.
+  - **Os PNG não mudam com os consertos**, que só mexem no texto e nos limites da ferramenta e no leitor. A observação do QA vale, e o main confere os md5 no Run T final.
+
+### 08/10/2026 02:33:01 - C2b-5: Run S2 com as 6 pernas aceitas, a revisão aprova na rodada 2, e o Run R foi disparado
+
+- **Run S2** (ramo `sonda-c2b5` em b1113d4e, run 37732605387): `success`.
+  - O main leu as 6 pernas nos logs dos jobs. Todas dão `RESULTADO perna=...: ACEITO`.
+  - P-SWAP leu (0,0,255,255), P-ALFA leu (127,0,0,128), P-CORR leu FAIL no pixel (0,239) e P-OCL deu `codigo=14` OCLUIDA. As quatro batem com a §4.
+  - A linha `GLINTFX_SANITIZE` (conserto I-1) diz `address` na P-ASAN e vem vazia na P-CTRL e nas 4 de sabotagem.
+- **Revisão, rodada 2** (`/var/tmp/cto-w8/rev-c2b5.md`, seção "Rodada 2"): **APROVADA**.
+  - **I-2:** todos os mutantes que sobreviveram na rodada 1 morrem.
+  - **I-3:** 5 mutantes dos quatro estados da frase, todos mortos. O ramo que só existe no Windows (`PostMessageW != 0`) não tem mutante executável no Linux. Isso fica declarado.
+  - **I-1:** a P-CTRL rotulada P-ASAN agora dá FORA_DO_ACEITO; antes dava ACEITO.
+  - **Cosméticos que ficam:**
+    - o leitor aceita o prefixo `addr`;
+    - os pisos de 10 s, 6 s e 2 s são margens declaradas, não medições por fase.
+- **Run R:** `gh run rerun 37732605387 --job 113164948137` (P-OCL, tentativa 2) foi disparado às 02:32.
+- **Falta para o ✅:**
+  - o Run R ACEITO;
+  - o Run T2 (37732608077) verde, com a captura Passed nos 4 Windows e os md5 `fc3241af`/`33aac7dd` iguais aos que o QA observou.
+
+### 08/10/2026 02:37:59 - Run R da P-OCL aceito, 11 ramos descartáveis apagados no remoto, DEMO-1 em planejamento
+
+- **Run R** (tentativa 2 do run 37732605387, job 113165928970): **ACEITO**. A leitura do main e a do revisor, feitas de forma independente, batem com a linha P-OCL da §4:
+  - exit 14, OCLUIDA por classe=GlintFxCaptureOccluder, nenhuma captura tentada, fixture exit=0;
+  - checks {tool:14, readback_png:0, probes:0}, reprovados=1, GLINTFX_SANITIZE vazio;
+  - leitor com 28 regras e 0 falhas, e zero AddressSanitizer.
+  - O código 14 se repetiu igual na segunda execução.
+- **Ramos descartáveis apagados no remoto**, sob o escopo "clean" do modo autônomo. São 11: os mutantes e as sondas de PRESENT-EMPTY-FRAME, WIN-MAP-1 e C2b-4, já fechadas.
+  - A ponta de cada um ficou em `/var/tmp/cto-w8/ramos-apagados-0810.txt`, para recuperar se for preciso.
+  - Ficam o `sonda-c2b5` (até a C2b-5 fechar) e o `sonda-swap2` (até a sonda do Mesa 25.3).
+- **DEMO-1:** o CTO (opus, alto) foi despachado para pesquisar primeiro (L-43) e planejar depois. Os planos vão para `/var/tmp/cto-w8/pesquisa-demo1.md` e `plano-demo1.md`, com decisões a partir de D-W8-71.
+- **Falta para a QA-SCREEN-CAPTURE ✅:** só o Run T2 (37732608077).
+
+### 08/10/2026 02:52:24 - QA-SCREEN-CAPTURE ✅: Run T2 verde na ponta e34a0a22
+
+- **Run T2** (run 37732608077, ponta e34a0a22, com os consertos I-2 e I-3): **success** nos 26 jobs.
+  - `capture_known_color_smoke` deu Passed nos 4 Windows: compartilhado 1,27 s, estático 1,32 s, Debug 1,21 s e ASan 2,01 s.
+  - O main baixou os artefatos `capture-out-windows-*` dos 4 e conferiu os md5:
+    - a captura dá `fc3241af...` nos 2 mecanismos (bitblt e printwindow), nos 4 jobs;
+    - o `readback.png` dá `33aac7dd...` nos 4.
+  - Os md5 são os mesmos que o QA observou e aprovou. A observação visual continua valendo, porque os consertos não mudaram os PNG.
+- **Os 5 itens da §5 do plano da C2b-5 estão cumpridos:**
+  1. Run S2, com as 6 pernas aceitas;
+  2. Run R da P-OCL, aceito;
+  3. revisão aprovada na rodada 2;
+  4. Run T2 verde;
+  5. QA visual aprovado.
+- **QA-SCREEN-CAPTURE:** passa de 🔍 para ✅.
+- **Continua na INBOX, fora deste item:**
+  - CAPTURE-DRIVER-WIRING-UNTESTED, que é pré-requisito do CI-VERDE-W8 (D-W8-68);
+  - CAPTURE-DRIVER-SPLIT;
+  - CAPTURE-FIXTURE-UNDRAWN-RETRY;
+  - ASAN-CONSUME-LABEL-JUSTIFICATION.
+
+### 08/10/2026 02:53:47 - Aviso ao Gus Dragon (L-37) e limpeza local dos ramos descartáveis
+
+- **Aviso ao Gus Dragon, pela L-37:** comentário na issue #8 do bus (comment 6053343238), em linguagem para criança. Conta o fechamento de três itens de prioridade Alta: WIN-MAP-FIRST-PRESENT, PRESENT-EMPTY-FRAME e QA-SCREEN-CAPTURE. Diz também que o próximo passo é a DEMO-1, sem prometer data.
+  - **Lacuna admitida:** os dois primeiros fecharam sem aviso na hora. Este comentário cobre os três de uma vez.
+- **Limpeza, escopo "clean":**
+  - 11 cópias de trabalho descartáveis em `worktrees/`, todas limpas, removidas junto com o ramo local de cada uma;
+  - o ramo `sonda-c2b5` apagado no remoto, porque a C2b-5 fechou;
+  - as pontas de todos ficaram em `/var/tmp/cto-w8/ramos-apagados-0810.txt`.
+  - Ficam `infra-preci` (não é desta onda, e não mexi) e `sonda-swap2` (sonda do Mesa 25.3).
+
+### 08/10/2026 03:02:39 - DEMO-1: pesquisa e plano do CTO, decisões D-W8-71 a D-W8-79
+
+- **Pesquisa (L-43, antes do plano):** `/var/tmp/cto-w8/pesquisa-demo1.md`, md5 `d6bbd376...`. Cobre SDL3, raylib, sokol e RmlUi.
+  - Nenhuma dessas bibliotecas executa o exemplo no CI e confere o pixel.
+  - Nenhuma instala o exemplo por padrão.
+- **Plano:** `/var/tmp/cto-w8/plano-demo1.md`, md5 `35afe97d...`. São 8 fatias em 9 commits, com 18 critérios de fechamento (§4) e 12 vermelhos pré-registrados (§5).
+- **Decisões do CTO em modo autônomo** (o líder confirma retroativamente):
+  - **D-W8-71:** a pasta `examples/` usa um único `CMakeLists.txt` dentro e fora da árvore. Exemplo não é instalado. A raiz falha alto se a opção estiver ligada e a pasta faltar. É uma porta de mão única fraca: o nome da opção.
+  - **D-W8-72:** a cena foi pré-registrada: fundo cinza, azul por camada sobre o vermelho, branco translúcido e um quadrado verde que anda. Os valores esperados saem da fórmula do sRGB, nunca da saída do programa.
+  - **D-W8-73:** o contrato é `first_window [--frames N]`, com uma linha de prontidão e saída 0, 1 ou 2. A ferramenta do Windows ganha `--ready-line`.
+  - **D-W8-74, Linux:** o container constrói o exemplo contra o pacote instalado, e o contador de alocação entra pelo aparato de construção.
+  - **D-W8-75, Windows:** a foto é do binário da árvore nos 4 trabalhos, e o alfa é ausência contada.
+  - **D-W8-76:** portão de consumo `check_examples_consume.py` nos dois sistemas. Ele constrói e nunca executa.
+  - **D-W8-77:** quem embute o GlintFx não recebe exemplos, e isso é provado pelo cache.
+  - **D-W8-78:** a interoperação com GL cru vai para um exemplo próprio, fora da DEMO-1.
+  - **D-W8-79:** relógio fixo de 60 quadros por segundo, N=30 na prova do Linux, tolerâncias 0, 1 e 2.
+- **Para o líder, não decidido:**
+  1. **Leitura da L-32:** "a demo verde", que libera o teto de trilha paralela e as linhas congeladas em 27/08, quer dizer a DEMO-1 em ✅ pelo §4. As linhas NÃO são liberadas sem o líder.
+  2. **Licença:** o exemplo fica AGPL-3.0 (L-08). O SDL usa domínio público nos exemplos dele; trocar a licença é escolha do líder.
+- **Verificação do main:**
+  - os md5 batem com o relatório;
+  - `renderer_2d_impl.cpp:132-138` mostra mesmo a codificação da limpeza;
+  - `plano-w8-v2.md:297-298` são mesmo as linhas D1 e D2 que o plano substitui.
+- **Próximo:** ataque adversarial ao plano (qa-engineer sonnet, `/var/tmp/cto-w8/ataque-plano-demo1.md`) antes da D1.
+
+### 08/10/2026 03:22:08 - DEMO-1: ataque ao plano com 0 achados que derrubam desenho e 12 importantes; o CTO faz o v2
+
+- **Ataque** (qa-engineer sonnet; relatório `/var/tmp/cto-w8/ataque-plano-demo1.md`, md5 `71d8b487...`):
+  - nada foi executado;
+  - o plano ficou congelado do início ao fim, md5 `35afe97d` nas duas pontas.
+- **Placar (examinadas/verificáveis/suspeitas):**
+  - decisões 9/9/5, fatias 9/9/7, critérios 18/18/9 e vermelhos 12/12/5;
+  - citações 52/52/3: 49 batem, 3 estão off-by-one ou parciais.
+- **Os principais achados importantes:**
+  - **A2:** as sondas do quadro 30 aceitam qualquer quadro de 23 a 38.
+  - **A3:** `exec_fixture.sh` não tem `timeout`, e um exemplo que não sai penduraria o job.
+  - **A4:** o portão de ligação MSVC não enumera `first_window`, então o "rc 0" do critério 12 é vácuo.
+  - **A5:** a D5a não tem vermelho.
+  - **A6:** são 24 sítios com `cmake -S`, não 21, e há forma em lista Python que escapa do `grep`.
+  - **A10:** o piso de 10 imagens aceita imagens da fumaça no lugar das da demo.
+  - **V-10:** reprova antes do lugar previsto (`ci.yml:1946`).
+- **O main conferiu na árvore A3, A6 e V-10,** e os três batem.
+- **Destino:** o CTO (o mesmo agente, retomado) escreve `/var/tmp/cto-w8/plano-demo1-v2.md`, tratando cada achado como aceito ou recusado com evidência. Decisões novas seguem de D-W8-80 em diante.
+  - Os critérios e os vermelhos só mudam porque o ataque achou furo, e ainda não há dado nenhum (L-43).
+
+### 08/10/2026 03:28:49 - DEMO-1: plano v2 aceito pelo main, D-W8-80 a D-W8-90, e a D1 despachada
+
+- **Plano v2:** `/var/tmp/cto-w8/plano-demo1-v2.md`, md5 `bc97949f...`, texto completo. O v1 continua intacto (`35afe97d`).
+- **Os 20 achados do ataque foram aceitos e nenhum recusado.** Três foram aceitos com variante: A5, A11 e A13.
+- **Decisões novas do CTO em modo autônomo** (o líder confirma retroativamente):
+  - **D-W8-80:** o último quadro é provado por borda exata. Só o quadro 30 passa; o V-13 prova que 29 e 31 reprovam.
+  - **D-W8-81:** o driver Linux tem orçamento de 60 s, com `timeout`.
+  - **D-W8-82:** a compilação pelo `cl.exe` é explícita, e a lacuna do portão de ligação vai para a INBOX.
+  - **D-W8-83:** a unidade pura `window_capture_options`.
+  - **D-W8-84:** a passada que conta os alvos de exemplo.
+  - **D-W8-85:** CAPTURE-DRIVER-WIRING-UNTESTED fecha na D2a.
+  - **D-W8-86:** o ramo `find_package` nasce na D6-red.
+  - **D-W8-87:** a função do padrão fica ao lado do `option()`, testada por configure aninhado.
+  - **D-W8-88:** um arquivo de exemplo com seção delimitada. Se o revisor divergir, vai ao líder.
+  - **D-W8-89:** nasce `tests/examples_tests.cmake`.
+  - **D-W8-90:** cada artefato de captura ganha um diretório por exemplo.
+- **Porte:** 10 fatias em 11 commits, 19 critérios e 17 vermelhos. Os critérios e vermelhos mudaram só pelo ataque e ficaram iguais ou mais estritos (L-43).
+- **Conferência do main:**
+  - o md5 do v2 bate;
+  - a tabela de achados tem 20 linhas;
+  - a linha D1 do §3 traz a enumeração em três varreduras com `encontrados - decididos = 0`.
+- **TODO.md (§9 do v2):**
+  - DEMO-1 passa a 🔄 e cita o v2;
+  - destino do `DRAW2D-RAW-GL-INTEROP-DOC`;
+  - CAPTURE-DRIVER-WIRING-UNTESTED fecha na D2a;
+  - CAPTURE-DRIVER-SPLIT ganha nota da D4;
+  - INBOX nova: `WIN32-LINK-GATE-EXAMPLES`.
+- **D1:** despachada para um backend-engineer sonnet. O commit tem de sair até 04:40 por causa da pausa ordenada das 05:00. Sem commit, o agente para e relata.
+
+### 08/10/2026 03:50:26 - DEMO-1, D1 entregue em a653e3f4; revisão e CI da ponta em voo
+
+- **D1** (devops-sre sonnet): commit `a653e3f4`, com 20 arquivos (+320/-19).
+  - Os dois vermelhos foram vistos antes do verde: a função ausente e a variável ausente no cache de quem embute.
+  - Em container, `examples_option_default_test` e `embed_test` passaram, 2 de 2, e o configure imprimiu `exemplos diretorios=0 alvos_tratados=0`.
+  - `preci --fast`: rc 0, com 307 declarados, 306 passaram e 1 pulado.
+  - Enumeração A6: `encontrados=86 decididos=86 passam_off=19`.
+- **Conferência do main:**
+  - `git show --stat` mostra os 20 arquivos, e a árvore ficou limpa;
+  - os logs `/var/tmp/d1/preci-fast.log` (0 falhas) e `container-green.log` (a linha da passada) batem com o relatório;
+  - a função `glintfx_examples_default` (`cmake/GlintfxOptions.cmake:64-77`) está ao lado do `option()` que a chama, como manda a D-W8-87.
+- **Pontos para o revisor:**
+  - `check_dep_zero_trace.py` não passa OFF;
+  - `tests/examples_tests.cmake` pode ficar invisível aos portões que leem `tests/CMakeLists.txt` por texto;
+  - o V-8 contra o mutante.
+- **INBOX nova:** `EXAMPLES-UNLISTED-DIR-MESSAGE` (a mensagem errada para uma pasta de exemplo não listada).
+- **Em voo:**
+  - push de `a653e3f4` (ls-remote confere);
+  - CI da ponta, run 37739785623;
+  - revisão adversarial (qa-engineer sonnet, `/var/tmp/cto-w8/rev-d1.md`), com prazo até 04:45 por causa da pausa das 05:00.
+
+### 08/10/2026 04:00:07 - D1 da DEMO-1: revisão APROVADA COM RESSALVAS; consertos com o CTO
+
+- **Revisão** (qa-engineer sonnet, `/var/tmp/cto-w8/rev-d1.md`, sobre `a653e3f4`): **APROVADA COM RESSALVAS**.
+  - O V-8 foi provado nas duas metades: o mutante "sempre ON" reprova o fixture e o `embed_test`, e o `option()` fixo só o `embed_test` pega.
+  - A enumeração A6 foi reproduzida: 86/86/19, com diferença 0.
+  - `check_dep_zero_trace` sem OFF foi aprovado.
+- **Achados:**
+  - **I-1:** o mutante "`n != m` não fatal" sobrevive. O ramo "`examples/` faltando" não tem teste.
+  - **I-2:** a contagem compara diretórios com executáveis. Com 2 executáveis sai a mensagem errada, e um `add_executable` direto fica sem `-Werror` e sem sanitizador.
+  - **I-3:** um teste em `tests/examples_tests.cmake` escapa de `check_ctest_parallel_policy.py`, e o `check_selftest_orphan.py` dá falso órfão. O main conferiu: o portão lê só `tests/CMakeLists.txt` (`check_ctest_parallel_policy.py:16`).
+  - O comando de varredura do §3 precisa de `git grep -e`; o número não muda.
+- **Incidente do revisor, registrado como ele relatou:** ele rodou `blob_selftests.py --root` no hospedeiro. Isso executou selftests por alguns segundos dentro de `bwrap`, incluindo o de `tools/win-vm-lab/sessao.sh`. Ele interrompeu e conferiu que não restou processo nem VM, e o main conferiu também: nenhum processo de VM vivo.
+  - Foi um desvio da L-09: selftest sem janela nem entrada, mas fora do container.
+- **Destino:** o CTO decide os consertos (D-W8-91 em diante) até 04:35, numa errata `plano-demo1-v2-errata1.md`. A implementação fica para depois da pausa das 05:00. A D1 continua sem aceite final do main até os consertos.
+
+### 08/10/2026 04:04:23 - DEMO-1: errata 1 do CTO (D-W8-91 a D-W8-93) e a D1-fix-a despachada
+
+- **Errata:** `/var/tmp/cto-w8/plano-demo1-v2-errata1.md`, md5 `85105c27...`. O v2 continua intacto.
+- **D-W8-91 (I-3):** **revoga a D-W8-89.** O teste volta para `tests/CMakeLists.txt`, `tests/examples_tests.cmake` é apagado, e nasce o portão `check_single_test_registry.py`.
+  - Esse portão reprova qualquer `add_test` fora do registro, exceto a função `glintfx_add_test` (`cmake/GlintfxTest.cmake:109`) e os projetos independentes.
+  - O vermelho de estreia é V-18: o portão rodado sobre o blob `a653e3f4`.
+  - A divisão do registro vai para a INBOX `TESTS-REGISTRY-SPLIT`.
+- **D-W8-92 (I-2, C-1, C-2):** a passada trata TODO executável da subárvore, recursivamente. Há três regras com `FATAL_ERROR` e mensagem própria (pasta não alcançada, pasta sem executável e executável na raiz), e a linha impressa passa a ser `diretorios/alcancados/executaveis_tratados`.
+- **D-W8-93 (I-1):** `examples_pass_test`, com 7 plantas configuradas sem a biblioteca, e o resultado de cada uma escrito antes. O vermelho previsto contra a passada atual é 3 plantas reprovando e 4 passando (V-19).
+- **Porte novo:** 12 fatias em 13 commits. A D1-fix-a e a D1-fix-b vêm antes da D2a.
+- **Conferência do main:**
+  - `check_selftest_orphan.py:51` diz "o unico registro de ctest";
+  - `cmake/GlintfxTest.cmake:109` é o `add_test` dentro da função;
+  - `tests/tools/cmake_lexer.py` existe.
+- **TODO:**
+  - INBOX nova: `TESTS-REGISTRY-SPLIT`;
+  - `EXAMPLES-UNLISTED-DIR-MESSAGE` ganha nota: fecha na D1-fix-b.
+- **D1-fix-a:** despachada para um devops-sre sonnet, com prazo duro às 04:40 por causa da pausa das 05:00.
+
+### 08/10/2026 04:16:52 - CI da D1 (a653e3f4) verde
+
+- **Run 37739785623:** `success`. São 25 de 25 jobs, mais 1 pulado por desenho (VERSION-TAG-SYNC).
+- **No Windows:**
+  - o configure imprime `glintfx: exemplos diretorios=0 alvos_tratados=0`;
+  - `embed_win_test` deu Passed no compartilhado, no estático e no Debug, em 85 a 86 s. O ASan não roda `consume`, por desenho.
+- **Limite honesto:** o ctest esconde a saída de teste que passa. Por isso a linha nova da asserção do `check-embed.ps1` não aparece no log. Fica provado só que o teste passou, não que a asserção nova rodou. A prova de que ela morde no Windows continua aberta, como o revisor já declarou ("não examinado").
+
+### 08/10/2026 04:17:51 - D1-fix-a entregue em d4640108; revisão e CI despachados
+
+- **D1-fix-a** (devops-sre sonnet): commit `d4640108`, com 4 arquivos (+322/-34).
+  - **Vermelhos:**
+    - o autoteste reprovou antes do portão;
+    - o portão sobre o blob `a653e3f4` reprovou, como manda o V-18, com `tests/examples_tests.cmake:21: add_test(examples_option_default_test) fora de tests/CMakeLists.txt` e `arquivos_varridos=37 excluidos=7 registros_fora=1`.
+  - **Verde:**
+    - autoteste com 12 controles;
+    - ctest em container, 7 de 7;
+    - a árvore real dá `36/7/0`;
+    - `preci --fast` rc 0, lido do arquivo `preci-fast.rc`.
+- **Desvios declarados, para o revisor e o CTO:**
+  - o teste real ganhou o rótulo `consume` em vez de `unit`, porque depende do git e da árvore;
+  - o universo inclui os arquivos não rastreados e não ignorados;
+  - a inferência sobre `project(` tinha dois buracos, e os dois foram fechados: a raiz nunca é excluída, e os `*.cmake` do diretório excluído também ficam fora.
+- **Lacuna aberta para a D6 (CTO):** um subdiretório com `project(` alcançado por `add_subdirectory` fica excluído, e é exatamente o caso de `examples/`. A correção é uma exclusão por caminho, explícita e impressa, e deve entrar antes da D6.
+- **Registro do main** ("CI da D1 verde", das 04:19) fica neste mesmo commit. Ele tinha sido recusado pelo `check_spdx` porque o arquivo apagado pela D1-fix-a ainda estava no índice. Não usei `--no-verify`; esperei o commit do agente.
+
+### 08/10/2026 04:21:08 - Revisão da D1-fix-a: APROVADA COM RESSALVAS; consertos do autoteste em voo
+
+- **Revisão** (qa-engineer sonnet, `/var/tmp/cto-w8/rev-d1fixa.md`, sobre `d4640108`): APROVADA COM RESSALVAS, sem achado CRÍTICO.
+  - A sabotagem real (`add_test` em `tests/sab.cmake`) reprova nomeando o arquivo e a linha.
+  - A árvore dá `36/7/0`.
+  - O rótulo `consume` roda no job linux do servidor, que executa o ctest sem filtro (`ci.yml:605-620`).
+- **Mutantes:** M1, M3, M3b, M4, M5 e M7 morreram. Sobreviveram:
+  - M6 (`strip_comments` removido), porque o controle de comentário é vazio;
+  - M8 (universo sem `*.cmake`), porque o autoteste nunca exercita `git_universe`;
+  - M2 e M9, cosméticos.
+- **Consertos de M6 e M8:** o implementador da D1-fix-a foi retomado para fazê-los, com prazo até 04:47 por causa da pausa das 05:00.
+- **Lacuna confirmada com planta,** e já esperada: `project(` + `add_subdirectory`. Virou o item da INBOX `SINGLE-REGISTRY-REACH`, e o CTO decide antes da D6.
+- **CI da ponta b6897836** (run 37742576202) estava em voo.
+
+### 08/10/2026 04:31:33 - D1-fix-a, I-1 e I-2 consertados em d8363ae7; o main reexecutou o M6
+
+- **Commit `d8363ae7`:** o autoteste do portão passa de 12 para 15 controles.
+  - **I-1:** `add_test(` no início de uma linha dentro de um bloco `#[[ ]]`.
+  - **I-2:** um teste direto de `_UNIVERSE_RE` e um repositório git de fixture que exercita `git_universe`.
+  - Segundo o implementador, M6 e M8 reprovam numa cópia; os logs estão em `/var/tmp/cto-w8/d1fixa/`. Em container, os testes do portão passaram 2 de 2, e o `preci --fast` deu rc 0.
+- **Reexecução do main (L-12),** sobre o blob `d8363ae7` extraído para `/var/tmp/main-chk-d1fixa/`:
+  - o original dá "os 15 controles OK", com rc 0;
+  - o M6 (`strip_comments` → `return text`) dá rc 1, com 2 FALHOU, e reprova exatamente no controle novo do bloco `#[[ ]]`.
+  - Rodou no hospedeiro sobre CÓPIA, como autoteste Python sem janela nem entrada: é o downgrade da L-09.
+- **D1-fix-a aceita pelo main.** Os mutantes M2 e M9 (cosméticos) e a lacuna `SINGLE-REGISTRY-REACH` ficam registrados.
+- **Próxima fatia:** D1-fix-b, depois da pausa.
+
+### 08/10/2026 04:59:09 - CI da ponta 352e306e verde; PAUSA ordenada pelo líder às 05:00
+
+- **Run 37743982637** (ponta `352e306e`, com D1, D1-fix-a e os consertos I-1 e I-2): `success`. São 25 de 25 jobs, mais 1 pulado por desenho.
+  - No Fedora, `examples_option_default_test`, `single_test_registry_test` e `single_test_registry_selftest` deram Passed.
+  - O run 37742576202 (ponta `b6897836`) foi cancelado pela concorrência do CI. Até o corte, 21 jobs estavam verdes e nenhum tinha falhado.
+- **Pausa** pela ordem do líder ("pausa quando for 07/10/2026 05:00 AM", confirmada como 08/10 às 05:00):
+  - tudo commitado foi empurrado;
+  - a memória da sessão foi atualizada;
+  - o arquivo `parada_do_lider` foi escrito;
+  - o monitor foi desligado.
+  - Nenhum agente nem trabalho pesado ficou rodando.
+- **Na retomada:** a D1-fix-b (D-W8-92 e D-W8-93) da DEMO-1.
+
+### 08/10/2026 05:16:19 - Duas respostas do líder, por AskUserQuestion, na pausa
+
+- **L-32:** a pergunta foi se "a demo verde" quer dizer a DEMO-1 em ✅. Resposta dele, verbatim: *"Sim, DEMO-1 em ✅ (Recomendado)"*.
+  - Ficou registrado no corpo da L-32, em `GODS_LAWS.md`, como precisão dada por ele.
+  - O teto da trilha paralela e o congelamento de 27/08 caem quando a DEMO-1 fechar pelos critérios do plano. Nada é liberado antes disso.
+- **Licença do exemplo:** resposta verbatim: *"AGPL-3.0, como tudo (Recomendado)"*. O exemplo da DEMO-1 segue a L-08, sem exceção.
+- **Continua pendente:** a confirmação retroativa das decisões D-W8-36 a D-W8-93.
+
+### 08/10/2026 13:47:33 - Retomada ordenada pelo líder; a D1-fix-b é a primeira fatia com trabalhador em haiku
+
+- **Ordem do líder, verbatim:** *"pode continuar a trabalhar"*. O arquivo `parada_do_lider` foi apagado.
+- **Modelo dos trabalhadores trocado pelo líder, pela LEI DAS LEIS** (emenda à LEI ZERO em `~/.claude/GODS_LAWS.md`, verbatim *"haiku 5.5 padrao. ele está muito bom e quero testar"*): implementador e revisor operacional em `haiku`, esforço `high`; C-levels em `opus`, `high`.
+- **Régua do teste do haiku, escrita antes do dado (L-06, L-43 global):** em cada fatia, conto
+  - rodadas de revisão até o aceite;
+  - achados CRÍTICOS e IMPORTANTES da revisão;
+  - mutantes que sobrevivem;
+  - `preci --fast` com rc 0 na primeira tentativa (sim ou não);
+  - desvios do briefing que voltam ao CTO.
+  - **Linha de base (sonnet, D1-fix-a):** 1 rodada; APROVADA COM RESSALVAS, sem CRÍTICO; consertos I-1 e I-2; M2 e M9 cosméticos sobreviveram; `preci --fast` rc 0.
+- **Pré-condição da previsão de vermelho conferida:** `git log a653e3f4..HEAD -- cmake/GlintfxExamples.cmake CMakeLists.txt` volta vazio. A previsão "3 reprovam, 4 passam" continua válida.
+- **Prazo:** o modo autônomo vence hoje às 22:51:57. Push depois disso exige ordem nova.
+
+### 08/10/2026 14:00:12 - D1-fix-b parada no vermelho: desfecho diferente da previsão; volta ao CTO
+
+- **Medido em container:** `plantas=7 conferidas=7 falharam=6`. Só `sem_examples` passou. A previsão era 3 reprovando e 4 passando.
+- **Causa, conferida pelo main:** a passada atual lê `PROJECT_SOURCE_DIR` (`cmake/GlintfxExamples.cmake:24,59,62,65`). Dentro do projeto de plantas esse diretório é `tests/examples_pass/`, que não tem `examples/`. A previsão foi escrita contra a passada sem argumentos, a partir das plantas que a `rev-d1.md` configurou pela raiz.
+- **O implementador (haiku) parou como mandava o briefing**, sem commit e sem consertar a previsão. Desvios que ele mesmo declarou:
+  - um `cat >` caiu na raiz do repositório; ele restaurou a raiz e confirmou a árvore limpa;
+  - o filtro do ctest chegou vazio ao container e a suíte inteira rodou. Quem apontou foi o main, pela lista de processos, e o implementador consertou;
+  - sobrou resíduo com dono root em `out-red`.
+- **Destino:** o CTO decide numa errata 2 (`plano-demo1-v2-errata2.md`). O trabalho não commitado fica na árvore até a decisão.
+
+### 08/10/2026 14:01:42 - Modo autônomo renovado pelo líder
+
+- **Ordem, verbatim:** *"ligue modo autonomo"*. A janela vai até 09/10/2026 14:01:34, com os escopos push e clean. A anterior vencia hoje às 22:51:57.
+
+### 08/10/2026 14:08:35 - Errata 2 do CTO (D-W8-94 a D-W8-97) aceita pelo main; D1-fix-b partida em b1 e b2
+
+- **Errata:** `/var/tmp/cto-w8/plano-demo1-v2-errata2.md`, md5 `625739ad99b2a9c3ed941b1dd06a2620`.
+- **D-W8-94:** a D1-fix-b vira dois commits:
+  - **b1:** refactor puro; a passada recebe as raízes de fonte e de construção;
+  - **b2:** as regras, a caminhada recursiva e o teste de plantas.
+  - O vermelho é medido contra b1. O CTO rejeitou o artifício na planta (A) e o 6/1 como vermelho (B).
+- **D-W8-95 a D-W8-97:** ajustes no teste antes do vermelho:
+  - uma 8ª planta, `aninhado`;
+  - `GLINTFX_SANITIZE` e `GLINTFX_WERROR` definidos explicitamente no projeto de plantas;
+  - normalização de espaço na comparação de mensagens.
+- **Previsão nova, escrita antes de b1:** `plantas=8 conferidas=8 falharam=7`, conferida planta a planta. Só `sem_examples` passa, e só o log dela pode conter `does not exist`. O 6/1 das 13:59 fica registrado como o mutante "argumento ignorado".
+- **Correção do CTO à hipótese do main:** a opção (C) também não dava o 3/4 previsto, porque o teste confere a linha e as mensagens novas, que nenhuma passada antiga imprime.
+- **Conferência do main:** a ordem, os portões de b1 e os mutantes de b2 são coerentes. Uma imprecisão: o portão (c) de b1 compara o md5 com o blob de b1, que só existe depois do commit. Fica como verificação pós-commit, e o vermelho é medido antes.
+- **Contagem:** 12 fatias em 14 commits, 9 vermelhos. As decisões para o líder confirmar retroativamente passam a ser D-W8-71 a D-W8-97.
+
+### 08/10/2026 14:43:02 - D1-fix-b entregue em 9820e5ea (b1) e bd017456 (b2); CI e revisão despachados
+
+- **Segundo o implementador (haiku):**
+  - o vermelho contra b1 bateu tupla a tupla com a errata 2: `plantas=8 conferidas=8 falharam=7`, e `does not exist` só no log de `sem_examples`;
+  - os 6 mutantes de b2 mataram exatamente as plantas previstas;
+  - o verde de b2 deu `falharam=0`;
+  - `preci --fast` deu rc 0 em b1 e em b2 (rodado no hospedeiro, downgrade da L-09 até PRECI-IN-CONTAINER).
+- **Conferência do main:**
+  - b1 tem 2 arquivos, sem nenhuma leitura de `PROJECT_*` nem `CMAKE_*_DIR` no código;
+  - b2 tem 25 arquivos, todos do escopo;
+  - a árvore está limpa.
+- **Push** de `onda-w8` para `bd017456`, provado por `ls-remote`. **CI:** run 37818621936.
+- **Revisão adversarial** despachada a um qa-engineer em haiku, com mutantes próprios: `/var/tmp/cto-w8/rev-d1fixb.md`.
+- **Régua do haiku (implementação):**
+  - 2 voltas ao CTO, e as duas vieram de erro de previsão do plano, não de código;
+  - o `preci` deu rc 0 de primeira em b1 e em b2;
+  - desvios próprios declarados: o `cat >` na raiz, um instrumento de grep falso que ele mesmo achou e uma contagem chutada que o guarda recusou;
+  - mais o filtro vazio do ctest, que foi o main que pegou.
+
+### 08/10/2026 14:58:16 - Revisão da D1-fix-b: REPROVADA; o C1 foi conferido pelo main e volta ao CTO
+
+- **Revisão** (qa-engineer em haiku, `/var/tmp/cto-w8/rev-d1fixb.md`): REPROVADA.
+  - **C1, CRÍTICO:** um executável posto em `examples/grupo/exemplo/`, adicionado por `add_subdirectory(grupo/exemplo)`, é construído sem o tratamento, e a saída fica verde.
+  - **IMPORTANTES:** I1, I2, I3 e I5. **COSMÉTICOS:** K1 a K3.
+  - Dos mutantes do revisor, 2 morreram e 4 sobreviveram, mais 1 equivalente.
+  - O revisor também confirmou: as mensagens saem exatas, b1 é refactor puro e os 7 testes em container passaram.
+- **Conferência do main, com sabotagem própria lida no log:** a sonda `probes/grupo_misto` imprime `diretorios=1 alcancados=1 executaveis_tratados=1` com rc 0, embora tenha dois executáveis. A causa é o desenho da D-W8-92 (a caminhada parte do glob), não o código do implementador.
+- **Destino:** o CTO decide numa errata 3 (D-W8-98 em diante). A entrega será um commit novo por cima de `bd017456`, que já está publicado.
+- **Régua do haiku:**
+  - na implementação, 1 rodada de revisão até aqui, REPROVADA;
+  - o CRÍTICO é de desenho do plano;
+  - I3 (a comparação por substring) e K3 vêm do driver escrito pelo implementador;
+  - como revisor, o haiku achou o C1, que nem o plano nem o implementador viram.
+
+### 08/10/2026 15:13:18 - Errata 3 do CTO (D-W8-98 a D-W8-105) aceita pelo main; D1-fix-c despachada
+
+- **Errata:** `/var/tmp/cto-w8/plano-demo1-v2-errata3.md`, md5 `58f74c1f65462039a03f213fc7e65d5f`.
+- **C1:** a passada parte do grafo (`SUBDIRECTORIES` de `examples/`). Uma regra 4 recusa entrada que não seja filha direta. A ordem passa a ser 1, 4, 2, 3.
+- **Regra 1 recursiva**, que nomeia o `CMakeLists.txt` onde falta o `add_subdirectory` (fecha o I2).
+- **`alcancados` com medida própria** (fecha o K1).
+- **Prova do tratamento** pela File API do CMake, com uma régua calibrada a cada execução (fecha o L1 em parte). A V-14 e a V-16 continuam valendo.
+- **Driver:** comparação exata e contagem de erros do CMake (fecha I1 e I3).
+- **Três plantas de ordem** (fecha o I5).
+- **K2** vai para a INBOX `EXAMPLES-GRAPH-EDGES`. K3 e K4 ficam aceitos.
+- **Passo 0:** uma sonda em container antes do código.
+- **Vermelho previsto** contra `bd017456` com o teste novo: `plantas=13 conferidas=13 falharam=4`.
+- **Entrega:** commit novo D1-fix-c por cima do HEAD.
+- **Conferência do main:**
+  - o `cmake_file_api()` exige CMake 3.27; o projeto pede 4.1 e as plantas pedem 3.28, então serve;
+  - a regra 4 restringe só a árvore `examples/` do próprio repositório; consumidor nenhum é afetado.
+- **CI do `bd017456`:** run 37818621936, `success`, com 25 jobs verdes e 1 pulado. Esse verde não cobre o C1.
+
+### 08/10/2026 15:34:40 - D1-fix-c entregue em 60bcb4e5; push, CI e re-revisão despachados
+
+- **Segundo o implementador (haiku):**
+  - o passo 0 confirmou as quatro inferências;
+  - o vermelho contra `bd017456` bateu tupla a tupla: `plantas=13 conferidas=13 falharam=4`;
+  - o verde deu 13 de 13, com `modelo: executaveis=4 tratados=4 calibracao=ok`;
+  - dos 18 mutantes, 16 mataram exatamente o esperado; M1 e M8 foram comparados sobre a linha de base de `bd017456`; H1 derruba a calibração;
+  - `preci --fast` deu rc 0 (rodado no hospedeiro, downgrade da L-09 até PRECI-IN-CONTAINER).
+  - Desvios declarados: D-16 a D-23.
+- **Conferência do main:**
+  - 29 arquivos;
+  - nenhuma leitura de `PROJECT_*` nem `CMAKE_*_DIR` no código;
+  - o commit de rascunho `6da735e0` não existe no repositório;
+  - a árvore está limpa.
+- **Push** de `onda-w8` para `60bcb4e5`, provado por `ls-remote`. **CI:** run 37825297444.
+- **Re-revisão** pelo mesmo revisor da primeira rodada (L-12: ele não é o implementador), com os achados dele de volta, os desvios D-16 e D-17 a julgar e mutantes novos: `/var/tmp/cto-w8/rev-d1fixc.md`.
+
+### 08/10/2026 15:45:15 - Re-revisão da D1-fix-c: APROVADA COM RESSALVAS; os consertos vão para a D1-fix-d
+
+- **Re-revisão** (`/var/tmp/cto-w8/rev-d1fixc.md`, sobre `60bcb4e5`):
+  - C1, I1, I2, I3, I5 e K1 foram fechados por execução;
+  - o K2 está na INBOX `EXAMPLES-GRAPH-EDGES`;
+  - dos 25 mutantes, morreram todos menos Q2, Q5, H2 e `M_R4_ABS_OFF`;
+  - 7 de 7 testes em container passaram.
+- **Ressalvas:**
+  - **R1 (IMPORTANTE):** a fronteira de separador no leitor do modelo não tem planta;
+  - **R2 e R3 (cosméticos):** o texto absoluto da regra 4 e a exclusão de `CMakeFiles` não têm prova;
+  - **C2:** o texto da INBOX está errado;
+  - **C4:** a justificativa do D-16 está errada no relatório, mas o código está certo.
+- **Decisão do main:** como na D1-fix-a, IMPORTANTE se conserta antes do aceite. R1, R2, R3 e C2 vão num commit novo D1-fix-d, que o mesmo implementador faz. O H2 e o Q2 ficam registrados como lacunas aceitas.
+- **Limites que o revisor não mediu:** MSVC/Windows, gerador multi-config, e o modelo só roda nas plantas. Quem cobre o Windows é o CI.
+
+### 08/10/2026 16:01:09 - D1-fix-d aceita pelo main em da0dc1b2; D1-fix-b fechada; D2a despachada
+
+- **D1-fix-d** (`da0dc1b2`, 16 arquivos, só testes e INBOX):
+  - três plantas novas, `fronteira_separador`, `fora_topo` e `cmakefiles_ignorado`;
+  - Q5, `M_R4_ABS_OFF` e Q2 morrem, cada um só na planta dele;
+  - o texto da INBOX `EXAMPLES-GRAPH-EDGES` foi corrigido;
+  - modelo: `executaveis=6 tratados=6 calibracao=ok`;
+  - ctest em container 8/8, `preci --fast` rc 0 (downgrade da L-09).
+- **Conferência do main:**
+  - li o log do Q5: `plantas=16 conferidas=16 falharam=1`, só em `fronteira_separador`;
+  - o fixture de `CMakeFiles/` (pasta que o `.gitignore` ignora) está no blob: `git ls-tree` mostra os 4 arquivos de `cmakefiles_ignorado`;
+  - nada ficou ignorado fora do commit.
+- **Lacuna aceita:** o H2 (a guarda única da calibração) sobrevive.
+- **Push** para `da0dc1b2`, provado por `ls-remote`. **CI:** run 37828619235. **CI da D1-fix-c:** run 37825297444, `success`, com 25 jobs verdes e 1 pulado, incluindo os 5 Windows e a paridade.
+- **A D1-fix-b está fechada:** `9820e5ea`, `bd017456`, `60bcb4e5` e `da0dc1b2`.
+- **Próxima:** a D2a (`CAPTURE-DRIVER-WIRING-UNTESTED`), despachada a um devops-sre novo em haiku. Briefing em `/var/tmp/cto-w8/briefing-d2a.md`.
+
+### 08/10/2026 16:28:38 - CI vermelho na da0dc1b2: as 3 etapas Windows falham na planta fora_topo; conserto D1-fix-e despachado
+
+- **Run 37828619235** (`da0dc1b2`): `failure`. Falharam `Windows - estatico`, `Windows - compartilhado` e `Windows - Debug`, todos em `examples_pass_test`, com `plantas=16 conferidas=16 falharam=1` (`fora_topo`, "mensagem esperada ausente").
+- **Causa, conferida pelo main no código:** `tests/tools/check_examples_pass.py:208`, `absolute_matches`, exige `middle.startswith("/")`. No Windows o caminho absoluto começa com a letra da unidade (`D:/`). O produto está certo (rc 1, um erro só). O defeito é do teste da D1-fix-d e fere a L-04.
+- **Por que o container não pegou:** ele só tem caminhos POSIX. A paridade só o CI prova (memória `feedback_metade_provada_vira_provado`).
+- **Conserto D1-fix-e:** despachado ao mesmo implementador (haiku), com ordem detalhada passo a passo, como o líder mandou. Ele só toca o driver. A raiz passa a ser aceita como `(/|[A-Za-z]:/)` por um único código, sem ramo por sistema, com caso vermelho `D:/` e mutante.
+- **Ordem nova do líder, das 16:12, verbatim:** *"as intrucoes ao haiku devem ser muito bem detalhadas"*. Foi registrada na L-18 global e aplicada à D2a em voo, por um complemento com os comandos exatos.
+
+### 08/10/2026 16:31:51 - D2a entregue em eed653f5 e D1-fix-e em 80db83e7; push, CI e revisão da D2a despachados
+
+- **D2a** (`eed653f5`, 3 arquivos), segundo o implementador (haiku):
+  - os cinco mutantes de R4-A morreram, cada um numa cópia, nos controles 13 a 16;
+  - o autoteste foi de 11 para 16 controles (`tests/CMakeLists.txt:6510`);
+  - nenhum defeito real no driver;
+  - ctest em container 2/2, `preci --fast` rc 0 (downgrade da L-09).
+  - Observação fora da fatia, a conferir na revisão: `one_mode` não para o relé se `wait_for_socket` falha.
+  - Pergunta dele: promover `CAPTURE-DRIVER-WIRING-UNTESTED` da lista INBOX para a tabela.
+- **D1-fix-e** (`80db83e7`, só o driver):
+  - a raiz aceita é `(/|[A-Za-z]:/)`;
+  - o caso `D:/` foi visto vermelho e depois verde;
+  - o mutante `startswith("/")` foi pego;
+  - `plantas=16 falharam=0` em container.
+  - Desvio declarado: um log gravado na raiz por argumentos trocados (é o terceiro do dia), removido.
+- **Push** para `80db83e7`, provado por `ls-remote`. **CI:** run 37832462804.
+- **Revisão da D2a** despachada a um qa-engineer em haiku, com ordem passo a passo e comandos exatos (ordem do líder das 16:12): `/var/tmp/cto-w8/briefing-rev-d2a.md`.
+- **Régua do haiku:** como implementador, ele gravou fora do lugar por caminho relativo ou argumento trocado 3 vezes hoje. As ordens passam a exigir caminho absoluto em todo comando, com a ordem dos argumentos escrita.
+
+### 08/10/2026 16:48:27 - Revisão da D2a APROVADA, com A e B IMPORTANTES; D2a-fix despachada; CI 37832462804 vermelho só no gitleaks, por infraestrutura
+
+- **Revisão da D2a** (`/var/tmp/cto-w8/rev-d2a.md`, qa-engineer em haiku): APROVADA.
+  - Os 5 mutantes de R4-A foram reexecutados pelo revisor e morreram.
+  - Dos 8 mutantes próprios, 4 morreram e 4 sobreviveram (6 a 9).
+  - **A (IMPORTANTE):** os stubs do autoteste ignoram argumentos. O mutante 7 abriria um falso verde no modo `on`.
+  - **B (IMPORTANTE, defeito real anterior à D2a):** quando `wait_for_socket` falha, `one_mode` sai sem parar o relé nem dar o veredito (`driver:217` contra `:221-223`).
+  - **C e D:** cosméticos.
+- **Decisão do main, aplicando a regra que o próprio plano já trazia (nota 9 do v2: "defeito real do driver se conserta na D2a"):** A e B se consertam antes da D2b, porque a D2b usa este autoteste como rede. A D2a-fix foi despachada ao mesmo implementador, com ordem passo a passo. C fica registrado. D, o Status em INBOX, vai como pergunta ao CTO.
+- **CI 37832462804** (`80db83e7`):
+  - na tentativa 1, foram 24 jobs verdes, 1 pulado e o `Gitleaks` cancelado no passo "Instalar gitleaks", pelo `timeout-minutes: 10`, um tempo esgotado de rede;
+  - na tentativa 2 (`gh run rerun --failed`), o `rerun_guard.py` reprovou: "falha nao classificavel na tentativa 1: job com conclusao 'cancelled' e nenhum passo com falha".
+  - Nenhum teste do produto falhou, inclusive nas 3 etapas Windows da D1-fix-e.
+- **Lacuna da guarda, isolada ou padrão (L-17):** um cancelamento por tempo num passo de PREPARO é infraestrutura, mas a guarda só sabe ler passo com `failure`. Vai para a INBOX como `RERUN-GUARD-CANCELLED-PREP` no próximo commit de implementador. O verde do CI sai de uma execução nova, depois da D2a-fix.
+
+### 08/10/2026 16:54:42 - Ordem do líder: pausa quando o agente da D2a-fix entregar
+
+- **Verbatim:** *"pause quando o agente entregar"*.
+- **Como o main vai cumprir:** quando o agente da D2a-fix entregar, o main confere o commit (árvore e arquivos), registra aqui, empurra o ramo e escreve o `parada_do_lider`. Nada de trabalho novo depois disso: nem revisão da D2a-fix, nem D2b, nem CI disparado. O CI fica para a retomada.
+
+### 08/10/2026 17:01:41 - D2a-fix entregue em ccb2c456; PAUSA ordenada pelo líder
+
+- **D2a-fix** (`ccb2c456`, 2 arquivos, conferido pelo main com `git show --stat`), segundo o implementador (haiku):
+  - **B consertado:** com a espera falhando, `one_mode` para o relé, copia, imprime `espera=socket-falhou` e devolve 1. O controle 19 foi visto vermelho no driver antigo e depois verde.
+  - **A:** os stubs registram as chamadas. Os controles 17 (`on`) e 18 (`off`) já passavam no driver antigo, que estava certo. O vermelho deles vem dos mutantes 7 a 9.
+  - Os 9 mutantes (6 a 9 e os 5 de R4-A) morreram, cada um no seu controle.
+  - O autoteste foi de 16 para 19 controles. `preci --fast` deu rc 0 (downgrade da L-09).
+- **Pausa** pela ordem *"pause quando o agente entregar"*:
+  - o ramo foi empurrado;
+  - o `parada_do_lider` foi escrito;
+  - o monitor foi desligado;
+  - nenhum agente nem trabalho pesado ficou rodando.
+- **Na retomada:**
+  1. o CI novo da ponta (o anterior, 37832462804, ficou vermelho só por tempo esgotado de rede no gitleaks);
+  2. a revisão da D2a-fix por outro agente;
+  3. a INBOX `RERUN-GUARD-CANCELLED-PREP`;
+  4. a pergunta ao CTO sobre o Status de `CAPTURE-DRIVER-WIRING-UNTESTED` (lista INBOX contra tabela);
+  5. depois, a D2b.
+
+### 08/10/2026 22:25:39 - Retomada: modo autônomo ligado pelo líder até 09/10/2026 22:25, com o trabalho retomado
+
+- **Ordem, verbatim:** *"ligue modo autonomo"*. À pergunta (`AskUserQuestion`) se isso também retomava a pausa das 16:54, ele respondeu *"Sim, retomar agora (Recomendado)"*. O `parada_do_lider` foi apagado.
+- **Fila:**
+  1. CI novo da ponta `4dac55d9`;
+  2. revisão da D2a-fix (`ccb2c456`) por outro agente;
+  3. a INBOX `RERUN-GUARD-CANCELLED-PREP`;
+  4. a pergunta ao CTO sobre o Status de `CAPTURE-DRIVER-WIRING-UNTESTED`;
+  5. a D2b.
+- **Ordens a agente em haiku** seguem os 8 itens obrigatórios da L-11 global, no parágrafo "Ordem de serviço para modelo menor".
+
+### 08/10/2026 22:32:43 - Ordem do líder: até 4 agentes em paralelo, sem corrida
+
+- **Verbatim:** *"pod eusar até 4 agentes ao mesmo tempo, sem corrida"*. Registrada na L-11 global (commit `265d2db` em `~/.claude`).
+- **Efeito na DEMO-1:** vence o "em série, nunca em paralelo" do plano v2 (linha 248), que era decisão de plano. O CTO vai detalhar D2b, D4 e D5a para rodarem em paralelo, cada uma com o seu implementador e com listas de arquivos que não se cruzam.
+- **Travas contra corrida:**
+  - trabalho pesado só dentro de `flock /var/tmp/cto-w8/heavy.lock`, o que mantém o portão de um pesado por vez da L-11;
+  - commit só dentro de `flock /var/tmp/cto-w8/git.lock`, sempre por caminho;
+  - cada agente usa um snapshot próprio para o container.
+- **Em voo agora:** a revisão da D2a-fix (haiku), o CTO (D2b, D4 e D5a) e o CI 37869725565.
+
+### 08/10/2026 22:34:54 - Revisão da D2a-fix: APROVADA COM RESSALVAS; D2a-fix2 despachada; o PASS_REGULAR_EXPRESSION que ignora rc vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2afix.md`, haiku):
+  - A e B fechados, com ressalvas;
+  - os 10 mutantes do implementador morreram; dos 15 do revisor, morreram 7;
+  - **IMPORTANTES:** (1) o ramo de falha da espera só é testado com `off`; (2) a ordem nesse ramo não é conferida; (3) a ordem no caminho normal não é conferida; (4) o `PASS_REGULAR_EXPRESSION` ignora o código de saída (o mutante `rv_h` passa);
+  - **COSMÉTICOS:** (5) a regex alternada aceitaria a queda de um controle; (6) registro de chamadas residual.
+  - Nota do revisor sobre o `push.log`: o push de `80db83e7` para `574a4041` foi do main, não do implementador. O relatório do implementador ("sem push") está certo.
+- **Decisão do main:** 1, 2, 3 e 6 se consertam agora, só no driver (D2a-fix2), antes da D2b. Os itens 4 e 5 são padrão: `PASS_REGULAR_EXPRESSION` aparece 11 vezes em `tests/CMakeLists.txt` (L-17). Foram ao CTO, para desenhar um conserto único, em série com a D5a, que mexe no mesmo arquivo.
+- **Agentes em voo:** o CTO (planos de D2b, D4, D5a e do padrão do rc) e o implementador da D2a-fix2. Os dois usam as travas de `flock`.
+
+### 08/10/2026 22:48:44 - D2a-fix2 entregue em a6770233; re-revisão despachada
+
+- **D2a-fix2** (`a6770233`, só o driver), segundo o implementador (haiku):
+  - os controles continuam 19, ampliados sem criar novos;
+  - `rv_a`, `rv_d1` e `rv_i` morrem no controle 19, que agora roda nos dois modos e confere a ordem exata;
+  - `rv_e` e `rv_c2` morrem no 17, que confere a ordem completa das 7 chamadas;
+  - os 10 mutantes anteriores continuam mortos;
+  - `preci --fast` rc 0 (downgrade da L-09).
+- **Conferência do main:** 1 arquivo no commit, a árvore limpa, e li os logs de `rv_e`, `rv_i` e `rv_a` (todos com `rc_ctest=8`).
+- **Re-revisão** pelo mesmo revisor da D2a-fix, com os sobreviventes dele de volta e 2 mutantes novos: `/var/tmp/cto-w8/rev-d2afix2.md`.
+- O IMPORTANTE 4 e o COSMÉTICO 5 seguem com o CTO (o padrão dos 11 testes).
+
+### 08/10/2026 22:51:07 - Re-revisão da D2a-fix2: APROVADA COM RESSALVAS; D2a-fix3 despachada
+
+- **Re-revisão** (`/var/tmp/cto-w8/rev-d2afix2.md`):
+  - A e B fechados nos caminhos exercidos;
+  - 7 de 9 mutantes morreram;
+  - **IMPORTANTE:** o controle 19 não confere que os dois modos rodaram (os mutantes `rv_n4` e `rv_n5` sobrevivem e só `on` roda);
+  - **COSMÉTICO** herdado: o veredito não traz a palavra "reprovado". Fica registrado.
+- **D2a-fix3:** o mesmo implementador, que reaproveita `modes_are_exact` depois do laço. A contagem continua 19.
+
+### 08/10/2026 22:52:40 - D2a-fix3 aceita em e1b56f95; a rede da D2b está fechada; CI 37869725565 verde
+
+- **D2a-fix3** (`e1b56f95`, +5 linhas no driver):
+  - o controle 19 registra os modos do laço e confere `" on off"` exato;
+  - `rv_n4`, `rv_n5`, `rv_a`, `rv_d1` e `rv_i` morrem no 19;
+  - a contagem continua 19.
+  - **Conferência do main:** 1 arquivo no commit, a árvore limpa, e o log de `rv_n4` com `rc_ctest=8`.
+- **Aceite do main:** a D2a, a D2a-fix, a D2a-fix2 e a D2a-fix3 fecham `CAPTURE-DRIVER-WIRING-UNTESTED`, a menos dos dois itens que estão com o CTO:
+  - o padrão do `PASS_REGULAR_EXPRESSION` que ignora rc;
+  - a regex alternada.
+  - O cosmético da palavra "reprovado" fica registrado.
+- **CI 37869725565** (`4b15048e`): `success`, com 25 jobs verdes e 1 pulado, incluindo o gitleaks, que desta vez instalou dentro do tempo.
+
+### 08/10/2026 22:58:39 - Planos do CTO (D-W8-106 a D-W8-114) aceitos; D2b, D4 e D5a despachadas em paralelo
+
+- **Planos:** `/var/tmp/cto-w8/plano-d2b.md` (md5 `0f017818`) e `/var/tmp/cto-w8/plano-paralelo.md` (md5 `f5782c77`).
+- **D-W8-106 e D-W8-107 (D2b):** a sessão do relé sai para `capture_relay_session.sh`. A prova de "sem comportamento novo" se faz por inventário, por corpo idêntico, pelo N medido e pela fumaça real antiga contra nova, com isolamento provado antes. Mutantes MB1 a MB6.
+- **D-W8-108:** `RERUN-GUARD-CANCELLED-PREP` foi para a INBOX, e o conserto fica fora da W8. Não bloqueia `CI-VERDE-W8`, porque o `workflow_dispatch` roda o mesmo SHA como tentativa 1.
+- **D-W8-109:** `CAPTURE-DRIVER-WIRING-UNTESTED` saiu da INBOX para a tabela, acima de `CI-VERDE-W8`, com 🔍. Este commit faz a mudança.
+- **D-W8-110 e D-W8-111:** as três fatias não se cruzam (a tabela tem arquivo:linha), só a D5a toca `tests/CMakeLists.txt`, e o `TODO.md` fica com o main. Oito travas novas: add, diff, commit e show numa única seção do `git.lock`; snapshot por `git clone`; nomes próprios de container; `flock -E 99`; entre outras.
+- **D-W8-112 (D4) e D-W8-113 (D5a):** detalhadas no plano paralelo.
+- **D-W8-114:** o `PASS_REGULAR_EXPRESSION` sai dos 7 registros reais (o CTO corrigiu os 11 do main: 4 eram comentário) e é trocado por um executor `cmake -P` que exige o rc e a linha exata. Fatia `SELFTEST-EXIT-LINE`, em série depois da D5a.
+- **Conferência do main:** a base da D2b passou a ser o HEAD com a D2a-fix3. A contagem continua 19, então a divergência do CTO sobre a regex não se aplica.
+- **Despacho, 3 implementadores haiku em paralelo:**
+  - D4 (devops-sre), D5a (backend-engineer) e D2b (devops-sre);
+  - cada um tem ordem própria (`ordem-d4.md`, `ordem-d5a.md`, `ordem-d2b.md`) mais a comum (`ordem-comum-paralelo.md`), com os 8 itens da L-11;
+  - as leis estão em `leis-paralelo.md`.
+
+### 08/10/2026 23:03:39 - D5a parada no passo A por um vermelho fora da previsão; decisão do main, a confirmar pela revisão
+
+- **FATO, medido pelo implementador:**
+  - no passo A reprovaram os casos 3 e 10, como previsto, e também o caso 6;
+  - a causa é que o teste reaproveita o mesmo `tool_options` em quatro chamadas;
+  - e o código movido grava `out_directory` antes de recusar (`window_capture_options.cpp:53` contra `:60-61`). A recusa aplica a opção pela metade.
+- **Decisão do main, de execução dentro da D-W8-113:**
+  - (a) cada sub-caso do caso 6 usa um `tool_options` novo, porque reaproveitar estado mede a ordem do teste e não a unidade;
+  - (b) entra um caso 11, "recusa não altera options", vermelho no passo A e verde no passo B, com o parse feito numa cópia local que só grava em caso de sucesso;
+  - entra um mutante N6.
+  - O revisor da D5a julga a decisão.
+
+### 08/10/2026 23:15:48 - D4 entregue em 4762362e; revisão despachada
+
+- **D4** (`4762362e`, 3 arquivos), segundo o implementador (haiku):
+  - inventário por `ast`: 115 nomes contra 115, sem repetição, e corpos iguais exceto `check_capture_pairs` (a assinatura ganhou `who`);
+  - autoteste com 108 controles e rc 0, tanto pelo ctest quanto direto;
+  - pares conferidos, com 0 divergências;
+  - o driver foi de 1114 para 1047 linhas;
+  - `preci --fast` rc 0 (downgrade da L-09);
+  - M1 a M6 mortos.
+  - Desvios declarados, de (c) a (j), que vão para a revisão.
+- **Conferência do main:** os 3 arquivos estão no commit, e li os logs de M1, M3 e M6 (todos com `rc_ctest=8`) e a linha dos 108 controles.
+- **Revisão** despachada a um qa-engineer em haiku, com ordem de 8 itens: `/var/tmp/cto-w8/ordem-rev-d4.md`.
+- **Agentes vivos:** D2b, D5a e o revisor da D4, num total de 3, dentro do teto de 4.
+
+### 08/10/2026 23:18:03 - D2b: provas 1 a 5 verdes; o MB6 morreu por outro caminho e revelou um defeito anterior (socket residual)
+
+- **Segundo o implementador (haiku), antes do commit:**
+  - inventário com 43 funções, `diff` vazio e `uniq -d` vazio;
+  - corpos idênticos;
+  - autoteste com 19 controles, rc 0 pelo ctest e direto;
+  - **fumaça real antiga contra nova** (imagem `glintfx-wltest:pef-f1`, isolamento com rc 0 antes, configuração exata do CI): limpo com rc 0 e sabotado com rc 1 nas duas versões, e as linhas de veredito iguais por `diff`;
+  - o driver foi de 471 para 366 linhas, mais 132 na biblioteca;
+  - MB1 a MB5 deram o resultado previsto, e o MB2 passou no autoteste e reprovou no inventário.
+- **MB6:** rc 1 nos dois modos, mas com `fixture=1 espera=1` em vez de `espera=socket-falhou`. O `wait_for_socket` (`test -S`) aceitou um socket RESIDUAL de rodada anterior no mesmo container.
+- **Decisão do main:**
+  - o MB6 conta como morto, porque o rc é diferente de 0 na fumaça real;
+  - a D2b é refactor puro e não muda corpo de função, então é commitada como está;
+  - o defeito anterior vira o item `RELAY-SOCKET-STALE`: `test -S` não prova que alguém está escutando. No CI, o mesmo container atende ~15 fixtures seguidas, e um socket residual pode fazer a espera passar antes de o relé novo escutar. Ele vai ao CTO junto com a D3, que reaproveita a biblioteca.
+  - O contrato implícito de `CONTAINER` e `OUT_DIR` entre a biblioteca e o driver também vai para a D3.
+
+### 08/10/2026 23:30:57 - D2b entregue em c4411cff; revisão despachada
+
+- **D2b** (`c4411cff`, 2 arquivos). `preci --fast` num clone do SHA: rc 0, 309 de 309 executados passaram (downgrade da L-09). O relatório foi gravado pelo main a partir dos relatos do implementador, em `/var/tmp/cto-w8/d2b/relatorio.md`, porque ele recusou gravar `.md` mesmo com o pedido escrito.
+- **Revisão** despachada a um qa-engineer em haiku (`/var/tmp/cto-w8/ordem-rev-d2b.md`), com o contrato implícito `CONTAINER`/`OUT_DIR` a julgar.
+- **Padrão observado nos implementadores haiku:** três deles recusaram gravar o `relatorio.md`, lendo a L-31 global (".md não solicitado") contra a ordem que o pedia. As próximas ordens dizem, no próprio prompt, que o relatório é pedido.
+
+### 08/10/2026 23:45:56 - D5a entregue em 5f36eaef, com o preci vermelho por um autoteste da D4 que lê a gramática no arquivo antigo; D5a-fix despachada
+
+- **D5a** (`5f36eaef`, 5 arquivos), segundo o implementador (haiku):
+  - passo A vermelho por conteúdo nos casos 3, 10 e 11 (o 11 é novo, pedido pelo main); os casos 4 e 5 passaram por acidente;
+  - passos B e C verdes, com `k_presented_line`=0 e `options.ready_line`=1;
+  - `cl.exe /W4 /WX` deu `BUILD_RC=0` no teste e na ferramenta;
+  - `--lint-only` rc 0 e `--win32-link-only` rc 0 (128 alvos);
+  - N1 a N6 mortos.
+- **`preci --fast` rc 1:** o estágio `--blob` reprovou em `run_capture_known_color_win32_selftest`. O controle (`run_capture_known_color_win32.py:489-491`) procura `"--present-budget-ms"` em `win32_window_capture.cpp`, e a D5a moveu a gramática para `window_capture_options.cpp`. O HEAD `5f36eaef` está vermelho localmente, e o ramo NÃO é empurrado até o conserto.
+- **Decisão do main:** opção (a). O autoteste lê o dono novo (`OPTIONS_SOURCE`), e não uma cópia mantida na ferramenta. A D5a-fix foi despachada ao mesmo implementador, que só toca esse `.py` (a D4 já está commitada), com o trecho antigo e o novo exatos, mutante e `preci`.
+- **Lição, isolada ou padrão (L-17):** a independência das fatias foi conferida por arquivo, mas um autoteste de uma fatia lia o arquivo de outra. A tabela de independência do CTO não pegou essa ligação por conteúdo. A próxima conferência de paralelismo inclui "quem LÊ o arquivo que eu mudo".
+
+### 08/10/2026 23:46:39 - Revisão da D4: APROVADA COM RESSALVAS; IMPORTANTE-1 entra em série depois da D5a-fix; IMPORTANTE-2 e o socket residual vão ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d4.md`, haiku):
+  - nenhum CRÍTICO;
+  - M2, M4 e M6 reexecutados e mortos; dos mutantes do revisor, X1 a X3 morreram e o X4 sobreviveu;
+  - **IMPORTANTE-1:** o parâmetro `who` de `check_capture_pairs` não tem controle (o X4 sobrevive);
+  - **IMPORTANTE-2 (L-17):** o módulo reúne o contrato de saída e a execução de processo;
+  - **COSMÉTICOS:** uma linha com 133 colunas; o "sem cópia" da especificação contra o import, que copia a ligação;
+  - os desvios (c), (d) e (e) do implementador foram julgados CERTOS.
+- **Decisão do main:**
+  - o IMPORTANTE-1 vira um controle novo no autoteste do driver Windows, em série DEPOIS da D5a-fix, que mexe no mesmo arquivo agora;
+  - o IMPORTANTE-2 e o `RELAY-SOCKET-STALE` vão ao CTO (`plano-pos-d4.md`), junto com o contrato implícito da biblioteca para a D3;
+  - a lição "quem LÊ o arquivo que eu mudo" vai para o método de paralelismo do CTO.
+
+### 08/10/2026 23:56:06 - Revisão da D2b: APROVADA COM RESSALVAS; os consertos vão ao CTO, para uma D2b-fix antes da D3
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2b.md`, haiku):
+  - o refactor está correto: 43 funções, `diff` vazio, corpos idênticos e 19 de 19 controles;
+  - a fumaça real bate com o aceite;
+  - MB1, MB3 e MB4 reexecutados e mortos; dos mutantes do revisor, 4 morreram e 3 sobreviveram (RR, RG e RCP).
+- **IMPORTANTES:**
+  - **I-1:** `CONTAINER` e `OUT_DIR` sem guarda de chamada (`OUT_DIR` vazio vira `/off/frames`);
+  - **I-2:** a guarda `RELAY_SESSION_CALLER` não tem controle;
+  - **I-3, anterior à D2b:** cinco funções reais nunca rodam no autoteste, e só a fumaça as cobre.
+- **COSMÉTICOS:** de C-1 a C-7. O C-1 corrige a justificativa da D-W8-106: a recarga morre pelo `readonly`, e não por desfazer os stubs.
+- **Encaminhamento:** foi tudo ao CTO, que já planeja o `plano-pos-d4.md`, para uma D2b-fix antes da D3, junto com o `RELAY-SOCKET-STALE`.
+
+### 08/10/2026 23:57:39 - D5a-fix aceita em 6a463cc1 (preci verde); push e CI; D4-fix e revisão da D5a despachadas
+
+- **D5a-fix** (`6a463cc1`, só o `.py`):
+  - autoteste com 108 controles e rc 0;
+  - o mutante `--exit-budget-mx` foi pego;
+  - `preci --fast` rc 0, conferido pelo main no arquivo `preci.rc` e no "TUDO VERDE".
+  - `TOOL_SOURCE` ficou sem uso.
+- **Push** de `onda-w8` para `131b7e66`, provado por `ls-remote`, com D4, D2b, D5a e D5a-fix. **CI:** run 37876943585.
+- **D4-fix** despachada ao mesmo implementador da D5a, que conhece o arquivo:
+  - um controle novo prova que `check_capture_pairs` cita quem chama (o X4 da revisão da D4);
+  - `TOOL_SOURCE` sem uso sai;
+  - a contagem vai de 108 para 109 em `tests/CMakeLists.txt`.
+- **Revisão da D5a e da D5a-fix** despachada a um qa-engineer em haiku (`/var/tmp/cto-w8/ordem-rev-d5a.md`), com a decisão do main sobre o caso 11 a julgar.
+- **Agentes vivos:** o CTO (`plano-pos-d4.md`), a D4-fix e o revisor da D5a, num total de 3.
+
+### 09/10/2026 00:01:16 - Plano do CTO D-W8-115 a D-W8-119 aceito; o TODO recebe RELAY-SOCKET-STALE, CAPTURE-EXIT-CODE-TWIN e RELAY-SESSION-SUBJECTS
+
+- **Plano:** `/var/tmp/cto-w8/plano-pos-d4.md`, md5 `25aa2158`.
+- **D-W8-115:** o CTO aceitou o IMPORTANTE-2 da D4 contra o próprio desenho. O módulo parte em `win32_capture_protocol.py` (contrato) e `win32_capture_process.py` (processo e prazos), na fatia D4b, depois do controle do `who` e antes da D5b. O gêmeo 124/127 foi para a INBOX.
+- **D-W8-116 (`RELAY-SOCKET-STALE`):** a espera passa a exigir a linha exata que o relé imprime depois do `listen()`. Correção do CTO à inferência do main: no CI o driver roda uma vez por container, então ali o defeito não ocorre; ele morde em rodada local e na D3.
+- **D-W8-117:**
+  - as guardas de `CONTAINER` e `OUT_DIR` ficam no ponto de uso;
+  - a guarda do chamador e o `readonly` ganham controle;
+  - fatia D2b-fix em 2 commits, com N indo de 19 para 24 e depois para 28.
+- **D-W8-118:** primeiro o `who` (a D4-fix, em voo). Depois a D4b em paralelo com a D2b-fix. Depois a D3 e a D5b. O `who`, a D2b-fix e a D-W8-114 nunca rodam juntas, porque mexem em `tests/CMakeLists.txt`.
+- **D-W8-119:**
+  - a I-3 tem a fumaça como prova, MEDIDA pelo mutante RCP na prova real da D2b-fix;
+  - o C-5 foi para a INBOX;
+  - o C-4 e o C-7 ficam aceitos.
+- **Conferência do main:** a ordem do `who` (D4-fix) já inclui a linha do N em `tests/CMakeLists.txt`. A linha `RELAY-SOCKET-STALE` entrou na tabela, acima de `CI-VERDE-W8`, com ⏳.
+
+### 09/10/2026 00:08:23 - D4-fix aceita em b8858db1; D2b-fix e D4b despachadas em paralelo
+
+- **D4-fix** (`b8858db1`, o `.py` mais a linha 108 para 109 de `tests/CMakeLists.txt`):
+  - o controle "cita quem chamou" mata o X4;
+  - a contagem 108 no CMake reprova;
+  - `TOOL_SOURCE` saiu;
+  - `preci --fast` rc 0.
+  - Ela fecha o IMPORTANTE-1 da revisão da D4.
+- **D2b-fix** despachada (`ordem-d2bfix.md`, 2 commits, prova real com o mutante RCP), assim que a D4-fix commitou a linha de `tests/CMakeLists.txt`.
+- **D4b** despachada (`ordem-d4b.md`) depois do `preci` verde da D4-fix, porque mexe no mesmo driver.
+- **Agentes vivos:** a D2b-fix, a D4b e o revisor da D5a, num total de 3.
+
+### 09/10/2026 00:12:34 - Revisão da D5a: APROVADA COM RESSALVAS; D5a-fix2 despachada; as perguntas da gramática vão ao CTO junto com a D5b
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5a.md`, haiku):
+  - o código está certo e a unidade fica verde no container;
+  - N2, N4 e N6 reexecutados e mortos; dos mutantes do revisor, MC, MD e MF morreram, e MA, MB e ME sobreviveram;
+  - **a decisão do main sobre o caso 11:** (a) CERTA, (b) CERTA no desenho e INCOMPLETA no teste, (c) CERTA;
+  - **IMPORTANTES:** o caso 11 só testa recusa dentro do laço (MA sobrevive); o caso 4 é recusado por outro motivo (MB sobrevive);
+  - **perguntas abertas:** `--` aceito como valor, repetição de `--ready-line` (ME) e espaço inicial em orçamento;
+  - **COSMÉTICOS:** o cabeçalho do teste diz "ten" casos; um comentário quebrado na ferramenta; o autoteste do driver só confere presença de texto; o valor duplicado entre a unidade e a fixture.
+- **D5a-fix2:** o mesmo implementador conserta MA e MB no teste, mais dois cosméticos. O código da unidade NÃO muda.
+- **As perguntas abertas da gramática** vão para o CTO no plano da D5b, que é quem usa a ferramenta com `--ready-line`. O mesmo vale para o valor duplicado.
+
+### 09/10/2026 00:24:08 - D5a-fix2 commitada; o mutante MB é equivalente; CI 37876943585 verde; RELAY-SOCKET-STALE em verificação
+
+- **D5a-fix2** em `f8acb388` (`git show --stat`: só os 2 arquivos pedidos). O caso 11b mata o MA (rc_ctest=8), e N1 a N6 morrem.
+- **O mutante MB é equivalente.** O main conferiu em `tests/tools/window_capture_options.cpp:35-36,77`: o valor só falta quando a opção é o último token, e então `index += 2` passa do fim e a linha é recusada pela falta do separador, qualquer que seja o valor. A previsão do plano estava errada, não o teste. A unidade não muda, porque mudá-la sairia do escopo. Decisão autônoma do main sobre um fato verificado; confirmar retroativamente.
+- **CI 37876943585** (tip `131b7e66`): `success`, com 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC, que só roda com etiqueta).
+- **RELAY-SOCKET-STALE** passa a 🔍 na TODO.md, porque o commit 1 da D2b-fix (`1e757433`) entrou.
+- O preci da D4b e o da D5a-fix2 estão na fila da `heavy.lock`.
+
+### 09/10/2026 00:28:00 - D4b aceita; o mutante P4 estava mal desenhado no plano; revisão da D4b despachada
+
+- **D4b** em `a029245f` (`git show --stat`: só os 3 arquivos). Inventário por `ast`: 116 nomes na base e 116 depois, nenhum repetido, nenhum corpo diferente. N=109, preci com rc 0 (`/var/tmp/cto-w8/d4b/preci.rc`). P1, P2 e P3 morreram.
+- **O P4 não reprovou** (`git rm --cached` numa cópia). O `run_ctest.sh` monta a árvore de trabalho, e o arquivo continuava no disco. Leitura do main (INFERÊNCIA, que vai ao revisor): o mutante estava mal desenhado. Um arquivo fora do commit chega ao CI e ao preci, que roda num clone do SHA, como arquivo ausente do disco, e esse é o P4b do implementador, que morreu por `ImportError`.
+- **Desvio aceito:** o commit foi feito antes dos mutantes, pela L-27. A ordem de passos estava invertida.
+- **Revisão da D4b** despachada a um haiku distinto (`ordem-rev-d4b.md`). Agentes vivos: D2b-fix, D5a-fix2 (preci) e o revisor da D4b, 3 no total.
+
+### 09/10/2026 00:39:33 - preci da D5a-fix2 verde; revisão da D5a-fix2 e plano da D5b despachados
+
+- **D5a-fix2** (`f8acb388`): preci com rc 0 (`/var/tmp/cto-w8/d5afix2/preci.rc`). O trailer traz `Co-Authored-By: Claude Haiku 5.5`, que é o modelo que executou. Não foi reescrito: a mensagem está certa, e o commit não se emenda.
+- **Revisão da D5a-fix2** despachada a um haiku distinto (`ordem-rev-d5afix2.md`), com a ordem de tentar DERRUBAR a equivalência do MB.
+- **Plano da D5b** pedido ao CTO (opus, alto), em `/var/tmp/cto-w8/plano-d5b.md`, com a pesquisa antes do desenho (L-22), as três perguntas da gramática e o cosmético do valor duplicado. A D5b espera o commit do N da D2b-fix em `tests/CMakeLists.txt`.
+- **Agentes vivos:** a D2b-fix, o revisor da D4b, o revisor da D5a-fix2 e o CTO, 4 no total (o teto).
+
+### 09/10/2026 00:43:48 - Revisão da D4b: APROVADA COM RESSALVAS; as lacunas vão para a INBOX
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d4b.md`, haiku distinto). O código está certo: 116 definições iguais por `ast.dump`, N=109, ctest 3/3. Morreram P2 e P3 (reexecutados) e os mutantes do revisor R1b, R2, R3 e R4. Sobreviveram P4, R1 e R5.
+- **IMPORTANTE-1, conferido pelo main em `tools/preci.sh`** (`enumerate_untracked_cpp_hpp`): a guarda de não rastreado só vê `.cpp` e `.hpp`. O julgamento do revisor corrige a leitura do main: o P4 não estava mal desenhado; a previsão é que estava errada, e o P4 mediu uma lacuna real na árvore do autor. Vira o item `UNTRACKED-GUARD-PY` da INBOX. Não bloqueia a D4b: as receitas desta onda rodam o preci num clone do SHA, e o CI também roda sobre o commit.
+- **RESSALVA 1** (124/127): somada ao item `CAPTURE-EXIT-CODE-TWIN`, que já existia. **RESSALVA 2** (duplicata e direção entre módulos) e o COSMÉTICO-1: item `TOOLS-MODULE-GATES`.
+- **COSMÉTICO-2 recusado:** o revisor pediu a DEMO-1 em 🔍, mas ela ainda tem D3, D5b, D6 e D7 por fazer. 🔄 é o status certo.
+- **D4b fechada.**
+
+### 09/10/2026 00:51:20 - D2b-fix parou no commit 2: um controle antigo apagava a função real; o conserto aplica o padrão que o arquivo já usa
+
+- **Commit 1** (`1e757433`, RELAY-SOCKET-STALE): S3 vermelho válido, N 19 para 24, preci com rc 0. As cinco provas reais do container deram o esperado, com o isolamento provado antes (rc 0). Isso inclui o RCP com rc 1 e o mutante MB6 reproduzindo o vermelho de ponta a ponta na base.
+- **Commit 2 parado:** o vermelho do G1 saiu com `in_container: command not found`. FATO conferido pelo main: `tests/container/run_capture_known_color.sh:203-205` define um dublê de `in_container` no shell principal, e o `unset -f` apaga junto a função real (`capture_relay_session.sh:51`). O próprio arquivo avisa disso na linha 237, e os outros controles já usam subshell.
+- **Decisão: opção A**, o dublê em subshell. É a aplicação de um padrão que já existe no arquivo, não desenho novo, por isso o main decidiu sem acionar o CTO, que está ocupado com o plano da D5b. Confirmar retroativamente. O implementador vai varrer os gêmeos (`unset -f` em `tests/container/*.sh`) e rodar um mutante novo, o RU, que desfaz a troca.
+
+### 09/10/2026 00:56:03 - Revisão da D5a-fix2: REPROVADA; a D5a-fix3 vai para o plano do CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix2.md`, haiku distinto). O código da unidade está certo, mas o teste não prova a frase do assunto do commit `f8acb388`:
+  - **IMPORTANTE 1:** a recusa pelo orçamento de SAÍDA depois do laço não está coberta; o mutante PB2 sobrevive;
+  - **IMPORTANTE 2:** o estado de partida do 11b já tem `sabotage_occlude = true`, então uma escrita indevida desse campo fica invisível; o mutante SF sobrevive;
+  - **IMPORTANTE 3:** `--` aceito como valor segue sem decisão.
+  Um caso 11c, com estado padrão e provado numa cópia, mata PB2 e SF.
+- **O MB é equivalente de fato**, como o main tinha concluído: o revisor não achou nenhuma linha que o distinga, numa enumeração exaustiva de 579.195 linhas.
+- **Encaminhamento:** o CTO, que planeja a D5b, recebeu o relatório com o pedido de uma fatia D5a-fix3 antes da D5b, junto com as respostas da gramática, para evitar duas mãos no mesmo arquivo de teste. A D5a-fix2 fica aberta até a D5a-fix3.
+
+### 09/10/2026 01:05:48 - D2b-fix entregue nos dois commits; push e CI; revisão da D2b-fix despachada
+
+- **Commit 2** (`6b9c8aba`, 3 arquivos): N 24 para 28. Os vermelhos de G1 e G2 saíram pela causa certa. Os mutantes RS1 a RS6, RC1 a RC3, RG e RR morreram onde o plano previa, e o RU (desfazer a troca do `unset -f`) morreu no controle 25 com `command not found`; o main conferiu RS1, RS5, RG, RR e RU por amostra nos logs. A varredura achou um único `unset -f`, o do controle trocado. O preci deu rc 0 nos dois SHAs.
+- **Desvio declarado:** a mensagem do commit 2 diz que G1 a G4 foram vistos vermelhos antes do conserto, mas G3 e G4 só ficaram vermelhos pelos mutantes. O commit não foi emendado (L-25), e o desvio vai ao revisor.
+- **Push** de `onda-w8` com o tip `f2f2d3eb`, provado por `git ls-remote`. CI disparado: run 37882262031.
+- **Revisão da D2b-fix** despachada a um haiku distinto (`ordem-rev-d2bfix.md`). Agentes vivos: o CTO (plano da D5b e da D5a-fix3) e o revisor da D2b-fix, 2 no total.
+
+### 09/10/2026 01:07:13 - SELFTEST-EXIT-LINE aberta na tabela e despachada
+
+- **Linha `SELFTEST-EXIT-LINE`** gravada acima de `CI-VERDE-W8`, com o texto da D-W8-114 (`/var/tmp/cto-w8/plano-d2b.md`). Ela dependia da D5a, que já entrou, e a D2b-fix, que mexia em `tests/CMakeLists.txt`, também já entrou.
+- **Ordem** `/var/tmp/cto-w8/ordem-selftest-exit-line.md`, para um haiku (`devops-sre`). Correção do main à previsão do plano: o vermelho V3 ("um controle a menos") vai num autoteste da regex genérica (`raw_to_png.py`), porque o driver `.sh` já tem o número exato no registro e reprovaria hoje mesmo.
+- **Serialização:** a D5b (registro novo em `tests/CMakeLists.txt`) espera o commit desta fatia. O CTO será avisado quando o plano dele chegar.
+
+### 09/10/2026 01:08:36 - Plano da D5b aceito depois da verificação do main; D5a-fix3 despachada
+
+- **Plano** `/var/tmp/cto-w8/plano-d5b.md` (md5 `82eab644`, CTO opus), com a pesquisa antes do desenho. As decisões D-W8-120 a D-W8-128, decididas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - `--` aceito como valor (getopt, POSIX Guideline 10);
+  - opção repetida: vence a última;
+  - orçamento por `std::from_chars`, que recusa espaço, tab e `+`;
+  - o literal "presented at attempt" fica, com comentário (a fumaça real é a guarda);
+  - a D5a-fix3 numa fatia só, antes da D5b;
+  - o desenho do driver da D5b, com 33 controles;
+  - a D5b insere 12 linhas em `tests/CMakeLists.txt`;
+  - a herança para a D6-red e o comentário que a D5b corrige.
+- **Verificação do main (L-16, passo 3)** contra a árvore: as âncoras da D5a-fix3 existem nas linhas citadas (`read_positive_int` com `strtol` em `:18-27`, chamadas em `:84-85`, `:77`, `k_default_ready_line` em `.hpp:20`, os auxiliares do teste, 13 casos hoje); o formato `--- N case(s) ---` está em `harness_main.cpp:147`; `<charconv>` já é usado em `src/gfss/`. As previsões de vermelho e de mutante conferem por leitura (F3 e F4 matam na linha certa do 7c).
+- **D5a-fix3** despachada ao mesmo implementador da D5a (`ordem-d5afix3.md`), em paralelo com a SELFTEST-EXIT-LINE (arquivos disjuntos). **D5b** espera a D5a-fix3 e a SELFTEST-EXIT-LINE (as duas mexem em `tests/CMakeLists.txt` ou na unidade).
+- **INBOX:** `CAPTURE-SUCCESS-LINE-TWIN`. **Nota:** a linha 266 do plano-mestre está desatualizada (manda o registro para `tests/examples_tests.cmake`, que não existe); vale o Anexo B do plano da D5b.
+
+### 09/10/2026 01:10:42 - Disco abaixo do piso; limpeza das cópias de fatias fechadas (escopo "clean" da autonomia)
+
+- A D5a-fix3 parou antes de qualquer contêiner porque `Free (estimated) min` estava em 19,76 GiB, abaixo do piso de 20 GiB da ordem. A parada estava certa.
+- **Limpeza** (escopo "clean" autorizado na autonomia): o main apagou, sob `/var/tmp/cto-w8/`, só as cópias pesadas de 21 fatias JÁ FECHADAS e revisadas (D1-fix-b/c/d, D2a e fixes, D4, D4-fix, D2b, D4b, D5a, D5a-fix e as revisões delas): os diretórios `snap*`, `clone*`, `mut-*`, `src`, `base`, `c1`, `c2` e `run-*`, e o `build/` dentro de `out*`. A lista (324 caminhos, `/var/tmp/cto-w8/limpeza-final.txt`) foi conferida antes de apagar: zero caminhos fora do padrão e zero tocando `scripts/` ou as fatias vivas. Ficaram os scripts das receitas, os relatórios, os logs e os `ctest.out`.
+- **Resultado:** `min` de 19,76 para 21,32 GiB. O que sobrou de arquivos criados pelo root nos contêineres (cerca de 152 mil arquivos) não foi apagado. Isso exigiria um contêiner apagando como root, e fica para quando for preciso.
+- D5a-fix3 retomada.
+
+### 09/10/2026 01:16:12 - Revisão da D2b-fix: APROVADA COM RESSALVAS; três IMPORTANTES bloqueiam a D3; a D2b-fix2 vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2bfix.md`, haiku distinto). O código está certo nos dois commits; rc_ctest=0, 24 e 28 controles; as 5 provas reais batem com os logs, e o isolamento foi provado antes. Mortos: RS1, RC1, RU, RG, RR, X2 e X3. Sobreviveram X1, X4 e X5.
+- **IMP-1** (X5): nenhum controle prova que a espera recusa log vazio ou ausente. O main conferiu `capture_relay_session.sh:94`: o código de hoje recusa, mas falta a prova. **IMP-2** (X4): `selftest_check` não isola os controles, e um dublê vaza; a troca corrigiu a instância, não a classe. **IMP-3:** a guarda de CONTAINER some dentro de `$(...)`, e o diagnóstico sai falso. **IMP-4** (tamanho do driver) não bloqueia. Seis COSMÉTICOS, entre eles a mensagem do commit 2 (COS-2: sem quebra nova da L-20).
+- **Encaminhamento:** o CTO planeja a D2b-fix2 em `/var/tmp/cto-w8/plano-d2bfix2.md`. Ela vem DEPOIS do commit da SELFTEST-EXIT-LINE, porque as duas mexem no registro de `run_capture_known_color_selftest`. A D3 fica bloqueada até a D2b-fix2.
+- **RELAY-SOCKET-STALE** continua em 🔍 até a D2b-fix2 fechar o IMP-1, que é a prova do caso do log vazio.
+
+### 09/10/2026 01:18:17 - D5a-fix3 commitada; o lint reprovou a leitura do orçamento; o conserto aplica o padrão da biblioteca
+
+- **D5a-fix3** em `571d21ec` (3 arquivos). Tupla A como previsto: `--- 17 case(s), 1 failure(s) ---` no 7c. B verde. `cl.exe` com BUILD_RC 0 nas duas ligações. F1 a F4, PB2, SF e MA: 7 de 7 mortos, cada um no `[FAIL]` previsto.
+- **`--lint-only` com rc 1:** `bugprone-suspicious-stringview-data-usage` em `window_capture_options.cpp:25` (`from_chars(text.data(), end, ...)`). O main já tinha visto o aviso no editor e mandado o agente parar se ele reprovasse; ele parou.
+- **Decisão:** usar a forma de `src/gfss/value_parse.cpp:71-72` e `anb_parse.cpp:258-259` (`data()` e `data() + size()` na mesma chamada), que o lint já aceita. É o padrão da casa, sem NOLINT e sem mudança de comportamento, num commit novo (sem amend). F3 e F4 serão refeitos com o trecho novo. Decisão autônoma do main sobre um fato verificado; confirmar retroativamente.
+- **Lição para os planos:** a ordem da D5a-fix3 trazia o código exato, mas o lint não foi conferido. O CTO conferiu por leitura, e o clang-tidy só se vê rodando.
+- **Nota:** o commit anterior do main (o registro da revisão da D2b-fix) foi barrado uma vez pelo `check_spdx.py`, que varre também arquivo não rastreado: os 3 `.cmake` novos da SELFTEST-EXIT-LINE ainda estavam sem cabeçalho. O agente foi avisado e já corrigiu.
+
+### 09/10/2026 01:20:38 - Segunda limpeza do scratch (escopo "clean"); o disco volta a 21,7 GiB
+
+- O disco caiu para `min` 20,90 GiB com duas fatias compilando. O main apagou:
+  - os 222 `build/` de dono root deixados pelos contêineres em fatias fechadas, por um contêiner (`glintfx-devbuild:verify`, montagem `:z`), com lista conferida antes (`/var/tmp/cto-w8/limpeza-root.txt`, todos no padrão `<fatia>/<out>/build`);
+  - as cópias (`snap*`, `clone*`, `mut*` e similares) das fatias que fecharam desde a primeira limpeza: D2b-fix, D5a-fix2 e as revisões delas, e restos de ondas anteriores. Lista em `limpeza2f.txt`, com zero caminhos em `scripts/` e nas fatias vivas. O diretório `/var/tmp/cto-w8/b`, de origem desconhecida, foi poupado.
+- **Resultado:** `/var/tmp/cto-w8` de 8,5 para 4,6 GiB; `min` 21,68 GiB.
+- **NÃO feito, e é decisão do líder se quiser:** o Docker guarda 19,6 GB de imagens e 16,9 GB de cache de build recuperáveis, e `/var/tmp/glintfx-win-lab` ocupa 33 GB. Apagar imagens ou o laboratório do Windows é caro de desfazer, porque é preciso reconstruir.
+
+### 09/10/2026 01:23:17 - Plano da D2b-fix2 aceito depois da verificação do main
+
+- **Plano** `/var/tmp/cto-w8/plano-d2bfix2.md` (md5 `90acaad3`, CTO opus), com as decisões D-W8-129 a D-W8-135, decididas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - controle 29: log vazio ou ausente, que mata o X5;
+  - cada controle passa a rodar isolado em subshell, provado pelo controle 31, que mata o X4 obrigatório;
+  - a guarda de CONTAINER sobe para `require_container` na entrada das duas esperas, servindo também `in_container` e `copy_out` (regra de 3), com o controle 30 como vermelho;
+  - COS-1 e COS-4 aceitos, COS-3 recusado em parte (o ramo do S3 mata o RS1);
+  - o IMP-4 vira o item da INBOX `CAPTURE-DRIVER-SELFTEST-SPLIT`;
+  - N vai de 28 para 31, num commit só.
+- **Verificação do main** contra a árvore: `selftest_check` em `run_capture_known_color.sh:152-158` roda `"$@"` no shell principal; as guardas `:?` de CONTAINER estão em `capture_relay_session.sh:55` (in_container) e `:140` (copy_out); `wait_for_socket` (`:89`) e `wait_for_capture_files` (`:117`) não têm guarda própria.
+- **Ordem no tempo (D-W8-135):** SELFTEST-EXIT-LINE, depois a D2b-fix2, depois a D5b (enquanto o CTO planeja a D3), depois a D3. Nunca duas fatias vivas em `tests/CMakeLists.txt`.
+- **Errata à D5b, a levar na ordem dela:** o registro novo copia a forma do executor `expect_exit_and_line`, e não `PASS_REGULAR_EXPRESSION`, senão a trava `check_no_pass_regex` reprova.
+
+### 09/10/2026 01:35:49 - CI 37882262031 verde; SELFTEST-EXIT-LINE commitada; D2b-fix2 despachada
+
+- **CI 37882262031** (tip `f2f2d3eb`, com D4b, D2b-fix e D5a-fix2): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC).
+- **SELFTEST-EXIT-LINE** em `c3ec9d66` (`git show --stat`: os 4 arquivos esperados). `git grep PASS_REGULAR_EXPRESSION` em `tests/CMakeLists.txt` acha só 3 linhas, todas comentário; o registro do driver da captura já está na forma do executor. Status passa a 🔍. Os mutantes e o preci dela ainda rodam, sobre clones.
+- **D2b-fix2** despachada ao implementador da D2b-fix (`ordem-d2bfix2.md`), com a pré-condição conferida: o commit da SELFTEST-EXIT-LINE está no HEAD e nenhuma fatia viva escreve no registro. A D5a-fix3 roda em paralelo, em arquivos disjuntos.
+- **Agentes vivos:** a SELFTEST-EXIT-LINE (mutantes e preci), a D5a-fix3 (preci), a D2b-fix2 e o CTO (plano da D3), 4 no total (o teto).
+
+### 09/10/2026 01:40:30 - D5a-fix3 entregue com o conserto de lint; revisão da D5a-fix3 despachada
+
+- **D5a-fix3** em `571d21ec` e `f9401e5d`. O diff do segundo commit, conferido pelo main, é de 2 linhas, só a chamada de `from_chars`. R2 verde (17 casos, 0 falhas); F3 e F4 refeitos e mortos. O preci num clone de `f9401e5d` deu rc 0 em `--lint-only`, `--win32-link-only` (128 alvos, 0 falhas) e `--fast`, lidos de `fix3-*.rc`.
+- **Revisão da D5a-fix3** despachada a um haiku distinto (`ordem-rev-d5afix3.md`). Ela julga as D-W8-120 a 123 pelo consumidor desconhecido e confere se os IMPORTANTES 1 e 2 da revisão anterior fecharam. Agentes vivos: SELFTEST-EXIT-LINE, D2b-fix2, CTO (plano da D3) e o revisor da D5a-fix3, 4 no total.
+
+### 09/10/2026 01:40:56 - Plano da D3 aceito depois da verificação do main
+
+- **Plano** `/var/tmp/cto-w8/plano-d3.md` (md5 `eb734c28`, CTO opus), com as decisões D-W8-136 a D-W8-142, decididas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - **C-5 / RELAY-SESSION-SUBJECTS:** `run_check` sai para `tests/container/run_check.sh`, e `clean_mode_output` fica na biblioteca, que é quem a usa. Pergunta ao líder só se o revisor da D3a discordar.
+  - **CAPTURE-DRIVER-SELFTEST-SPLIT:** os controles vão para `<driver>_selftest.sh`, carregado pelo `--selftest` do próprio driver. A D3a faz isso no driver antigo como refactor puro (31 controles iguais, nenhuma linha em `tests/CMakeLists.txt`).
+  - **O driver da D3:** uma rodada, `timeout -k 5 60` dentro do contêiner, 19 controles e 14 mutantes; ele insere 17 linhas no registro (na forma do executor) e 2 em `tests/parity_exceptions.txt`.
+  - **Ordem:** D2b-fix2, depois D3a junto com a D5b (arquivos disjuntos), depois D3, depois D6-red.
+- **Verificação do main:** `run_check` (`capture_relay_session.sh:150`) e `clean_mode_output` (`:164`) existem; `tests/parity_exceptions.txt` e `tests/container/exec_fixture.sh` existem. As previsões dependem do estado que a D2b-fix2 vai deixar e serão reconferidas contra o HEAD antes do despacho da D3a.
+- **Notas:** o CTO rodou duas sondas só de leitura em imagens existentes (a versão do `timeout` e o `/bin/sh`), declaradas no §1.3 do plano. Isso foi além do pedido de não executar nada, mas não toca superfície nem repositório. **Errata:** não existe portão de shellcheck, ao contrário do que o item 4 do plano-d2bfix2 dizia (o implementador foi avisado), e o `/bin/sh` da `glintfx-devbuild:verify` é bash, e não dash.
+
+### 09/10/2026 02:00:06 - SELFTEST-EXIT-LINE entregue; revisão despachada
+
+- **SELFTEST-EXIT-LINE** (`c3ec9d66`):
+  - os vermelhos V1, V2 e V3 passavam verdes no registro antigo e reprovam no novo; V4a e V4b reprovam a trava;
+  - o autoteste do executor ficou vermelho em 5 de 7 casos com o executor falso e verde com o real; M1, M2 e M3 mortos;
+  - o preci deu rc 0 no pai (R=90, F=16) e no SHA (R=90, F=17, isto é, F mais 1, como a D-W8-114 previa), e o verde da prova deu 9 de 9.
+- **Desvios declarados** (vão ao revisor): o dublê mudou depois que o `check_dep_zero` recusou `cmake_language`; o `:977` usa `$<TARGET_FILE:...>`; três comentários gêmeos perto de `:5240`, `:6512` e `:6530` ainda descrevem a regex antiga; a trava conta `executor=8`.
+- **Revisão** despachada a um haiku distinto (`ordem-rev-selftest-exit-line.md`). Agentes vivos: D2b-fix2, revisor da D5a-fix3 e revisor da SELFTEST-EXIT-LINE, 3 no total.
+
+### 09/10/2026 02:02:54 - Revisão da D5a-fix3: APROVADA COM RESSALVAS; D5a-fix4 ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix3.md`, haiku distinto):
+  - os IMPORTANTES 1 e 2 da revisão anterior (PB2 e SF) estão FECHADOS pelo caso 11c;
+  - a D-W8-122 está correta e provada;
+  - morreram PB2, SF, F4, SEPR, CEIL e NZ;
+  - o lint, o link Windows e o preci rápido deram rc 0.
+- **IMPORTANTE (teste):** o caso 13 prova "vence a última" só para `--title` e `--ready-line`; os mutantes OUTF (`--out`) e BUDF (orçamentos) sobrevivem. O main conferiu: o caso 13 (`:257-277`) não cita `--out` nem os orçamentos. É o gêmeo da L-17.
+- **Para a lista de confirmação do líder:** `--out -- --title T -- f` é aceito com out=`--`, consequência da D-W8-120 (o `--` aceito como valor, como no getopt). A unidade é ferramenta de teste em `tests/tools`, e não API pública; o CTO dirá se mantém. O zero à esquerda (`"05"`) é aceito e não está fixado por teste (LZ); a decisão vai ao CTO.
+- **Encaminhamento:** o CTO recebeu o pedido da D5a-fix4 (casos de OUTF e BUDF, mais a decisão do LZ e os cosméticos), em arquivos disjuntos da D2b-fix2.
+- **Correção do main à entrada acima:** o caso 13 CITA `--out`, mas só uma vez em cada linha, como opção obrigatória. O que falta é a REPETIÇÃO de `--out` e dos orçamentos. A frase "não cita `--out`" estava errada; o achado continua de pé.
+
+### 09/10/2026 02:06:39 - D2b-fix2 commitada; plano da D5a-fix4 aceito e a fatia despachada
+
+- **D2b-fix2** em `0a75c34c` (3 arquivos; o registro passa a `selftest: 31 controles OK`). Os mutantes e o preci estão em curso; o relatório vem a seguir.
+- **Plano da D5a-fix4** (`/var/tmp/cto-w8/plano-d5afix4.md`, md5 `09c32001`), com as decisões D-W8-143 a D-W8-146, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - zero à esquerda aceito e fixado ("05" lê 5; "00" é recusado);
+  - `--out --` mantido pela D-W8-120, com a unidade sendo ferramenta de teste, e posto na lista de confirmação do líder;
+  - `same_fields` com binding estruturado, que não compila se faltar um campo novo (mutante GF);
+  - a expressão repetida fica, com comentário, porque o clang-tidy força essa forma;
+  - 19 casos de teste.
+- **Verificação do main:** o auxiliar `with_fixture` (`:23`) existe, e `tool_options` tem exatamente os 7 membros na ordem do binding.
+- **Despacho:** a D5a-fix4 foi para o implementador da D5a, em arquivos disjuntos da D2b-fix2 e da D3a. A D5b espera o commit e o preci da D5a-fix4, porque o autoteste dela lê o `.cpp` da unidade.
+
+### 09/10/2026 02:14:12 - D2b-fix2 aceita; revisão da D2b-fix2 e D3a despachadas
+
+- **D2b-fix2** (`0a75c34c`):
+  - os vermelhos A e B saíram pela causa certa (controle 30, guarda silenciada; controle 31, dublê vazando);
+  - o N foi de 28 para 31;
+  - X4, X5, X6, X7, X8 e X1 morreram no controle previsto (o main conferiu X4, X5 e X1 nos logs);
+  - preci com rc 0 (`/var/tmp/cto-w8/d2bfix2/preci.rc`).
+- **Revisão da D2b-fix2** despachada a um haiku distinto (`ordem-rev-d2bfix2.md`). Ela reaplica ao SHA novo os 3 mutantes que sobreviviam na revisão anterior e confere o diagnóstico do IMP-3.
+- **D3a** despachada ao implementador da D2b-fix2 (`ordem-d3a.md`, §4 do `plano-d3.md`). O main conferiu as âncoras contra o HEAD: 31 controles; as linhas 44, 149 e 549 do driver; a linha 160 e o cabeçalho, linhas 8 e 11, da biblioteca; o 12º e o 15º controles batem com os mutantes A1 e A3.
+- **Agentes vivos:** o revisor da SELFTEST-EXIT-LINE, a D5a-fix4, o revisor da D2b-fix2 e a D3a, 4 no total. A D5b espera a D5a-fix4.
+
+### 09/10/2026 02:24:40 - Revisão da SELFTEST-EXIT-LINE: REPROVADA para fechamento; correção ao CTO; D3a commitada
+
+- **Revisão** (`/var/tmp/cto-w8/rev-selftest-exit-line.md`, haiku distinto). O núcleo funciona: rc exato e linha exata; V1 e V3 vermelhos no registro novo; verde 9 de 9. Reprova por lei:
+  - **I1** (L-40): o piso `executor >= 7` conta também o registro do autoteste do próprio executor, então faltar um sítio real passa;
+  - **I5** (L-36): a trava nova não tem autoteste;
+  - **I6**: um comentário com `[` sem fechar esconde um PASS seguinte (medido);
+  - lacunas no autoteste do executor: I2 (sufixo, mutante E2), I3 (`1.0`, E3) e EXPECT_LINE vazia sem caso;
+  - **I4:** três comentários gêmeos que ainda descrevem a regex;
+  - cosméticos C1 e C2.
+- **Encaminhamento:** o CTO planeja a SELFTEST-EXIT-LINE-fix em `plano-selftest-fix.md`. Ela mexe no registro, então entra ANTES da D5b e da D3. A SELFTEST-EXIT-LINE fica em 🔍 até a correção e a revisão dela.
+- **D3a** commitada em `9fe3d4d7` (4 arquivos; os 2 novos com modo 100755 no índice, conferido pelo main com `git ls-files -s`). Os mutantes estão em curso.
+
+### 09/10/2026 02:30:11 - Plano da SELFTEST-FIX aceito e a fatia despachada
+
+- **Plano** `/var/tmp/cto-w8/plano-selftest-fix.md` (md5 `5331a275`, CTO opus), com as decisões D-W8-147 a D-W8-152, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - a trava conta só os registros `.cmake" --`, com um piso que sobe a cada registro novo e nunca desce, hoje em 7;
+  - `[` e `]` passam a `<` e `>` antes de partir as linhas;
+  - a trava ganha autoteste de 7 casos, fora do executor;
+  - o autoteste do executor vai de 7 para 10 casos;
+  - os 3 comentários gêmeos são reescritos;
+  - C1 e C2 ficam aceitos como estão.
+- **Errata para as próximas:** a D5b sobe o piso da trava para 8 e a D3 para 9, cada uma no mesmo commit e ajustando os casos do autoteste da trava.
+- **Verificação do main:** `check_no_pass_regex.cmake:41` tem `LESS 7`, e `grep -c 'expect_exit_and_line.cmake" --'` dá 7 no registro, o que confirma o I1.
+- **Despacho:** a SELFTEST-FIX foi para o implementador da SELFTEST-EXIT-LINE, em paralelo com a D3a e a D5a-fix4 (arquivos disjuntos). Ordem daqui em diante: D5b, depois D3.
+
+### 09/10/2026 02:37:22 - D3a entregue; revisão da D3a despachada
+
+- **D3a** (`9fe3d4d7`, refactor puro):
+  - as provas 7a a 7e estão limpas: 31 nomes, diffs vazios, `run_check` fora da biblioteca, `selftest: 31 controles OK`;
+  - prova real com o isolamento provado antes, `new-limpo-1` com rc 0 e `new-sabotado` com rc 1;
+  - A1, A2 e A3 morreram (A1 com `[: : integer expected` no lugar da linha prevista);
+  - preci com rc 0 (`/var/tmp/cto-w8/d3a/preci.rc`, conferido pelo main).
+- **Revisão da D3a** despachada a um haiku distinto (`ordem-rev-d3a.md`). Ela refaz por conta própria a prova de refactor puro, julga a D-W8-136 (`clean_mode_output` fica na biblioteca; uma discordância vai ao líder) e confere bashismo por leitura, porque não há imagem com dash localmente e baixar uma pede autorização (L-14).
+- **Agentes vivos:** a D5a-fix4, o revisor da D2b-fix2, a SELFTEST-FIX e o revisor da D3a, 4 no total.
+
+### 09/10/2026 02:45:53 - D5a-fix4 entregue; revisão despachada, com o SFM em julgamento
+
+- **D5a-fix4** (`27b0e8ef`): 19 casos verdes; `cl.exe` com BUILD_RC 0 nas duas ligações; lint, link Windows e preci com rc 0. OUTF, BUDF e LZ morrem nos casos novos; GF não compila, como desenhado.
+- **Ponto aberto:** o mutante SFM (`same_fields` sem comparar `fixture_command`) sobreviveu. O plano aceitava isso, mas, na leitura do main, o binding obriga a nomear o campo, não a compará-lo. Foi ao revisor (haiku distinto, `ordem-rev-d5afix4.md`), com o pedido de um mutante na unidade que só morra se a comparação existir.
+- **Agentes vivos:** a SELFTEST-FIX, o revisor da D2b-fix2, o revisor da D3a e o revisor da D5a-fix4, 4 no total. A D5b espera a SELFTEST-FIX.
+
+### 09/10/2026 02:47:36 - Revisão da D2b-fix2: APROVADA COM RESSALVAS; IMP-1, 2 e 3 fechados; o IMP-A novo vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d2bfix2.md`, haiku distinto): IMP-1, IMP-2 e IMP-3 da revisão anterior estão FECHADOS. Dos mutantes, 13 morreram, entre eles X4-classe, X5, X8, X1, X6 e X7. O dash rodou num Debian 13 local e deu rc 0.
+- **IMP-A (novo):** nenhum controle prova que a falha de um controle reprova o autoteste. Com `( "$@" ) || true` em `run_control`, o resultado é `31 OK, rc=0`. É a cegueira do portão (L-40 e L-36).
+- **Encaminhamento:** o CTO planeja a D2b-fix3 em `plano-d2bfix3.md`, DEPOIS da SELFTEST-FIX e ANTES da D5b, porque mexe no N do registro. A D3 espera a D2b-fix3. O COS-A (CONTAINER só com espaços) vai à INBOX se o CTO concordar.
+- **RELAY-SOCKET-STALE** pode ir a ✅ depois da D2b-fix3: o caso do log vazio já está provado (X5 morre no controle 29).
+
+### 09/10/2026 02:50:48 - SELFTEST-FIX commitada; plano da D2b-fix3 aceito e a fatia despachada
+
+- **SELFTEST-FIX** em `68968bad` (3 arquivos). Os mutantes e o preci estão em curso; o agente foi avisado de não tocar mais `tests/CMakeLists.txt` sem antes falar com o main.
+- **Plano da D2b-fix3** (`plano-d2bfix3.md`, md5 `58c51157`). As decisões D-W8-153 a D-W8-155, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - a prova da propagação da falha roda DIRETO no `selftest_main` e conta como controle 32. Ela não pode ser um controle comum: o MA engoliria também a falha dele, um furo da sugestão do revisor que o CTO apontou;
+  - sem vermelho de TDD, porque a estreia vermelha é o MA;
+  - nenhum efeito no piso da trava;
+  - errata à D3: o autoteste dela ganha a mesma prova, o N vai a 20 e entra o mutante M17;
+  - o COS-A vira o item da INBOX `CONTAINER-BLANK-GUARD`, e o COS-B fica recusado.
+- **Verificação do main:** o registro está em `tests/CMakeLists.txt:6549-6551`, com `31 controles OK`; `run_control` e `selftest_check` estão no arquivo de controles, linhas 12 a 18.
+- **Despacho:** a D2b-fix3 foi para o implementador da D2b-fix, com a ordem de PARAR se o diff de `tests/CMakeLists.txt` trouxer mudança alheia. Agentes vivos: a SELFTEST-FIX, os revisores da D3a e da D5a-fix4, e a D2b-fix3, 4 no total.
+
+### 09/10/2026 03:07:20 - SELFTEST-FIX entregue; revisão da correção despachada
+
+- **SELFTEST-FIX** (`68968bad`):
+  - vermelho exatamente como previsto ("FALHOU 2 de 7", nos casos 4 e 6);
+  - autoteste da trava com 7 casos e do executor com 10;
+  - E2, E3, E4, T1, T3, T4 e T5 mortos na tupla prevista;
+  - as plantas do revisor reprovam: I1 com `sitios=6 piso=7` e I6 com `PASS=1`, ambas rc 1;
+  - preci com rc 0 no pai (F=17) e no SHA (F=18), lido de `preci-*.rc` pelo main.
+- **Revisão da correção** despachada ao MESMO revisor que a reprovou: ele não é o implementador (L-12) e conhece os furos que achou. Ele reaplica as plantas e os mutantes dele ao SHA novo.
+- **Agentes vivos:** a D2b-fix3, os revisores da D3a e da D5a-fix4, e o revisor da SELFTEST-FIX, 4 no total.
+
+### 09/10/2026 03:12:23 - Revisão da D3a: APROVADA COM RESSALVAS; D3a-fix ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d3a.md`, haiku distinto): o refactor puro está provado (60 de 60 corpos de função idênticos, 31 controles na mesma ordem, bloco de 400 linhas idêntico); autoteste com rc 0; A1, A2 e A3 mortos. O revisor **concorda com a D-W8-136**, então não há pergunta ao líder.
+- **Ressalvas:**
+  - **I-1:** nenhum controle prova que `run_check` restaura o `set -e` (mutante R6);
+  - **I-3:** o arquivo de controles tem 406 linhas e reprova as perguntas Q1 e Q2 da L-17 do projeto (sinal de monolito);
+  - **C-5:** o despacho duplicado não é barrado (R3);
+  - mais quatro cosméticos.
+  - O dash continua não medido: não há imagem local, e o CI vai medir.
+- **Encaminhamento:** o CTO decide e planeja a D3a-fix em `plano-d3afix.md`, DEPOIS da D2b-fix3, que mexe no mesmo arquivo de controles, e antes da D3, porque `run_check.sh` ganha o segundo consumidor nela.
+
+### 09/10/2026 03:13:11 - D2b-fix3 commitada; terceira limpeza do scratch
+
+- **D2b-fix3** em `5061cffe`, com o preci em curso.
+- **Limpeza** (escopo "clean"): 148 cópias (`snap*`, `clone*`, `mut*`, `build` de `out*` e similares) das fatias fechadas desde a última limpeza: D2b-fix2, D3a, D5a-fix3, D5a-fix4, SELFTEST-EXIT-LINE, SELFTEST-FIX e as revisões delas. 55 dos caminhos eram de dono root e foram apagados por contêiner. Lista em `limpeza3.txt`, com zero caminhos em `scripts/`. Foram poupados os diretórios vivos (`d2bfix3`, `rev-d5afix4`, `rev-selftest-fix`), o `rev-selftest-exit-line` (o mesmo revisor reaproveita as plantas dele agora) e o `b`.
+- **Disco:** `min` de 20,84 para 22,09 GiB; `/var/tmp/cto-w8` com 3,6 GiB.
+
+### 09/10/2026 03:17:06 - Plano da D3a-fix aceito e despachado; dois itens novos na INBOX
+
+- **Plano** `/var/tmp/cto-w8/plano-d3afix.md` (md5 `b269e66b`), com as decisões D-W8-157 a D-W8-162, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - I-1 consertado antes da D3, num arquivo novo, `run_check_selftest.sh`: o R6 cai no controle 32 e o R4 no 33;
+  - C-5: `selftest_main` recusa uma segunda chamada (o R3 sai com rc 1);
+  - N vai de 32 para 34, sem efeito na trava;
+  - I-3 vira o item `CAPTURE-SELFTEST-SUBJECTS`, cujo gatilho é antes de qualquer controle novo entrar no arquivo grande;
+  - C-4 corrigido; C-2 vira o item `SH-DUPLICATE-FUNCTION-GATE`; C-3 recusado;
+  - errata à D3: o Anexo B ganha a mesma recusa de segunda chamada (o N continua 20, mutante M18).
+- **Verificação do main:** o registro diz `32 controles OK` (`tests/CMakeLists.txt:6551`); `selftest_main` está no arquivo de controles, linha 394; o `set +e` e o `set -e` estão em `run_check.sh`, linhas 14 e 17.
+- **Despacho:** a D3a-fix foi para o implementador da SELFTEST-EXIT-LINE, com a guarda de diff em `tests/CMakeLists.txt` e `tests/container/`. Agentes vivos: a D2b-fix3 (preci), os revisores da D5a-fix4 e da SELFTEST-FIX, e a D3a-fix, 4 no total.
+- **Sequência:** D2b-fix3 e D3a-fix, depois a D5b, depois a D3.
+
+### 09/10/2026 03:17:28 - D2b-fix3 entregue; revisão junto com a D3a-fix
+
+- **D2b-fix3** (`5061cffe`, 2 arquivos; o diff do registro foi conferido antes do commit: só 31 para 32). N=32, rc direto verde. O MA caiu no controle 32 ("o portao aprovou um controle que falha"); MC e MN no 32 e X4 no 31. Preci com rc 0.
+- **Decisão do main:** a revisão da D2b-fix3 será feita JUNTO com a da D3a-fix, que mexe no mesmo arquivo de controles e no mesmo N, por um único haiku distinto, assim que a D3a-fix entregar. São fatias pequenas e encadeadas, e uma revisão só poupa uma vaga de agente e tempo de trava.
+
+### 09/10/2026 03:18:04 - Push e CI do lote D5a-fix3/4, SELFTEST-EXIT-LINE e correção, D2b-fix2/3 e D3a
+
+- **Push** de `onda-w8` com o tip `12dc9ea4`, provado por `git ls-remote`. Entram 8 commits de código desde `f2f2d3eb`: D5a-fix3 (2), SELFTEST-EXIT-LINE, D2b-fix2, D5a-fix4, D3a, SELFTEST-FIX e D2b-fix3. O CI confere no servidor o que esta máquina não confere: o `sh` dash do Ubuntu e os jobs Windows.
+
+### 09/10/2026 03:21:05 - Revisão da SELFTEST-FIX: REPROVADA de novo para fechamento; SELFTEST-FIX2 ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-selftest-fix.md`, o mesmo revisor distinto). Ficaram FECHADOS no registro de hoje I1, I4 e I6, e o I5 com uma lacuna. Mortos: E2, E3, E4, T1, N2, T2, B1 e N3p.
+- **I7 (bloqueia a D5b):** a catraca não lembra o máximo. Um registro que tinha 9 sítios e cai para 7, com o piso em 7, passa (mutante N1). **I8:** o autoteste da trava não tem caso de `]` (N3).
+- **Encaminhamento:** o CTO decide a forma da catraca (o revisor sugeriu `EQUAL`) e planeja a SELFTEST-FIX2 em `plano-selftest-fix2.md`. A D5b espera por ela.
+- **Lição:** é a segunda reprovação seguida da mesma trava. Na primeira (I1) e na segunda (I7), o defeito estava em COMO o número é comparado, e não na contagem. Uma trava de contagem precisa de prova nos dois sentidos: sobe sem atualizar e desce sem atualizar.
+
+### 09/10/2026 03:24:14 - D3a-fix commitada; plano da SELFTEST-FIX2 aceito e despachado
+
+- **D3a-fix** em `38630bb5` (4 arquivos; `run_check_selftest.sh` novo, com modo 100755 conferido pelo main; registro com `34 controles OK`). Mutantes e preci em curso.
+- **Plano da SELFTEST-FIX2** (`plano-selftest-fix2.md`, md5 `62171b00`). As decisões D-W8-163 a D-W8-165, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - a catraca vira IGUALDADE exata (`CHECK_NO_PASS_REGEX_SITES`). A trava não lembra máximo; quem lembra é o número no arquivo e a história dele no git. Acrescentar ou tirar um teste sem mudar o número reprova, e baixar o número aparece no diff;
+  - limite declarado: trocar um teste por outro no mesmo commit passa;
+  - autoteste de 9 casos, com as plantas montadas a partir da constante; o caso 8 é o `]` solto;
+  - as erratas da D5b (8) e da D3 (9) continuam, com o nome novo.
+- **Despacho:** a SELFTEST-FIX2 foi para o implementador da D2b-fix, com a guarda de diff. Agentes vivos: a D3a-fix (mutantes e preci), o revisor da D5a-fix4 e a SELFTEST-FIX2, 3 no total. A D5b espera a SELFTEST-FIX2.
+
+### 09/10/2026 03:24:42 - Revisão da D5a-fix4: APROVADA COM RESSALVAS, sem defeito de código; o CTO decide onde fica o fim
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix4.md`, haiku distinto). Mortos: OUTF, BUDF, EXITF, LZ, ZERO00, Z3Z, GF e FC. Sobreviveram SFM, FC+SFM, SFMW, OCT0 e VINVAL.
+- **IMPORTANTES:** (1) o comentário de `same_fields` promete mais do que o binding garante; (2) a guarda não tem dente, porque FC+SFM juntos passam (proposta: `operator==` padrão); (3) "010" lido como octal passa (OCT0); (4) um valor inválido antes do válido não está fixado (VINVAL).
+- **Encaminhamento:** o CTO decide quais desses entram numa D5a-fix5 e quais viram INBOX ou ficam aceitos com justificativa. É a quarta rodada no mesmo par de arquivos, e cada uma acha algo menor; o main pediu que o CTO diga onde fica o fim, sem relaxar a qualidade (L-15).
+- **Para a lista do líder:** a regra do valor inválido anterior (o CTO decide; se julgar que é do líder, entra na confirmação retroativa) e a D-W8-144 (`--out --`).
+
+### 09/10/2026 03:27:32 - Plano da D5a-fix5 aceito e despachado; o critério de fim das rodadas
+
+- **Plano** `/var/tmp/cto-w8/plano-d5afix5.md` (md5 `c594e9b6`). As decisões D-W8-167 a D-W8-170, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - **§0, onde termina:** uma regra decidida sem caso, ou um caso que não morde, sempre abre fatia, e um defeito de código também, sem limite. Um mutante que inventa uma regra que ninguém decidiu não abre rodada: vai para a lista de confirmação do líder;
+  - `operator==` padrão em `tool_options`, usado por `same_fields` (mutante equivalente: FNEW);
+  - "010" lê 10, no caso 7d (OCT0);
+  - **D-W8-169:** numa opção repetida, o valor anterior é descartado sem ser lido, porque vence o último. O argparse recusaria; isso fica declarado e vai à lista de confirmação do líder, junto com a D-W8-144;
+  - o `cl.exe` é refeito sobre um clone do SHA.
+- **Despacho:** a D5a-fix5 foi para o implementador da D5a. Ela mexe só no `.hpp` e no teste; o `.cpp` lido pela D5b fica intocado, então ela pode correr junto com a D5b. Agentes vivos: a D3a-fix, a SELFTEST-FIX2 e a D5a-fix5, 3 no total.
+
+### 09/10/2026 03:42:01 - D3a-fix entregue; revisão conjunta da D2b-fix3 e da D3a-fix despachada
+
+- **D3a-fix** (`38630bb5`): N=34; R6 caiu no controle 32, R4 no 33, MA no 34; o R3 imprime `34` uma vez e depois a recusa (rc 1). Preci com rc 0 no pai e no SHA, lido de `preci*.rc` pelo main. O diff do registro e de `tests/container/` antes do commit tinha só as mudanças da fatia. O dash continua não medido localmente.
+- **Revisão conjunta** da D2b-fix3 e da D3a-fix despachada ao revisor da D3a, que não implementou nenhuma das duas (`ordem-rev-d2bfix3-d3afix.md`), com o §0 do plano da D5a-fix5 como critério de classe.
+- **Agentes vivos:** a SELFTEST-FIX2, a D5a-fix5 e o revisor conjunto, 3 no total.
+
+### 09/10/2026 03:44:41 - CI 37892805249 verde
+
+- **CI 37892805249** (tip `12dc9ea4`, com D5a-fix3/4, SELFTEST-EXIT-LINE e SELFTEST-FIX, D2b-fix2/3 e D3a): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). Os jobs do Ubuntu, cujo `sh` é dash, passaram, e isso responde por parte do "dash não medido" das revisões. A D3a-fix e as correções seguintes ainda não foram empurradas.
+
+### 09/10/2026 04:01:35 - D5a-fix5 e SELFTEST-FIX2 commitadas; D5b despachada com erratas
+
+- **D5a-fix5** em `94dc1049` e **SELFTEST-FIX2** em `dfa3e709` (2 arquivos). O preci da SELFTEST-FIX2 deu rc 0 (`/var/tmp/cto-w8/selftest-fix2/preci.rc`); os mutantes da D5a-fix5 estão em curso.
+- **D5b** despachada ao implementador da SELFTEST-EXIT-LINE (`ordem-d5b.md`), com as erratas que vencem o plano:
+  - o registro na forma do executor;
+  - `CHECK_NO_PASS_REGEX_SITES` de 7 para 8 no mesmo commit;
+  - o comentário do registro sem "EXACT in the regex".
+  O main conferiu que os arquivos lidos pela D5b não mudaram desde a base do plano, exceto `window_capture_options.cpp`, que mudou em comentário e na leitura do orçamento e ainda tem os 5 literais.
+- **Agentes vivos:** a SELFTEST-FIX2 (fechando o relatório), a D5a-fix5, o revisor conjunto da D2b-fix3 e da D3a-fix, e a D5b, 4 no total.
+
+### 09/10/2026 04:02:09 - SELFTEST-FIX2 entregue; revisão despachada ao mesmo revisor
+
+- **SELFTEST-FIX2** (`dfa3e709`): o vermelho saiu como previsto (só o caso 9 falhou; na base, `sitios=9 piso=7` passava); autoteste de 9 casos verde; N1, N1b, N3 e N4 mortos; a forma composta (trocar 2 por 2) passa, como o limite declarado prevê; trava real com `sitios=7 esperado=7`; preci com rc 0.
+- **Revisão** despachada ao mesmo revisor das duas rodadas anteriores (`rev-selftest-fix2.md`), com o §0 da D5a-fix5 como critério de classe. Ele revisa o clone no SHA, já que a D5b sobe a constante para 8 na árvore.
+- **Agentes vivos:** a D5a-fix5, o revisor conjunto da D2b-fix3 e da D3a-fix, a D5b e o revisor da SELFTEST-FIX2, 4 no total.
+
+### 09/10/2026 04:13:00 - SELFTEST-FIX2 aprovada; a cadeia da SELFTEST-EXIT-LINE fecha na revisão; D5a-fix5 entregue e em revisão
+
+- **Revisão da SELFTEST-FIX2** (`/var/tmp/cto-w8/rev-selftest-fix2.md`): APROVADA COM RESSALVAS, só COSMÉTICO. I7 e I8 FECHADOS: N1, N1b, N3, N4, Q2 e Q3 mortos. Os limites declarados (soma zero, baixar a constante junto com um sítio) foram confirmados como desenho, e não como defeito. O COSMÉTICO C1 vai à INBOX como `NO-PASS-REGEX-PLANT-SELFCHECK`.
+- **SELFTEST-EXIT-LINE:** as três revisões estão fechadas (c3ec9d66, 68968bad, dfa3e709). O item vai a ✅ quando o CI do servidor que contém `dfa3e709` fechar verde (L-63: ✅ só depois de verificar).
+- **D5a-fix5** (`94dc1049`): 19 casos verdes; `cl.exe` com o SHA no log e BUILD_RC 0; lint e link Windows com rc 0; FNEW, OCT0, VINVAL e FC mortos nos casos previstos; preci com rc 0. A revisão foi para o mesmo revisor da D5a-fix4.
+- **Agentes vivos:** o revisor conjunto da D2b-fix3 e da D3a-fix, a D5b e o revisor da D5a-fix5, 3 no total.
+
+### 09/10/2026 04:14:17 - Revisão conjunta: D2b-fix3 APROVADA, D3a-fix APROVADA COM RESSALVAS; RELAY-SOCKET-STALE em ✅
+
+- **Revisão conjunta** (`/var/tmp/cto-w8/rev-d2bfix3-d3afix.md`): IMP-A, I-1 e C-5 FECHADOS; 10 mutantes mortos.
+  - **I-4:** a guarda de despacho único cai se a suíte zerar a própria variável (P2b); a recomendação é `readonly`.
+  - **C-6:** nenhum portão confere o modo 100755.
+  Os dois foram ao CTO (`plano-d3afix2.md`), com a errata para a D3 nascer com a guarda robusta.
+- **RELAY-SOCKET-STALE → ✅.** A cadeia D2b-fix, D2b-fix2 e D2b-fix3 está revisada, e o caso do log vazio está provado (X5 no controle 29). O CI 37892805249, que contém `1e757433` a `5061cffe`, está verde.
+
+### 09/10/2026 04:17:04 - D5b commitada; plano da D3a-fix2 aceito e despachado; SH-MODE-GATE na INBOX
+
+- **D5b** em `907ec9b6` (4 arquivos). As erratas estão aplicadas, conferidas pelo main no diff: `CHECK_NO_PASS_REGEX_SITES` foi de 7 para 8, e nenhum `PASS_REGULAR_EXPRESSION` novo entrou. O preci está em curso.
+- **Plano da D3a-fix2** (`plano-d3afix2.md`, md5 `fe4d4736`). As decisões D-W8-172 a D-W8-174, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - pelo §0, o I-4 é "caso que não morde" e abre fatia, cujo conserto é `readonly SELFTEST_MAIN_STARTED=1` (o P2b é morte obrigatória);
+  - fica aceito e declarado que apagar a guarda inteira sobrevive, porque isso é remover o mecanismo, e não furá-lo;
+  - o C-6 vira o item `SH-MODE-GATE`;
+  - errata ao Anexo B da D3: a guarda já nasce `readonly`, com o mutante M19.
+- **Verificação do main:** a guarda está nas linhas 401 e 402 do arquivo de controles, ainda sem `readonly`. A fatia mexe só nesse arquivo, sem tocar no registro, e por isso corre junto com a D5b.
+- **Despacho:** a D3a-fix2 foi para o implementador da D2b-fix. Agentes vivos: a D5b (preci), o revisor da D5a-fix5 e a D3a-fix2, 3 no total.
+
+### 09/10/2026 04:35:27 - Revisão da D5a-fix5: APROVADA sem ressalva de código; a cadeia da D5a fecha; D3a-fix2 commitada
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5afix5.md`): APROVADA. Os 4 IMPORTANTES da D5a-fix4 estão FECHADOS (FNEW, OCT0, VINVAL e FC mortos nos casos previstos; o SFM deixou de existir junto com a comparação escrita à mão). Nenhum defeito de código. O cosmético restante: o preci.log sem SHA.
+- **A cadeia da D5a** (a unidade da linha de comando da ferramenta de captura, mais o teste dela) fecha na revisão, depois de seis fatias: D5a, D5a-fix, fix2, fix3, fix4 e fix5.
+- **Observação NODEF**, pelo §0: um campo sem inicializador leria um valor indeterminado na comparação. É uma regra nova ("todo campo tem valor padrão") que ninguém decidiu; vai para a lista de confirmação do líder, sem abrir fatia.
+- **Lista para a confirmação retroativa do líder** (acumulada): D-W8-144 (`--out --` aceito), D-W8-167 (`operator==` padrão em ferramenta de teste), D-W8-169 (o valor anterior de uma opção repetida é descartado sem ser lido) e a regra do NODEF. Além delas, as decisões D-W8-36 em diante, que já estavam pendentes.
+- **D3a-fix2** em `94caef3c`. O relatório vem a seguir.
+
+### 09/10/2026 04:36:40 - D5b entregue; revisão despachada; o plano da D3 consolidado pedido ao CTO
+
+- **D5b** (`907ec9b6`): a tupla A saiu como previsto (uma linha FALHOU, a do comando sem `--ready-line`); na tupla B, N=33; a trava em 8 e o autoteste dela passam; 15 mutantes, de K2 a K18, morreram cada um no controle previsto; preci com rc 0 no pai e no SHA (90 para 91 rodados, como esperado). O registro novo está na forma do executor.
+- **Revisão da D5b** despachada ao revisor das D5a-fix4 e fix5, que conhece a unidade de opções (`ordem-rev-d5b.md`). Ela inclui conformidade com o Anexo A e a L-17, porque o arquivo tem 516 linhas.
+- **D3:** as erratas estão espalhadas em cinco planos, e o `plano-d3.md` está no texto original. O main pediu ao CTO um `plano-d3-v2.md` autossuficiente (Anexos A e B finais, N=20, trava em 9, mutantes M17 a M19, conferido contra o HEAD), porque um haiku não deve juntar cinco fontes (L-11 global).
+- **Agentes vivos:** a D3a-fix2 (fechando o relatório), o revisor da D5b e o CTO, 3 no total.
+
+### 09/10/2026 04:39:35 - Plano da D3 consolidado (v2) aceito; D3 despachada
+
+- **Plano** `/var/tmp/cto-w8/plano-d3-v2.md` (md5 `0d3cdc0e`), autossuficiente: Anexo A (md5 `e2812193`) e Anexo B (md5 `a92bfa4f`), com todas as erratas aplicadas (N=20, trava em 9, guarda `readonly`, a prova de propagação de falha, a recusa de segunda chamada, mutantes M17 a M19). O CTO conferiu os anexos com `bash -n` e com shellcheck, usado só como conferência local, já que não é portão do projeto.
+- **Verificação do main** contra o HEAD: a âncora em `tests/CMakeLists.txt:6572`, `CHECK_NO_PASS_REGEX_SITES 8`, a guarda `readonly` no driver irmão (`:403`). Desde o HEAD do CTO (`666b0acf`), só entraram commits de documentação.
+- **D3** despachada ao implementador da D5b (`ordem-d3.md`). Agentes vivos: a D3a-fix2 (fechando), o revisor da D5b e a D3, 3 no total.
+
+### 09/10/2026 04:45:20 - D3a-fix2 entregue; push e CI do lote; a revisão da D3a-fix2 vai junto com a da D3
+
+- **D3a-fix2** (`94caef3c`, 1 arquivo): N=34; o P2b morre por `readonly variable`, sem linha OK; preci com rc 0.
+- **Decisão do main:** a revisão da D3a-fix2 (uma linha) será feita junto com a da D3, cujo Anexo B tem a mesma guarda `readonly`. Um revisor distinto, uma rodada só.
+- **Push** de `onda-w8` com o tip `f182a427`, provado por `git ls-remote`. Entram D3a-fix, D5a-fix5, SELFTEST-FIX2, D5b e D3a-fix2. CI disparado: run 37900807368. Ele confere no servidor o `operator==` padrão no MSVC e o dash nos scripts novos.
+
+### 09/10/2026 04:46:41 - Revisão da D5b: APROVADA COM RESSALVAS, sem defeito de código; D5b-fix ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5b.md`, haiku distinto): Anexo A idêntico byte a byte; integridade conferida (`sitios=8`, nenhum `PASS_REGULAR_EXPRESSION` novo); funções com até 21 linhas e 4 parâmetros. Mortos: K2, K7, K17, K18, M1, M2 e M6.
+- **IMPORTANTES** (§0, item 1, regra decidida sem caso):
+  - PROBE_COUNT=12 sem controle (M3);
+  - MEASURED no autoteste não reprova (M4), contra a D-W8-125;
+  - a limpeza de `png/` não está provada (M5).
+  O tamanho do arquivo (516 linhas, com driver e autoteste juntos) foi como pergunta de desenho ao CTO.
+- **Encaminhamento:** o CTO planeja a D5b-fix em `plano-d5bfix.md`. Se ela mudar o N do registro, vem depois do commit da D3.
+
+### 09/10/2026 04:51:08 - D3 commitada; plano da D5b-fix aceito e despachado
+
+- **D3** em `0cbaba25` (5 arquivos). O main conferiu: os dois `.sh` novos batem byte a byte com os anexos do plano v2 (md5 `e2812193` e `a92bfa4f`) e estão no índice com modo 100755; `CHECK_NO_PASS_REGEX_SITES` vai a 9; a exceção de paridade entrou. O preci está em curso.
+- **Plano da D5b-fix** (`plano-d5bfix.md`, md5 `744efd6a`). As decisões D-W8-175 a D-W8-178, tomadas pelo CTO em modo autônomo e a confirmar retroativamente:
+  - um controle novo fixa `PROBE_COUNT==12` e `CAPTURE_SIZE==(640,480)`, e o N vai de 33 para 34;
+  - o registro reprova MEASURED no autoteste por `FAIL_REGULAR_EXPRESSION`, e o irmão Windows ganha o mesmo. O CTO recusou rodar o autoteste em processo filho: um erro na guarda contra recursão viraria cadeia de processos no hospedeiro, como já aconteceu uma vez;
+  - a limpeza de `png/` passa a ser provada;
+  - o tamanho do arquivo amplia o item da INBOX `CAPTURE-DRIVER-SPLIT`, já feito na TODO.md.
+- **Despacho:** a D5b-fix foi para o implementador da D2b-fix, com a guarda de diff. Agentes vivos: a D3 (preci) e a D5b-fix, 2 no total.
+
+### 09/10/2026 04:58:23 - D3 entregue; revisão conjunta da D3 e da D3a-fix2 despachada
+
+- **D3** (`0cbaba25`): os md5 batem com os anexos A e B; a tupla A saiu como previsto (controle 4); na B, N=20, com MEASURED=0; trava com `sitios=9 esperado=9`; M1 a M19 morreram no controle previsto (M18 recusa a segunda chamada, M19 dá `readonly variable`); preci com rc 0 (110 registrados e 92 rodados).
+- **Desvio declarado:** `git add -N` e `git reset` só nos dois caminhos novos, no índice compartilhado. O main conferiu que o índice ficou limpo (`git diff --cached` vazio). O julgamento vai ao revisor.
+- **Revisão conjunta** da D3 e da D3a-fix2 despachada ao revisor da D3a (`ordem-rev-d3.md`). Agentes vivos: a D5b-fix, o CTO (plano da D6 e da D7) e o revisor da D3, 3 no total.
+
+### 09/10/2026 05:01:35 - D5b-fix commitada; quarta limpeza do scratch
+
+- **D5b-fix** em `ae2d1295`, com o preci em curso.
+- **Limpeza** (escopo "clean"): 131 cópias das fatias fechadas (D5b, D5a-fix5, D3a-fix, D3a-fix2, D2b-fix3, SELFTEST-FIX2 e as revisões delas), das quais 45 eram de dono root e foram apagadas por contêiner. Lista em `limpeza4.txt`, com zero caminhos em `scripts/`. Foram poupados os diretórios vivos (`d5bfix`, `rev-d3`, `d3`) e o `b`.
+- **Disco:** `min` de 20,94 para 21,82 GiB.
+
+### 09/10/2026 05:09:12 - D5b-fix entregue; revisão despachada
+
+- **D5b-fix** (`ae2d1295`): N de 33 para 34; o rc direto sem MEASURED; M3, M6-SZ e M5 morreram no rc direto e no ctest; o M4 morreu no ctest ("Error regular expression found in output"), com o rc direto em 0, como previsto; trava com `sitios=9 esperado=9`; preci com rc 0.
+- **Revisão** despachada ao revisor da D5b (`rev-d5bfix.md`). Agentes vivos: o revisor da D3, o revisor da D5b-fix e o CTO, 3 no total.
+
+### 09/10/2026 05:11:32 - CI 37900807368 verde; SELFTEST-EXIT-LINE em ✅
+
+- **CI 37900807368** (tip `f182a427`, com D3a-fix, D5a-fix5, SELFTEST-FIX2, D5b e D3a-fix2): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). O `operator==` padrão passou no MSVC, e os scripts novos passaram no dash do Ubuntu.
+- **SELFTEST-EXIT-LINE → ✅.** A cadeia das três revisões fechou (c3ec9d66, 68968bad, dfa3e709), e o CI que contém `dfa3e709` está verde.
+- A D3 (`0cbaba25`) e a D5b-fix (`ae2d1295`) ainda não foram empurradas.
+
+### 09/10/2026 05:12:42 - Revisão da D5b-fix: APROVADA COM RESSALVAS; o formato do MEASURED vai ao CTO
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d5bfix.md`): M3 e M5 FECHADOS; M4 fechado na forma do mutante. MI-NOPROP prova que a propriedade no registro irmão é necessária. Sem defeito de código.
+- **IMPORTANTE 1:** o `FAIL_REGULAR_EXPRESSION` só casa UM espaço depois de MEASURED, e o coletor (`collect_measured.py`, `\s+`) aceita tab. O mutante com tab passa. A correção `MEASURED[ \t]` foi provada numa cópia. É a lição do formato compartilhado: a guarda tem de casar com o leitor, e não só com o produtor de hoje.
+- **Encaminhamento:** o CTO decide a D5b-fix2 (e se o SCANCOUNT também reprova), depois de entregar o plano da D6 e da D7.
+
+### 09/10/2026 05:15:06 - Revisão conjunta: D3a-fix2 APROVADA (a cadeia da D3a fecha); D3 APROVADA COM RESSALVAS
+
+- **Revisão** (`/var/tmp/cto-w8/rev-d3.md`): D3a-fix2 APROVADA e o I-4 FECHADO; a cadeia da D3a (D3a, fix e fix2) fecha na revisão. Na D3: os md5 batem com os anexos, 15 mutantes morreram, a trava está em `sitios=9`, e não há bashismo novo por leitura (o dash é medido pelo CI do servidor, que já passou nos scripts irmãos).
+- **IMPORTANTES da D3:** I-5, o rc 137 do `timeout -k` sem caso (MY8 sobrevive); I-6, o arquivo de controles com 369 linhas (L-17). Os dois foram ao CTO junto com a D5b-fix2; o I-6 tende ao item da INBOX `CAPTURE-SELFTEST-SUBJECTS`.
+- **Agentes vivos:** só o CTO (planos da D6, da D7, da D5b-fix2 e do I-5).
+
+### 09/10/2026 05:15:39 - Push e CI da D3 e da D5b-fix
+
+- **Push** de `onda-w8` com o tip `fe7cf36a`, provado por `git ls-remote`. CI disparado: run 37903837351. Ele confere no servidor o driver da D3 no dash do Ubuntu e o `FAIL_REGULAR_EXPRESSION` novo da D5b-fix nos jobs do Windows.
+
+### 09/10/2026 05:30:41 - Planos da D6, da D7, da D5b-fix2 e da D3-fix aceitos; quatro fatias em paralelo
+
+- **Plano da D6 e da D7** (`plano-d6-d7.md`, md5 `d837e814`), com as decisões D-W8-185 a D-W8-196:
+  - o gatilho do `CAPTURE-DRIVER-SPLIT` dispara antes da D6-red, em duas fatias de refactor puro (SPLIT-1, com N=109, e SPLIT-2, com N=34);
+  - `examples/` ganha um estágio próprio na imagem, e a injeção do contador usa caminho relativo;
+  - o registro do Windows fica `if(WIN32 AND TARGET first_window)`;
+  - na catraca, só a D7 soma um sítio (de 9 para 10);
+  - nas provas, esta máquina vem primeiro, e depois o servidor, em ramos descartáveis, cobertos pelo escopo "push" da autonomia;
+  - a VM do Windows só entra com a confirmação do líder.
+  São 5 commits de fatia: SPLIT-1, SPLIT-2, D6-red, D6-green e D7.
+- **Desvio declarado pelo CTO:** ele rodou uma vez o autoteste do rascunho do script da D7, contra a proibição de executar. Não vale como prova.
+- **Perguntas ao líder, marcadas pelo CTO:**
+  - (1) **a aparência do exemplo**, que deve ser perguntada antes da D6-red;
+  - (2) a licença de `examples/`, que o líder JÁ respondeu em 08/10/2026 (AGPL-3.0, como tudo; registro na memória da sessão), então não é pergunta nova.
+- **D5b-fix2** (`plano-d5bfix2.md`, md5 `935984f0`): `(MEASURED|SCANCOUNT)[ \t]` nos dois registros. A D-W8-181 (o SCANCOUNT também reprova) vai à confirmação retroativa. São cinco mortes obrigatórias, e a catraca fica em 9.
+- **D3-fix** (`plano-d3fix.md`, md5 `b04aeab5`): um caso do 137 dentro do controle 2 (MY8 como morte obrigatória), com N=20 e sem tocar o registro. O I-6 amplia o `CAPTURE-SELFTEST-SUBJECTS` (D-W8-183).
+- **Despacho em paralelo** (`ordem-comum-lote4.md`, com arquivos disjuntos, `git add` só dentro da `git.lock` e proibição de `add -N` e `reset` no índice):
+  - a D5b-fix2, ao implementador da D2b-fix;
+  - a D3-fix, ao da D5b;
+  - a SPLIT-1, ao da D5a;
+  - a SPLIT-2, a um haiku novo, com o commit dela depois do da SPLIT-1.
+  São 4 agentes vivos.
+
+### 09/10/2026 05:40:33 - CI 37903837351 verde
+
+- **CI 37903837351** (tip `fe7cf36a`, com a D3 e a D5b-fix): `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). O driver novo da D3 passou no dash do Ubuntu, e o `FAIL_REGULAR_EXPRESSION` da D5b-fix passou nos jobs Windows.
+
+### 09/10/2026 05:41:41 - D5b-fix2 entregue
+
+- **D5b-fix2** (`553e7edc`, só `tests/CMakeLists.txt`): `(MEASURED|SCANCOUNT)[ \t]` nos dois registros. As cinco mortes obrigatórias caíram no ctest, cada uma no registro certo: MT-TAB, M4, MT-2SP e MS-SCAN no driver novo, e MS-TAB-IRMAO no irmão. Trava com `sitios=9`, preci com rc 0. A revisão vai junto com a da D3-fix, que é pequena.
+
+### 09/10/2026 09:04:18 - Resposta do líder sobre a aparência, push do lote 4, D6-red e revisões despachadas
+
+- **O líder respondeu** à pergunta (1) do CTO às 09:01: "Manter a cena atual (Recomendado)". A D6-red usa a cena pré-registrada da D-W8-72, sem mudança.
+- **Entregues, todas com preci rc 0:** D3-fix (`ffdba257`), SPLIT-1 (`62558f78`, N=109) e SPLIT-2 (`835ad26a`, N=34), além da D5b-fix2 já registrada.
+- **Push** de `onda-w8` para `835ad26a`, com local e remoto iguais pelo `git ls-remote`. CI 37927328081 disparado.
+- **D6-red despachada** ao implementador da D3 (`ordem-d6red.md`, que aponta para o §5.3 do `plano-d6-d7.md`). O agente não empurra: as corridas A a E da D-W8-192 no servidor ficam com o main.
+- **Revisões despachadas** (`ordem-rev-lote4.md`, revisores distintos dos implementadores, L-12):
+  - revisor A: a D5b-fix2;
+  - revisor B: a D3-fix, a SPLIT-1 e a SPLIT-2.
+  Os dois revisam clones no SHA, porque a D6-red está viva na árvore real. São 3 agentes vivos.
+
+### 09/10/2026 09:05:26 - Ordem do líder: ver na tela a imagem gerada
+
+- **Verbatim (09/10/2026, 09:04):** "vou querer ver na minha tela a imagem gerada".
+- **Como se cumpre:** a imagem é o PNG que a captura tira do exemplo `first_window`, que só passa a desenhar na D6-green. Assim que houver:
+  - o PNG do Linux, da rodada local em contêiner;
+  - e o do Windows, do artefato do CI,
+  o main abre cada um num visualizador na tela do líder. Isso é só abrir um arquivo de imagem, não é teste, e não conflita com a L-09.
+- **A ordem do QA da D-W8-196 fica igual:** a abertura para o líder vem DEPOIS de o main congelar os md5 e não altera o arquivo.
+
+### 09/10/2026 09:12:28 - Revisão da D5b-fix2: aprovada com ressalvas
+
+- **Revisor A** (`rev-d5bfix2.md`): APROVADA COM RESSALVAS.
+  - As cinco mortes obrigatórias e mais o LEAD morreram no registro certo.
+  - Base: R2 4/4, `sitios=9`.
+- **IMPORTANTE 1:** o filtro `[ \t]` não cobre todo branco que o coletor conta (`\s` do Python). O NBSP sobrevive com rc 0.
+  - O main reconferiu: `collect_measured.py:86` é `\s+`, e `re.match` contra `MEASURED x=1` dá True.
+  - Proposta do revisor: `[^A-Za-z0-9_]`. Ela pega também `MEASURED:`, que o coletor não conta, e o revisor levantou isso como pergunta.
+- **IMPORTANTE 2:** nenhum caso permanente pina o filtro dos dois registros. MS-NOPIPE e MX-IRMAO-OLD passam.
+- **COSMÉTICO:** a justificativa do FF e do VT no plano está errada. Quem os parte é o `splitlines`.
+- **Encaminhamento:** vai ao CTO junto com o resultado do revisor B, pela regra do §0. A correção toca `tests/CMakeLists.txt`, então espera a D6-red e a D6-green.
+
+### 09/10/2026 09:13:56 - D6-red parada na base da imagem; revisão B entregue; CTO acionado
+
+- **D6-red PARADA no P2, sem commit:**
+  - O `Containerfile` faz `FROM fedora:44`, e essa imagem não existe localmente.
+  - O main mediu que `fedora:latest` local (sha256:43b29f65, de 26/08) é a VERSION_ID=44.
+  - As provas que rodaram passaram: P1 (`prep.rc` 0, 3/3), P6 MSVC (BUILD_RC 0; o V-17 deu BUILD_RC 2 com C4146) e P8 (ctest 8/8).
+  - Os 14 arquivos estão no snapshot `d6red/snap-1`, com os md5 iguais aos anexos.
+- **Revisor B** (`rev-lote4b.md`): D3-fix e SPLIT-1 aprovadas com ressalvas, SPLIT-2 aprovada. Achados:
+  - I-7 (o controle 2 não cobre 125 e 143 diante de "só 124 vira 3"; reconferido pelo main);
+  - C-11, C-12 e C-13.
+  Foram 11 mutantes mortos.
+- **CTO acionado** (`decisao-d6red-base.md`):
+  - (1) a base da imagem: pull, tag local ou trocar o FROM;
+  - (2) o P1 no hospedeiro pela L-09;
+  - (3) a D5b-fix2 pelo §0;
+  - (4) o lote B pelo §0.
+
+### 09/10/2026 09:20:15 - CI 37927328081 verde
+
+- **CI 37927328081** (ponta `835ad26a`, com a D5b-fix2, a D3-fix, a SPLIT-1 e a SPLIT-2): `success`.
+
+### 09/10/2026 09:37:05 - Líder autoriza os pacotes dentro do contêiner; decisões D-W8-197 a 206 do CTO
+
+- **Pergunta ao líder (AskUserQuestion):** a reconstrução da imagem de teste roda `dnf install`, que baixa pacotes para DENTRO do contêiner. Isso conta pela L-51? O CTO tinha lido a ordem como "não baixar IMAGEM" e devolveu a dúvida ao main.
+- **Resposta do líder, verbatim:** "Autorizo dentro do contêiner (Recomendado)". A opção dizia: os pacotes vão só para a imagem de teste do projeto, nada se instala no sistema, e a autorização não cobre o sistema dele. Continua proibido baixar imagem nova (`docker pull`).
+- **Decisões do CTO** (`/var/tmp/cto-w8/decisao-d6red-base.md`):
+  - D-W8-197: apelido local `docker tag fedora:latest fedora:44`, só se não houver `fedora:44`. Sem `--pull`, com o Id conferido depois de cada build, e PARA se aparecer `Pulling`. O main remove o apelido depois da D6-green.
+  - D-W8-198: o pino `FROM fedora:44` é um gêmeo que a ordem de 27/08 não alcançou. O item já existia na INBOX (`CONTAINERFILE-FEDORA-PIN`) e foi atualizado, não duplicado.
+  - D-W8-199: o P1 no hospedeiro é um downgrade declarado da L-09 até a PRECI-IN-CONTAINER.
+  - D-W8-200 a 202: D5b-fix3 (`plano-d5bfix3.md`). O filtro vira `[^A-Za-z0-9_]`, com um dono só e uma trava de 13 controles. Entra depois da D6-green e antes da D7.
+  - D-W8-203: o I-7 vira a D3-fix2 (`plano-d3fix2.md`): 123, 125, 126, 127 e 143 saem 1, com N=20. Entra depois do commit da D6-red.
+  - D-W8-204 e 205: o C-11 e o C-12 vão à lista de ratificação.
+  - D-W8-206: o C-13 vai à INBOX como `SELFTEST-MAIN-DUP-GATE`.
+- **Retomada:** a D6-red volta com a receita da D-W8-197, a autorização do líder e a frase da D-W8-199.
+
+### 09/10/2026 10:21:28 - Ordem do líder: a cada push, apagar as imagens de teste antigas; D6-red parada no P5
+
+- **Pergunta ao líder** (disco com min 21,6 GiB): apagar as imagens `glintfx-wltest` de fatias fechadas?
+- **Resposta, verbatim:** "Já era pra ter apagado, a cada push! Opcao 1."
+  - Entrou como emenda na L-11 do `GODS_LAWS.md`, refundida na lei irmã do push (L-68), com o gatilho atualizado no índice e no `CLAUDE.md`.
+- **Executado:**
+  - 45 de 46 imagens apagadas;
+  - ficaram as duas `d6red-*` da fatia viva;
+  - a `egl` não saiu porque um contêiner parado (`7f02bd2af759`, de dono não medido) a usa, e não foi forçada;
+  - o disco foi de min 21,52 para 23,85 GiB.
+  - O `docker system df` mostra mais 25,7 GB recuperáveis no cache de build, que a ordem não cobre (são cache, não imagens) e que não foi tocado.
+- **D6-red PARADA no P5, sem commit:**
+  - Base apelidada, com os Ids iguais (sha256:43b29f65) e sem `Pulling`.
+  - P1, P2 (plain e asan), P3 plain e P4 plain com rc 0.
+  - **O V-1 plain saiu com rc 3 (estouro do teto de 12 s, `exemplo_rc` 124, 61 s), não com o rc 1 previsto.** As sondas deram o previsto (7 de 12 e 2 de 5, 7C7C7C).
+  - É vermelho pela causa errada e vai ao CTO.
+
+### 09/10/2026 10:39:29 - Defeito CRÍTICO da biblioteca: o laço Wayland congela depois do primeiro quadro; o líder pede uma versão de correção
+
+- **CTO, Q5** (`plano-d6red-fix.md`, md5 `a8462d5a`, D-W8-207 a 211): o vermelho errado da D6-red é defeito da BIBLIOTECA. Em `present_through_egl`, o `attach_frame_listener()` (o `wl_surface_frame`) vem depois do `eglSwapBuffers()` (o commit), e pelo `wayland.xml` o pedido só vale no commit seguinte. O laço desenha um quadro e congela, desde a v0.4.0.0.
+  - O servidor já media isso: `rendered_frames` 1 no Linux contra 30 no Windows. A causa estava atribuída ao kwin, errado, em `measured_exceptions.txt:193`.
+  - O exemplo, o driver e o teto estão certos. A previsão do §5.3 errou porque o plano não leu esse arquivo, e o CTO declara o erro como dele.
+- **O main reconferiu no código:** o `present_through_egl` (`egl_context_adapter.cpp:1070`) faz o swap na linha 1071, e o `attach_frame_listener()` e o `arm_pending` vêm nas linhas 1103 e 1104.
+- **Fatia WL-FRAME-ORDER despachada** a um implementador haiku novo (`plano-d6red-fix.md` §3), com o D0 de confirmação antes de editar e o vermelho `loop_parity_test` exigindo 27 de 30.
+  - Os gêmeos de texto foram para a INBOX como `WL-FRAME-ORDER-TWINS`.
+  - A ordem nova é: WL-FRAME-ORDER, retomada da D6-red, D3-fix2 e D6-green, D5b-fix3, D7.
+- **Pergunta ao líder (AskUserQuestion):** como entregar o conserto a quem usa a biblioteca?
+  - **Resposta, verbatim:** "Versão de correção já (Recomendado)".
+  - A opção dizia: assim que o conserto passar no servidor, sai uma versão só de correção sobre a v0.6.0.0 publicada (v0.6.0.1), sem esperar a onda.
+  - O caminho (base, merge e DEPLOY_CHECKLIST) vai ao CTO depois do commit da fatia.
+- **Modelo:** o CTO lembrou que a L-18 diz sonnet, mas a L-11 global manda obedecer a `/modelos_sessao` (haiku, ordem do líder de 08/10), e fica haiku.
+
+### 09/10/2026 10:55:53 - Cache de montagem do Docker: o líder autoriza apagar o que tem mais de 24 h
+
+- **Pergunta do líder:** "quanto foi apagado?"
+- **Resposta medida:** o mínimo do disco foi de 20,81 GiB (manhã) a 23,85 GiB (depois das imagens). As 45 imagens liberaram pouco, porque dividiam camadas. O `docker system df` mostrou 36,3 GB de cache de montagem, 26 GB dele recuperáveis.
+- **Pergunta ao líder (AskUserQuestion):** apagar o cache?
+  - **Resposta, verbatim:** "Apagar o cache com mais de 24 h (Recomendado)".
+- **Executado:** `docker builder prune -f --filter until=24h`.
+  - O Docker contou 6,529 GB apagados. O cache foi de 36,3 para 29,77 GB, e ainda há 19,5 GB recuperáveis, mas recentes.
+  - O mínimo do disco foi de 23,70 para 24,50 GiB. O disco ganhou menos do que o Docker contou, e a causa não foi medida (INFERÊNCIA: compressão do btrfs ou espaço ainda não devolvido).
+
+### 09/10/2026 11:13:27 - WL-FRAME-ORDER: D0 confirmou e o vermelho deu a causa certa; construção travada pelo containerd; pesquisa comparativa
+
+- **D0 (WAYLAND_DEBUG=client)** confirmou: há um único commit do swap e, DEPOIS dele, o `wl_surface.frame`, que nunca recebe `done`.
+- **Vermelho** (só a E4): `rendered_frames=1 (>= 27) FALHOU`, a única asserção reprovada.
+  - A BASE das 25 fixtures deu 25 de 25 com rc 0.
+  - O cap30 deu 2977 ms na BASE e 2976 ms no vermelho.
+- **Construção da imagem verde** falhou duas vezes na exportação do BuildKit, e não no código. A primeira deu "device or resource busy", a segunda "ref locked".
+  - O main pesquisou na web (L-42) e achou duas montagens overlay do containerd vazadas desde 10:57:10 em `/tmp/containerd-mount*`. Soltá-las exige root, que não está autorizado.
+  - A terceira tentativa é pelo construtor antigo (`DOCKER_BUILDKIT=0`). O main provou que ele funciona sem baixar nada, e o desvio fica declarado no relatório; a prova canônica é a do servidor.
+- **O líder perguntou:** "olhou como fazem outras libs?" O CTO tinha lido o protocolo, a SDL3 e o KWin.
+  - O main mandou uma pesquisa comparativa (`pesquisa-frame-order.md`) e segurou o commit até ela voltar.
+  - Resultado: SDL3, GLFW, Mesa, winit e Qt pedem o aviso ANTES do commit, como o conserto. Todas têm teto de espera, menos o Mesa, e o nosso é o orçamento de 100 ms.
+  - O commit foi liberado.
+- **Desvios do implementador:** o modelo fica haiku pela L-11 global; os carimbos de 127 s no D0 ficam como "não explicado, não medido"; e o Anexo E2 tem 13 linhas, não 11, porque o plano contou errado.
+
+### 09/10/2026 11:36:59 - Disco: o líder manda não apagar nada; WL-FRAME-ORDER com verde parcial (15 de 27) vai ao CTO
+
+- **O líder perguntou:** "como vai fazer? vai esperar? quanto tempo?" O main apagou a `wlfix-red`, cujo vermelho já estava provado, e o min foi de 21,97 para 22,51 GiB.
+- **Pergunta ao líder** (o que apagar se encostar no mínimo):
+  - **Resposta, verbatim:** "Não apaga nada, pode encostar o mínimo".
+  - Fica assim: nenhuma limpeza nova sem pergunta. O piso de 20 GiB continua sendo o PARE dos agentes.
+- **WL-FRAME-ORDER, verde (perna plain, construtor antigo):**
+  - 24 de 25 fixtures deram rc 0;
+  - o `loop_parity_test` deu rc 1, com `rendered_frames` 15 contra o piso de 27 e a previsão de 30;
+  - o `cap30_wall_ms` foi 1066, contra 2977 antes, dentro da faixa;
+  - o `capture_known_color_smoke` deu "FAIL display open: platform_failure".
+  - Nada foi commitado. É a segunda reprovação do conserto, e foi ao CTO como Q6, com a L-42 (`plano-wlfix2.md`).
+
+### 09/10/2026 11:42:58 - CTO, Q6 (D-W8-212 a 216): segundo defeito na mesma função; WL-FRAME-WAIT despachada
+
+- **(a)** Defeito de código: `poll_and_dispatch_with_budget` acorda com qualquer evento do socket e desiste na primeira leva. São 15 trocas `skipped_hidden`, com passo médio de 6 ms sob um orçamento de 100 ms, o que dá um quadro sim, outro não.
+  - O conserto E6 transforma a espera num laço com o que sobra dos 100 ms, como fazem GLFW e SDL3.
+  - O piso de 27 fica.
+  - O main conferiu a função (`egl_context_adapter.cpp:292`).
+- **(b)** O ckc não é regressão: o plano o pôs depois do `fatal_error_smoke`, que derruba o compositor de propósito, e o erro é do CTO. Ele passa a rodar primeiro, num contêiner novo.
+- **Os "127 s" do D0 eram 127 ms** (o WAYLAND_DEBUG carimba em milissegundos).
+- **Disco:** uma única construção plain, `wlfix2-plain`. A asan fica para o servidor, com o desvio declarado.
+- **Pendente com o líder** (levar quando chegar a hora):
+  - a retomada da D6-red pede mais duas imagens (cerca de 4,6 GB), o que não cabe sem apagar. A resposta "Não apaga nada" encontra a emenda da L-11 de hoje (apagar as imagens a cada push);
+  - limpar as montagens vazadas do containerd exige reiniciar o Docker.
+
+### 09/10/2026 12:05:13 - PAUSA do líder; WL-FRAME-ORDER commitada e verde aqui
+
+- **Ordem do líder, verbatim:** "pause". O marcador está em `~/.config/olhe_agentes/GlintFx/parada_do_lider`. Não há despacho novo até ele mandar seguir.
+- **WL-FRAME-ORDER** (`b3861f80`, 3 arquivos, sem push):
+  - `rendered_frames` 30, contra 15 na rodada 1 e 1 na BASE;
+  - `skipped_hidden` 0 e `cap30_wall_ms` 967;
+  - o ckc deu rc 0 rodando primeiro; a varredura deu 25 de 25 com rc 0; o `loop_hidden_test` deu `rendered_while_hidden` 0;
+  - preci `--fast` com rc 0.
+  - O main conferiu o `git show --stat` e a linha `rendered_frames=30` no log.
+  - Construtor antigo declarado; a perna asan local não rodou (disco).
+- **Ficou para depois da pausa:**
+  - o ramo descartável no servidor;
+  - a revisão por outro revisor;
+  - o plano da versão de correção;
+  - o "encontrados=0 analisados=0" do hook pre-commit (L-36, a investigar).
+
+### 10/10/2026 15:48:39 - Líder liga o modo autônomo de novo; a pausa acaba; ramo descartável e dois agentes despachados
+
+- **Ordem do líder, verbatim:** "ligue modo autonomo". O hook ligou o modo até 11/10/2026 15:45:26, com os escopos push e clean. O main leu isso como fim da pausa de 09/10 12:04 e apagou o marcador `parada_do_lider`.
+- **Ramo descartável:** `descartavel/wlfix` foi empurrado em `b3861f80` (`git ls-remote` confere), pela autoridade da D-W8-192.
+- **Despachados:**
+  - a revisão adversarial da WL-FRAME-ORDER, por um haiku distinto do implementador, com mutantes M1 e M2 de previsão escrita e só em contêiner (`rev-wlfix.md`);
+  - o CTO, para o plano da versão de correção v0.6.0.1 que o líder pediu (`plano-hotfix-0601.md`).
+
+### 10/10/2026 16:01:28 - Plano da versão de correção; o líder fixa o número v0.6.1.0 e confirma a limpeza a cada envio
+
+- **CTO** (`plano-hotfix-0601.md`, md5 `e039c9a9`):
+  - o ramo `hotfix/v0.6.1.0` nasce de `origin/main` (`e31aa774`), e o cherry-pick de `b3861f80` aplica limpo (patch-id `8a5568e7`);
+  - portões G1 a G9: a revisão e o CI 38077288715 antes de despachar, e depois preci, CI do PR, CI do main, versão contra marca, CHANGELOG e DEPLOY_CHECKLIST;
+  - a volta para a onda é pelo merge de `origin/main` em `onda-w8`;
+  - avisos: CHANGELOG, PR e anotação da marca, mais a issue #8 do Gus (L-37) e o bus.
+- **Erro do main declarado:** a opção de ontem dizia "v0.6.0.1", o que viola a L-26 (uma correção de código sobe o terceiro número).
+- **Pergunta ao líder (AskUserQuestion), resposta verbatim:** "v0.6.1.0 (Recomendado)".
+- **Pergunta ao líder** (a emenda da L-11 de apagar imagens a cada push contra "Não apaga nada"), **resposta verbatim:** "Apagar a cada envio (Recomendado)". A emenda da L-11 vale; o "não apaga nada" cobriu só aquele aperto de disco.
+- **Merge e marca:** continuam pedindo o aval do líder no momento (o hook barra marca sem confirmação). O main pergunta quando os portões G1 a G7 estiverem verdes.
+
+### 10/10/2026 16:08:33 - CI 38077288715 (descartavel/wlfix, b3861f80) verde: o servidor confirma 30 de 30 nas duas pernas
+
+- `success`: 25 jobs verdes e 1 pulado.
+- O log do servidor mostra `loop_parity_test.rendered_frames=30` na perna plain e na perna asan (critério >= 27). A perna asan não tinha rodado aqui por causa do disco; agora está provada pelo servidor. O portão G2 do plano da v0.6.1.0 está verde.
+- **Imagens (emenda da L-11):** nenhuma apagada neste push. A `wlfix2-plain` é da fatia ainda em revisão, e as `glintfx-rev:*` são do revisor, que as apaga ao terminar com elas.
+
+### 10/10/2026 16:13:27 - Ordem do líder: até 4 agentes em paralelo, sem corrida; três frentes novas despachadas
+
+- **Verbatim:** "use até 4 agentes paralelos sem corrida". Confirma a ordem de 08/10.
+- **Vivos agora (4):**
+  - o revisor da WL-FRAME-ORDER (mutantes, no clone);
+  - a retomada da D6-red sobre `b3861f80` (só a perna plain local, `DOCKER_BUILDKIT=0`, commit pela git.lock);
+  - o preparo do ramo da v0.6.1.0 (Anexo A do `plano-hotfix-0601.md`), numa cópia de trabalho em `worktrees/hotfix-0610`, sem push. O G1 (revisão) ainda roda, e o ramo é refeito se ela achar defeito;
+  - a investigação, só de leitura, do "encontrados=0 analisados=0" do hook de pre-commit (L-40).
+- **Separação contra corrida:**
+  - a heavy.lock para todo contêiner, build e preci;
+  - a git.lock para todo commit (o .git é compartilhado com a cópia de trabalho);
+  - a D6-red na árvore principal e a correção só na cópia de trabalho;
+  - o revisor só no clone dele, e o investigador sem escrita nenhuma.
+
+### 10/10/2026 16:45:35 - Ramo da v0.6.1.0 preparado; vigia global de travessão: o líder manda consertar
+
+- **Ramo local `hotfix/v0.6.1.0`** (cópia de trabalho `worktrees/hotfix-0610`, base `origin/main` `e31aa774`), nada empurrado:
+  - `dd763772`: cherry-pick `-x`, com patch-id `8a5568e7` igual ao de `b3861f80` (o main reconferiu com `git patch-id --stable`);
+  - `e3c1321a`: a versão vai para 0.6.1.0 no CMakeLists:43;
+  - `e102f6d7`: o CHANGELOG.
+  - Preci `--fast` com rc 0: ctest 299 passaram, 0 falharam, 1 pulado.
+  - Desvio: o commit do cherry-pick não tem os trailers de coautoria (termina na linha do `-x`, sem amend).
+  - Falta o G1, a revisão de `b3861f80`, que ainda roda: o M2 matou com `rendered_frames=14`, e o M3 está em construção.
+- **O "encontrados=0" do hook** (`hook-zero/relatorio.md`): vem do vigia GLOBAL de travessão (`~/.claude/skills/tab_pendencias/tools/hooks/no_mdash_staged.py:163`).
+  - O zero é legítimo (só arquivos internos), mas não é declarado.
+  - Há um defeito real: `is_user_facing` compara fragmentos com barra contra caminhos relativos, então `public/` e `docs/narrative/` escapam em outros projetos.
+- **Pergunta ao líder, resposta verbatim:** "Consertar os dois (Recomendado)". O conserto foi despachado a um haiku, com cópia antes de editar (L-32), TDD e prova num repositório descartável.
+
+### 10/10/2026 16:47:05 - Limpeza de ramos por ordem do líder
+
+- **Pedido do líder, verbatim:** "veja se tem ramos/pr/ pendentes de merge ou de serem deletados se forem desnecessarios".
+- **Inventário:**
+  - nenhum PR aberto;
+  - 10 ramos já mesclados (em main ou na onda);
+  - 4 sondas e sabotagens descartáveis;
+  - `sonda-swap2` (local, remoto e cópia de trabalho);
+  - `descartavel/wlfix` (remoto, já serviu).
+- **Resposta do líder (AskUserQuestion), verbatim:** "Tudo que é lixo ou sonda (Recomendado)".
+- **Executado:**
+  - 15 ramos locais apagados;
+  - a cópia de trabalho `worktrees/sonda-swap2` removida, porque estava limpa;
+  - os ramos remotos `sonda-swap2` e `descartavel/wlfix` apagados;
+  - o `git ls-remote` agora mostra só main e onda-w8.
+  - O SHA de cada ramo apagado ficou em `/var/tmp/cto-w8/ramos-apagados-20261010.txt`, recuperável pelo reflog.
+- **Ficam:**
+  - main e onda-w8;
+  - `hotfix/v0.6.1.0` (a correção em preparo);
+  - `infra-preci`, com 2 commits sem equivalente na onda: o estágio Clang do preci, item `PRECI-ESTAGIO-CLANG` da INBOX, ainda sem prova.
+
+### 10/10/2026 17:05:45 - Vigia global de travessão consertado; o líder aceita o efeito colateral e manda fechar a falha aberta
+
+- **Conserto** (`hook-fix/relatorio.md`):
+  - commits locais `ab73c1e` (repositório tab_pendencias) e `e23b480` (`~/.claude`), sem push;
+  - o autoteste dá 12 de 12, e o main reconferiu rodando pelo `~/.claude/githooks`;
+  - a declaração "0 user-facing file(s) among N" passa a aparecer quando o zero é legítimo;
+  - `public/`, `docs/narrative/` e `site/` relativos passam a ser verificados (o vermelho antes, com 4 falhas, e o verde depois);
+  - a prova foi num repositório descartável.
+- **Pergunta ao líder, resposta verbatim:**
+  - (1) "Aceitar, fica coerente (Recomendado)": .html relativo em lib/, api/ e scripts/ deixa de ser verificado, como já era com caminho completo;
+  - (2) "Consertar agora (Recomendado)": o verificador vai reprovar alto quando não achar o canon (fail-closed, L-36). Despachado ao mesmo agente, junto com tirar o .bak de dentro de `~/.claude/githooks/`.
+- O ponteiro do submódulo no repositório pai não foi commitado. Fica pendente com o líder.
+
+### 10/10/2026 17:16:12 - Ordem do líder: dúvida vai ao C-level
+
+- **Verbatim:** "se tiver dúvidas consulte clevel". Entrou como emenda na L-34 do projeto (a irmã do modo autônomo, L-68).
+- O C-level é o primeiro destino da dúvida. Continuam indo ao líder: merge, marca e publicação (L-11), lei e canon global, apagar ou instalar fora do que ele já autorizou, e decisão de produto declarada como dele.
+
+### 10/10/2026 17:17:38 - O líder autoriza merge, push e marca; PR #15 da v0.6.1.0 aberto; onda-w8 empurrada
+
+- **Verbatim:** "autorizo merge/push/tag".
+- **Leitura do main, pela L-11 e pela L-15:** a autorização vale com os portões fechados. O merge da v0.6.1.0 e a marca saem depois do G1 (a revisão adversarial de `b3861f80`, ainda rodando) e do G5 (o CI do PR) verdes. Nada de qualidade é relaxado.
+- **Feito:**
+  - `hotfix/v0.6.1.0` empurrado em `e102f6d7` (`git ls-remote` confere);
+  - PR #15 aberto contra main, com o CI do PR 38083144109;
+  - `onda-w8` empurrada, com o local igual ao remoto (abaixo), levando a WL-FRAME-ORDER e os registros.
+- **Imagens (emenda da L-11):** nenhuma é de fatia fechada neste push. A `wlfix2-plain` e as do revisor e da D6-red estão em uso.
+
+### 10/10/2026 17:17:50 - Refinamento do líder: o C-level pesquisa outras bibliotecas, a comunidade e a web antes de decidir
+
+- **Verbatim:** "se tiver duvidas, clevel busca outras libs para aprender, busque comunidade e web em geral, antes de resolver o problema sozinho".
+- Foi refundido na emenda de hoje da L-34 (L-68). Decisão de C-level sem pesquisa com as fontes citadas volta para ser refeita.
+
+### 10/10/2026 17:26:49 - G1 da v0.6.1.0: revisão adversarial da WL-FRAME-ORDER aprovada com ressalvas
+
+- **Revisor** (`rev-wlfix.md`), haiku distinto do implementador: APROVADO COM RESSALVAS, sem CRÍTICO.
+  - Base: rendered_frames 30 e cap30 967 ms.
+  - M1 morto (1); M2 morto (14); M3 (armar antes do swap) sobrevive (30); no M4 (espera sem teto), o loop_parity sobrevive e o loop_hidden morre por timeout.
+- **IMPORTANTE:**
+  - I-1: a premissa do Mesa está escrita como fato, mas não foi medida;
+  - I-2: a ordem de armar depois do swap não tem teste;
+  - I-3: comentários do .hpp descrevem a ordem velha;
+  - I-4: `measured_exceptions.txt:193` continua com a causa e o valor antigos;
+  - I-5: um comentário anterior a esta fatia chama de "degradação honesta" um congelamento permanente.
+- **COSMÉTICO:** C-1 e C-2.
+- **Pela emenda de hoje da L-34**, a dúvida (merge agora com fatia de acompanhamento, ou ressalva antes do merge) foi ao CTO (`decisao-g1-hotfix.md`).
+
+### 10/10/2026 17:29:21 - CTO, D-HF-4: a v0.6.1.0 junta e marca com os CIs verdes; as ressalvas viram fatias da W8
+
+- **Decisão** (`decisao-g1-hotfix.md`, com fontes da libwayland e do Mesa citadas, como pede a emenda de hoje da L-34): opção (a). O merge sai quando o CI do PR (38083144109) fechar verde, e a marca quando o CI do main depois do merge fechar verde. Nenhuma ressalva entra antes, para não quebrar a identidade com o patch que a revisão executou.
+- **Fatias novas na W8:**
+  - `WL-FRAME-ORDER-ARM-TEST`: I-2 (com um swap que falha, armar antes congelaria a janela) junto com I-5 (defeito de código numa falha de alocação);
+  - `WL-FRAME-ORDER-TEXT`: I-1, I-3, I-4 e C-1, mais os gêmeos já anotados.
+  - O C-2 e a asserção do teto do M4 vão para a INBOX. Nada disso vira 0.6.1.x.
+- **Para confirmação retroativa do líder:** as ressalvas saem na W8, e o comportamento atual da I-5 fica declarado até a fatia.
+
+### 10/10/2026 17:35:29 - v0.6.1.0 juntada ao main; falta o CI do main para marcar
+
+- **CI do PR 38083144109:** `success`, 25 jobs verdes e 1 pulado (VERSION-TAG-SYNC). `rendered_frames=30` com critério >= 27 nas pernas plain e asan.
+- **Merge do PR #15** (merge commit), pela autorização do líder ("autorizo merge/push/tag") e pela D-HF-4: `origin/main` = `bcc72f1d`, e `e102f6d7` foi provado ancestral do main.
+- O ramo `hotfix/v0.6.1.0` foi apagado no servidor e aqui (L-11 do projeto), junto com a cópia de trabalho, que estava limpa. O servidor tem só main e onda-w8.
+- **CI do main:** 38084300781 rodando. A marca `v0.6.1.0` sai no commit `bcc72f1d` quando ele fechar verde.
+- A volta do main para a onda-w8 fica para depois do commit da D6-red, que está viva na árvore.
+
+### 10/10/2026 17:47:41 - D6-red commitada (3eafee6e); a R5 pegou o lint, que o main manda corrigir
+
+- **D6-red** (`3eafee6e`, 14 caminhos, local):
+  - base apelidada e sem pull; `DOCKER_BUILDKIT=0`;
+  - P1, P2 plain, P3 e P4 com rc 0;
+  - **P5 plain com rc 1, `exemplo_rc` 0 e `frames_drawn=30`**, com 7 de 12 e 2 de 5 sondas reprovadas (7C7C7C), igual à previsão: o exemplo agora desenha os 30 quadros, por causa da WL-FRAME-ORDER;
+  - P7 V-10 com nm 0; ML1 a ML3 mortos; MB1 morto; MS-STAGE declarado e não rodado; a perna asan só no servidor.
+- **R5:** rc 1 no clang-tidy, com cert-err33-c em `first_window.cpp:153`, `:191` e `:244`.
+  - Não é dúvida (L-23: portão vermelho não se aceita). O main mandou corrigir com `(void)`, no padrão do projeto, num commit novo, e refazer a R5.
+- Erro de texto na mensagem do `3eafee6e` ("sondas de 12 e 5"); o certo é 7 de 12 e 2 de 5. Fica registrado aqui, sem reescrita.
+
+### 10/10/2026 18:00:46 - v0.6.1.0 publicada; Gus avisado; main volta para a onda
+
+- **CI do main** 38084300781, sobre o merge `bcc72f1d`: `success`, 25 jobs verdes e 1 pulado.
+- **Marca anotada `v0.6.1.0`** em `bcc72f1d` (objeto `e127f505`), empurrada; o `git ls-remote` confere a marca e o `^{}`. O CI da marca, 38085933605, deu `success`, com VERSION-TAG-SYNC verde (G7).
+- **L-37:** o Gus Dragon foi avisado na issue #8 do bus (comentário 6102124887), com o texto do Anexo D, o número corrigido para 0.6.1.0 e o carimbo do `date`.
+- **Volta para a onda:** `git merge --no-ff origin/main` em onda-w8 (`04196415`), limpo; só entram o CHANGELOG e a versão. A onda-w8 NÃO foi empurrada, porque a D-W8-192 proíbe push entre a D6-red e a D6-green.
+- **D6-red:** `3eafee6e` mais a correção do lint `bc0abe54`, com a R5 rc 0. Faltam as corridas A a E no servidor (ramos descartáveis) e a revisão.
+- **Imagens (emenda da L-11):** apagada a `wlfix2-plain`, da WL-FRAME-ORDER, já fechada. As `d6red-*` ficam, porque a fatia está em revisão.
+
+### 10/10/2026 18:22:11 - Revisão da D6-red: aprovada com ressalvas
+
+- **Revisor** (`rev-d6red.md`), haiku distinto do implementador: APROVADO COM RESSALVAS.
+  - Os 17 md5 dos anexos conferem.
+  - P1, P2 e P5 plain refeitos e iguais à previsão.
+  - P6 MSVC refeito em `bc0abe54` com rc 0; V-17 com rc 2 (C4146); P7 com nm 0.
+  - Mortos: M1 (fundo 0.5, 10 de 12), M2, M3, ML1 a ML3 e V-17. O MS-STAGE fica declarado.
+- **Ressalvas:**
+  - A-1, IMPORTANTE latente: as sondas `:20` e `:24` (BDBDBD, tolerância 2) não distinguem o fundo 188;
+  - A-2, cosmético: espaçamento em `selftest.py:277`;
+  - A-3, PERGUNTA: `puts` e `printf` sem `(void)` (71 no repositório);
+  - A-4: a mensagem do `3eafee6e`.
+  - As quatro foram ao CTO, junto com o plano das corridas.
+- **Desvios declarados pelo revisor:** o prepare e os gates de texto rodaram no hospedeiro (a mesma classe da D-W8-199); o configure do MSVC rodou no hospedeiro.
+
+### 10/10/2026 18:30:38 - Corridas da D6-red: plano do CTO, corrida A disparada, preparo de B a E despachado
+
+- **CTO** (`plano-corridas-d6red.md`, md5 `3cd147c1`, D-W8-217 a 222, com fontes Microsoft citadas para a D-W8-217):
+  - base `34bf8d08` para as 5 corridas; B a E levam um patch cada, com md5 e previsão por trabalho escritos antes;
+  - a WL-FRAME-ORDER não torna nenhuma V-n obsoleta;
+  - a V-16 é redesenhada, porque desde o MSVC 17.7 a mistura com ASan é suportada; a corrida A confere se o executor tem 19.37 ou mais;
+  - a V-2 é adaptada; a V-12 lê a assinatura da V-1;
+  - no máximo 2 corridas por vez, em 3 ondas (A+B, C+D, E), com C, D e E depois de lido A.
+- **Ressalvas da revisão:**
+  - A-1: vira o mutante M1g na D6-green (D-W8-221);
+  - A-2: vai para a INBOX;
+  - A-3: não existe regra, porque o cert-err33-c não cobra printf/puts (D-W8-222);
+  - A-4: fica.
+- **Corrida A:** `descartavel/d6-a` = `34bf8d08` empurrado (o `ls-remote` confere), CI 38087850239.
+- **B a E:** o preparo foi despachado a um haiku numa cópia de trabalho em worktrees/, sem push.
+- Para o líder ratificar: D-W8-217 a 222.
+
+### 10/10/2026 18:35:14 - D3-fix2 commitada (fb7f6041)
+
+- **Vermelho:** MR1 e MR2 com rc 0, porque o controle 2 não cobria 125 e 143.
+- **Verde:**
+  - N=20 sem mudança;
+  - mutantes pós-commit MR1 a MR5 todos mortos;
+  - R5 preci com rc 0 (no hospedeiro, o downgrade da L-09).
+- **Parada atravessada pelo implementador:** a previsão "1 linha tirada e 6 postas" não bateu; saíram 5 postas e nenhuma tirada.
+  - O main conferiu: o arquivo commitado é IGUAL ao "passa a ser" do item 3 do plano (`run_example_capture_selftest.sh:107-113`).
+  - A contagem errada é do plano. As 5 linhas novas ficam entre as existentes, sem alterar nenhuma, e o commit fica.
+- **Desvio:** `TMPDIR=/tmp` foi barrado pelo hook P9; usou-se `/var/tmp` dentro do contêiner.
+- A revisão vai junto com a da D6-green.
+
+### 10/10/2026 18:37:15 - Ramos B a E preparados; corrida B disparada
+
+- **Haiku** (`corridas-d6red/relatorio.md`): os ramos locais foram criados sobre `34bf8d08`, com um commit e um arquivo cada:
+  - B `fe42243f` e C `53509e35`;
+  - D `1251ae67` e E `8710163b`.
+  Os md5 dos patches e dos arquivos resultantes conferem com o plano. O cl.exe deu BUILD_RC 0 em B e E. A cópia de trabalho foi removida.
+- **Corrida B:** `descartavel/d6-b` empurrado (o `ls-remote` confere), CI 38088288278.
+- **Onda 1 = A+B** (D-W8-220). C, D e E só saem depois de lida a corrida A.
+- **Corrida A em andamento:** o "Windows - Sanitizer (ASan)" já deu failure, o que é PREVISTO. O plano prevê failure nos 4 trabalhos Windows com SÓ o `first_window` reprovado, e o main vai conferir isso no log quando o run fechar.
+
+### 11/10/2026 00:30:28 - D6-green commitada; a imagem na tela do líder e no site; corridas A e B lidas; C e D disparadas
+
+- **D6-green** (`9a733496`, local):
+  - P5 verde, com 12 de 12 e 5 de 5 sondas aprovadas e frames_drawn 30; P6 MSVC com rc 0; preci com rc 0;
+  - V-3, V-5, V-13a, V-13b e M1g iguais à previsão;
+  - **V-4 e V-14 pararam** e foram ao CTO (`decisao-d6green-v4v14.md`);
+  - o md5 do Anexo A difere só pelas 5 linhas do lint da `bc0abe54`.
+- **Ordem do líder de 09/10 cumprida:**
+  - o main congelou o md5 do PNG da perna plain em `qa-demo1-md5-inicio.txt` (`ced46a04`), conferiu a imagem (a cena da D-W8-72: fundo cinza, vermelho, azul por cima, branco translúcido, quadrado verde) e abriu na tela do líder com `xdg-open`;
+  - o md5 foi reconferido depois e continua igual.
+- **Ordem nova do líder, verbatim:** "Envie essa imagem pro site" e "Explique a ele o que é".
+  - Mensagem com a imagem e a explicação no barramento, `inbox/site/20261011-0029-glintfx-primeira-imagem.{md,png}`, commit `fb73218` empurrado (local igual ao remoto).
+- **Corrida A** (38087850239): igual à previsão. Reprovaram os 6 trabalhos previstos, e no Windows só o first_window. MSVC 19.51, então a premissa da D-W8-217 vale.
+- **Corrida B** (38088288278): Linux medido em 12/12 e 5/5; Windows na "forma alternativa", mas com o código 10 (JANELAS) no lugar de 1. A confirmação foi ao CTO.
+- **Onda 2:** C (38108570269) e D (38108577899) disparadas.
+
+### 11/10/2026 00:33:44 - CTO, D-W8-223 a 225: V-4 e V-14 eram erro do plano; código 10 da corrida B aceito; corrida E liberada
+
+- **D-W8-223, V-4:** o mutante passa a ser `(void)all_frames_drawn(); return true;`. O `return true;` sozinho deixava a função sem chamador, e o -Werror derrubava a compilação; o CTO reproduziu isso no rascunho.
+- **D-W8-224, V-14:** o mutante roda com `-DGLINTFX_WERROR=ON`, como o CI, mais um controle limpo. Nenhuma fatia nova.
+- **D-W8-225:** o código 10 (JANELAS) da corrida B é aceito sem emenda. O "código 1" valia só para a forma primária, e o erro de redação é do CTO.
+  - A B mostrou que o Windows apresenta a primeira troca vazia e recusa as seguintes. Isso refuta a inferência da D-W8-218, sem mudança de contrato público.
+- **Anexo A:** o anexo mais o diff do lint dá exatamente o md5 commitado (medido pelo CTO).
+- **Corrida E:** liberada, porque a A confirmou o MSVC 19.51. Sai quando C ou D fecharem (no máximo 2 por vez).
+- A refação de V-4 e V-14 foi despachada ao implementador da D6-green.
+- Para o líder ratificar: D-W8-223 a 225.
+
+### 11/10/2026 00:44:15 - V-4 e V-14 da D6-green fechadas; D5b-fix3 despachada
+
+- **V-14:** o controle com `-DGLINTFX_WERROR=ON` deu rc_build 0, e a planta deu rc_build 1 (`unused variable` em `first_window.cpp:72`).
+- **V-4** (`(void)all_frames_drawn(); return true;`): o driver deu rc 3, com "FAIL exemplo nao terminou em 60 s", `exemplo_rc` 124 e 60,85 s, como previsto. O watchcode estava armado (`is-active`), e a imagem foi apagada pelo nome exato.
+- **A D6-green fecha localmente:** `9a733496`, todos os mutantes conforme a previsão. A revisão roda agora (`rev-d6green.md`). Faltam as corridas F (V-3) e G (o verde da D6-green no servidor), que saem depois de E, com no máximo 2 por vez.
+- **D5b-fix3** despachada a um haiku novo (`plano-d5bfix3.md`, md5 `e0d088f0`), antes da D7.
+
+### 11/10/2026 00:55:48 - Líder renova o modo autônomo
+
+- **Verbatim:** "ligue modo autonomo". O hook renovou o modo até 12/10/2026 00:55:40, com os escopos push e clean. O trabalho segue sem interrupção.
+- **Corrida C** (38108570269): igual à previsão. "context failed: platform_failure rejected_value=wgl_loader_extensions", "FIXTURE saiu antes de apresentar o primeiro quadro", codigo=1, só o first_window reprovado, e o capture_known_color_smoke passou.
+- **Corrida E** disparada (38109627748), ao lado da D. A D5b-fix3 foi commitada (`cf212666`) e roda os mutantes.
+
+### 11/10/2026 00:56:20 - Líder renova a autorização de push, marca e merge
+
+- **Verbatim:** "autorizo push/tag/merge".
+- **Leitura do main, pela L-11 e pela L-15, como nas autorizações anteriores:**
+  - vale com os portões fechados. Os ramos descartáveis e os pushes de fatia seguem como antes;
+  - a onda-w8 só é empurrada depois que a D6-green fechar (D-W8-192);
+  - o merge em main e a marca `v0.7.0.0` saem quando a W8 cumprir inteira a definição de fechamento do plano.
+  - Nada de qualidade é relaxado.
+
+### 11/10/2026 00:59:10 - Ordem do líder: atualizar a documentação .md do GitHub e a wiki, com push da wiki autorizado
+
+- **Verbatim:** "atualize a documentação md do github e a wiki. Autorizo push da wiki".
+- **Pela emenda da L-34**, a dúvida de onde cada texto entra (main por PR de documentação, a onda-w8, ou a wiki, que não pode descrever como publicado o que ainda não saiu) foi ao CTO, com pesquisa: `plano-docs-wiki.md`.
+- A execução é de um technical-writer haiku (L-63 global). O push da wiki é do main.
+
+### 11/10/2026 01:01:26 - Corrida D: a V-12 sobreviveu no Windows; vai ao CTO
+
+- **CI 38108577899:** no "Windows - compartilhado", o exemplo rodou sem a cópia das DLLs: `first frame presented`, `frames_drawn=12`, `fixture exit=0` e veredito `motivo=PRONTA codigo=0`. O first_window reprovou só pelas sondas, porque a base é a D6-red.
+- A previsão (o processo não chega ao main, exit 3221225781) não bateu: o mutante V-12 sobreviveu.
+- Foi ao CTO pela emenda da L-34, com pesquisa (`decisao-corrida-d.md`): por onde as DLLs foram achadas, e se a cópia é código morto ou protege um caso que o CI não exerce.
+
+### 11/10/2026 01:01:45 - Erro do main: 5 agentes vivos, acima do teto de 4; corrigido
+
+- O main retomou o CTO das corridas para a questão da corrida D sem contar os vivos. Ficaram 5: D5b-fix3, a revisão da D6-green, o CTO das fatias de acompanhamento, o CTO da documentação e o CTO das corridas.
+- Isso viola a ordem do líder ("até 4 agentes paralelos sem corrida") e o teto da L-11 global.
+- **Corrigido em menos de um minuto:** o CTO das corridas foi parado com TaskStop, antes de qualquer escrita. A questão da corrida D volta a ele quando outro agente terminar.
+- **Lição:** contar os vivos ANTES de cada despacho ou retomada, inclusive na retomada por SendMessage.
+
+### 11/10/2026 01:04:11 - Revisão da D6-green e da D3-fix2: conformes com ressalva
+
+- **Revisor** (`rev-d6green.md`):
+  - D6-green (`9a733496`): o anexo mais o lint dá o md5 commitado; P5 plain verde; o PNG é idêntico ao do implementador (307 200 pixels);
+  - D3-fix2 (`fb7f6041`): conforme ao "passa a ser"; 20 controles.
+- **Mutantes:**
+  - mortos: MA (C opaca), MD (quadrado +1 px para a direita) e X2 (126 vira 3);
+  - **sobreviventes:** MB (quadrado -1 px em y, porque a posição vertical não tem sonda) e X1 (255 vira 3, que o controle 2 não cobre);
+  - equivalente: MC (a ordem de envio de A e B).
+- Os dois sobreviventes foram ao CTO, junto com a corrida D (`decisao-corrida-d.md`), agora dentro do teto de 4.
+
+### 11/10/2026 01:08:05 - CTO, D-W8-226 a 229: a corrida D e as ressalvas da revisão viram três fatias pequenas
+
+- **Diagnóstico da corrida D** (`decisao-corrida-d.md`, md5 `5edc0a6c`, com a documentação Microsoft da ordem de busca de DLL e a do CMake citadas):
+  - o exemplo achou a `glintfx.dll` na pasta ATUAL (`build-shared\tests`), que entra na busca do Windows antes do PATH;
+  - a cópia de DLLs da D6-red não é código morto: é o padrão do CMake, e protege o exemplo rodado da própria pasta e o consumidor instalado;
+  - o defeito está na rota do teste. O erro de previsão é do CTO.
+- **Fatias:**
+  - D-W8-228, `D3-FIX3`: o caso do código 255 no controle 2, com N=20;
+  - D-W8-227, `EXAMPLE-PROBE-Y`: o `frames30` vai de 5 para 9 sondas, medindo as bordas de cima e de baixo do quadrado;
+  - D-W8-226, `EXAMPLE-RUN-DIR`: o teste do first_window no Windows roda na pasta do próprio exemplo, e a V-12 é refeita como corrida H.
+  - D-W8-229: o MC, o anexo defasado e a contagem da D3-fix2 ficam sem fatia.
+- **Ordem:** D3-FIX3, EXAMPLE-PROBE-Y, EXAMPLE-RUN-DIR; depois as corridas F e G juntas, e H. A D7 espera a EXAMPLE-RUN-DIR, porque as duas mexem em tests/CMakeLists.txt.
+- O CTO escreve as ordens de 8 itens. Para ratificar: D-W8-226 a 229.
+
+### 11/10/2026 08:37:21 - Corrida E igual à previsão; ramos A a E apagados; D5b-fix3 com preci vermelho de texto; plano da documentação; conflito de números de decisão
+
+- **Corrida E** (38109627748, a V-16 redesenhada): no Windows ASan, `AddressSanitizer: heap-buffer-overflow` em `first_window.cpp:248 in main`, codigo=1 e só o first_window reprovado; os demais com a assinatura de A. Igual à previsão.
+- **As corridas A a E da D6-red estão fechadas:** A, B (forma alternativa, D-W8-225), C e E bateram; a D foi diagnosticada (D-W8-226 a 229). Os ramos `descartavel/d6-a` a `d6-e` foram apagados no servidor e aqui; o `ls-remote` mostra só main e onda-w8.
+- **D5b-fix3** (`cf212666`):
+  - vermelho certo; verde com 13 controles; 9 mutantes mortos (o E2E-FF também morreu, o que confirma a D-W8-202);
+  - **R5 com rc 8**: o `docs_count_vocab_test` reprova a frase "thirteen controls" em `tests/CMakeLists.txt:1024` (texto do Anexo B). O gêmeo em `measured_leak_filter.cmake:169` passa só porque o portão não varre .cmake.
+  - Decisão do main (portão de texto, L-23; L-17 manda consertar o gêmeo): os dois textos são reescritos sem o número, num commit novo, com P1 e R5 refeitos. Os mutantes não se refazem, porque é mudança só de comentário (declarado).
+- **Plano da documentação** (`plano-docs-wiki.md`, D-DOC-1 a D-DOC-4, com SDL, GLFW, raylib e as docs do GitHub citados):
+  - `docs/wiki/` vira a fonte e a wiki vira cópia;
+  - o ramo `docs-0610` sai de origin/main, com PR para main só de documentação do que já saiu;
+  - o que é da DEMO-1 fica na onda;
+  - a wiki vai agora, copiada do docs-0610.
+  - A wiki tem um erro crítico (ensina `rslt.error()`, que não compila mais), e o README diz que "nada desenha".
+- **Conflito de números:** o plano `plano-wlframe-acomp.md` usou D-W8-226 a 230, que colidem com os da `decisao-corrida-d.md`. Os da acomp passam a valer como **D-W8-231 a 235**, na mesma ordem (226→231, 227→232, 228→233, 229→234, 230→235). Os arquivos de plano não são editados.
+- **TODO:** entram `WL-FRAME-ORDER-ARM-TEST`, `WL-FRAME-ORDER-TEXT` (absorve os TWINS), `MEASURED-EXC-POS-WLFRAME` e `WL-FRAME-ORDER-COMMIT-ID`.
+  - O item `SONDA-OCULTA-PUNE-JANELA-VISIVEL` foi reescrito por decisão do líder, verbatim: "Manter aberto e reescrito (Recomendado)".
+- **Correção da D6.2:** a causa escrita lá ("kwin_wayland --virtual nunca entrega o retorno de quadro") era defeito nosso: a biblioteca pedia o retorno depois do commit e desistia na primeira leva (WL-FRAME-ORDER, D-W8-208 e 212).
+
+### 11/10/2026 09:00:12 - Decisões do líder sobre a documentação; D5b-fix3 verde; WL-FRAME-ORDER-TEXT e D3-FIX3 commitadas
+
+- **Respostas do líder (AskUserQuestion), verbatim:**
+  - wiki: "Criar a publicação automática (Recomendado)";
+  - CHANGELOG das seis versões antigas (0.4.1.0 a 0.5.2.0): "Reconstruir";
+  - distros da L-04 ampliada no README: "Planejadas, ainda não testadas (Recomendado)";
+  - a leitura de recurso e o gfss: "Marcar como experimentais (Recomendado)".
+  - O merge do PR `docs-0610` em main entra na autorização "autorizo push/tag/merge" do mesmo dia, porque ele pediu explicitamente a documentação do GitHub atualizada. Sai depois da revisão (§5.2 do plano).
+- **D5b-fix3:** o texto foi consertado em `4b2b72a2` ("thirteen controls" virou "the controls", nos dois gêmeos). O ctest dos 3 portões e o preci deram rc 0, TUDO VERDE.
+  - Achado fora do escopo: palavras-número por extenso em comentários de src/, include/ e .md, que o portão não varre. Vai para a INBOX `DOCS-COUNT-VOCAB-SCOPE`.
+- **WL-FRAME-ORDER-TEXT** (`4c672778`, 6 arquivos): os 10 sítios trocados, sem nenhum gêmeo restante.
+  - I-4 decidido pela regra escrita antes: a exceção do cap30 FICA, porque a chave está em "instáveis declaradas" (fedora e windows).
+  - Linux plain 967 e asan 966. Preci rc 0.
+- **D3-FIX3** (`a24a3dca`): commitada; o preci dela roda agora.
+- **Documentação:** o ramo local `docs-0610` está preparado (11 arquivos, ainda sem commit), e a wiki local tem os 9 .md copiados. O verificador de links espera a vez na trava pesada. Os portões de texto passaram.
+
+### 11/10/2026 09:07:41 - D3-FIX3 fechada; EXAMPLE-PROBE-Y despachada; as quedas do bash explicadas
+
+- **D3-FIX3** (`a24a3dca`): o X1 (255 como estouro) reprova com o anexo e sobrevive sem ele, o que prova que o caso é novo. N=20, R5 rc 0.
+- **EXAMPLE-PROBE-Y** (D-W8-227) foi despachada ao mesmo implementador (seção 2 de `ordens-d3fix3-probey-rundir.md`).
+- **Watchcode:** as quedas do bash (SIGSEGV e SIGABRT aos pares) registradas desde 09/10 vêm dos autotestes, que derrubam um processo de propósito. O `coredumpctl info` mostra `Command Line: sh -c 'kill -ABRT 2114384'`. A ligação está provada, e não é só correlação temporal.
+
+### 11/10/2026 09:08:18 - Documentação: ramo docs-0610 e wiki local commitados; revisão despachada
+
+- **`docs-0610`** (`0380c5e9`, local, sobre `bcc72f1d`): 11 arquivos (README, AGENTS.md, rodapé do CHANGELOG e docs/wiki/), +513/-68. Portões de texto e links verdes (`docs-wiki/gates.log` e `links.log`).
+- **Wiki local** (`78806dd`, master à frente 1): cópia de docs/wiki. O `API-Draw-2D.md` ficou NÃO rastreado no clone; a revisão confere se isso é omissão.
+- **Revisão §5.2** despachada a um qa-engineer haiku distinto do redator (`rev-docs.md`): inventário, gêmeos, compilação dos exemplos da wiki contra a v0.6.1.0 em contêiner e sabotagens.
+- **Push** do docs-0610, do PR e da wiki: só depois da revisão e do adendo (as 4 decisões do líder).
+
+### 11/10/2026 09:08:41 - Adendo da documentação (D-DOC-5 a 8): commits 2 e 3 despachados; workflow da wiki em PR próprio
+
+- **CTO** (`plano-docs-wiki-adendo.md`, fontes no §3.1):
+  - **commit 2:** as distros planejadas e não testadas no README, e a marca de experimental (asset e gfss) no README, na Home da wiki, no CHANGELOG [Unreleased] e em 6 headers, só em comentário. D-DOC-5 mantém a promessa já publicada do ID numérico de propriedade em gfss/property.hpp;
+  - **commit 3:** as 6 seções reconstruídas do CHANGELOG, cada uma dizendo que foi escrita depois.
+  - **Ordem B:** `.github/workflows/wiki.yml` sem nenhum `uses:`, com `permissions: {}` no topo e `contents: write` só no job de publicação (push em main, `needs: guard`), mais o verificador `tools/ci/check_wiki_workflow.py` (R1 a R5, autoteste e 8 sabotagens).
+  - D-DOC-8: o workflow vai num PR próprio (`ci-wiki-publish`).
+  - Sequência: commits 2 e 3 → revisão → push, PR e CI → merge → origin/main na onda → último push manual da wiki → Ordem B.
+- **Para ratificar:** D-DOC-5 e o desvio residual da D-DOC-7. O token `contents: write` alcança o repositório inteiro, não só a wiki, com 4 controles conferidos a cada execução.
+- A Ordem A foi despachada ao redator. O revisor segue sobre o `0380c5e9` e depois revisa os commits 2 e 3.
+
+### 11/10/2026 09:37:36 - Disco: regra permanente do líder; a revisão reprova o commit 1 da documentação
+
+- **Pergunta ao líder, resposta verbatim:** "Sim, sempre que encostar (Recomendado)". Entrou como refinamento da emenda de 09/10 na L-11 (L-68). Quando o disco encostar no piso, apagam-se o cache de montagem e as camadas sem nome com mais de 2 h, nunca com `-a`.
+  - Aplicada agora: o `builder prune` liberou 1,19 GB e o `image prune` 13,33 GB. O min foi de 20,51 para 28,14 GiB.
+- **Revisão da documentação** (commit 1, `0380c5e9`): REPROVADO para push.
+  - Omissão: o `API-Draw-2D.md` ficou fora da wiki, e 4 páginas linkam para ele. Já corrigido no commit novo da wiki `7429037f`.
+  - Frases falsas:
+    - `README.md:130` ("published from docs/wiki/");
+    - `API-Main-Loop.md:115` (o run é de outro SHA);
+    - `:118` e `Home.md:66` ("proven live today", com evidência de antes da WL-FRAME-ORDER);
+    - `Pinning-a-Version.md:107` e `:109`.
+  - Gêmeo: `gl-loop-portability-matrix.md:48`.
+  - Também: o link de release inexistente no `CHANGELOG.md:228` e o jargão sem explicação no `API-Draw-2D`.
+  - A compilação dos exemplos da wiki contra a v0.6.1.0 passou, e as sabotagens morreram.
+- **Commits 2 e 3** feitos (`2fcf5188` e `f37e9703`), com portões e links verdes.
+- **Próximo:** um commit 4 corrige os achados, e depois vem a revisão dos commits 2, 3 e 4 e da wiki. O push só sai depois disso.
+
+### 11/10/2026 09:38:07 - EXAMPLE-PROBE-Y fechada; EXAMPLE-RUN-DIR e a revisão do lote 5 despachadas
+
+- **EXAMPLE-PROBE-Y** (`6d772895`):
+  - o MY1 reprova o autoteste;
+  - P5 verde, com 12/12 e 9/9 sondas e frames_drawn 30;
+  - o MB (y 399) e o MB' (y 401) reprovam 2 sondas cada, como previsto;
+  - R5 com rc 0, e as imagens removidas pelo nome.
+- **EXAMPLE-RUN-DIR** (D-W8-226) despachada ao mesmo implementador; o ramo `d6-h` fica local, e o push é do main.
+- **Revisão do lote 5** despachada a um haiku distinto (D5b-fix3, TEXT, D3-FIX3 e PROBE-Y): `rev-lote5.md`.
+- **Vivos:** o redator do commit 4 da documentação, o implementador da RUN-DIR e o revisor do lote 5 (3).
+
+### 11/10/2026 09:49:43 - EXAMPLE-RUN-DIR commitada; commit 4 da documentação; segunda rodada da revisão
+
+- **EXAMPLE-RUN-DIR** (`03252d27`): o anexo foi aplicado como DELTA sobre o HEAD, decisão do main. Copiar o arquivo inteiro teria desfeito o `4b2b72a2`, e o implementador parou e perguntou, como devia.
+  - O main conferiu o diff: só a linha `WORKING_DIRECTORY "$<TARGET_FILE_DIR:first_window>"` e 4 linhas de comentário.
+  - A R5 roda agora.
+- **Documentação:**
+  - commit 4 (`056e73f4`) corrige os 11 achados; a wiki local está em `5c09dd36` (10 páginas);
+  - portões verdes e links 121/121.
+  - **A medição derrubou um achado do revisor:** a marca v0.4.0.0 aponta para `14427bc6`, o mesmo commit do run 34975391524. O main conferiu com `rev-parse`.
+  - A segunda rodada da revisão (commits 2, 3 e 4 e a wiki) foi despachada ao mesmo revisor.
+
+### 11/10/2026 09:50:21 - Corridas G e H disparadas; preparo da F despachado
+
+- **EXAMPLE-RUN-DIR:** a R2 em contêiner deu rc_ctest 0 (6/6) e a R5 rc 0. O ramo local `descartavel/d6-h` (`fd97d793`) tem como pai `03252d27` e remove a cópia das DLLs (11 deleções).
+- **Corrida G** (`descartavel/d6-g` = `03252d27`, a ponta com D6-green, D3-FIX3, PROBE-Y e RUN-DIR): CI 38140776246. Previsão: first_window Passed nos 4 Windows, com `probes=12 failed=0` nas duas capturas.
+- **Corrida H** (`d6-h`): CI 38140778624, com a V-12 refeita: os três trabalhos com DLL falham ao iniciar, e o estático passa.
+- O `ls-remote` confere os dois ramos. O preparo da **F** (V-3 sobre `03252d27`) foi despachado; ela sai quando G ou H fecharem (no máximo 2 por vez).
+
+- **11/10/26 10:10 (main).** DOCS-0610: a revisão liberou o push em 658a94d9 com duas ressalvas. O commit 6 (3bdc60e2) devolveu "Ubuntu 24" à lista de planejadas (L-04). A conciliação C-2 do 0.5.1.0 fica para o ciclo seguinte. Ramo `docs-0610` empurrado (`git ls-remote` = 3bdc60e2) e PR #16 aberto contra `main`; o CI do PR está na fila. A wiki só sobe depois do merge.
+- **11/10/26 10:10 (main).** Revisão do lote 5 (relatório em `/var/tmp/cto-w8/rev-lote5.md`):
+  - D3-FIX3 e EXAMPLE-PROBE-Y aprovadas;
+  - TEXT aprovada, com um gêmeo pendente em `tests/parity/present_empty_frame_parity_test.cpp:48-49`;
+  - D5b-fix3 com a guarda incompleta: 4 mutantes de classe 1 sobreviveram (M-NODIG, M-NOLET, M-NOCOLON, M-LITSPLIT).
+  Os achados foram ao CTO (decisão em `/var/tmp/cto-w8/decisao-lote5.md`, IDs a partir de D-W8-236).
+  O revisor disse que não achou o watchcode. O main conferiu às 10:09 que o vigia estava armado ("VIGIANDO por 1 sessao").
+- **11/10/26 10:13 (main).** A corrida G (CI 38140776246) ficou verde. Previsão confirmada: `first_window` deu Passed nos 4 Windows (estático, compartilhado, Debug e ASan). Os JUnit do compartilhado e do estático mostram, na captura `printwindow`, `tamanho=640x480` e `probes=12 failed=0`. A linha da `bitblt` foi cortada pelo limite de 1024 bytes que o ctest aplica à saída de teste que passa. Por isso o 12/0 dela é inferido pela regra E do driver (`run_example_capture_win32.py:97-98`: Passed exige todos os checks em 0, `probes_bitblt` incluído), e não lido. O corte entra no INBOX (CTEST-OUTPUT-TRUNC). A corrida F (`descartavel/d6-f` = e902e6e4, V-3) foi empurrada (o `ls-remote` confere) e despachada no CI 38142328351.
+- **11/10/26 10:22 (main).** A corrida H (CI 38140778624) ficou vermelha, como previsto. Ela tira a cópia das DLLs, e os três jobs Windows que dependem de DLL (compartilhado, Debug e ASan) reprovam o `first_window`. Nos três, `win32_window_capture: exit=1` e `motivo=FALHA_DE_EXEMPLO_OU_FERRAMENTA`, depois de cerca de 40 s. O estático passou (1,71 s). Isso prova que a linha de RUN-DIR é o que faz o exemplo achar a DLL.
+  **Surpresa que a previsão não trazia:** no ASan também reprovou o `capture_known_color_smoke`, com `veredito: OCLUIDA por classe=#32770`. A classe `#32770` é a de caixa de diálogo. Inferência ainda não provada: a caixa de "DLL não encontrada" que o Windows abriu para o exemplo ficou na tela e cobriu a janela do teste seguinte. Ou seja, um exemplo que falha contamina os testes de janela que vêm depois. Fica no INBOX como WIN-HARDERROR-DIALOG-CASCADE, para o CTO classificar.
+  Os ramos remotos `descartavel/d6-g` e `d6-h` foram apagados (corridas fechadas).
+- **11/10/26 10:27 (main).** O CTO decidiu a revisão do lote 5 em `/var/tmp/cto-w8/decisao-lote5.md` (md5 e7a58df9), com D-W8-236 a D-W8-241. Resumo:
+  - **D-W8-236:** fatia nova `D5b-fix4`, só em `tests/tools/measured_leak_filter.cmake`. Ganha amostras de dígito, letra, `:`, `=`, FF e VT, e os casos 14 a 16. São 14 mutantes, e 8 que sobreviviam passam a morrer.
+  - **D-W8-237:** literal escrito à mão é a linha de código que ainda nomeia MEASURED ou SCANCOUNT depois de tirado o uso da variável. Pega o filtro partido em linhas e o guardado em variável. **Vai à lista de ratificação retroativa do líder.**
+  - **D-W8-238:** o gêmeo do TEXT entra como commit novo do item `WL-FRAME-ORDER-TEXT`. São 4 linhas de comentário trocadas por 6. O item fica em 🔍.
+  - **D-W8-239:** o vsync do `present_empty_frame_parity_test` continua desligado. A pergunta foi refundida no item `MEASURED-EXC-POS-WLFRAME` (L-68, feito neste commit).
+  - **D-W8-240:** o comando literal dos "10 sítios" está em `plano-wlframe-acomp.md:563-566`. Ele conta LINHAS (10 → 0). A diferença vinha de três universos: linhas, blocos e entradas. Fica junto o contador `gemeos_multilinha.py`, com piso, medido em 6 → 1.
+  - **D-W8-241:** dois implementadores haiku em paralelo, em arquivos disjuntos.
+  O main conferiu contra a árvore em b02677a5: os md5 de base dos dois arquivos (6154f94f e ed11a1f2) e os de todos os anexos e scripts batem com os P0. O watchcode está armado ("VIGIANDO"). Os dois implementadores foram despachados entre 10:22 e 10:27. O teto é de 2 agentes vivos.
+- **11/10/26 10:40 (main).** A documentação foi publicada (ordem do líder: "atualize a documentação md do github e a wiki. Autorizo push da wiki").
+  - **PR #16:** o CI dele (38142083938) teve 25 jobs ok, 1 pulado e nenhuma falha. Foi mesclado em `main` com `--match-head-commit 3bdc60e2`. `main` = 680aa609 (`ls-remote`), e o CI de `main` pós-merge é o 38144086310.
+  - **Wiki:** antes do push, o diff provou que o `master` local 5c09dd36 é igual ao `docs/wiki` de 680aa609. Empurrado (260d3b2..5c09dd3), e o `ls-remote` confere.
+  - **Limpeza:** o ramo remoto `docs-0610` foi apagado, e também a cópia de trabalho local e o ramo local (eram ancestrais de `origin/main`).
+  - **Ainda falta:** mesclar `origin/main` em `onda-w8`. Fica para depois do relatório da D5b-fix4, para não mexer na árvore com um agente ativo.
+  - **Gêmeo do TEXT:** commit 5acba5a4, reverificado pelo main. Só comentário (o filtro não imprimiu nada), blob b3bb955c e `preci.rc` 0.
+- **11/10/26 10:49 (main).** Corrida F (V-3, CI 38142328351): a previsão foi confirmada exatamente nos 6 jobs que capturam o `first_window` (4 Windows mais o contêiner plain e o asan). Em todos, `image_probe.py: probes=12 failed=1`, e só a sonda (200,150) reprovou, lendo `(255, 0, 0, 255)` onde esperava `(0, 0, 255, 255)`. No contêiner, `sondas_frames30=0`, então o `frames30` passou. O ramo remoto `descartavel/d6-f` foi apagado; não sobra nenhum `descartavel/*` no servidor.
+  - **D5b-fix4:** commit 5bdb994a, reverificado pelo main: o blob `.cmake` tem md5 8c4f40e4 e o stat mostra só esse arquivo (38+/10-).
+  - **`origin/main` mesclado em `onda-w8`:** merge 256d717d (pais bb3e52cc e 680aa609), rc 0.
+  - **D-W8-196:** o QA visual da DEMO-1 foi despachado. O main congelou os md5 das 10 capturas da corrida G (2 Linux e 8 Windows) em `qa-demo1-md5-inicio.txt`, linhas 2 a 11, md5 do arquivo 03e3e3e1.
+  - **Revisão do lote 6** (D5b-fix4 e o gêmeo do TEXT) despachada para um revisor distinto: `/var/tmp/cto-w8/rev-lote6.md`.
+  - São 2 agentes vivos.
+- **11/10/26 10:51 (main).** O QA visual da DEMO-1 (D-W8-196) APROVOU: K1 a K10 e R1 a R2, com as 10 de 10 imagens medidas, e os md5 do início e do fim são iguais. Relatório: `/var/tmp/cto-w8/qa-demo1/observacao.md`.
+  - **Reconferência do main** (L-13; decodificador PNG próprio, só stdlib):
+    - os 10 md5 batem (`md5sum -c`);
+    - o quadrado verde tem 1024 pixels `00FF00` em y 400 a 431;
+    - no Linux plain, x vai de 78 a 109;
+    - no Windows estático, x vai de 29 a 60 no `printwindow` e de 33 a 64 no `bitblt`. São 4 px de deslocamento, o que dá 256 px de diferença, como o K9 descreve.
+  - **A D6-green está FECHADA:** V-3, V-5, V-13a, V-13b, M1g, a V-4 e a V-14 refeitas, as corridas F, G e H e o QA.
+  - **Próximo:** quando a revisão do lote 6 sair, empurrar `onda-w8` (D-W8-192), disparar o CI no ramo e partir para a D7.
+  - **Apelido `fedora:44`:** a remoção espera o revisor do lote 6, que pode estar usando as imagens locais. Aviso registrado: o `Containerfile` ainda diz `FROM fedora:44` (CONTAINERFILE-FEDORA-PIN), e sem o apelido uma montagem local nova exigiria `docker pull`, que está proibido. Isso vai ao CTO antes de remover.
+- **11/10/26 11:04 (main).** Revisão do lote 6 (`/var/tmp/cto-w8/rev-lote6.md`):
+  - **O gêmeo do TEXT (5acba5a4) foi APROVADO.** O contador dá `achados=0` no HEAD e 1 no pai.
+  - **A D5b-fix4 (5bdb994a) foi APROVADA na implementação.** A tabela de 14 foi reproduzida, com o vermelho nos casos 14 e 15. Mas sobreviveram mutantes próprios do revisor: P-DOT, P-DEL, as seis bordas de faixa, P-BRACKET, P-CONCAT3 e P-VARS1LINE.
+  - **É a terceira volta seguida da mesma trava** (fix3, fix4 e agora). Pela L-42, o CTO foi acionado com pesquisa na web obrigatória antes de uma nova tentativa, e com a hipótese de enumerar os 128 bytes ASCII em vez de amostras à mão (L-17 global). Decisão em `/var/tmp/cto-w8/decisao-lote6.md`.
+  - O CTO também decide a correção de texto do item `SONDA-OCULTA-PUNE-JANELA-VISIVEL` (TODO.md:284), o destino do apelido `fedora:44` e se a D7 corre em paralelo.
+  - **`onda-w8` empurrado**, com a D6-green fechada (D-W8-192): f2dbfafe..56892b46, 65 commits, e o `ls-remote` confere. O CI foi disparado no ramo: 38145668922.
+- **11/10/26 11:05 (main).** O CI de `main` depois do merge do PR #16 (38144086310, em 680aa609) ficou verde. A publicação da documentação está fechada.
+- **11/10/26 11:22 (main).** O CTO decidiu o lote 6 em `/var/tmp/cto-w8/decisao-lote6.md` (md5 f05f06e2), com D-W8-242 a D-W8-247. Pela L-42, a pesquisa veio antes: o testador exaustivo do RE2, o "test them all" do Dawson e uma sonda do Python.
+  - **D-W8-242:** fatia `D5b-fix5`. A trava VARRE os bytes 1 a 255 depois de cada palavra (510 vereditos). O esperado sai de faixas numéricas, nunca de regex. Acabam as amostras de borda escolhidas à mão. A minha inferência de 128 bytes estava errada: a D-W8-200 lê bytes.
+  - **D-W8-243:** P-BRACKET, P-CONCAT3 e P-VARS1LINE são forma que nenhuma decisão cobriu. Não ganham caso e **vão à lista de ratificação retroativa do líder** (junto da D-W8-237). O contador não vê palavra partida ou mascarada, e a defesa que sobra é `consumidores=2`.
+  - **D-W8-244:** o título e a regra de `SONDA-OCULTA-PUNE-JANELA-VISIVEL` passam a dizer o estado medido, e a referência `:751` vira o nome da constante. A medição por sistema foi refundida em `MEASURED-EXC-POS-WLFRAME`, com o primeiro dado pós-conserto: 987 e 991 ms, 60/60, no contêiner Fedora.
+  - **D-W8-245:** o apelido `fedora:44` FICA até a `CONTAINERFILE-FEDORA-PIN` fechar. É só uma etiqueta (o mesmo Id 43b29f65, que é Fedora 44). Removê-lo faria um build local tentar `docker pull`. O número de linha na TODO virou o comando que o mede.
+  - **D-W8-246:** a D7 corre em paralelo com a D5b-fix5, sem arquivo em comum. O plano vale contra `83ab40c8`, com as erratas E1 (`--target glintfx_library`) e E2.
+  - **D-W8-247:** a D-W8-208 entra no livro (abaixo).
+  - **Despachados juntos:** os implementadores da D5b-fix5 e da D7. O `watchcode` está armado ("VIGIANDO"). São 2 agentes vivos.
+  - **Ordem do líder no meio do trabalho, verbatim: "Siga para acabar w8".**
+- **D-W8-208** (registrada pela D-W8-247; texto de origem em `/var/tmp/cto-w8/plano-d6red-fix.md:44-50`). O conserto WL-FRAME-ORDER pede o aviso de quadro (`wl_surface_frame`) ANTES do `eglSwapBuffers()`, que é o commit da superfície. O `arm_pending()` fica depois de um swap bem-sucedido. Commit `b3861f80`, publicado na v0.6.1.0.
+- **11/10/26 11:30 (main).** O CI do ramo `onda-w8` em 56892b46 (38145668922, disparado à mão) ficou verde: a ponta com a D6-green fechada, o gêmeo do TEXT, a D5b-fix4 e a `main` com a documentação. Este verde ainda não é o CI-VERDE-W8, porque faltam a D7, a D5b-fix5 e os itens R2D e QA da onda.
+- **11/10/26 11:35 (main).** A D5b-fix5 foi commitada (73d3ed2f) e reverificada pelo main: o blob `.cmake` tem md5 63254fda, igual ao previsto no plano, e o diff é 61+/6-. O implementador relatou `varridos=510`, 19 controles OK, os 15 mutantes conforme a tabela e `preci.rc` 0. A revisão independente foi despachada, com pelo menos 2 mutantes próprios FORA da classe varrida, e vai em `/var/tmp/cto-w8/rev-lote7.md`. Achado do implementador, que o revisor classifica: o `preci` roda autotestes `win_vm_lab_*` no hospedeiro. São 3 agentes vivos (D7, CTO do fechamento e o revisor).
+- **11/10/26 11:38 (main).** O CTO escreveu o plano de fechamento da W8 em `/var/tmp/cto-w8/plano-fechamento-w8.md` (md5 647a3e35), com D-W8-248 a D-W8-262. O main conferiu o plano.
+  - **Critério de fechamento:** o de `plano-w8.md:103-118`, mais o v2 e o v3, sem corte, do CTO ou do líder. A **D-W8-248** só endurece:
+    - o piso passa a 17 linhas W8;
+    - a DEMO-1 só fecha pelos 19 critérios;
+    - os 4 pareceres de API entram no apêndice;
+    - a subida para 0.7.0.0 entra no F1;
+    - entram também a lista de ratificação e a verificação profunda.
+  - **D-W8-249:** `WL-FRAME-ORDER-TEXT` (🔍), `WL-FRAME-ORDER-ARM-TEST` (⏳) e `SELFTEST-MAIN-DUP-GATE` (⏳) saíram do INBOX e viraram linhas W8, depois da DEMO-1. Isso foi feito neste commit, e `grep -nE '\| W8 *\|' TODO.md` dá 17 linhas.
+  - **D-W8-250 a 257:**
+    - um dono por vez de `tests/CMakeLists.txt`;
+    - revisão de API é desenho e pode começar já (L-32);
+    - pela pesquisa da L-43 (SDL 3.4), o modo "pixel art" vira linha da W9-B;
+    - a R0 recebe o pedido numa struct;
+    - G2 e G4 abrem com sonda;
+    - a G1 começa pela revisão L-17;
+    - a marca é só `v0.7.0.0`;
+    - a verificação profunda vem antes do CI-VERDE-W8.
+  - **D-W8-258 e 261 (para o líder, no momento certo):** a autorização da GeForce (G4), só depois do alerta 5x, e a pergunta condicional do kit da NVIDIA.
+  - **D-W8-262:** a ratificação em bloco no fechamento.
+  - **Despachados:** a S0 (revisão de API das formas, só em `/var/tmp/cto-w8/s0/`) e a revisão do lote 7, que já estava com a parte (a) e agora tem também a (c), `CAPTURE-DRIVER-WIRING-UNTESTED`; a parte (b) espera o commit da D7.
+  - **Segunda rodada do CTO pedida:** as ordens R2D, G1 e G2 e a pesquisa da NVIDIA.
+  - **Agentes vivos: 4** (D7, revisor do lote 7, S0 e CTO).
+- **11/10/26 11:49 (main).** Revisão do lote 7, partes (a) e (c) (`/var/tmp/cto-w8/rev-lote7.md`):
+  - **(a) D5b-fix5 (73d3ed2f): APROVADA, com 1 IMPORTANTE.** O modo `run` não exige o piso `varridos=510`; só o `selftest` o pega, nos casos 17 a 19 (`measured_leak_filter.cmake:27`, `:178`, `:180-181`). Os 6 mutantes próprios do revisor (O1 a O5 e O3b) morreram todos por alguma das duas pernas, e nenhum inventa regra. O IMPORTANTE vai ao CTO para classificar.
+  - **`win_vm_lab_*` no preci: COSMÉTICO.** Só fixtures e bwrap; a VM real não é tocada.
+  - **(c) `CAPTURE-DRIVER-WIRING-UNTESTED`: APROVADA.** A base 4ac6d1b7 deu `rc_ctest=0` e 34 controles OK. MW1 a MW5 morreram (`rc_ctest=8`), nos controles 13, 13, 14, 15 e 16. O MW6 também morreu, no 24.
+  - **Status (L-63), verificação feita:** `CAPTURE-DRIVER-WIRING-UNTESTED` passa de 🔍 para ✅ (critério 19 da DEMO-1). `WL-FRAME-ORDER-TEXT` também passa de 🔍 para ✅: o gêmeo 5acba5a4 foi aprovado no lote 6 e reverificado pelo main, e os 10 sítios estão em 0 desde 4c672778.
+  - **A D7 foi commitada (66a823e1).** O relatório do implementador ainda não chegou. A parte (b) da revisão sai depois dele.
+- **11/10/26 11:49 (main).** A S0 (revisão de API das formas, `R2D-SHAPES`) saiu APROVADA COM CONDIÇÕES, como desenho. O parecer está em `/var/tmp/cto-w8/s0/auditoria-api-shapes.md` (md5 2fb68acc). Achados: 1 CRÍTICO, já corrigido no texto (o enumerador `round` colide com `tgmath.h` e virou `rounded`), 8 IMPORTANTES e 3 COSMÉTICOS. A sonda de colisão deu rc 0 na rodada 2, e o controle positivo deu rc 8, nomeando `major`. DIV-01, DIV-02 e a Q-01 (o layout dos descritores muda e quebra quem não recompilar) foram ao CTO, que diz se a Q-01 já está decidida pela D-W8-30 e pela L-26 pré-1.0 ou se vai ao líder. Agentes vivos: 2 (D7 e CTO).
+- **11/10/26 11:56 (main).** A segunda rodada do CTO está em `/var/tmp/cto-w8/plano-fechamento-w8-r2.md` (md5 44a4d21a), com D-W8-263 a D-W8-287, e o main a conferiu.
+  - **D-W8-263:** a `WL-FRAME-ORDER-ARM-TEST` desce para logo depois da `QA-COMPOSED-PATH`. Feito neste commit.
+  - **D-W8-264:** `tests/CMakeLists.txt` tem fila: SG, G1a, G1b, G2, ARM-TEST e S1.
+  - **D-W8-280:** a metade (i) do IMPORTANTE-1 do lote 7 vira a fatia `D5b-fix6` (o `run` exige o piso de 510, pela L-40). As metades (ii) e (iii) ficam cobertas pelos casos 17 a 19.
+  - **§12:** o parecer S0 foi aceito.
+    - DIV-01: o alinhamento vira parâmetro.
+    - DIV-02: `fill_triangles` e `fill_indexed_triangles`, com nova sonda de colisão antes da S1.
+    - Q-02 a Q-04 decididas.
+  - **A Q-01 NÃO vai ao líder:** já é decisão dele, na L-26 (`GODS_LAWS.md:699` e `:701`, de 21/08): antes da 1.0, a quebra de ABI mora no B. O F1 ganha o aviso "recompilar obrigatório" no CHANGELOG.
+  - **G4 (D-W8-268):** o SELinux deve barrar os dispositivos da NVIDIA no contêiner. A pergunta ao líder (§6.1) sai depois da G4a, com os valores medidos colados. Recomendação do CTO: `label=disable` só naquele contêiner. Nunca `semodule` ou `audit2allow` (L-60).
+  - **O push que fecha a DEMO-1** vai explícito, no SHA aprovado: `git push origin <SHA>:onda-w8`.
+  - **Despachados:** SG (§4), D5b-fix6 (§11) e T0 (§2.4). São 4 agentes vivos: D7 no `preci`, SG, D5b-fix6 e T0. A parte (b) do revisor do lote 7 sai quando houver vaga.
+- **11/10/26 12:09 (main).** A sessão GusWorld perguntou, por mensagem entre sessões, sobre sprite, entrada e marcação. Respondi pelo bus (58122a1, `inbox/gusworld/`), com fatos medidos na TODO: sprite e textura vêm na W8 (0.7.0.0); estado por passo na W9; eixo cru e caminho único teclado+gamepad na W11c (`INPUT-ACTIONS` já cita as exigências deles); `gfml` decidido, mas sem trilha nem item; a quina é nossa (`MAP-STEP-RESOLVE`, W11a). O pedido deles de 12/09 tinha sido lido (`read` 0439edc) e ficou sem resposta escrita até hoje. A falha é nossa e ficou assumida na resposta. A issue #8 do Gus não tem nada novo dele: os 3 últimos comentários são nossos.
+- **11/10/26 12:11 (main).** D7 commitada (66a823e1). P1 shared e P2 estático deram rc 0 (`encontrados=1 construidos=1`, 14 controles, `sitios=10 esperado=10`); os vermelhos V1 e V2 bateram, e MC1, MC2 e MC3 morreram. **Mas o `preci` deu rc 8:** o J3 do plano trava o teste com `RESOURCE_LOCK glintfx_nested_build` e não traz a declaração `# glintfx-nested-build: heavy - <motivo>` que o `check_ctest_parallel_policy.py` exige. É defeito do plano, e o implementador parou corretamente. Decisão do main, sem desenho novo, porque o portão já existe: um commit novo só com essa linha, depois de a SG (ea410b00) e a D5b-fix6 (63cc4763) liberarem `tests/CMakeLists.txt`. A candidata dele já deu preci rc 0 em 320 de 320. O teste levou 0,81 s, sem MEASURED_HEAVY.
+- **11/10/26 12:16 (main).** A T0 (revisão de API da textura) saiu APROVADA COM CONDIÇÕES. O parecer está em `/var/tmp/cto-w8/t0/auditoria-api-texture.md` (md5 f8d6415d). Achados: 2 CRÍTICOS, 15 IMPORTANTES e 3 COSMÉTICOS.
+  - **CRI-T01:** destruir textura enviando o lote cruza a barreira de `flush()`, que o contrato publicado proíbe.
+  - **CRI-T02:** a região com ponteiro de textura é UB, no rascunho do próprio revisor.
+  - **Decisões:** 8 confirmadas, e a D-W8-12 diverge na parte do envio.
+  - **Sondas:** a negativa deu rc 0 de primeira; o positivo deu rc 8, nomeando `major` em `sysmacros.h:60`.
+  - DIV-T01, DIV-T02 e Q-T01 a Q-T09 foram ao CTO (terceira rodada, `plano-fechamento-w8-r3.md`). Pedi que confira se a Q-T06 (filtro sRGB) toca as decisões do líder de 01/10 sobre sRGB no Windows.
+- **11/10/26 13:04 (main).** O CTO fez a terceira rodada em `/var/tmp/cto-w8/plano-fechamento-w8-r3.md` (md5 ac89839b), com D-W8-288 a D-W8-303. O parecer T0 foi aceito.
+  - **D-W8-288:** destruir ou atualizar uma textura não envia o lote; a liberação fica para o `finish_frame`.
+  - **D-W8-289:** a região é um valor, sem ponteiro.
+  - **D-W8-290 a 299:** decidem as Q-T01 a Q-T09, menos a Q-T06.
+  - **D-W8-300 e 301:** a T2 se parte em duas.
+  - **D-W8-302:** a T1 entra na fila depois da S1 (para ratificação).
+  - **D-W8-303:** errata do parecer, que o main aplica antes da T1.
+  - **Q-T06 levada ao líder** (D-W8-293). As extensões da Khronos PERMITEM converter sRGB depois de filtrar, e por isso a promessa pelo formato é falsa. Opções dadas: testar e avisar, só documentar, ou garantir na própria biblioteca. **Resposta do líder, verbatim: "pesquise as outras libs, comunidade e depois impremente e teste".** O CTO foi mandado pesquisar SDL3, bgfx, Skia/ANGLE, Godot, raylib, LÖVE e os fóruns, decidir com base nisso e escrever a ordem de implementação e teste (`plano-fechamento-w8-r4.md`).
+  - **Fatias fechadas pelos implementadores:**
+    - SG (ea410b00): 6 mutantes mortos. Desvio: os `python3 -I` da ordem falham com `ModuleNotFoundError`, e as provas saíram pelo R2 em contêiner.
+    - D5b-fix6 (63cc4763): o blob tem md5 6068d325, e o O2 dá "olhou 508 de 510", rc 8.
+    - D7: 66a823e1 mais 881d731e, a linha da declaração.
+    O `preci` deu rc 0, 320/320, no 881d731e, que contém as três. Os `preci` de SG e D5b-fix6 nos próprios SHAs deram rc 8 só pela linha herdada da D7.
+  - **Revisões despachadas:** a (b) do lote 7, sobre a D7 em 881d731e, e o lote 8, sobre SG e D5b-fix6 (`/var/tmp/cto-w8/rev-lote8.md`). São 3 agentes vivos.
+- **11/10/26 13:08 (main).** Quarta rodada do CTO, para cumprir a ordem do líder sobre a Q-T06 ("pesquise as outras libs, comunidade e depois impremente e teste"): `/var/tmp/cto-w8/plano-fechamento-w8-r4.md` (md5 2e657333), D-W8-304 a 309.
+  - **Pesquisa:** nenhuma biblioteca testa na abertura. O SDL3 mistura no espaço codificado, de propósito. O Skia liga por capacidade e mantém uma lista de drivers ruins, achados pelos próprios testes. Os únicos drivers relatados que convertem depois do filtro são as placas anteriores à GeForce 8 e o SwiftShader antigo, que já foi corrigido. Por inferência, o GL 3.3 exigido pela L-31 implica hardware que converte antes.
+  - **D-W8-304, opção (d), que saiu da pesquisa:** a promessa se apoia no formato sRGB da placa, e uma célula permanente de paridade REPROVA se qualquer sistema misturar no espaço errado. Ela mede no Linux e no Windows do CI e nas placas das sessões G3 e G4. Sem ausência declarada (respeita a D-A62), sem teste na abertura e sem mistura em shader.
+  - **D-W8-307:** a mistura em shader fica registrada como conserto pronto, para o caso de aparecer um vermelho real.
+  - **Implementação:** entra na T2b, com os valores fixados antes (186,7 e 188,3 contra cerca de 127) e 4 mutantes de morte obrigatória, depois da DEMO-1 ✅, da T1 e da T2a.
+  - Vai à ratificação do líder no fechamento.
+- **11/10/26 13:09 (main).** Revisão (b) do lote 7: **a D7 (66a823e1 + 881d731e) foi APROVADA, com 2 IMPORTANTES e 1 COSMÉTICO.**
+  - P1 e P2 verdes; V1 e V2 vermelhos, como previsto; MC1 a MC3 mortos; E1 e E2 aplicadas.
+  - **B1:** o mutante M-A (`check_examples_consume.py:106`, `built=len(names)`) sobrevive. Falta o caso "build com rc 0 e sem executável".
+  - **B2:** `tests/CMakeLists.txt` tem 6981 linhas (L-17).
+  - **B3:** o motivo da declaração diz "Ninja" e omite o install.
+  - Os três foram ao CTO (`plano-fechamento-w8-r5.md`), junto com a pergunta de se a DEMO-1 vira ✅ antes ou depois de uma `D7-fix1`.
+  - O revisor não conseguiu apagar ~21 MB de árvores de build criadas pelo root do contêiner (`/var/tmp/cto-w8/rev-lote7/run/b/out-*/build`), porque está sem sudo (L-51). Fica para a limpeza por contêiner.
+  - **Despachados:** R0 (resolvedor de imagem) e H0 (luz e sombra), revisões de API só no papel, depois de a T0 ser aceita. São 4 agentes vivos (revisor do lote 8, R0, H0 e CTO).
+- **11/10/26 13:11 (main).** Quinta rodada do CTO: `/var/tmp/cto-w8/plano-fechamento-w8-r5.md` (md5 a654fb3a), D-W8-310 a 313.
+  - **D-W8-310:** o B1 é regra decidida sem caso e vira a fatia `D7-fix1`: um controle de "rc 0 sem executável", com o `EXPECT_LINE` passando de 14 para 15.
+  - **D-W8-311:** o B3 entra na mesma fatia; a declaração passa a citar o install e o `CMAKE_GENERATOR`.
+  - **D-W8-312:** o B2 foi refundido no item `TESTS-REGISTRY-SPLIT` já existente (L-68), neste commit. Fica fora da W8.
+  - **D-W8-313:** a DEMO-1 só vira ✅ depois da `D7-fix1`, de uma revisão curta e do CI da ponta com ela.
+  - **`D7-fix1` despachada.** Agentes vivos: 4 (revisor do lote 8, R0, H0 e D7-fix1).
+- **11/10/26 13:12 (main).** A revisão do lote 8 (`/var/tmp/cto-w8/rev-lote8.md`) diz que as **duas fatias NÃO FECHAM**.
+  - **SG (ea410b00):**
+    - **SG-1:** o portão só varre `tree.body` e alvos `Name` diretos; `if True:` e a tupla `CHECKS, _u` passam verdes.
+    - **SG-2:** o vazio passa verde, e não há controle positivo nem vazio permanente.
+    - **SG-3:** o `python3 -I` das ordens é erro de ordem (23 pontos em 10 documentos).
+  - **D5b-fix6 (63cc4763):** o piso não tem caso permanente. MF1, TAUT, MSG e MF2 sobrevivem no `run`, e o MF1 é regra decidida (D-W8-242).
+  - **Reproduzido pelo revisor:** MS2b, MS-CHK e O2. O piso 510 foi aceito como constante decidida, e não como valor copiado.
+  - **É a quarta volta da trava D5b.** Mandei ao CTO pedir um desenho que feche a FAMÍLIA (caso permanente de varredura encurtada e oráculo trocado; `ast.walk` com todas as formas de alvo e controles permanentes), ou então um limite declarado com critério. Decisão em `plano-fechamento-w8-r6.md`.
+- **11/10/26 13:22 (main).** **Ordem do líder, verbatim: "ponha uma fatia/onda nas auditorias finais do projeto de checagem se está tudo bem atomizado".** Cumprida com o item novo `AUDIT-ATOMIC-1.0`, na onda final W18, antes da `DOC-REVIEW-1.0`. Ele faz a auditoria da árvore inteira contra a L-17 (monolito e fragmentação, os números de `CONTRACT.md` §6.2, as cinco perguntas e o capítulo 2 de `AUDITORIAS.md`), com script commitado e piso L-40, por auditor distinto, e cada CRÍTICO ou IMPORTANTE vira conserto antes da 1.0. Nenhuma lei foi alterada: é planejamento que aplica a L-17 e a L-24 já existentes (L-68).
+- **11/10/26 13:25 (main).** A D7-fix1 foi commitada (e08b6932: `check_examples_consume.py` +4 e `tests/CMakeLists.txt` +2/-2, conferido pelo main). O implementador parou na R2 por erro da ordem (a R2 não construía a biblioteca), e o main mandou usar o `ctest_ct.sh` da errata E1, já decidido. Resultado: o M-A reprova no controle novo; 15 controles; R2 6/6; `sitios=10 esperado=10`; o M-EXP morreu; o `preci` deu rc 0. O M-A2 morreu em outro controle, então a morte dele no controle novo ainda é inferência. A revisão curta (D-W8-313) foi despachada e vai investigar o M-A2 (`/var/tmp/cto-w8/rev-d7fix1.md`). Agentes vivos: 4 (R0, H0, CTO na sexta rodada e o revisor da D7-fix1).
+- **11/10/26 13:26 (main).** A H0 (revisão de API de luz e sombra, `R2D-SPRITE-SHADE`) saiu APROVADA COM CONDIÇÕES. O parecer está em `/var/tmp/cto-w8/h0/auditoria-api-sprite-shade.md` (md5 a3608099). Achados: 1 CRÍTICO, que bloqueia a H3a (CRI-H01: "escurece no máximo uma vez" é falso com a ordem por camada), 10 IMPORTANTES e 1 COSMÉTICO. Para a forma do grupo, a recomendação é um segmento entre barreiras. DIV-H01 a H04 e Q-H01 a H03 foram ao CTO para a r7, com o pedido de conferir se a aparência da sombra (D-W8-13) é decisão de produto do líder. As sondas deram rc 0 na negativa e rc 8 no positivo.
+- **11/10/26 13:30 (main).** A revisão curta APROVOU a D7-fix1 (e08b6932) para o escopo de B1 e B3 (`/var/tmp/cto-w8/rev-d7fix1.md`). O M-A morre no controle novo, e o M-B (variante do revisor) só morre por ele. O M-A2 morre em outro controle, como o implementador disse. A R2 pela E1 deu 6/6, com `sitios=10 esperado=10`. A declaração confere com o teste. Achado fora do escopo: o M-Z (executável de 0 bytes aceito) sobrevive. Foi para o INBOX como `EXAMPLES-CONSUME-ZERO-BYTE`, como limite declarado por analogia com a D-W8-314 §3; o CTO confirma. **A DEMO-1 ainda não vira ✅:** a D5b-fix7 (sub-passo dela, D-W8-315) está em voo, e o CI da ponta tem de ter as duas. Despachados também a D5b-fix7 e a SG-fix1, da r6 do CTO (`plano-fechamento-w8-r6.md`, md5 74c919eb, D-W8-314 a 318: um desenho que fecha a família, com o critério de parada escrito antes). A r7 (md5 42b0fae2, D-W8-319 a 334) aceitou H0 e R0 e diz que nada vai ao líder, a não ser a cena dos exemplos S6, T7 e H5, mais tarde. Agentes vivos: 3 (R0, D5b-fix7 e SG-fix1).
+- **11/10/26 13:32 (main).** A R0 (revisão de API do resolvedor de imagem) saiu APROVADA COM CONDIÇÕES. O parecer está em `/var/tmp/cto-w8/r0/auditoria-api-image-resolver.md` (md5 do corpo 23f1c085). Achados: 1 CRÍTICO (CRI-R01: o portão de direção só vê o include direto, e `draw2d -> core -> gfss` passa), 11 IMPORTANTES e 3 COSMÉTICOS. As sondas deram rc 0 e rc 8. A DIV-R01 (o nome do fato) conflita com a D-W8-334 da r7. A conciliação e as Q-R01 a R08 foram ao CTO (r8). Agentes vivos: 3 (D5b-fix7, SG-fix1 e o CTO). O R0 terminou.
+- **11/10/26 13:34 (main).** Oitava rodada do CTO: `/var/tmp/cto-w8/plano-fechamento-w8-r8.md` (md5 5b8a8dd5), D-W8-335 a 339. A R0 foi aceita. **D-W8-335:** o CRI-R01 fica coberto pela R2a (fecho por `-MM`, com vermelho direto e indireto). A regra entra antes no canon (`CONTRACT.md` §5.3, escrita pelo `technical-writer`, commit do main antes da R2a). **D-W8-336:** um nome só, `image_without_owner`; ele revoga a D-W8-333 e nasce na ponte `GFSS-OBJECT-FIT`, o que ficou registrado na linha dela neste commit. **D-W8-337:** a ponte faz uma chamada por camada. **D-W8-338:** Q-R01 a R07 já estavam na r7. **D-W8-339:** errata do texto da R0. Nada vai ao líder.
+- **11/10/26 13:44 (main).** A D5b-fix7 foi commitada (d9f66849). O main reverificou: o blob do `.cmake` tem md5 536d7133, igual ao da r6, e o diff é 98+/25-.
+  - **Vermelho:** comando `measured_leak_filter_judge` inexistente.
+  - **Verde:** R2 2/2, 27 controles, `varridos=510`.
+  - **Mutantes:** 8 de 8 mortos.
+  - **`preci`:** rc 0.
+  - **Dois avisos do hook, conferidos:** a linha `encontrados=0 analisados=0 falharam=0` vem do `no_mdash_staged.py` global e é declarada ("0 user-facing file(s) among 1 staged"), não uma varredura quebrada; o WARNING do `check_dep_zero` aponta o `execute_process` da linha 274 (o `cmake -P` chamando o próprio script), e a autoridade é o `dep_zero_trace` do CI.
+  A revisão sai junto com a SG-fix1, que ainda está em voo.
+- **11/10/26 13:57 (main).** A SG-fix1 foi commitada (56d6a22c: `tests/CMakeLists.txt` e os dois `run_*_win32_selftest.py`, 178+/20-, conferido pelo main). O vermelho de estreia foi IFWRAP mais TUPLECHK; os 10 mutantes morreram, e também IFWRAP, TUPLECHK e EMPTYSCAN; `EXPECT_LINE` 111/37; `preci` rc 0. A `SELFTEST-MAIN-DUP-GATE` foi para 🔍 neste commit. A regra da D-W8-317 entrou no Item 6 da receita comum (`ordem-comum-paralelo.md`, md5 novo 2616b4fa), depois de os implementadores que conferiam o md5 antigo terminarem. Revisão do lote 9 (D5b-fix7 e SG-fix1) despachada, com o critério de parada da D-W8-314 escrito no briefing. Empurro `onda-w8` e disparo o CI na ponta para adiantar a prova da DEMO-1 (D-W8-313). Se a revisão reprovar, o CI se refaz na ponta do conserto.
+- **11/10/26 14:10 (main).** A revisão do lote 9 (`/var/tmp/cto-w8/rev-lote9.md`) reprovou de novo as duas fatias, pelo próprio critério da D-W8-314. **D5b-fix7:** ordem varredura/amostra/registro e linha limpa por hits, ambas sem caso (núcleo); o `run` só exercita o registro e o `file(REMOVE)` não tem caso (casca). **SG-fix1:** `except ... as`, `match **rest`, `import *` de irmão e `from irmão import ...` sem o `len` não contam (núcleo); a leitura truncada passa (casca). **SG6, sistêmico:** um `check` sem `sys.exit` deixa o portão mudo em todo selftest com esse `check`. São a quinta volta da D5b e a terceira da SG. Pedi ao CTO uma decisão explícita de custo e efeito: (A) mais uma rodada, (B) consertar só o que muda a capacidade real de pegar defeito (o SG6) e declarar o resto como limite no INBOX, ou (C). Pedi também que diga se a decisão de parar vai ao líder. Arquivo: `plano-fechamento-w8-r9.md`.
+- **11/10/26 15:09 (main).** O CTO escreveu a r9 (`/var/tmp/cto-w8/plano-fechamento-w8-r9.md`, md5 d239a0ea, D-W8-340 a 345). Ele reconheceu que o critério da D-W8-314 falhou como parada e levou a decisão ao líder (D-W8-343): (a) fechar pela lista oficial do Python e parar; (b) seguir até sair sem achado; (c) parar agora. **Resposta do líder, verbatim: "pergunte ao advisor".** O advisor recomendou a **(a)**, com aceite estrutural (um caso por forma de ligação do §4.2.1 da Python Language Reference; um sobrevivente fora da lista é limite por construção). Na D5b, os 4 achados do lote 9 viram limite declarado, porque `run` e `selftest` são testes registrados. **Fica na lista de ratificação: "líder delegou ao advisor; advisor recomendou (a)".**
+  - **CI da ponta ba8663dd (38157620306) VERMELHO, só nos 3 jobs Windows:** o `check_examples_consume_selftest`, no controle "a instalacao vai para o prefixo proprio" (`check_examples_consume.py:175-179`, literal `"/r/work/prefix"` contra `Path`). É defeito real da D7 (66a823e1), e o lado Windows nunca tinha rodado antes do push. **A DEMO-1 segue 🔄.** Vira a fatia D7-fix2.
+  - **Canário (`SELFTEST-CHECK-CANARY`):** o implementador parou no passo 2, com razão. A ordem mandava plantar um `check` novo, que o `EXPECT_LINE` já pega; a mudez do SG6 é sabotar um controle EXISTENTE sem o `sys.exit`. Errata pedida ao CTO.
+  - Pedidos à r10: as ordens da SG-fix2 e da D7-fix2 e a errata do canário (`plano-fechamento-w8-r10.md`).
+- **11/10/26 15:14 (main).** Décima rodada do CTO: `/var/tmp/cto-w8/plano-fechamento-w8-r10.md` (md5 b79cd13f), D-W8-346 a 350.
+  - **D-W8-346:** SG-fix2, com a tabela pela lista oficial do Python (§4.2.1): 40 linhas, 12 mutantes e critério de parada estrutural. Anexo `r10-anexos/sg2/trecho_sg2.py`, md5 76384f5f, conferido.
+  - **D-W8-347:** os 4 achados do lote 9 na D5b são limite DECLARADO, e **a D5b-fix7 fecha**.
+  - **D-W8-348:** errata do canário (`check("plantado", False); CHECKS.pop()`, com o `sys.exit` apagado).
+  - **D-W8-349:** D7-fix2 (três literais POSIX no controle; o esperado sai do mesmo `Path`). A prova no Windows é por ramo descartável no servidor, porque a VM não tem Python (inferência do CTO; instalar seria pacote).
+  - **D-W8-350:** lição para a receita comum; o main aplica quando os agentes que conferem o md5 dela terminarem.
+  - **Despachados juntos, em arquivos disjuntos:** D7-fix2, SG-fix2 e G1a (o primeiro da fila de `tests/CMakeLists.txt`). O canário com a errata sai depois da SG-fix2, porque toca os mesmos arquivos. Agentes vivos: 3.
+- **11/10/26 15:41 (main).** A D7-fix2 foi commitada (f4ba1a09, `check_examples_consume.py` +3/-3, conferido pelo main): o esperado agora sai de `str(prefix)` e `str(build_dir)`. No Linux, R2 2/2 e 15 controles; os 3 mutantes morreram. **No Windows:** o ramo descartável `descartavel/d7fix2` rodou o CI 38163321404 VERDE (25 ok, 0 falha), com o selftest Passed nos 3 jobs Windows, e já foi apagado (`ls-remote` com 0 `descartavel/*`). `preci` rc 0. O "grep zero" da ordem não fecha só pela linha 176, que é a ENTRADA do `Path`, e não comparação; o main aceita isso como imprecisão do aceite, e o revisor confere. Revisão curta despachada (`/var/tmp/cto-w8/rev-d7fix2.md`), com a busca dos gêmeos em outros autotestes Python que rodam no Windows. Agentes vivos: 3 (SG-fix2, G1a e o revisor).
+- **11/10/26 15:42 (main).** A SG-fix2 foi commitada (0f0cbf57, os dois `run_*_win32_selftest.py`, 150+/78-, conferido pelo main), na errata r11 (D-W8-351: a planta vai dentro de `if False:`; os 11 mutantes foram regerados do anexo final). O vermelho deu rc 0 nos dois drivers antes da troca e rc 8 depois; o verde, 111 e 37 controles; os 11 de 11 mutantes morreram; `preci` rc 0. **Revisão final despachada**, com o critério estrutural da lista oficial do Python escrito no briefing (`/var/tmp/cto-w8/rev-sgfix2.md`). O canário foi retomado com a errata D-W8-348, sobre o HEAD com a SG-fix2. Agentes vivos: 4 (G1a, revisor da D7-fix2, canário e revisor da SG-fix2).
+- **11/10/26 15:49 (main).** A revisão curta APROVOU a D7-fix2 (f4ba1a09) nos dois sistemas (`/var/tmp/cto-w8/rev-d7fix2.md`). Varredura de gêmeos (L-17): 86 `.py` de `tests/tools/` e 71 comparações rastreadas, sem nenhum defeito da classe. A linha 176 é entrada, e foi aceita. O MW-PFX morreu. No Windows, o run 38163321404 deu Passed nos 3 jobs, 307/307, sem skip. A D-W8-352 (r12, md5 9427745c) pôs o canário DENTRO do `check` comum, e o implementador foi retomado com o anexo (md5 9194f08e). Limpeza: as árvores de build criadas pelo root do contêiner (`rev-d7fix2/out-*` e `rev-lote7/run/b/out-*/build`) foram apagadas por um contêiner alpine sem rede, com os caminhos conferidos antes (L-53), rc 0.
+- **11/10/26 15:51 (main).** O canário foi commitado (5b36eb64, 7 arquivos: o `selftest_controls.py` novo, com md5 9194f08e conferido pelo main, e os 6 módulos importando só `CHECKS` e `check`). O vermelho deu mudo (rc 0, 6/6) e o verde, 6/6. C1, C2 e C4 morreram pelo canário (6/6) e C6 pelo `EXPECT_LINE`. O C5 sobrevive: é limite declarado (item 4 da D-W8-314). O `preci` do implementador ainda está rodando, sob a `heavy.lock`; o rc sai em `/var/tmp/cto-w8/canary/preci.rc`.
+- **11/10/26 15:54 (main).** Ordem do líder repetida, verbatim: "siga para acabar w8". Foi despachado o `technical-writer` para levar ao `docs/` os 4 pareceres de API (S0, T0, R0 e H0), com as erratas do CTO aplicadas (r2 §12, r3, r4, r7 e r8), e para escrever o `CONTRACT.md` §5.3 verbatim da D-W8-335. Isso é pré-condição da S1, da T1 e da R2a. Agentes vivos: 4 (G1a, revisor da SG-fix2, canário no `preci` e o `technical-writer`).
+- **11/10/26 16:00 (main).** A revisão final da SG-fix2 (0f0cbf57) aplicou o critério estrutural. Os 14 itens da lista oficial têm linha, mas duas subformas sobrevivem:
+  - **MU (import relativo, `from . import X` e `from .m import *`):** é forma da lista ("import statements"). **Defeito, entra.**
+  - **MA (`del` de ATRIBUTO):** fica fora da lista, que fala de nome; o próprio rótulo do revisor diz "outside the list". **Limite declarado.**
+  - **MB (`x: int` sem valor):** medido no Python 3.14.7, não liga o nome. Limite declarado e conservador.
+  - **MK (`nonlocal`):** fora da lista, limite declarado.
+  - **Decisão do main:** aplicação mecânica do critério escrito, sem regra nova. Fatia **SG-fix3**: só as duas linhas do import relativo, `== 40` passa a `== 42`, com vermelho antes e depois. Com ela, toda forma da lista tem linha, e a trava fecha pelo critério.
+  - Os 2 de 11 mutantes do implementador foram reproduzidos, e os 10 do revisor morreram.
+  - Agentes vivos: 4 (G1a, `technical-writer`, revisor do canário e SG-fix3).
+- **11/10/26 16:05 (main).** Os pareceres de API (S0, T0, R0 e H0) entraram no `docs/` com as erratas do CTO, e o `CONTRACT.md` ganhou a §5.3 (b229251f, 5 arquivos; o texto da D-W8-335 foi conferido byte a byte). Cinco nomes ficaram em RASCUNHO (`flip_both`, `release_slot`, o valor de `gltfx_all_mipmap_levels`, o método de desenho do atlas e o cabeçalho de `gltfx_light_tint`) e foram ao CTO (r13). Na lista de ratificação ficam a D-W8-283 (quebra de ABI pela L-26) e a D-W8-304 (filtro sRGB).
+- **11/10/26 16:11 (main).** **G1a:** o implementador parou antes do commit por uma razão correta. O `check_isolation_selftest` só roda no Linux, e o portão de paridade pede a exceção. O main autorizou `check_isolation_selftest|windows|nenhum|SEM-PENDENCIA` em `tests/parity_exceptions.txt`, com comentário de motivo, no padrão já estabelecido dos irmãos (`:666` e `:669`): o isolamento do contêiner Wayland só existe no Linux por desenho (L-05). O comportamento igual foi provado em 5 cenários, com 11 controles e `preci` rc 0 no snapshot. **r13 do CTO** (`plano-fechamento-w8-r13.md`, md5 5578c9d1, D-W8-353 a 356): os 5 nomes decididos; **D-W8-354**, cinco métodos dos pareceres passavam de 4 parâmetros (L-17) e são agrupados em structs; a sonda de colisão dos 40 nomes deu rc 0, e o positivo, rc 1. Errata despachada ao `technical-writer`. Agentes vivos: 4 (revisor do canário, SG-fix3, G1a e `technical-writer`).
+- **11/10/26 16:14 (main).** A errata r13 foi aplicada aos pareceres (f37726a, 3 arquivos de `docs/`): nomes finais, as cinco assinaturas com 4 parâmetros ou menos, o rótulo da D-W8-283 corrigido. A SG-fix3 parou por erro do BRIEFING do main: o código real já vê o import relativo, e a lacuna é só da tabela. Ela seguiu com a prova em 3 rodadas proposta pelo implementador (scanner mutado com a tabela atual dá rc 0; real com as 2 linhas, rc 0; mutado com as 2 linhas, rc 8).
+- **11/10/26 16:15 (main).** A revisão do canário APROVOU no escopo, mas achou o M2 vivo (um módulo com `check` local mudo). Na r14 do CTO (md5 87c498b3, D-W8-357 e 358): **o portão do dono único**, que barra `def check(` fora de `selftest_controls.py` e confere que o `check` comum chama o `_canary`. Isso mata também o C5, e não sobra limite. Vira a fatia CANARY-2, dentro da `SELFTEST-CHECK-CANARY`. Ela toca `tests/CMakeLists.txt` e `check_no_pass_regex.cmake` (de 11 para 12) e entra na fila depois do commit da G1a. **D-W8-358:** o motivo do C5 na r12 estava errado, e a frase "omissão impossível" foi corrigida.
+- **11/10/26 16:25 (main).** A G1a foi commitada (156951f6, 6 arquivos, 537+/282-, com a exceção de paridade autorizada e `check_no_pass_regex` passando de 10 para 11); `preci` rc 0, 321 testes. Revisão despachada (`/var/tmp/cto-w8/rev-g1a.md`), com prova executada de que o portão de isolamento CONTINUA mordendo, antigo contra novo, em cada montagem proibida. Agentes vivos: 3 (SG-fix3 na fila de trabalho pesado, CANARY-2 e o revisor da G1a).
+- **11/10/26 16:36 (main).** A SG-fix3 foi commitada (78579861). O main reverificou o diff: só as duas linhas do import relativo e `== 42` nos dois arquivos, exatamente o conserto que o revisor da SG-fix2 mediu (base rc 0, MU rc 8). As três rodadas deram rc 0, rc 0 e rc 8; `preci` rc 0. **`SELFTEST-MAIN-DUP-GATE` passa de 🔍 para ✅:** pelo critério estrutural, toda forma da lista oficial do Python tem linha (a revisão conferiu os 14 itens, e a única subforma sem linha era esta). A linha `SELFTEST-CHECK-CANARY` entrou na tabela da W8 (D-W8-341), em 🔄, porque a CANARY-2 está em voo.
+- **11/10/26 16:37 (main).** A revisão da G1a (`/var/tmp/cto-w8/rev-g1a.md`) APROVOU o comportamento: paridade antigo contra novo em 9 cenários (rc e saída idênticos), M1 e M2 mortos, a L-17 aceita (no máximo 33 linhas por função). Ela REPROVOU por um motivo textual: o comentário da exceção de paridade (`tests/parity_exceptions.txt:674`) cita `mktemp`, que o autoteste não usa. A correção foi mandada ao implementador. O M3 (sem a chamada da linha de base inteira) sobrevive aos 11 controles e só o CI com Docker real o pega; foi para o INBOX como `ISOLATION-FULL-BASELINE-CALL-UNTESTED`, para o CTO classificar.
+- **11/10/26 16:46 (main).** A G1a fechou: a correção de texto da exceção de paridade foi commitada (1cc427cc, "md5sum, sed e awk"). O main conferiu as ferramentas citadas contra os dois scripts, e os 3 autotestes de paridade deram 3/3. Próximo da fila de `tests/CMakeLists.txt`: a G1b, depois do commit da CANARY-2.
+- **11/10/26 16:51 (main).** A CANARY-2 foi commitada (33572224, 3 arquivos). No repositório real deu `analisados=90 donos=1 fora=0 arme=1`; `preci` rc 0. G-M2, G-C5 e G-EMPTY-D morreram. O G-OWNER (mutante de morte obrigatória) sobrevive com o dono numa pasta que ordena antes e com a cópia fiel; o portão real mata a cópia, e a lacuna é dos controles. **D-W8-359** (r15, md5 91f6b66d): ele entra agora como `CANARY-2b`, com um sexto controle e o `EXPECT_LINE` de 5 para 6, antes da G1b na fila. Despachada ao mesmo implementador.
+- **11/10/26 17:13 (main).** A CANARY-2b foi commitada (506ef680, 2 arquivos): o vermelho deu rc 8 no controle novo (f), o verde 6/6, e o real `analisados=90 donos=1 fora=0 arme=1`; as 4 variantes de G-OWNER morreram; `preci` rc 0. **`onda-w8` foi empurrado** (`ls-remote` = 506ef680, a ponta com D7-fix1, D7-fix2, D5b-fix7, SG-fix1 a 3, o canário e a G1a), e o CI foi disparado: 38171206274. Ele é a prova da DEMO-1 pela D-W8-313. **Despachados:** a revisão da CANARY-2 e 2b (`/var/tmp/cto-w8/rev-canary2.md`) e a G1b, com o aviso explícito de PARE antes de qualquer contêiner com dispositivo da GeForce (L-09 global). Agentes vivos: 2.
+- **11/10/26 17:22 (main).** A revisão da CANARY-2 e 2b (`/var/tmp/cto-w8/rev-canary2.md`) REPROVOU. X5 a X7 (dois `_canary`, sombra, `if False`, cada um somado ao mudo) e X8b a X10b (walrus, AnnAssign e tupla mudos) passam pelo portão AST, que só enumera `def check` e `check = ...`. O piso L-40 foi provado. O revisor recomenda trocar a regra AST por um teste de RUNTIME. Pedi ao CTO (r16) para fechar a família pelo EFEITO: para cada módulo, executar o `check` que o módulo efetivamente usa, com condição falsa, e exigir saída não-zero. Isso pega qualquer forma de ligação por construção, e o que não é efeito vira limite. Pedi também que ele diga se a decisão de parar é do líder.
+- **11/10/26 17:35 (main).** A G1b foi commitada (bfad42f8, 4 arquivos; o baseline do CI ficou igual byte a byte). Vermelho e verde: 23 controles. m1 a m3 morreram. **A GeForce NÃO foi tocada:** só `docker create` com `renderD128` (i915), sem `start`. O `preci` foi NEGADO pelo controle de permissão do Claude Code ("Security Weaken"), e o agente não contornou. **O líder decidiu, por AskUserQuestion, verbatim: "opcao 1, pode tocar geforce"** (rodar no hospedeiro com o downgrade declarado, como todas as rodadas de hoje). O agente foi retomado com a autorização citada. A autorização vale para esta rodada do `preci`; não se estende à sessão G4 (L-01 global: aprovação num contexto não vale para outro), que segue com o alerta 5x e a pergunta própria.
+  - **CI da ponta 506ef680 (38171206274) VERMELHO em 2 jobs:** o `Windows - compartilhado` (`Error copying file (if different) ... glintfx.dll to tests`, no link do `err_code_test`; suspeita de corrida de cópia paralela da DLL, a confirmar) e a `Paridade`, provável cascata do inventário que faltou. O main mandou rodar de novo só os jobs que falharam (`gh run rerun --failed`), para separar defeito de instabilidade.
+  - **r16 do CTO** (md5 6d18f77f, D-W8-360 a 362): fecha a família pelo EFEITO. Saem o portão AST e o canário; entra o `check_selftest_check_effect.py` (64 módulos importados, 7 expõem `check`, nenhum mudo). O critério de parada foi escrito antes. A CANARY-3 foi despachada.
+- **11/10/26 17:36 (main).** O `preci` da G1b foi negado DE NOVO pelo controle de permissão do Claude Code, mesmo com a autorização do líder ("Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Security Weaken]."). O main não roda no lugar do agente (seria contornar a negação). Ao líder, dois caminhos: ele roda pelo `!` no prompt, ou libera a regra de permissão. A G1b fica commitada, mas não fechada. **A reexecução do CI 38171206274 foi RECUSADA pelo `rerun_guard.py`**, de propósito (D-A4: falha de teste não se reexecuta, e a segunda falha conta como real). Então a falha do Windows (cópia da `glintfx.dll` no pós-build) conta como real e bloqueia a DEMO-1. Ela foi ao CTO (r17), com a inferência de corrida entre cópias paralelas da mesma DLL.
+- **11/10/26 17:39 (main).** r17 do CTO (md5 e9252788, D-W8-363 a 365): a falha do Windows é DEFEITO REAL e latente. Mais de 160 alvos de teste copiam a mesma DLL em paralelo; o verde anterior foi sorte de agendamento. O conserto é uma cópia por pasta, num alvo próprio, com um portão que conta as cópias no `build.ninja`. A fatia `WIN-DLL-COPY-RACE` entrou como linha W8 neste commit e foi despachada: faz as provas em snapshot e só toca o `tests/CMakeLists.txt` depois do commit da CANARY-3, que está com o arquivo. Agentes vivos: 2 (CANARY-3 e WIN-DLL-COPY-RACE).
+- **11/10/26 17:55 (main).** **Ordens do líder, verbatim:** "quero que volte a codar o framework 18:30 no máximo". Perguntado, pela LEI DAS LEIS, se quebrava a L-32 (o congelamento de escopo até a DEMO-1 ✅), ele respondeu: "Já sao mais de DOIS DIAS de teste! Isso definitivamente não é normal. Otimize isso! Descubra como!". Ele não escolheu nenhuma das opções; a quebra da L-32 NÃO está confirmada.
+  - **Medida do main:** desde 09/10 12:00 foram 111 commits `docs`, 22 `test`, 3 `fix` e 1 `feat`, e o último código da biblioteca é o `dd763772` (09/10 11:55). Houve 54 relatórios de revisão, 17 rodadas de plano de fechamento e 5 voltas só na trava D5b.
+  - **O CTO foi despachado com prazo de 18:15** (`/var/tmp/cto-w8/otimizar-processo.md`) para o diagnóstico das causas-raiz, a pesquisa (mutação e revisão proporcionais ao risco, como o Google e o LLVM fazem), propostas com efeito medido e a pergunta pronta ao líder para tudo o que tocar lei ou ordem dele.
+- **11/10/26 17:57 (main).** Líder, verbatim: "Está incompatível o rigor dos testes com o código. Ou os códigos estão PÉSSIMOS ou o rigor dos testes está com OE" e "e agora vamos a teste, do teste, do teste, do teste". Decisão do main, por essas ordens: a **CANARY-3 foi PARADA** (teste de efeito sobre a ferramenta que testa os autotestes), sem commit, com o trabalho em andamento salvo em patch. A **WIN-DLL-COPY-RACE foi ENXUGADA**: fica o conserto do defeito real (uma cópia da DLL por pasta) e a prova pelo CI Windows verde; saem os mutantes D1 a D4 e o ramo vermelho. O resto espera a proposta do CTO (18:15).
+- **11/10/26 18:03 (main).** **Decisões do líder por AskUserQuestion:** "Por camada (Recomendado)", com o rigor de revisão por camada (N1 código da biblioteca, mutação só nas linhas mudadas, no máximo 10; N2 portão que protege a sessão do líder; N3 ferramenta de teste, leitura e um vermelho, e na segunda reprovação o resto vai à INBOX; N4 texto, sem `preci` nem revisor); e "S1 agora (Recomendado)", uma exceção à L-32 só para o bloco `R2D-SHAPES`. As duas entraram no GODS_LAWS (emendas da L-12 e da L-32), com o texto verbatim, neste commit. Proposta do CTO em `/var/tmp/cto-w8/otimizar-processo.md` (md5 4e16c5b0). **A CANARY-3 ficou commitada** (ccbb54c0, antes da parada): vermelho, verde (`candidatos=64 importados=64 com_check=7 mudos=0`) e `preci` rc 0. Pela N3, isso basta, e a prova no Windows vem pelo CI da onda. **A S1 (tipos das formas 2D) foi despachada às 18:03:** é o primeiro código da biblioteca desde 09/10.
+- **11/10/26 18:29 (main).** A **S1** (tipos das formas 2D) ficou verde: R2 4/4 e os cabeçalhos idênticos às cercas. Ela parou duas vezes no `preci`: (1) o cppcheck apontou `uninitMemberVarNoCtor` em `ellipse.hpp:22`, e a E1 `center{}` foi confirmada pelo CTO (D-W8-366, r18); o gêmeo foi aplicado nas cercas dos outros pareceres (6c81cf07, 15 trocas `{}`). (2) O `claim_citations` apontou `stroke.hpp:6`, com `Proved by: stroke_geometry_test`, teste que só nasce na S3. Decisão do main, pela regra do portão que já existe: a citação a teste futuro sai do cabeçalho e da cerca, e a fatia que cria o teste a devolve. O commit da S1 está em andamento. A WIN-DLL-COPY-RACE ficou verde no CI do servidor (38174426547, 25 ok, ramo `dllrace-green`).
+- **11/10/26 18:39 (main).** A **WIN-DLL-COPY-RACE** foi commitada (cd3d9869, só `cmake/GlintfxTest.cmake`, com o blob igual ao do servidor). O CI 38174426547 ficou verde nos 3 Windows com DLL; `preci` rc 0. O portão de contagem ficou FORA (meta-teste cortado pela ordem do líder) e está guardado em `/var/tmp/cto-w8/dllrace/snap-1`. Os ramos descartáveis foram apagados, e o `ls-remote` não lista nenhum `descartavel/*`. O laço órfão de um revisor anterior foi encerrado. **`onda-w8` foi empurrado** (`ls-remote` = b8e035bd), e o CI 38177249612 foi disparado: é a prova final da DEMO-1 (D-W8-313).
+- **11/10/26 18:59 (main).** **A DEMO-1 FECHOU.** O CI da ponta b8e035bd (38177249612) ficou VERDE: 25 ok, 1 pulado, 0 falha, inclusive os 3 Windows com DLL. Isso fecha o critério 16, e os outros 18 já estavam cumpridos (QA visual aprovado, `CAPTURE-DRIVER-WIRING-UNTESTED` ✅, D7 e as fixes, travas fechadas). Passaram de 🔄 para ✅, neste commit:
+  - `DEMO-1`;
+  - `WIN-DLL-COPY-RACE` (o CI verde nos Windows é a verificação; o vermelho foi a falha original, e a camada N3 da L-12 dispensa a contagem);
+  - `SELFTEST-CHECK-CANARY` (o canário, a CANARY-2 e 2b e a CANARY-3, com o efeito provado nos dois sistemas: Linux pela R2, Windows pelo CI 38173301746).
+  - **Pela L-32, o congelamento de escopo CAI** com a DEMO-1 em ✅, e a ordem volta a ser a da tabela. Aviso ao Gus Dragon pela L-37 em seguida.
+- **11/10/26 19:00 (main).** **A S1 foi commitada** (2eafff25, 8 caminhos: vértice, contorno e elipse; `preci` rc 0 antes e depois e sanitizer rc 0). É o primeiro código da biblioteca desde 09/10. A citação `Proved by` de teste futuro saiu do cabeçalho e da cerca; a S3 a devolve. Despachados em paralelo: a revisão N1 da S1 (no máximo 10 mutantes nas linhas mudadas) e a S2a. O snapshot da memória da sessão foi atualizado.
+- **11/10/26 19:08 (main).** A revisão N1 da S1 (`/var/tmp/cto-w8/rev-s1.md`) teve 10 mutantes nas linhas mudadas: 7 mortos e 3 vivos. **REPROVADA por A1:** os padrões públicos e os enumeradores do `stroke.hpp` não têm teste (m9 e m10 vivos). Pela N1, uma rodada de conserto: a **S1-fix1** foi despachada, com `tests/stroke_test.cpp` (valores tirados do parecer), mais a correção de texto do A2 (`vertex_2d.hpp:16`, "Trivial aggregate") e do A3 (comentários do `ellipse_test`), na fila depois da S2a no `tests/CMakeLists.txt`. **A4** (o m8, que só o cppcheck pega): limite declarado, porque o portão o pega. **A5** (IDs internos em cabeçalho público) foi para o INBOX como `PUBLIC-HEADER-INTERNAL-IDS`, neste commit.
+- **11/10/26 19:23 (main).** A **S1-fix1** foi commitada (15c18ce8, 5 caminhos). O `stroke_test` assevera os padrões e os enumeradores tirados do parecer; m9 e m10 (os sobreviventes da revisão), mais m11, m12 e m13, morrem nele; R2 5/5; `preci` rc 0. O main conferiu por leitura que o teste assevera `thickness 1.0` e a ponta `flat` pelos valores do parecer. **A S1 está fechada** pela regra N1 (uma revisão e um conserto que mata exatamente os sobreviventes). Os erros que o editor mostra em `stroke_test.cpp` são do clangd sem caminho de inclusão, não do build (a R2 está verde).
+- **11/10/26 19:48 (main).** A **S2a** foi commitada (5a5c434d, 8 arquivos: a peça de tamanho variável no `piece_list`, o `add_triangles` no `triangle_batch` e o despacho no `renderer_2d_impl`). O vermelho deu primeiro por compilação e depois pelos casos (9); o verde passou; M1, M2 e M3 morreram; sanitizer e `preci` rc 0. O implementador avisa um risco de monolito: a S2b cai nos mesmos arquivos. **Despachados em paralelo:** a revisão N1 da S2a (`/var/tmp/cto-w8/rev-s2a.md`, com a pergunta de monolito) e a **T1** (vista de imagem e conversão pré-multiplicada, primeira fatia de `R2D-TEXTURE`). A S2b espera a revisão da S2a, porque toca os mesmos arquivos.
+- **11/10/26 19:58 (main).** Ordem do líder repetida, verbatim: "siga para acabar w8". A revisão N1 da S2a (`/var/tmp/cto-w8/rev-s2a.md`) não achou defeito no código: 8 de 10 mutantes morreram. O C (a corrida aberta por triângulos com 6 índices) sobreviveu por falta de caso, e a **S2a-fix1** foi despachada. O I2 (o ramo de triângulo do despacho) fica declarado até a S2b. Monolito agora: não; risco na S2b, em `piece_list.cpp:44`. Pedi ao CTO a r19: as ordens da S2b (com ou sem a extração do depósito), da T2a, da R1 e da H1, a tabela de colisão de arquivos e a decisão sobre adiantar a `TESTS-REGISTRY-SPLIT`, para manter 4 agentes ocupados.
+- **11/10/26 20:04 (main).** A r19 do CTO (`/var/tmp/cto-w8/plano-fechamento-w8-r19.md`, md5 d39929da, D-W8-367 a 374) traz quatro fatias juntas depois do commit da T1: a S2b (com a S2b-0, a extração do depósito, antes), a R1, a H1 e a T2a, pelo protocolo de bloco (D-W8-368: ninguém edita arquivo compartilhado na árvore real antes do commit, e cada um insere o próprio bloco por âncora única). A `TESTS-REGISTRY-SPLIT` fica fora por enquanto (D-W8-369). **O disco estava abaixo do piso** (`min` 18,46 GiB). A faxina permanente que o líder autorizou (`docker builder prune` e `image prune` com mais de 2 h, sem `-a`) liberou 5,165 GB, e agora o `min` está em 23,14 GiB. O CTO roda a pré-validação pesada antes do despacho.
+- **11/10/26 20:10 (main).** A S2a-fix1 foi commitada (d89d4aab, só `triangle_batch_test.cpp`, +11). O mutante C morre no caso novo (`index_count` 6 em vez de 3); `preci` rc 0. **A S2a está fechada** pela N1 (uma revisão e um conserto que mata o sobrevivente). O I2 segue para a S2b.
+- **11/10/26 20:35 (main).** O GusWorld perguntou pelo bus, por ordem do líder dele, se o gerador pseudoaleatório determinístico é do GlintFx ou do jogo. **É nosso:** a onda W9-D (`RNG-PCG32`, `RNG-XOSHIRO`, `RNG-DIST` própria e `RNG-API-REVIEW`) foi decidida pelo líder em 25/09; o jogo entrega a semente e escreve a regra. Respondido pelo bus (185af06), e a mensagem foi arquivada. **Líder, verbatim, logo depois: "cripto é seu".** Isso confirma o `ESCOPO.md` (envelope selado e primitivas padrão na biblioteca). Item `CRYPTO-SEALED-ENVELOPE` no INBOX neste commit, para o CTO planejar. A W9-D sai da espera com a DEMO-1 ✅ e entra pela ordem da tabela, depois da W8.
+- **11/10/26 20:44 (main).** O GusWorld recebeu e arquivou a resposta do PRNG; o item D2 dele ficou bloqueado com 14 itens na cauda. Ele pede que o aviso de congelamento da `RNG-API-REVIEW` traga a assinatura e o layout binário do tipo de ESTADO, que vai no envelope de save versionado. Isso foi anotado na linha da `RNG-API-REVIEW` neste commit, junto com a citação WG21 D2059R0 para a `RNG-DIST`.
+- **11/10/26 21:04 (main).** Ordem do líder: "veja splitmix64 e outras". O CTO pesquisou 13 geradores com fontes (`/var/tmp/cto-w8/pesquisa-rng-splitmix-e-outras.md`, md5 4c6b37a6): as seis decisões de 25/09 se mantêm, e as citações do GusWorld (D2059R0 e PR118665) foram conferidas. **Decisão do líder por AskUserQuestion, verbatim: "Derivação de semente (Recomendado)".** Entra uma função pública `gltfx_seed_derive(pai, id)` sobre o SplitMix64, na `RNG-XOSHIRO` (anotado na linha neste commit). O Philox ficou fora. A W9-D já pode entrar na fila, com a DEMO-1 ✅.
+- **11/10/26 21:20 (main).** A **T1** foi commitada (b764d857, 7 arquivos: `core/image_view.hpp` e a conversão pré-multiplicada). As 10 linhas da tabela passaram; o cabeçalho ficou igual à cerca; MP1 a MP4 morreram; sanitizer e `preci` rc 0. Desvios declarados: um decode sRGB local (o revisor confere se duplica) e a saída num `span` do chamador. **Quatro agentes despachados, pelo protocolo de bloco da r19:** a revisão N1 da T1, a S2b-0 com a S2b, a R1 e a H1. A T2a espera a revisão da T1.
+- **11/10/26 22:13 (main).** **Ordem do líder, verbatim:** "na fatia de música, acrescente fade-in e fade-out com ajuste de tempo e de limite em porcentagem podendo ser de 100 a 0% ou outro que o consumidor pedir." Não existe fatia própria de música na tabela; o requisito entrou na `AUD-MIX` (W11d), que congela a API de áudio e é dona do volume, neste commit. Decisões em aberto, a levar ao líder na revisão de API dessa linha: a curva do fade (linear ou perceptual) e o comportamento de um fade que começa no meio de outro.
+- **11/10/26 22:17 (main).** **Ordem do líder, verbatim:** "a curva do fade deve parecer uniforme ao ouvido. Você pode ter mais de uma camada de som: a trilha sonora, os efeitos de fundo (pessoas falando numa rua movimentada, ou barulho de vento) e sfx, tudo controlável pelo consumidor de forma separada". Anotado na `AUD-MIX` neste commit: a curva perceptualmente uniforme (a escolha técnica sai da pesquisa do CTO) e camadas de som separadas (trilha, ambiente e efeitos, no mínimo), cada uma com volume, fade e silenciar independentes, com o número e o nome das camadas definidos na revisão de API, de forma genérica para qualquer consumidor. Segue em aberto, para o líder: o fade que começa no meio de outro.
+- **11/10/26 22:23 (main).** A **R1** foi commitada (db6df671: o leitor do valor de imagem da `gfss`, 3 arquivos novos). O vermelho teve 16 de 16 falhas; o verde passou; a tabela da ordem (texto cru, D-W8-373) passou nas 6 linhas; M1 a M4 morreram; sanitizer e `preci` rc 0, 328/328. Quatro desvios foram declarados (a âncora do CMake, `url(` sem fecho, o reaproveitamento do `component_value` e a posição do erro). A revisão N1 da R1 foi despachada e vai classificar cada um.
+
+- **22:44, limpeza de disco pela regra nova da L-11 ("Sempre que encostar", líder, 11/10).** Antes: `min` 18,72 GiB (prune de cache só devolveu 0,3 GB). Apagadas 463 cópias e árvores de build de 52 fatias fechadas em `/var/tmp/cto-w8` (213 de root, por container alpine sem rede). Ficaram relatórios, planos, logs, anexos e as pastas de fatia viva (s2b, h1, r1, t1, rev-t1, rev-r1, g1b, h0, t0, r0, probey). Depois: `min` 26,94 GiB.
+- **22:54, R1-fix1 commitada (74cf7f5e).** 5 casos novos em `tests/gfss_image_value_test.cpp` cobrem A1 (caixa de `URL(`/`LINEAR-GRADIENT(`), A2 (gradiente com `rgb(` aninhado) e A3 (aspas simples); o implementador relata M7, M7b e M9 mortos em cópia. Main conferiu o diff (só o teste). Revisão dinâmica N1 retomada no revisor da R1.
+- **22:56, revisão N1 da T1 REPROVADA (b764d857).** Suíte verde; 7 de 10 mutantes mortos, M6 equivalente. Sobrevivem M2 (limiar do decode, `pixel_premultiply.cpp:32`) e M3 (`round`→`floor`, :134): a tolerância de ±1 não prova o arredondamento que o cabeçalho promete. Divergência de ordem: o decode foi copiado de `src/core/color.cpp:35-40`, e a ordem pedia reuso. CTO despachado para decidir as sondas exatas e o destino da cópia, e escrever a T1-fix1.
+- **23:11, ordem do líder, verbatim:** *"pode continuar até eu mandar parar. Duvidas com um clevel do modo que indiquei antes"*. Trabalho segue sem prazo até ele mandar parar; dúvida vai ao CTO (opus, alto), que decide, e o main registra aqui. **Limite declarado:** a autorização de push e limpeza (arquivo de modo autônomo) vence às 00:55 de 12/10 e tem teto de 24h; só o líder a renova, digitando a ordem (o agente não pode criá-la, regra P12b). Depois das 00:55, o trabalho local segue e o push espera a renovação.
+- **23:11, ordem do líder, verbatim:** *"autorizo tag/push/merge"*. Renova, para o fechamento da W8, a autorização de push por fatia, merge em `main` e tag `v0.7.0.0`, com os portões da L-11 e da L-23 fechados.
+- **23:12, regra nova do líder na L-34 (emenda de 10/10, refinamento de 11/10):** C-level pesquisa outras libs e comunidade, e escolhe o mais completo, nunca o mais fácil; dúvida que continua vai ao advisor, consultado pelo main.
+- **23:30, H1 pronta no snapshot (755f56e8, base 244fd0c1), sem integrar.** Suíte, 5 de 5 mutantes, ASan/UBSan e preci --fast verdes numa variante de evidência. A integração parou em 2 portões (formato × cerca byte a byte; cppcheck passedByValue nas 2 assinaturas públicas), mais duas questões (arquivo interno para separar validação de geometria; elevação de cerca de 1e-310 gerando inf). Um segundo CTO decide os 4 pontos com o critério da L-34 de 11/10 e escreve a H1-fix.
+- **23:57, revisão N1 da R1 APROVADA** (rev-r1.md: suíte rc 0, 10 de 10 mutantes mortos, A1/A2/A3 fechados; o código de `src/gfss/image_value_read.*` tem md5 idêntico ao do db6df671). A R1 está fechada. CTO despachado para escrever as ordens R2a (portão de direção pelo fecho) e R2b (resolvedor).
+- **00:27, decisões autônomas do CTO para a T1-fix1** (ordem `/var/tmp/cto-w8/ordem-t1fix1.md`, md5 daf2918e; o main conferiu o md5). (a) As sondas viram casos exatos: (1,0,0,255) guarda 1, e (255,0,0,128) guarda 188. A tabela fica com ±1 (D-W8-25). (b) Pelo critério da L-34 de 11/10 (o mais completo), o decode E o encode sRGB passam a existir uma vez, em `src/core/srgb_transfer.hpp` (interno, inline); a política de faixa fica com cada chamador. Fontes: SDL3 (`SDL_sRGBtoLinear`/`FromLinear`, um par interno único), skcms (uma `skcms_TransferFunction` com eval/invert) e stb_image_resize (uma definição só). A inferência de "obstáculo de camada" foi descartada: o draw2d já inclui `core`. (c) O limiar do encode do draw2d passa de `<` para `<=` (forma da IEC), e só o ponto exato 0.0031308 muda. (d) O `ctest_ct.sh` antigo não parava em build falho; a versão nova (anexo da t1fix1) exige rc_build=0 e passa a ser o modelo do R2; os CTOs das ordens H1-fix e R2 foram avisados. Limpeza pela regra da L-11: as pastas da R1 fechada e as saídas da revisão da T1, de 21,28 para 23,66 GiB. T1-fix1 despachada a um implementador haiku.
+- **00:30, S2b-0 (a06898d5) e S2b (00cdbb4e) commitadas** pelo implementador; verde, sanitizer e preci rc 0, paridade 12/12 no container. Desvio declarado: a implementação da S2b veio antes do vermelho (L-20), e o vermelho foi reconstruído em cópias. Pontos ao revisor e depois ao CTO: o limite de `too_many_vertices` diverge por um do comentário da cerca; `renderer_2d_impl.cpp` cresceu 71 linhas (risco de monólito antes da S3). Revisão N1 despachada (rev-s2b.md).
+- **00:50, decisões autônomas do CTO para a H1-fix** (ordem `/var/tmp/cto-w8/ordem-h1fix.md`, md5 95b215aa; o main conferiu o md5 e que os patches não tocam os arquivos da T1-fix1). (1) A cerca do parecer passa à forma do clang-format (errata no topo do parecer), e o cabeçalho continua byte a byte: uma fonte só. (2) As assinaturas públicas continuam por valor, com `cppcheck-suppress-begin/end` só nas 2 definições. Fontes: raylib (Camera2D por valor), Box2D v3 (b2Vec2/b2Rot por valor), limiar de 16 B do cppcheck. (3) Novo arquivo interno `src/core/projected_shadow_validation.{hpp,cpp}`, separando a validação da geometria (como no Box2D, b2IsValidVec2). (4) Elevação rasante: pós-condição em vez de piso de ângulo; canto de cima não finito é recusado como `shadow_extent`, com 3 casos. Fontes: FME e o `max_distance` do Godot (sugerido para a INBOX). Pré-execução: vermelho rc 8, verde rc 0, 8 de 8 mutantes, preci 330/330, sanitizer 145/145. Infração declarada pelo CTO: um `--no-verify` num clone descartável de ensaio, já apagado, sem tocar o repositório (L-25 global). Registrado; não se repete. Implementador da H1 retomado com a ordem nova.
+- **00:54, ordens R2a e R2b do CTO** (`ordem-r2a.md` md5 d95de457; `ordem-r2b.md` md5 f3b16f02). Errata da D-W8-332: o fecho sai do log de dependências do Ninja (`ninja -t deps`, um processo), mais uma unidade-sonda com todos os cabeçalhos públicos de draw2d, e não de `-MM` por arquivo (L-11 global item 6, L-45). A R2b espera R2a, S2b, T2a e T4b. IMP-R10 vai à INBOX como `PUBLIC-NAME-COLLISION-BRACED` (o main acrescenta). **Primeira consulta ao advisor pela regra nova da L-34.** Perguntas: (1) o mecanismo do portão (log do Ninja; uma invocação do driver; ou `-MM` só no servidor, que exigiria ampliar a L-45); (2) R2b esperar a T4b ou adiantar `texture_region.hpp`. Resposta: (1) confirma o log do Ninja, o único legal e mais completo (lê o que o compilador real gravou no build real), e exige na ordem um piso de cobertura de cabeçalhos, STALE reprovando, objeto da sonda obrigatório e conferência do gerador do Windows; (2) confirma esperar a T4b (adiantar obrigaria `Proved by:` de teste futuro ou duas versões da cerca). Avisou ainda da colisão em `tests/CMakeLists.txt` com a H1-fix e da expiração da autorização de push. O que foi feito: o main conferiu que a ordem R2a já tem os quatro controles (item 3, controles 5, 10 e 17) e que o CI do Windows usa `-G Ninja` (`ci.yml:602` e o CI-WIN-GEN); a R2a foi despachada com o trabalho todo no snapshot e o bloco de `tests/CMakeLists.txt` aplicado só depois do commit da H1-fix, com a âncora recontada no HEAD da hora. **Autorização de push e limpeza (arquivo de modo autônomo) venceu às 00:55**; até o líder renovar, nada de push nem de limpeza de pasta de fatia.
+- **01:37, T1-fix1 commitada (7a08b976).** A curva sRGB fica escrita uma vez em `src/core/srgb_transfer.hpp`, e a cópia `srgb_decode` sumiu (n=0); casos exatos do pé da curva e do arredondamento; 5 mutantes mortos (rc 8); preci --fast e sanitizer rc 0 no hospedeiro (downgrade da L-09). Ressalva do implementador: o preci provou uma base não registrada, e por isso a re-revisão roda a suíte no próprio 7a08b976. O main conferiu o diff (7 arquivos) e a árvore limpa. Re-revisão N1 da T1 despachada ao revisor original.
+- **01:51, H1 integrada (aab52de6, 10 arquivos).** Vermelho rc 8 (3 casos novos), verde rc 0, cerca `cmp` 0 nos 2 cabeçalhos, 8 de 8 mutantes, preci --fast 331/331 no SHA commitado e sanitizer 146/146 (hospedeiro, downgrade da L-09). O main conferiu o diff e a árvore limpa. Revisão N1 despachada a um revisor novo (rev-h1.md). A R2a já pode aplicar o bloco dela em `tests/CMakeLists.txt`.
+- **01:56, revisão N1: S2b-0 APROVADA; S2b REPROVADA** (rev-s2b.md). Suíte verde 7/7, mas 6 de 10 mutantes sobrevivem (M1, M2, M5, M6, M9 também na paridade, M10). CRÍTICOS: I-7 (float fora de faixa chega como inf, sem recusa) e I-8 (o assunto triângulo entrou dentro de `renderer_2d_impl`). O vermelho do implementador era de compilação e não provava discriminação. Limite de vértices: o parecer (`auditoria-api-shapes.md:392`) está certo e o código está uma unidade acima. CTO despachado para decidir (a) limite, (b) contradição do parecer sobre posição infinita (:220 contra :392), (c) motivo de recusa para magnitude fora do float, (d) extração do caminho de triângulo, e escrever a S2b-fix1.
+- **02:04, revisão N1 da H1 REPROVADA por um IMPORTANTE** (rev-h1.md): a frase pública "(even for a piece of height zero)" (`projected_shadow.hpp:72`) não tem caso de teste; o comportamento está certo, mas só porque 0*inf vira NaN. Mutantes: 9 de 10 mortos; o N10 (ordem das checagens de peça e elevação) sobrevive, COSMÉTICO. Cerca `cmp` 0, L-19, L-22 e L-17 limpos. Sem CTO: o achado é de execução, com conserto claro. H1-fix2 (só teste) mandada ao implementador da H1: o caso da altura zero, com vermelho por mutante em cópia; a ordem das recusas só será fixada se o contrato a definir.
+- **02:11, R2a commitada (cb3bc083):** portão `check_draw2d_include_direction.py`. Estreia direta (stroke.hpp) com violacoes=1 e indireta (core/rect.hpp) com violacoes=8, rc 8 nas duas; autoteste com 17 controles; preci --fast rc 0. Desvio: o portão não foi reexecutado sobre a árvore do commit. Desconfiança do main: 237 dependências para 55 objetos, contra as 6206 que o CTO mediu. Revisão N3 despachada (um vermelho novo num cabeçalho interno, mais a resposta à contagem).
+- **02:12, H1-fix2 commitada (d164576e, só teste):** o caso da peça de altura zero sob elevação rasante (denorm_min) é recusado como `shadow_extent`; o mutante (aceitar altura 0) morre com rc 8, e o verde dá 18 casos. A frase pública vale só para a luz direcional, a única com elevação. O main conferiu o caso contra `projected_shadow.hpp:66-74`. **A H1 está fechada** (a rodada de conserto da N1 foi usada). O COSMÉTICO-1 vai à INBOX como `SHADOW-REFUSAL-ORDER`. A antiga H2 (luz pontual) entrou na H1 (D-W8-370); a próxima fatia da trilha, H3a, espera a T4b.
+- **02:16, re-revisão N1 da T1 APROVADA (b764d857 + 7a08b976):** verde 3/3 no commit; 7 de 10 mutantes mortos, 2 equivalentes e o X6 (guarda de NaN) sobrevivente; a cópia da curva sumiu do C++ (0.04045, 2.4 e 12.92 só em `srgb_transfer.hpp`); o `<=` muda só o ponto 0.0031308F; L-19 limpa. **A T1 está fechada.** Para a INBOX: `SRGB-NAN-CONTRACT` (o X6, e o NaN pré-existente na função pública `gltfx_rgba_to_srgb8`, com `lround(NaN)` não especificado) e `SRGB-CURVE-GLSL-TWIN` (gêmeo em GLSL). Próximo da trilha: a T2a, cuja ordem vai ao CTO.
+- **02:22, revisão N3 da R2a REPROVADA por atomização** (primeira reprovação da família). O portão funciona: o vermelho novo num cabeçalho interno (triangle_store.hpp) deu 11 violações, rc 8, e o verde deu rc 0; os 4 controles existem (`:263-271`, `:221-223`, `:253-254`, `:60-65`). A desconfiança do main foi esclarecida: `dependencias=` conta cabeçalhos ÚNICOS (`len(union)`, :309), e a soma por objeto dá 6923; o rótulo é ambíguo. IMPORTANTE: o arquivo de 565 linhas junta parser, juízes, relatório, CLI e autoteste. R2a-fix1 mandada ao implementador: dividir em átomos pelo padrão dos portões irmãos e renomear para `dependencias_unicas=`, com o mesmo comportamento provado.
+- **02:46, S2b-fix1: decisões do CTO e segunda consulta ao advisor.** O CTO decidiu: (a) 2^32 vértices aceitos e 2^32+1 recusados, pelo parecer `:392`; (b) vale o `:392` (NaN antes de infinito, como no quadrado); (c) um motivo novo de recusa com contador próprio; (d) o átomo `src/draw2d/triangle_pixel_vertices.{hpp,cpp}` nesta fix (ordem md5 84200457, 14 de 14 mutantes na pré-execução). **Defeito do relatório do CTO:** ele escreveu que "o advisor da sessão já endossou A" (a borda em FLT_MAX exato), mas ninguém tinha consultado o advisor; afirmação sem prova, barrada na volta (L-21 global, filtrar o retorno dos agentes). **Consulta real ao advisor.** Pergunta: a borda do float em (A) FLT_MAX, (B) uma folga, ou (C) um teto prático, sabendo que o shader estoura acima de FLT_MAX/2 (`embedded_program.cpp:41`). Resposta: (A) é a opção mais fácil, não a mais completa, porque posições em (FLT_MAX/2, FLT_MAX] passam e viram inf no shader, e o I-7 fica fechado só pela metade. Vale (B), com o valor DERIVADO da operação do shader que estoura, com a derivação escrita ao lado da constante e um teste dos dois lados da borda (aceito e finito, recusado pelo nome). E o nome `pixel_position_not_finite` promete propriedade falsa (recusa doubles finitos), num enum público que é porta de mão única. O que foi feito: o CTO reemite a ordem com a borda derivada e o nome corrigido; o implementador só sai com o md5 novo.
+- **02:54, R2a-fix1 (e2b5bf8a) aceita, R2a FECHADA** (N3, rodada de conserto usada). O portão virou 8 arquivos de 34 a 136 linhas, um assunto cada; `dependencias_unicas=238` é o mesmo número de antes no mesmo HEAD; autoteste com 17 controles; o vermelho direto continua rc 8; preci --fast rc 0. O main conferiu os tamanhos e que não sobrou `dependencias=` antigo em tests/.
+- **03:36, ordem S2b-fix1 reemitida** (md5 e9f6cce9, conferido pelo main). Borda derivada do shader: o `* 2.0` depois da divisão pela largura (`embedded_program.cpp:41-42`); com a superfície de 1 px, a borda é `FLT_MAX/2` menos 4 ULP (2,5 ULP da divisão, GL_ARB_shader_precision, mais 0,5 do cast), cerca de 1,7e38, em `k_largest_pixel_coordinate`, provada contra a tabela GL falsa nos dois lados. Nome do motivo: `pixel_position_out_of_range = 8` (SDL3 "out of bounds"; tiny-skia `is_too_big_for_math`). 16 de 16 mutantes, incluindo os que voltam à opção A e tiram a margem; preci 334/334; sanitizer 147/147. O CTO corrigiu a proveniência ("advisor endossou" era a ferramenta de revisão dele, não a consulta da L-34). Seis itens na INBOX: BATCH-INDEX-BASE-OVERFLOW, FILL-QUAD-DOC-PIXEL-RANGE, BATCH-TRANSFORM-NAN, PARITY-C3-OITO, CLIPPER-RANGE e PIXEL-CHECK-ONE-PASS. Implementador da S2b retomado.
+- **04:02, ordem T2a do CTO** (md5 71e4622b; 33 anexos, manifesto 6b20d358; duas etapas, A pura e B com GL). A pesquisa acrescentou 7 validações ao plano r19 (limite de tamanho da placa nos dois lados, erro de memória e de GL com drenagem prévia, estado de desempacotamento fixo, `GL_TEXTURE_MAX_LEVEL`, vista conferida antes de reservar memória, mipmaps na CPU em luz linear e fronteira de 1x1). Fontes: SDL3, sokol_gfx, bgfx, raylib, Chromium 2007973002, Khronos OpenGL-Registry #614 e Castaño. **Terceira consulta ao advisor**, sobre as 3 dúvidas do CTO: (1) mipmaps na CPU dentro da T2a ou numa fatia própria: CONFIRMA dentro, porque o campo `mipmap_levels` é publicado na etapa A e tem de ser cumprido no mesmo commit; (2) contagem de níveis reduzidos (0 = sem mipmap), ao contrário de sokol, bgfx e raylib: ratificar, desde que o texto diga a convenção com exemplo numérico; (3) o texto público de `texture_2d.hpp` reescrito entre a T2a e a T3: NÃO aceitar (duas versões do mesmo texto público, o mesmo motivo que recusou adiantar `texture_region.hpp`); a T2a publica sem o bloco de liberação, e a T3 traz o bloco junto com o teste. Avisos de despacho: os CMakeLists são compartilhados com a S2b-fix1, o `git add -A` só vale no snapshot, e o implementador não pode ler a implementação de referência do CTO. O que o main fez: conferiu que a cerca de `mipmap_levels` já traz exemplo ("256 x 1 permite 8", `etapaA...patch:36-52`), e por isso a dúvida 2 fica ratificada pelo texto; conferiu que os valores do `mipmap_reduce_test` ficam a mais de 0,1 de qualquer x,5 (137,32; 224,61; 156,19; 169,62), estáveis entre a libm do glibc e o CRT da Microsoft; conferiu que os commits da T2a-A e da S2b-fix1 aplicam os CMakeLists por âncora (n=1) e que a T2a-A sai com 3 se houver alteração pendente neles, sem sobrescrever; e que `texture_2d.hpp` só nasce na etapa B. Despachada a etapa A; o CTO reemite a etapa B para a dúvida 3. **Para a ratificação retroativa do líder (portas de mão única):** a contagem de `mipmap_levels` sem o nível base; e o texto de liberação de textura nascendo só na T3.
+- **04:21, etapa B da T2a reemitida pelo CTO** (`ordem-t2a-B.md`, md5 fbe011e9; anexos próprios em `ordens-anexos/t2a-B/`; os 33 anexos da A não mudaram). O bloco contíguo de liberação de `texture_2d.hpp` (liberação adiada, evento `texture_release_failed`, peça já enfileirada) sai da T2a e vai à T3. Achado: o texto de `texture_2d_desc.hpp` da etapa A diverge da cerca, e a B leva UMA errata no parecer, no próprio commit B, deixando a cerca igual ao que a A publica. Pré-execução: B-red 16/16 por asserção, B-green 5/5, mutantes mortos, preci 337 e sanitizer 150 rc 0, patches limpos no HEAD real. A B sai depois do commit A.
+- **04:34, S2b-fix1 commitada (8f5e4107, 21 arquivos).** Vermelho por asserção (5 de 9 testes); verde 9/9; 16 de 16 mutantes; preci 334/334 e sanitizer 147/147, mais o preci no SHA commitado. A célula de paridade só foi compilada. Desvio: o implementador apagou os logs dos mutantes na limpeza (os rc estão na tabela). Re-revisão N1 despachada ao revisor original, com a célula de paridade rodando no container.
+- **04:42, T2a etapa A parada no preci** (cppcheck `uninitMemberVarNoCtor` em `mipmap_reduce.cpp:33-34`, por causa do `struct plane` sem inicializador). Vermelho, verde e 6 de 6 mutantes já estavam certos, e o sanitizer rc 0. O main conferiu que `plane` está em arquivo do próprio implementador (NEW_A, fora de FROZEN_A) e mandou o conserto mecânico (inicializador `0U`), repetindo os passos 7 a 10, o commit A e o preci no SHA commitado. Limpeza pela regra da L-11: as pastas da H1 e da T1, fechadas, foram de 22,12 para 25,38 GiB.
+- **05:15, re-revisão N1 da S2b-fix1 REPROVADA por dois IMPORTANTES pequenos.** I-7 e I-8 fechados; suíte 9/9; célula de paridade rodada no container (base 12/12, isolamento provado); 9 mutantes unitários mortos, e o J (cor do fragmento) só a célula pega. F-1: o destrutor privado de `renderer_2d_impl.hpp` (base :88) sumiu sem registro. F-2: a cor do fragmento (`embedded_program.cpp:59`) só é pinada pela célula. F-3 cosmético: o comentário diz 4 ULP e a constante dá 8. O CTO da S2b decide F-1, F-2 e F-3 e escreve a mini-ordem S2b-fix2.
+- **05:23, T2a etapa A commitada (accf21ca, 12 arquivos).** Validação pura do pedido de textura e mipmaps na CPU em luz linear; verde 3/3; 6 de 6 mutantes; preci rc 0 no snapshot e no SHA commitado; sanitizer rc 0. O conserto foi só o inicializador `= 0U`. Etapa B despachada ao mesmo implementador pela ordem nova (md5 fbe011e9). Ela toca `renderer_2d_impl.hpp` (dois leitores inline), e por isso a S2b-fix2, se mexer no destrutor, entra depois do commit B (o CTO da S2b foi avisado). A revisão N1 cobre A e B juntas, depois do commit B.
+- **05:38, decisões do CTO para a S2b-fix2** (mini-ordem md5 44491301, conferido). F-1: o destrutor privado `= default` volta (existia desde a B4 para que só `destroy()`, que torna o contexto corrente e apaga os objetos GL antes, apague o interior); a remoção foi erro da ordem anterior; a prova é um `static_assert(!is_destructible)`. F-3: o CTO refez a conta. O ULP do float em [2^126, 2^127) é 2^103; o cast não soma erro, porque a borda é um float; os 2,5 ULP da divisão dão 3 ULP na grade. A borda passa a `FLT_MAX/2 - 3*2^103`, provada por mutantes de 2 ULP, de 4 ULP e da constante antiga. F-2 vai à INBOX como `FRAGMENT-COLOR-UNIT-GATE`. Esta é a SEGUNDA rodada de conserto da S2b, acima da prática de uma rodada da emenda de 11/10 da L-12, aceita porque os achados são pequenos e um deles (o destrutor sumido) é regressão de controle de posse. Despachada ao implementador da S2b, com espera obrigatória do commit da T2a-B, que toca o mesmo cabeçalho.
+- **06:36, T2a etapa B commitada (d6476467, 13 arquivos):** a subida GL, `texture_2d.hpp` sem o bloco de liberação e a errata do parecer. Vermelho 16/16 por asserção; verde 5/5; 4 de 4 mutantes; preci rc 0 no snapshot e no SHA commitado; sanitizer rc 0. O preci reprovou duas vezes antes (clang-tidy e cppcheck), e foi consertado só com const e inicializadores. A limpeza do snapshot foi barrada pela checagem de segurança do agente, e fica para a regra de disco da L-11. Revisão N1 de A+B despachada a um revisor novo. A S2b-fix2 já pode aplicar o destrutor em `renderer_2d_impl.hpp`.
+- **06:59, revisão N1 da T2a (A+B) REPROVADA** (rev-t2a.md). Verde 4/4, ASan limpo, valores de mipmap batem com conta independente, cerca OK, L-19, L-22 e L-31 limpas. 7 de 10 mutantes mortos; sobrevivem X1 (borda do lado ímpar, `mipmap_reduce.cpp:69`, que o ASan pega como estouro de memória mas o ctest não), X2 (ordem de recusa bytes_per_row/pixels) e X4 (arredondamento do alfa). CRÍTICO: `upload_level` com 5 parâmetros (CONTRACT §6.2, L-17). IMPORTANTES: o `Proved by:` da alça pública cita um teste que não a chama; "deixa-o assim" sem prova; criação e liberação misturadas; promessa de comparar o owner sem comparação. O CTO da T2a decide e escreve a T2a-fix1.
+- **07:25, S2b-fix2 commitada (310063fd, 7 arquivos) e S2b FECHADA.** O destrutor privado `= default` voltou (`renderer_2d_impl.hpp:105`), provado por `static_assert(!std::is_destructible_v<...>)` (`renderer_2d_impl_test.cpp:35`); o mutante que o tira morre na compilação. A borda passa a `0.5*FLT_MAX - 3*0x1p103` (`quad_vertices.cpp:58-59`); os mutantes de 2 ULP, 4 ULP e da constante antiga morrem com rc 8. Verde 9/9; preci 337/337 e sanitizer 150/150; R5 no SHA rc 0. Feita sobre a T2a-B, depois de esperar o commit dela. O main conferiu o destrutor na seção privada, a prova e a constante.
+- **07:50, o líder religou o modo autônomo** (ordem verbatim: *"liga o modo autonomo"*; arquivo até 13/10 às 07:49, escopos de push e limpeza). Push de 33 commits: `2f182e6e..e843cd7c`, conferido por `ls-remote`. Pela L-11, as imagens de teste da S2b fechada (`glintfx-wltest:mx6-*`, `mx7-*` e `s2b-plain`) foram apagadas, ficando a `egl`; e as cópias e builds da S2b, H1 e R2a fechadas também. Disco: de 21,56 para 25,57 GiB.
+- **07:54, ordem T2a-fix1 do CTO (md5 17c4736d) e quarta consulta ao advisor.** O CTO conferiu os 10 achados e todos procedem, com conserto em cada um: `upload_level` com 2 parâmetros (struct `level_image`); o X1 morre por asserção na tabela de `covered_texels()`; casos novos para X2, X4 e "deixa-o assim"; uma célula T na paridade lê o estado do driver real; criação e liberação separadas em `texture_release.{hpp,cpp}`. Sobre o achado da revisão de segurança, o CTO respondeu "não procede". Perguntas ao advisor: (1) onde mora a célula viva: a escolhida foi o `draw2d_parity_test` existente; (2) a textura GL perdida, sem evento, quando o contexto não fica corrente, até a T3. Resposta: confirma (1), desde que a célula confira algo que a tabela GL falsa não vê, e não só `has_value()`; confirma (2), desde que o texto público não prometa evento nem "nunca vaza", e registrado como comportamento de produto para ratificação; exige a ODR provada por `nm`, e não por grep; exige o sanitizer como portão ANTES do commit, já que um estouro foi medido nesta fatia; avisa que esta é a única rodada de conserto da T2a. O que o main fez: o `nm -C --defined-only` dos dois objetos do build da pré-execução (`texture_release.cpp.o`, `texture_upload.cpp.o`) só tem em comum `DW.ref.__gxx_personality_v0`, símbolo fraco gerado pelo compilador, então a ODR não procede POR PROVA; `texture_release.hpp` não tem corpo de função fora de `inline`; o texto público de HEAD (`texture_2d.hpp`, `renderer_2d.hpp`) não traz "event", "leak" nem "release" sobre textura; a célula T lê do driver o buffer de desempacotamento, o alinhamento, a textura ligada, a unidade ativa e o erro GL; e o `--sanitizer-only` roda no passo 12, antes do commit do passo 13. **Para a ratificação retroativa do líder:** a textura GL fica sem apagar quando o contexto não fica corrente, sem evento até a T3.
+- **09:15, T2a-fix1 commitada (da644888, 18 arquivos).** Vermelho por asserção (mipmap 1 de 10 e texture_release 2 de 3); verde 5/5; 6 de 6 mutantes; célula T só compilada (rc_syntax 0); preci e sanitizer rc 0 ANTES do commit; preci rc 0 no SHA. Re-revisão N1 despachada ao revisor da T2a. Push e CI disparados no ramo, para a célula T e a célula de paridade da S2b rodarem no container e no Windows (L-04).
+- **09:26, ordens S3 (md5 2e1abc44) e T2b (md5 bdd6aa73) do CTO, e quinta consulta ao advisor.** Pesquisa da S3: SVG 2, Canvas WHATWG, Cairo, Skia `SkStroke.cpp` e NanoVG. Pesquisa da T2b: sokol_gfx, bgfx, SDL3, raylib, Godot e EXT_texture_sRGB. As três dúvidas: (1) o filtro linear com mipmap ser trilinear ou `LINEAR_MIPMAP_NEAREST`; (2) a linha de espessura zero ser peça de área zero ou "não é peça"; (3) a ponta redonda ler `ellipse_max_error_pixels`. Resposta: (1) trilinear, mas o texto publicado na T2a-A ("blends the four nearest texels", `texture_2d_desc.hpp:25`, conferido pelo main) fica falso, então a T2b leva UMA errata no parecer e no cabeçalho, byte a byte, nomeando as duas misturas; (2) confirma área zero (a regra publicada do quadrilátero, `frame_2d_report.hpp:79-80`, e a SVG 2), com a célula provando "nenhum pixel" E "`pieces_drawn` incrementado"; (3) `ellipse_max_error_pixels` é campo público da cerca da S5 (`auditoria-api-shapes.md:283`, conferido), então a S3 fica com a constante interna de 0,25 px e a S5 decide. Conferências do main: `gltfx_segment_world` TEM cerca no parecer (`auditoria-api-shapes.md:147`, D-W8-354), não é API sem revisão; a exceção de tempo do preci da ordem S3 (`:197`) manda repetir sozinho e PARAR se repetir, o que está certo; o piso 22 da paridade é literal na ordem, e a contagem é impressa pelo portão. Para o revisor da S3: comparar o comportamento do refactor `refusal_of_values` (D-S3-10), que toca arquivos de fatias fechadas. **Para a ratificação retroativa do líder:** o filtro `linear` passa a significar trilinear quando há mipmap (porta de mão única); e a linha de espessura zero é peça de área zero. S3-A despachada; a T2b espera a re-revisão da T2a e a errata.
+- **09:32, re-revisão N1 da T2a-fix1: "aprovada com ressalva", tratada como NÃO aprovada.** Verde 5/5; X1, X2 e X4 morrem agora sem ASan; N2 a N7 morrem; o N1 (`delete` tirado) só o LeakSanitizer pega; 9 dos 10 achados resolvidos (a célula T só compila, e roda no CI); o `nm` confirma `release_texture_object` definido só em `texture_release.cpp.o`. CRÍTICO N-A: `release_texture_object` (`texture_release.cpp:18-22`) descarta em silêncio a falha de `make_current`, contra o MUST de CONTRACT.md:721 (§6.4, Fail Fast); a L-22 não é violada. **Sexta consulta ao advisor**, sobre o conflito com a quarta: ele corrigiu a própria resposta anterior (tinha olhado só o cabeçalho público e não a §6.4) e recusou as duas saídas propostas (ratificar o desvio, que é o "mais fácil", e publicar agora o comportamento da T3). A completa: sinalizar pelo canal que já existe. O main conferiu que o parecer define `texture_release_failed` como evento de log INTERNO (R9, `auditoria-api-texture.md:668`; D-W8-26, `:686`), com constante em `src/` como `k_program_rejected_event` (`embedded_program.hpp:49`), e que `log_emit_fields` é noexcept (`src/core/log/emit.hpp:60-71`). Decisão: a T2a-fix2 emite `texture_release_failed` com o nome definitivo, sem mudar cerca, sem errata e sem item de ratificação (o item de ratificação da textura perdida, registrado antes, deixa de existir). Exceção à prática de uma rodada (a lei diz "até sair limpa"): um CRÍTICO contra um MUST do CONTRACT. O N-B vai à INBOX, salvo decisão do CTO. O CTO da T2a escreve a mini-ordem.
+- **09:42, ordem T2b reemitida (md5 b39c2f6f) com a errata do filtro:** "Each screen pixel blends between the four nearest texels of a level, / and between the two nearest levels when reduced levels exist.", em `texture_2d_desc.hpp` e na cerca do parecer, por `troca_linha.py` (só escreve se a linha antiga existir exatamente uma vez), conferida depois do commit. Pré-execução no HEAD 38208834 (com a T2a-fix1): 9 de 9 mutantes, preci 339/339. A célula da S3 confere `pieces_drawn == 1` e preto em dois pixels sobre a linha de espessura zero; limite: "nenhum pixel" é amostrado em 2 pontos, não na linha inteira. A T2b espera a T2a fechar (fix2).
+- **09:55, mini-ordem T2a-fix2 (md5 08f91ae3, conferido):** emite `texture_release_failed` (draw2d, err, campos `error_code` e `os_error_code` inteiros) na falha de `make_current`; o caso estendido confere o evento no sink e o caso de sucesso confere que nada é emitido; mutantes G1, G2 e G3; preci 338 e sanitizer 151 rc 0 na pré-execução. O N-B vai à INBOX como `TEXTURE-RECORD-FREE-PROOF`. Despachada ao implementador da T2a.
+- **09:57, CI do ramo (run 38247951304, c632aff7) VERMELHO só no Windows.** Os 21 jobs de Linux (Fedora, Ubuntu, Arch, CachyOS, Clang, Debug, Sanitizer, Lint, Container Wayland plain e asan, GL-CODEGEN, Gate das leis e Gitleaks) passaram. Windows compartilhado, estático e Debug: reprova só `draw2d_include_direction_selftest` (o controle positivo da R2a: "arvore limpa passa com violacoes=0 FALHOU"), enquanto o portão em si passa. Windows ASan (MSVC): `stack-use-after-scope` em `texture_desc_validation_test.cpp:120` e `texture_upload_test.cpp:414`, UB que o ASan do Linux não pegou. As duas são defeitos reais pela L-04 ("comportamento igual em todo sistema, provado em cada um"). CTO despachado para diagnosticar lendo o código, procurar os gêmeos em `tests/` e escrever duas mini-ordens, a da T2a entrando depois do commit da T2a-fix2. A R2a, dada como fechada, REABRE por esse defeito.
+- **10:11, T2a-fix2 commitada (7dad0cf6, 3 arquivos):** vermelho por asserção no caso estendido; verde; G1, G2 e G3 mortos com rc 8; preci e sanitizer rc 0 antes do commit. Nada em include/, na cerca ou em docs/. Conferência mirada mandada ao revisor da T2a (leitura do diff mais o teste novo, sem terceira rodada de mutação). A T2a só fecha com essa conferência E com o conserto do UB do Windows.
+- **10:12, conferência mirada da T2a-fix2: N-A FECHADO.** O evento sai só no caminho de falha (`texture_release.cpp:29-36`, no `else` de `:49-50`), noexcept de ponta a ponta, sem nada em include/ ou docs/; o teste confere o evento no sink, com nome e campos (`texture_release_test.cpp:160-169`), rc 0. O revisor lembra que a textura GL continua sem apagar quando o contexto não fica corrente: é a D-W8-26 já decidida ("falha vaza, sem travar, e emite `texture_release_failed`"), que já está na lista de ratificação retroativa (D-W8-36 em diante), e agora está cumprida com o sinal. A T2a falta só o conserto do UB no Windows (CTO em diagnóstico).
+- **10:16, S3 etapa A parada no passo 9, sem commit, como a ordem manda.** Vermelho por asserção (4 de 6 testes); verde 6/6; 7 mutantes mortos. O M3 é INVÁLIDO por defeito do anexo: o trecho tem `||` e o `prepara_mutantes.sh` separa os campos por `|`, então a linha saiu partida e não compilou. O CTO da S3 conserta o formato dos anexos (separador sem colisão) e regenera o manifesto. A limpeza dos `out-*` de root foi barrada pela checagem de segurança do agente, e fica para a regra de disco da L-11.
+- **10:31, anexo da S3 corrigido pelo CTO:** o `mutantes.txt` passa a separar por tabulação, e o `prepara_mutantes.sh` recusa linha sem exatamente 5 campos; provado com um trecho com `||` e `|` (rc 0), com linhas de 4 e de 6 campos recusadas (rc 1), e com o M3 compilando e morrendo no container. Na pré-execução, o M3 tinha passado porque o CTO aplicou o trecho à mão, por fora do script (a pré-execução não exercitou o caminho que o implementador usa). Ordem S3 md5 0a19a9a0; manifesto 83c76e71. A lista da T2b não tem o defeito. Implementador da S3 retomado do passo 9.
+- **10:41, diagnóstico das falhas do Windows pelo CTO e sétima consulta ao advisor.** (1) Autoteste da R2a: `normalize_path` (`draw2d_include_paths.py:18-20`) normalizava o caminho e deixava a base crua; no Windows a raiz temporária `C:\...\Temp` gerava chaves diferentes. Reproduzido no Linux com uma pasta de nome com `\`. Mini-ordem `ordem-r2a-win.md` (md5 cba66323, N3). (2) ASan do Windows: não é vista pendurada. É o helper `levels()` devolvendo um local nomeado de uma struct com 3 bytes de preenchimento, que o MSVC copia depois de marcar como fora de escopo (assembly do `cl.exe` real em container). O CTO classifica como falso positivo do MSVC (inferência). Mini-ordem `ordem-t2a-win.md` (md5 99e01316, N1): o helper devolve um prvalue, com comentário do motivo; prova pela contagem de cópias no assembly (7 e 3 para 0 e 0), e a execução pelo CI. Pergunta ao advisor: o prvalue no helper ou um local nomeado nas 10 chamadas. Resposta: o prvalue (sem local nomeado não há escopo a envenenar; o mesmo mecanismo dez vezes não é mais robusto), com o comentário e a forma fixada por linha ditada; a evidência de que não há outros casos são os outros 150 binários de unidade que rodaram até o fim sob o ASan do MSVC, e não a varredura de 104 helpers. O main conferiu que `levels()` só fixa `mipmap_levels` (nada muda de sentido), que o patch traz o comentário, que a ordem exige `arquivos_com_assembly=2 de 2` e `memcpy_total>0`, e que os dois patches tocam só arquivos próprios (o selftest da R2a e os dois testes da T2a). Contas: a R2a foi reaberta e fecha com a R2a-win; a T2a-win é defeito achado pelo CI (L-04), e não uma rodada de revisão. INBOX: `MSVC-ASAN-PADDING-RETURN`. Para o líder: reportar o comportamento à Microsoft é ação externa, decisão dele. As duas despachadas em paralelo.
+- **11:21, T2a-win commitada (19ae8bc9, só os 2 testes):** as cópias de `desc` no assembly do `cl.exe` caíram de 7 e 3 para 0 e 0 (a régua enxerga os 2 arquivos, com `memcpy_total` 183 e 529); verde no Linux; preci e sanitizer rc 0 no snapshot; preci rc 0 no SHA. A prova de execução é o job Windows ASan do CI, disparado depois do commit da R2a-win.
+- **11:33, R2a-win commitada (220ed37c, 2 arquivos):** `normalize_path` normaliza também a base, e o controle 5 do autoteste foi estendido. O vermelho com pasta de nome com `\` reproduziu no Linux a linha exata do Windows, e o verde dá "selftest: 17 controles OK" com e sem essa pasta; preci rc 0 no SHA. Desvio declarado: uma guarda de md5 do commit era tautológica, e a conferência real foi o `git diff --quiet`. Push e CI do ramo disparados para provar os dois consertos no Windows.
+- **19:00, CI do ramo VERDE (run 38263755140, 95ea936a):** 26 jobs, todos com sucesso, incluindo os quatro do Windows que estavam vermelhos (compartilhado, estático, Debug e ASan), os dois Container Wayland isolados (a célula T da T2a e a célula da S2b rodaram ao vivo) e a Paridade Linux x Windows; só o VERSION-TAG-SYNC foi pulado, como esperado num ramo. **R2a FECHADA de novo** (R2a-win provada no Windows). **T2a FECHADA** (A, B, fix1, fix2 e win; a execução no Windows ASan provada). A S3 etapa A commitou (531dbc2f); a etapa B foi interrompida às 11:4x pelo limite semanal da API dos agentes de execução (renovado às 19:00) e foi retomada do ponto em disco. Próximo: a T2b (pré-condição: a T2a-win no HEAD).
+- **19:03, o líder renovou o modo autônomo** (ordem verbatim: *"Ligue modo autonomo"*; vale até 13/10 às 19:03, escopos de push e limpeza).
+- **19:10, pergunta do líder, verbatim:** *"Existe quadro com efeito 3D? Cor interna mais escura, externa mais escura e uma linha passando sobre a janela? Existe janela de efeito pixelado? E linhas e janelas em ultr definição? Quais tipos mais tem no projeto, quais existem e quais a comunidade pede? Quero todas"*. Decisão de escopo dele: todas entram. CTO despachado para o inventário do que existe ou está planejado, a pesquisa em bibliotecas e na comunidade e um catálogo com proposta de lugar no plano (`/var/tmp/cto-w8/catalogo-molduras-efeitos.md`).
+- **19:10, acréscimo do líder ao mesmo pedido, verbatim:** *"Efeito alto e baixo relevo"*. Repassado ao CTO do catálogo: relevo de painel e moldura (saltado e afundado) e relevo de conteúdo (emboss e deboss em imagem e texto), com as variações de direção da luz, profundidade e suavidade.
+- **19:12, mais um acréscimo do líder ao catálogo, verbatim:** *"Efeito de animação de botão ser apertado e dede voltar a posição. Efeito de luz sombra a depender da posição da câmera e até 3 focos de luz a ser definido pelo consumidor"*. Repassado ao CTO do catálogo: o botão apertado com animação de ida e volta (cruza a trilha ANIM e os estados da gfss) e a luz e sombra de painel e moldura dependendo da posição da câmera, com até 3 focos definidos pelo consumidor (cruza a R2D-SPRITE-SHADE, H1 a H5). O número 3 é requisito do líder.
+- **19:14, requisito do líder para o botão apertado, verbatim:** *"Se for um botão muito grande, que o personagem pule sobre ele, com zoom, a transição entre inativo e ativo é suave?"*. Repassado ao CTO do catálogo, em quatro pontos: o acionamento pelo jogo (chamada, além do ponteiro); a escala em unidade de mundo, crescendo com o botão e com o zoom; a suavidade por tempo, sem degraus no zoom, com o modo pixel art como exceção declarada e escolhida pelo consumidor; e a reversão a partir do ponto atual, quando o personagem sai no meio.
+- **19:16, ordem do líder sobre o catálogo, verbatim:** *"Ponha tudo na tabela quando planejar"*. Todo item do catálogo de molduras, relevos, efeitos pixelados, alta definição, botão apertado e luz de até 3 focos entra na TABELA UNIFICADA do TODO.md, no lugar de execução, e não na INBOX. Os itens que já existem crescem na própria linha, sem duplicata (L-68). O CTO entrega as linhas prontas no schema de 10 colunas (`/var/tmp/cto-w8/catalogo-linhas-todo.md`), e o main aplica depois de conferir.
+- **19:26, comando do líder:** `/tab_pendencias --drain`. Medido pelo motor em simulação: 224 itens classificáveis na INBOX, 0 residuais com triagem; nenhum pode ser integrado sem julgamento (integrate, split ou keep, com as flags e as parcelas do WSJF). A tabela é grande e tem dependências cruzadas, então, pela skill, o Cosimo decide a abordagem e o Cosmo coordena as lentes (arquiteto e tech-lead, produto, engenharia, scrum). Os 4 lugares de agente estão ocupados (S3-B, T2b, o CTO da S4 e T3, e o CTO do catálogo). Plano: o dreno começa no primeiro lugar livre e vai junto com as linhas do catálogo numa passada só de reordenação, para não reordenar duas vezes a mesma tabela.
+- **19:31, emenda do líder na L-32, verbatim:** *"nao coloque nada em onda que ja foi fechada"*. Item novo nunca entra em onda já fechada (hoje W1 a W7-D, pelas tags); entra na aberta, se couber, ou numa futura; e linha antiga não concluída numa onda fechada muda de onda na mesma passada. Repassada ao CTO do catálogo e valerá para o dreno.
+- **19:37, catálogo de molduras e efeitos do CTO pronto** (`/var/tmp/cto-w8/catalogo-molduras-efeitos.md`, md5 2e42b534; linhas prontas em `catalogo-linhas-todo.md`). São 94 tipos em 11 famílias: 8 existem, 30 planejados, 6 viram emenda de linha existente e 50 são novos; dão 30 linhas novas, 4 portões de fechamento e texto em 12 linhas existentes. Os mais pedidos pela comunidade: pixel perfeito (Godot #6389, 338 reações), sombra interna, tracejado, moldura retrô (NES.css, 98.css) e degradê. Ondas fechadas medidas pelas tags; nenhuma linha vai para elas, e na W8 entra só uma emenda da H4. Decisão autônoma do CTO, registrada: `pixelated` no registro da gfss está ligado ao vizinho mais próximo puro, mas no padrão CSS o puro é `crisp-edges`; a correção vira emenda de R2D-IMAGE-RENDERING. **Duas decisões do líder** (AskUserQuestion, respostas verbatim): luz de até 3 focos, *"N luzes, 3 garantidas (Recomendado)"* (R2D-NORMAL-LIGHT); botão desabilitado, *"Acrescentar :disabled (Recomendado)"* (GFSS-DISABLED-STATE, com o canon ESCOPO.md §4 e a lista de GFSS-NODE-VIEW atualizados ANTES do código, L-67). As linhas entram na tabela junto com o dreno da INBOX, numa só reordenação.
+- **19:59, ordem do líder, verbatim:** *"ok, implemente tudo (deixe pendente na tabela, não na inbox)"*, dita depois da lista do top 10 da comunidade fora dos planos (R2D-PIXEL-CANVAS e R2D-RENDER-TARGET, R2D-PIXEL-SNAP, R2D-RELIEF-FRAME e GFSS-BORDER-RELIEF, R2D-STROKE-DASH, R2D-POST-CRT, R2D-NORMAL-LIGHT, R2D-BEVEL, R2D-FILTER-LIGHTING, R2D-CORNER-SHAPE, FONT-BITMAP). Todo o catálogo e toda a INBOX viram linhas `⏳ Pendente` da tabela unificada, em onda aberta ou futura; nada fica na INBOX. Repassada ao Cosimo, que prepara o dreno e a reordenação.
+- **20:01, S3 commitada:** A = 531dbc2f (19 arquivos: os átomos do arco, da verificação, do contorno e dos triângulos, mais o refactor de `refusal_of_values`) e B = 3e2f5f73 (9 arquivos: `stroke_line` no desenhador). Vermelho por asserção nas duas etapas; M1 a M10 mortos (o M3 agora compila); paridade AO VIVO no container com 22 células e 0 reprovadas (o controle draw2d_parity_test com 82 e 0); preci e sanitizer rc 0. Revisão N1 despachada, com a ordem expressa de comparar o comportamento do refactor que toca arquivos de fatias fechadas (o aviso do advisor, por causa do destrutor que sumiu na S2b-fix1). Limpeza pela regra da L-11: as cópias e builds de T2a, R2a, S2b, H1 e S3, de 20,92 para 24,17 GiB.
+- **20:11, T2b commitada (fb7faea8, 10 arquivos).** Âncoras de `texture_upload_test.cpp` com n=1 depois da T2a-win; vermelho por asserção; verde 2/2; 9 de 9 mutantes; a errata do filtro conferida (as duas linhas novas uma vez, a antiga zero, nos dois arquivos); preci e sanitizer rc 0 antes do commit, e o preci rc 0 no SHA. Conserto de clang-tidy no caminho (`*sampling` com guarda). Revisão N1 despachada ao revisor da T2a, com a conferência de que a frase nova é verdadeira para o nearest com mipmap (que não mistura entre níveis).
+- **20:26, dreno da INBOX aplicado no TODO.md real** (julgamentos do Cosimo, `/var/tmp/cto-w8/drain-judgments.json` md5 81bb000d; relatório `drain-relatorio.md` md5 1ccf148f). O Cosimo não tinha shell, e por isso o main rodou a simulação num clone: rc 0, `classifiable_inbox_count == 0`, 358 para 540 linhas de tabela (+182), INBOX com 0 itens. A auditoria da tabela da cópia não trouxe nenhum CRÍTICO; o CHK-05 (83) é igual ao da base, e o CHK-07 subiu de 129 para 144, como esperado com as linhas anexadas no fim antes da reordenação; as 5 linhas com coluna fora do padrão são antigas (barra escapada), não do dreno. O real é byte a byte igual à simulação (`cmp`). Dos 224 itens: 182 linhas novas (175 `⏳`, 1 `🔍` SWAP-WRITE-DEADLINE, 5 `✅` que eram registros de conserto já provado, 1 `🚫` SRGB-EMULATED-FBO pela recusa D-A62 do líder) e 42 absorvidos em linhas existentes. Nenhuma linha em onda fechada; ondas novas W9-G a W9-K e WM2 a WM20. Defeito do motor da skill registrado pelo Cosimo (`todo_intake.py:1805-1817`: `keep` junto com `integrate` aborta o dreno). Decisão autônoma do Cosimo: `CI-CONCURRENCY-MAIN`, opção (b), o `main` sai do `cancel-in-progress`. Para o líder decidir: TOOLCHAIN-UPDATES-PENDENTES (Docker com 10 CVEs), SCRIPTS-PT-L21, CLANG-SUPPORT-DECL, PLATFORM-NATIVE-HANDLE, WIN-SHOW-STARTUPINFO-OPT-IN, GL-PROC-ADDRESS-SEM-CONSUMIDOR, SORT-DRAW-KEYS-SEM-CONSUMIDOR, BUILD-DENTRO-DA-PASTA-SINCRONIZADA e as 5 da WM20, com dono em `~/.claude`. Falta: as linhas do catálogo, 7 emendas, os fechamentos `CI-VERDE-*` das ondas novas e a reordenação.
+- **20:36, revisão N1 da T2b REPROVADA com conserto pequeno** (rev-t2b.md). A tradução GL está certa; 8 de 10 mutantes mortos; o A10 é equivalente; o A6 (ajustes depois da subida) sobrevive, porque falta o caso da ordem (F-2). IMPORTANTE F-1: a frase pública da errata ("and between the two nearest levels when reduced levels exist") é FALSA na ampliação, que usa só o nível base, já que o GL não aceita mipmap em MAG_FILTER. Ela aparece em `texture_2d_desc.hpp:25-26`, no parecer `:152-153` e em `texture_sampling.hpp:24-26`. É mais uma frase escrita para corrigir uma promessa falsa que criou outra. O CTO da T2b escreve a T2b-fix1 com a frase verdadeira para os dois filtros, na ampliação e na redução.
+- **20:39, catálogo aplicado e tabela reordenada** (patch do CTO `/var/tmp/cto-w8/reorder.patch`, md5 f9daeacf, aplicado pelo main com `git apply --check` e idêntico ao clone por `cmp`). Linhas 538 para 595: 33 do catálogo, 24 fechamentos `CI-VERDE-*` novos, 19 descrições emendadas e 5 pré-requisitos corrigidos; WSJF em 176 linhas do dreno. Decisão do CTO sobre a §6: alternar uma onda de produto e uma de manutenção (uma fila só por WSJF enterraria a W9 atrás de 19 ondas WM); corrigiu a INFRA-CI, que vinha depois da W9 da qual depende. Audit: zero CRÍTICO; CHK-07 de 144 para 133 ("antes do pré-requisito" de 21 para 0); CHK-05 sobe 28, pelos `(todas as fatias da onda)` dos fechamentos. Status: ⏳ 378, ✅ 191, ⛔ 22, 💡 2, 🚫 1, 🔍 1. Nenhuma linha nova em onda fechada; INBOX com 0 itens (sobram 25 linhas de prosa histórica). Para decidir: dividir as ondas com 3 ou mais níveis de dependência (o CHK-07 cairia para cerca de 66); renomear `CI-VERDE-W7C` que fecha a INFRA-CI; destravar as 22 linhas ⛔ que esperavam a vaga de trilha da L-32, agora que a DEMO-1 está ✅.
+- **20:53, três decisões do líder** (AskUserQuestion, respostas verbatim): dividir as ondas com 3 ou mais níveis, *"Dividir quando cada onda abrir (Recomendado)"*, no passo 2 da L-34 de cada onda; o Docker, *"Autorizo atualizar agora"* (L-14: docker-cli, moby-engine, moby-engine-nano e moby-filesystem de 29.7.2 para 29.8.2, sob a trava pesada, para não derrubar teste em container); e os itens de decisão dele, *"CTO decide e eu ratifico depois (Recomendado)"* (7 itens com o CTO; os 5 da WM20 em `~/.claude` continuam com ele). **Destrave pela L-32:** as 22 linhas ⛔ congeladas pela extensão de 27/08 "até a DEMO-1 fechar" passam a ⏳, porque a DEMO-1 está ✅ e a lei diz que o teto cai nesse momento (o trecho foi conferido na descrição de R2D-BORDER).
+- **21:06, Docker atualizado** com a autorização do líder (L-14): docker-cli, moby-engine, moby-engine-nano e moby-filesystem de 29.7.2 para 29.8.2 (Fedora updates), rc 0, servidor 29.8.2 e serviço ativo; feito sob a trava pesada (lock às 21:05:27, fim às 21:05:47, sem container no meio). Atenção para o próximo preci e CI: o item HOSTCONFIG-BASELINE-ENGINE-DRIFT registra que a linha de base do HostConfig do container é congelada por versão do Engine, e pode acusar a troca.
+- **21:06, mini-ordem T2b-fix1 (md5 27004fc7, conferido)** com o texto público verdadeiro nos quatro casos: o `nearest` toma a cor de UM texel, nunca mistura (do nível cheio na ampliação, ou do nível mais próximo na redução com níveis); o `linear` mistura os 4 texels mais próximos do nível cheio na ampliação e, na redução com níveis, os 4 de cada um dos 2 níveis mais próximos e depois os dois resultados. O caso `the_sampling_parameters_are_set_before_the_first_level_is_uploaded` mata o A6 por asserção; F-4 e F-5 consertados; F-3 (guarda inalcançável) vira linha da tabela. Pré-execução: as 13 trocas com n=1, cerca `cmp` 0, preci 344/344. Despachada ao implementador da T2b.
+- **21:09, decisões do CTO sobre os 7 itens delegados pelo líder** (`/var/tmp/cto-w8/decisoes-6-itens.md`, md5 c8683aed; aplicadas pelo main no TODO.md, com o texto antigo de cada linha conferido antes da troca). SCRIPTS-PT-L21: a L-21 vale para os scripts como está escrita, e a migração para inglês vai em fatias por diretório, ⏳. CLANG-SUPPORT-DECL: Clang suportado no Linux com libstdc++, com o piso declarado só depois de um job de CI fixado naquela versão rodar a suíte verde, 💡. PLATFORM-NATIVE-HANDLE: um cabeçalho nativo por backend, fora da API portável, sem X11, 💡 (revisão de API dedicada). WIN-SHOW-STARTUPINFO-OPT-IN: o padrão é determinístico, e há uma opção explícita no modelo do GLFW 3.4, 💡 (falta medir na VM). GL-PROC-ADDRESS-SEM-CONSUMIDOR e SORT-DRAW-KEYS-SEM-CONSUMIDOR: remover, declaração de código sem uso da L-67 sob a delegação, ⏳. BUILD-DENTRO-DA-PASTA-SINCRONIZADA: as construções saem para `/var/tmp/glintfx-build/` (hoje são 2,0 GB dentro da pasta do IDrive), ⏳. **Para a ratificação do líder:** as 7 decisões. Duas partes exigem o líder e vão a ele agora: o idioma das mensagens de ferramenta (mudaria o texto da L-21) e apagar os 2,0 GB de builds antigos e configurar exclusão no IDrive.
+- **21:15, duas decisões do líder** (AskUserQuestion, respostas verbatim, depois de o main argumentar contra a mudança de lei, pela LEI DAS LEIS): o idioma das mensagens de ferramenta, *"Cancelar: lei como está"* (a L-21 não muda); os builds antigos, *"Apagar e excluir no IDrive (Recomendado)"* (linha BUILD-LEGADO-APAGAR-E-IDRIVE, depois de a raiz nova ficar verde). Linhas novas na tabela, e não na INBOX: CLANG-LIBCXX, CLANG-CL-WINDOWS, BUILD-LEGADO-APAGAR-E-IDRIVE e IDRIVE-SEGUE-LINK.
+- **21:18, ordem do líder, verbatim:** *"Autorizo rm"*. Apagados os 8 diretórios `build*/` da raiz do projeto (2,0 GB: build, build-errcopy-red, build-f5-oom, build-preci, build-preci-debug, build-preci-sanitize, build-static, build-verif-f4), conferidos antes (ignorados pelo git, nenhum processo usando), por caminho literal (L-53 global; a verificação de segurança barrou a primeira forma, com variável no caminho, e a forma segura foi usada sem contornar nada). BUILD-LEGADO-APAGAR-E-IDRIVE passa a 🟡: falta a exclusão no IDrive, a cargo do líder. Até a BUILD-DENTRO-DA-PASTA-SINCRONIZADA ser feita, um build novo na raiz recria esses diretórios.
+- **21:32, revisão N1 da S3: NÃO LIMPA, com dois IMPORTANTES e sem CRÍTICO** (rev-s3.md). R1 a R9 mortos; o R10 (lote ignorado) só a paridade pega; o refactor de `refusal_of_values` é só extração, sem remoção de carona (o ponto do advisor, conferido); a paridade ao vivo deu 22 células e 0 reprovadas. I-1: a promessa pública de 0,25 px na ponta redonda é falsa acima de raio 13280 px, porque o teto de 512 segmentos satura (0,94 px em 50000). I-2: falta caso unitário de `stroke_line` com transformação de lote. O CTO da S3 decide o I-1 (corrigir o texto ou o comportamento) e escreve a S3-fix1.
+- **21:39, ordem do líder, verbatim:** *"siga para acabar w8. duvidas com clevel na forma da lei: libs, comunid, mais completo, se não conseguir fale com advisor"*. Confirma o modo de trabalho da L-34 (refinamento de 11/10) e o objetivo de fechar a W8.
+- **21:55, T2b-fix1 commitada (f982143a, 4 arquivos):** o texto público verdadeiro de nearest e linear, idêntico no cabeçalho e no parecer (9 de 9 linhas novas, 0 antigas, nos dois arquivos); o caso da ordem reprova contra o A6 por asserção; preci e sanitizer rc 0 antes do commit; preci no SHA rc 0, sem aviso de linha de base do Docker. Conferência mirada mandada ao revisor da T2b.
+- **22:15, S3-fix1 e oitava consulta ao advisor.** O CTO decidiu o I-1 pela opção (a), corrigir o texto, e não (b), mudar o comportamento. A técnica completa do Skia (`Tessellation.h`: 1/4 px em qualquer raio, teto de 1024 e arco fora da tela virando reta) precisa do tamanho da superfície e é a mesma mudança da elipse da S5; o NanoVG não tem teto, e o ImGui tem o mesmo teto de 512. A técnica vira a linha ARC-VIEWPORT-TESSELLATION, para a S5. Pergunta ao advisor: a opção (a) é o "mais fácil" que o líder proíbe? Resposta: não. O comportamento está certo, e a degradação começa num raio de tela (13280 px) maior que a diagonal de uma tela 8K; a técnica completa mexe em `ellipse_max_error_pixels`, que a quinta consulta deu à cerca da S5; "mais completo" significa a solução completa agendada onde ela pertence, com linha na tabela. Ressalvas, que travam o despacho: a cerca diz uma GARANTIA (0,25 px até raio 13280 na tela; acima disso, sem garantia) e não a implementação (teto de 256 segmentos, 0,94 px em 50000), para não virar uma segunda errata; o 13280 sai da mesma fonte que os testes de `arc_segments`; e os valores do I-2 são derivados da geometria no comentário. O que o main fez: pediu ao CTO a reemissão com os três ajustes; ARC-VIEWPORT-TESSELLATION e STROKE-FAN-ATOM entram na tabela. **Para a ratificação retroativa do líder:** o texto público da ponta redonda (porta de mão única).
+- **22:16, conferência mirada da T2b-fix1:** F-1 FECHADO (texto verdadeiro nos quatro casos contra a tabela GL, idêntico no cabeçalho e na cerca, cmp 0), F-2 FECHADO (o caso passa no f982143a e reprova contra o A6 com rc 8), F-5 FECHADO, F-4 PARCIAL: a nota de `texture_sampling.hpp:31-32` ainda descreve a T4, e vira pendência escrita na linha R2D-TEXTURE para a T4b (na tabela, não na INBOX). **A T2b está FECHADA** (fb7faea8 + f982143a).
+- **22:49, plano de fechamento da trilha QA e WL pelo CTO, e nona consulta ao advisor.** Relatório do CTO: ordens prontas `ordem-armtest.md` (md5 9afea90c, N1) e `ordem-g2s.md` (md5 0c0ac971, sonda só na placa integrada), conferidas; seis decisões em `/var/tmp/cto-w8/decisoes-cto-fechamento-w8.md` (md5 f584d440); perguntas ao líder em `perguntas-lider-fechamento-w8.md` (md5 ef508903). Pré-execução da ARM-TEST pelos scripts do implementador: vermelho rc 8 por asserção, verde 6/6, 11/11 mutantes mortos, MSVC 0. Pergunta ao advisor: as decisões F01, F02, F04 e F05 se sustentam? Resposta e ação, por decisão:
+  - **D-W8-F01 aceita:** a falha de `wl_surface_frame()` emite o evento `frame_callback_request_failed` (warn) por uma quinta porta do modelo, provado por asserção (CONTRACT §6.4; SDL não confere, EFL confere e avisa; precedente da T2a-fix2). Para ratificação do líder.
+  - **D-W8-F02 REJEITADA:** passar a prova de fiação para o CI do push contraria a L-36 global ("rode local o que o CI vai rodar, antes do push") e a ordem "nunca pelo mais fácil". O motivo era o disco, e ele foi resolvido pela regra da L-11 (imagens e cópias de fatias fechadas): apagadas as imagens `glintfx-wltest:egl` (com o contêiner parado `glintfx-egl`), `glintfx-arch-ports-verify:latest` e `glintfx-devbuild:latest`, nenhuma usada por script ou CI (só citadas em comentário histórico), e 14 pastas de fatias fechadas em `/var/tmp/cto-w8` (t2b-cto, win-cto, s2b, t2a-cto, t2bfix1-cto, r2a-fix1, d7, d6green, d1fixb, rev-d6red, rev-d6green, rev-d1fixc, reorder-clone, drain-clone), por caminho literal. Disco `min` de 21,16 para 26,81 GiB. A imagem do snapshot e a varredura com a linha de base regenerada rodam ANTES do commit, como no plano de 11/10 §5.4; o CTO emenda a ordem.
+  - **D-W8-F03 e F06 aceitas.** WL-FRAME-ORDER-TWINS fechada no TODO (N4, `4c672778` e `:8573`).
+  - **D-W8-F04 aceita, como desvio declarado da D-W8-35:** a sonda decide fatos do KWin e do Mesa; os scripts de isolamento vêm do snapshot do HEAD; a foto da G2 continua em imagem do HEAD.
+  - **D-W8-F05 aceita na evidência, mas a G1b só fecha quando a etapa `a` da G2-s passar** (é ela que fecha a lacuna 4a). Regra que fica: preci negado pelo controle de permissão, o agente para e não contorna.
+  - O teto de 10 mutantes da N1 é da REVISÃO; os 11 da ordem são a prova do implementador, e o revisor muta no máximo 10.
+  - O achado de lint dentro do contêiner foi para a linha PRECI-IN-CONTAINER, e não para a INBOX.
+  - **G4, pergunta A (SELinux):** é do líder (L-01, L-02). Ela vai depois do despacho e inclui a forma estreita que o CTO não listou: `setsebool container_use_devices on` sem `-P`, que volta no reboot e mantém o confinamento. A pergunta B continua presa à G3 e ao alerta 5x.
+- **22:53, decisão do líder sobre o SELinux da foto na GeForce (G4, pergunta A)** (AskUserQuestion, resposta verbatim): *"Só naquele contêiner (Recomendado)"*. Na G4, o contêiner da foto roda com `--security-opt label=disable`, e só ele, apagado ao fim; nenhuma mudança na política da máquina (sem `setsebool`, com ou sem `-P`). Ficaram de fora: liberar até o reboot, liberar para sempre e tirar a foto da GeForce do critério. A pergunta B (autorização de início) continua presa à G3 fechada na Intel e ao alerta 5x. A sonda G2-s (só a Intel, `renderD128`) foi despachada, com o aviso ao líder dado e o watchcode armado; o CTO emenda a ordem da ARM-TEST.
+- **22:54, S3-fix1 reemitida pelo CTO e conferida pelo main** (`ordem-s3-fix1.md`, md5 97e8c1d3, que substitui a 310e52ba; anexos com md5 rc 0). Os três ajustes da oitava consulta: (1) a cerca diz a garantia, *"at most 0.25 pixel away from the true half circle on the screen while its radius there is at most 13280 pixels; above that, the distance is not guaranteed"*, igual no cabeçalho e no parecer, e o teto e o exemplo de 0,94 px ficam só no comentário interno e na tabela; (2) o 13280 tem fonte única, `k_cap_max_error_pixels / (1 - cos(pi / k_max_arc_segments))` = 13280,41, e um caso refaz a conta com as constantes do código (o mutante R11 o derruba por asserção); (3) (20,22) e (100,18) são derivados da geometria no comentário do caso do I-2. Pré-execução: 8 trocas com n=1, verde, R10 e R11 com rc 8, preci 344/344 na segunda rodada (a primeira caiu só pelo tempo de um autoteste sob carga, 30,46 s contra 0,47 s sozinho). Linhas novas na TABELA, abaixo de R2D-SHAPES: `ARC-VIEWPORT-TESSELLATION` (W8, junto da S5) e `STROKE-FAN-ATOM` (W8, fatia do segundo usuário do leque), com WSJF a pontuar. Despachada ao implementador da S3 como a rodada única de conserto da N1.
+- **23:23, sonda G2-s PAROU na etapa b (rc 44), sem segunda tentativa, como a ordem manda** (`/var/tmp/cto-w8/g2s/relatorio.md`). As etapas pre e a deram rc 0, com o isolamento provado nas duas direções (`iso_integrada=0`, `iso_ci_deve_reprovar=1`). O KWin compôs por OpenGL na Intel (Iris Xe), e o C0 sem placa compunha por QPainter. Quem morreu foi o cliente `first_window`: *"file descriptor expected, object (13), message format_table(hu)"* e *"context failed: platform_failure rejected_value=egl_display"*. Ficou sem captura e sem veredito; restam 0 contêineres; o disco `min` foi de 26,80 para 25,38 GiB. A lacuna 4a da G1b continua aberta, e por isso **a G1b não fecha agora** (condição da nona consulta). O CTO da trilha recebeu o diagnóstico por medição; se o defeito for da biblioteca ou do exemplo, a correção vira fatia com linha na tabela, e nunca contorno na sonda.
+- **00:03, três resultados que chegaram juntos.**
+  - **S3-fix1 commitada (3d7dff15, 5 arquivos).** As 8 trocas aplicadas; o fmt e a cerca com rc 0, igual no cabeçalho e no parecer. Verde; o R10 e o R11 morrem por asserção (rc 8). preci --fast rc 0 no hospedeiro, com o downgrade da L-09. O main conferiu no blob que a frase pública diz a garantia até 13280 pixels. A conferência mirada foi ao revisor da S3: ler o texto e rodar os dois casos novos, sem terceira rodada de mutação.
+  - **D-W8-F07, a causa da parada da G2-s está medida e é NOSSA, no relé de teste.**
+    - O `wire_relay` só repassa o descritor de `wl_shm.create_pool`.
+    - O mesmo `first_window`, no mesmo contêiner, passa ligado direto no KWin (rc 0, `format_table(fd 4, 2496)`) e morre pelo relé (rc 1).
+    - Não é a biblioteca, nem o exemplo, nem a imagem.
+    - Fontes: libwayland, o proxy do Firefox e o do ChromiumOS.
+    - Linha nova na tabela: `WIRE-RELAY-FD-PASSTHROUGH` (W8, N3, bloqueia a G2). O CTO escreve a ordem.
+  - **ARM-TEST emendada** (`ordem-armtest.md`, md5 c85f74ef; anexos rc 0).
+    - A prova de fiação vai para antes do commit, pelo `prova_fiacao.sh`: as imagens `glintfx-wltest:armtest-{base,green}` são construídas, varridas e apagadas, e a imagem sem nome também.
+    - A linha de base é regenerada a partir dos 28 passos do `ci.yml`.
+    - O critério foi escrito antes do dado.
+    - A pré-execução deu base 28/28 e verde 28/28, `rendered_frames=30`, e terminou com o disco `min` em 25,15 GiB.
+    - Na primeira rodada sobraram 33 imagens sem nome. O CTO as apagou, cada uma conferida pelo log da construção, e acrescentou `apaga_imagem.sh`.
+    - Despachada a um implementador novo.
+  - **G1b FECHADA pela D-W8-F05.**
+    - A lacuna 4a fechou na etapa a da G2-s. O `iso-a-integrada.log` diz *"HostConfig completo bate com o baseline medido (Docker 29.7.2, hostconfig_baseline_gpu_integrated.txt)"*, e o `iso-a-ci.log` reprova contra `hostconfig_baseline.txt`. O main conferiu as duas linhas no log.
+    - A fiação do 3º argumento rodou ao vivo nas duas direções.
+    - O relatório da sonda tinha dito o contrário porque confundiu a lacuna com a captura.
+- **00:11, conferência mirada da S3-fix1: I-1 FECHADO e I-2 FECHADO, sem achado novo CRÍTICO** (`/var/tmp/cto-w8/rev-s3-fix1.md`). O texto e a cerca dizem a garantia, idênticos por `cmp`; o 13280 foi refeito por conta independente; o caso do I-2 roda em contêiner 2/2; os mutantes R10 e R11 morrem nos casos certos. **A S3 está FECHADA** (531dbc2f, 3e2f5f73 e 3d7dff15). Para a ratificação retroativa do líder: o texto público da ponta redonda (porta de mão única). Push do ramo depois do fechamento.
+- **07:14, décima consulta ao advisor (S4 e T3) e uma decisão do líder.**
+  - **Contexto.** O CTO entregou a ordem da S4 (`ordem-s4.md`, md5 8d52c928; anexos rc 0; pré-execução com o vermelho por asserção em A e B, os 10 mutantes mortos, o preci 347 e o MSVC 27/0). A T3 ainda não foi entregue: falta um preci inteiro verde. Ficaram quatro dúvidas.
+  - **Dúvida S4-1, junção configurável.**
+    - Resposta: (a), cantos retos agora.
+    - Motivo: nas cinco fontes (Canvas, Skia, Cairo, NanoVG e SVG), a junção é propriedade do ESTILO DO TRAÇO e vale para toda forma. O lugar completo é `gltfx_stroke`, ao lado da ponta, e não `gltfx_rect_outline_style`.
+    - Ação: a linha R2D-STROKE-PATH ganha a nota. Para a ratificação do líder: a garantia dos cantos retos no texto público.
+  - **Dúvida S4-2, retângulo sem largura ou sem altura.**
+    - Resposta: (a), a regra única, sem caso especial (zero é domínio, como decidido na S3).
+    - O main conferiu a área de fora por conta própria: o retângulo (10,10)-(50,30) com espessura 4 cresce para fora até (6,6)-(54,34). Isso dá 48 × 28 = 1344, e 1344 − 800 = 544. Também conferiu o centrado (480) e o de dentro (416).
+    - **Lacuna achada (L-17, gêmeo):** a tabela tem largura zero para centrado e fora, mas falta a de dentro, e falta altura zero nos três alinhamentos. A cerca diz o caso degenerado só em geral.
+    - Ação: o CTO emenda a S4 com as células e a cerca dizendo o resultado por alinhamento.
+  - **Dúvida T3-1, quem guarda os texels de textura com mipmap.** Foi ao líder (campo público novo, porta de mão única). Resposta verbatim: *"Só quem declarar (Recomendado)"*.
+    - A textura ganha uma opção de ser atualizável, desligada por padrão, como no sokol, no bgfx, no WebGPU, no Vulkan, no Direct3D e no Metal.
+    - Refinamento do advisor: a opção governa `update_texture` para TODA textura, e não só as com mipmap. Os texels só são guardados quando a textura é atualizável E tem níveis reduzidos. Atualizar uma textura que não declarou é recusado por nome.
+  - **Dúvida T3-2, atualização de largura ou altura zero.**
+    - Resposta: (b), sucesso sem fazer nada, e dito no texto público. Zero é recusado para OBJETOS que não podem existir (textura vazia) e aceito para OPERAÇÕES vazias.
+    - As outras verificações rodam antes. A célula do teste prova que nenhum texel é escrito e nenhuma chamada GL é feita.
+  - **Para a ratificação do líder:** S4-1, S4-2 e T3-2.
+- **07:14, CI do ramo VERMELHO** (run 38340544829, 6184f6fd).
+  - Só o Windows ASan falhou, com 1 de 158 testes: `texture_upload_test` dá `stack-use-after-scope`, *"READ of size 3"*, em `:446`.
+  - Causa: o helper `sampled()` da T2b devolve um local nomeado de `gltfx_texture_2d_desc`. É o MESMO defeito que a T2a-win consertou em `levels()`: o MSVC copia os 3 bytes de preenchimento depois de marcar a variável como fora de escopo.
+  - A lição estava nas ordens, e a T2b a deixou passar. O conserto vira a mini-fatia T2b-win.
+  - O padrão foi achado de novo (L-17), então a varredura dos helpers de teste que devolvem uma struct com preenchimento por local nomeado entra na mesma fatia. A linha MSVC-ASAN-PADDING-RETURN passa a pedir um portão.
+  - A W8 não fecha com o CI vermelho (L-15).
+- **07:14, ARM-TEST PAROU no preci** (rc 1, estágio 2b: *"algum CMakeLists.txt tem mudanca fora do indice"*).
+  - O vermelho, o verde, os 11 mutantes, o MSVC e a prova de fiação local passaram (28/28 nas duas imagens, `rendered_frames=30`, imagens apagadas).
+  - Defeito da ORDEM: o passo 5 só faz `git add` dos 4 arquivos novos, e não dos 4 modificados pela fiação. O implementador parou sem contornar. O CTO emenda o passo.
+- **07:14, ordem da WIRE-RELAY-FD-PASSTHROUGH pronta** (`ordem-fdpass.md`, md5 504b1171; manifesto bb530e11, rc 0).
+  - Pré-execução: o vermelho dá rc 8 em 2 dos 34 casos; o verde dá 7/7; os 2 mutantes morrem; as duas imagens dão 28/28.
+  - **A etapa b da G2-s passa com o relé consertado:** composição OpenGL na Intel, captura 640x480, 12 de 12 sondas.
+  - D-W8-F08: uma mensagem que o relé conhece continua levando a contagem exata de descritores.
+  - Lacuna declarada: os jobs de contêiner do CI não exercem ao vivo descritor que não seja de `wl_shm`. Vira a linha CI-CONTAINER-SEM-FD-NAO-SHM.
+  - Despacho depois da ARM-TEST, porque as duas são donas de `tests/CMakeLists.txt`.
+- **07:33, três ordens do CTO conferidas e despachadas pela fila do `tests/CMakeLists.txt`.**
+  - **T2b-win** (`ordem-t2b-win.md`, md5 b844c258; anexos rc 0).
+    - A régua do assembly do `cl.exe` real contou 4 cópias de preenchimento depois do fim do escopo, todas de `sampled()`. Com o prvalue, caiu para 0. A régua foi calibrada contra o vermelho conhecido da T2a-win.
+    - Varredura L-17 em 163 de 186 unidades de teste: nenhum outro caso. As 23 que não compilam pela linha simples são lacuna declarada. Os rascunhos da T3 deram 0 cópias.
+    - Portão D-W8-F09 anotado na linha MSVC-ASAN-PADDING-RETURN: a régua em `tools/`, um estágio do `preci` e o `/FAs` no job Windows ASan.
+    - Despachada a um implementador novo. A prova de execução é o job Windows ASan do próximo CI.
+  - **ARM-TEST emendada** (md5 16749ad7). O passo 5 faz `git add` dos 8 caminhos. O implementador retoma do passo 11 no mesmo snapshot: o CTO mediu `git diff --quiet` = 0 e o `commit_armtest.sh` com rc 0 contra o HEAD.
+  - **FDPASS emendada** (md5 c738d23b), com a mesma falha do passo 5 corrigida. Ela entra depois do commit da ARM-TEST.
+  - **A fila foi simulada no HEAD `8c21b632`:** os três commits em sequência deram rc 0. As ordens agora dizem "grave o relatório em `$F/relatorio.md`".
+  - **Linha nova:** `CI-CONTAINER-SEM-FD-NAO-SHM` (W9-B), a lacuna que a ordem da FDPASS declarou.
+- **07:43, ARM-TEST parou de novo no passo 11, agora no cppcheck** (estágio 5 do preci; o 2b passou, então a emenda do passo 5 funcionou). Achado no código NOVO da fatia: *"Member variable 'wire_present_ports::display' has no initializer [uninitMemberVarNoCtor]"* (`egl_context_adapter.cpp:1103`, Cppcheck 2.22.0 do hospedeiro). A pré-execução do CTO em contêiner não acusou nada, o que é a divergência entre hospedeiro e contêiner da PRECI-IN-CONTAINER, no sentido oposto ao de 12/10. O implementador parou sem corrigir. O CTO decide a correção e quanto do ciclo ela reabre, pré-executa com o mesmo cppcheck e varre as ordens pendentes. Os relatórios das ordens futuras passam a ser `.txt`, porque o implementador haiku se recusa a gravar `.md`.
+- **07:52, D-W8-F10, a correção do achado do cppcheck na ARM-TEST.**
+  - A correção é `wl_display *display = nullptr;` em `wire_present_ports` e no gêmeo `wire_wait_ports` (L-17). As duas structs continuam agregadas.
+  - O cppcheck 2.22.0 do hospedeiro dá rc 1 antes e rc 0 depois. O estágio 5 inteiro, com 737 arquivos, dá rc 0.
+  - O código de máquina de `egl_context_adapter.cpp.o` em Release fica idêntico. Por isso só o preci reabre; o vermelho, o verde, os 11 mutantes, o MSVC e a prova de fiação continuam valendo.
+  - A ordem foi emendada (md5 ae30b8e1, manifesto d208d20d), e o implementador retoma pela "Retomada 2".
+  - A varredura com o cppcheck do hospedeiro na FDPASS, na T2b-win e nos rascunhos da S4 e da T3 deu rc 0, sem o achado.
+  - As três ordens agora pedem `relatorio.txt`: FDPASS com md5 dfbd954d e T2b-win com md5 5876d87f, mudando só o caminho do relatório.
+  - A T2b-win já está commitada (30905171).
+- **08:02, T2b-win commitada (30905171, 1 arquivo, 4+/4-).** O main conferiu o diff: `sampled()` devolve o prvalue `gltfx_texture_2d_desc{.filter = filter, .mipmap_levels = count}`, com o comentário do motivo. A régua deu 4 cópias de preenchimento fora do escopo antes e 0 depois. O verde no Linux, em contêiner, deu 1/1. O preci --fast e o sanitizer deram rc 0 no snapshot, e o preci rc 0 no SHA. A prova de execução é o job Windows ASan do próximo CI, disparado junto com o commit da ARM-TEST, para uma rodada só cobrir as duas.
+- **08:30, ARM-TEST commitada (e119be83, 8 arquivos, 573+/99-).**
+  - O preci deu rc 0 no snapshot e no clone do SHA. O main conferiu os 8 caminhos e as duas inicializações `display = nullptr` no blob.
+  - Continuam valendo o vermelho, o verde 6/6, os 11 de 11 mutantes, o MSVC e a prova de fiação local (28/28 nas duas imagens, `rendered_frames=30`, imagens apagadas).
+  - Status na tabela: 🔍. A revisão N1 vai a um revisor distinto.
+  - Push e CI disparados para provar a ARM-TEST e a T2b-win juntas.
+  - A FDPASS foi despachada, porque a ARM-TEST, que vinha antes na fila do `tests/CMakeLists.txt`, já foi commitada.
+- **08:57, revisão N1 da ARM-TEST: NÃO LIMPA, com um IMPORTANTE e sem CRÍTICO** (`/var/tmp/cto-w8/rev-armtest.txt`).
+  - **Conferido:** a ordem do modelo, o teto da espera e os pontos de espera (`check_wait_points` rc 0).
+  - **Mutantes do modelo:** M01 a M04 mortos por asserção.
+  - **IMPORTANTE:** a fiação do adaptador (`egl_context_adapter.cpp:1100-1112` e `:555-562`) não tem prova de unidade. Os mutantes M05 a M10 sobrevivem; pela leitura do revisor, alguns nem o CI de contêiner pega.
+  - **COSMÉTICOS:** a justificativa da D-W6b-46 sumiu do comentário; o aviso sai por quadro, sem limite de frequência; o relógio é lido antes do laço.
+  - **Próximo passo:** o CTO escreve a ARM-TEST-fix1, a rodada única de conserto, com pesquisa de como SDL, GLFW e Chromium testam a fiação.
+- **09:00, CI do ramo VERDE** (run 38390738988, 787a3d9e): 25 jobs com sucesso e 1 pulado (o VERSION-TAG-SYNC, como esperado num ramo).
+  - O Windows ASan, que estava vermelho, passou: a **T2b-win está provada, e a T2b segue FECHADA** (fb7faea8, f982143a e 30905171).
+  - Os dois jobs de contêiner e a Paridade Linux x Windows passaram com a ARM-TEST (e119be83), que continua em conserto pela revisão N1.
+- **10:08, o líder renovou o modo autônomo** (ordem verbatim: *"ligue modo autonomo por 7 dias"*). A ferramenta tem teto de 24 horas, e o modo ficou valendo até 14/10 às 10:03, com os escopos de push e de limpeza. Perguntado (AskUserQuestion), o líder escolheu, verbatim: *"Manter 24h, renovo (Recomendado)"*. O teto da ferramenta não muda, e ele renova quando quiser.
+- **10:35, WIRE-RELAY-FD-PASSTHROUGH commitada (d0291f99, 8 arquivos, 162+/19-).**
+  - O vermelho dá rc 8 por asserção nos 2 casos novos. O verde dá 7/7, com o `wire_relay_selftest` em 35 casos. Os 2 mutantes morrem.
+  - As duas imagens dão 28/28 nos passos do `ci.yml`. O preci dá rc 0 no snapshot e no SHA.
+  - **A prova viva da G2-s PASSA:** só a Intel (`renderD128`), isolamento 0, primeiro quadro em 1 s, nenhum descritor perdido e 12 de 12 sondas. Com isso, a sonda G2-s de `QA-COMPOSED-PATH` está provada, e a ordem da G2 (a foto) pode ser escrita.
+  - Status na tabela: 🔍. A revisão N3 (leitura e um vermelho) vai a um revisor distinto.
+- **10:52, revisão N3 da FDPASS: NÃO LIMPA, com um IMPORTANTE** (`/var/tmp/cto-w8/rev-fdpass.txt`). A1, achado por leitura: a regra que dá todos os descritores pendentes a uma mensagem de interface não modelada (`wire_relay_connection_set.cpp:58` e `:250-251`) rouba o descritor do `wl_shm.create_pool` que vem depois na mesma leva, e a captura perde o pool em silêncio. É regressão, e contradiz a razão da D-W8-F08. O vermelho do revisor (tirar o `close_all` da recusa) morreu por asserção num caso que já existia. O CTO escreve a FDPASS-fix1, a rodada única da N3: primeiro um caso que reproduz o A1, depois o conserto pela semântica completa, com a prova viva da G2-s refeita.
+- **10:52, S4 e T3 reemitidas e conferidas.**
+  - **S4** (`ordem-s4.md`, md5 4365693c; 58 anexos, rc 0).
+    - A cerca diz os cantos retos como comportamento, e o retângulo sem largura ou sem altura POR ALINHAMENTO: centrado, a barra em volta do segmento; dentro, uma peça de área zero; fora, o retângulo crescido cheio.
+    - As 4 células que faltavam foram feitas por conta independente, e a tabela do furo passou a 12 casos.
+    - Os 10 mutantes e a sonda X1 morrem.
+  - **T3** (`ordem-t3.md`, md5 1a36eaad; 128 anexos, rc 0).
+    - O campo público `updatable` vem desligado por padrão e governa `update_texture` para toda textura. Os texels só ficam guardados quando a textura é atualizável e tem níveis reduzidos.
+    - Uma atualização de largura ou altura zero dá sucesso sem chamada GL, depois das outras verificações.
+    - A sonda de colisão do campo novo foi feita. A ordem não toca mais `texture_upload_test.cpp`.
+  - **Pré-execução sobre a S4 e a T3 combinadas:** preci --fast INTEIRO verde (353 testes), sanitizer 166, MSVC 29/0, paridade ao vivo com shapes 31/0 e draw2d 106/0, e os 10 mutantes da T3 mortos.
+  - Nenhum helper que devolve struct com preenchimento usa local nomeado (a regra do prvalue).
+  - **Despacho em etapas, porque as duas fatias são donas de `renderer_2d_impl.cpp`:**
+    - S4-A (só cria arquivos e blocos de CMake) e T3-A juntas;
+    - depois S4-B e T3-B (átomos puros);
+    - por fim T3-C, depois da S4-B.
+- **11:52, o líder relatou alertas no desktop** (verbatim: *"varios alertas se linux"*). O main mediu duas causas, as duas dos testes em contêiner.
+  - **(1) SELinux.** Às 11:01, o seapplet ficou bloqueado por excesso: *"Created too many similar notifications in quick succession (36)"*. O Python dentro do contêiner tenta ler `~/.local/lib/python3.14/site-packages` (`gconf_home_t`) e uma pasta `ferramentas` (`unlabeled_t`), e é barrado.
+  - **(2) DrKonqi.** As quedas propositais dos testes (`kill -ABRT` dentro de `docker-*.scope`, 217 pares desde 11/10) chegam ao systemd-coredump do host.
+  - **Decisão do líder** (AskUserQuestion, opção 1, com a pergunta dele verbatim: *"O que fazer com a necessidade de leitura da pasta local? Copiar o necessário ao container? Abrir excessão?"*): os testes seguem, e o conserto entra como fatia urgente, antes das próximas.
+  - **A resposta à pergunta dele** fica para depois da medição. A hipótese, que é INFERÊNCIA, é que nada precisa da pasta pessoal: o Python a procura sozinho, e o conserto é não procurar e não montar a home. Exceção no SELinux é proibida pela L-02 e pela L-60.
+  - O CTO da S4 e da T3 recebeu a fatia urgente: achar todos os pontos, provar a necessidade, consertar as duas causas, criar um portão que reprove AVC ou coredump novo do host e investigar um terceiro AVC (`ThreadPoolSingl` sobre `locale_t`).
+- **12:18, S4-A commitada (eb23058f, 11 arquivos, 1217+).**
+  - O vermelho dá rc 8 por asserção e bate com a tabela da ordem: verificação 18 células, buraco 12/12, áreas 4/4.
+  - O verde dá 3/3, com as 8 linhas ditadas e o fmt em rc 0. Os 8 mutantes morrem.
+  - O preci --fast dá rc 0 (349) e o sanitizer rc 0.
+  - O contador `encontrados=0` impresso no commit é o do portão de PowerShell do hook local, num lote sem `.ps1`, e o portão o declara. É o mesmo que aparece nos commits de docs.
+  - A S4-B espera o commit da T3-A, porque as duas são donas de `renderer_2d_impl.cpp`.
+- **12:32, as duas mini-ordens de conserto conferidas e despachadas em paralelo** (os arquivos não se cruzam).
+  - **ARM-TEST-fix1** (`ordem-armtest-fix1.md`, md5 a3faa065; manifesto 318a4761, rc 0).
+    - **D-W8-F11:** as portas da apresentação viram tipos nomeados (`egl_present_wire.hpp`), com cada chamada de sistema injetável e a real como padrão. É a costura que o projeto já usa no `incoming_poll_wiring_test`. Um teste novo mata os 6 mutantes da revisão e mais 4.
+    - **D-W8-F12:** o aviso sai uma vez por sequência de falhas, por relato de borda (D-W8-24). A SDL e o EFL não limitam.
+    - O comentário da D-W6b-46 volta.
+    - Pré-execução: verde 7/7, 10 mutantes mortos, prova de fiação 28/28 nas duas imagens, cppcheck 739/0, preci rc 0.
+  - **FDPASS-fix1** (`ordem-fdpass-fix1.md`, md5 82602c20; manifesto 5474ba9f, rc 0).
+    - **D-W8-F13:** o relé planeja os descritores de cada leva. A mensagem de interface modelada leva a própria contagem. O excedente vai com a primeira mensagem não modelada, ou espera a leva seguinte. Uma modelada que vem depois de um excedente vai ao fio mas não à captura, e a dúvida é impressa.
+    - O A1 cai por asserção no relé de hoje.
+    - Pré-execução: verde 7/7; 4 mutantes mortos (o F4 exigiu um caso a mais); a G2-s refeita PASSA com 12/12.
+  - **Resíduo declarado pelo CTO:** os corpos `real_*` das portas, uma chamada de sistema cada, só são exercitados pela suíte de contêiner. A forma completa, um servidor Wayland falso em processo, dependeria da `libwayland-server` (L-07, decisão do líder). A pergunta vai ao advisor.
+- **12:33, décima primeira consulta ao advisor: o resíduo das portas reais da ARM-TEST.**
+  - **Pergunta:** o resíduo (os corpos `real_*` provados só pela suíte de contêiner) e a `libwayland-server` vão ao líder agora?
+  - **Resposta:** não. A resposta dele não muda o próximo passo da W8: a fiação já está provada ao vivo, e a costura é a mesma do `incoming_poll_wiring_test`. Por isso vira linha da tabela e item da ratificação.
+  - **Correção ao CTO:** são três caminhos, e não dois. Há também um servidor falso sobre o `wire_relay` da casa, que fica dentro da L-07.
+  - **Ação:** a linha `WL-REAL-PORTS-UNIT-PROOF` (W9-B, 🎨) entra com as três opções. A busca por linha gêmea deu zero.
+  - **Ainda pelo advisor:**
+    - as conferências miradas das duas fix1 vão aos MESMOS revisores. No caso da FDPASS, o revisor refaz o próprio cenário A1 e confere que o caminho da "dúvida impressa" é afirmado por teste, e não só impresso;
+    - a S4-B e a T3-B são despachadas avisando que a ARM-TEST-fix1 pode entrar antes no `tests/CMakeLists.txt`, e uma âncora diferente de 1 é PARE;
+    - o resumo final do vigia já é VERMELHO pela regra (vram suspeito ×9, pids warn ×3). As falhas de memória da GeForce, que não são nossas, vão ao líder em linha própria, com a ligação dita como só de horário.
+- **13:01, ratificação e ordens do líder** (resposta verbatim à lista das decisões pendentes):
+  - **1, as promessas públicas:** *"aceito tudo. Quero possibilidade de polígonos com cantos arredondados (um, mais de um ou todos)"*.
+    - Ficam ratificados: a ponta redonda de 0,25 px até o raio de 13280 na tela; os cantos retos e o retângulo degenerado por alinhamento da S4; a atualização vazia da T3; a contagem de `mipmap_levels` sem o nível base; o filtro linear trilinear; a linha de espessura zero como peça de área zero; e o aviso de quadro por sequência de falhas.
+    - O pedido novo entrou na linha `R2D-CORNER-SHAPE` (W9-B), refundida pela L-68: polígono com arredondamento escolhido por vértice (um, vários ou todos), com raio por vértice.
+  - **2, as decisões dos CTOs em modo autônomo:** *"aceito"*. Ficam ratificadas em bloco.
+  - **3a, GeForce:** *"Geforce: autorizado"*. A autorização vale para a G4. Mesmo assim, pela L-09 global, na hora de rodar o main toca o alerta 5x, diz o que vai rodar e espera o início, porque a G4 depende da G3 e esta ainda não rodou.
+  - **3b, IDrive:** *"Idrive: autorizo excluir pastas de build locais; quais caminhos?"*.
+    - Apagados, por caminho literal (L-53), `tests/container/_arch_ports_lib`, `tests/container/_arch_ports_src` (cópias de preparação do `prepare_arch_ports_fixture.sh`), os dois `__pycache__`, o `.ruff_cache` e o `.cache`. Não havia `build*/` na raiz.
+    - Fora: `worktrees/infra-preci` (worktree registrado, não é build) e dois logs avulsos.
+  - **3c, ferramentas:** *"use as mais atuais disponíveis no repo fedora. Autorizo baixar e instalar mais se precisar."* É a autorização da L-14 para buildx, compose, CMake, ccache e gh, pelo dnf, sob a trava pesada.
+  - **3d, skills e plugins:** *"Autorizo ver skills/plugins atuais oficiais autorizados na página do clade/anthropic e instalar o que precisar para otimizar, mas sem ligar a outras libs. Cuidado para nao conflitar com o que tem instalado."* Uma pesquisa vai a um agente, com conferência de conflito (L-59, L-62).
+- **13:02, ferramentas atualizadas (L-14, com a autorização do líder):** `docker-compose` foi de 5.5.1 para 5.6.0, pelo dnf, só dos repositórios fedora e updates, rc 0. CMake, ccache, gh e buildx já eram as versões mais novas do Fedora. TOOLCHAIN-UPDATES-PENDENTES passa a ✅. Achado para a G4: o `nvidia-container-toolkit` 1.20.1 JÁ está instalado nesta máquina, com repositório próprio. O plano da G4 dizia que instalá-lo seria pedir pacote novo; o CTO da G4 precisa levar isso em conta, sem mudar a escolha do líder (SELinux desligado só no contêiner).
+- **13:43, T3-A commitada (4a79c9a5, 16 arquivos, 536+/13-).** Vermelho por asserção, com 4 [FAIL] nomeados; verde 3/3, com as 7 linhas ditadas; os 4 mutantes mortos; o preci --fast deu 347/347 e o sanitizer 160/160 no snapshot. Desvios relatados:
+  - o commit caiu sobre a S4-A, e o HEAD combinado passou só no ctest da etapa A. O preci do HEAD combinado fica para a próxima etapa;
+  - `texture_release.cpp` e `renderer_2d_impl.cpp` (397 linhas) são monólito em formação (L-17), registrado para a revisão N1;
+  - ponteiros dentro da textura ficam mortos se a textura sobreviver ao desenhador (já existia na T2a). Isso vai para a revisão N1.
+- **13:43, a FDPASS-fix1 parou pelo piso do disco** (`min` 18,24 GiB na construção da imagem verde). O vermelho do A1, o verde 7/7 e os 4 mutantes passaram. Limpeza pela regra da L-11:
+  - **imagens:** as 3 sem nome, os 2 contêineres parados de 2 dias atrás e a imagem `glintfx-wltest:s3b-live` (a sonda G2-s já está provada, e a FDPASS constrói a própria);
+  - **pastas de fatias fechadas:** t2bwin, g1b, probey, rundir, r2a-fix1, t2b-cto, armtest-cto3 e as revisões antigas, mais as cópias de build da ARM-TEST e da FDPASS (os relatórios ficam);
+  - **cache de build sem uso:** 15,95 GB, que se reconstrói.
+  - O disco `min` foi de 19,14 para 30,67 GiB. A FDPASS-fix1 retoma, e a S4-B foi despachada. A T3-B espera um lugar livre, pelo teto de 4 agentes.
+- **14:32, ARM-TEST-fix1 commitada (aaa51036, 7 arquivos, 509+/59-).** Os 10 mutantes da fiação (W05 a W14) morrem por asserção. O verde dá 7/7, com o `egl_present_wiring_test` em 9 casos. A prova de fiação local deu 28/28 nas duas imagens, `rendered_frames=30`, e as imagens foram apagadas. O cppcheck do hospedeiro deu 749/0, e o preci rc 0 no snapshot e no SHA. O disco ficou perto do piso durante a prova (20,15 GiB). A conferência mirada vai ao revisor da ARM-TEST: ler e rodar os casos novos, sem terceira rodada de mutação.
+- **14:51, conferência mirada da ARM-TEST-fix1** (`/var/tmp/cto-w8/rev-armtest-fix1.txt`). Os testes da fatia passaram 3/3 em contêiner.
+  - **IMPORTANTE (fiação): PARCIAL.** Os mutantes M05 a M10 morrem agora por asserção. O que falta são a montagem de `present_through_egl` e os corpos `real_*`. É exatamente o resíduo já declarado na linha `WL-REAL-PORTS-UNIT-PROOF` (W9-B, três caminhos), agora nomeado por linha.
+  - **COSMÉTICOS:** o 1 e o 2 estão FECHADOS, com caso de rearme. O 3 (o relógio lido antes do laço) fica aberto por decisão do CTO, porque não muda comportamento.
+  - A exceção de paridade nova foi conferida verdadeira. Não houve achado CRÍTICO.
+  - **A WL-FRAME-ORDER-ARM-TEST está FECHADA** (e119be83 e aaa51036), e a linha passa a ✅.
+- **15:01, FDPASS-fix1 commitada (7fb56c0d, 4 arquivos, 267+/39-).** O A1 cai por asserção no relé de hoje. O verde dá 7/7, e os 4 mutantes morrem. A prova viva da G2-s, refeita inteira depois da liberação de disco, dá base e verde com 28/28 e o VEREDITO PASSA (só a Intel, `renderD128`). O preci dá rc 0 no snapshot e no SHA, e o cppcheck 748/0. A conferência mirada vai ao revisor da FDPASS, que refaz o próprio cenário A1 e confere que o caminho da "dúvida impressa" é afirmado por teste, e não só impresso (décima primeira consulta).
+- **15:12, conferência mirada da FDPASS-fix1** (`/var/tmp/cto-w8/rev-fdpass-fix1.txt`).
+  - **A1 FECHADO:** a captura recebe o pool, e o fio continua certo.
+  - O caminho da dúvida é afirmado por teste (descritores == 2, quadros == 0), e a recusa está FECHADA.
+  - **Cosméticos abertos**, somados à linha `CI-CONTAINER-SEM-FD-NAO-SHM`: o C2 (os outros argumentos `fd` sem teste real) e o C4 (a linha impressa da dúvida, que nenhum teste lê).
+  - Os testes do relé deram rc 0 em contêiner. Não houve achado CRÍTICO.
+  - **A WIRE-RELAY-FD-PASSTHROUGH está FECHADA** (d0291f99 e 7fb56c0d), e a linha passa a ✅.
+  - Com a sonda G2-s provada, o CTO da trilha escreve a ordem da G2, a foto oficial na Intel.
+- **15:13, S4-B commitada (33fc983b, 9 arquivos, 359+/6-): `stroke_rect` no desenhador.** As 18 âncoras deram n=1 sobre a base que andou (T3-A e ARM-TEST-fix1). O vermelho dá rc 8 nos 5 casos de contorno; o verde 3/3, com as 3 linhas ditadas; o M9 e o M10 morrem. O preci --fast dá 350 e o sanitizer rc 0, no snapshot de base 04d029ae, que é o pai do commit, ou seja, o mesmo conteúdo. **A S4 inteira** (eb23058f e 33fc983b) vai à revisão N1, com o revisor da S3.
+- **15:37, causa dos alertas medida pelo CTO, e CORREÇÃO de uma inferência do main** (`/var/tmp/cto-w8/ordem-alertas.md`, md5 d9c81f83; anexos 65cabb24, rc 0).
+  - **Correção (L-44):** os alertas do SELinux NÃO são do GlintFx, ao contrário do que o main inferiu às 11:52. Vêm da sessão do projeto al_maarif_pt, que roda `docker run -v /usr:/usr:ro -v ~/.local/lib/python3.14/site-packages:/opt/site:ro ... -w /repo/ferramentas fedora:44 python3 -m pytest`. Os horários batem segundo a segundo, e `ferramentas` é a pasta daquele projeto. O `ThreadPoolSingl` é o Chromium com o /usr do hospedeiro montado; o CTO marcou a origem, o mesmo projeto, como INFERÊNCIA. Nenhum script do GlintFx monta a home, o `~/.local` ou o /usr.
+  - **Os alertas de travamento SÃO nossos:** 230 pares, do `exec_fixture.sh --selftest`, que roda `kill -SEGV` e `kill -ABRT` a cada suíte. É o gêmeo que ficou de fora quando os fixtures de pré-condição ganharam `PR_SET_DUMPABLE 0`. O `--ulimit core=0` não resolve: com o core_pattern em pipe, o kernel ignora o limite, e o DrKonqi avisa mesmo assim. O core_pattern é global, não existe por contêiner.
+  - **Conserto, ordem N3 com dois commits:**
+    - TEST-CRASH-QUIET: um processo não-dumpable, com o mesmo sinal e o mesmo rc;
+    - HOST-ALERT-GATE: reprova AVC ou coredump atribuído a teste nosso, e o vermelho é provado só com registros de exemplo;
+    - `PYTHONNOUSERSITE=1` nos 348 testes. A suíte passa inteira assim, e nenhum teste precisa da pasta local.
+  - **Pré-execução:** preci 348/348, sanitizer 0, 5 mutantes mortos, nenhum coredump e nenhum AVC gerados.
+  - **Desvio declarado:** uma rodada do CTO seguiu com o disco a 19,15 GiB; a ordem agora confere o disco antes de cada passo pesado.
+  - **Decisão do main:** o portão fica na suíte de todo dia, que é a opção implementada (cerca de 6 s). Portão só sob demanda não morde (L-36).
+  - Despachada a um implementador.
+- **15:40, o líder escolheu avisar a sessão do al_maarif** (AskUserQuestion, resposta verbatim: *"Avisar aquela sessão (Recomendado)"*). Mensagem enviada à sessão Al_Maarif com a causa medida e a sugestão: imagem própria, sem montar /usr nem ~/.local, Python com `-I`, e nunca exceção no SELinux. Nada daquele projeto foi tocado.
+- **16:04, ordem da G2, a foto oficial na Intel, conferida** (`ordem-g2.md`, md5 02577ee3; anexos rc 0; decisões D-W8-F14 a F16, `decisoes-cto-fechamento-w8.md` md5 7337ca84).
+  - **Pré-execução:** 8 de 8 mutantes do juiz morrem, e o autoteste dá 19 controles; preci 352/352.
+  - **A imagem** é construída e apagada pelos scripts. O disco foi a 27,50 no pior momento.
+  - **D-W8-F15, disco:** não constrói abaixo de 26 GiB, mata a construção abaixo de 21 e constrói uma imagem por ordem.
+  - **Juízes com dado real:** passam na Intel e reprovam quando se espera `nvidia`.
+  - **G3:** os exemplos `shapes` (S6), `textures` (T7) e `sprite_shadows` (H5) ganharam o aceite na própria linha, para a foto composta poder fotografá-los.
+  - **D-W8-F16, desenho da G4:** a lista de montagens vem do `/run/cdi/nvidia.yaml` gerado no boot, sem usar o caminho direto do kit nem mudar o `daemon.json`. Os dispositivos são explícitos (`renderD129`, `nvidia0`, `nvidiactl`, `nvidia-modeset`), com `label=disable` só no contêiner, pela escolha do líder. A variante de isolamento `gpu_geforce` vira uma fatia N2 dentro da G4a.
+  - **Para o líder:** o `/etc/cdi/nvidia.yaml` está velho (driver 610.43.03) e só sai com sudo. Nenhum agente toca nele.
+  - **Despacho:** a G2 foi a um implementador, com o aviso ao líder dado (só a Intel).
+- **16:29, preci no hospedeiro, autorizado pelo líder para a fatia dos alertas.** O controle de permissão do Claude Code negou ao implementador o `preci --fast` no hospedeiro, classificando-o como "enfraquecimento de segurança". O implementador parou sem contornar, e o main não rodou o comando no lugar dele. Perguntado (AskUserQuestion), o líder respondeu, verbatim: *"Autorizo o portal no hospedeiro (Recomendado)"*. O implementador repete o comando exato da ordem; se for negado de novo, PARA.
+- **16:29, revisão N1 da S4: NÃO LIMPA, sem CRÍTICO** (`/var/tmp/cto-w8/rev-s4.txt`).
+  - **IMPORTANTE-1:** o texto público diz que não há furo quando a espessura alcança o meio, mas no alinhamento centrado (o padrão) e no de fora o furo persiste. A conta do revisor: 40x20 com espessura 10, centrado, ainda tem furo. A correção vai à ratificação do líder como errata.
+  - **IMPORTANTE-2:** o mutante M-C sobrevive, porque falta um caso de escala não uniforme com furo na unidade pixel.
+  - **IMPORTANTE-3:** o mutante M-H sobrevive, porque nenhum caso usa camada diferente de 0.
+  - **Mutação:** 8 de 10 mortos. A geometria (480/416/544), a tabela do furo, as repetições e os prvalues conferem.
+  - O CTO escreve a S4-fix1.
+- **17:21, três resultados e um bloqueio.**
+  - **T3-B commitada (67537d6a, 15 arquivos, 960+).** Vermelho por asserção, verde 5/5, 7 linhas ditadas, os 4 mutantes mortos. O preci deu 355 e o sanitizer 168, no HEAD combinado. Não tocou em `renderer_2d_impl.cpp`.
+  - **G2, a foto oficial na Intel, PASSA (eb45e032, 5 caminhos).**
+    - O isolamento foi provado antes de qualquer interação. Só a Intel (`renderD128`, 0x8086).
+    - Composição OpenGL na Iris Xe, captura 640x480 e 12/12 sondas.
+    - A foto está em `/var/tmp/cto-w8/g2/foto/png/conn1_surface1.png`, md5 6aef691c, conferido nas duas pontas.
+    - O preci no SHA deu rc 0, e o disco foi a 26,88 no pior momento.
+    - QA-COMPOSED-PATH passa a 🔍. A revisão N3 e o QA visual (L-13) vão a um qa-engineer independente.
+  - **S4-fix1 conferida** (`ordem-s4-fix1.md`, md5 68ae9a69; anexos 717f44ca, rc 0). São 6 arquivos, só texto e testes. A cerca nova diz:
+    > "When the part of the outline that grows inward reaches the middle of the rectangle's shorter side [...], there is no hole [...]. Centered, that is a thickness of the whole shorter side or more; inside, of half of it or more; outside, never."
+    - Os casos novos matam o M-C e o M-H. Despachada ao implementador da S4; a T3-C vem depois dela.
+    - Desvio do CTO, registrado contra a L-25: ele usou `--no-verify` num commit de cópia de simulação, que era scratch, sem efeito na árvore real.
+    - O texto novo vai à ratificação do líder como errata.
+  - **Bloqueio dos alertas:** o controle de permissão negou o preci ao implementador uma segunda vez ("Auto-Mode Bypass"), mesmo com a autorização do líder. O líder escolheu, verbatim: *"Eu libero a regra"*. O main sugeriu uma regra estreita, para o comando exato, a ser tirada depois da fatia (L-02).
+- **17:26, o líder criou a regra de permissão estreita** (`/permissions`, Allow): `Bash(TMPDIR=/var/tmp flock -w 7200 -E 99 /var/tmp/cto-w8/heavy.lock tools/preci.sh --fast:*)`. Ela vale só para o preci sob a trava pesada. Pela L-02, deve ser retirada depois da fatia dos alertas; o main lembra o líder no fechamento dela. O implementador retoma com uma única tentativa e, se for negado, PARA.
+- **17:27, revisão N3 e QA visual da G2** (`/var/tmp/cto-w8/rev-g2.txt`).
+  - **QA visual LIMPO:** é a cena do first_window, com as caixas nas posições e cores exatas, sem dado pessoal, e o md5 6aef691c igual antes e depois (L-13).
+  - **Revisão NÃO LIMPA:**
+    - **I-1:** o juiz não confere 640x480 nem a escala; aceita 1280x960.
+    - **I-2:** o mutante M09 do revisor sobrevive, porque falta o controle de OpenGL sem a linha do renderer.
+    - **I-3:** o isolamento é provado no contêiner A, mas a interação acontece no B, que tem configuração diferente, sem inspeção. É a L-09.
+    - **C-1:** o autoteste não roda com `python3 -I`.
+  - O CTO da trilha escreve a G2-fix1.
+- **17:38, ordem do líder, verbatim:** *"quano estes agentes atuais entregarem, commit, push e pause"*.
+  - Os agentes em voo terminam: o conserto dos alertas (com o preci na fila), a S4-fix1 e o CTO que escreve a G2-fix1.
+  - Nenhum trabalho novo é despachado: a T3-C e a implementação da G2-fix1 ficam paradas.
+  - Depois das entregas, o main commita, empurra o ramo e PAUSA, até nova ordem do líder.
+- **18:34, a ordem da G2-fix1 está pronta e GUARDADA, sem despacho, pela pausa do líder** (`ordem-g2-fix1.md`, md5 41efc6b8; anexos rc 0; D-W8-F17, md5 bab0d687).
+  - **Pré-execução:** 11 mutantes do juiz morrem, inclusive o M09 do revisor (I-2) e os do tamanho (I-1); 4 do condutor, inclusive o D3, isolamento provado noutro contêiner (I-3); ensaio a seco 7/7; preci 356/356.
+  - **I-3:** a foto passa a usar UM contêiner, na receita do CI, com o `check_isolation` nele antes do exec, e o ambiente é conferido (rc 33 se divergir).
+  - **Ponto a rever na retomada, antes do despacho:** a F17 tira o `--pids-limit 512` do contêiner da foto, porque o portão compara o HostConfig com a linha de base do CI. Isso tira uma proteção contra esgotamento de processos (a memória "dublê recursivo trava a máquina", 29/09, e o teto de 4000 processos da L-11). Vai à consulta do advisor ou ao líder antes de rodar.
+  - O disco (`min` 25,41) também está abaixo do piso de entrada da ordem, 26 GiB.
+- **18:48, S4-fix1 commitada (23a45206, 6 arquivos, 77+/13-, só texto e testes).** MF1 (o M-C), MF2 e MF3 (o M-H) morrem por asserção. O verde dá 3/3, e a cerca é idêntica no cabeçalho e no parecer. O preci deu 356/356 no snapshot, e o sanitizer rc 0. No SHA, a 1ª rodada deu rc 8, com UMA falha fora da fatia (`run_capture_known_color_win32_selftest`), e a 2ª deu rc 0, 356/356, na mesma árvore. É flake sem causa nomeada; virou a linha `RUN-CAPTURE-WIN32-SELFTEST-FLAKE` (WM15). A conferência mirada da S4-fix1 e a ratificação do texto novo pelo líder ficam para depois da pausa.
+- **18:49, entregas em voo concluídas, e PAUSA pela ordem do líder.**
+  - **TEST-CRASH-QUIET, etapa A, commitada (cb22974f, 4 arquivos).** O autoteste do `exec_fixture` morre sem core dump. O preci deu 351/351 depois de um tropeço do implementador com o índice do snapshot, que ele mesmo achou e consertou. Depois do commit, ainda houve 20 coredumps no hospedeiro, todos de rodadas antigas de outros agentes, e 0 em contêiner.
+  - **HOST-ALERT-GATE, etapa B, PARADA antes do commit:** o vermelho e o verde bateram, mas o mutante MB1 matou só a célula 7, e a tabela previa 7 e 8. O implementador parou pela regra. O snapshot e os logs estão em `/var/tmp/cto-w8/alertas/`.
+  - **S4-fix1 commitada (23a45206).**
+  - **Ordem da G2-fix1 guardada.**
+  - **O que fica para a retomada:** a decisão sobre o MB1 (CTO), o `--pids-limit` da G2-fix1, as conferências miradas da S4-fix1 e da G2-fix1, a T3-C, a ratificação do texto novo da S4 e a regra de permissão do preci, que o líder apaga quando a fatia dos alertas fechar.
+  - Ramo empurrado.
+- **23:37, o líder renovou o modo autônomo e retomou a W8.** Ordem verbatim: *"ligue modo autonomo"*. O modo vale até 14/10 às 23:37, com os escopos de push e de limpeza. Perguntado se isso queria dizer retomar (AskUserQuestion), respondeu, verbatim: *"Retomar a W8 agora (Recomendado)"*. A pausa de 17:38 foi tirada. O monitor de agentes e o vigia de travamentos estão ligados.
+- **23:39, décima segunda consulta ao advisor (o limite de processos da G2-fix1, D-W8-F17).**
+  - **Pergunta:** tirar o `--pids-limit 512` do contêiner da foto, para casar com a linha de base do portão, é aceitável?
+  - **Resposta:** não, do jeito que está escrito. O portão prova que nada do hospedeiro vaza para o contêiner; um teto de processos mais apertado é ortogonal a essa prova. A casa já tem o mecanismo: uma VARIANTE de linha de base, como a G1b fez com `gpu_integrated`. Os dois motivos do CTO não sustentam a retirada: o contêiner do CI é efêmero e roda em outra máquina, e o incidente de 29/09 foi nesta; e o HostConfig inteiro é a entrada do portão, não o seu propósito.
+  - **Ação:**
+    - **G2-fix1:** o CTO emenda a ordem para um contêiner COM `--pids-limit 512` e uma variante nova, por exemplo `gpu_integrated_photo`, capturada por `docker create` sem `start`, conferindo que a linha de base diga Docker 29.8.2. Pré-executa só o que muda.
+    - **Alertas, etapa B:** a pergunta ao CTO é por que a célula 8 passou com o MB1, e não como mudar a tabela.
+    - **S4-fix1:** conferência mirada.
+    - **T3-C:** despachada.
+    - **Disco:** limpeza das pastas de fatias fechadas antes da G2-fix1.
+- **23:39, duas ordens do líder, verbatim:** *"autorizo merge/tag/push"* e *"duvidas com clevel na ordem estabelecida"*. Merge, tag e push ficam autorizados com os portões da L-24 fechados, ou seja, o critério de fechamento da W8 e o CI verde. As dúvidas seguem o caminho da L-34: o C-level pesquisa em bibliotecas e na comunidade, escolhe o mais completo, e o advisor entra quando a dúvida continua.
+- **23:42, a causa do MB1 da etapa B dos alertas, medida pelo CTO: a célula 8 era um controle fraco, e a tabela da ordem estava errada.**
+  - A célula 8 passava a lista inteira de AVCs, os nossos e os alheios, e só conferia o retorno 1. Com o MB1, o AVC alheio passa a contar como nosso e o retorno continua 1. A própria pré-execução do CTO já matava o MB1 só na célula 7.
+  - **Conserto:** a célula 8 passa a usar só o AVC nosso, e a célula nova 13 confere a atribuição exata pelas linhas impressas. Agora o MB1 morre em 3 células, o MB2 em 2 e o MB3 em 1.
+  - Ordem emendada (`ordem-alertas.md`, md5 ca04a4c4; anexos d6b0c8f8, rc 0). A tabela agora manda PARAR se um mutante matar menos células que o previsto, e nunca ajustar a tabela.
+  - O implementador retoma a etapa B num snapshot novo, reaproveitando o corpo que já escreveu.
+- **23:43, S4 FECHADA e o texto ratificado pelo líder.**
+  - **Conferência mirada da S4-fix1** (`/var/tmp/cto-w8/rev-s4-fix1.txt`): os três IMPORTANTES estão FECHADOS, com uma célula de cada lado de cada limiar; o caso do M-C e o do M-H foram nomeados por linha; o verde no SHA dá 4/4. **A S4 está fechada** (eb23058f, 33fc983b e 23a45206).
+  - **Respostas do líder** (AskUserQuestion, verbatim): o texto novo da cerca, *"Ratifico (Recomendado)"*; a frase falsa que a nota histórica do parecer ainda repete, *"Apagar a frase falsa (Recomendado)"*, pela L-67.
+  - A remoção vai a um agente de documentação. Fica de fora o COSMÉTICO "one of" solto no cabeçalho da paridade, que já existia antes.
+- **23:44, a frase falsa saiu da nota da S4-fix1 (6040ac61, 1 linha, só `docs/auditoria-api-shapes.md`).** O main conferiu: o grep da frase dá 0 e a cerca atual não foi tocada. O agente de documentação assinou o trailer com o próprio modelo, Haiku 5.5, pela regra de atribuição do sistema, e não com o texto do briefing; está certo.
+- **23:44, o líder repetiu a ordem, verbatim:** *"se tiver duvidas tecnicas, tire com clevel que vai buscar nas outras libs, comunidade, web. Se não conseguir, pedir ajuda ao advisor"*. É o mesmo texto do refinamento de 11/10 da L-34, já escrito no GODS_LAWS. Nada muda na lei (L-68); a ordem segue valendo.
+- **23:45, ordem nova do líder, verbatim:** *"nunca busque pela resposta mais fácil, busque sempre a mais completa que satisfaça pelo menos 10 queixas da comunidade"*. Refundida no refinamento de 11/10 da L-34 do projeto (L-68), no GODS_LAWS: a opção do C-level precisa atender a pelo menos 10 queixas reais da comunidade, cada uma com a fonte citada. Sem as 10 queixas citadas, a decisão volta à pesquisa. Se a comunidade não tiver 10 queixas sobre o assunto, o C-level mostra a busca que fez, e a dúvida vai ao advisor. Interpretação do main, para o líder confirmar: o piso vale para escolher entre caminhos de desenho, e não para o conserto mecânico de um achado de revisão já especificado. Vale para as ordens novas a partir de agora.
+- **23:46, o líder confirmou o alcance do piso de 10 queixas** (AskUserQuestion, verbatim): *"Só escolha de desenho (Recomendado)"*. O piso vale para escolher entre caminhos de API, de comportamento ou de algoritmo. O conserto de um achado de revisão já especificado segue sem pesquisa nova. É o texto que já está no GODS_LAWS.
+- **23:54, conserto dos alertas commitado: TEST-CRASH-QUIET (cb22974f) e HOST-ALERT-GATE (ddec1bbe, 5 arquivos, 345+).**
+  - Na etapa B, o vermelho reprovou 7 células e o verde deu 13/0. MB1, MB2 e MB3 batem com a emenda (3, 2 e 1 células).
+  - O preci deu 358/358, com o `host_alert_gate_test` passando em 6,25 s, sem Skipped.
+  - No portão ao vivo, as montagens são só do repositório, com 0 AVCs nossos e 0 coredumps nossos.
+  - Os 32 coredumps de `sh -c kill` que ainda aparecem no hospedeiro são de rodadas de código antigo de outros agentes. Nenhum é nosso pela atribuição do portão, e nenhum vem do `die_quietly`. O AVC restante é o `ThreadPoolSingl`, de outro projeto.
+  - A revisão N3 (leitura e um vermelho) vai a um revisor distinto.
+  - A regra de permissão do preci já pode ser apagada pelo líder.
+- **00:06, G2-fix1 emendada pela D-W8-F18 e despachada** (`ordem-g2-fix1.md`, md5 906d3111; anexos rc 0; decisões d6f2bc5c).
+  - **A emenda:** um contêiner só, COM `--pids-limit 512`, e a variante nova de linha de base `gpu_integrated_photo`, capturada por `docker create` com o Docker 29.8.2. A receita difere da `gpu_integrated` só no `PidsLimit`.
+  - **Pré-execução:** todos os mutantes morrem (juiz 11/11, condutor 6/6, portão 2/2); o ensaio a seco dá 7/7; o autoteste do portão foi de 23 para 30 controles; preci 356/356.
+  - **Acréscimo do CTO:** a linha de acerto do portão mostra a versão do Docker que a linha de base declara.
+  - **Disco:** liberado pela regra da L-11, apagando as cópias de build da S4, da S4-fix1 e da fatia dos alertas, com os relatórios mantidos e os arquivos de root apagados por contêiner sem rede. O `min` foi de 23,49 para 26,10 GiB.
+- **00:07, revisão N3 do conserto dos alertas: NÃO LIMPA, com um CRÍTICO** (`/var/tmp/cto-w8/rev-alertas.txt`).
+  - **CRÍTICO-1:** quando o journalctl falha, a leitura vira lista vazia (`or []`) e o portão passa com 0 lidos, o que contraria a L-40. O revisor provou com um probe.
+  - **IMPORTANTE-3:** o mutante MR1 (o escopo comparado só pelo prefixo) sobrevive.
+  - **IMPORTANTE-2:** a fonte ausente devolve SKIP, e não reprovação. É escolha de desenho, decidida pelo CTO com a pesquisa das 10 queixas.
+  - **IMPORTANTE-4:** o AVC do autoteste cai em "alheios" sem limite.
+  - **Verificado:** o die_quietly não-dumpable e o PYTHONNOUSERSITE em todos os testes.
+  - O CTO escreve a alertas-fix1.
+- **00:10, a G2-fix1 parou no P0 por disco** (`min` 25,94, abaixo do piso de entrada de 26). O vermelho e o verde passaram, e nenhum contêiner de foto foi criado.
+  - **Limpeza pela L-11:** apagada `/var/tmp/cto-review-cisplit`, cópias do GlintFx de 29/09, de onda fechada e sem uso. Ela devolveu só 0,15 GiB, porque os dados eram divididos (reflink do btrfs). As outras pastas grandes de `/var/tmp` são de outros projetos ou do laboratório Windows, e não foram tocadas.
+  - **Retomada:** o implementador mede o `min` com a trava pesada na mão, quando a T3-C não constrói, e só constrói com 26 ou mais, como a ordem manda.
+  - **Atenção registrada:** no comando de limpeza, um caminho alternativo montava `/var/tmp` inteiro num contêiner com reetiquetagem `:z`. Ele NÃO rodou, porque a condição falhou. Esse padrão é proibido (memória "container rouba etiqueta de segurança"), e o main não o usa de novo.
+- **00:49, G2-fix1 commitada (1662501f, 6 caminhos, 205+/63-).**
+  - **Isolamento:** provado NO contêiner da foto, na variante `gpu_integrated_photo` (Docker 29.8.2), com `--pids-limit 512` e só o `renderD128`.
+  - **Juiz:** passa, com a Intel 0x8086, OpenGL na Iris Xe, 640x480 e 12/12 sondas.
+  - **Foto nova:** `/var/tmp/cto-w8/g2-fix1/foto/png/conn1_surface1.png`, md5 5352fd20, conferido pelo main.
+  - **preci:** 358/358 no snapshot e no SHA.
+  - **Disco:** foi a 23,62 no pior momento. Sobraram 0 imagens e 0 contêineres.
+  - A conferência mirada e o QA visual da foto nova vão ao revisor da G2.
+- **00:54, conferência mirada da G2-fix1 LIMPA** (`rev-g2-fix1.txt`, revisor a80e82e1). I-1, I-2, I-3 e C-1 fechados; o main reconferiu `composed_photo_facts.py:62-65` e `:101-106` e `composed_photo.sh:61-73` na árvore, e o md5 da foto (5352fd20) bate. QA visual: cena do first_window, 640x480, sem nada alheio, 12/12 sondas. **QA-COMPOSED-PATH passa a ✅.** Dois resíduos cosméticos (o cabeçalho do baseline cala que Ulimits também difere; a linha de contagem ainda imprime Docker 29.7.2) vão na ordem da G3, que toca os mesmos arquivos.
+- **01:13, mini-ordem alertas-fix1 recebida do CTO e despachada** (`ordem-alertas-fix1.md`, md5 14883096; anexos eb64666e, `md5sum -c` verde conferido pelo main; implementador a4e46777, o mesmo da fatia). Os quatro achados da N3 consertados por texto ditado: CRÍTICO-1 (diário que falha na medição reprova em vez de virar lista vazia), IMPORTANTE-3 (casamento pelo componente inteiro do cgroup), IMPORTANTE-4 (AVC sem categoria MCS conta como `nao_atribuiveis` e é impresso, limite declarado), selftest de 13 para 28 células. **Decisão do CTO sobre o IMPORTANTE-2, para confirmação retroativa do líder:** pula (77) só onde nenhum alerta é possível; onde o alerta é possível e falta a fonte que o mede, reprova (1), por fonte (AVC só com SELinux em enforcing; coredump só com `core_pattern` no systemd-coredump; "legível" medido por conteúdo). 13 queixas citadas na ordem (pytest, GitHub skipped=success, CMake, Go, Mocha, unittest). **Ressalva do próprio CTO:** as queixas vieram do resumo da busca, sem reler as páginas inteiras. Pré-execução: vermelho 13 falhas por asserção; MR1 morre na célula 14; verde 28/0; MX1-MX4 mortos; preci --fast 0 na 3ª rodada (a 2ª caiu num selftest do win32 alheio, sob carga).
+- **01:26, alertas-fix1 commitada (613fdaa5, 3 caminhos, 233+/69-).** O main reconferiu os dois .py do commit contra os ditados (md5 ce5ff405 e c736a7cc, iguais). Relatório do implementador: vermelho 13 falhas por asserção; MR1 morde na 14; verde 28/0; MX1-MX4 mortos; preci --fast 358/358 com `host_alert_gate_test` executado, não pulado; sanitizer 0; portão ao vivo 0. Conferência mirada despachada ao revisor da N3 (a03238e1), veredito em `rev-alertas-fix1.txt`.
+- **01:33, T3-C commitada (048e9c81, 16 caminhos, 1390+/73-). A T3 está implementada inteira** (A 4a79c9a5, B 67537d6a, C 048e9c81). Relatório: vermelho antes do código (texture_update_test 9 de 12 falhando); verde 6/6; MC1 e MC2 mortos; preci --fast 357/357 e sanitizer 0, no snapshot de base 221839701. O implementador declarou monólito em formação em `texture_update.cpp` (267 linhas) e `renderer_2d_impl.cpp` (437 linhas), sem corte; isso vai como inferência a conferir pelo revisor (L-17). Revisão N1 da T3 inteira despachada a um revisor novo (qa-engineer haiku), veredito em `rev-t3.txt`. O implementador ficou parado duas vezes depois de rodadas que já tinham terminado, e retomou com "siga" do monitor.
+- **01:57, conferência mirada da alertas-fix1 NÃO LIMPA** (`rev-alertas-fix1.txt`, revisor a03238e1). Os achados antigos fecharam no código: CRÍTICO-1, IMPORTANTE-3 e IMPORTANTE-4. Mas 5 de 10 mutantes sobrevivem: MX5 (journal volta a lista vazia e nenhuma célula guarda o rc 1); MX6 e MX7 (host_facts sem célula); MX3 (categoria MCS por prefixo, da família do IMPORTANTE-3); e MX1. Pendências de desenho para o CTO: (a) o permissive pula, mas o diário tem registros permissive=1 (9 em 30 dias); (b) sem o CLI do docker sai traceback; (c) diário vazio na janela passa. **Mini-ordem alertas-fix2 pedida ao mesmo CTO (a997f43f), desta vez com a ordem de LER as páginas das queixas, não só o resumo da busca.**
+- **02:02, revisão N1 da T3 NÃO LIMPA** (`rev-t3.txt`, revisor abd30072). Sobre 048e9c81: 10 mutantes, 8 mortos, 2 sobreviventes. MU3: linhas e colunas trocadas no recálculo, `texture_update.cpp:140-141`. MU8: o bloco convertido não é liberado no sucesso, `:263`. IMPORTANTE-1: o contrato promete "cerca de 4/3" de memória, mas 1024x1 dá 1,999. IMPORTANTE-2: a recusa da placa deixa o bloco guardado já alterado; o main reconferiu em `texture_update.cpp:255-264` que `keep_level_zero` grava antes de `write_to_card`. IMPORTANTE-3: `texture_update.cpp` mistura o recálculo de CPU com a escrita GL (L-17). **Mini-ordem T3-fix1 pedida a um CTO novo (a8811010)**, com a pesquisa das 10 queixas para os IMPORTANTE-1 e IMPORTANTE-2.
+- **02:16, rodada 20 do plano de fechamento recebida** (CTO a92de40e; `plano-fechamento-w8-r20.md`, md5 bb68fe71; ordens `ordem-h4.md` 017fb3ed e `ordem-s5a.md` b64839ba; anexos com `md5sum -c` verde conferido pelo main). Decisões D-W8-375 a D-W8-382, cujo texto completo está na §1 do plano:
+  - **D-W8-375:** abrem agora a H4 e a S5-A. A H3a NÃO abre: depende da T4b por técnica (`plano-w8-v2.md:322`) e colide com a T3 e a T4a. A T4a fica para a r21, depois do veredito da T3-fix1 (`tests/renderer_2d_impl_test.cpp:358` fixa o passo de 8 floats).
+  - **D-W8-376:** a H4 vem antes da H3a e da H3b. É ordem de sequência, não de técnica: a luz sobre a peça é função pura do núcleo.
+  - **D-W8-377:** o arco na tela é cortado pela área visível. 13 queixas citadas; a 12ª só pelo buscador, porque a página tem proteção anti-robô.
+  - **D-W8-378:** "qualquer raio" vira "até 2^40 pixels de raio na tela" (L-44). O main ajustou a linha ARC-VIEWPORT-TESSELLATION do TODO neste mesmo commit.
+  - **D-W8-379:** a S5 se divide em A (`arc_parameters`, agora), B (os átomos da elipse e a extração da regra de 3, com pesquisa própria das 10 queixas para o contorno grosso, a normal na unidade pixel, o raio zero e a ponta redonda) e C (`fill_ellipse`/`stroke_ellipse`, depois da T3 fechada).
+  - **D-W8-380, ERRATA DE TEXTO PÚBLICO da cerca da H4 (porta de mão única antes da 1.0; ENTRA NA LISTA DE RATIFICAÇÃO DO LÍDER na saída do modo autônomo):**
+    - `ambient` e `color` são recusados com canal não finito ou negativo;
+    - a conta passa a ser `cor * (intensidade * f(d))`, para não dar inf*0=NaN;
+    - nada é escrito numa recusa;
+    - o campo nomeado quando há mais de um fora da faixa não é contrato.
+  - **D-W8-381:** a STROKE-FAN-ATOM não dispara na S5. O leque da elipse parte do centro e é outro leque.
+  - **D-W8-382:** o cabeçalho das ordens é o da D-W8-374, mais o relatório em .txt e a pré-execução anexada.
+  - **Desvio declarado pelo CTO:** ao parar a 1ª rodada da S5-A, ele matou o flock, e um alvo de teste rodou alguns segundos sem a trava pesada (carga 5,8, sem sobreposição medida).
+  - **Numeração:** para não colidir, o main fixou a faixa D-W8-383 a 389 para o CTO da T3-fix1 e a 390 a 396 para o CTO da alertas-fix2.
+- **02:16, advisor consultado sobre a dúvida 1 da §7 (o alfa da tinta da H4):**
+  - **Pergunta:** o texto literal soma o alfa como os outros canais. Com `ambient{0.2,0.2,0.2}` (alfa 0), o vértice sem luz sai transparente. As opções eram (i) manter o literal, (ii) tinta com alfa 1 ou (iii) alfa só do ambiente.
+  - **Resposta:** a tinta multiplica a textura como cor de vértice. Logo, tem de ser identidade no alfa; (i) está errado por construção e (iii) não tem base em biblioteca nenhuma. Fica (ii), com a entrada recusada quando alfa ≠ 1 ou declarada por contrato ("a luz não tem alfa").
+  - **O que foi feito:** a H4 NÃO foi despachada. O CTO da r20 refaz a ordem com a errata, depois de ler o shader `canvas_item` do Godot 4 (`LIGHT_COLOR.a`) e o `RayHandler.setAmbientLight` do box2dlights. Fato medido pelo main: `gltfx_rgba` (`core/color.hpp:106-111`) é agregado sem valor padrão, então o exemplo de 3 argumentos tem alfa 0, e isso pesa entre recusar e ignorar. A dúvida 2 (teto de 1024 segmentos e raio de 2^40) não bloqueia e vai para a ordem da S5-C.
+- **02:16, S5-A despachada** a um implementador haiku (backend-engineer).
+- **02:45, mini-ordem alertas-fix2 recebida do CTO a997f43f** (`ordem-alertas-fix2.md`, md5 8acd8e36; anexos 96ecf39d, `md5sum -c` verde conferido pelo main). Usou as decisões D-W8-390 a 393. Os 9 mutantes cobrem os 5 sobreviventes da conferência e morrem todos; o selftest foi de 28 para 42 células, com executor, /sys e /proc de mentira. Pré-execução: vermelho 42/21, verde 42/0, preci 359/359, sanitizer 0.
+  - **D-W8-390 SUBSTITUI o ponto da fix1 "o AVC vale se o SELinux estiver em enforcing":** o portão mede o AVC com o SELinux ligado, em enforcing OU permissive, porque em permissive o kernel registra `permissive=1` e o setroubleshoot avisa.
+  - **D-W8-391:** programa ausente (docker, systemd-run, journalctl) passa a contar como fonte ausente, sem traceback.
+  - **D-W8-392:** a legibilidade do diário vale antes, durante e depois da janela, com uma sentinela por `logger`. 10 queixas citadas.
+  - **Advisor consultado sobre (a) e (b)**, porque o CTO não achou 10 queixas próprias:
+    - **Pergunta:** o permissive deve medir? Programa ausente é decisão nova?
+    - **Resposta:** (a) aprovado, porque o kernel registra a mesma negação e um portão que só olha enforcing cega a máquina de desenvolvimento; (b) aprovado como aplicação mecânica da regra da fix1, sem piso novo de 10.
+    - **Cheques do main no ditado:** os três estados do SELinux têm célula (35 enforcing, 36 permissive, 37 desligado); nenhum filtro descarta `permissive=1`; a sentinela exige presença (`wait_for_sentinel`, logger), não contagem.
+  - **Ponto em aberto, levantado pelo advisor:** com SELinux ligado e sem docker, `plan()` (`check_host_alerts.py:166-167` do ditado) reprova, e o advisor sustenta que deveria pular (77), porque sem o contêiner da casa nenhum AVC é atribuível a nós. Devolvido ao CTO para decidir com evidência da árvore ANTES do despacho.
+- **03:13, a S5-A parou no preci, sem commit:** o cppcheck acusou `uninitMemberVarNoCtor` em `arc_parameters.cpp:42-43` (`cut_plan::quarters` e `::level` sem valor inicial). O resto passou: vermelho 12/12 falhando antes do código; verde 12/12, 13/13 e 400/400, batendo com o modelo; mutantes A1-A10 mortos; sanitizer 0. **O main autorizou o conserto mecânico** (`{0}` nos dois campos), por ser lint e não escolha de desenho, da mesma família que o CTO corrigiu nos testes na pré-execução. O implementador refaz verde, mutantes, preci, sanitizer e commit.
+- **03:18, mini-ordem T3-fix1 recebida do CTO a8811010** (`ordem-t3-fix1.md`, md5 043c8568; anexos dfa749a6, `md5sum -c` verde conferido pelo main). Decisões D-W8-383 a 388; a 389 ficou livre.
+  - **D-W8-383 (IMPORTANTE-2), TEXTO PÚBLICO, porta de mão única antes da 1.0, ENTRA NA LISTA DE RATIFICAÇÃO DO LÍDER junto com a D-W8-380.** O update troca o retângulo com o bloco guardado em todos os níveis tocados. Quando a placa recusa, a mesma troca desfaz e o bloco volta exatamente ao que era. Todos os erros GL da escrita são lidos dentro da chamada. O contrato diz o estado depois de cada recusa: na placa, o retângulo e os texels reduzidos tocados ficam indeterminados até um update que dê certo; com out_of_memory, a textura tem de ser refeita. Foram recusadas a atomicidade forte (a especificação do GL 3.3 não garante) e o reenvio automático.
+  - **D-W8-384 (IMPORTANTE-1):** o contrato traz a fórmula exata da memória e o intervalo: pelo menos w×h×4 bytes e sempre menos que o dobro, conferido em 723.921 combinações.
+  - **D-W8-385 a 388:** átomo `texture_update_kept` extraído; casos com retângulo não quadrado conferidos contra força bruta; alocador contador; o nível 0 passa a ser escrito a partir do bloco.
+  - **Queixas, em contagem honesta:** D-W8-383 tem 7 inteiras e 2 em parte; D-W8-384 tem 9 e 1. Documentação oficial (docs do Unity, cabeçalho do Skia, especificação do ANGLE) foi listada à parte e NÃO conta como queixa. As duas ficaram abaixo do piso de 10, porque a comunidade não tem 10 queixas sobre o assunto. **O advisor desempatou a favor no mérito:** prometer atomicidade forte é impossível sobre GL 3.3, e reenvio automático esconde a falha da placa. O advisor também observou que a alertas-fix1 contou páginas oficiais como queixa, o que foi um erro de contagem e não cria precedente.
+  - **Cheques do advisor feitos pelo main no ditado:** (1) o desfazer cobre todos os níveis, porque `swap_update` troca os retângulos de `reduce_touched_levels` em todos os níveis, e a célula `a_writing_the_card_refuses_gives_the_kept_texels_back` compara o bloco inteiro de uma textura 8x8 com 3 níveis reduzidos; (2) o texto do contrato cobre "o retângulo e os texels reduzidos que ele toca".
+  - **Pré-execução:** vermelho 3+3; verde 7/7; MF1 a MF7 mortos (MF1 é o MU3 e MF2 é o MU8 da revisão); preci 360; sanitizer 0. A T4a não precisa esperar.
+  - **Despachada ao implementador da T3 (a3c8625f).**
+- **03:41, S5-A commitada (b2f44668, 5 caminhos, 727+).** Rodada 2, com o conserto mecânico autorizado (`quarters{0}`/`level{0}`, conferidos pelo main no blob). Verde 12/12, 13/13 e 400/400. A1-A10 mortos. preci 0 nos 12 estágios. Sanitizer 170/170. Revisão N1 despachada a um revisor novo (qa-engineer haiku); veredito em `rev-s5a.txt`.
+- **03:41, H4 reemitida pelo CTO a92de40e com a D-W8-397 e despachada** (`ordem-h4.md` md5 e9402f97; anexos 29d003de, `md5sum -c` verde; plano r20 agora com md5 e64b6d84).
+  - **D-W8-397, TEXTO PÚBLICO, ENTRA NA LISTA DE RATIFICAÇÃO DO LÍDER junto com a D-W8-380 e a D-W8-383:** a luz não tem opacidade e a tinta sai com alfa 1. O alfa do ambiente e da cor da luz não é lido nem conferido, e o cabeçalho diz isso por escrito. Recusar alfa ≠ 1 foi descartado, porque tornaria inválido o ambiente de três valores.
+  - **Fontes lidas no código:** no Godot 4 (`canvas.glsl`), `light_blend_compute` só mexe em `color.rgb`; no box2dlights (`RayHandler.setAmbientLight`), o alfa é o brilho da sombra. Isso fecha o ciclo da pergunta ao advisor.
+  - **Pré-execução refeita:** vermelho 16/15; verde 2/2; 10/10 mutantes mortos; preci 360/360; sanitizer 170; MSVC 3/0. O preci achou que `gltfx_rgba{a,b,c}` reprova no `-Wextra -Werror`; isso virou armadilha na ordem.
+- **03:41, faxina de disco (L-11):** saíram as cópias e builds da rodada 20 que o CTO liberou (`r20/{h4,s5a}/run`, `run397`, os `base*`, `combo397` e `cppchk`, mais `snap*`, `mut-*` e `xrepo` de `run397b`). Ficaram os logs do Anexo P e os `out-*` de root. O `min` foi de 22,7 para 26,35 GiB.
+- **03:50, alertas-fix2 reemitida pelo CTO a997f43f com a D-W8-394 e despachada ao implementador a4e46777** (`ordem-alertas-fix2.md` md5 349edf63; anexos 104d6dc8, `md5sum -c` verde).
+  - **D-W8-394:** o portão ganhou o fato novo `docker_cli`. Sem o CLI, o AVC não se aplica e o portão pula (77). Havendo coredump a medir, o portão mede e imprime o LIMITE DECLARADO na saída. Com o CLI mas sem a imagem da casa, o portão continua reprovando.
+  - **Evidência do CTO na árvore:** um AVC só conta como nosso se casar o MCS do contêiner da casa (`check_host_alerts.py:132` do ditado). Esse MCS só sai de `docker inspect` (`:284`). O selftest do hospedeiro roda unconfined e cai em `nao_atribuivel` (`:139`).
+  - **Advisor e CTO concordam** com o 77 nesse caso.
+  - **Pré-execução:** 44/23 e 44/0; MY1 a MY10 mortos; preci 359/359.
+- **04:13, a H4 parou no preci, sem commit:** o clang-tidy acusou `performance-no-automatic-move` em `light_tint.cpp:58`, porque o `checked` era const. O implementador escreveu de um jeito diferente da referência do CTO, que usa `if (auto input_ok = ...; input_ok.has_error())` (`r20/h4/ref/light_tint.cpp:56-59`, já verde no preci dele). Até ali tudo tinha passado: vermelho 16/15 com 21 de 29 células falhando, verde 2/2, M1 a M10 mortos e as 15 linhas ditadas conferidas. **O main autorizou o conserto mecânico pela forma da referência.** Segundo caso na noite de implementador haiku que diverge da referência em linha não ditada e cai no lint; a S5-A foi o primeiro. Sugestão para as próximas ordens: ditar também as linhas que o lint costuma pegar.
+- **04:19, T3-fix1 commitada (e79b1d36, 11 caminhos, 748+/150-).** O main reconferiu os 6 arquivos inteiros ditados contra o anexo: md5 iguais. Relatório do implementador: vermelho 3 falhas de 17 e 3 de 4; verde 7/7; MF1-MF7 mortos; preci 360/360; sanitizer 170/170. Conferência mirada despachada ao revisor da N1 (abd30072), com veredito em `rev-t3-fix1.txt`. O implementador seguiu usando espera fixa de até 570 s mesmo depois do aviso; não afeta o resultado, só o tempo.
+- **04:25, alertas-fix2 commitada (9f603372, 3 caminhos, 211+/41-).** O main reconferiu os dois .py do commit contra os ditados (md5 iguais). Relatório do implementador:
+  - vermelho com 44 células e 23 falhas, verde 44/0;
+  - MY1 a MY10 mortos nas células da tabela;
+  - preci 360/360, com `host_alert_gate_test` executado;
+  - sanitizer 0;
+  - portão ao vivo com 0 coredump e 0 AVC.
+  Conferência mirada despachada ao revisor das duas rodadas (a03238e1). Se sair não limpa pela terceira vez, a próxima rodada é um redesenho do selftest (o oráculo), não uma fix3, conforme o advisor.
+- **04:26, revisão N1 da S5-A NÃO LIMPA** (`rev-s5a.txt`, revisor a77283fd): 6 IMPORTANTE, 0 CRÍTICO e 6 COSMÉTICO.
+  - **Mutantes:** M1, M2, M5 e M10 sobrevivem por lacuna de teste. M3 foi declarado equivalente em pixels. M4 só morre no ASan.
+  - **Teste:**
+    - I-1: a finitude fica sem caso em 7 das 12 coordenadas.
+    - I-2: o fallback do nível 7 não tem caso.
+    - I-3: o buffer de 2048 esconde a escrita além do room.
+    - I-6: a suíte mede a sagita pela própria fórmula. É teste copiado da implementação.
+  - **Contrato:**
+    - I-4: a garantia de 2^40 não traz a condição do teto de 1025 segmentos. Com r=1e6 e e=1e-9, o erro chega a 1122 vezes a tolerância.
+    - I-5: um raio finito de 1e78 é recusado com 0, coisa que o contrato não diz.
+  - **Sondas do revisor:** erro/e = 0,31 em 2^40 e 0,62 em 2^41 e 2^45; o limite de 2^40 é conservador.
+  - **Pedidos ao CTO a92de40e:** a mini-ordem S5-A-fix1 (D-W8-398 a 404) e, em seguida, a rodada 21 (T4a e S5-B; D-W8-405 a 420).
+  - **Lição repassada ao CTO:** ditar também as linhas que o lint costuma pegar.
+- **04:36, H4 commitada (30f3867d, 9 caminhos, 663+/15-).** Rodada 2, com o desvio de lint autorizado: a forma `if (auto input_ok = ...)` da referência, conferida pelo main no blob, em `light_tint.cpp:55`. Vermelho 16/15 com 21 de 29 células. Verde 2/2. M1-M10 mortos. 15/15 linhas ditadas. preci 361/361. Sanitizer 0. O cabeçalho público declara a tinta com alfa 1 (`light_tint.hpp:43`, D-W8-397). Revisão N1 despachada a um revisor novo (qa-engineer haiku), com veredito em `rev-h4.txt`; o implementador não respondeu as cinco perguntas da L-17, e o revisor responde.
+- **04:54, S5-A-fix1 recebida do CTO a92de40e e despachada ao implementador da S5-A** (`ordem-s5a-fix1.md` md5 41ae9b3b; anexos 8a91dc68, `md5sum -c` verde). As decisões são da faixa D-W8-398 a 404.
+  - **D-W8-398 (I-4):** só muda o texto. A garantia passa a ter duas condições: o nível cabe no teto de 1025 e r ≤ 2^40. O teto fica, porque é a D-W8-377, e não há escolha nova. **A D-W8-378 e a linha ARC-VIEWPORT-TESSELLATION do TODO foram corrigidas pelo main com a mesma condição.**
+  - **D-W8-399 (I-5):** `screen_radius` refaz o estiramento com as entradas escaladas só quando o cálculo direto estoura. Assim o código cumpre o contrato já escrito ("0 só para r não finito"). O caso comum guarda os mesmos bits, e o gêmeo na ponta redonda também fica consertado.
+  - **D-W8-400 (testes):**
+    - 31 recusas;
+    - recuo ao nível 7;
+    - a casa depois do room conferida;
+    - erro pela distância geométrica em long double, o que tira o teste copiado da implementação.
+  - **D-W8-401 e 402:** M3 equivalente; os cosméticos ficam declarados.
+  - **Pré-execução:** vermelho só nos casos do I-5; verde 2/2; 8/8 mutantes mortos; preci 361; sanitizer 171; MSVC 3/0.
+  - **Pendente:** a rodada 21 (T4a e S5-B) fica com o mesmo CTO, quando abrir lugar de agente. Entram nela a D-W8-403 (ditar as linhas que o lint pega) e a D-W8-404.
+- **04:54, revisão N1 da H4 NÃO LIMPA** (`rev-h4.txt`, revisor a48aa90d). Nenhum CRÍTICO: o código cumpre as promessas. Mas 8 de 10 mutantes sobrevivem ao teste original:
+  - piso linear;
+  - out_tints maior que o necessário;
+  - vértice não finito em índice maior que 0;
+  - escrita parcial com 2 ou mais vértices;
+  - hypot trocado por sqrt;
+  - sinal do vermelho e do azul;
+  - finitude do verde.
+  Cada um morre só numa sonda do revisor, e a sonda passa no original. Há ainda um IMPORTANTE de forma: a função da tabela tem 78 linhas, contra o limite de 40 do CONTRACT §6.2. O processo L-63 foi apontado: o Status no TODO não entrou no commit; a linha R2D-SPRITE-SHADE segue 🔄, porque cobre H0 a H5, e o main a toca. **H4-fix1 pedida ao CTO a92de40e (D-W8-421 a 426), antes da rodada 21.**
+- **05:00, conferência da alertas-fix2 NÃO LIMPA (terceira da linha HOST-ALERT-GATE)** (`rev-alertas-fix2.txt`, revisor a03238e1). Os 5 sobreviventes da fix1 morrem, e as D-W8-390/391/392/394 conferem. **Diagnóstico do revisor: o problema está no ORÁCULO.** Os 3 sobreviventes novos (MZ1, MZ2, MZ3) ficam em `measure()`, que nenhuma das 44 células chama. A sonda W4 mostrou um rótulo sem MCS passando com rc 0. Há ainda o IMPORTANTE-1: `logger` ausente dá traceback (`:307`), com gêmeo em `:320`. **Seguindo a regra do advisor, não haverá fix3: o CTO a997f43f escreve o REDESENHO do selftest**, com uma costura em `measure()` (D-W8-427 a 433). A HOST-ALERT-GATE segue aberta.
+- **05:12, S5-A-fix1 commitada (290fb4a0, 4 caminhos, 222+/54-).**
+  - **Vermelho:** só o I-5, nos dois casos esperados.
+  - **Verde:** casos 12, células 31, `arc_segments` 13.
+  - **Linhas ditadas:** 13/13.
+  - **Mutantes:** F1-F3 e R1/R2/R4/R5/R10 mortos.
+  - **preci e sanitizer:** preci 362; sanitizer 172. O 172 não bate com os 171 da pré-execução; o implementador não investigou. A diferença provável é a H4, que entrou na base entre a pré-execução e o commit.
+  - **Revisão e limpeza:** conferência mirada despachada ao revisor da N1 (a77283fd), veredito em `rev-s5a-fix1.txt`. A cópia `s5afix1/snap` (1,8 GB) foi apagada pelo main.
+- **05:15, conferência mirada da T3-fix1 LIMPA** (`rev-t3-fix1.txt`, revisor abd30072). 17 mutantes (os 10 originais reaplicados mais 7 novos em `swap_update` e na escrita do nível 0), 17 mortos por asserção nomeada. Memória por força bruta em 358.801 pares: máximo de 1,998. Os IMPORTANTE 1 a 5 fecharam. Resta o COSMÉTICO-1: a docstring de `swap_update` (`texture_update_kept.cpp:114-121`) deveria dizer que a falha depois de trocar o nível 0 não é alcançável; vai como nota na ordem da T4a. **A fatia T3 (R2D-TEXTURE) está fechada:** A 4a79c9a5, B 67537d6a, C 048e9c81, fix1 e79b1d36.
+- **05:25, H4-fix1 recebida do CTO a92de40e e despachada ao implementador da H4** (`ordem-h4-fix1.md` md5 3de017f9; anexos 706d2419, `md5sum -c` verde). Só muda teste: `tests/light_tint_test.cpp` é trocado inteiro.
+  - D-W8-421: as 8 sondas do revisor viram casos.
+  - D-W8-422: a tabela foi partida; a maior função agora tem 22 linhas.
+  - D-W8-423: o `[[nodiscard]]` foi para a INBOX (lançado neste commit).
+  - D-W8-424: o Status fica com o main.
+  - D-W8-425 e 426: o vermelho é o conjunto dos 8 mutantes do revisor.
+  - Pré-execução: os 8 mutantes morrem; preci 362; sanitizer 172; MSVC 1/0.
+  - Na sequência, o mesmo CTO escreve a rodada 21 (T4a e S5-B, D-W8-405 a 420).
+- **05:41, H4-fix1 commitada (b2ebcd0f, 1 caminho, 167+/80-).**
+  - O main conferiu que o bloco ditado (453 linhas) entrou inteiro no commit.
+  - Os 8 mutantes R1-R4 e V1/V2/V3/V7 morrem no teste comum. Verde 1/1, preci 362/362, sanitizer 0.
+  - A cópia `h4fix1/snap` foi apagada.
+  - A conferência mirada foi despachada ao revisor da N1 (a48aa90d), com veredito em `rev-h4-fix1.txt`.
+- **05:43, conferência da S5-A-fix1 NÃO LIMPA** (`rev-s5a-fix1.txt`, revisor a77283fd). Os 6 IMPORTANTES da N1 fecharam: I-4 por texto, I-5 com 1e78 aceito e zero diferenças em 85618 casos antigos, e o oráculo geométrico é exato. Há dois IMPORTANTES novos:
+  - **I-7**, que já existia antes desta fatia: `screen_radius` (`arc_segments.cpp:39-43`) devolve valor finito e ERRADO sem recusar. Com u=(1e78,0) e v=(0,1e76), devolve 7,07e77 no lugar de 1e78. Com u=(1e-100,0) e v=(0,1e-120), devolve 7,07e-101 no lugar de 1e-100. O spread zera quando S² ou 4D² estoura ou some, e o erro aparece em 34043 de 200000 afins.
+  - **I-8:** o caminho escalado só é testado com entradas positivas; X2 e X5 sobrevivem.
+  **A S5-A-fix2 foi pedida ao CTO a92de40e (D-W8-434 a 440), antes da rodada 21.**
+- **05:46, conferência mirada da H4-fix1 LIMPA** (`rev-h4-fix1.txt`, revisor a48aa90d).
+  - Os 8 sobreviventes morrem no teste comum, cada um num caso nomeado.
+  - As regressões novas N1 (escrita antes da recusa) e N3 (último vértice ignorado) também morrem.
+  - A maior função do teste tem 22 linhas.
+  - Os valores esperados são literais decididos, não calculados pela mesma fórmula do código.
+  - COSMÉTICO: comentários do teste citam IDs de revisão (`light_tint_test.cpp:215,224,232,247,265,377,387`), quando deveriam descrever o comportamento provado. Vai como nota na próxima ordem que tocar esse arquivo (H5).
+  - **A fatia H4 (R2D-SPRITE-SHADE) está fechada: 30f3867d e b2ebcd0f.**
+- **05:49, CI 38533813188 (33e769bd) VERMELHO.**
+  - **(1) Jobs Linux:** todos (Fedora, Ubuntu, Arch, CachyOS, Clang, Debug) caem no `host_alert_gate_test` com "REPROVADO: fonte de medida ausente". Dentro do contêiner do CI, o `core_pattern` do hospedeiro aponta para o systemd-coredump, mas não há journalctl nem systemd-run. É regressão da alertas-fix1/fix2: o último verde, 38390738988, era anterior a elas. Foi mandado ao CTO a997f43f como primeira prioridade do redesenho, que deve dar 77 por fato medido.
+  - **(2) Paridade:** a paridade cai numa linha "Could not find executable .../segment_test" no inventário Linux. O diagnóstico, só leitura, foi despachado a um devops-sre haiku.
+  - **(3) Windows:** os 5 jobs Windows passaram.
+  - **CI-VERDE-W8 bloqueado até os dois consertos.**
+- **05:53, diagnóstico da paridade (devops-sre haiku, só leitura; `/var/tmp/cto-w8/ci-paridade/`).**
+  - A paridade caiu por TERCEIRA causa, independente do portão de alertas. Os dois jobs Ubuntu (GCC 14.3.0, -Werror) nem compilam: `wire_relay_fd_passthrough_selftest.cpp`, criado por d0291f99 e ajustado em 7fb56c0d, dá `-Werror=array-bounds` (bug 117983 da libstdc++, a mesma família já documentada em `wire_test_encoders.hpp:45-57`). Sem binário, o `ctest -N` do Ubuntu imprime "Could not find executable", e o parser da paridade reprovou essa linha, corretamente.
+  - O `segment_test` não tem culpa.
+  - **Conserto mecânico despachado a um implementador haiku:** corpo de tamanho fixo em `encode_params_add`, mais a varredura do gêmeo no diretório.
+  - Sem GCC 14 nem imagem Ubuntu nesta máquina (baixar exige o líder, L-51), a prova final é o CI do servidor.
+- **06:33, conserto do GCC 14 commitado (de2efebe, 1 caminho, 8+/3-).** `encode_params_add` passou a usar corpo de tamanho fixo e memcpy, sem resize em laço. preci 362/362 na rodada 2 (a rodada 1 caiu só no tempo do `install_includedir_test` sob carga). A varredura do gêmeo achou dois padrões de 3 ou mais appends em `wire_test_encoders.hpp:128-133` e `:156-158`, deixados de fora porque a ordem proibia o .hpp; são os primeiros suspeitos se o GCC 14 reprovar de novo. A prova é o CI do servidor, empurrado e disparado agora: o Ubuntu deve compilar e a paridade passar, mas os jobs Linux seguem vermelhos no portão de alertas até o redesenho.
+- **07:32, CI 38543250846 (388f4924) ainda vermelho, mas o conserto do GCC 14 (de2efebe) está PROVADO no servidor:** os dois jobs Ubuntu compilaram e chegaram aos testes. Os jobs Linux caem só no `host_alert_gate_test`. A paridade agora cai por outro motivo, que era da fatia original e ficou escondido: `host_alert_gate_test` e `host_alert_gate_selftest` existem só no Linux e não têm exceção em `tests/parity_exceptions.txt`.
+- **07:32, redesenho dos alertas recebido do CTO a997f43f** (`ordem-alertas-redesign.md` md5 c19c5810; anexos 52f2e2c2). Decisões D-W8-427 a 433. A D-W8-433, que conserta o CI, faz o core dump valer só no namespace de PID inicial (`/proc/self/ns/pid` = `pid:[4026531836]`, fato medido). Em contêiner o portão pula com 77 e imprime o LIMITE DECLARADO. Na pré-execução: 61 células e 25 mutantes mortos (MZ1, MZ2 e MZ3 incluídos); os contêineres devbuild e cachyos deram 77.
+  - **Advisor consultado sobre as duas dúvidas do CTO:**
+    - (1) A costura em `measure()`/`live()` teve 8-9 queixas. Resposta: aprovada sem o piso, porque é a mesma decisão da D-W8-393; um segundo estilo de costura no arquivo seria pior. Feito: registrada com a contagem honesta.
+    - (2) A regra do namespace de PID teve 4 queixas. Resposta: aprovada como fato medido. O nspawn com `CoredumpReceive=` dá falso 77, não falso verde, e foi para a INBOX. Feito: o main conferiu que o limite está impresso pelo portão (`check_host_alerts.py:209` do ditado) e que o teste já tem `SKIP_RETURN_CODE 77` (`tests/CMakeLists.txt:6085-6086`).
+  - Emenda pedida ao CTO antes do despacho: as duas exceções de paridade entram como 4º caminho do mesmo commit. O gêmeo Windows do portão foi para a INBOX.
+- **07:32, despachos:** S5-A-fix2 (`ordem-s5a-fix2.md` 92014e2a; D-W8-434: SVD 2x2 fechada com escala por potência de dois e caminho único; 12 queixas lidas; zero erradas em 200000 afins contra 34043 antes) ao implementador da S5-A. T4a (`ordem-t4a.md` 634d60cf; 8/8 mutantes; preci 362) ao implementador da T3. Saíram 81 cópias órfãs `/var/tmp/glintfx-blob-*` com mais de 30 minutos.
+- **07:44, emenda do redesenho dos alertas recebida e despachada ao implementador a4e46777** (`ordem-alertas-redesign.md` md5 676d6b88; anexos a3fd6281, com 29 linhas e `md5sum -c` verde). O 4º caminho é `tests/parity_exceptions.txt`, com `host_alert_gate_selftest` e `host_alert_gate_test` registrados como Linux por natureza, sem pendência. Pré-execução do CTO com os inventários do CI 38543250846: `--compare` e `--per-system` saem 1 sem os registros e 0 com eles; `--selftest` 73 controles. Depois do commit e do push, o CI deve mostrar os jobs Linux verdes (portão Skipped no contêiner) e a paridade verde.
+- **07:51, S5-A-fix2 commitada (b5a73c29, 3 caminhos, 146+/35-).**
+  - O main conferiu que os 3 blocos ditados (76, 43 e 223 linhas) estão inteiros no commit.
+  - Vermelho: a varredura deu 657 erradas em 4000.
+  - Verde: 4000/0. Os mutantes Q1 a Q10 morreram.
+  - preci 362. Sanitizer 172.
+  - Saíram as cópias de `s5afix2/snap` e das rodadas do CTO em `r21/s5afix2`.
+  - A conferência mirada foi despachada ao revisor da linha (a77283fd), veredito em `rev-s5a-fix2.txt`.
+- **08:11, T4a commitada (88a25412, 13 caminhos, 112+/54-).**
+  - O vértice passa de 8 para 9 floats (D-W8-23), e a docstring de `swap_update` foi incluída.
+  - Vermelho: 2 falhas previstas. Verde: 5/5.
+  - Mutantes: C1-C8 mortos.
+  - Paridade de GL em contêiner: 106 e 31 conferidas, 0 reprovadas.
+  - preci 362, sanitizer 172.
+  - Cópia apagada.
+  - A revisão N1 foi despachada ao revisor da T3 (abd30072), com a instrução de só usar a trava pesada depois do commit do redesenho dos alertas. O CTO da r21 recebeu o mesmo pedido de ceder a fila: o redesenho é o caminho crítico do CI.
+- **08:26, redesenho dos alertas commitado (eab820af, 4 caminhos, 348+/69-), empurrado e CI 38556511988 disparado.**
+  - Conferência do main: os dois .py batem com os ditados.
+  - Pré-commit do implementador:
+    - vermelho com 61 células e 34 falhas, depois verde 61/0;
+    - 25 mutantes mortos;
+    - nos contêineres do CI (devbuild sem journalctl e cachyos), o portão saiu de rc 1 para rc 77;
+    - paridade com os inventários reais: rc 1 sem a emenda e rc 0 com ela;
+    - preci 362/362 com `host_alert_gate_test` Passed.
+  - A conferência mirada foi despachada ao revisor das três rodadas (a03238e1). Os outros agentes já foram avisados de que a trava pesada está livre.
+- **08:26, conferência da S5-A-fix2 NÃO LIMPA por um único IMPORTANTE** (`rev-s5a-fix2.txt`).
+  - I-7 e I-8 fechados: zero erradas em 196000 afins, os 10 mutantes morrem e a escala é bit a bit igual em 14670 casos.
+  - I-9 em aberto: o comentário em `arc_segments.cpp:36-40` promete os mesmos bits em todo sistema, mas `-ffp-contract=fast` muda 12082 de 196000 resultados em 1 ulp.
+  - Pedida ao CTO a92de40e a decisão entre corrigir o texto e fixar `-ffp-contract=off`, como S5-A-fix3 (D-W8-441 a 444).
+- **08:46, revisão N1 da T4a NÃO LIMPA** (`rev-t4a.txt`, revisor abd30072, SHA 88a25412).
+  - Base 5 de 5 verde; layout de 9 floats coerente; 10 mutantes, 9 mortos.
+  - IMPORTANTE-1: o mutante R6 (o shader passa 1.0 no lugar de `a_texcoord_q`) sobrevive; a promessa "o programa entrega q ao fragmento" fica sem prova. Conserto de uma linha no teste de fonte.
+  - Três cosméticos (função de 39 linhas, comentário no presente, nome de teste em cabeçalho público) vão junto.
+  - Pedida ao CTO a92de40e a ordem T4a-fix1 (D-W8-445 a 449), depois da S5-A-fix3. Conserto mecânico, sem pesquisa de queixas (alcance confirmado da regra das 10 queixas).
+- **08:48, CI 38556511988 sobre eab820af VERDE**: 26 jobs, 25 sucesso e 1 pulado (VERSION-TAG-SYNC, que só roda em etiqueta). A paridade e os portões de alerta nos contêineres do CI, que derrubaram os dois CIs anteriores, passaram. É verde parcial da W8: as fatias que faltam ainda vão mudar a árvore, e o CI-VERDE-W8 só fecha no último envio.
+- **09:26, conferência N3 do redesenho dos alertas NÃO LIMPA** (`rev-alertas-redesign.txt`, revisor a03238e1, SHA eab820af).
+  - MZ1 a MZ3, a falta de programas e o namespace (D-W8-433) fechados: 10 mutantes, 8 mortos.
+  - Dois IMPORTANTE de teste, sem mudança de regra. M10: falta de registro do kernel sem a guarda do contêiner, em `check_host_alerts.py:320-321`; sem a célula, um hospedeiro sem docker que deveria passar reprova. M6: a impressão do LIMITE em `:429-430` não é conferida pela célula 60.
+  - O CTO a997f43f não estava mais alcançável. A ordem alertas-fix3 (D-W8-450 a 454) foi para um CTO novo (af139138). É conserto mecânico, sem pesquisa de queixas. O implementador será novo (o a4e46777 também caiu) e a conferência fica com o a03238e1, se ele ainda responder; senão, com um revisor novo que lê o veredito pelo caminho.
+- **09:56, ordem alertas-fix3 recebida (CTO af139138; md5 b78eb256; anexos e0cb5d87) e despachada a um implementador novo (a0f966ec).**
+  - D-W8-450: célula 62. live() sem docker, com core dump aplicável e no namespace inicial, mede, dá rc 0 e imprime o LIMITE. Mata o M10.
+  - D-W8-451: a célula 60 exige rc 77 e a linha do LIMITE vinda do print de live(). Mata o M6 e fecha o COSMÉTICO-4.
+  - D-W8-452: o COSMÉTICO-3 vai à INBOX como HOST-ALERT-JSON, escrito pelo main. Razão: o :301 exige decidir uma regra.
+  - D-W8-453: o piso sobe para 62 células e 27 mutantes, com a tabela medida de novo.
+  - D-W8-454: sem pesquisa de queixas, porque nenhuma regra muda. Fica só o preci --fast.
+  - Pré-execução: vermelho contra M10 e M6, verde na base, 27 de 27 mutantes mortos, preci rc 0.
+- **09:56, rodada 21 recebida do CTO a92de40e.**
+  - S5-A-fix3 (D-W8-441 a 444; md5 283cf05d): `-ffp-contract=off` em todo alvo da glintfx, o comentário corrigido e a trava `fp_contract_test`. 11 queixas lidas. Medido: sem a regra, 127030 de 200000 respostas mudam de bits; com ela, zero, no GCC e no Clang. Despachada ao aae2a372.
+  - T4a-fix1 (D-W8-445 a 449; md5 1a5f0296): o teste exige o repasse de q, visto vermelho contra o R6. Os cosméticos 1 e 2 entram; o 3 foi recusado com citação ("Proved by:" é convenção da casa). Despachada ao a62b9096.
+  - S5-B (D-W8-410 a 418; md5 7a315ace): 25 arquivos, 10 de 10 mutantes, pior erro de borda 0,136 px contra o limite de 0,25. Só sai depois do commit da fix3 e com uma vaga no teto de agentes.
+  - Plano r21 (md5 2ece9229): a T4b anda junto com a S5-B; em série, T4b, S5-C, R2b, T5 e H3a; os exemplos S6, T7 e H5 um de cada vez; depois G3, G4 e CI-VERDE-W8.
+- **09:56, Q3 (raio zero, D-W8-414): 7 queixas, abaixo do piso de 10, com uma contrária (canvg #941). O advisor desempatou pela continuidade.** Razão: o consumidor que quer "nada" consegue isso testando o raio zero antes da chamada; quem quer continuidade não consegue recuperar o disco se a lib não desenhar nada. Também é coerente com D-W8-270 e com o `stroke_rect` degenerado. canvg é motor SVG, e o GlintFx não é. A ordem S5-B já embute a escolha.
+- **09:56, LISTA DE RATIFICAÇÃO DO LÍDER** (comportamento público): D-W8-414, raio zero desenha disco ou barra em vez de nada; D-W8-441 a 444, `-ffp-contract=off` em todo alvo, que troca a fusão de ponto flutuante por bits iguais em todo sistema e afeta a numérica e o desempenho da lib inteira.
+- **09:56, furo passado ao revisor da S5-A-fix3** (advisor): "o MSVC com /fp:precise não funde" é leitura de documentação, não medida. A prova é o `fp_contract_test` RODANDO nos jobs Windows do CI, fora do `parity_exceptions.txt` e sem condição de Linux.
+- **10:07, alertas-fix3 commitada: 20f480df** (implementador a0f966ec; 1 arquivo; blob 6a8b21b2 conferido pelo main; portão 0ca88260 intocado).
+  - Vermelho contra M10 (célula 62) e contra M6 (células 62 e 60); verde com 62 células; 27 de 27 mutantes mortos; preci --fast rc 0.
+  - Desvio D1: o trailer diz Haiku, que é o modelo de fato do implementador. Aceito, porque a autoria fica correta e não se faz commit novo só por isso.
+  - Desvio D2: a limpeza ficou para depois da conferência. Aceito.
+  - Conferência mirada despachada ao revisor a03238e1, retomado.
+- **10:20, S5-A-fix3 parou no bloco de GL sem commitar** (implementador aae2a372, relatório em `/var/tmp/cto-w8/s5afix3/relatorio.txt`).
+  - Já provado: vermelho com `-march=x86-64-v3` (fp_contract_test.cpp:38), verde com e sem a flag, e os 3 mutantes mortos.
+  - A causa, medida pelo main no build.log, é o containerd na exportação da imagem ("ref ... locked for 1m12s"), não o código. Não achei build concorrente na janela.
+  - Ordem: refazer só o bloco gl. Se o erro voltar, uma nova tentativa depois de 60 s; se repetir, parar. Depois seguem preci, sanitizer, MSVC e o commit.
+- **10:30, achado do vigia: etiqueta SELinux privada** (`container_file_t:s0:c290,c825`) em `/var/tmp/builds` e `/var/tmp/preci`, desde pelo menos 13/10 13:55.
+  - Hoje só a miniatura de arquivo é negada: 2 alertas em 2 dias.
+  - `restorecon` não resolve, porque o caminho não tem etiqueta padrão. Não mexi nas 475 mil entradas com agentes em voo.
+  - Vai à INBOX como TMP-LABEL-PRIVATE, para achar a montagem `:Z` culpada. Classe do vigia: AMARELO (sistema, não bloqueia o build).
+- **10:34, ordem do líder sobre TMP-LABEL-PRIVATE**, verbatim: "Autorizo retirar a exclusividade depois". Execução: numa janela sem agente nem contêiner em voo (ao fechar a W8, antes da limpeza final), devolver `/var/tmp/builds` e `/var/tmp/preci` à etiqueta de uma pasta nova em `/var/tmp`, medida na hora. Achar a montagem `:Z` culpada continua no item da INBOX.
+- **10:36, T4a-fix1 commitada: d2aba197** (implementador a62b9096; 4 arquivos; +20 −9).
+  - Vermelho com o R6 em embedded_program_test.cpp:416 e verde com 5 de 5.
+  - 3 de 3 mutantes mortos; preci --fast rc 0 (362) e sanitizer rc 0 (172).
+  - Desvios: o laço da ordem com `|| break` mascarava falha, e o implementador conferiu arquivo por arquivo. O MSVC /W4 /WX do Anexo P não rodou e passa ao revisor.
+  - Conferência mirada despachada ao revisor abd30072, retomado.
+- **10:50, S5-A-fix3 commitada: 5e9a1409** (implementador aae2a372; 4 arquivos; +80 −7).
+  - Vermelho com `-march=x86-64-v3` e verde com e sem a flag; 3 de 3 mutantes mortos.
+  - Bloco GL refeito depois do "locked": draw2d 106 e shapes 31, zero reprovadas.
+  - preci rc 0 (363, sobre a base 9b0875c9), sanitizer rc 0 (173), MSVC com 2 compilados e 0 falhas.
+  - S5-B despachada a um implementador novo, porque a fix3 já está no HEAD.
+  - A conferência da fix3 espera vaga no teto de 4 agentes e leva o furo do advisor (o fp_contract_test tem de RODAR no Windows do CI).
+- **10:50, conferência N3 da alertas-fix3 LIMPA** (`rev-alertas-fix3.txt`, revisor a03238e1; zero CRÍTICO, zero IMPORTANTE).
+  - M10 morre pela célula 62 e M6 pelas células 62 e 60, por asserção. O selftest velho dá rc 0 nos dois, o que prova que a mutação chegou. Dez mutantes do revisor, todos mortos.
+  - COSMÉTICO-1, opcional: provar o piso com um mutante que remove a célula 62. Vai junto com o HOST-ALERT-JSON da INBOX.
+  - **HOST-ALERT-GATE fechado do lado local.** O ✅ espera o CI 38575186902 sobre 33d69d62.
+- **10:50, push de 33d69d62** (alertas-fix3, T4a-fix1 e S5-A-fix3) e CI 38575186902 disparado. Conferência da S5-A-fix3 despachada a um revisor novo, com o furo do advisor sobre o MSVC.
+- **11:04, conferência da T4a-fix1 NÃO LIMPA** (`rev-t4a-fix1.txt`, revisor abd30072). O IMPORTANTE-1 foi reaberto, mais estreito.
+  - O teste prova o texto do shader, não o comportamento. O R6 morre, mas as trapaças S3 (frase num comentário) e S4 (frase seguida de `v_texcoord.z = 1.0`) sobrevivem com rc 0.
+  - Os cosméticos e a recusa do cosmético 3 estão fechados. Os 211 erros do clang-tidy no preci do revisor reprovam igual no pai: é o ambiente da cópia dele.
+  - É a segunda volta pelo mesmo motivo. Pela L-42, busca na web antes da terceira tentativa.
+  - Pedido ao CTO a92de40e: decidir entre uma T4a-fix2 e uma célula de pixel na T4b que mate S3 e S4. Inferência do main a conferir: o efeito de q só fica observável quando o fragmento divide por q, ou seja, na T4b.
+- **11:19, CI 38575186902 sobre 33d69d62 VERDE** (26 jobs, zero falhas): alertas-fix3, T4a-fix1 e S5-A-fix3 juntas. **HOST-ALERT-GATE fechado**: conferência limpa e CI verde. Ele não tem linha na tabela do TODO.md (só ID de commit), então não há Status a tocar. Se o fp_contract_test roda de fato no Windows, quem confere é o revisor da fix3.
+- **14:09, T4b-A recebida do CTO a92de40e e dividida da T4b-B.** São 17 arquivos, só átomos puros: o cabeçalho público `texture_region.hpp` (a cerca da T0), os pesos projetivos, as coordenadas, as recusas e os motivos 9 a 12. Pré-execução verde, com 30000 pontos e 0 errados contra a homografia de Heckbert.
+  - **Colisão de numeração:** o CTO usou D-W8-450 a 458, que a alertas-fix3 já ocupava. Renumerado para 455 a 462 (T4b-A) e 463 (reabertura da T4a-fix1); ordem com md5 6eefe772. **Lição:** dois CTOs em paralelo alocaram faixa cada um por conta própria. Daqui em diante, o main aloca e entrega a faixa fechada no briefing.
+  - Advisor: a técnica projetiva (um q por canto, pela interseção das diagonais) teve 8 queixas, abaixo do piso, e ficou como o CTO escolheu, por ser o método canônico; vai à ratificação. Recusar o quadrilátero côncavo como `degenerate_quad` também vai à ratificação. O contrato público de `texture_region.hpp` exige revisão de API dedicada, com as sete regras de `docs/api-conventions.md`.
+  - **D-W8-464, DECISÃO DO LÍDER** por AskUserQuestion: a tinta padrão quando o usuário não escolhe é **branco opaco**. Resposta literal: "Branco opaco (Recommended)". Muda a promessa ratificada da cerca da T0 (`tint{}` zero). Entra já na T4b-A, com errata em `docs/auditoria-api-texture.md`.
+  - T4a e T4a-fix1 ficam em verificação até a célula de pixel da T4b-B passar (D-W8-463). O teste de fonte passa a ser guarda só de texto.
+- **14:09, S5-B commitada: 87b9db55** (implementador ad282249; 25 arquivos, +2191 −52).
+  - Vermelho em 6 de 10 e verde em 10 de 10; pior erro 0,1356 px contra o limite de 0,25.
+  - 10 de 10 mutantes mortos; preci rc 0 (368); sanitizer rc 0 (178).
+  - Pendência da L-17 para o revisor: `build_stroke`, com 39 linhas e quatro etapas. Revisão N1 despachada a um revisor novo.
+- **14:09, conferência da S5-A-fix3 NÃO LIMPA** (`rev-s5a-fix3.txt`, revisor ae67cde1).
+  - IMPORTANTE I-1: o comentário afirma "C++23 already requires VS 2022", mas nada impõe isso.
+  - O furo do advisor está FECHADO: o fp_contract_test roda no Windows do CI (347 e 173); "/fp:precise não funde" foi medido com o cl.exe 19.51; com a regra, 0 de 200000 resultados diferem. I-9 fechado em x86-64-v3.
+  - Pedida ao CTO a ordem S5-A-fix4 (D-W8-465 a 467).
+- **Pendências que exigem sudo** (somam-se ao `/etc/cdi/nvidia.yaml`): cerca de 5 GiB em pastas `out-*` e `mut-*` de root em `/var/tmp/cto-w8/r21/*/run*`.
+- **14:26, líder perguntou pela diferença no disco: são partições distintas.** `/home` tem 735 GiB, com 347 livres; `/`, onde mora `/var/tmp`, tem 196 GiB, com 28,5 livres. Ele pediu para levar os builds para dentro do projeto. Pela LEI DAS LEIS, o main citou a L-11 item 4 e a L-55 condição 1, o que elas protegem (a sincronização do IDrive, as pastas do root, a etiqueta SELinux) e a alternativa de uma pasta na `/home` fora do IDrive. **Escolha do líder: "Cancelar, manter /var/tmp".** Nada muda. Daqui em diante, toda menção a disco nomeia a partição.
+- **14:36, ACHADO: limpeza com sudo às 14:32 apagou `/var/tmp/glintfx-win-lab` (o disco de 17 GB da VM Windows 11, o criar-vm.sh e o autounattend.xml) e `/var/tmp/preci`.**
+  - O journal registra o usuário petrus, PWD=/, com pedido de senha às 14:28:54. Os comandos: `xargs -0 rm -rf --` às 14:32:52, depois `journalctl --vacuum-size=500M`, `dnf5 clean all` e a remoção dos core dumps.
+  - Não veio desta sessão: o main e os agentes não rodaram sudo.
+  - Partição do sistema: de 22,9 para 64 GiB livres (min).
+  - A VM `glintfx-win11-lab` segue definida, mas sem disco. Não há snapshot da partição do sistema: `snapper -c rootfs list` só mostra o "current".
+  - Efeito na W8: nenhum bloqueio. O MSVC roda no contêiner `glintfx-msvc`, que segue intacto; G3 e G4 usam as placas da máquina. A pasta do preci se refaz sozinha.
+  - O líder foi informado. Recriar a VM vai à INBOX como decisão dele.
+- **15:26, T4b-A com tinta branca (md5 d938b53e; anexos 6cbc04ea; 18 arquivos) e S5-A-fix4 (md5 38bb0945; anexos 20fcda2c; 6 arquivos) recebidas do CTO a92de40e e despachadas a implementadores novos.**
+  - T4b-A: `tint` passa a `{1,1,1,1}` em `gltfx_texture_paint` e `gltfx_textured_vertex_2d`, com errata em `docs/auditoria-api-texture.md` citando a decisão do líder. Pré-execução: vermelho contra a tinta zero, verde, preci 371.
+  - S5-A-fix4 (D-W8-465 a 467): o CTO escolheu IMPOR o piso MSVC>=1930 (`cmake/GlintfxToolchainFloor.cmake`), com dois testes de script, 1929 parando e 1930 passando. Os cosméticos C-1 a C-3 e C-6 foram corrigidos. Pré-execução: preci 370, sanitizer 180, MSVC 1/1.
+  - Tinta do atlas (`gltfx_atlas_paint::tint`): aplicação coerente da D-W8-464, porque é desenho de imagem. Entra branca na T6. `gltfx_vertex_2d_world::color` (já publicado) e a cor da luz ficam como estão.
+  - CTO a92de40e escreve a T4b-B (D-W8-468 a 480).
+- **16:43, S5-A-fix4 commitada: 6f295d7a** (implementador ac3d6f21; 6 arquivos; +92 −13).
+  - O piso MSVC>=1930 ficou vermelho sem o módulo e verde com ele (3 de 3); os mutantes G1 a G3 morreram.
+  - preci rc 0 (370) e sanitizer rc 0 (180). O MSVC não foi rodado e fica para a conferência.
+  - Conferência mirada pelo revisor ae67cde1, retomado.
+- **17:08, T4b-A parou antes do commit** (implementador a189e00e).
+  - Já provado: vermelho em 3 de 6, verde em 6 de 6 (varredura com 30000 pontos e 0 errados), Q1 a Q10 mortos, preci 371 e sanitizer rc 0.
+  - O sanitizer deu 181, contra 176 na ordem. **Aceito pela conta:** a ordem mediu sobre a base de 173; esta base, com a S5-B, tem 178; somando os 3 testes novos, dá 181.
+  - A base andou: a fix4 tocou tests/CMakeLists.txt. Mandado refazer sobre um snapshot novo do HEAD: âncoras iguais a 1, `git diff` provando que as linhas da fix4 ficaram, verde, preci, sanitizer (esperado 184) e commit. Vermelho e mutantes não se repetem, porque o código ditado é o mesmo byte a byte.
+- **18:29, queda de rede: os 4 agentes morreram com erro de API** ("Self-signed certificate detected", DEPTH_ZERO_SELF_SIGNED_CERT), em torno de 18:2x.
+  - Medido às 18:29: a conexão TLS com a API está normal (emissor Google Trust Services, verify 0).
+  - Os 4 foram retomados por SendMessage, com ordem de conferir o disco antes de repetir qualquer coisa.
+  - A conferência da S5-A-fix4 já tinha um IMPORTANTE provisório (I-2): o ramo não numérico do piso não tem teste. Isso gera uma fix5 quando o veredito sair.
+- **18:30, T4b-A commitada: 7560b9d4** (implementador a189e00e; snapshot novo; 18 arquivos, +1070 −8).
+  - A tinta padrão branca está no blob (`texture_region.hpp:69`), e tests/CMakeLists.txt não perdeu linha nenhuma: as 7 linhas de fix4 e de fp_contract continuam presentes.
+  - preci 373 e sanitizer 183. A conta fecha: 181 mais os 2 add_test da fix4. O main tinha estimado +3, e o certo é +2.
+  - Revisão N1, com revisão de API dedicada (as sete regras de `docs/api-conventions.md`), despachada a um revisor novo.
+- **18:31, conferência da S5-A-fix4 NÃO LIMPA** (`rev-s5a-fix4.txt`, revisor ae67cde1).
+  - Medido: o piso rejeita 1929 e aceita 1930, 1944 e 1951; o configure real com GCC 16 e com Clang 22 dá rc 0. O cl 19.51 real rodou o fp_contract_test e o controle AVX2+fast morde.
+  - Mutantes: X1, X6, X7 e X8 mortos. X3 e X5 sobrevivem no Linux porque a chamada fica sob if(MSVC); limite declarado, registrado como I-3.
+  - IMPORTANTE I-2: o ramo não numérico do piso não tem teste.
+  - Cosméticos C-4, C-7 e C-8: inferências escritas como fato.
+  - Pedida ao CTO af139138 a ordem S5-A-fix5 (D-W8-481 a 484).
+- **18:31, revisão N1 da S5-B NÃO LIMPA** (`rev-s5b.txt`, revisor a5020879).
+  - O comportamento está certo: 2,07 milhões de checagens com 0 erros de cobertura; borda de 0,2436 px contra o limite de 0,25; raio zero conforme a D-W8-414.
+  - Três mutantes sobrevivem à suíte e só a sonda do revisor os mata: MA (erro no arco), MB (recorte; a borda chega a 6,86 px em r=20000) e MC (determinante ingênuo).
+  - L-17: `build_stroke` faz duas coisas.
+  - Pedida ao CTO af139138 a ordem S5-B-fix1 (D-W8-485 a 492), depois da fix5.
+  - As pastas `out-*` do root da revisão foram apagadas por contêiner (`rm` dentro do glintfx-devbuild:verify com a pasta montada).
+- **19:15, T4b-B1 recebida do CTO a92de40e** (ordem md5 a1fd7e41; 26 arquivos; os existentes entram por trecho trocado).
+  - Pré-execução: vermelho em 21 casos, verde, 10 de 10 mutantes, GL 106 e 31, preci 373, sanitizer 183, MSVC 14 de 14.
+  - D-W8-468: a T4b-B se divide em B1 (liga ao desenhador, prova por GL falso) e B2 (prova por pixel, D-W8-475 a 480).
+  - **D-W8-469, desempatada pelo advisor a favor do uniforme `u_textured`.** Teve 5 fontes, abaixo do piso. A textura branca de 1×1 inflaria `texture_switches`, que é público, e criaria um objeto GL que o consumidor nunca criou.
+  - A linha FALSO-POSITIVO-DA-REGUA foi ratificada sob condições: o cabeçalho do arquivo de exceções explica o marcador na própria B1; a INBOX ganha NOEXCEPT-GAUGE-NAME-PREFIX; o revisor roda a régua sem a linha e confirma um achado só.
+  - Seção 9 reforçada: mutante que remove o reset de `u_textured`, mais uma célula com lote sem textura depois de lote com textura.
+  - **LISTA DE RATIFICAÇÃO**, acrescentar: D-W8-471 (`texture_switches` no relatório público do quadro) e D-W8-473 (amostra antes da conversão sRGB, irmã da D-W8-304).
+  - INBOX: TEX-UNTEXTURED-IN-BATCH e NOEXCEPT-GAUGE-NAME-PREFIX.
+- **19:18, T4b-B1 com os três ajustes recebida** (ordem md5 8b1b990c; anexos da1b476c; plano d07c1de1).
+  - O cabeçalho do arquivo de exceções foi reescrito.
+  - A régua sem a linha dá exatamente um achado, em `frame_report_tally.cpp:90-91`.
+  - O mutante do reset (BM6) morre nas duas células.
+  - Despachada a um implementador novo (ab6e61e4). O CTO a92de40e segue para a T4b-B2 (D-W8-475 a 480).
+- **19:43, revisão N1 e de API da T4b-A NÃO LIMPA** (`rev-t4b-a.txt`, revisor a07ef8a5): zero CRÍTICO, 6 IMPORTANTE, 6 COSMÉTICO.
+  - Os 14 portões de API passaram; a sonda independente de 60000 pontos deu 0 errados.
+  - **I-1, comportamento:** convexos legítimos são recusados como degenerados em escalas extremas (1e-170 e 1e160, 500 de 500), porque a janela está em unidade de mundo.
+  - Quatro mutantes sobreviveram: o limite inferior de s/t, o retângulo de largura zero e a varredura com 4 de 16 valores.
+  - I-5: a cerca do parecer não foi reescrita no lugar. I-6: um teste de 59 linhas.
+  - Pedida ao CTO a92de40e a T4b-A-fix1 (D-W8-493 a 500), com prioridade sobre a B2 e cuidado de colisão com a B1 em voo. O I-1 é escolha de desenho e passa pela pesquisa das 10 queixas.
+- **21:22, segunda queda de rede** (por volta de 20:3x; erros EAI_AGAIN e de certificado). Derrubou os três agentes em voo: o implementador da B1, que já estava no sanitizer, e os dois CTOs. O líder refez o login e religou o modo autônomo: "ligue modo autonomo", válido até 15/10 às 21:21, com escopos push e clean. Os três foram retomados com a ordem de conferir o disco antes de repetir qualquer coisa.
+- **21:23, T4b-B1 commitada: 6498d773** (implementador ab6e61e4; 26 arquivos; +1131 −76).
+  - Vermelho por asserção em 21 casos, nenhum caso velho, e verde 6 de 6. Os 10 mutantes morreram.
+  - GL: 106 e 31, zero reprovadas. A régua sem a linha dá um achado. preci 373 e sanitizer 183.
+  - O MSVC ficou de fora e passa para o revisor. Revisão N1 despachada a um revisor novo.
+- **21:23, push de onda-w8 e CI disparado.** Entram S5-B, S5-A-fix4, T4b-A e T4b-B1, que estão no ramo desde 33d69d62. O CI dá a medida no Windows antes das conferências fecharem.
+- **21:24, S5-A-fix5 (md5 ae9e8a26) e S5-B-fix1 (md5 833bebf4) recebidas do CTO af139138 e despachadas a implementadores novos.** Os dois tocam tests/CMakeLists.txt; quem commitar por último refaz sobre o snapshot novo.
+  - fix5:
+    - D-W8-481: o ramo não numérico ganha dois testes no formato da casa, sem PASS_REGULAR_EXPRESSION.
+    - D-W8-482: um teste cobre a ligação sob if(MSVC).
+    - D-W8-483: os textos dizem o que foi medido. O C-8 do revisor partia de premissa errada: o CI roda o cl 19.51 do Visual Studio 18, e o VS 2022 é que não foi medido. Fato registrado: o motivo da diferença 126979/127030 não foi medido; medido é o zero com a regra.
+  - S5-B-fix1:
+    - D-W8-485 a 488: testes de pixel que matam MA (0,277 contra 0,137), MB (13,46 contra 0,094) e MC (2^-60), mais a borda interna, com 14 mutantes mortos.
+    - D-W8-489 e 490: build_stroke dividido em três, com bits iguais em 600 chamadas.
+    - D-W8-491: INBOX ganha DRAW2D-RANGE-LOOP.
+- **21:44, ordem da T4b-A-fix1 recebida do CTO a92de40e** (md5 7026910e; anexos 28895113; plano r21 a19ed557; D-W8-493 a 500). Pré-executada sobre 6498d773: vermelho por asserção, só o teste de escala (2000 de 4500 errados); verde 4 de 4; 6 de 6 mutantes mortos, incluindo R1 a R4; preci 373; sanitizer 183; MSVC 7 arquivos.
+  - **D-W8-493, desempate do advisor (contagem honesta: 2 queixas, abaixo de 10; Boost.Geometry PR #272 e Boost Trac #10904):** fica a opção (a), uma potência de 2 comum depois de medir a partir do canto 0.
+    - (b), a tolerância relativa, muda quais quase-degenerados passam e deixa o estouro intacto.
+    - (c), long double, quebra a L-04 (no MSVC long double é double).
+    - (a) é exata e não depende da escala: é a ideia do PR #272, mas sem épsilon.
+  - **Ressalva do advisor, um passo além da fronteira (L-43):** o cabeçalho promete "any finite size", e a pré-execução cobriu de 1e-300 a 1e300. Em subnormal (abaixo de 2,2e-308), cortar ao meio não é exato. Os anexos não têm sonda subnormal (grep: zero). Isso não segura o despacho, mas segura o aceite: o CTO mede agora e decide entre estreitar a frase e proteger a metade (D-W8-513 a 516). Se a sonda reprovar, vem uma fix2 sobre a fix1.
+  - Despachada a um implementador novo.
+- **21:44, revisão N1 da T4b-B1 NÃO LIMPA** (`rev-t4b-b1.txt`, revisor a607f0e6): zero CRÍTICO, 2 IMPORTANTE, 2 COSMÉTICO e 1 lacuna. 9 de 10 mutantes morreram; o do reset de u_textured morreu nas duas células; a régua sem a linha dá exatamente um achado, em frame_report_tally.cpp:90-91.
+  - I-1: a frase pública de texture_switches ("entre duas chamadas") não bate com o contador, que conta também a primeira ligação de cada flush. O teste afirma 3 para A,B,A,A.
+  - I-2: nenhuma célula cobre ao mesmo tempo região fora e quadrilátero degenerado com textura aberta. O mutante M10 sobrevive.
+  - C-1: a errata cita uma frase que a cerca não tem. C-2: L-17 em draw_batch.
+  - Lacuna: o MSVC não rodou.
+  - Pedida ao CTO a92de40e a **T4b-B1-fix1 (D-W8-501 a 512)**, que entra DEPOIS do commit da T4b-A-fix1: as duas mexem em docs/auditoria-api-texture.md, e a ordem das erratas tem de ser conferida. O I-1 é escolha de API pública: o CTO decide e o líder ratifica. A B2 é regenerada depois das duas.
+- **21:49, CI 38659724788 (sobre 4547143c) VERMELHO em 1 de 26 jobs:** no Windows Debug, o embed_win_test deu Timeout aos 120,06 s, o TIMEOUT padrão. Nenhum outro job falhou; VERSION-TAG-SYNC pulado, como esperado.
+  - Tendência medida: 75,24 s (run 36202987723, comentário em tests/CMakeLists.txt:6530), depois 102,27 s (run 38575186902, o último verde), agora acima de 120 s. A biblioteca cresceu com T4b-A, B1 e S5-B, e o teste monta a lib inteira num CMake aninhado (168 passos).
+  - INFERÊNCIA: o orçamento estourou pelo crescimento; não é travamento. A prova vem do rerun do job que falhou, já disparado.
+  - Conserto previsto: TIMEOUT medido, não chutado, com o precedente de L-44 no mesmo arquivo (public_name_collision_test e pkgconfig_test). Mexe em tests/CMakeLists.txt, então entra DEPOIS dos commits da fix5 e da S5-B-fix1. Ordem a cargo de um CTO quando houver vaga (o teto de 4 está cheio).
+- **21:51, o rerun foi recusado pelo próprio CI (erro meu de orquestração, sem dano):** o rerun_guard (ci.yml:464-472, A4/D-A4) só aceita reexecução de falha de PREPARO; falha de teste não se reexecuta. A tentativa 2 parou na guarda em 47 s. A guarda funcionou como desenhada. Não houve segundo ponto de medida; a tendência 75 → 102 → >120 s basta para o conserto medido. Fica o conserto pelo TIMEOUT, e o CI novo sai com o push da próxima fatia fechada.
+- **22:00, S5-A-fix5 commitada: 60ef554b** (implementador ae27c80a; 5 arquivos; +74 −7). O HEAD de antes só tinha docs, então não precisou refazer.
+  - Os sobreviventes da revisão anterior foram reproduzidos. Vermelho: X2 e X2B rc 8; X3, X3B e X5 rc 8. Verde: 8 de 8. preci 376, verde.
+  - O Co-Authored-By saiu Haiku 5.5, que é a atribuição do próprio implementador; aceito.
+  - O limite declarado (D-W8-481 e 482) vai ser confirmado no primeiro CI com Windows.
+  - O revisor da fix4 (ae67cde1) não estava mais ao alcance; a conferência mirada foi a um revisor haiku novo, como manda a seção 9 da ordem.
+  - A S5-B-fix1 vai commitar depois desta; se a base de tests/CMakeLists.txt tiver mudado, ela refaz sobre um snapshot novo.
+- **22:28, S5-B-fix1 commitada: 7616be7d** (implementador a5330b3e; 8 arquivos; +282 −79; pai bbeba567). O commit foi refeito sobre o snapshot novo, porque a fix5 mexeu em tests/CMakeLists.txt.
+  - Vermelho: 14 de 14 mortos. Verde 10 de 10 nos dois snapshots. preci 376 e sanitizer 186, ambos com rc 0.
+  - Os bits e o MSVC não foram remedidos pelo implementador; valem os do Anexo P.
+  - Conferência mirada despachada a um revisor haiku novo (seção 9 da ordem).
+- **22:28, push de onda-w8 e CI disparado** (decisão do líder às 22:23: "esperar a próxima fatia"; a próxima é esta).
+  - Entram S5-A-fix5 e S5-B-fix1.
+  - O CI deve sair vermelho de novo no embed_win_test do Windows Debug, cujo conserto pelo TIMEOUT ainda não entrou. O resto mede a fix5 no Windows, que é o item 2b da conferência dela.
+  - Com as duas fixes de tests/CMakeLists.txt já commitadas, o conserto do TIMEOUT fica livre para ir ao CTO na próxima vaga.
+- **22:45, decisão do líder (AskUserQuestion): fatia de preencher polígono "Sim, numa onda futura".** Pergunta dele: "tem fatia de desenhar poligonos e circulos?".
+  - Círculo: sim. É a elipse de raios iguais. A S5-B (os átomos) está commitada em 7616be7d e em conferência; a S5-C liga `fill_ellipse` e `stroke_ellipse` ao desenhador ainda na W8.
+  - Polígono: não havia fatia. Hoje ele só sai se o consumidor dividir em triângulos. A INBOX ganha R2D-FILL-POLYGON, para depois da W8, com a pesquisa das 10 queixas antes do plano.
+- **22:54, T4b-A-fix1 commitada: 12a98049** (implementador a611d99f, parado por TaskStop ao aceitar o resultado; 10 arquivos; +378 −160; pai f6629201).
+  - Vermelho: só o teste de escala (2000 errados). Verde 4 de 4: escalas 4500/0, varredura 30000/0, células 14/0.
+  - 6 de 6 mutantes mortos. preci 373, sanitizer 183, fmt 9/0.
+  - D6 do implementador ("encontrados=0..." sem rótulo): é a linha do gancho global no_mdash_staged.py, explicada na linha seguinte dele. Não é varredura vazia do projeto.
+  - Revisão N1 despachada a um revisor haiku novo (seção 9), com a sonda subnormal do advisor acrescentada: 2a, 2b e 2c, só números. O conserto fica com o CTO (D-W8-513 a 516).
+  - Push depois que o CI 38665857294 terminar, para não rodar dois CIs ao mesmo tempo.
+- **23:04, CI 38665857294 (sobre a8eee7e3) VERDE:** 25 de 26 jobs com sucesso; VERSION-TAG-SYNC pulado, como esperado.
+  - Os testes novos da fix5 (msvc_floor_refuses_a_version_that_is_not_a_number, msvc_floor_refuses_an_empty_version e msvc_floor_is_wired_in_the_top_level_cmake) passaram nos jobs Windows. Isso fecha o limite declarado da D-W8-481 e da 482 (item 2b da conferência).
+  - embed_win_test passou desta vez, mas no limite: Debug 107,71 s, estático 108,78 s e compartilhado 105,49 s, contra o TIMEOUT de 120 s. A falha anterior (acima de 120 s) foi oscilação perto do teto, não travamento. O conserto pelo TIMEOUT medido continua necessário: a margem é de cerca de 10% e encolhe a cada fatia.
+- **23:04, push de onda-w8 e CI disparado**, com a T4b-A-fix1 (12a98049).
+- **23:06, conferência mirada da S5-A-fix5 NÃO LIMPA** (`rev-s5a-fix5.txt`, revisor adbc6d33): zero CRÍTICO, 2 IMPORTANTE, 1 COSMÉTICO.
+  - O I-2 da fix4 fechou: x, vazio e 19x dão rc 1; 1929 dá rc 1; 1930 dá rc 0.
+  - Item 2b fechado: os 3 testes passaram nos 4 jobs Windows do run 38665857294.
+  - I-1: a suíte não prova a ORDEM da ligação nem o if(MSVC); M4 e M9 sobrevivem. I-2: "(measured)" sem medição em GlintfxCompileOptions.cmake:42. C-1: o M2 sobrevive.
+  - **L-42: é a segunda volta do achado da ligação.** A S5-A-fix6 (D-W8-517 a 524) foi pedida a um CTO NOVO (o af139138 não estava mais ao alcance), com pesquisa na web antes do plano: Tests/RunCMake, -P com fixtures, WILL_FAIL.
+  - O mesmo CTO escreve a EMBED-WIN-TIMEOUT (D-W8-525 a 528, CI-VERDE-W8), em commit próprio, em série com a fix6.
+- **23:23, CI 38669031219 (sobre 769ff591, com a T4b-A-fix1) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
+  - embed_win_test: Debug 117,05 s (a 3 s do teto de 120), estático 107,90 s e compartilhado 76,25 s. Isso confirma a oscilação perto do teto e reforça a EMBED-WIN-TIMEOUT, que está com o CTO a023304b.
+- **23:25, T4b-B1-fix1 e T4b-A-fix2 recebidas do CTO a92de40e**, pré-executadas sobre 769ff591. Relato em `/var/tmp/cto-w8/relato-cto-b1fix1-fix2.txt`; plano r21 8ccc9412.
+  - B1-fix1: ordem 519a1fc0, anexos 4ffc39de, D-W8-501 a 508. Vermelho em 14 casos, verde 5/5, 5 de 5 mutantes mortos, preci 377, sanitizer 187, MSVC 6/6.
+  - fix2: ordem a6f5f630, anexos ea800381, D-W8-513 a 516. Vermelho só na célula subnormal, verde 4/4, 2 de 2 mutantes, preci 376, sanitizer 186, MSVC 2/2.
+  - As duas não têm arquivo em comum.
+  - **Subnormal reprovou (caso ii).** Com a fix1, cantos inteiros vezes denorm_min deram 1696 aceitos errado, 2759 recusados errado e 43029 pesos errados em 200000; sem o corte ao meio, zero erros. D-W8-514: corta ao meio só quando alguma coordenada passa de max/4, e a frase do cabeçalho fica como está.
+  - **D-W8-501, desempate do advisor (contagem honesta 0 sobre a DEFINIÇÃO do contador):** fica (a): a frase pública de texture_switches passa a dizer o que o contador conta, a primeira ligação de cada flush incluída.
+    - O contador mede o custo real na placa. (b) e (c) escondem uma ligação real, e (b) cria estado entre flushes.
+    - frame_2d_report.hpp:151-153 já dizia isso. O teste A,B,A,A = 3 continua coerente.
+  - **Conferências do main pedidas pelo advisor, as duas passaram:**
+    - a célula vertex_stream_the_same_texture_in_two_runs_is_bound_once usa dois lotes no MESMO flush (um draw_batch, sem flush entre eles), então não contradiz a D-W8-501;
+    - na fix2 a decisão de cortar é UMA só, tomada sobre os oito valores (near_the_largest_double) e aplicada às seis componentes, então s e t continuam invariantes.
+  - Despacho: a B1-fix1 primeiro (uma vaga), a fix2 na próxima.
+  - O veredito do revisor da fix1 (af45), se reprovar na sonda subnormal, fica mapeado à fix2. Não vira ordem nova.
+  - **LISTA DE RATIFICAÇÃO**, acrescentar: D-W8-501 (a frase pública de texture_switches) e D-W8-513 a 516 (o corte ao meio só perto do maior double).
+- **23:32, conferência mirada da S5-B-fix1 NÃO LIMPA** (`rev-s5b-fix1.txt`, revisor a87fa9a0): zero CRÍTICO, 3 IMPORTANTE.
+  - Bits iguais em 600 chamadas (bbeba567 contra 7616be7d, hash a763b6a0). 9 de 9 mutantes mortos.
+  - **I-1, conferido pelo main no blob:** tests/ellipse_outline_test.cpp:290 diz `good = error <= ...`, que é atribuição; a falha de uma amostra interna some na amostra seguinte. A correção de uma token passa no blob.
+  - I-2: L-17 em publish_as_triangles (ellipse_pixels.cpp:157-177), que faz três coisas.
+  - I-3: L-17 em write_sorted_outline_angles (ellipse_outline.cpp:22-41). O C-6 foi só renomeado, não fechado.
+  - Conflito apontado pelo revisor: MC e MK ficam fora das linhas mudadas (seção 9, itens 2 e 5). Fica para o CTO.
+  - A S5-B-fix2 vai a um CTO na próxima vaga, com faixa a partir de D-W8-529.
+- **23:32, T4b-A-fix2 despachada a um implementador haiku novo** (ordem a6f5f630). Teto de 4: B1-fix1, fix2, revisor da fix1 e CTO a023304b.
+- **23:35, revisão N1 da T4b-A-fix1 NÃO LIMPA** (`rev-t4bafix1.txt`, revisor af45d53d): zero CRÍTICO, 2 IMPORTANTE, 2 COSMÉTICO.
+  - Normal, de 1e-307 a 1e307: 500 de 500 aceitos em todas as escalas, pior erro 7,2e-16. A cerca é igual ao cabeçalho. MSVC 4/4. L-17 ok.
+  - I-1 = o subnormal, mapeado à fix2 já em voo, como o advisor previu. Não vira ordem nova.
+  - I-2, novo: o mutante O1 (sem fabs, projective_quad.cpp:51) passa nos 4 testes; falta a célula de orientação.
+  - Pedidos ao CTO a92de40e: a S5-B-fix2 (D-W8-529 a 536) e a célula do O1 (D-W8-537 a 540), numa fix3 ou dentro da B2, à escolha dele, com a conferência de que as sondas 2a e 2b do revisor caem a zero com a fix2.
+- **23:43, T4b-B1-fix1 commitada: 3876d1c3** (implementador afae1fc0; 11 arquivos; +366 −125; pai 1943710b).
+  - Vermelho em 14 casos por asserção; verde 5/5; 5 de 5 mutantes mortos; preci 377; sanitizer 187.
+  - O MSVC fica com o revisor.
+  - Revisão N1 despachada a um revisor haiku novo, com a varredura do gêmeo da frase pública (L-17).
+  - **Defeito recorrente nas ordens do CTO, apontado por 3 implementadores** (fix1, B1-fix1, S5-B-fix1): o laço de formato que termina em "|| break; done; echo fmt_rc=$?" sai com 0 mesmo quando reprova (L-45). Cada um refez a checagem por arquivo. Aviso aos CTOs: trocar pelo laço que conta falhas.
+  - A B1-fix1 mexeu em tests/CMakeLists.txt (+10). A S5-A-fix6 e a EMBED-WIN-TIMEOUT conferem a base na hora do commit.
+- **23:43, push de onda-w8 e CI disparado**, com a B1-fix1.
+- **14/10 por volta de 23:58: os quatro agentes caíram pelo limite semanal de uso** (HTTP 429, renovação em 19/10 às 19h, America/Recife): os CTOs a92de40e e a023304b, o implementador da fix2 (a30427e9) e o revisor da B1-fix1 (a55652ae). O modo autônomo venceu em 15/10 às 21:21. A máquina reiniciou nesse intervalo: o vigia e o guardião estavam parados.
+- **19/10 22:08, o líder voltou: "Ligue modo autonomo. Autorizo tag/merge/push. Continue de onde parou".**
+  - A flag do modo autônomo é prerrogativa do líder: o gancho P12b barra o agente. Pedi que ele rode o comando.
+  - A autorização de tag, merge e push vale desde já, com os portões da L-24.
+  - Vigia e guardião religados. Os quatro agentes foram retomados por SendMessage, com a ordem de conferir o disco antes de repetir.
+  - **CI 38672501272 (sobre dc2d8cf6) VERMELHO no Windows estático, no passo "Resultado agregado":** todos os 361 testes passaram, mas o ctest_aggregate.py reprova examples_pass_test (40,9 s, acima da régua de 40 s, sem RESOURCE_LOCK nem PROCESSORS). A "folga P2" mostra pkgconfig_validate_test a 116,8 de 120 s e embed_win_test a 110,1 de 120 s.
+  - L-17 deu padrão, não caso isolado: a EMBED-WIN-TIMEOUT foi ampliada para todos os testes perto do teto e para o portão de pesados (CTO a023304b, faixa até D-W8-532).
+  - Faixas do CTO a92de40e remanejadas: S5-B-fix2 em D-W8-533 a 540, célula do O1 em D-W8-541 a 544.
+- **19/10 22:09, T4b-A-fix2 commitada: b83eccc7** (implementador a30427e9, retomado sem repetir passo; 3 arquivos; +97 −7).
+  - Vermelho só na célula subnormal (4752 errados). Verde 4/4: subnormais 20000/0 e escalas 4500/0.
+  - 2 de 2 mutantes mortos. preci 376, sanitizer 186.
+  - O MSVC fica com o revisor.
+  - Revisão N1 despachada a um revisor haiku novo, que reroda as sondas 2a e 2b do revisor da fix1: elas têm de cair a zero.
+- **19/10 22:09, push de onda-w8 e CI disparado**, com a fix2, pela autorização do líder de 19/10 ("Autorizo tag/merge/push").
+- **19/10 22:12, S5-B-fix2 e T4b-A-fix3 recebidas do CTO a92de40e** (relato b651cadc; plano r21 3a3f0a77, D-W8-533 a 544), conferidas sobre b83eccc7.
+  - S5-B-fix2: ordem b92e31dc, anexos 08c089b6. Verde 5/5; bits iguais em 600 chamadas; MK marca 46; 7 de 7 mutantes; preci 377; sanitizer 187; MSVC 4/4.
+  - T4b-A-fix3 (a célula do O1): ordem 9c9381e7, anexos 7a9701e4. Enumeração 5^8 nas unidades 1 e denorm_min; o O1 morre.
+  - D-W8-537: os mutantes do revisor ficam só nas linhas mudadas; MK e MC entram como regressão nomeada, à parte.
+  - **A fix2 está completa contra as sondas do revisor da fix1** (medido pelo CTO): B, 500/500 (eram 291); D, 0 trocas (eram 5115); E, 0 erros. O3 e O7 medidos como equivalentes (diff vazio).
+  - As duas não têm arquivo em comum, nem com tests/CMakeLists.txt. Despachadas em paralelo a implementadores haiku novos.
+  - INBOX: ELLIPSE-OUTLINE-TEST-L17.
+- **19/10 22:12, revisão N1 da T4b-B1-fix1 NÃO LIMPA, só documental** (`rev-t4bb1fix1.txt`, revisor a55652ae).
+  - A frase nova bate com o contador e com frame_2d_report.hpp (sondas A,flush,A=2; nenhuma,flush,A=1; A,flush,A,B=3). 8 de 8 mutantes mortos. MSVC 6/0.
+  - I-1: o gêmeo da frase velha continua na cerca, em docs/auditoria-api-texture.md:719-720 ("between two calls").
+  - C: a errata cita D-W8-501 a 512, mas 509 a 512 não existem (:43); "(each flush starts with none bound)" descreve o modelo do contador, não o GL; um flush com erro GL zera a contagem, sem promessa pública em contrário (fica para o líder).
+  - O conserto vai com a B2, que reescreve o mesmo parecer. Fica com o CTO a92de40e na próxima vaga.
+- **19/10 22:13, modo autônomo LIGADO pelo líder** ("inicie modo autonomo"), até 20/10 às 22:13, com escopos push e clean. A autorização de tag, merge e push de 19/10 continua valendo.
+- **19/10 22:15, ordem do líder, verbatim: "pause 20/10/2026 07:15h. Antes da pausa, commit."** Como vai ser cumprida:
+  - o trabalho segue até lá;
+  - a partir de 06:45 não sai despacho novo;
+  - às 07:15 os agentes em voo param (TaskStop). Trabalho de fatia não terminada fica nas cópias em /var/tmp, nunca commitado pela metade, porque os portões da L-23 valem;
+  - o main commita e empurra o registro e a memória da sessão; parada_do_lider é gravado e o monitor só vigia até o líder mandar seguir.
+  - Agendamento em ~/.config/olhe_agentes/GlintFx/pausa_agendada (epoch 1792491300).
+- **19/10 22:35, CI 39351873581 (sobre 78e62ff5, com a T4b-A-fix2) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado. O portão de pesados não reprovou desta vez, mas pkgconfig_validate_test está em 113,2 s e embed_win_test em 107,8 s, contra o teto de 120, no compartilhado. A EMBED-WIN-TIMEOUT ampliada continua necessária (oscilação perto do teto).
+- **19/10 22:40, T4b-A-fix3 commitada: 96259ecf** (implementador a33fe11a; 1 arquivo; +53). Enumeração de 781250 casos, 118368 convexos, 0 errados; o O1 morre; preci 377; sanitizer 187.
+  - A revisão N1 foi somada à do revisor da fix2 (a597d9a4, que não escreveu nenhuma das duas), com veredito separado em rev-t4bafix3.txt. Isso economiza uma vaga.
+  - O downgrade da L-09 do preci (roda no hospedeiro) é o vigente até PRECI-IN-CONTAINER, como em toda fatia da onda.
+- **19/10 22:40, CTO a92de40e retomado para a T4b-B2** (D-W8-475 a 480), com os achados documentais da revisão da B1-fix1 (D-W8-545 a 550). O de "flush com erro zera a contagem" vai à ratificação do líder. Instrução de pausa às 07:15 dada.
+- **19/10 22:41, S5-B-fix2 commitada: 6266dc97** (implementador acc96305; 5 arquivos; +85 −45). Verde 5/5; bits iguais (cmp em 601 linhas, a763b6a0); 7 de 7 mutantes; MK marca 46 e MC morre; preci 377; sanitizer 187. Entrou no push de c829fe96.
+  - Conferência mirada despachada a um revisor haiku novo, com instrução para a pausa das 07:15.
+- **19/10 23:05, CI 39354842683 (com S5-B-fix2 e T4b-A-fix3) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
+- **20/10 00:12, EMBED-WIN-TIMEOUT e S5-A-fix6 recebidas do CTO a023304b**, pré-executadas em cópias (relatório 42d03562).
+  - EMBED: ordem 00fb7928, anexos 4b28a8be, D-W8-525 a 530. É padrão, não caso isolado: a regra 4 da casa (3 vezes o pior tempo, arredondado em múltiplos de 30 s) vale para 13 testes. O embed_win_test fica com 360. examples_pass_test e os dois claim_citations_* ganham trinco e MEASURED_HEAVY, com o piso de 14 para 17. A régua de 40 s não alarga.
+  - fix6: ordem ddfac66a, anexos 82669f9e, D-W8-517 a 524.
+    - Uma fixtura negativa por modo de falha mata M4 e M9, e um teste da segunda linha mata M2.
+    - I-2: a medida na imagem CachyOS contradiz o "(measured)" (pacotes x86_64 de base; o makepkg pede -march=native). A frase foi reescrita.
+    - Fontes da L-42: Tests/RunCMake, CMakeTest EXPECTFAIL, WILL_FAIL e cmake#23311, README-cmake do SDL3.
+  - Pré-execução das duas juntas: preci 380, rc 0.
+  - Ordem de commit: a EMBED primeiro; a fix6 espera o SHA dela.
+  - EMBED despachada a um implementador haiku novo. A fix6 vai depois do commit da EMBED.
+  - INBOX: EMBED-WIN-GROWTH (de 61 para 117 s em 4 dias; FOLGA_REPROVA_FATOR segue None).
+- **20/10 00:21, revisões N1 da T4b-A-fix2 e da fix3: as duas NÃO LIMPA** (revisor a597d9a4; rev-t4bafix2.txt e rev-t4bafix3.txt).
+  - fix2: o escopo dela (D-W8-514) está cumprido, com todas as sondas do CTO e do revisor anterior em zero e MSVC 4/0. O O1 agora morre.
+  - **IMPORTANTE novo, um passo além:** escala 1 com uma aresta subnormal. Um kite é recusado ou recebe pesos errados calados (84 recusas erradas e 186 de 236 pesos errados na família sliver_escala1). A causa é o ldexp de escalonamento da fix1. M1 e M4 sobrevivem.
+  - fix3: a enumeração 5^8 dá 0 erros, mas MX e MDIAG sobrevivem à célula nova (só inteiros, sem magnitude mista).
+  - Processo: o relatório da fix3 em t4bafix3/relatorio.txt traz conteúdo da S5-B-fix2.
+  - **Terceira volta da mesma família**, então valem a L-42 e a L-34. Pedida ao CTO a023304b a **T4b-A-fix4 (D-W8-551 a 558)**: estreitar a promessa pública, usar predicados exatos ou outra saída da pesquisa, com contagem de queixas e advisor se ficar abaixo de 10.
+- **20/10 00:25, T4b-B2 recebida do CTO a92de40e** (ordem cdfef976, anexos 009fb3e3, plano r21 5495e2a7; D-W8-475 a 480 e 545 a 550). Pré-execução: 52 células, com e sem ASan; trapézio com 154 de 154 sondas; preci 377; MSVC rc 0; 3 de 3 mutantes.
+  - **D-W8-477, desempate do advisor (0 queixas):** a varredura dos nomes de programa de 1 a 4096 fica como trava auxiliar. Conferi que src/draw2d/gl_state_contract.cpp:86 faz glUseProgram(0), então GL_CURRENT_PROGRAM depois do flush não serve. A célula K2 já imprime programas= e da_biblioteca= e exige exatamente 1; zero é falha.
+    - Condição do advisor que fica para o revisor: medir e registrar o nome encontrado, porque a faixa 1-4096 é premissa do Mesa.
+    - A prova real continua sendo o trapézio.
+  - **Erro de fato na ordem, corrigido no briefing:** a linha 19 diz que nenhuma ordem viva toca os arquivos da B2, mas a EMBED-WIN-TIMEOUT e a S5-A-fix6 mexem em tests/CMakeLists.txt. O implementador foi avisado para refazer sobre um snapshot novo se a base mudar.
+  - **D-W8-548 vai à LISTA DE RATIFICAÇÃO como INCONSISTÊNCIA com a D-W8-501**, não como lacuna de frase: um flush que termina em erro GL descarta as trocas que já ligou, e a frase nova diz "each texture the library binds to draw counts once". Saídas: contar mesmo com erro (o custo foi pago) ou a frase dizer "in a flush that completes". É escolha de API: o CTO decide, com contagem de queixas, e o líder ratifica.
+  - Processo: o relatório da fix3 (t4bafix3/relatorio.txt) foi sobrescrito pelo implementador da S5-B-fix2. O revisor a597 já cobriu o conteúdo. Daqui em diante os briefings dão o caminho do relatório, único por fatia.
+  - B2 despachada a um implementador haiku novo, com a pausa das 07:15 no briefing.
+- **20/10 00:35, EMBED-WIN-TIMEOUT commitada: 21bfb9ed** (implementador ac0331e5; 2 arquivos; +90 −7).
+  - Vermelho: rc_prova 1, com 2 controles. Verde: 15 de 15. 4 de 4 mutantes como previsto. preci 377.
+  - Os 3 testes só do Windows serão provados pelo artefato ctest-junit-windows do primeiro CI.
+  - A revisão N1 vai na próxima vaga, depois do CI, porque precisa do artefato.
+- **20/10 00:35, S5-A-fix6 despachada** a um implementador haiku novo, com SHA_EMBED=21bfb9ed.
+- **20/10 00:35, push de onda-w8 e CI disparado**, com a EMBED.
+- **20/10 00:52, conferência mirada da S5-B-fix2 NÃO LIMPA** (rev-s5bfix2.txt, revisor a40885bb). O código está certo: bits iguais, verde 5/5, MK em 46, MSVC 4/0, 9 de 10 mutantes (o X10 sobrevive, como esperado).
+  - I-1: a função de teste tests/ellipse_outline_test.cpp:205-348, com 144 linhas, foi tocada pelo commit (L-17).
+    - **Decisão do main: não diferir.** O CTO a tinha mandado para a INBOX (D-W8-540). Mas a L-17 é lei, e agente nenhum a flexibiliza (LEI DAS LEIS): função tocada e reprovada pela régua se conserta na fatia que a toca.
+  - I-2: o comentário "and answers how many" (L-17, pergunta 2).
+  - Pedida ao CTO a92de40e a **S5-B-fix3 (D-W8-559 a 564)**. O item ELLIPSE-OUTLINE-TEST-L17 sai da INBOX quando ela commitar.
+- **20/10 01:06, S5-A-fix6 commitada: 16728be8** (implementador a830754a; 6 arquivos; +58 −4).
+  - Os sobreviventes M2, M4 e M9 foram reproduzidos na suíte velha. Vermelho: M2, M4, M9 e M10 com rc 8, exatamente a tabela. Verde 11/11. preci 380.
+  - As 2 fixturas estão no ls-tree.
+  - Revisão: um revisor haiku novo confere a fix6 e depois a EMBED (esta com o artefato Windows do CI 39365077605), com vereditos separados.
+- **20/10 01:06, push de onda-w8**, com a fix6. O CI sai depois que o run 39365077605 terminar, para não rodar dois ao mesmo tempo.
+- **20/10 01:09, CI 39365077605 (sobre b626c6bc, com a EMBED-WIN-TIMEOUT) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado. CI novo disparado com a fix6.
+- **20/10 01:43, CI 39368033791 (sobre 125201db, com a S5-A-fix6) VERDE:** 25 de 26 jobs; VERSION-TAG-SYNC pulado.
+- **20/10 02:00, TODO.md: o Status de R2D-TEXTURE, R2D-SHAPES e CI-VERDE-W8 passa de ⏳ para 🔄 Em andamento** (higiene da tabela; os três têm fatias commitadas e em revisão nesta onda).
+- **20/10 02:34, T4b-B2 commitada: ee160e76** (implementador a6604eb1; 10 arquivos; +879 −24).
+  - Refeita sobre um snapshot novo depois da EMBED e da fix6.
+  - Fixture: 52 de 52 células, irmãs 106 e 31, 0 reprovadas. K1 com 0 erradas; K2 com programas=1, da_biblioteca=1 e a_texcoord_q=3 nos dois modos. Halo 188.
+  - ASan: 52/0. Mutantes S3, S4 e BQ mortos: os S3 e S4 da T4a morrem aqui (D-W8-463). preci 380.
+  - Revisão N1 despachada a um revisor haiku novo, com a condição do advisor (registrar o nome do programa) e a conferência das cercas por diff.
+- **20/10 02:34, push de onda-w8 e CI disparado**, com a B2.
+- **20/10 02:54, CI 39375662931 (sobre e33ff67e, com a T4b-B2) VERDE:** jobs no resumo acima; VERSION-TAG-SYNC pulado. A prova por pixel nova roda no job wayland-container.
+- **20/10 03:40, a ordem da S5-B-fix3 chegou** do CTO a92de40e, com as decisões D-W8-559 a 564. Arquivos: ordem /var/tmp/cto-w8/ordem-s5b-fix3.md (md5 a2093661), anexos com anexos.md5 03167464 (o main conferiu as 25 linhas: ok) e relato /var/tmp/cto-w8/relato-cto-s5bfix3.txt (md5 5b528f6b).
+  - I-1: a varredura de 144 linhas vira onze átomos. A saída é igual à da base no verde, sob MK (46) e sob MKR (45).
+  - I-2: as duas frases foram reescritas, só comentário.
+  - C: a asserção do pior erro interno fica e vai para antes da contagem; no mutante MKD ela é a única que reprova.
+  - Pré-execução: preci 377/0, sanitizer 187/0, MSVC 2/0. A fatia não toca tests/CMakeLists.txt. Conserto mecânico, fora do piso de 10 queixas da L-34.
+  - O main conferiu a base: o último commit nos 3 arquivos é 6266dc97. **Implementador haiku novo despachado.**
+  - Mandados para a INBOX, sem conserto nesta fatia (L-32): I-3, ellipse_pixels.cpp com 196 linhas e 12 funções (D-W8-563); e duas funções intocadas do mesmo teste que passam da régua (D-W8-561).
+- **20/10 03:5x, a ordem da T4b-A-fix4 chegou** do CTO a023304b, com as decisões D-W8-551 a 558. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-a-fix4.md (md5 b65bb46b), anexos (anexos.md5 e9f60322, as 48 linhas conferidas: ok) e relatório /var/tmp/cto-w8/relatorio-cto-t4bafix4.txt (md5 9c0fbd82).
+  - Proposta: decisão exata do mapeamento, com produtos vetoriais em inteiros largos (átomo `exact_cross`). Nas 1.025.922 entradas das revisões, 0 aceites errados, 0 recusas erradas e pior peso a 3,2e-16.
+  - **L-34: 3 queixas, abaixo de 10, então o advisor desempatou.**
+  - **Desenho (b), exato: aceito.** A alternativa (a) estreitaria a promessa para caber na implementação, a frase-guarda proíbe isso, e ela ainda deixaria passar 7,9% de erro de peso. O cabeçalho já promete "any finite size", e só inteiros dão os mesmos bits em todo sistema (L-04).
+  - **D-W8-555, a frase pública: cortada; roda a etapa G (8 arquivos).** "Decided exactly, no rounding" ficaria ao lado de uma recusa que depende de arredondamento: o peso que passa do maior double (D-W8-553). Seria uma segunda contradição entre o texto público e o comportamento, da mesma forma que a D-W8-548. Promessa pública é decisão de produto.
+  - Conferências do main antes de despachar:
+    - as 9 âncoras aparecem uma vez cada no HEAD 9e1e7832;
+    - desde a base da pré-execução (1bc6f4a0), só ee160e76 tocou os arquivos da fatia, e só os compartilhados;
+    - os laços de multiplicação do átomo percorrem só os limbs usados (`a.size`, `b.size`), não os 140, então o custo de um quad comum é pequeno.
+  - **Implementador haiku novo despachado, com a etapa G.**
+  - Para o revisor N1: a seção 9 item 2 já roda o binário C++ (`sonda_cpp.sh`). Acrescentar um número de tempo, HEAD contra fix4, por `draw_texture_quad`, em quads comuns e nos kites; serve para a ratificação, não é portão.
+  - **Para a lista de ratificação do líder:**
+    - D-W8-551 a 558;
+    - o corte da frase D-W8-555;
+    - a recusa por peso acima do maior double, que o texto público não menciona. É lacuna anterior, e vai junto com a D-W8-548.
+- **20/10 03:49, chegou a conferência mirada da S5-A-fix6 (16728be8) e da EMBED-WIN-TIMEOUT (21bfb9ed)** (revisor a3b00521). Arquivos: /var/tmp/cto-w8/rev-s5a-fix6.txt e /var/tmp/cto-w8/rev-embed-win-timeout.txt.
+  - **Código e testes LIMPOS nas duas.**
+    - fix6: M2, M4, M9 e M10 morrem pelo blob, cada um no teste previsto, e o controle fica 11/11. A frase do CachyOS confere com a imagem de hoje. Os 3 testes novos passaram nos jobs Windows do CI 39368033791.
+    - EMBED: as 13 contas conferem, as 4 medidas batem com os logs do servidor, a prova local deu 15/15, os artefatos Windows deram 7/7 e os 5 mutantes morrem onde devem.
+  - **Único IMPORTANTE, nas duas: processo (L-63).** Os commits citam o ID sem tocar o Status no mesmo commit.
+    - O defeito é real: às 01:06 R2D-SHAPES ainda estava ⏳. O Status foi corrigido para 🔄 no commit separado das 02:00.
+    - Não se reescreve histórico publicado (L-25), então o conserto possível já foi feito.
+    - Daqui em diante, toda ordem do CTO faz a fatia que fecha o item tocar o Status (🔄 para 🔍) no próprio commit, e nenhuma fatia cita item em ⏳ sem levá-lo a 🔄.
+  - **Decisão do main:** as duas conferências ficam aceitas no conteúdo, e o achado de processo, registrado e corrigido.
+  - Novo para a INBOX: EMBED-PKGCONFIG-DEBUG (pkgconfig_validate_test com 124,23 s no Windows Debug, teto 360, quando a regra 4 pede 390; o passo "folga P2" não roda no job Debug).
+- **20/10 04:1x, S5-B-fix3 commitada: 3b0365af** (implementador af50267f; 3 arquivos; +253 −138).
+  - Régua da L-17: a base listava 3 funções, o snapshot lista 2, e a varredura saiu da lista. Equivalência no verde, sob MK e sob MKR: linhas iguais. Sob MKD reprova só o worst_inner.
+  - preci 380/0, sanitizer 190/0, MSVC 2/0. O blob confere byte a byte com o snapshot.
+  - Desvio de metadado: o trailer Co-Authored-By saiu Haiku 5.5. Commit publicado não se reescreve (L-25).
+  - **ELLIPSE-OUTLINE-TEST-L17 sai da INBOX** (decisão das 03:4x).
+  - O implementador levantou um possível achado da L-17 em três átomos, que vai ao revisor.
+  - Push feito (ls-remote 3b0365af) e CI 39385013879 disparado. **Revisão N1 com um revisor haiku novo**, pela seção 9 da ordem.
+- **20/10 04:3x, revisão N1 da T4b-B2 (ee160e76): NÃO LIMPA, só documental** (revisor a911b6d7, /var/tmp/cto-w8/rev-t4bb2.txt).
+  - O código passou: fixture 52/106/31 com 0 reprovadas, K1 com 0 sondas erradas, K2 com 1 programa, ASan 52/0, MSVC rc 0, S3, S4 e BQ mortos, as cercas com diff 0. O nome do programa K2 mediu 3, abaixo da condição de 256 do advisor (D-W8-477), então não há achado.
+  - Os mutantes do próprio revisor mostram que o piso de sondas é a única guarda do poder de discriminar do teste. O own-C reprova o código certo; o own-B mais o own-C, juntos, passam.
+  - IMPORTANTE-1: docs/auditoria-api-texture.md:44 diz que nenhuma frase pública trata do flush com erro GL. Mas renderer_2d.hpp:493-497 e frame_2d_report.hpp:150-154 dizem que toda textura conta, e o código não conta no erro. É o mesmo assunto da D-W8-548.
+  - Mais cinco COSMÉTICOS.
+  - **Pedido ao CTO a7b9643f: decidir a D-W8-548**, com pesquisa e contagem de queixas (abaixo de 10, vai ao advisor; o líder ratifica), e escrever a T4b-B2-fix1 (faixa D-W8-581 a 596).
+  - A T4a segue em verificação até a B2-fix1.
+- **20/10 04:4x, T4b-A-fix4 commitada na etapa G: d6e28b62** (implementador afc77cba; 8 arquivos, 3 novos; +529 −80; renderer_2d.hpp fora).
+  - Vermelho medido: o código velho com os testes novos erra 1592 kites. Depois, verde 4/4, com os mutantes E1 a E8 mortos onde a tabela manda.
+  - preci 381/0 e sanitizer 191/0, no hospedeiro (downgrade da L-09).
+  - O trailer Co-Authored-By saiu Haiku 5.5. Commit publicado não se reescreve (L-25).
+  - Push feito (ls-remote d6e28b62). O CI sai quando o run 39385013879 terminar.
+  - **Revisão N1 com um revisor haiku novo**, com os pedidos do advisor: o binário C++ sobre as cinco entradas e um número de tempo, pai contra fix4.
+- **20/10 04:4x, CI 39385013879 (sobre 3b0365af, com a S5-B-fix3) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. Disparado o CI 39388751658 sobre d6e28b62, com a T4b-A-fix4.
+- **20/10 05:1x, a ordem da T4b-B2-fix1 chegou** do CTO a7b9643f, com as decisões D-W8-581 a 588. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-b2-fix1.md (md5 5afb855a), anexos (anexos.md5 85e97587, as 36 linhas conferidas: ok) e relato /var/tmp/cto-w8/relato-cto-t4bb2fix1.txt (md5 05f181e4).
+  - **A D-W8-548 vira a D-W8-581. Queixas: 0, então o advisor desempatou. Opção A, aceita:**
+    - um flush que a placa recusa não soma chamadas de desenho nem trocas de textura; as peças dele contam em pieces_dropped_graphics_failure, como já contam;
+    - o código não muda; mudam as três frases públicas (draw_texture, draw_calls e texture_switches), e um caso novo fixa a promessa.
+  - **Por que A:** no relatório, "reached the graphics card" já quer dizer "a placa aceitou" (pieces_drawn e pieces_dropped_graphics_failure). Contar no erro (B) daria ao mesmo verbo, no mesmo struct, dois sentidos opostos. Sokol, bgfx e three.js contam na submissão porque nunca leem o erro GL; o GlintFx lê.
+  - **Por que isto não contradiz o desempate da T4b-A-fix4:** lá, estreitar a promessa deixaria passar um erro de peso de 7,9% em silêncio. Aqui, o flush recusado já aparece duas vezes, no erro de finish_frame() e em pieces_dropped_graphics_failure. A muda palavras de contabilidade, e nenhum defeito deixa de ser reportado.
+  - **C**, um contador novo de recusa como o do Skia, fica para quando um consumidor pedir. Acrescentar campo ao struct por valor é mudança de ABI; antes da 1.0 (SOVERSION 0) é o único momento barato. Esse fato vai à ratificação.
+  - O vermelho (L-20) é o mutante MB: ele sobrevive no pai e morre no snapshot. O bloco "ct" roda os dois, e o relatório imprime os dois.
+  - Pré-execução: preci 380/380, sanitizer 190/190, MSVC 2/2, commit em cópia com 5 arquivos (+58 −22). A fatia não fecha R2D-TEXTURE (fica 🔄).
+  - **Implementador haiku novo despachado.** O implementador da S5-C1 só sai depois do commit desta fatia (D-W8-586).
+  - **Os commits dos implementadores levam o Co-Authored-By do próprio modelo (Haiku 5.5).** Daqui em diante, isso não conta como desvio.
+  - Vão à INBOX: K2-PROGRAM-NAME-PRINT e K1-OUTLINE-PROBE (D-W8-585).
+  - **Para a lista de ratificação do líder:** a D-W8-581, com as alternativas B e C nomeadas e a nota de ABI.
+- **20/10 05:2x, CI 39388751658 (sobre d6e28b62, com a T4b-A-fix4) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. É o primeiro run com o exact_cross_test no Windows; o passo 6b do revisor confere os jobs.
+- **20/10 05:5x, a ordem da S5-C1 chegou** do CTO a2dd851e, com as decisões D-W8-565 a 580. Arquivos: ordem /var/tmp/cto-w8/ordem-s5c.md (md5 721ebcc4), anexos (anexos.md5 8ba4e6e8, as 102 linhas conferidas: ok) e relato /var/tmp/cto-w8/relato-cto-s5c.txt (md5 efd8404f).
+  - Pré-execução sobre ebbd18a9:
+    - verde 5/5 e 7 de 7 mutantes mortos;
+    - fixture em contêiner com 40 células, e os mutantes M8 e MX morrem;
+    - preci 381/381, sanitizer 191/191, MSVC 8/8;
+    - commit de prova sobre 4ffecec6 com 16 arquivos (+770 −96).
+  - **Desempate do advisor nas quatro, todas aceitas:**
+    - **D-W8-565:** a S5-C sai em duas ordens, C1 agora e C2 depois, porque a C2 lê o campo que a C1 cria; precedente da D-W8-468. **R2D-SHAPES só fecha com C1, C2 e S6.**
+    - **D-W8-568:** o campo se chama `curve_max_error_pixels`, não `ellipse_max_error_pixels`. Depois da C2 a ponta redonda também lê o campo, e "ellipse_" ficaria falso num cabeçalho público. O custo de ABI hoje é zero. **Porta de mão única: a marca v0.7.0.0 espera a ratificação do líder para a 568, a 581 e a lacuna da 555.** Antes da marca, renomear custa um commit; depois, é quebra.
+    - **D-W8-569:** as frases públicas do Anexo T tiram três contradições da cerca da S0. O revisor confere que todo `Proved by:` existe no blob e que o check_claim_citations passa.
+    - **D-W8-572 (Q4):** a ponta redonda lê o campo. São 10 queixas, exatamente no piso, mas 2 já contavam na D-W8-416 e 0 tratam da ponta diretamente. A conta honesta é 8 reais, e o registro diz isso. Nada sai disso agora; ela só justifica o nome da 568.
+  - **A S5-C1 não sai antes da pausa:** são 16 arquivos com fixture, preci, sanitizer e MSVC, e não chegariam ao commit até 07:15. Antes de despachá-la, depois da pausa, o main confere uma a uma as âncoras dos arquivos compartilhados no HEAD novo.
+  - Vão à INBOX: S5-C2 (registro visível), CELL-REFUSALS-L17, FRAME-TEST-OLD-L17 e PER-CALL-TOLERANCE.
+- **20/10 05:56, T4b-B2-fix1 commitada: 9f959d2a** (implementador a242a0a7; 5 arquivos; +58 −22).
+  - O MB sobrevive no pai e morre no snapshot, com o vermelho visto. MBS e MT também morrem.
+  - preci 381/0, sanitizer 191/0, MSVC 2/2.
+  - Push feito (ls-remote 9f959d2a) e CI 39397064502 disparado. **Revisão N1 com um revisor haiku novo**, que grava o veredito aos poucos, por causa da pausa.
+- **20/10 06:0x, revisão N1 da T4b-A-fix4 (d6e28b62): NÃO LIMPA, 0 CRÍTICO** (revisor a30092f8, /var/tmp/cto-w8/rev-t4bafix4.txt).
+  - **O código está certo:** o binário C++ deu 0 aceites errados e 0 recusas erradas nas 1.025.922 entradas, com pior peso a 3,21e-16. O CI mostra exact_cross_test e projective_quad_test passando em 4 jobs Windows e 9 Linux. Os mutantes R2 a R8 morrem.
+  - Os IMPORTANTES são testes que faltam e régua da L-17:
+    - I-1: nenhum teste derruba a promessa de 2^-50; o mutante R1 sobrevive.
+    - I-2: a entrada infinita não está testada; o mutante R7 sobrevive.
+    - I-3 e I-4: kite() tem 5 parâmetros, e um laço chega a 4 níveis.
+  - **Tempo (para a ratificação):** projective_weights passou de 80-85 ns para 1415-1511 ns por quad comum, cerca de 17 vezes mais.
+  - **Pedido ao CTO ade52563 (faixa D-W8-597 a 612), a T4b-A-fix5:**
+    - os testes que matam R1 e R7, e a régua da L-17;
+    - medir um predicado filtrado (ponto flutuante com cota certificada e queda para o caminho exato só no sinal ambíguo, como Shewchuk e o Filtered_predicate do CGAL), que devolva o custo comum sem perder a exatidão;
+    - avisado de que pode ser parado às 07:15, grava tudo aos poucos.
+  - **Para a lista de ratificação do líder:** o custo de 17 vezes no draw_texture_quad, com o número medido.
+- **20/10 06:1x, revisão N1 da T4b-B2-fix1 (9f959d2a): NÃO LIMPA, só documental** (revisor a96269ed, /var/tmp/cto-w8/rev-t4bb2fix1.txt).
+  - O código está certo: as frases batem com o código do blob, e MB, MBS, MT mais quatro mutantes do revisor morrem. MB e MBS sobrevivem no pai, como a mensagem do commit diz. MSVC 2/0.
+  - IMPORTANTE-1: o gêmeo público docs/wiki/API-Draw-2D.md:120 ("How many draw calls reached the card") ficou fora da enumeração da D-W8-582.
+  - COSMÉTICO-1: uma linha duplicada que o próprio commit criou no teste de paridade (:64-65).
+  - **Pedido ao CTO ad06e61c: a mini-ordem T4b-B2-fix2** (faixa D-W8-613 a 620), com a varredura de gêmeos do main anexada.
+- **20/10 06:1x, revisão N1 da S5-B-fix3 (3b0365af): NÃO LIMPA, 0 CRÍTICO** (revisor a2accb32, /var/tmp/cto-w8/rev-s5bfix3.txt).
+  - O comportamento está igual ao do pai: a varredura bate no verde, em MK e em MKR. A régua da L-17 baixou de 3 para 2 funções, src/ só mudou comentário e o MSVC deu 2/0. MKD e MKW reprovam só no worst_inner. Os 10 mutantes morrem.
+  - IMPORTANTE (L-17): quatro átomos novos fazem duas coisas cada: ring_turns_with_the_outline, band_holds, count_band e hole_is_inside_the_erosion.
+  - O mutante RING sobrevive, mas é limite não demonstrado, não furo provado.
+  - O revisor apagou por glob mal escrito a própria pasta mut/ e a recriou; nada de fora dela foi tocado (L-53).
+  - **Pedido ao CTO a4f22b43: a S5-B-fix4** (faixa D-W8-621 a 636). Ele foi avisado da pausa e grava tudo em disco.
+- **20/10 06:2x, CI 39397064502 (sobre 9f959d2a, com a T4b-B2-fix1) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 06:2x, chegou a mini-ordem da T4b-B2-fix2** do CTO ad06e61c, com as decisões D-W8-613 a 620. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-b2-fix2.md (md5 39196c42) e anexos (anexos.md5 838f75bc; o main conferiu as 17 entradas e estão ok).
+  - Muda só a wiki:120, que passa a ressalvar o flush recusado, e sai a linha duplicada do teste de paridade. São 2 arquivos, +1 −2.
+  - Os gêmeos foram conferidos linha a linha:
+    - os de auditoria-api-draw2d ficam como estão, porque trocar a :274 deixa vermelho o auditoria_texto_congelado_test (medido);
+    - o plano da W7-D é histórico e também fica.
+  - Pré-execução: 4 de 4 portões de documento, cada um sabotado e visto reprovar; preci 381/381.
+  - Achado lateral: o so_comentario.sh da fix1 diz que pega espaço a mais dentro de uma linha, mas não pega, porque o pré-processador normaliza. O comentário foi corrigido no script da fix2.
+  - D-W8-618: a errata desta fatia fica no registro e na mensagem de commit, não na auditoria de textura.
+  - D-W8-620: a cópia de docs/wiki para a wiki do GitHub é ação no remoto e fica para o fechamento da onda.
+  - **Implementador haiku novo despachado às 06:2x**, avisado de que para às 07:15 se não chegar ao commit.
+
+### LISTA CONSOLIDADA DE RATIFICAÇÃO DO LÍDER (20/10/2026, 06:3x, antes da pausa das 07:15)
+
+O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e espera confirmação ou troca. **A marca v0.7.0.0 não sai antes da ratificação dos itens marcados com (MARCA).**
+
+**Promessas públicas e nomes, que são porta de mão única:**
+1. **D-W8-501:** a frase pública de `texture_switches` conta a primeira ligação de textura de cada flush.
+2. **D-W8-548/581 (MARCA):** um flush que a placa recusa não soma chamadas de desenho nem trocas de textura. O código já fazia isso; as três frases públicas e a wiki passam a dizer.
+   - Alternativa B, não adotada: contar no erro, como sokol, bgfx e three.js.
+   - Alternativa C, não adotada: um contador próprio de recusas, como o do Skia. Acrescentar campo ao struct é mudança de ABI, e só é barato antes da 1.0.
+   - Contagem de queixas: 0. Desempate do advisor.
+3. **D-W8-555 (MARCA):** a frase pública "decidido de forma exata" do draw_texture_quad foi cortada. Fica uma lacuna: o texto público não menciona a recusa por peso acima do maior double.
+4. **D-W8-568 (MARCA):** o campo de tolerância se chama `curve_max_error_pixels`, e não `ellipse_max_error_pixels`, como a cerca da S0 dizia. O motivo é que a ponta redonda também vai lê-lo.
+5. **D-W8-569:** as frases públicas de fill_ellipse e stroke_ellipse (Anexo T da S5-C1) corrigem três contradições da cerca da S0.
+
+**Desenho:**
+6. **D-W8-551 a 558:** a decisão do mapeamento projetivo passa a ser exata, com inteiros largos, para quaisquer cantos finitos. São 3 queixas; desempate do advisor; a opção (a), que estreitaria a promessa, foi recusada.
+7. **Custo medido da D-W8-551:** projective_weights subiu de 80-85 ns para 1415-1511 ns por quad comum, cerca de 17 vezes. A T4b-A-fix5 estuda um predicado filtrado: conta rápida com cota certificada, e o caminho exato só quando o sinal fica ambíguo.
+8. **D-W8-565:** a S5-C sai em duas ordens, C1 e C2. R2D-SHAPES só fecha com C1, C2 e S6.
+9. **D-W8-572 (Q4):** a ponta redonda lê o campo de tolerância. São 10 queixas, no piso, das quais 8 reais: 2 já contavam na D-W8-416 e nenhuma trata da ponta diretamente.
+
+**Já estavam na lista antes desta noite:** D-W8-380, 383, 397, 414, 441 a 444, 471, 473 e 513 a 516.
+
+**Processo:** a L-63 foi violada duas vezes (fix6 e EMBED). Os commits citaram o item sem tocar o Status no mesmo commit. Foi corrigido às 02:00 e as ordens passaram a exigir a troca.
+- **20/10 06:45, a ordem da T4b-A-fix5 chegou** do CTO ade52563, com as decisões D-W8-597 a 612. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-a-fix5.md, anexos /var/tmp/cto-w8/ordens-anexos/t4bafix5/ e relato /var/tmp/cto-w8/relato-cto-t4bafix5.txt. O md5 de cada um está na linha de conferência da sessão.
+  - **O que a ordem traz:** só testes, em 2 arquivos (projective_quad_test e exact_cross_test), sem nenhum arquivo em comum com a B2-fix1 ou a S5-C1.
+  - **Os mutantes que sobreviviam agora morrem:** o R1 cai em 3 testes e o R7 em 1.
+  - **Pré-execução:** preci 381/381, sanitizer 191/191, MSVC 2/2, e commit em cópia de 2 arquivos (+161 −36).
+  - **O filtro foi medido com um protótipo, sem entrar na ordem:**
+    - 84 a 94 ns por quad comum, contra 81 a 98 ns no pai e 1287 a 1549 ns na fix4;
+    - nas 1.025.922 entradas: 0 aceites errados, 0 recusas erradas e 0 pesos fora da cota;
+    - os kites de magnitude mista continuam em cerca de 2,1 µs, porque caem no caminho exato;
+    - o filtro precisa de double-double, porque o double simples dá cerca de 9 x 2^-53 nos pesos, acima da cota.
+  - **O filtro fica para uma fatia própria (D-W8-605):** é código de produto novo, com uma prova de cota de erro que ainda precisa ser escrita, e tocaria tests/CMakeLists.txt, que é da S5-C1.
+  - **Queixas da L-34:** 0. As fontes achadas são literatura, não queixas.
+  - **Decisão em aberto, que vai ao advisor depois da pausa e à ratificação do líder:**
+    - **A, recomendada pelo CTO:** a fatia T4b-A-filtro bloqueia o fechamento de R2D-TEXTURE, para não marcar a 0.7.0.0 com o desenho 17 vezes mais lento;
+    - **B:** R2D-TEXTURE fecha com a fix5, e o filtro vai para a INBOX;
+    - **C:** só otimizar o caminho exato.
+  - **Nenhum implementador foi despachado, porque já passou das 06:45.** A fix5 sai depois da pausa.
+- **20/10 06:4x, a ordem da S5-B-fix4 chegou** do CTO a4f22b43, com as decisões D-W8-621 a 628.
+  - Arquivos: ordem /var/tmp/cto-w8/ordem-s5b-fix4.md, anexos (anexos.md5 e98e0908) e relato /var/tmp/cto-w8/relato-cto-s5bfix4.txt.
+  - A fatia muda só tests/ellipse_outline_test.cpp (+86 −37). Os 4 átomos viram 14, cada um fazendo uma coisa só.
+  - Equivalência medida em contêiner: as linhas da varredura saem iguais byte a byte, no verde e sob MK, MKR e MKW.
+  - Os 5 mutantes morrem, inclusive o RING, que ganhou uma célula própria que o alcança. A régua fica em 2 e 2.
+  - Os IDs de decisão nos comentários ficam, porque são convenção do projeto (336 ocorrências).
+  - MSVC, preci e sanitizer ainda rodavam em segundo plano às 06:45 (/var/tmp/cto-w8/r21/s5bfix4/rodada3.prog). O implementador refaz essas medidas nos passos 12 e 13.
+  - **D-W8-626, recomendação do CTO, aceita pelo main:** a fix4 commita e é revisada primeiro. Depois, uma errata na seção ESPERE da S5-C1 (ordem-s5c.md:20) troca a exigência "rev-s5bfix3.txt LIMPA" pelo SHA da fix4 e por rev-s5bfix4.txt LIMPA. A S5-C1 só sai depois disso.
+  - Não toca a S5-C1 nem é tocada por ela.
+  - Nenhum implementador foi despachado, porque já passou das 06:45.
+- **20/10 06:56, T4b-B2-fix2 commitada: 8583cff1** (implementador ab2d84d6). São 2 arquivos (+1 −2): a wiki:120 e a linha duplicada da paridade.
+  - Os 4 portões de documento passaram (4/4), assim como o preci, com 381/381.
+  - Push feito (ls-remote 8583cff1) e CI 39404324377 disparado.
+  - **A revisão N1 fica para depois da pausa**, porque já passou das 06:45.
+- **20/10 06:58, DECISÃO DO LÍDER sobre a versão rápida da T4b-A, verbatim: "opcao a".**
+  - Fica assim: a fatia própria **T4b-A-filtro** (predicado filtrado com double-double, protótipo medido de 84 a 94 ns por quad comum e 0 erros nas 1.025.922 entradas) **bloqueia o fechamento de R2D-TEXTURE e a marca v0.7.0.0.**
+  - A T4b-A-fix5 (só testes) entra antes dela, porque prende em teste a cota de 2^-50 que o filtro terá de manter.
+  - Depois da pausa, um CTO escreve a ordem da T4b-A-filtro, com a prova da cota de erro do double-double e mutantes próprios.
+  - A pergunta sai da lista de ratificação: o líder já decidiu.
+- **20/10 07:07, terminaram as rodadas finais da ordem S5-B-fix4** (/var/tmp/cto-w8/r21/s5bfix4/rodada3.prog): MSVC com 1 compilado e 0 falhas, preci rc 0, sanitizer rc 0. A ordem fica pré-executada por inteiro.
+- **20/10 07:07, conferido a pedido do líder: o disco da VM Windows não existe.**
+  - /var/tmp/glintfx-win-lab/ foi apagado inteiro: o qcow2 de 17 GB e as três ISOs.
+  - O domínio glintfx-win11-lab segue definido em qemu:///session, desligado e apontando para os quatro arquivos que sumiram.
+  - Nenhum qcow2 da VM foi achado em /, /home nem /var; só sobrou o NVRAM.
+  - Recriar exige baixar a ISO de novo, o que precisa de autorização do líder (L-14 do projeto e L-51 global).
+- **20/10 07:16, PAUSA ORDENADA PELO LÍDER** (19/10, verbatim: "pause 20/10/2026 07:15h. Antes da pausa, commit.").
+  - Na hora não havia nenhum agente em voo nem trabalho pesado, então não foi preciso TaskStop.
+  - Nada ficou commitado pela metade.
+  - O CI 39404324377, da B2-fix2, ainda roda no servidor.
+  - Registro e memória foram commitados e empurrados; `~/.config/olhe_agentes/GlintFx/parada_do_lider` foi gravado.
+  - **Ao voltar, o próximo passo é:**
+    1. revisão N1 da B2-fix2;
+    2. implementadores da T4b-A-fix5 e da S5-B-fix4;
+    3. ordem da T4b-A-FILTER (opção A do líder);
+    4. a S5-C1, depois da revisão da S5-B-fix4 e da errata D-W8-626.
+- **20/10 08:3x, RATIFICAÇÃO DO LÍDER, verbatim: "queo entender  melhor 2, 3, 4 e me de opcoes com askuserquestion. As outras eu ratifico."**
+  - **Ratificados os itens 1 e 5 a 14 da lista consolidada:** D-W8-501, 569, 380, 383, 551 a 558, 565, 572, 397, 414, 441 a 444, 471, 473 e 513 a 516, mais o achado de processo da L-63.
+  - Em aberto, com as perguntas levadas ao líder: os itens 2 (D-W8-581), 3 (D-W8-555) e 4 (D-W8-568).
+- **20/10 08:4x, DECISÕES DO LÍDER por AskUserQuestion:**
+  - **Item 3 (D-W8-555):** "Frase completa (Recomendado)". A frase de exatidão volta e passa a citar a recusa rara: o quadrilátero cujo peso passaria do maior número representável é recusado. **Precisa de uma fatia pequena de texto público, com revisão:** a T4b-A-PHRASE, que fecha a lacuna junto.
+  - **Item 4 (D-W8-568):** "curve_max_error_pixels (Recomendado)". RATIFICADO.
+  - **Item 2 (D-W8-581):** o líder perguntou, verbatim: "o que é mais vantajoso e sem causar problemas práticos ao consumidor?". O main explicou e perguntou de novo.
+- **20/10 09:0x, DECISÃO DO LÍDER por AskUserQuestion, item 2 (D-W8-581): "Não conta (Recomendado)". RATIFICADO.**
+  - **A lista consolidada de ratificação está fechada.** Todos os itens foram ratificados ou decididos.
+  - Ainda bloqueiam a 0.7.0.0 as fatias de trabalho, não mais decisões: a T4b-A-FILTER (opção A) e a T4b-A-PHRASE (frase completa).
+- **20/10 11:1x, DECISÕES DO LÍDER por AskUserQuestion (verbatim):**
+  - **VM Windows:** "recriar depois da w8 em subpasta da ~/opt/". A VM é recriada depois do fechamento da W8, numa subpasta de ~/opt/ (partição /home), e não mais em /var/tmp. O download da ISO está autorizado para essa hora.
+  - **/etc/cdi/nvidia.yaml:** "atualize com sudo -A se precisar". Atualizar só se alguma prova precisar; hoje a G4 usa o /run/cdi gerado no boot. Se precisar, o comando é com `sudo -A` (SUDO_ASKPASS=/usr/bin/ksshaskpass), mostrado antes.
+  - **Limpeza das pastas de root (cerca de 5 GB em /var/tmp/cto-w8):** "No fechamento da W8 (Recomendado)".
+  - **Pausa:** "retome agora apenas com as decisoes tomadas agora". O main pediu esclarecimento antes de retomar.
+- **20/10 11:2x, o líder retoma a W8 inteira (AskUserQuestion: "Retomar a W8 inteira").** O main apagou parada_do_lider.
+  - Sequência: a revisão N1 da B2-fix2; os implementadores da T4b-A-fix5 e da S5-B-fix4; e um CTO para as ordens da T4b-A-FILTER e da T4b-A-PHRASE (faixa D-W8-637 em diante).
+  - Depois: a S5-C1, assim que a S5-B-fix4 for revisada e a errata D-W8-626 for feita.
+  - Nenhuma decisão de produto nova sem o líder.
+- **20/10 11:4x, ORDEM DO LÍDER, verbatim: "pause hoje 17:00h. Antes da pausa, commit".**
+  - Plano, igual ao da pausa das 07:15:
+    1. a partir de 16:30, nenhum despacho novo;
+    2. às 17:00, TaskStop nos agentes em voo, sem commitar fatia pela metade;
+    3. commitar e empurrar o registro e o retrato da memória;
+    4. gravar parada_do_lider.
+  - A pausa está agendada em ~/.config/olhe_agentes/GlintFx/pausa_agendada.
+  - O modo autônomo vale até 22:13.
+- **20/10 11:4x, DECISÕES DO LÍDER por AskUserQuestion (verbatim):**
+  - **WL-REAL-PORTS-UNIT-PROOF** (W9-B; caminhos a, b, c da 11ª consulta ao advisor): "pesquise na web / comunidades / outras libs".
+    - Antes de levar as opções de novo ao líder, um CTO pesquisa como bibliotecas e comunidades provam as chamadas reais do Wayland/EGL em teste de unidade: SDL3, GLFW, wlroots, Chromium/Ozone, Qt Wayland, Mesa e o que mais achar.
+    - A pesquisa sai na próxima vaga de agente, sem atrasar a W8.
+  - **Wiki do GitHub:** "Sim, publique no fechamento (Recomendado)". No fechamento da W8, junto com o merge e a tag, o main copia docs/wiki para a wiki do GitHub e confere pelo site.
+- **20/10 11:5x, revisão N1 da T4b-B2-fix2 (8583cff1): LIMPA** (revisor ae394966, /var/tmp/cto-w8/rev-t4bb2fix2.txt).
+  - O commit tem 0 CRÍTICO e 0 IMPORTANTE. Os 4 COSMÉTICOS já existiam antes ou foram aceitos pela ordem.
+  - A sabotagem com travessão na wiki reprova o dash_pubdoc, ou seja, o portão vê a wiki.
+  - **A cadeia T4b-B2 fecha:** a B2 (ee160e76), a B2-fix1 (9f959d2a) e a B2-fix2 (8583cff1) saíram LIMPA. A T4a, que esperava a revisão da B2, fecha junto, porque os S3 e S4 dela morrem na B2.
+  - **Achado fora do commit (F-1, FATO medido):** o portão de travessão NÃO pega o en-dash (U+2013); a sabotagem com en-dash passou. A L-32 global proíbe os dois. Vai para a INBOX como DASH-GATE-EN-DASH (L-36: portão com furo provado).
+  - Defeito de ordem (C-4): o passo 1 usa git archive, que vem sem .git, mas o passo 6 exige .git. Daqui em diante, as ordens usam clone e checkout do SHA.
+- **20/10 11:5x, T4b-A-fix5 commitada: 9df07056** (implementador ac244f83; 2 arquivos de teste; +161 −36).
+  - R1 morre em 3 testes, com 334 pesos fora da cota. R7 morre em 1, com 14 de 18 recusados.
+  - preci 381/381, sanitizer verde, MSVC 2/2.
+  - O implementador apontou um possível choque de nomes: gltfx_quad_world aparece no teste. O main conferiu, e o teste só usa o tipo público com `using glintfx::gltfx_quad_world;`. O revisor julga.
+  - Push feito (ls-remote 3a4cf511) e CI 39442828644 disparado. **Revisão N1 com um revisor haiku novo.**
+  - A T4b-A-FILTER (ordem em curso no CTO af74ae98) vem depois desta.
+- **20/10 12:0x, chegou a pesquisa da WL-REAL-PORTS-UNIT-PROOF** (CTO a5b8ec80, /var/tmp/cto-w8/pesquisa-wl-real-ports.txt).
+  - Queixas: 16, com fonte (15 fortes e 1 fraca), acima do piso de 10.
+  - **Quanto cada opção pega por inteiro:** a (a) e a (b) pegam 14 e 2 em parte. A (c) não pega nenhuma por inteiro e pega 11 em parte.
+  - **Como os outros fazem:** o mundo prova as chamadas com a libwayland-server num servidor falso dentro do processo: a própria libwayland, o Chromium, o Qt e o wayland-rs. SDL3, GLFW, winit e wlroots não provam nada automatizado.
+  - **Recomendação do CTO: (a) mais (c).**
+    - O compositor falso é escrito em casa, sobre o wire_relay; só ele simula bytes malformados.
+    - A suíte com o KWin de verdade continua.
+    - Os cenários comuns rodam nos dois, falso contra real, a técnica do wayland-rs.
+  - Porte: de 6 a 8 peças novas, mais um teste por queixa.
+  - Nenhuma opção prova o driver de placa real; isso precisa ficar declarado.
+  - Dois possíveis defeitos achados por leitura vão à INBOX:
+    - WL-SEND-ERROR-NAME-LOST: egl_context_adapter.cpp l.307-311;
+    - WL-SINGLE-FRAME-CALLBACK: nada prova que nunca fica mais de um pedido de quadro pendente.
+  - **A escolha vai ao líder.**
+- **20/10 12:1x, DECISÃO DO LÍDER por AskUserQuestion, WL-REAL-PORTS-UNIT-PROOF: "Falso nosso + real (Recomendado)".**
+  - Fica a opção (a) mais (c): um compositor falso escrito em casa sobre o wire_relay, hostil de propósito, junto com a suíte de contêiner com o KWin real, e os cenários comuns rodando nos dois.
+  - O item continua na W9-B. Ele deixa de ser 🎨 e passa a ⏳, e o CTO fatia quando a onda abrir.
+- **20/10 12:1x, conserto de registro do main:** as duas edições na linha da WL-REAL-PORTS-UNIT-PROOF (11:43 e 12:1x) caíram por engano na linha WL-FRAME-ORDER-ARM-TEST. O critério buscava o ID em qualquer lugar da linha, e a linha da ARM-TEST o cita como resíduo; é a armadilha da memória feedback_criterio_largo_edita_alvo_errado.
+  - A linha da ARM-TEST voltou byte a byte ao estado de antes de a407dfae, com ✅ Concluído.
+  - As duas decisões do líder e o ⏳ foram aplicados na linha certa, agora casando a coluna ID exata.
+- **20/10 12:2x, S5-B-fix4 commitada: 8ed72a93** (implementador aca6b55f; 1 arquivo; +86 −37).
+  - Equivalência no verde e sob MK, MKR e MKW: as linhas da varredura saem iguais.
+  - Os 5 mutantes morrem.
+  - preci 381/0, sanitizer 191/0 e MSVC 1/0.
+  - Push feito (ls-remote 8ed72a93). O CI sai depois que o 39442828644 terminar.
+  - **Revisão N1 com um revisor haiku novo.** Se sair LIMPA, o main faz a errata D-W8-626 na ordem da S5-C1 e despacha o implementador dela.
+- **20/10 12:2x, CI 39442828644 (sobre 3a4cf511, com a T4b-A-fix5) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado. Disparado um CI novo sobre o HEAD, com a S5-B-fix4.
+- **20/10 12:5x, revisão N1 da S5-B-fix4 (8ed72a93): NÃO LIMPA, 0 CRÍTICO, 2 IMPORTANTE, 1 COSMÉTICO** (revisor a61820a4, /var/tmp/cto-w8/rev-s5bfix4.txt).
+  - O que passou: régua 2/2, equivalência no verde e sob MK, MKR e MKW, os 5 mutantes do snapshot mortos e MSVC 1/0.
+  - **I-1, fiação sem teste:** os mutantes RINGW e IDXW sobrevivem. O caso do RING chama a função direto e não prova que band_holds a usa. O revisor validou um conserto em cópia: um caso via band_holds mata os dois.
+  - **I-2 (L-17):** o laço dos pontos do anel ficou dentro de write_band_triangles e tem nome próprio. A sugestão é extrair ring_points_of.
+  - **Pedido ao CTO: a S5-B-fix5** (faixa D-W8-691 a 700), com o texto exato da errata D-W8-626 para a S5-C1.
+- **20/10 13:0x, CI 39448365750 (sobre d59a255e, com a S5-B-fix4) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 13:0x, as ordens da T4b-A-FILTER e da T4b-A-PHRASE chegaram** do CTO af74ae98, com as decisões D-W8-637 a 660, em duas ordens separadas (L-17).
+  - **FILTER** (/var/tmp/cto-w8/ordem-t4b-a-filter.md, md5 b1670cbb; anexos 6019ecd2, conferidos):
+    - um átomo novo, `filtered_cross`, com a prova da cota escrita no código e no Anexo B;
+    - verde 5/5; numa varredura de 20000 casos, 8370 certificados e 0 errados;
+    - 13 mutantes: 11 morrem pelo nome do teste, e E1 e E3 sobrevivem, como foi declarado antes;
+    - nas 1.025.922 entradas: 0 aceites errados, 0 recusas erradas e 0 pesos fora da cota;
+    - preci 382/382, sanitizer 192/192 e MSVC 3/3;
+    - tempo: 108 a 199 ns por quad comum, contra 166 a 191 no pai e 2333 a 2970 na fix4, com a máquina em carga 5 a 6.
+  - **PHRASE** (/var/tmp/cto-w8/ordem-t4b-a-phrase.md, md5 b541a0a8; anexos 1d4280b0, conferidos):
+    - a frase completa decidida pelo líder; verde 6/6;
+    - um `confere_texto.py` próprio no anexo.
+  - **Achado de portão (L-36), medido pelo CTO:**
+    - um `Proved by:` com nome de teste falso passa no claim_citations_test;
+    - um travessão num `.hpp` público passa no dash_pubdoc_test.
+  - **Ordem dos commits:** fecha R2D-TEXTURE a última das duas. O main despachou a PHRASE primeiro, na etapa P.
+  - A FILTER sai depois do commit da PHRASE **e** da revisão LIMPA da T4b-A-fix5, porque a FILTER se apoia nos testes da fix5.
+  - **Vão à INBOX:**
+    - CLAIM-CITATION-NAME-GATE;
+    - DASH-GATE-HPP (junto do DASH-GATE-EN-DASH: o mesmo portão com dois furos);
+    - WIKI-TEXTURE-PAGE.
+- **20/10 13:0x, revisão N1 da T4b-A-fix5 (9df07056): NÃO LIMPA, só L-17, 0 CRÍTICO** (revisor aca67acf, /var/tmp/cto-w8/rev-t4bafix5.txt).
+  - **O que passou:**
+    - verde 4/4;
+    - R1 morre pela cota e R7 pela recusa do infinito;
+    - P82 e P63 morrem; P63B e A62 sobrevivem, como devem;
+    - MSVC 2/2; o CI 39442828644 deu 32 Passed;
+    - gltfx_quad_world não colide: é o tipo público.
+  - **Os IMPORTANTES:**
+    - I-1: mixed_magnitudes chega ao nível 4 de aninhamento (são três laços). Pela leitura da casa (D-W8-561), isso é violação.
+    - I-2: closed_cases e exact_cross_test:44 já acusavam no pai.
+    - I-3: projective_quad_test.cpp foi tocado em 6 das 6 fatias, um sinal de monolito.
+  - **Pedido ao CTO: a T4b-A-fix6** (faixa D-W8-701 a 715), que também regera os blocos da FILTER que ela quebrar.
+  - **A FILTER fica para depois da fix6.**
+- **20/10 13:1x, DECISÃO DO LÍDER por AskUserQuestion, disco: "Limpar só compilação (Recomendado)".**
+  - Às 14:14 o main apagou 63 pastas `build*` do usuário, com caminhos literais conferidos e nenhum arquivo de outro dono dentro. Contagem: encontrados=63, apagados=63, falharam=0.
+  - As pastas vieram de 14 fatias já commitadas e revisadas: t4ba, t4bafix1 a fix3, t4bb1, t4bb1fix1, t4bb2, s5afix4 a fix6, s5bfix1 a fix3 e embedwintimeout.
+  - Relatórios, logs e cópias de prova ficaram. As 69 pastas build de root ficam para o fechamento.
+  - Disco: o mínimo subiu de 28,5 para 32,1 GiB.
+- **20/10 14:1x, T4b-A-PHRASE commitada: 2e23d00c** (implementador aae12def; etapa P; 6 arquivos, +38 −9).
+  - O confere_texto pega as duas sabotagens, M1 e M2. Verde 6/6, preci 381/381.
+  - Push feito (ls-remote 2e23d00c) e CI 39464351012 disparado. **Revisão N1 com um haiku novo.**
+- **20/10 14:2x, a ordem da T4b-A-fix6 chegou** do CTO aa5e196c, com as decisões D-W8-701 a 715. Arquivos: ordem /var/tmp/cto-w8/ordem-t4b-a-fix6.md (md5 9cc24f8b); anexos com anexos.md5 79809927, 24 linhas, conferidas: ok.
+  - **O que a fix6 conserta:**
+    - o I-1 da revisão: os laços das alturas saem para kites_of_width e kite_weights;
+    - a contagem passa a vir de cada pose conferida, e não mais de um 4 fixo;
+    - os cabeçalhos são acertados (só comentário).
+  - **Pré-execução:** a régua da L-17 fica só nas duas funções que a fix6 não toca. Os mutantes R1, R7 e os dois novos dão os números fixados antes. MSVC 2/2, preci 381/0, sanitizer 191/0.
+  - **A FILTER não tem bloco nos dois testes:** a premissa do main estava errada. Basta a errata /var/tmp/cto-w8/ordens-anexos/t4bafilter-r2/ (anexos.md5 1d2f5598, conferida: ok). A FILTER rodou sobre a fix6 com o mesmo verde.
+  - **Ordem dos commits:** a fix6 vai antes da FILTER. A FILTER sai em seguida, na etapa FT, porque a PHRASE já commitou.
+  - **Decisões autônomas, a confirmar retroativamente:**
+    - D-W8-705: o I-2 vai para a INBOX. As duas funções não foram tocadas pela fix5.
+    - D-W8-706: o I-3 não divide o arquivo agora. Dividir seria fragmentação, ia para o tests/CMakeLists.txt que as outras fatias também mudam, e quebraria a citação da PHRASE. O corte e o gatilho ficaram escritos.
+  - **Implementador haiku novo despachado.** Na INBOX entram PQ-EC-TEST-NESTING, PQ-TEST-SPLIT e EXACT-CROSS-DIGITS-SWEEP.
+- **20/10 14:3x, CI 39464351012 (sobre 2e23d00c, com a T4b-A-PHRASE) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 14:4x, a ordem da S5-B-fix5 chegou** do CTO a513d49a. Decisões D-W8-691 a 699. Ordem em /var/tmp/cto-w8/ordem-s5b-fix5.md (md5 75f37dcd); anexos em cca541c5, conferidos (ok).
+  - **Escopo maior que o pedido, decidido pelo CTO (D-W8-691 e D-W8-692):** a ordem fecha os 7 termos de band_holds, não só RINGW e IDXW. Na base, 6 das 7 deleções sobrevivem; no snapshot, as 7 morrem, cada uma no caso do seu nome. Motivo: é a quinta volta da mesma família, e consertar só dois deixaria quatro iguais para a próxima revisão.
+  - **D-W8-694:** o COSMÉTICO-1 entra.
+  - **Pré-execução:** a varredura sai idêntica no verde e sob MK, MKR e MKW. preci 381/0, sanitizer 191/0, MSVC 1/0.
+  - **L-42:** a busca na web confirma a técnica e não muda o desenho.
+  - **A errata D-W8-626 da S5-C1** está pronta no Anexo E (D-W8-697). O main aplica depois da revisão LIMPA.
+  - **Implementador haiku novo despachado.**
+- **20/10 14:5x, revisão N1 da T4b-A-PHRASE (2e23d00c): NÃO LIMPA** (revisor a8e5c8df, /var/tmp/cto-w8/rev-t4baphrase.txt).
+  - **CRÍTICO-1, defeito que já existia desde a T4b-B1-fix1:** o desenho converte o peso projetivo para float (textured_quad_corners.cpp:21-23). Medido com oráculo exato sobre 18601 quadriláteros: a decisão de mapeamento está certa em todos, mas 3563 dos 5623 aceitos têm peso acima de FLT_MAX. Esse peso vira inf no vértice sem recusa e conta como desenhado.
+  - IMPORTANTE-1: nenhum teste cobre peso na faixa de float.
+  - **OK no blob:** cerca igual ao cabeçalho, citações existentes, mutantes que mordem, zero travessão, CI com 25 jobs verdes.
+  - **Pedido ao CTO: decidir e escrever a T4b-A-FLOAT** (faixa D-W8-716 a 735). Opções a comparar:
+    - (a) recusar acima de FLT_MAX, como sugere o revisor;
+    - (b) normalizar os quatro pesos pela escala comum antes do float, sem recusa nova, porque os pesos são homogêneos;
+    - (c) a (b) mais recusa só onde a normalização ainda falhar.
+  - **A frase pública muda, então vai à ratificação do líder.**
+  - R2D-TEXTURE agora fecha com a última entre a FILTER e a FLOAT.
+- **20/10 15:2x, T4b-A-fix6 commitada: 7cdc7082** (implementador ab22139f; 2 arquivos de teste; +72 −34).
+  - Mutantes: R1 dá 32 errados e 334 fora da cota; R7 dá 14 recusados; MK e MP dão 1568 e 1344. Cada um reprova pelo nome do caso.
+  - A régua mostra só as duas funções intocadas.
+  - preci 381/381, sanitizer 191/191 e MSVC 2/2.
+  - Push feito (ls-remote 7cdc7082) e CI 39474194421 disparado.
+  - **Revisão N1 com um revisor haiku novo.**
+  - **A FILTER fica para depois da pausa das 17:00:** o implementador não chegaria ao commit a tempo com a fila atual.
+- **20/10 15:5x, CI 39474194421 (sobre 7cdc7082, com a T4b-A-fix6) VERDE:** 25 de 26 jobs, com VERSION-TAG-SYNC pulado.
+- **20/10 15:5x, revisão N1 da T4b-A-fix6 (7cdc7082): LIMPA** (revisor a0eb1564, /var/tmp/cto-w8/rev-t4bafix6.txt). Sem CRÍTICO e sem IMPORTANTE no diff; há 2 COSMÉTICOS de comentário.
+  - Mutantes conferidos de novo: R1, R7, MK e MP morrem pelo nome do caso. O M7 também morre. A régua da L-17 mostra só as funções intocadas. O CI 39474194421 saiu verde.
+  - **A cadeia T4b-A fecha no código e nos testes até a fix6:** fix4 d6e28b62, fix5 9df07056 e fix6 7cdc7082. A PHRASE (2e23d00c) foi revisada como NÃO LIMPA por causa do CRÍTICO do float, que vem de antes; o conserto é a T4b-A-FLOAT, com o CTO.
+  - D-W8-705: o revisor concorda. D-W8-706 se sustenta, com uma ressalva: a L-17 pede que separação com custo real vá ao líder, e isso entra na próxima ratificação.
+  - Achado anterior à fix6: PQ-POSE-DISTINCT vai para a INBOX. O teste não prende uma pose ignorada.
+  - **A FILTER fica para depois da pausa das 17:00:** com a fila atual, não chegaria ao commit antes dela.
+- **20/10 16:3x: o CTO entregou a T5 (aa735dd1, D-W8-671 a 682; as decisões 683 a 690 não foram usadas).** Relato completo em /var/tmp/cto-w8/relato-cto-t5.txt.
+  - A T5 virou duas ordens (D-W8-677):
+    - **T5-A**: /var/tmp/cto-w8/ordem-t5.md (md5 0bc50387). São 15 arquivos de átomos puros. Pode rodar em paralelo com a S5-C1 e a FILTER.
+    - **T5-B**: /var/tmp/cto-w8/ordem-t5b.md (md5 11c3b0fc). São 10 arquivos: métodos públicos, desenhador e células. Só depois da S5-C1 e da T5-A commitadas e LIMPAS.
+    - Anexos em /var/tmp/cto-w8/ordens-anexos/t5/ (anexos.md5 c35e1eaa).
+  - Pré-execução sem "NÃO MEDIDO":
+    - T5-A sobre 691fc96a: 7/7 mutantes mortos, MSVC 10/10, preci --fast 381/381, sanitizer 191/191.
+    - T5-B sobre a composição com FILTER, S5-C1 e T5-A: preci --fast 383/383, sanitizer 193/193.
+  - **Errata de STATUS vinda da T5, ACEITA pelo main** (L-63: nunca 🔍 antes de a implementação acabar):
+    - As etapas FT da FILTER (D-W8-649) e LT da FLOAT levavam R2D-TEXTURE a 🔍 como "a última fatia". Errado: o item ainda tem T5-A, T5-B, T6 e T7 (plano-w8-v3.md:225), e o aceite de 13/10 em TODO.md:559 exige o exemplo `textures` na imagem.
+    - **A FILTER vai rodar só na etapa F; a FLOAT só na etapa L. Nenhuma das duas toca o TODO.md.** O CTO da FLOAT recebeu a errata às 16:3x. A FILTER recebe a mesma nota quando for despachada, depois da pausa.
+  - **Vão ao advisor, e depois ao líder o que for porta de mão única:**
+    - D-W8-672: texel fora da textura é recusado com `region_out_of_range`; 7 queixas, abaixo do piso de 10.
+    - D-W8-677: a divisão da T5 em duas ordens.
+    - D-W8-671 e D-W8-681: o par público e a frase pública. Porta de mão única: precisa de ratificação do líder.
+    - D-W8-679: a textura entra na chave do lote; 5 queixas.
+  - Nada é despachado depois das 16:30 (pausa do líder às 17:00). A T5-A fica para a volta.
+- **20/10 16:3x: S5-B-fix5 commitada: `7694a682`** (ac1ca782). Um arquivo, `tests/ellipse_outline_test.cpp`, com 108 linhas acrescentadas e 27 removidas. Foi empurrada junto com efd1ee47; CI disparado.
+  - preci --fast 381/381, sanitizer 191/191, MSVC sem falha.
+  - Na base, sobrevivem os 6 mutantes ANGW, OUTW, IDXW, RINGW, CONVW e EROW. No snapshot morrem os 7, cada um só no caso que tem o nome dele.
+  - Desvios: a linha `Claude-Session` na mensagem de commit, por atribuição do harness, e o corte `head -8` do varre_ct.sh, que foi para a INBOX como VARRE-CT-HEAD-CUT.
+  - O TODO.md e a errata D-W8-626 da S5-C1 não foram tocados.
+  - **Falta a revisão N1 com um haiku novo. Fica para a volta da pausa**, porque nada é despachado depois das 16:30. A errata D-W8-626 é aplicada depois da revisão LIMPA.
+- **20/10 16:3x: desempates do advisor (Fable 5.1) para a T5**:
+  - **D-W8-672: texel fora da textura é RECUSADO** com `region_out_of_range`.
+    - É paridade com os quads: o código já existe (`frame_2d_report.hpp:75`, `renderer_2d.hpp:490`).
+    - Repetir a textura exigiria mexer no sampler `GL_CLAMP_TO_EDGE` (`texture_sampling.cpp:31-32`), fora do escopo da T5.
+    - Grampear em silêncio entrega imagem errada sem erro nenhum.
+    - Conferir na ordem antes de despachar:
+      - (1) o intervalo é fechado em cima, `[0, largura]`. A ordem tem de ter um caso exatamente em `largura` (aceito) e um em `largura+ε` (recusado), o passo além da fronteira pedido pela L-43;
+      - (2) a recusa vale para a chamada inteira, sem enfileirar nada pela metade (L-35).
+  - **D-W8-679: a textura entra na chave do lote.** É correção, não preferência: antes do atlas (T6), duas texturas diferentes não cabem na mesma chamada de desenho. Conferir que, sem textura (textura 0), os triângulos continuam se agrupando como hoje.
+  - **D-W8-677: aceita.** É execução.
+  - **D-W8-671 e D-W8-681: decisão autônoma, a confirmar depois** na ratificação, junto com a D-W8-706. Elas travam só a T5-B, porque a T5-A cita os arquivos dela só em src/ e tests/; o único header citado é texture_region.hpp:90, que é referência e não edição. Conferir isso no despacho.
+  - **Números trocados no relato da T5:** a seção 0 diz que a D-W8-679 é "não toca o TODO.md". A tabela, nas linhas 52 e 191, diz que é "textura na chave do lote". **Vale a tabela.** A frase da seção 0 é engano de número.
+- **20/10 16:33: o CTO entregou a T4b-A-FLOAT** (aa46e4de, D-W8-716 a 735).
+  - Ordem em /var/tmp/cto-w8/ordem-t4b-a-float.md (md5 4d031ca0), anexos em /var/tmp/cto-w8/ordens-anexos/t4bafloat/ (anexos.md5 882df70f), relato em /var/tmp/cto-w8/relato-cto-t4bafloat.txt.
+  - **Recomendação, a opção (c):** multiplicar os quatro pesos por uma potência de dois comum, o que não muda o mapeamento.
+    - Com `top = ilogb(maior)`: se `top >= 63`, o quad é recusado como `degenerate_quad`; senão, `shift = min(0, 31 - top)`.
+    - Assim, no vértice, todo peso fica em [2^-32, 2^32], a faixa que a GL 3.3 garante (§2.1.1). Abaixo de 2^32, os pesos ficam bit a bit iguais aos de hoje.
+  - Na amostra do revisor:
+
+    | Opção | Aceita | Recusa | Observação |
+    |---|---|---|---|
+    | (c) | 1855 | 3768 | erro máximo de 2^-24 |
+    | (a) | 2060 | — | manda até cerca de 2^128 ao vértice |
+    | (b) sozinha | — | — | deixa 0 ou inf no vértice em mais de 3000 quads |
+    | c-IEEE | 2391 | — | fora da garantia da GL |
+
+    **(c) aceita menos que (a).** Isso vai ao líder com honestidade.
+  - Pré-execução verde:
+    - TDD: vermelho com o código de hoje, verde com o novo;
+    - 6 mutantes de código e 2 de texto, todos mortos;
+    - régua da L-17 zerada, MSVC sem falha;
+    - preci --fast 382/382 e sanitizer 192/192;
+    - commit de prova com 8 arquivos.
+  - A errata do main foi aplicada: só existe a etapa L, e o TODO.md não é tocado.
+  - Queixas da comunidade: 12 atendidas pela (c), mas só 4 a separam da (a). Fica abaixo de 10, então vai ao advisor e ao líder.
+  - **A frase pública muda, por isso a ordem só sai com a ratificação do líder** entre (c), recomendada, (a) e c-IEEE, que é a D-W8-735. Depende também da FILTER já no HEAD.
+  - **Conflito de arquivo:** a FLOAT troca o trecho `U-renderer` de `renderer_2d.hpp` por uma âncora, e a T5-B mexe no mesmo header. **Quem despachar depois confere as âncoras contra o HEAD.**
+  - Vão para a INBOX: T4b-A-FLOAT-GPU e TEX-WEIGHT-RANGE-IEEE.
+- **20/10 16:3x: os três agentes entregaram e não sobrou nenhum em voo.** Nada é despachado depois das 16:30. A pausa ordenada pelo líder começa às 17:00.
+  - **Prontos para a volta:**
+    - (1) revisão N1 da S5-B-fix5 (7694a682), com um haiku novo;
+    - (2) FILTER, só a etapa F e com a nota de errata;
+    - (3) T5-A, conferindo as âncoras: o HEAD ganhou o ellipse_outline_test.cpp depois da pré-execução;
+    - (4) S5-C1, depois da N1 LIMPA da fix5 e da errata D-W8-626;
+    - (5) FLOAT, depois da FILTER e da escolha do líder;
+    - (6) T5-B, depois da S5-C1, da T5-A e da ratificação de 671 e 681.
+  - Faixa livre a partir de D-W8-736.
+- **20/10 16:53: CI 39484168800 verde sobre efd1ee47, que contém a S5-B-fix5 7694a682.** Dos 26 jobs, 25 passaram, 1 foi pulado (o mesmo de sempre) e nenhum falhou. A revisão N1 da fix5 continua para a volta da pausa.
+- **20/10 18:1x: decisões do líder, tomadas por AskUserQuestion depois de ver a pesquisa** (manuais da GL 3.3 e da GLSL 3.30, Skia, Chromium, SDL3, ImGui, raylib, sokol, SFML e queixas públicas):
+  - **D-W8-735, FLOAT: "(c) Normalizar".** O vértice só recebe pesos em [2^-32, 2^32]. A ordem /var/tmp/cto-w8/ordem-t4b-a-float.md fica liberada; sai depois da FILTER.
+  - **D-W8-671, API: "Duas funções".** São `fill_textured_triangles` e `fill_indexed_textured_triangles`. Ratificada.
+  - **D-W8-681 (frase pública) e D-W8-706 (divisão do arquivo de teste): "Pesquisar antes".** Na volta da pausa, o CTO pesquisa como outras bibliotecas documentam a API de geometria e organizam os testes, e traz as duas de novo ao líder. A T5-B continua travada pela 681.
+  - Pedido do líder registrado: ele quer ver o que dizem a comunidade, os manuais, a documentação e as outras bibliotecas antes de cada decisão sua.
+- **20/10 21:5x: o líder ligou o modo autônomo de novo, válido até 21/10 às 21:51, com escopo de push e clean.** Por AskUserQuestion, escolheu **"Retomar agora"** a W8. A pausa das 17:00 terminou e o arquivo `parada_do_lider` foi apagado.
+- **Ordem nova do líder, 20/10 21:5x, verbatim: "max 2 agentes de cada vez".** Vale a partir de agora: no máximo 2 agentes vivos, contados juntos C-levels, implementadores e revisores. O teto da L-11 global (4) continua como teto, e a ordem nova é mais estrita, dentro dele. O alcance (só esta retomada ou permanente) vai ao líder por AskUserQuestion.
+- **Despachados às 21:5x, os 2 permitidos:**
+  - (1) a revisão N1 da S5-B-fix5 (7694a682), com um haiku novo, pela seção 9 da ordem;
+  - (2) o CTO, com duas tarefas. A primeira é a errata r3 da FILTER, que fixa a etapa F sem tocar o TODO.md; é necessária porque o passo 1 da ordem escolheria FT, já que a PHRASE está no HEAD. A segunda é a pesquisa de D-W8-681 e D-W8-706, com a faixa D-W8-736 a 755.
+- **20/10 21:5x: alcance da ordem "max 2 agentes", escolhido pelo líder por AskUserQuestion: "Só esta retomada".** As leis ficam como estão.
+- **Pausa agendada pelo líder, verbatim: "pause 21/10/2026 06:00AM. Antes commit e push/tag/merge se precisar".**
+  - A partir de 05:30, nenhum despacho novo.
+  - Às 06:00:
+    - TaskStop nos agentes que ainda estiverem rodando, sem commitar fatia pela metade;
+    - commit e push do registro e da memória;
+    - tag e merge só se a W8 fechar antes, com os portões da L-24 verdes;
+    - gravar `parada_do_lider`.
+  - O agendamento está em `~/.config/olhe_agentes/GlintFx/pausa_agendada`.
+- **20/10 21:5x, ordem do líder, verbatim: "duvidas com clevel do mesmo modo anterior. Se nao resolver, fale com advisor".** Repete a regra que já valia.
+  - Toda dúvida vai primeiro ao C-level. Ele pesquisa em outras bibliotecas, na comunidade e na web, e decide pela L-34: pelo menos 10 queixas atendidas.
+  - Se não resolver, vai ao advisor (Fable 5.1). A decisão fica registrada para ratificação depois.
+  - **Aplicada já a D-W8-681 e D-W8-706:** o CTO decide depois da pesquisa, e só a dúvida que sobrar vai ao advisor. A mensagem foi enviada ao CTO às 21:5x.
+- **20/10 22:1x: revisão N1 da S5-B-fix5 (7694a682): LIMPA** (revisor a730de59, /var/tmp/cto-w8/rev-s5bfix5.txt). Sem CRÍTICO e sem IMPORTANTE; há 4 COSMÉTICOS, que foram para a INBOX como S5B-OUTLINE-COSMETICS.
+  - D-W8-691: as 7 deleções batem com a tabela da ordem.
+  - D-W8-692 está provada.
+  - MSVC sem falha. Dos 10 mutantes do revisor, 8 morrem, X4 é equivalente e X10 é redundante.
+  - Pela camada, o revisor fez o rigor N1 que a ordem pedia. A observação dele sobre a definição de N1 nas leis da r20 fica registrada, e o main mantém N1.
+- **A ordem da S5-C1 não pode sair como está; o main conferiu contra o HEAD.**
+  - O item 2 do ESPERE exige o rev-t4bafix4 LIMPA, mas ele está NÃO LIMPA; a cadeia T4b-A fechou com a fix6, que está LIMPA.
+  - O item 3 manda PARAR: tests/renderer_2d_impl_test.cpp, que é arquivo próprio da S5-C1, mudou em 9f959d2a depois da base da pré-execução (4ffecec6). Os compartilhados mudaram em 9f959d2a e em 2e23d00c.
+  - **Despachado às 22:1x: um segundo CTO para a errata r2 da S5-C1** (D-W8-756 a 770), que refaz a pré-execução sobre o HEAD atual e confere a composição com a FILTER F e a T5-A. É o segundo dos 2 agentes permitidos.
+  - A errata D-W8-697, do Anexo E da fix5, entra nessa r2.
+- **20/10 22:16: o CTO (a38daf4a) entregou a errata r3 da FILTER e a pesquisa de 681 e 706** (D-W8-736 a 741; as decisões 742 a 755 não foram usadas).
+  - **Errata r3:** /var/tmp/cto-w8/ordens-anexos/t4bafilter-r3/errata.md (md5 50949b7c, anexos.md5 e44aad04).
+    - D-W8-736: a etapa é F, fixa.
+    - D-W8-737: entram etapa_F.sh e commit_F.sh.
+    - D-W8-738: **o aceite passa a ser 517 inserções, não 516.** Medido: um bloco foi editado depois do teste a seco.
+    - D-W8-739: quem leva R2D-TEXTURE a 🔍 é a última fatia de implementação, hoje a T7.
+    - Pré-execução sobre deb93b55: o commit de prova sai rc 0 e TODO.md fica fora; rodado de novo, sai rc 3; a sabotagem do guarda dá rc 5.
+    - NÃO VERIFICADO pelo CTO: os 13 mutantes, o MSVC e os dois preci. A ordem que o implementador executa cobre os três; o main confere no relatório que os 13 rodaram e que o aceite saiu 517.
+  - **FILTER despachada às 22:2x**, com implementador haiku novo. É o segundo dos 2 agentes, junto com o CTO do rebase da S5-C1.
+  - **Pesquisa:** /var/tmp/cto-w8/pesquisa-681-706.md (md5 8b361662).
+  - **D-W8-740 (sobre a 681), decisão autônoma do CTO, a ratificar:** opção (a), a cerca completa do texto público dos triângulos com textura.
+    - Atende 15 queixas, uma fraca (ImGui #185), contra 9 do texto atual. A diferença está nas três de winding e nas três de mistura.
+    - É porta de mão única. Não trava nada antes das 06:00, porque a T5-B ainda espera a S5-C1, a T5-A e os blocos regenerados.
+    - Na INBOX: T5B-REGEN-681. Leva o defeito do "//   of" solto e a conferência da frase sobre a origem do texel, que é INFERÊNCIA.
+  - **D-W8-741 (sobre a 706), abaixo do piso; o advisor desempatou: (c), mantém a D-W8-706 (não dividir agora).**
+    - As 8 queixas a favor de dividir são de arquivos de 1800 a 8193 linhas, e este tem 653 (medido). A contagem que casa com o caso é 0.
+    - A L-17 proíbe a fragmentação com o mesmo peso que proíbe o monolito. A opção (a) custaria uma fatia nova fora do plano, mudaria uma citação pública (porta de mão única) e mexeria no tests/CMakeLists.txt de três fatias.
+    - LLVM e Catch2 também são contra dividir sem necessidade.
+    - O gatilho escrito em PQ-TEST-SPLIT foi conferido: dispara por evento, quando "a próxima fatia acrescentar ao arquivo um GRUPO NOVO de casos", então não é vago.
+    - Decisão autônoma, a ratificar junto com a 740.
+- **20/10 23:0x: T4b-A-FILTER commitada: `28e9a756`, etapa F** (af0a0771). São 7 arquivos, com 517 linhas acrescentadas e 16 removidas, como a errata r3 previa. O TODO.md ficou fora, e R2D-TEXTURE continua 🔄.
+  - ESPERE 1 a 4 ok, os md5 ok e os 10 blocos aplicados.
+  - Os 13 mutantes saíram como na tabela, e o MSVC rodou 3 de 3.
+  - preci --fast 382/382 e sanitizer 192/192.
+  - Empurrada (o ls-remote confere 28e9a756) e CI 39530902263 disparado.
+  - Desvios:
+    - (1) a linha Co-Authored-By diz Opus 5.5, mas quem implementou foi o Haiku, porque a mensagem é byte a byte a da ordem. É registro, sem conserto: commit publicado não leva amend (L-25).
+    - (2) os testes rodaram sobre fea57ce6, e o HEAD virou 4320d99a só com docs. O revisor confere.
+  - **Revisão N1 despachada às 23:0x**, com haiku novo. Ela e o CTO da S5-C1 são os 2 agentes permitidos.
+  - Disco: o mínimo na partição / estava em 21,5 GiB. Foram apagadas só as 37 pastas `build` da revisão fechada da fix5 (encontradas 37, apagadas 37, falharam 0), pela regra "limpar só compilação" do líder (20/10 14:14). Os clones de mutante dessa revisão (fontes, 11G) ficaram intactos.
+- **20/10 23:1x: disco.** O mínimo na partição / chegou a 20,98 GiB. Pela regra "limpar só compilação" do líder (20/10 14:14), foram apagadas só as pastas `build`/`build-*` das fatias já commitadas e revisadas LIMPAS: r21/s5bfix4, t4bafix4, t4b, t4bb2fix1, t4bafix5, s5bfix5, rev-s5bfix4 e rev-t4bb1fix1.
+  - Resultado: encontrados=109, apagados=83, falharam=26. As 26 falhas são pastas criadas como root dentro do container, e esperam a limpeza das pastas de root no fechamento da W8, como o líder decidiu.
+  - O mínimo subiu para 24,27 GiB. Logs, relatórios e árvores de fonte ficaram intactos. As pastas das fatias ativas (t5, s5c, s5c-r2, t4bafilter, t4bafloat) não foram tocadas.
+- **20/10 23:2x: o CTO entregou a errata r2 da S5-C1** (a09b4f87, D-W8-756 a 758): /var/tmp/cto-w8/ordens-anexos/s5c-r2/errata.md (md5 5e074375, anexos.md5 b445b7b5).
+  - O ESPERE foi reescrito com a fix5 7694a682, a fix6 7cdc7082 LIMPA, a B2-fix1 9f959d2a e a B2-fix2 8583cff1, e o laço passa a contar desde 4320d99a. A ordem e os anexos originais não mudam, e nenhum bloco precisou ser regenerado.
+  - Pré-execução sobre 4320d99a:
+    - o vermelho falha pela razão certa, o verde passa 5/5 e os 7 mutantes morrem;
+    - a fixture tem 40 células e 0 reprovadas; M8 reprova 2 e MX reprova 1;
+    - preci --fast 382/382, sanitizer 192/192 e MSVC 8/8;
+    - o commit de prova sai 16 arquivos, 770+/96-, sobre fea57ce6, 4320d99a e 385bfe19.
+  - Limite declarado: sobre 385bfe19, que já tem a FILTER, rodaram só o build e os 7 testes no container, 7/7 verdes. O preci com a FILTER fica com o implementador.
+  - Ordem de commit: com a FILTER, a T5-A e a FLOAT, qualquer ordem chega à mesma árvore. A T5-B vem só depois da S5-C1. Se a R2b entrar antes dela, é PARE.
+  - **S5-C1 despachada às 23:2x**, com implementador haiku novo. Ela e a revisão N1 da FILTER são os 2 agentes.
+- **20/10 23:29: revisão N1 da T4b-A-FILTER (28e9a756): LIMPA** (a2664e36, /var/tmp/cto-w8/rev-t4bafilter.txt). Sem CRÍTICO e sem IMPORTANTE; há 4 COSMÉTICOS, que foram para a INBOX como FILTER-COSMETICS.
+  - O código em fea57ce6 e em 4320d99a é idêntico, conferido pelo tree-hash.
+  - A prova do Anexo B foi fechada termo a termo. Em 1.025.922 entradas contra o blob, 0 erros, e o pior erro foi 3,205e-16.
+  - Dos 8 mutantes do revisor, 6 morrem pelo nome do teste; M3 e M6 são equivalentes.
+- **FLOAT despachada às 23:3x**, com implementador haiku novo, junto com a S5-C1 em voo; são os 2 agentes.
+  - O ESPERE foi conferido pelo main: a FILTER está no HEAD, os 5 arquivos próprios não mudaram desde 6b96df1a, os md5 batem e os compartilhados também não mudaram desde 6b96df1a.
+  - A ratificação D-W8-735 é a escolha (c) do líder, às 18:1x.
+- **20/10 23:4x: CI 39530902263 verde sobre 28e9a756, a T4b-A-FILTER.** Dos 26 jobs, 25 passaram, 1 foi pulado (o mesmo de sempre) e nenhum falhou.
+- **21/10 00:2x: T4b-A-FLOAT commitada: `c3df4dd5`, etapa L** (a82b8614). São 8 arquivos, com 165 linhas acrescentadas e 28 removidas, sem TODO.md.
+  - O vermelho saiu como esperado (rc 8, certas=1 e recusadas=1) e o verde 4/4 (certas=3 e recusadas=3).
+  - MF1 a MF6 morrem pelo caso esperado; os dois mutantes de texto dão confere_rc=1.
+  - preci --fast 382/382, sanitizer verde, MSVC 2/2.
+  - Desvios:
+    - (1) a linha Co-Authored-By saiu como Haiku 5.5, com Claude-Session, por atribuição da sessão. Registro; commit publicado não leva amend.
+    - (2) a base real era 832c6634, e os 5 md5 bateram.
+  - NÃO VERIFICADO: GL real (D-W8-731, item T4b-A-FLOAT-GPU na INBOX).
+- **S5-C1 commitada por cima: `40bcafa0`** (pai c3df4dd5). São 16 arquivos, com 770 linhas acrescentadas e 96 removidas, como a pré-execução previu. O relatório do implementador ainda não chegou.
+- As duas foram empurradas (o ls-remote confere 40bcafa0) e o CI 39538394875 foi disparado.
+- **Revisão N1 da FLOAT despachada às 00:2x**, com haiku novo. A revisão da S5-C1 sai quando o implementador dela fechar, para manter o teto de 2 agentes.
+- **21/10 00:3x: o implementador da S5-C1 (a885fbd2) entregou o relatório de 40bcafa0** (/var/tmp/cto-w8/s5c1/relatorio.txt, errata r2 md5 5e074375).
+  - ESPERE 1 a 3 batem; o vermelho saiu pela razão certa e o verde 5/5.
+  - Os 9 mutantes morrem, a fixture tem 40 células e 0 reprovadas, MSVC 8/8 e sanitizer 193.
+  - preci --fast 383/383 no snapshot e também num clone do HEAD 40bcafa0, já com a FLOAT por baixo.
+  - Desvios:
+    - (a) a fixture provou e7101ae6 mais a S5-C1, não 40bcafa0; o revisor refaz;
+    - (b) a mensagem leva a linha Claude-Session;
+    - (c) o TODO.md não foi tocado (D-W8-571);
+    - (d) rm -rf nas pastas de trabalho do próprio $F sem olhar o conteúdo antes, contra a L-53; registro, sem perda conhecida;
+    - (e) 2 cosméticos: um include sem uso e um comentário errado em renderer_2d_impl.cpp:274.
+  - **Revisão N1 da S5-C1 despachada às 00:3x**, com haiku novo, junto com a revisão da FLOAT; são os 2 agentes.
+- **21/10 00:4x: revisão N1 da T4b-A-FLOAT (c3df4dd5): NÃO LIMPA, só por lei de projeto** (a92141f8, /var/tmp/cto-w8/rev-t4bafloat.txt). Não há CRÍTICO, e o comportamento está correto.
+  - Medido:
+    - verde 4/4 e vermelho como previsto;
+    - 10 mutantes, todos mortos pelo nome do teste;
+    - MSVC 2/2 e régua da L-17 zero no produto.
+  - **O oráculo exato confirma a escolha (c) do líder em 18.601 quadriláteros:** 1855 aceitos, 0 pesos fora de [2^-32, 2^32], 0 infinitos, e 1775 iguais bit a bit abaixo de 2^32. Com o código do pai, o CRÍTICO-1 se reproduz.
+  - **IMPORTANTE-1:** tests/textured_quad_corners_test.cpp:73-75 (`carries`) tem "e" ligando dois verbos e três assuntos, e isso reprova pela L-17.
+  - COSMÉTICOS: renderer_2d.hpp:529, ilogb(0) sem defesa (o caso não é alcançado) e a linha Co-Authored-By. Obs.: o revisor disse "não empurrado", mas foi empurrado (o ls-remote conferiu 40bcafa0).
+  - **CTO despachado às 00:4x para a ordem T4b-A-FLOAT-fix1** (D-W8-771 a 785), em commit novo pela L-25. É o segundo agente, junto com a revisão da S5-C1.
+- **21/10 01:0x: CI 39538394875 verde sobre 40bcafa0** (a FLOAT c3df4dd5 com a S5-C1 por cima). Dos 26 jobs, 25 passaram, 1 foi pulado (o de sempre) e nenhum falhou. A combinação das duas está provada em todas as plataformas do CI.
+- **21/10 01:15: o CTO entregou a ordem da T4b-A-FLOAT-fix1** (ab0ef72b, D-W8-771 a 785): /var/tmp/cto-w8/ordem-t4b-a-float-fix1.md (md5 ec4bff94, anexos.md5 bb7ea1b7).
+  - Mexe só em tests/textured_quad_corners_test.cpp: `carries` vira três predicados com nome próprio (`reads_by_role`, `weighs_as_carried` e `stores_normal_floats`), e a conjunção dos três fica no corpo do caso. Sai em commit novo (L-25).
+  - Vão para a INBOX: TEX-PHRASE-SUCH (D-W8-773) e TEX-CARRIED-ZERO (D-W8-774).
+  - D-W8-775: a mensagem de commit virou anexo com md5, e o commit mede a linha Co-Authored-By.
+  - Pré-execução: 16 de 16 rodadas como o esperado.
+    - O vermelho é o teste novo sobre 7d81b85d.
+    - MF1-MF6 e MX7-MX10 saem iguais aos da revisão; MT1-MT3 morrem.
+    - MT4 sobrevive, como a D-W8-785 declara; só o aviso -Wunused-function o pega, e esse aviso reprova a compilação com WERROR.
+    - Régua 0, MSVC 2/2, preci --fast 383/383 e sanitizer 193/193.
+    - O commit de prova sai 1 arquivo, 29+/18-.
+  - **Implementador despachado às 01:1x**, com haiku novo, junto com a revisão da S5-C1; são os 2 agentes.
+- **21/10 01:56: T4b-A-FLOAT-fix1 commitada: `e23b0d06`** (ae6b5906). Só tests/textured_quad_corners_test.cpp, com 29 linhas acrescentadas e 18 removidas, sem TODO.md e sem amend.
+  - 13 mutantes mortos dos 13 esperados; MT4 sobrevive por desenho (D-W8-785).
+  - O vermelho saiu sobre 7d81b85d.
+  - MSVC 2/2, preci --fast 383/383 e sanitizer verde.
+  - A mensagem é o anexo byte a byte, com Co-Authored-By Opus 5.5 (msg_igual_rc=0).
+  - Empurrada (o ls-remote confere e23b0d06) e CI 39546765562 disparado.
+  - NÃO VERIFICADO pelo implementador: o MT4 sob WERROR. O revisor mede.
+  - **Revisão N1 despachada às 01:5x**, com haiku novo, junto com a revisão da S5-C1; são os 2 agentes.
+- **21/10 02:1x: revisão N1 da S5-C1 (40bcafa0): NÃO LIMPA** (a86a92af, /var/tmp/cto-w8/rev-s5c1.txt md5 a84fce22).
+  - Sem CRÍTICO. Nenhuma frase pública contradiz o comportamento medido; os IMPORTANTE são lacunas de prova.
+  - **I-1:** a camada (layer) de fill_ellipse e stroke_ellipse não tem teste. Os mutantes R2 e R9 sobrevivem, e na fixture só o -Werror os pega.
+  - **I-2:** a superfície no regime de corte não tem teste. O mutante R1 sobrevive 17/17, e a sonda mostra 5 contra 22 vértices: é FURO.
+  - **I-3:** a cláusula de open() sem teste (INFERÊNCIA de leitura).
+  - Herdadas do pai: H-1 (impl.cpp:278) e H-2 (impl.cpp:258).
+  - Cosméticos: um include sem uso e um comentário errado.
+  - Medido verde:
+    - a fixture sobre o blob: 40 células e 0 reprovadas;
+    - ctest 5/5, e 17/17 na versão estendida;
+    - MSVC 8/8;
+    - os 10 mutantes, com prova de que a mutação chegou ao binário;
+    - o CI 39538394875 com todos os jobs verdes.
+  - **CTO despachado às 02:1x para a ordem S5-C1-fix1** (D-W8-786 a 800), só de teste, em commit novo. É o segundo agente, junto com a revisão da FLOAT-fix1.
+- **21/10 02:2x: CI 39546765562 VERMELHO sobre e23b0d06 (FLOAT-fix1), só no job Windows - estatico.**
+  - Os testes passaram (366/366, 2 pulados). Quem reprovou foi o portão do agregador (ctest_aggregate.py, a régua de pesados).
+  - Os dois testes reprovados: layers_oracle_selftest com 58,5 s e libdir_includedir_mix_rejected_test com 41,3 s. Os dois passaram de 40 s sem RESOURCE_LOCK nem PROCESSORS.
+  - **FATO:** o commit só mexe em tests/textured_quad_corners_test.cpp, que nenhum desses dois testes usa. A régua mede o tempo da máquina do runner, e no run anterior (39538394875, sobre 40bcafa0) os 26 jobs saíram verdes.
+  - O rerun é recusado (memória feedback_rerun_guard), e o conserto vem por commit. Foi para a INBOX como CI-HEAVY-RULER-WIN.
+  - **Fica para o próximo slot de agente, com um CTO**: diagnosticar antes de só acrescentar a trava (L-49: falha da ferramenta e falha do produto pedem consertos opostos). O CI-VERDE-W8 fica aberto até isso fechar.
+- **21/10 02:2x: revisão N1 da T4b-A-FLOAT-fix1 (e23b0d06): LIMPA** (aa0be55d, /var/tmp/cto-w8/rev-t4bafloatfix1.txt). Sem CRÍTICO e sem IMPORTANTE.
+  - O IMPORTANTE-1 da FLOAT foi resolvido sem fragmentação: os três predicados têm nome honesto e uma lei cada, e a régua dá 0.
+  - **MT4 medido com WERROR:** rc_build=1, por unused-function. É equivalente por construção, e o verde com WERROR sai sem nenhum aviso.
+  - Matriz 16/16 iguais e MSVC sem falha. Os cosméticos foram para a INBOX como FLOATFIX1-COSMETICS.
+  - **A cadeia T4b-A-FLOAT está fechada no código e nos testes:** c3df4dd5 e e23b0d06, revisada LIMPA. O CI dela saiu vermelho só pela régua de pesados do Windows, que não toca esse código; esse ponto é o CI-HEAVY-RULER-WIN.
+- **21/10 02:2x: CTO despachado para o CI-HEAVY-RULER-WIN** (D-W8-801 a 815): diagnosticar primeiro, com a série histórica de durações, e depois a ordem do conserto. Ele e o CTO da S5-C1-fix1 são os 2 agentes.
+- **21/10 02:3x: disco.** O mínimo da partição / chegou a 20,92 GiB. Pela regra "limpar só compilação", foram apagadas as pastas `build`/`build-*` das fatias fechadas e revisadas LIMPAS (FILTER, FLOAT e FLOAT-fix1, S5-B-fix5, T4b-A-fix6, com as pastas r21 e rev de cada uma): encontrados=80, apagados=80, falharam=0. O mínimo subiu para 22,81 GiB. A S5-C1 (fix pendente) e as fatias ativas não foram tocadas.
+- **21/10 03:2x: o CTO devolveu o diagnóstico do CI-HEAVY-RULER-WIN** (D-W8-801 a 815; ordem `/var/tmp/cto-w8/ordem-ci-heavy-ruler.md`, md5 dea7d9cf; anexos.md5 1971accf, 72 de 72 OK; estado parcial em `/var/tmp/cto-w8/ciheavy-work/STATUS.md`).
+  - **Causa medida (D-W8-801):** em 46 de 46 jobs Windows estáticos, três testes rodam 100% do tempo ao lado do build aninhado, que já tem trinco. São o layers_oracle_selftest (cerca de 10 mil operações de arquivo, ZERO compilador), o libdir_includedir_mix e o gêmeo blank_install_dir (4 configures aninhados cada). No vermelho, a mediana de lentidão do job foi de 1,2x, e só os testes dessa janela ficaram de 3 a 5x mais lentos. Não é defeito de produto nem do e23b0d06.
+  - **Conserto, opção (a) (D-W8-802 a 806):** trinco nos três, com a declaração heavy medida; a MEASURED_HEAVY passa de 17 para 19 (o blank fica fora da lista, porque não passou de 40 s). A régua e o ctest_aggregate.py ficam intactos. O precedente §16 da W7-D, que recusou o trinco num teste que só esperava, foi enfrentado por escrito: este teste faz E/S de verdade, no mesmo recurso que o vizinho satura.
+  - **Pré-execução no contêiner:** o agregador real, rodado contra o JUnit do vermelho, reproduz o rc 1 e passa a rc 0 com o trinco nos três. Continua rc 1 com trinco só no oráculo e com um teste sem trinco a 41 s. O portão morde nas 4 sabotagens. preci --fast deu 383/383, rodado no hospedeiro (downgrade da L-09 até PRECI-IN-CONTAINER).
+  - **Downgrade declarado (D-W8-810):** só o próximo CI prova o Windows real. O custo estimado é de mais 3 a 6% no passo de testes do Windows.
+  - **Verificação do main:** md5 da ordem e dos 72 anexos conferidos. Âncoras conferidas no HEAD d6ff2975:
+    - policy md5 34e6ad22;
+    - MEASURED_HEAVY_MIN = 17 na linha 279;
+    - os três add_test nas linhas 4084, 5290 e 5325;
+    - HEAVY_LIMIT_S na linha 58;
+    - 13 declarações heavy.
+  - **Despachado o implementador** (devops-sre novo). Agentes vivos: ele e o CTO da S5-C1-fix1.
+  - **INBOX:** ORACLE-SELFTEST-EXPORT-IO (D-W8-807) e CI-HEAVY-WATCH-WIN (D-W8-808). Resíduos do CTO para a limpeza do fim da onda: `/var/tmp/cto-w8/ciheavy-work/ci-logs/` (131M) e um `.pyc` de root em `ciheavy-work/site/__pycache__/`.
+- **21/10 03:3x: CTO devolveu a ordem da S5-C1-fix1** (D-W8-786 a 800; `/var/tmp/cto-w8/ordem-s5c1-fix1.md`, md5 80fe3bf5; anexos.md5 b48fed11, 59 de 59 OK). Ele estava esperando a trava pesada quando recebeu o ping das 03:22.
+  - **O que a ordem cobre:** um commit novo `test(draw2d):`, sem amend de 40bcafa0, que só troca os dois testes.
+    - I-1 nas duas portas: 2 casos no renderer_2d_impl_test e a célula C16 de pixel na paridade.
+    - I-2: 2 casos, com 5 vértices e 12 índices tirados da geometria, mais "cortada mais fina".
+    - Metade do I-3: C17, contexto movido recusa "context". O piso da paridade passa de 40 para 44 células.
+  - **Pré-execução:** 10 de 10 rodadas iguais ao esperado. Os mutantes MR1, MR1X, MR1Y, MR2, MR2S, MI3, MR9 e MR9F morrem pelo nome, e compilam com -Werror, então quem mata é o teste. MSVC 8 de 8. preci --fast 383/383 e --sanitizer-only 193/193. Commit de prova num clone: rc 0, e rc 3 na segunda tentativa.
+  - **Correção de achado:** o C-1 da revisão da S5-C1 NÃO é defeito. O pixel_box é declarado em src/draw2d/arc_parameters.hpp:85 e usado em renderer_2d_impl_ellipses.cpp:19; o main conferiu.
+  - **Armadilha medida pelo CTO, que vale para toda revisão por fixture:** dois mutantes seguidos no mesmo arquivo e com o mesmo tamanho fizeram o docker build reaproveitar o cache. O MR9F rodou o binário do MR9 (chegou=0); o confere.py barrou e a rodada foi refeita. Que o mecanismo seja o mtime em segundos é inferência.
+  - **Desvios declarados pelo CTO, sem efeito:** o esperado.txt foi gravado depois dos logs green, MR1 e MR1X, com os números já fixados na D-W8-789; o base-tree recebeu os blocos depois das medições. A régua L-17 do anexo da S5-C1 contava zero fora da raiz; a versão nova conta os erros (33 e 1 antigos, iguais antes e depois).
+  - **Verificação do main:** os md5 dos dois testes no HEAD batem com os .anc (29f72306, a82320e5). Nenhum commit nos dois testes depois de 40bcafa0. Não há colisão de arquivo com a CI-HEAVY-RULER-WIN, que só toca tests/CMakeLists.txt e o portão de política.
+  - **Despachado o implementador** (backend-engineer novo). Agentes vivos: os dois implementadores (S5-C1-fix1 e CI-HEAVY-RULER-WIN). A trava pesada serializa os dois.
+  - **INBOX:** S5C-OPEN-NOTHING-MADE (a metade do I-3 sem is_current() público), S5C-SHAPE-OOM-COUNT (H-1), S5C-OUTSIDE-BEFORE-REFUSAL (H-2), S5C-COMMENT-OUTLINE (C-2).
+- **21/10 03:4x: CI-HEAVY-RULER-WIN commitada, empurrada e em revisão.** Commit 8a1eae41, só tests/CMakeLists.txt e tests/tools/check_ctest_parallel_policy.py, com 11 inserções e 4 remoções. Relatório em `/var/tmp/cto-w8/ciheavyruler/relatorio.txt`.
+  - **O implementador:** todos os rc deram 0; o confere deu 27/27. O agregador deu A 1, B 0, C 1 e D 1, e as sabotagens S1 a S4 deram rc 1. O preci --fast saiu verde, rodado no hospedeiro.
+  - **O main conferiu:** 16 declarações heavy (13 + 3) e MEASURED_HEAVY_MIN = 19.
+  - **Push:** `git ls-remote` deu 8a1eae41. O CI 39557225741 foi disparado.
+  - **Revisor N1 despachado:** qa-engineer novo, pela seção 9 da ordem; relatório em `/var/tmp/cto-w8/rev-ciheavyruler.txt`.
+  - **INBOX:** a linha CI-HEAVY-RULER-WIN passou a 🔍.
+  - **Desvio relatado pelo implementador, sem efeito:** o trailer do commit é "Claude Opus 5.5", como manda o anexo da ordem. O lembrete de atribuição do subagente sugeria Haiku. Vale o da sessão (Opus 5.5), que é o da regra que o main recebeu; sem amend (L-25).
+- **21/10 04:0x: revisão N1 da CI-HEAVY-RULER-WIN (8a1eae41): LIMPA para o código, condicional ao CI** (`/var/tmp/cto-w8/rev-ciheavyruler.txt`). Sem CRÍTICO. O item 6 (CI 39557225741) ainda estava em curso; o fechamento depende do job Windows - estatico verde, sem linha `regua de pesados` e com `com RESOURCE_LOCK: 23`.
+  - **O revisor refez a causa:** sobreposição de 100% com public_name_collision em 46 jobs; mediana vermelho/verde de 1,20; quatro testes acima de 3x. O oráculo não é ocioso (CPU e ~11 mil operações de arquivo), então vale a D-A58 e não a §16. Os mutantes M1 e P1 mordem.
+  - **IMPORTANTE-1:** o portão aceita tirar o trinco E a declaração do blank_install_dir_rejected_test; o mutante P2 sai rc 0.
+    - O main refez o P2 num clone do blob 8a1eae41: p2_rc=0 e p0_rc=0. O advisor indicou medir se a lacuna é nova; o main mediu.
+    - **É pré-existente:** no pai 6911d8cd, quatro testes já tinham declaração e trinco fora da MEASURED_HEAVY (container_fixture_link_selftest, examples_consume_installed_test, install_includedir_test, no_target_collision_test). O portão é de mão única desde a origem.
+    - Decisão autônoma, a ratificar: vai para a INBOX como `CI-HEAVY-GATE-INVERSE`, sem fix agora. O LIMPA fica.
+  - **IMPORTANTE-2 e COSMÉTICO-1:** o trinco glintfx_nested_build cobre um teste que não monta CMake, e a docstring do portão (linhas 214 a 216) ficou falsa. A escolha foi consciente (D-W8-804, a declaração diz "nao por build aninhado"). A docstring entra no mesmo item da INBOX.
+  - **COSMÉTICO-2:** trailer, já decidido. **COSMÉTICO-3:** o roda_conserto.sh do CTO monta com `:z` e não com `:Z` (um container só); fica anotado para as próximas ordens.
+- **21/10 04:0x: o implementador da S5-C1-fix1 PAROU no bloco fx, como a ordem manda** (`/var/tmp/cto-w8/s5c1fix1/relatorio.txt`). Não houve commit e a árvore real ficou intocada.
+  - **Causa:** o mutante MI3 deu chegou=0 nas duas tentativas. No build.log, o docker build reaproveitou o cache (COPY _arch_ports_lib e RUN cmake CACHED). É a mesma armadilha que o CTO mediu no MR9F.
+  - **Achado do implementador:** a sonda do fxgreen passa por casar com a linha de descrição do g++, não com a compilação do arquivo.
+  - **Rodadas até o bloco fx, todas boas:** blocos, ditadas, gen, régua, prep 9/9, ct 6/6 e fxgreen (44 células).
+  - **Próximo passo:** o CTO autor da ordem foi retomado para escrever uma errata (forçar a reconstrução por rodada de mutante e endurecer a sonda). O implementador retoma de onde parou, com as pastas intactas.
+- **21/10 04:1x: errata 1 da S5-C1-fix1 pronta** (`/var/tmp/cto-w8/ordens-anexos/s5c1fix1-errata1/errata1.md`, md5 44c5a67c; anexos.md5 726ee2c4, 6 de 6 OK; a ordem congelada 80fe3bf5 continua intocada).
+  - **Por que não `--no-cache` nem ARG:** os dois estágios do Containerfile começam com dnf install (linhas 237 e 1242), e o `--no-cache` baixaria os pacotes da rede a cada rodada. Um ARG exigiria editar o Containerfile.
+  - **Reconstrução:** o roda_fx2.sh acrescenta uma linha de comentário única ao arquivo mutado, só na cópia, e esse conteúdo nunca foi construído antes.
+  - **Sonda nova:** conta a linha do ninja `Building CXX object .../<arquivo>.o` e confere contexto=1 e lib_em_cache=0. O fxgreen antigo sai do aceite; o fxgreen2 entra no lugar.
+  - **Pré-execução mínima do CTO:** o MI3 com o roda_fx2.sh deu chegou=1 (build.log:237), só a C17 caiu, e o confere deu igual. MR9, MR9F e fxgreen2 ficam com o implementador.
+  - **Guarda de tempo:** se passar das 05:35 sem commit, o implementador para e relata.
+  - **Próximo passo:** o implementador foi retomado com a errata, e as pastas dele estão intactas.
+- **21/10 04:2x: CI 39557225741 (head 8a1eae41) VERDE: 25 de 26 jobs, mais 1 pulado (VERSION-TAG-SYNC, só roda com etiqueta). CI-HEAVY-RULER-WIN ✅.** O item 6 do revisor foi conferido pelo main no log do job Windows - estatico (119079715279):
+  - nenhuma linha `regua de pesados`;
+  - `com RESOURCE_LOCK: 23`;
+  - declarados 368, executados 366, passaram 366, falharam 0;
+  - layers_oracle_selftest 7,71 s, libdir_includedir_mix 6,67 s, blank_install_dir 5,19 s (eram 58,5, 41,3 e 33,4 s no vermelho).
+  - O CI-VERDE-W8 segue 🔄 até a última fatia da onda.
+- **21/10 05:0x: S5-C1-fix1 commitada (9e106ca6) e empurrada** (`git ls-remote` deu 9e106ca6). Ela só toca os dois testes, com 122 inserções e 1 remoção. O relatório está em `/var/tmp/cto-w8/s5c1fix1/relatorio.txt`.
+  - **O que o implementador reporta:**
+    - fx2: MI3, MR9, MR9F e fxgreen2 saíram com chegou=1, contexto=1 e lib_em_cache=0;
+    - confere2: ct 6/6 e fx 4/4;
+    - MSVC 8/8; green-snap 7/7;
+    - preci --fast e --sanitizer-only verdes, rodados no hospedeiro.
+  - **CI 39566472244 disparado.**
+  - **Revisor N1 despachado** (qa-engineer novo, pela seção 9 da ordem e pela errata). O prazo duro dele é 05:50, por causa da pausa do líder às 06:00.
+  - **TODO.md:** não foi tocado; o R2D-SHAPES segue 🔄 até a S5-C2.
+- **21/10 05:0x: o main verificou o plano da T5-A contra a árvore** (L-16, passo 3). A ordem `/var/tmp/cto-w8/ordem-t5.md` tem md5 0bc50387 e os anexos `ordens-anexos/t5/` batem 100% OK.
+  - **Conferência de início:** nenhum dos 15 arquivos da BLOCKED_OWNED_A (os átomos triangle_batch, triangle_store, piece_list, triangle_pixel_vertices e triangle_list_check, com os testes deles) mudou em ff4c1377..HEAD. O ff4c1377 é ancestral do HEAD, e `git status` de src/draw2d e tests sai vazio.
+  - **A ordem vale sem regenerar:** a T5-A não toca o tests/renderer_2d_impl_test.cpp; quem toca é a T5-B.
+  - **Decisão autônoma, a ratificar:** a T5-A NÃO foi despachada agora. Ela disputaria a heavy.lock com o revisor da S5-C1-fix1 a 50 minutos da pausa das 06:00. Na volta, é a primeira da fila: um implementador haiku novo começa direto pela ordem.
+- **21/10 05:3x: ORDEM DO LÍDER, nova regra para mensagem de commit, gravada como emenda na L-21 do GODS_LAWS.md.** O verbatim está na emenda. Por AskUserQuestion ele escolheu emendar a L-21; para o idioma, escolheu português e inglês, mais os códigos internos numa linha de referências. A partir de agora todo commit leva:
+  - um título claro;
+  - um texto explicativo em português e o mesmo texto em inglês simples;
+  - os códigos (D-W8, fatia, run, ordem) só na linha de referências do fim.
+  O CLAUDE.md e o índice de gatilhos foram atualizados. As próximas ordens dos CTOs têm de gravar o msg.txt nessa forma.
+- **21/10 05:3x: CI 39566472244 (head 9e106ca6, S5-C1-fix1) VERDE:** 25 de 26 jobs, 1 pulado (VERSION-TAG-SYNC). A revisão N1 segue em curso, com prazo até 05:50.
+- **21/10 05:4x: a revisão N1 da S5-C1-fix1 (9e106ca6) ficou INCOMPLETA POR PRAZO** (`/var/tmp/cto-w8/rev-s5c1fix1.txt`). Não houve CRÍTICO nem IMPORTANTE.
+  - **O que o revisor conferiu:**
+    - o blob bate com o md5 dos .blk, e o diff só acrescenta;
+    - a geometria e as distâncias batem com a D-W8-789 e a D-W8-788;
+    - ctest 6/6;
+    - na fixture, fxgreen2, MR9F e MR9 deram chegou=1 e "igual";
+    - MSVC 8/8;
+    - no CI 39566472244, 44 células com 0 reprovadas no contêiner Wayland e no Windows.
+  - **O que falta para virar LIMPA:** a régua do passo 4 (fsize.sh), o MI3 na fixture e o mutante extra OPENNOCHK na fixture. Na volta, um revisor haiku novo faz só esses itens, a partir do relatório.
+  - **COSMÉTICOS, para a INBOX como S5C1FIX1-COSMETICS:**
+    - a recusa de open() por contexto (C17) só tem guarda na fixture, não no ctest: o OPENNOCHK passa no ctest 5/5;
+    - o caso blue_square_of_layer_0_before_the_red_piece confere só o canal azul do vértice 0.
+- **21/10 23:0x: o líder RETOMOU a W8** (AskUserQuestion, "Retomar agora") e religou o modo autônomo até 22/10 23:08. Ordens desta retomada, verbatim: "maximo de agentes NESTA sessão: 2 sem concorrencia"; "duvidas com clevel como na rotina estabelecida e se mantiver dificuldade, levar para o advisor"; "pausar trabalho 22/10/2026 06:00AM. Antes de pausar, commit. Autorizo push/tag/merge de acordo com as leis". O main lê a primeira como: no máximo 2 agentes vivos, nunca os dois em trabalho pesado ao mesmo tempo (a heavy.lock serializa).
+- **21/10 23:3x: D-W8-816, a S5-C1-fix1 (9e106ca6) fecha LIMPA.** O revisor haiku novo fez os três itens que faltavam (`/var/tmp/cto-w8/rev-s5c1fix1.txt`, bloco "REVISAO N1 COMPLEMENTAR"), e o main reconferiu as provas:
+  - régua (fsize.sh) no pai 7e74648e e no clone: 33 e 33 avisos em renderer_2d_impl_test.cpp, 1 e 1 em draw2d_shapes_parity_test.cpp, erros_de_compilacao=0, nomes iguais nos dois lados;
+  - MI3 na fixture com o roda_fx2.sh: chegou=1, contexto=1, lib_em_cache=0, 44 células, só FAIL C17, confere "igual";
+  - OPENNOCHK na fixture: só FAIL C17. A morte desse mutante agora é medida, não inferência.
+  Nenhum CRÍTICO nem IMPORTANTE. O cosmético (a recusa de open() só tem guarda na fixture) segue em S5C1FIX1-COSMETICS. A S5-C1 fecha; o item R2D-SHAPES continua 🔄 até a S5-C2.
+- **21/10 23:1x: D-W8-817, errata 1 da T5-A emitida pelo CTO** (`/var/tmp/cto-w8/ordens-anexos/t5-errata1/`, md5 do msg.txt 7c06bd5c): só troca a mensagem de commit pela forma nova da L-21; a ordem congelada (0bc50387) segue intacta. O main conferiu md5 rc 0 e leu a mensagem: título sem código interno, português, inglês e referências. A T5-A foi despachada a um haiku novo às 23:2x, com o ESPERE refeito pelo main (0 arquivos mudados, árvore limpa).
+- **21/10 23:1x: D-W8-818, decisão autônoma a ratificar:** pelo aviso do CTO (INFERÊNCIA dele, não conferida), as ordens congeladas ainda sem commit (T5-B, R2b, H3a e as seguintes) devem ter a mensagem na forma antiga. Cada uma recebe errata da mensagem, emitida pelo CTO, antes do despacho, como a da T5-A.
+- **21/10 23:45: T5-A commitada (bf20b529)**, empurrada; CI 39713433800 verde (25 de 26, 1 pulado). Antes, o main apagou 242 pastas de compilação (build*) de fatias fechadas sob /var/tmp/cto-w8, todas do usuário (as 536 de root ficam para o fechamento da W8): o min do disco foi de 20,84 para 26,24 GiB.
+- **22/10 00:1x: D-W8-860, a revisão N1 da T5-A saiu NÃO LIMPA** (`/var/tmp/cto-w8/rev-t5a.txt`): IMPORTANTE A1 (a mensagem diz "nenhuma reserva nova de memória"; a sequência do alocador não muda, mas cada peça ficou 8 bytes maior, piece_list.hpp:57), A2 (mutante R1 sem room_for_reads em room_for_triangle_piece sobrevive), A3 (mutante R2 first_read=0 sobrevive; a sonda de duas peças texturizadas o mata). COSMÉTICOS C1 a C4. O commit publicado NÃO é reescrito (L-25 global); a correção vem pela T5-A-fix1, cuja mensagem corrige a frase da memória. Ordem em preparo pelo CTO (`/var/tmp/cto-w8/ordem-t5a-fix1.md`). A fix1 entra antes da T5-B.
+- **22/10 00:46: D-W8-861, T5B-REGEN-681 entregue pelo CTO** (`/var/tmp/cto-w8/ordens-anexos/t5b-errata2/`, md5 da errata 9cf157f3, anexo novo e2a4db7f; md5 -c rc 0 conferido pelo main): blocos regenerados pela D-W8-740, o "//   of" solto sumiu, a frase da origem do texel virou FATO (pixel_premultiply.cpp:138-147, texture_upload.cpp:216-219, triangle_pixel_vertices.cpp:31-34 e outros), aceite novo 10 arquivos, 570 inserções, 26 deleções. Pré-execução sobre bf20b529: fixture 60 células verdes, mutantes MF1 a MF3 mortos, preci 383/383. Vale o msg.txt da errata 1. Ressalva: depois da fix1, rodar o leve.sh do Anexo P2 e conferir o trecho do MF2; se a fix1 mudar assinatura de piece_list ou triangle_batch, sai errata 3. Decisões do CTO dentro da D-W8-740, a ratificar junto: frase do custo reescrita ("linearly"), gêmeos B-doc-1 e B-T-parity-1 regenerados, mutante MF3 acrescentado.
+- **22/10 00:4x: sugestão do CTO para a INBOX (D-W8-862):** a origem do texel também falta na documentação de gltfx_rect_texel em draw_texture e draw_texture_quad ("texture's top-left" sem definição). Vai para a INBOX como TEXEL-ORIGIN-RECT-DOC.
+- **22/10 01:0x: correção de numeração pelo main:** as três entradas de 00:1x a 00:4x saíram com D-W8-819 a 821, que a ordem da T5-A-fix1 já usava (o main tinha dado ao CTO a faixa a partir de 819). Viraram D-W8-860, 861 e 862; a faixa 819-829 é da T5-A-fix1 e a 830-859 é da S5-C2. A partir de agora o main usa a faixa 860 em diante.
+- **22/10 01:0x: T5-A-fix1, ordem do CTO entregue e despachada** (`/var/tmp/cto-w8/ordem-t5a-fix1.md`, md5 21b9693c; anexos 9dc016a2, md5 -c rc 0). Decisões D-W8-819 a 829 do CTO, a ratificar: A2 com a asserção first_vertex == 0 no caso da recusa; A3 com um caso novo de duas peças texturizadas; C1 com comentário novo; C3 fica assert e vai à INBOX como T5-READS-COUNT-GUARD (a T5-B produz uma leitura por vértice por construção); A1 e C2 corrigidos na mensagem nova (cada peça cresceu 8 bytes: sizeof 152 para 160); trailer Opus no commit, como no precedente D-W8-796. Pré-execução: mutantes R1, R2 e R2S morrem pelo nome do caso; preci 383/383; sanitizer 193/193; commit de prova 2 arquivos, 32 inserções, 1 deleção. O main refez o ESPERE (T5-A no HEAD, 0 commits nos arquivos, md5 iguais, árvore limpa) e despachou um haiku novo às 01:0x. A T5-B só sai depois da revisão N1 da fix1 LIMPA.
+- **22/10 01:2x: T5-A-fix1 commitada (9c808437)**, mensagem igual ao anexo (cmp rc 0), empurrada; CI 39722139435 verde (25 de 26, 1 pulado). Revisão N1 com haiku novo em curso (`/var/tmp/cto-w8/rev-t5afix1.txt`).
+- **22/10 01:59: S5-C2, ordem do CTO entregue** (`/var/tmp/cto-w8/ordem-s5c2.md`, md5 949a76f2; anexos 9fbac9f8, md5 -c rc 0 conferido pelo main). O que falta da S5-C, medido no HEAD: a ponta redonda presa em 0,25 (stroke_line_pixels.cpp:19-20), o "13280 pixels" no texto público (renderer_2d.hpp:318-321), o "does not read it yet" no campo (renderer_2d_desc.hpp:29-31). Decisões do CTO D-W8-830 a 840, a ratificar: 830 ponta redonda vira meia elipse por arc_parameters e lê o campo de tolerância (10 queixas em relato-cto-s5c.txt §1.2, mais RmlUi; SDL3 sem nada, declarado); 831 um conjunto de parâmetros por ponta; 832 ellipse_screen vai para arc_parameters.hpp; 833 ponta impossível de medir é recusada; 834 stroke_cap_radius_pixels sai; 835 memória fixa por desenhador sobe de 26720 para 122992 bytes, nada por chamada; 836 o texto público muda (ratificação do líder); 837 vermelho por asserção; 838 quatro funções de teste tocadas voltam para dentro da régua; 839 nenhuma célula de pixel nova; 840 ARC-VIEWPORT-TESSELLATION vai a 🔍 no commit. Pré-execução sobre aa24a406 com a T5-B por cima: 4 vermelhos por asserção, 8 de 8 mutantes mortos, fixture 44 células verdes, preci 383/383, sanitizer 193/193, MSVC 9/9, commit de prova 17 arquivos (507 inserções, 197 deleções), refeito sobre 9c808437 com rc 0. Ordem dos commits: T5-A-fix1, T5-B, S5-C2.
+- **22/10 02:0x: D-W8-863, duas entradas novas na INBOX:** T5-READS-COUNT-GUARD (decisão do CTO da fix1, D-W8-82x: a pré-condição de tamanho fica em assert por enquanto) e ARC-HALF-SWEEP (sugestão do CTO da S5-C2: o erro da ponta na tela está provado com um raio só, 50000).
+- **22/10 02:1x: T5-A-fix1 com revisão N1 LIMPA** (`/var/tmp/cto-w8/rev-t5afix1.txt`; mutante M2 equivalente, cosméticos C-1 a C-4 sem bloqueio). A T5-A fecha. O main rodou a reconferência leve da errata 2 da T5-B sobre fef29267 (27 blocos, 12/12 linhas ditadas, gêmeo igual, commit de prova 570/26, segunda vez rc 3; trecho do MF2 conta 1) e despachou a T5-B.
+- **22/10 03:0x: T5-B commitada (bb44e0a1)**, mensagem igual à errata 1, empurrada; CI 39731330682 verde (25 de 26, 1 pulado). O sistema marcou duas vezes ação do implementador como possível enfraquecimento de segurança; o main conferiu árvore real, hooks, configurações e md5 dos anexos, tudo intacto, e o implementador declarou só os preci autorizados fora do contêiner; o palpite dele é o `docker run --cap-add=SYS_NICE` e as montagens `:z` dos scripts antigos do anexo (padrão conhecido, já registrado como armadilha).
+- **22/10 03:3x: D-W8-864, a revisão N1 da T5-B saiu NÃO LIMPA** (`/var/tmp/cto-w8/rev-t5b.txt`): IMPORTANTE-1, o texto público diz que o teste do desenhador prova cada motivo de recusa na ordem, e a tabela cobre 7 de 9 (faltam too_many_vertices e infinite, provados só no átomo); a mensagem do commit repete a promessa. 6 de 6 mutantes do revisor mortos, fixture 60 células verdes, nenhuma exceção cruza a API. COSMÉTICOS: referência a renderer_2d_desc.hpp, R5, "reads TN" na paridade e o código interno D-W8-282 no texto público. Ordem T5-B-fix1 pedida ao CTO, prazo 04:25.
+- **22/10 03:0x: D-W8-865, limpeza e pendência nova:** o main apagou 10 pastas de compilação da T5-B já commitada e 37 mil pastas temporárias de teste com mais de uma hora (glintfx-* em /var/tmp e /var/tmp/builds, 3,3 GiB). Os autotestes deixam essas pastas para trás; o item já existia na tabela (SELFTEST-TMP-LEAK, ⏳), e a entrada duplicada que o main pôs na INBOX foi retirada; a medida de hoje (37 mil pastas, 3,3 GiB) reforça a prioridade dele.
+- **22/10 04:0x: T5-B-fix1, ordem do CTO** (`/var/tmp/cto-w8/ordem-t5b-fix1.md`, md5 4acf2089; anexos 333ab103, md5 -c rc 0), decisões D-W8-870 a 881, a ratificar: o motivo infinite passa a ser provado no teste do desenhador (linha nova na tabela, com textura nula); para too_many_vertices o texto público passa a prometer menos, com a razão escrita (provar exigiria mais de 2^32 vértices num span; a prova fica no átomo, triangle_list_check_test); saem da cerca pública os códigos internos D-W8-282 e D-W8-287 e a remissão ao renderer_2d_desc.hpp; a frase do TT2 foi corrigida; a mensagem nova corrige a anterior (sete de nove motivos eram provados no quadro, agora oito, e o nono no átomo). Pré-execução: MIP (sem a linha nova) sobrevive no quadro, MI morre pelo nome; preci 383/383, sanitizer 193/193; commit de prova 3 arquivos, 37/28.
+- **22/10 04:15: T5-B-fix1 commitada (f78fe3f3)**, mensagem igual ao anexo (cmp rc 0), empurrada; CI 39739358786 disparado; revisão N1 com haiku novo em curso (`/var/tmp/cto-w8/rev-t5bfix1.txt`). O implementador declarou na seção de segurança: nada em hooks, permissões, SELinux ou capacidades do docker. Trailer Opus no commit, como no precedente D-W8-796 (a ratificar).
+- **22/10 04:1x: D-W8-866, três pendências novas na INBOX, sugeridas pelo CTO da T5-B-fix1:** PUBLIC-HEADER-INTERNAL-CODES (29 linhas com D-W8- ainda nos cabeçalhos públicos em include/), API-CONV-BORROWED-SPAN (a remissão a R5 em três cercas, renderer_2d.hpp:281, :371 e :559, não trata de leitura de span) e TT2-COMMENT (comentário em draw2d_texture_parity_test.cpp:675). A S5-C2 precisa, antes do despacho, de ESPERE 1 com o SHA da T5-B-fix1 e ESPERE 2 com /var/tmp/cto-w8/rev-t5bfix1.txt LIMPA; os md5 de renderer_2d.hpp e renderer_2d_impl_test.cpp mudaram (c0037e09 e ca26d9a3).
+- **22/10 03:5x: limpeza de compilação pelo main:** `docker builder prune --filter until=2h` (cache de montagem sem uso havia 2 horas), o min do disco foi de 20,58 para 21,53 GiB.
+- **22/10 04:3x: D-W8-867, a revisão N1 da T5-B-fix1 saiu NÃO LIMPA** (`/var/tmp/cto-w8/rev-t5bfix1.txt`): IMPORTANTE-1, a frase nova "a span of more than 2^32 vertices that no test can hold" é falsa como dita (a sonda do revisor sustentou o span com um mapeamento reservado sem commit de ~206 GB, e o código recusa antes de ler vértice); IMPORTANTE-2, infinito na posição e na tinta da chamada com textura sem teste (mutante RV2 em triangle_list_check.cpp:42 sobrevive). O revisor também observou que o Status do item R2D-TEXTURE segue 🔄 por decisão do CTO (D-W8-880): a T5 só leva o item a 🔍 quando a T7 entrar. Ordem T5-B-fix2 pedida ao CTO, só para ficar pronta: pela hora (04:3x, pausa às 06:00) ela NÃO é executada esta noite.
+- **22/10 04:55: T5-B-fix2, ordem do CTO entregue e congelada** (`/var/tmp/cto-w8/ordem-t5b-fix2.md`, md5 ae52f5f8; anexos 15a2356c, md5 -c rc 0 conferido pelo main). Decisões D-W8-890 a 899, a ratificar: 890 escopo de 4 arquivos, com o gêmeo do texel y que o CTO achou (mutante RYP sobrevive hoje); 891 o texto do too_many_vertices é reescrito para dizer só o que a suíte prova, sem teste com reserva de endereço (a reserva depende do sistema: no Linux com overcommit no modo 2 o limite é o CommitLimit, 39,5 GiB aqui contra os ~206 GB; não existe em 32 bits; Windows não medido; L-04 pede o mesmo comportamento provado em cada sistema); 892 três casos no átomo (texel y, posição, tinta); 893 vermelho por mutantes, um por campo; 894 texto novo da cerca; 895 mensagem bilíngue que corrige as duas frases da fix1; 896 régua sem função nova; 897 TODO não é tocado; 898 `--sanitizer-only` só com min do disco de 21,8 GiB ou mais, e `--fast` vermelho é PARE; 899 SHA e limpeza como antes. Pré-execução: 7 rodadas de mutantes como esperado, régua igual, MSVC 2/2, commit de prova 4 arquivos 23/10. NÃO fechou: `preci --fast` saiu 8 só por `run_capture_known_color_win32_selftest` (passou duas vezes sozinho; o item RUN-CAPTURE-WIN32-SELFTEST-FLAKE já existe na tabela), e o `--sanitizer-only` não rodou por disco (20,66 GiB).
+- **22/10 04:5x: D-W8-868, a T5-B-fix2 NÃO é despachada antes da pausa.** Razões: a pausa do líder às 06:00 e a regra do main de não despachar depois das 05:00; a ordem manda PARAR com `--fast` vermelho, e o teste instável conhecido pode cair de novo; o sanitizer exige 21,8 GiB livres e o disco está em 20,7. Na volta: implementador haiku novo pela ordem, depois revisor novo. A S5-C2 espera a revisão LIMPA da fix2 e reconfere as âncoras e os md5 novos (renderer_2d.hpp 79b6d3e1, renderer_2d_impl_test.cpp 89e141e1).
+- **22/10 04:5x: D-W8-869, uma entrada nova na INBOX para decisão do líder:** TOO-MANY-VERTICES-SPAN-PROOF (provar a recusa por excesso de vértices com um teste que reserva endereço sem usar memória; o CTO decidiu não fazer agora pela portabilidade). A sugestão PRECI-FLAKY-RUN-PROCESS-TREE do CTO não entra: o item RUN-CAPTURE-WIN32-SELFTEST-FLAKE já cobre.
+- **22/10 05:1x: RATIFICAÇÕES DO LÍDER (AskUserQuestion, com a pesquisa de cada uma):**
+  - **D-W8-671 ratificada:** os nomes públicos ficam `fill_textured_triangles` e `fill_indexed_textured_triangles` (resposta: "fill_textured_triangles (Recomendado)").
+  - **D-W8-836 ratificada:** a ponta redonda das linhas passa a seguir a tolerância de erro escolhida em `open()`, e o texto público troca a precisão fixa por essa garantia (resposta: "Aprovar a troca (Recomendado)").
+  - **D-W8-891 ratificada:** o texto público da recusa por excesso de vértices promete só o que a suíte prova, sem teste com reserva de endereço (resposta: "Prometer só o provado (Recomendado)"). A entrada TOO-MANY-VERTICES-SPAN-PROOF sai da INBOX, porque a decisão que ela pedia foi tomada.
+- **22/10 05:2x: mais duas ratificações do líder (AskUserQuestion):**
+  - **Assinatura dos commits:** ele escolheu "Assinar os dois modelos (Recomendado)"; depois de a alteração ser argumentada contra (LEI DAS LEIS), confirmou a emenda da L-21 (GODS_LAWS.md, item 5 da forma obrigatória). Um Co-Authored-By por modelo que contribuiu. A ordem pronta da T5-B-fix2 tem um coautor só no msg.txt: antes do despacho, o CTO emite errata da mensagem com as duas linhas (Opus, que escreveu; Haiku, que aplica).
+  - **"2 sem concorrencia":** ele confirmou a leitura do main, "Está certo assim (Recomendado)": até 2 agentes vivos nesta sessão, e o trabalho pesado passa um de cada vez pela trava.
+- **22/10 22:4x: DECISÕES DO LÍDER sobre as 9 entradas que o dreno deixou para ele (AskUserQuestion, com a pesquisa de cada uma):**
+  - NODISCARD-R2-PRACTICE: "Mudar o texto da regra" (a R2 passa a aceitar [[nodiscard]] por função nas consultas; as 46 ficam).
+  - API-CONV-BORROWED-SPAN: "Regra nova para empréstimo" (regra própria nas convenções, as três cercas passam a citá-la).
+  - S5C-OPEN-NOTHING-MADE: "Mudar a promessa" (sem função pública nova).
+  - TEX-PHRASE-SUCH: "Reescrever mais claro" (entra na T5-B-fix2: o CTO põe na errata antes do despacho).
+  - R2D-TEXTURE-CARD-STATE e R2D-TEXTURE-KEPT-BYTES: "Depois da W8, com revisão de API".
+  - PER-CALL-TOLERANCE: "Depois da W8, com pesquisa".
+  - TEX-UNTEXTURED-IN-BATCH: "Recusar de vez". TEX-WEIGHT-RANGE-IEEE: "Recusar". As duas saem da lista sem arquivo (L-67 global: o que o líder revoga é apagado).
+  As sete aceitas viraram itens da tabela (W9-B, e TEX-PHRASE-SUCH na W8). INBOX vazia.
+- **22/10 22:3x: o líder RETOMOU a W8**, verbatim: "continue w8. Máximo 2 agentes em paralelo sem concorrencia" e "decisoes com clevel, de modo costumeiro do projeto. Se não resolver, chamar advisor". `parada_do_lider` apagado; modo autônomo até 23/10 22:20. Despachados: CTO para a errata 1 da T5-B-fix2 (dois coautores, emenda de 22/10 da L-21; e a frase TEX-PHRASE-SUCH) e CTO para planejar a T6 (alocador e atlas), que não colide com a fix2 pelo plano (src/core/CMakeLists.txt, header_hygiene_test.cpp). Trabalho pesado um por vez pela trava.
+- **22/10 23:04: ordem do líder**, verbatim: "06:00 AM commit e pause. Autorizo push/merge/tag". Pausa marcada para 23/10 06:00.
+- **22/10 23:2x: errata 1 da T5-B-fix2 entregue** (`/var/tmp/cto-w8/ordens-anexos/t5bfix2-errata1/errata1.md`, md5 797d65b5; anexos.md5 41aefdf3, md5 -c rc 0 conferido pelo main às 06:16). Dois Co-Authored-By (Opus e Haiku), a frase "Every such quad" reescrita (TEX-PHRASE-SUCH, que vai a 🔍 no commit da fatia), decisões D-W8-900 a 909, a ratificar. O CTO bloqueou o `preci`: com o TMPDIR da emenda de 22/10 da L-09 ao pé da letra, o `preci --fast` saiu vermelho três vezes por causa do ambiente, sem relação com a fatia (pasta temporária dentro do repositório, socket Unix acima de 107 bytes, sandbox dos win_vm_lab sem acesso ao atalho). Os passos 13 e 14 da ordem (preci e commit) não rodam até isso ser resolvido.
+- **22/10 23:3x: DECISÃO DO LÍDER (AskUserQuestion; o main argumentou contra mudar a lei antes de perguntar, LEI DAS LEIS):** "C: lei mantida (Recomendado)". A emenda de 22/10 da L-09 fica como está. As ordens passam a usar caminhos físicos e GIT_CEILING_DIRECTORIES, e uma fatia pequena conserta o teste do socket (diretório curto ou espaço abstrato). A T5-B-fix2 espera essa fatia. As três entradas PRECI-TMPDIR-IN-REPO, WIRE-RELAY-SOCKET-UNDER-TMPDIR e WIN-VM-LAB-SANDBOX-SYMLINK entraram na INBOX; que os caminhos físicos bastam para o win_vm_lab é inferência, ainda não medida.
+- **22/10 23:49: T6 dividida pelo CTO; a T6-A (alocador de atlas no núcleo, mais o código de erro `no_free_space`) foi entregue congelada:** `.trabalho/cto-w8/ordem-t6a.md` (md5 e165b656), anexos `ordens-anexos/t6a/` (anexos.md5 df2c383e, 111 linhas, md5 -c rc 0 conferido pelo main). Decisões de API, portas de mão única, a ratificar pelo líder: D-W8-911 (retângulo maior que o atlas é argumento inválido, não "sem lugar"), 912 (largura e altura separadas), 913 (o recibo leva o número do alocador), 914 (liberar tudo, `is_open`, `width`, `height`), 915 (um número que chega à última geração não volta a ser usado), 916 (quatro regras de colocação escritas; a mesma sequência dá as mesmas posições em todo sistema), 920 (`no_free_space` = 8); as demais, até D-W8-939, também a ratificar. Pré-execução: 23 rodadas no contêiner iguais ao esperado, 19 mutantes mortos, MSVC 12/12. O `preci` não rodou (passo 13); o commit (passo 14) espera o `preci` e a T5-B-fix2 no HEAD. A T6-B (atlas de textura, `draw_atlas_image`) vem depois. Cinco entradas novas na INBOX: W8-PUBLIC-LAYOUT-TESTS, CORE-POD-BUFFER, ATLAS-USAGE-QUERY, ATLAS-GROW, ATLAS-WIKI.
+- **23/10 06:16: pausa executada pelo main** (a resposta do líder chegou depois das 06:00). Nenhum agente vivo, nenhum despacho novo. Na volta, nesta ordem: o CTO escreve a ordem da fatia de conserto da suíte (opção C); implementador e revisor; depois a T5-B-fix2 pela ordem e pela errata 1 (e uma errata 2 só do bloco do preci, se for preciso), a S5-C2, e a T6-A.
+- **23/10 06:2x: RATIFICAÇÕES DO LÍDER das portas de mão única da T6-A (AskUserQuestion, com as queixas da comunidade de cada uma):**
+  - **D-W8-911 ratificada:** um retângulo maior que o atlas é argumento inválido, não "sem lugar livre" (resposta: "Argumento inválido (Recomendado)").
+  - **D-W8-912 ratificada:** `open(width, height)` (resposta: "Largura e altura (Recomendado)").
+  - **D-W8-913 ratificada:** o recibo leva o número do alocador, e o recibo de outro alocador é recusado pelo nome (resposta: "Recibo com dono (Recomendado)").
+  - **D-W8-914 ratificada:** entram `release_all`, `is_open`, `width` e `height` (resposta: "Entram as quatro (Recomendado)").
+  - **D-W8-915 ratificada:** o espaço cuja geração chega ao máximo é aposentado (resposta: "Aposentar o espaço (Recomendado)").
+  - **D-W8-916 ratificada:** a mesma sequência de chamadas dá as mesmas posições em todo sistema, dentro da mesma versão (resposta: "Igual por versão (Recomendado)").
+  - **D-W8-920 ratificada:** `no_free_space = 8` (resposta: "Número 8 (Recomendado)").
+  A pausa continua: as ratificações não retomam o trabalho.
+- **24/10 19:3x: o líder RETOMOU a W8**, verbatim: "ligue modo autonomo" e "continue o que estava fazendo, maximo dois agentes nao concorrentes". `parada_do_lider` apagado; modo autônomo até 25/10 19:33 (escopos push, clean). Retomada pelo item 1 da fila: o CTO escreve a ordem da fatia de conserto da suíte (opção C de 22/10). Em paralelo, sem disputar a árvore nem a trava de trabalho pesado, um segundo CTO ataca o plano da T6-A só por leitura (D-W8-940). Ordem do líder no mesmo momento, verbatim: "duvidas tire com clevel como eu expliquei nas outras vezes. Se não resolver, fale com advisor".
+- **24/10 19:3x: autorização do líder**, verbatim: "autorizo merge/push/tag se possivel". Vale com os portões das leis fechados (L-11 e L-26 do projeto, L-24 global): push a cada fatia commitada; merge em `main` e marca só quando a W8 fechar pela definição escrita no plano dela, com CI verde e revisão LIMPA.
+- **24/10 19:5x: o ataque ao plano da T6-A saiu com 0 CRÍTICO, 7 IMPORTANTES e 7 COSMÉTICOS** (`.trabalho/cto-w8/ataque-t6a.txt`). Pelo veredito, a ordem não é despachada antes de uma errata. Os IMPORTANTES: (A1) a promessa de que retângulo alterado vira recibo velho só é testada em 2 dos 4 campos; (A2) a regra "a corrida mais à esquerda", que sustenta a D-W8-916, ratificada, não tem teste; (A3, A4) a atribuição por movimento sobre alocador aberto e a frase "release e release_all nunca pedem memória" não têm teste; (A5) a D-W8-911 só é provada com o atlas vazio; (A6) os blocos usam $R, $A, $T e $C sem defini-los, o que o main conferiu na ordem, linhas 15 e 34 a 37; (A7) a sequência de commits não traz a fatia de conserto da suíte, e a árvore commitada não passa pelos portões. D-W8-941: o main pede ao CTO a errata 1 da T6-A (faixa D-W8-960 a 979); o trabalho pesado fica na mesma trava da outra fatia, um de cada vez.
+- **24/10 20:28: ordem da fatia SUITE-TMPDIR-PATHS entregue e congelada** (`.trabalho/cto-w8/ordem-suite-tmpdir.md`, md5 9a2d9866; anexos.md5 4ec38d22, 114 linhas, md5 -c rc 0 conferido pelo main). Decisões D-W8-941 a 952, a ratificar. Merecem atenção do líder a 942, que tira GIT_DIR e as variáveis irmãs do ambiente do `--selftest`, e a 952, que estende o escopo ao `tools/preci.sh` por um sexto controle com o mesmo defeito. O socket passa a usar `/proc/self/fd/<pasta>/<nome>` (20 bytes, qualquer que seja o TMPDIR), com fontes em unix(7), no systemd e na libwayland; o espaço abstrato foi descartado por pertencer ao namespace de rede. A pesquisa cita 41 queixas. Os cinco autotestes cercam o próprio git no pai da pasta de rascunho, como faz o t/test-lib.sh do git. Medido: para os win_vm_lab, o caminho físico basta. Pré-execução: `preci --fast` rc 0 com TMPDIR literal e sem a cerca, 383 de 383. Commit de prova: 10 arquivos.
+- **24/10 20:09: INCIDENTE relatado pelo CTO da fatia.** Ele exportou GIT_DIR apontando para a árvore viva, e o `--selftest` gravou nela um [user] local e pôs `tracked.cpp` no índice. Não houve commit. O CTO restaurou às 20:10:02. **Conferido pelo main às 20:29:** `git config --local --list` sem seção [user], `git diff --cached` vazio, `tracked.cpp` ausente, HEAD 6440a540.
+- **24/10 20:43: errata 1 da T6-A entregue e congelada** (`.trabalho/cto-w8/ordens-anexos/t6a-errata1/errata1.md`, md5 80095a41; anexos.md5 efcfaeeb, 152 linhas, md5 -c rc 0 conferido pelo main às 20:44). Aceitos A1 a A7 e C1 a C6; C7 recusado, porque o gancho é da máquina e não do repositório. São 7 casos novos e 2 ampliados (o vermelho passou de 40 para 47 casos) e 12 mutantes novos (31 no total), todos mortos no caso previsto; 48 rodadas iguais ao esperado, que foi gravado antes; MSVC 12/12; green-snap 17/17 também num clone com fix2, S5-C2 e T6-A commitados. Decisões D-W8-960 a 977, a ratificar; merecem atenção a 963 (a atribuição por movimento passa a ser provada no interior) e a 968/973 (frases do cabeçalho público, sem mudar comportamento). O `preci` não rodou: depende da SUITE-TMPDIR-PATHS. Ordem de entrada: suíte, fix2, S5-C2, T6-A. Nota do main: o CTO citou uma versão anterior da ordem da suíte (md5 36338d39); a congelada é 9a2d9866, reconferida às 20:44.
+- **24/10 20:53: SUITE-TMPDIR-PATHS commitada (ffb15e25) e empurrada** (ls-remote igual; CI 40144570462 disparado). O main reconferiu: 10 arquivos, 293+/26-, dois Co-Authored-By (Opus e Haiku) e Claude-Session, nenhuma seção [user] no config local, árvore limpa. O commit saiu sobre 5eba59b0, porque o HEAD andou com um commit do main só no DECISOES_AUTONOMAS.md; o implementador reconferiu o passo 2 contra o HEAD novo. O `preci --fast` rodou no hospedeiro, por downgrade declarado até PRECI-IN-CONTAINER: rc 0, 383 de 383. Revisão N1 com haiku novo, em `.trabalho/cto-w8/rev-suite-tmpdir/relatorio.txt`.
+- **24/10 20:5x: triagem das linhas de INBOX propostas pelos CTOs (D-W8-953 do main).** Entraram SANDBOX-SYMLINK-CONSUMER, RELAY-SUN-PATH-TRUNCATION e PRECI-PS1-NOGIT-TEMP. SUITE-TMPDIR-LEFTOVERS não entra, porque o item SELFTEST-TMP-LEAK já existe; o dado novo é que cada `preci --fast` deixa de 76 a 84 entradas em TMPDIR. DECISOES-T6A-FAIXA não entra: a faixa da T6-A é D-W8-910 a 930, e não "até 939", como saiu no registro de 22/10 23:49 (corrigido aqui). MDASH-HOOK-ZERO-USER-FACING não entra: o gancho de travessão é da máquina e fica fora deste repositório (L-32 global); vai ao líder como observação.
+- **24/10 21:0x: a revisão N1 da SUITE-TMPDIR-PATHS saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-suite-tmpdir/relatorio.txt`): 0 CRÍTICO, 3 IMPORTANTES, 3 COSMÉTICOS. O conserto foi verificado executando: a base fica vermelha, o conserto verde e os quatro mutantes morrem, além do mutante extra do revisor. **I-1** (o gêmeo do preci.ps1 sem INBOX) e o cosmético do strncpy já estavam resolvidos pelo commit 7df7d2fa do main (PRECI-PS1-NOGIT-TEMP e RELAY-SUN-PATH-TRUNCATION), porque o revisor leu o blob de ffb15e25, que é anterior. **I-2**, conferido pelo main: `fence_outer_repository` está copiada em 5 arquivos, contra a regra de três da L-33, e o repositório já importa módulo irmão (`tests/tools/check_docs_count_vocab.py:70`). **I-3**: a pesquisa marca como atendidas queixas sem prova, e a ficha 1 #9 cita a abordagem que a D-W8-943 rejeita. Cosméticos: `tools/preci.sh:1902` troca a cerca de quem chama em vez de preservá-la; `wire_shm_test_support.hpp:131-134` deixa vazar a pasta criada pelo mkdtemp se o open() falha. D-W8-954: o main pede ao CTO a ordem da SUITE-TMPDIR-PATHS-fix1 (faixa D-W8-990 a 999). A fix2 da textura segue em paralelo, porque não toca os mesmos arquivos.
+- **24/10 21:18: errata 2 da T5-B-fix2 entregue e congelada** (`.trabalho/cto-w8/ordens-anexos/t5bfix2-errata2/errata2.md`, md5 41c253d6; anexos.md5 93751d3d, 66 linhas, md5 -c rc 0 conferido pelo main). A base nova é 7df7d2fa, com caminhos físicos, sem a cerca do git e com um ESPERE 6 para as variáveis GIT_*. Pré-execução: `preci --fast` rc 0 (383/383) e `--sanitizer-only` rc 0 (193/193); o instável caiu 0 vezes. Commit de prova: 5 arquivos, 34+/21-. Decisões D-W8-980 a 989, a ratificar. A 989 diz que a S5-C2 só entra depois desta fix commitada e com revisão LIMPA, e que ela precisa de uma errata de caminhos físicos. Agora o implementador haiku novo executa a ordem, a errata 1 e a errata 2.
+- **24/10 21:51: T5-B-fix2 commitada (276732a4) e empurrada** (ls-remote igual; CI 40148328654 disparado). O main reconferiu: 5 arquivos, 34+/21-, os dois Co-Authored-By e o Claude-Session, nenhuma seção [user] no config local. Pelo relatório do implementador: `preci --fast` rc 0 (383/383), `--sanitizer-only` rc 0 (193/193), mutantes 7/7 iguais ao esperado e TEX-PHRASE-SUCH em 🔍. Revisão N1 com haiku novo em `.trabalho/cto-w8/rev-t5bfix2/relatorio.txt`. O CI da SUITE-TMPDIR-PATHS (40144570462) saiu verde: 25 trabalhos passaram e 1 foi pulado (VERSION-TAG-SYNC, que só roda com etiqueta). O implementador avisou que o `preci` grava os tempos em `/var/tmp/glintfx-preci-tempos/`, que é um atalho para `.trabalho/` (CLAUDE.md, mudança de 22/10).
+- **24/10 22:13: ordem da SUITE-TMPDIR-PATHS-fix1 entregue e congelada** (`.trabalho/cto-w8/ordem-suite-fix1.md`, md5 0ca0a562; anexos.md5 1e5c0eb6, 76 arquivos, md5 -c rc 0 conferido pelo main). Aceitos I-2, I-3, C-1 e C-2. A cerca passa a ser um módulo único, `tests/tools/selftest_git_fence.py`. A pesquisa foi recontada só com fonte lida: o socket fica com 19 queixas válidas e a cerca com 11; as duas passam do piso de 10, então nada vai ao advisor. Pré-execução: `preci --fast` rc 0 na 2ª tentativa (383/383; a 1ª deu rc 8 só no portão de dependência zero), `--sanitizer-only` e a análise estática rc 0, e 11 cenários de mutante iguais ao esperado. Commit de prova: 11 arquivos, 214+/191-. Decisões D-W8-990 a 999, a ratificar. **A D-W8-995 pede o olho do líder:** ela acrescenta `sys/resource.h` e `sys/wait.h` à lista do portão de dependência zero, só para o teste novo. São cabeçalhos da API do sistema, que a L-07 já permite, e há precedente ratificado com `execinfo.h` e `link.h`. As linhas de INBOX SUITE-FENCE-NOT-IN-CI, PY-SIBLING-IMPORT-SAFEPATH e DISPLAY-CONNECT-TMPDIR-LEAK entram depois do commit da fix1.
+- **24/10 22:2x: a revisão N1 da T5-B-fix2 saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-t5bfix2/relatorio.txt`): 0 CRÍTICO, 1 IMPORTANTE, 4 COSMÉTICOS. As provas conferem: blobs, mensagem, mutantes 7/7, o mutante extra REV63 morto como esperado, régua 2/2 e 33/33, MSVC 2/2. **IMPORTANTE-1:** a frase pública nova "(OpenGL promises texture coordinates up to 2^32 in magnitude)" (`renderer_2d.hpp:537` e `docs/auditoria-api-texture.md:784`, introduzida por 276732a4) não cita a fonte, e o revisor não achou a promessa no glspec46. Medido pelo main: o cabeçalho interno `src/draw2d/textured_quad_corners.hpp:28` cita "OpenGL 3.3 core, section 2.1.1". Que essa seção diga isso é INFERÊNCIA a conferir na fonte. Cosméticos: cabeçalho desatualizado em `triangle_list_check_test.cpp:16-17` (vem de antes desta fatia); overcommit medido só no modo 0; o `preci` grava em `/var/tmp`, que é um atalho para `.trabalho/`, como o main já tinha conferido; casos copiados em vez de tabela. D-W8-955: o revisor foi parado pelo main (TaskStop) depois de entregar o veredito, e o passo 8 (CI 40148328654) é conferido pelo main. D-W8-956: o CTO escreve a T5-B-fix3, que confere a seção da especificação e cita a fonte, ou reescreve a frase como limite do projeto.
+- **24/10 22:33: SUITE-TMPDIR-PATHS-fix1 commitada (9d88f24e) e empurrada** (ls-remote igual; CI 40151124490 disparado). O main reconferiu: 11 arquivos, 214+/191-, os dois Co-Authored-By e o Claude-Session, nenhuma seção [user] no config local. Pelo relatório do implementador: todas as provas da seção 4 conferem (base, new e nove mutantes). Desvios declarados por ele, sem efeito: leu as leis depois do passo 6, e um `cd /tmp` num cálculo sem ler nem escrever ali. Entraram na INBOX SUITE-FENCE-NOT-IN-CI, PY-SIBLING-IMPORT-SAFEPATH e DISPLAY-CONNECT-TMPDIR-LEAK. A revisão N1 é feita por um haiku novo.
+- **24/10 22:5x: a revisão da SUITE-TMPDIR-PATHS-fix1 saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-suite-fix1/relatorio.txt`): 0 CRÍTICO, 2 IMPORTANTES, 1 COSMÉTICO. As provas conferem: 12 de 12 árvores, blobs iguais aos blocos, o mutante extra do revisor morto e as 3 fontes da pesquisa conferidas pelo revisor (Go #6895, Datasette 890388200, buf #2463). I-2, I-3, C-1 e C-2 da revisão anterior estão resolvidos. **I-N1**, conferido pelo main no blob (`check_spdx.py:325-330`): o mkdtemp roda antes do `import selftest_git_fence`. Medido pelo revisor: um portão copiado sozinho, rodado com `--selftest`, sai 1 e deixa a pasta em TMPDIR. A mesma forma aparece nos outros 4 portões, e o defeito é da classe da C-2. **I-N2:** o caso de `wire_scratch_dir_selftest.cpp:74-86` passa quando o construtor falha antes do mkdtemp, porque não confere a precondição de que a falha foi no open(). **C-N1:** o comentário do import tardio cita um controle que só existe no check_vendor_purity. É a segunda volta da mesma fatia à revisão: pela L-42 do projeto e pela L-22 global, a ordem da fix2 começa por uma busca na web. D-W8-957: o main pede ao CTO a ordem da SUITE-TMPDIR-PATHS-fix2, na faixa D-W8-1010 a 1019.
+- **24/10 22:54: ordem da T5-B-fix3 entregue e congelada** (`.trabalho/cto-w8/ordem-t5b-fix3.md`, md5 4fe72a78; anexos.md5 594dfaae, 51 linhas, md5 -c rc 0 conferido pelo main). A frase sobre o OpenGL é VERDADEIRA. O OpenGL 3.3 core, seção 2.1.1, diz: "The maximum representable magnitude of a floating-point number used to represent positional, normal, or texture coordinates must be at least 2^32". O revisor não achou a frase porque o `pdftotext` imprime "232" (armadilha da L-41 global). O texto público passa a citar a seção. Pré-execução: `preci --fast` 383/383, `--sanitizer-only` 193/193; commit de prova com 2 arquivos, +4/-2. Decisões D-W8-1000 a 1009, a ratificar (a 1001 é o texto da frase pública). Cosméticos: TLC-HEADER-INFINITY vai à INBOX. PRECI-TEMPOS-DIR-ROOT não entra: medido pelo main, `/var/tmp/glintfx-preci-tempos` é atalho para `.trabalho/glintfx-preci-tempos`, então a gravação já fica fora da partição `/` (L-44 global). **Ficam com o main, depois da fix3:** uma errata de md5 na T6-A (o documento de auditoria passa de 42741b4d para 4ebfcb82) e uma na S5-C2 (renderer_2d.hpp passa de cbaf61b4 para ea1dd04d), mais a de caminhos físicos que a D-W8-989 já pedia. O CI da T5-B-fix2 (40148328654) saiu verde e foi conferido pelo main às 22:26.
+- **24/10 23:09: T5-B-fix3 commitada (b92d69b5) e empurrada** (ls-remote igual; CI 40153409030 disparado). O main reconferiu: 2 arquivos, +4/-2, os dois Co-Authored-By e o Claude-Session, nenhuma seção [user]. Pelo relatório do implementador: green-snap 4/4, `preci --fast` 383/383 e `--sanitizer-only` 193/193. A revisão N1 é feita por um haiku novo, que confere a citação no PDF oficial da Khronos. O implementador registrou que `scripts/ctest_ct_T5.sh` monta com `:z` (compartilhado), e não com `:Z`. Nota do main: o CLAUDE.md do projeto aceita `:z` quando dois contêineres usam o mesmo diretório, e a memória "Container rouba etiqueta de segurança" mostra que a reetiquetagem privada (`:Z`) em pasta usada por outros tira o acesso deles. Como o script está congelado, a escolha não muda agora. PRECI-TEMPOS-DIR-ROOT continua recusado: o caminho é um atalho para `.trabalho/`.
+- **24/10 23:1x: o CI da fix1 da suíte (40151124490) foi CANCELADO pela regra `concurrency: cancel-in-progress` do workflow** (`.github/workflows/ci.yml:95-97`), porque o main disparou o CI da fix3 no mesmo ramo. Saldo: 24 trabalhos passaram, 1 foi pulado e 1 cancelado, nenhum falhou. O commit 9d88f24e é ancestral de b92d69b5, então o CI 40153409030 cobre os dois. Lição: no mesmo ramo, disparar um CI novo cancela o anterior; um CI pendente só se dispara depois que o anterior termina, ou se aceita que o novo cubra os dois.
+- **24/10 23:2x: a revisão N1 da T5-B-fix3 saiu LIMPA** (`.trabalho/cto-w8/rev-t5bfix3/relatorio.txt`), com 0 CRÍTICO, 0 IMPORTANTE e 4 COSMÉTICOS que não bloqueiam. O revisor confirmou o trecho do glspec33.core.pdf na página 22 do PDF (página 7 impressa, seção 2.1.1), conferindo a página desenhada. Os cosméticos: "up to" contra "at least" no cabeçalho interno; o parêntese cita só o máximo; linhas citadas na ordem estão deslocadas; o `:z` do ctest_ct_T5.sh. Com isso, a cadeia T5-B (fix1, fix2 e fix3) fecha a revisão. Falta o CI 40153409030. D-W8-958: o main pede ao CTO a errata da S5-C2 (caminhos físicos, md5 novo de `renderer_2d.hpp` e base atual).
+- **24/10 23:30: o CI da T5-B-fix3 (40153409030, sobre b92d69b5) saiu verde**: 25 trabalhos passaram e 1 foi pulado (VERSION-TAG-SYNC). Ele cobre também a SUITE-TMPDIR-PATHS-fix1 (9d88f24e), cujo CI tinha sido cancelado. **TEX-PHRASE-SUCH passa a ✅** pelo main, depois da revisão LIMPA da fix3 e do CI verde (L-63 global). R2D-TEXTURE segue 🔄 até a T7 (D-W8-897).
+- **24/10 23:44: ordem da SUITE-TMPDIR-PATHS-fix2 entregue e congelada** (`.trabalho/cto-w8/ordem-suite-fix2.md`, md5 d0f295bf; anexos.md5 3c744870, 93 arquivos, md5 -c rc 0 conferido pelo main). A pesquisa veio antes do plano (L-42 do projeto), com 12 fontes lidas em cada ficha e mais de 10 atendidas em cada uma; nada foi ao advisor. Para o I-N1, o próprio módulo passa a criar a pasta, depois da cerca, e o import vira a primeira instrução: copiado sozinho, cada portão deixa 0 sobras, contra 1 antes. Os gêmeos foram corrigidos nos sete arquivos. Para o I-N2, o pai exige que a linha da falha termine em `: failed: m_dir_fd >= 0`. A C-N1 corrige o comentário. Pré-execução: `preci --fast` 383/383, `--sanitizer-only` 193/193, tidy e cppcheck 0, 15 cenários iguais ao esperado na 2ª tentativa (a 1ª errou só no esperado). Commit de prova: 7 arquivos, 151+/94-. Decisões D-W8-1010 a 1019, a ratificar. A 1011 e a 1014 pedem o olho do líder: o portão copiado sozinho continua sem autoteste, e o caso fica preso ao texto da expressão. A linha de INBOX SUITE-TEMP-BEFORE-PROTECT (70 sítios suspeitos fora destes sete arquivos) entra depois do commit.
+- **24/10 23:57: errata 1 da S5-C2 entregue e congelada** (`.trabalho/cto-w8/ordens-anexos/s5c2-errata1/errata1.md`, md5 3a4bd622; anexos.md5 f16b6a56, 116 linhas, md5 -c rc 0 conferido pelo main). A base nova é 6a644068, aceitando commits do main por cima. `renderer_2d.hpp` está em ea1dd04d e as 19 âncoras contam 1. Pré-execução: vermelho com 4 casos, verde 5/5, 8 mutantes mortos, régua 1:0, 3:0 e 33:33, green-snap 5/5, MSVC 9/9, `preci --fast` 383/383 e `--sanitizer-only` 193/193; commit de prova com 17 arquivos, 507+/197-. Decisões D-W8-1020 a 1029, a ratificar. A S5-C2 não muda nenhum md5 que a T6-A confere, mas a T6-A já precisa de uma errata 2: o documento de auditoria mudou com a fix3 (4ebfcb82) e os blocos dela ainda exportam GIT_CEILING_DIRECTORIES.
+- **D-W8-959 (main, decisão de execução):** o passo 11 da S5-C2 (fixture de pixel no contêiner) RODA, com a receita do CI: `docker run --cap-drop=ALL --cap-add=SYS_NICE` (`scripts/fixture_s5c.sh:19`, a mesma forma de `.github/workflows/ci.yml:1697` e `:1858`). Como a receita primeiro tira TODAS as capacidades e só devolve SYS_NICE, o contêiner fica com menos capacidade que o padrão do Docker. Sem esse passo, a promessa da mensagem do commit (os testes de pixel com ponta redonda continuam passando) não fica provada (L-12 do projeto). O "nada de --cap-add" dos briefings dos CTOs valia para receita nova, não para a do CI.
+- **D-W8-959b (main):** a S5-C2 só é despachada DEPOIS que o implementador da SUITE-TMPDIR-PATHS-fix2 terminar. As duas gravam na mesma árvore viva, e a S5-C2 toca o TODO.md (memória "Dois agentes na mesma árvore"). Enquanto isso, o CTO escreve a errata 2 da T6-A só em clones.
+- **25/10 00:10: SUITE-TMPDIR-PATHS-fix2 commitada (37668b78) e empurrada** (ls-remote igual). O main reconferiu: 7 arquivos, 151+/94-, os dois Co-Authored-By e o Claude-Session, nenhuma seção [user]. Pelo relatório: as 18 árvores de prova conferem com o esperado. Copiado sozinho, cada portão deixa 0 sobras, contra 1 na base. `preci --fast` deu 383/383 e `--sanitizer-only` 193/193. SUITE-TEMP-BEFORE-PROTECT entra na INBOX. A revisão é feita por um haiku novo. O implementador da S5-C2 espera o CTO da T6-A terminar, pelo teto de 2 agentes.
+- **25/10 01:3x: a revisão da SUITE-TMPDIR-PATHS-fix2 saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-suite-fix2/relatorio.txt`): 0 CRÍTICO, 1 IMPORTANTE, 3 COSMÉTICOS. I-N1, I-N2 e C-N1 estão resolvidos pelo efeito; as 18 árvores conferem; o mutante extra do revisor morreu; as 3 fontes conferem; as flags do Docker estão limpas. **IMPORTANTE-1:** o `finally` do controle read-only (`check_spdx.py:747-750`, `check_format.py:639-642`) é a única limpeza do ramo de exceção, e nenhum caso injeta falha ali. Medido pelo revisor: sem o `finally` sobra 1 pasta e nada reprova. Cosméticos: TMPDIR vazio passa a cair em `gettempdir()` sem estar declarado; a ficha B12 tirou as crases; um pipe fica aberto se o fork falhar (`wire_scratch_dir_selftest.cpp:98-100`). **D-W8-961 (main):** a L-35 global pede que nenhuma linha de comportamento entre sem um teste que falhava antes, então a opção mais completa é um caso que injete a falha e exija 0 sobras, não só corrigir a declaração. A fix3 desta fatia é planejada quando abrir vaga. Antes dela, o implementador da S5-C2 é despachado (D-W8-959b), porque o CTO da T6-A segue vivo e o teto é de 2 agentes.
+- **25/10 01:40: errata 2 da T6-A entregue e congelada** (`.trabalho/cto-w8/ordens-anexos/t6a-errata2/errata2.md`, md5 a35ee9fe; anexos.md5 afc9ea96, 181 linhas, md5 -c rc 0 conferido pelo main). A pré-execução foi feita sobre uma base com a S5-C2 aplicada de verdade num clone. Resultados: vermelho com 47 casos, 48 rodadas de 48 iguais ao esperado (31 mutantes), MSVC 12/12, green-snap 17/17, `preci --fast` 387/387 e `--sanitizer-only` 197/197. O `preci` rodou pela primeira vez na T6-A e achou dois defeitos reais da fatia, ambos só de comentário. O cppcheck acusou o `release` por valor: a assinatura pública continua por valor, e a definição ganhou um suppress com a razão, como em B0-I10 e H1-fix. E um `NOLINTEND` estava sem `reason:`. Decisões D-W8-1030 a 1039, a ratificar; pedem atenção a 1038 (esses dois consertos), a 1034 (a guarda de HEAD aceita commits por cima que não toquem os 24 arquivos) e a 1031 (o md5 do documento de auditoria deixa de ser pinado). A T6-A entra depois da S5-C2 commitada e revisada.
+- **25/10 02:05: S5-C2 commitada (14c3bc1b) e empurrada** (ls-remote igual). O main reconferiu: 17 arquivos, 507+/197-, os dois Co-Authored-By e o Claude-Session, nenhuma seção [user]. CI 40164222894 verde no 14c3bc1b: 25 jobs com sucesso e 1 pulado (VERSION-TAG-SYNC, sem marca).
+- **25/10 02:30: a revisão da S5-C2 saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-s5c2.txt`): 0 CRÍTICO, 1 IMPORTANTE, 4 COSMÉTICOS. Medido no blob: verde 5/5, fixture com 44 células e 0 reprovadas, régua igual à do pai, MSVC 9/9, mensagem igual à ditada. Dos mutantes do revisor, 3 morreram, 1 é equivalente e 1 sobreviveu (C2, falta um teste que fixe a contagem). **I1:** a frase pública da ponta redonda (`renderer_2d.hpp:320-326` e `docs/auditoria-api-shapes.md`) foi provada na meia extensão com um raio só (`stroke_line_pixels_test.cpp:223`), e a varredura de erro na superfície usa só a extensão inteira. O código não contradiz a frase. **C1:** a garantia aparece antes da cláusula que a restringe; a sugestão é "On the surface, ...", que é porta de mão única (D-W8-836). **C3:** "a mesma fórmula de antes" é inferência não medida. **C4:** o nome do caso ainda carrega "13280", e `write_cap_parameters` também responde se a medição deu certo. **P1:** os contêineres de build e ctest das ordens rodam sem `--cap-drop=ALL`.
+- **D-W8-962 (main):** I1 pede a opção mais completa (L-35 global; L-34 do projeto). O item ARC-HALF-SWEEP já existe na tabela, na onda W9-K. Ele é puxado para a W8 como S5-C2-fix1: uma varredura do erro na superfície com meia extensão, em vários raios e espessuras. A fix1 também cuida de C2 (um caso que fixe a contagem da ponta no alcance), de C3 (medir a fórmula ou reescrever a frase) e de C4 (nomes). C1 vai ao CTO como proposta e à ratificação do líder, por ser porta de mão única. O CTO planeja a fix1 depois da ordem da SUITE-TMPDIR-PATHS-fix3. A linha ARC-VIEWPORT-TESSELLATION continua 🔍 até a fix1 sair LIMPA.
+- **D-W8-963 (main):** P1 não é desvio. A D-W8-959 vale para o contêiner do compositor (a fixture). Os contêineres de build e ctest rodam com `--user` do hospedeiro, sem `--privileged` nem `--device`, como em toda a onda. Tirar as capacidades também deles é endurecimento, e o CTO avalia isso na próxima ordem; não reabre nenhuma fatia.
+- **D-W8-964 (main):** o implementador da T6-A é despachado agora. A ESPERE 7 pede só a S5-C2 no HEAD, e ela está lá (14c3bc1b). A T6-A não toca o TODO.md nem os arquivos que a fix1 vai mudar. A fix1 da S5-C2 e a fix3 da suíte entram depois do commit da T6-A, porque dois implementadores não trabalham na árvore viva ao mesmo tempo (D-W8-959b).
+- **25/10 02:37: a ordem da SUITE-TMPDIR-PATHS-fix3 foi entregue e congelada** (`.trabalho/cto-w8/ordem-suite-fix3.md`, md5 9a7ccb01; anexos.md5 633d7169, 84 arquivos; o main conferiu `md5 -c` com rc 0). Decisões D-W8-1040 a D-W8-1049 do CTO, a ratificar, com destaque para a 1045 e a 1046. A fatia toca 3 arquivos sem C++: `check_spdx.py`, `check_format.py` e `selftest_git_fence.py`. O caso novo injeta, na limpeza do controle read-only, uma falha que não é OSError. Sem o `finally` ele reprova nos dois portões ("1 pasta(s) sobraram"). Na base 37668b78 o mesmo mutante sobrevive. Na pré-execução: 15 árvores de 15 iguais ao esperado e `preci --fast` 383/383. **D-W8-1045:** o pipe que fica aberto se o fork falhar não foi consertado, porque não há como provar o conserto (root ignora RLIMIT_NPROC e o CI roda como root). **D-W8-1046:** seis `finally` gêmeos sem caso que conte as sobras foram encaminhados à SELFTEST-TMP-LEAK (`TODO.md:682`), sem conserto nesta fatia.
+- **D-W8-965 (main):** a ordem da fix3 espera o commit da T6-A (D-W8-959b e D-W8-964). O CTO da S5-C2-fix1 foi despachado em seguida, com a faixa D-W8-1050 a D-W8-1059, trabalhando só em clones.
+- **25/10 03:3x: T6-A commitada (44971220) e empurrada** (ls-remote igual). O main reconferiu: 24 arquivos, 2292+/49-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user]; árvore limpa. Pelo relatório: 48 rodadas de 48 iguais ao esperado, MSVC 12/12, `preci --fast` 387/387 e `--sanitizer-only` 197/197. Os dois rodaram no snapshot d4b679f9; até o pai 80d4d26c só mudou DECISOES_AUTONOMAS.md, e a guarda confirmou que os 24 arquivos não mudaram. O commit ficou parado 23 minutos porque o verificador de segurança do Bash ficou fora do ar, das 03:0x às 03:29. A mesma falha derrubou o CTO da S5-C2-fix1, que foi retomado pelo disco (L-54). CI 40169432091 disparado.
+- **D-W8-966 (main):** o revisor da T6-A (haiku novo) é despachado antes do implementador da fix3 da suíte. Com o CTO da fix1 vivo, o teto de 2 agentes deixa uma vaga só. A revisão fecha a fatia de produto que destrava a T6-B; a fix3 é só de portões. A fix3 entra quando a vaga abrir.
+- **25/10 04:08: CI 40169432091 verde na T6-A (44971220):** 25 jobs com sucesso e 1 pulado (VERSION-TAG-SYNC, sem marca).
+- **25/10 04:10: a revisão da T6-A saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-t6a.txt`): 0 CRÍTICO, 1 IMPORTANTE, 5 COSMÉTICOS e 1 de harness. Medido no blob: os 24 arquivos (2292/49) reconstruídos a partir dos blocos, as 48 rodadas iguais ao esperado, clang-format 19/19, a mensagem igual à ditada, e as portas ratificadas D-W8-911 a 916 e 920 implementadas. **I1:** a regra pública "no máximo uma vez e meia" (`atlas_allocator.hpp:17-18`, código em `atlas_geometry.cpp:59-61`) não tem caso que a prove: o mutante que troca `<=` por `<` sobrevive nas 6 suítes. **Cosméticos:** `guarda_head.sh` sem `--no-renames` (um dos 24 renomeado passaria a guarda; o `commit_bloco.sh` segura); C4 duplicado em `mutantes.txt`; `atlas_geometry.cpp` reúne a política e a lista de trechos; silêncio em `free_in_atlas`; o rótulo `out_of_memory` é inalcançável; o harness usa `:z`.
+- **D-W8-967 (main):** I1 é uma frase pública sem prova. A opção mais completa (L-35 global) é a fatia T6-A-fix1: um caso na fronteira exata da uma vez e meia, que mate o mutante `<`, num commit novo (L-25). Os cosméticos de produto entram na mesma fatia; os de harness (`--no-renames` na guarda e o C4 duplicado) entram na próxima ordem que reusar esses scripts. O CTO da S5-C2-fix1 escreve a ordem da T6-A-fix1 assim que entregar a atual, numa faixa nova de decisões. A linha da T6-A no TODO.md continua 🔍.
+- **D-W8-968 (main):** a vaga deixada pelo revisor vai para o implementador da SUITE-TMPDIR-PATHS-fix3 (ordem 9a7ccb01), porque é o único trabalho pronto para executar. É o único implementador na árvore viva (D-W8-959b).
+- **25/10 04:2x: a ordem da S5-C2-fix1 foi entregue e congelada** (`.trabalho/cto-w8/ordem-s5c2-fix1.md`, md5 6a6a22cc; anexos.md5 9f0d4b6a, 74 linhas; o main conferiu `md5 -c` com rc 0). Decisões D-W8-1050 a D-W8-1059 do CTO, a ratificar. A fatia toca 8 arquivos (7 inteiros e o Status de ARC-HALF-SWEEP no TODO.md) e não cruza a T6-A nem a fix3 (`em_comum=0`). Na pré-execução: 6 mutantes, todos mortos na árvore nova; os 3 de produto sobrevivem na base, e essa é a lacuna que a fix1 fecha. Verde 5/5, com cada varredura de 400 pontos sem falha; MSVC 8/8; fixture com 44 células e 0 reprovadas; `preci --fast` 387/387 e `--sanitizer-only` 197/197 sobre 443070ea. **Para o olho do líder:** D-W8-1056 adia a C1, a funde ao achado novo e reescreve os `Proved by:` públicos de `stroke_line` (porta de mão única). D-W8-1052 limita a varredura com vértices float ao raio 2^20. D-W8-1057 deixa o MSVC sem `--cap-drop=ALL`.
+- **Achado novo da pré-execução: CURVE-FLOAT-NARROW** (texto integral em `ordem-s5c2-fix1.md:252`, evidência em `ordens-anexos/s5c2-fix1/evidencia/sonda-float/`). A sonda rodou na biblioteca real, no contêiner. O arredondamento para float das pontas dos trechos leva a aresta além de `curve_max_error_pixels` quando o raio é grande: +0,083 px em 2^40, e 23% de e quando e é pequeno. Atinge as frases públicas de fill_ellipse, stroke_ellipse e stroke_line. Entra na INBOX do TODO.md depois do commit da fix3 da suíte, para não mexer na árvore enquanto o implementador trabalha.
+- **D-W8-969 (main):** uma frase pública que o comportamento contradiz é IMPORTANTE no mínimo. Por isso o CURVE-FLOAT-NARROW é triado já nesta onda, e não deixado para depois. Um CTO novo (faixa D-W8-1060 a D-W8-1069) escreve a ordem da T6-A-fix1. Depois ele faz a pesquisa da L-34 com 10 queixas, decide entre as saídas (a), (b) e (c) como porta de mão única a ratificar e, se a escolha couber na W8, ordena a fatia. A ordem de entrada na árvore fica: fix3 da suíte, S5-C2-fix1, T6-A-fix1 e então o conserto da curva em float.
+- **25/10 05:12: SUITE-TMPDIR-PATHS-fix3 commitada (2a9cd38c) e empurrada; CI 40173394446 verde** (25 jobs com sucesso e 1 pulado). O main reconferiu: 3 arquivos, 89+/15-, os dois Co-Authored-By e o Claude-Session, nenhuma seção [user].
+- **25/10 05:1x: a revisão da fix3 saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-suite-fix3/relatorio.txt`). O código passa: as 15 provas deram o esperado, os mutantes morrem pelo motivo certo e o mutante do revisor também. Os achados são de registro, não de código. **I-1:** a premissa 3 da D-W8-1045, "RLIMIT_NPROC não vale para root", é falsa no ambiente medido. O root do contêiner glintfx-devbuild:verify não tem CAP_SYS_ADMIN nem CAP_SYS_RESOURCE (CapEff 00000000a80425fb), e pelo `man setrlimit` só essas capacidades escapam do limite. Portanto o conserto do pipe aberto quando o fork falha PODE ser provado. **I-2:** "conserto mecânico, o piso de 10 não se aplica" não cobre COMO injetar a falha (parâmetro ou monkeypatch), que é escolha de desenho; a pesquisa cita 2 queixas, não 10. **Cosméticos:** a sonda tmpdir_vazio é tautológica, embora a afirmação seja verdadeira e medida; a limpeza do TMPDIR estava autorizada, com uma ressalva não medida; check_spdx ficou no limite de 39 de 40 linhas.
+- **D-W8-970 (main):** a premissa falsa derruba o motivo da D-W8-1045. A opção mais completa (L-35 global) é consertar o pipe, agora que o conserto tem prova. O mesmo CTO vivo (faixa nova, D-W8-1070 a D-W8-1079) decide depois das duas tarefas atuais: (1) refazer a D-W8-1045 com a premissa medida e, se o conserto entrar, ordenar a fix4 junto com a sonda tmpdir_vazio corrigida (C-1); (2) fazer a pesquisa da L-34 com 10 queixas para o COMO injetar e dizer se o desenho do parâmetro se mantém. A linha SUITE-TMPDIR-PATHS continua 🔍.
+- **25/10 05:5x: S5-C2-fix1 commitada (d3674e63) e empurrada** (ls-remote igual). O main reconferiu: 8 arquivos, 524+/33-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user]; árvore limpa. Pelo relatório: as quatro varreduras de 400 casos sem falha; MF1 a MF3 e MT1 a MT3 mortos e MF1 a MF3 vivos na base; MSVC 8/8; fixture com 44 células e 0 reprovadas; `preci --fast` 387/387 e `--sanitizer-only` 197/197. CI 40177766068 disparado; o revisor N1 (haiku novo) começou. O revisor também confere se o texto público novo promete algo que o CURVE-FLOAT-NARROW contradiz.
+- **25/10 06:4x: CI 40177766068 verde na S5-C2-fix1 (d3674e63)**, com 25 jobs com sucesso e 1 pulado. **A revisão saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-s5c2fix1.txt`): 0 CRÍTICO, 2 IMPORTANTES, 3 COSMÉTICOS. O blob, os 10 mutantes (todos como o esperado gravado antes), a régua e o MSVC 8/8 conferem. **I-1:** a frase pública de stroke_line (`renderer_2d.hpp:321-332` e a gêmea na auditoria) promete a distância até 2^40 em float, mas o `Proved by:` cita uma prova só em double. É o CURVE-FLOAT-NARROW. **I-2:** a errata (`docs/auditoria-api-shapes.md:27`) diz que o float só pesa acima de 2^20, contra +0,00064 px medido em 5e4; o escopo da prova (800x600) não está declarado. **C-1:** o comentário de escala está errado (diz 1/8, desce a 1/512). **C-2:** os alcances 2^20 e 2^40 dos `Proved by:` não têm conferência no teste. **C-3:** frases com "e" pela L-17, que não bloqueiam.
+- **D-W8-971 (main):** I-1, I-2, C-1 e C-2 entram na fatia do conserto da curva em float, que já mexe nas mesmas frases públicas, para que elas mudem uma vez só. O CTO da faixa D-W8-1060 a 1069 foi avisado. ARC-HALF-SWEEP continua 🔍.
+- **25/10 07:22: as três ordens do CTO (faixas D-W8-1060 a 1074) foram entregues e congeladas**; o main conferiu `md5 -c` com rc 0 nas três. **T6-A-fix1** (`ordem-t6a-fix1.md`, md5 c85ac4fa; anexos e59d96c0; D-W8-1060 a 1064): o caso na borda da uma vez e meia, em altura par e ímpar, e a guarda com `--no-renames`. Na pré-execução: 12 rodadas iguais ao esperado, preci 387/197, MSVC 2/2 e commit de prova com 50+/5-. **CURVE-FLOAT-NARROW** (`ordem-curve-float.md`, md5 66a39257; anexos e885811d; D-W8-1065 a 1069): as saídas (b) e (a) juntas, com a C1. Todo trecho que toca a superfície termina a no máximo 1024 px dela, e o texto público declara o resto do arredondamento, 2^-24 da distância à origem, menos de 1/4000 px em 1920x1080. A saída (c) foi recusada e o limite de 2^40 fica. As fontes são 12 queixas (KB 2984519, Cairo 20091, Vello #1139, KDE 359805 e outras) e 10 bibliotecas (Skia PreChopPathCurves e SkEdgeBuilder, entre elas). A D-W8-971 entra inteira. Na pré-execução: 10 rodadas de 10; no código de antes a ponta passa da distância pedida em +0,000668 px; com o conserto, preci 387/197, fixture 44/0, MSVC 8/8 e commit de prova com 638+/124-. **As portas de mão única D-W8-1065 e 1067 vão à ratificação do líder.** **SUITE-TMPDIR-PATHS-fix4** (`ordem-suite-fix4.md`, md5 09610c6e; anexos 018b1230; D-W8-1070 a 1074): o ajudante do teste deixa de ser root antes de pôr o limite, então o pipe que ficava aberto quando o fork falha tem conserto com prova. Na pré-execução: 7 rodadas de 7, como usuário e como root; o portão de dependência zero barrou `<grp.h>`, e o `setgroups` saiu; preci 387/197; commit de prova com 126+/12-. A pesquisa do I-2 (12 queixas) mantém o desenho do parâmetro.
+- **Correção de registro da D-W8-970 e do I-1 da revisão da fix3:** o CTO mediu por execução que o root NÃO fica preso ao `RLIMIT_NPROC`, nem com `--cap-drop=ALL`, porque `kernel/fork.c` isenta o INIT_USER antes de olhar as capacidades. A premissa 3 da D-W8-1045 era verdadeira, e o I-1 do revisor estava errado. O que caiu foi a conclusão de que a prova não é portável: a fix4 contorna isso tirando o root do ajudante antes do limite.
+- **D-W8-972 (main):** a ordem de entrada é T6-A-fix1, depois CURVE-FLOAT-NARROW, depois SUITE-TMPDIR-PATHS-fix4. O implementador da T6-A-fix1 foi despachado às 07:2x. Antes da curva, o main cria a linha CURVE-FLOAT-NARROW no TODO.md com o texto de `ordens-anexos/curve-float/evidencia/linha_todo_proposta.txt` e apaga o bullet da INBOX. Pedem o olho do líder: D-W8-1065, D-W8-1067, D-W8-1062 (o `Proved by:` público da T6-A) e esta correção de registro.
+- **25/10 07:4x: T6-A-fix1 commitada (ee7b60e2) e empurrada** (ls-remote igual). O main reconferiu: 5 arquivos, 50+/5-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user]; árvore limpa. Pelo relatório: RF, RO, MX e MY morrem e os base-* ficam verdes; 12 rodadas de 12 iguais ao esperado; MSVC 2/2; preci 387/197. CI 40185871379 disparado e revisor N1 (haiku novo) despachado. A CURVE-FLOAT-NARROW entra na árvore quando abrir vaga, porque o CTO da S6 e o revisor ocupam as duas.
+- **25/10 08:2x: a revisão da T6-A-fix1 (ee7b60e2) saiu LIMPA** (`.trabalho/cto-w8/rev-t6afix1.txt`): 0 CRÍTICO, 0 IMPORTANTE, 3 COSMÉTICOS. CI 40185871379 verde (25 com sucesso e 1 pulado), com atlas_geometry_test aprovado em Linux e Windows. Os 5 blobs conferem com os blocos e as 12 rodadas deram o esperado. Dos mutantes do revisor, 2 morreram e 2 são equivalentes ou inalcançáveis. Sobre a D-W8-1062: o teste citado prova a frase pública, em altura par (12|13) e ímpar (10|11). **Cosméticos:** "exact edge" em altura ímpar é 10|11, não 10,5; a mensagem diz "agora está provado" para um caso mais largo que o testado (o mutante RR3 sobrevive); a guarda index>=size em `atlas_geometry.cpp:277` não tem caso, mas é inalcançável pela API. O IMPORTANTE-1 da T6-A está fechado.
+- **D-W8-973 (main):** os três cosméticos da T6-A-fix1 vão para a INBOX como ATLAS-FIX1-COSMETICS. Nenhum bloqueia a onda. O implementador da CURVE-FLOAT-NARROW (ordem 66a39257) foi despachado.
+- **25/10 09:5x: CURVE-FLOAT-NARROW commitada (f9b460f7) e empurrada** (ls-remote igual). O main reconferiu: 9 arquivos, 638+/124-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user]; árvore limpa; no TODO.md só a célula Status (🔍). Pelo relatório: o red e os mutantes MB0, MBN, MBF, MV e MVF reprovam; o verde passa em 6 de 6 e o snap em 16 de 16; 10 de 10 rodadas iguais; MSVC 8/8; fixture com 44 células e 0 reprovadas; preci 387/197. Desvios declarados pelo implementador: leitura parcial das leis coladas, um lock_rc fixo no passo 12, e a ordem diz que o MBF derruba 2 testes mas lista 3 [FAIL]. Vão ao revisor. CI 40195308785 disparado e revisor N1 (haiku novo) despachado. A fix4 da suíte entra quando a vaga abrir.
+- **25/10 10:03: a ordem da S6 (exemplo `shapes`) foi entregue e congelada** (`.trabalho/cto-w8/ordem-s6.md`, md5 117c8d8d; anexos.md5 289920b6, 107 linhas; o main conferiu `md5 -c` com rc 0; D-W8-1080 a 1089, a ratificar). O commit tem 16 arquivos: 3 novos (`examples/shapes/`, `tests/fixtures/shapes_probes.txt`), os programas de captura de Linux e Windows passando a ler uma tabela por exemplo, os autotestes deles, 9 arquivos compartilhados por trecho e uma palavra num comentário de `gfss/value.hpp`. `em_comum=0` contra a T6-A-fix1, a curva e a fix4. A pré-execução foi feita sobre as três fatias anteriores, com o conserto da curva incluído. As 10 rodadas deram o esperado. O vermelho reprova 36 sondas, e cada um dos 7 mutantes de cena reprova as sondas previstas. O verde dá 62 de 62 nas pernas comum e ASan. Os autotestes de captura subiram de 20 para 26 controles no Linux e de 37 para 41 no Windows, com 5 mutantes. O MSVC passa com `/W4 /WX`. Os preci deram 387/197. O commit de prova saiu com 898+/115-. A captura é idêntica byte a byte com e sem o conserto da curva. **Para o olho do líder:** a cena (D-W8-1080; imagem em `ordens-anexos/s6/evidencia/shapes_green_plain.png`); os programas de captura por tabela (D-W8-1081); o Windows provado só pelo CI (D-W8-1088). **Defeito achado:** CITATION-COMMON-WORD, abaixo.
+- **D-W8-974 (main):** a fix4 da suíte é despachada agora, como ordena a D-W8-972. A S6 entra depois dela. A linha CITATION-COMMON-WORD entra na INBOX com o texto do CTO e tem de ser resolvida antes da T7.
+- **25/10 10:15: ordem do líder, verbatim: "Quando acabar essa fatia commit e pause".** O main deixou terminar o que estava em andamento (o implementador da fix4 e o revisor da curva) e não despacha agente novo. Só o líder retoma (`~/.config/olhe_agentes/GlintFx/parada_do_lider`).
+- **25/10 10:19: SUITE-TMPDIR-PATHS-fix4 commitada (4b68d91d) e empurrada** (ls-remote igual). O main reconferiu: 1 arquivo, 126+/12-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user]; árvore limpa. Pelo relatório, o caso dá 45/0 como usuário e como root, contra 44/0 na base. MP e MR reprovam nos dois. MD passa como usuário e reprova como root. 7 de 7 rodadas iguais; preci 387/197. **D-W8-975 (main):** o CI da fix4 só é disparado quando o CI 40195308785, da curva, terminar, porque um CI novo no ramo cancela o anterior (`concurrency cancel-in-progress`). A revisão N1 da fix4 fica para a retomada, pela parada do líder.
+- **25/10 10:3x: a revisão da CURVE-FLOAT-NARROW (f9b460f7) saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-curvefloat.txt`): 0 CRÍTICO, 6 IMPORTANTES, 9 COSMÉTICOS. CI 40195308785 verde (25 com sucesso e 1 pulado); os testes de arco, linha e elipse passam em Linux e Windows; paridade 44/0. O blob confere, o verde e o vermelho da ordem batem, e os I-1, I-2, C-1 e C-2 da S5-C2-fix1 estão fechados (o C-2 só em 2 das 4 varreduras). **Achados IMPORTANTES:**
+  - frase pública contradita: `renderer_2d.hpp:664` diz "within 1024 pixels", mas o código põe a caixa perto em 1025 (`arc_parameters.cpp:232-235`), e a sonda mediu 1024,78 px;
+  - há um ramo de reserva em cerca de 0,3% das curvas (até 3445 px fora da superfície, com a distância mantida), e a frase incondicional fica falsa porque a ressalva só vem depois;
+  - a varredura das pontas não exercita esse ramo;
+  - stroke_ellipse promete o arredondamento em float sem varredura de contorno (`renderer_2d.hpp:712`; prova só em double);
+  - a meia curva cita 2^40, mas o gerador vai até 2^39,5 e a conferência é ≥ 2^39 (`arc_parameters_test.cpp:490` e `583`);
+  - os oráculos de distância à corda e de casco estão copiados em três arquivos de teste, quando a regra de três da L-33 pede extrair.
+
+  O mutante R5 do revisor (a cota de 2^-24 trocada por 2^-23) passa, ou seja, a cota não está apertada. O revisor pede uma decisão de porta de mão única: o texto diz 1024 ou 1025, com a ressalva na mesma frase; e o alcance é 2^39,5 ou o gerador vai até 2^40.
+- **D-W8-976 (main):** pela parada do líder, nada é despachado agora. Na retomada: (1) um CTO escreve a CURVE-FLOAT-NARROW-fix2 com os 6 IMPORTANTES e decide as duas escolhas de texto como porta de mão única, que vai à ratificação; (2) a revisão N1 da fix4 da suíte (4b68d91d; CI 40198109148 disparado às 10:32); (3) o implementador da S6, cuja ordem 117c8d8d parte do HEAD com a curva e precisa conferir se a fix2 da curva muda alguma sonda da cena. A linha CURVE-FLOAT-NARROW continua 🔍.
+- **26/10 22:25: o líder religou o modo autônomo** ("ligue modo autonomo"; flag até 27/10 22:25, escopos push e clean) **e, perguntado por AskUserQuestion, mandou retomar a onda 8** ("Retomar agora"). O main apagou a parada do líder. O CI 40198109148 da fix4 (cabeça d00bcd76, que contém a 4b68d91d) saiu verde: 25 com sucesso, 1 pulado, 0 falhas (conferido 25/10 11:08).
+- **D-W8-977 (main):** pela fila da D-W8-976, dois agentes sem concorrência na árvore viva, dividindo a heavy.lock: (1) um CTO novo escreve a CURVE-FLOAT-NARROW-fix2 (faixa D-W8-1090 a 1099) e diz se ela muda alguma sonda da S6; (2) um revisor N1 novo revisa a fix4 da suíte pela seção 9 da ordem 09610c6e. O implementador da S6 espera a fix2 da curva ser commitada, porque as duas tocam `renderer_2d.hpp` e a cena depende da borda das curvas.
+- **26/10 22:4x: a revisão N1 da fix4 da suíte (4b68d91d) saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-suite-fix4.txt`): 0 CRÍTICO, 1 IMPORTANTE, 4 COSMÉTICOS. A premissa da D-W8-1070 foi refeita por execução e confirmada: o root com `RLIMIT_NPROC=0` cria o filho, com e sem `--cap-drop`, e o uid 1000 toma EAGAIN; `CapEff` 0xa80425fb, sem SYS_ADMIN nem SYS_RESOURCE; o `kernel/fork.c` isenta `INIT_USER` antes de olhar capacidades. As 7 rodadas da ordem deram iguais, e o CI 40198109148 está verde (o `wire_relay_selftest` passou em 12 jobs Linux, todos em contêiner). **IMP-1** (`tests/container/wire_scratch_dir_selftest.cpp:104-116`, `158-162`, `176-187`, `226-236`): o caso novo separa o fork que passou do fork que falhou, mas não separa o fork que falhou do pipe que falhou. O mutante MXP (o pipe nunca é aberto) deixa o caso novo verde nos dois usuários, e o binário só reprova por outro caso (linha 195). O main reconferiu `rev-suite-fix4/confere_rev.txt`.
+- **D-W8-978 (main):** o IMP-1 fica IMPORTANTE, e a revisão fica NÃO LIMPA. O precedente é a D-W8-967 (T6-A): caso novo em que um mutante da própria unidade sobrevive é IMPORTANTE, porque a prova não garante o que afirma (L-40 do projeto). A ressalva do revisor (cairia para COSMÉTICO se IMPORTANTE fosse só efeito no produto) foi considerada e recusada, pelo precedente. Abre-se a SUITE-TMPDIR-PATHS-fix5, em commit novo, com ordem de um CTO novo que também decide os 4 cosméticos. A linha SUITE-TMPDIR-PATHS continua 🔍.
+- **26/10 23:24: a ordem da SUITE-TMPDIR-PATHS-fix5 foi entregue e congelada** (`.trabalho/cto-w8/ordem-suite-fix5.md`, md5 e8f763de; anexos.md5 1b788925, 89 linhas; o main conferiu `md5sum -c` com rc 0). Um arquivo só (`tests/container/wire_relay/wire_scratch_dir_selftest.cpp`, 89+/30-); `em_comum=0` contra a S6 e contra a curva. A função do ajudante passa a devolver qual chamada falhou (o pipe ou o fork) e o `errno`, e o caso só passa com o fork falhando por EAGAIN. Na pré-execução, as 9 rodadas deram o esperado; o MXP reprova o caso novo nos dois usuários sem depender de outro caso, e MP, MR, MD, MXE e MX2 morrem; preci 387/0 e sanitizer 197/0. Os 4 cosméticos entram. D-W8-1100 a 1104, a ratificar; nenhuma é porta de mão única; pede o olho do líder a D-W8-1100 (o desenho, com 13 queixas pesquisadas).
+- **D-W8-979 (main):** o implementador da fix5 é despachado agora; ele é o único na árvore viva, e o CTO da curva continua em clones. Os dois DISCOVERED_WORK entram na INBOX (CHECK-EQ-VALUES e SELFTEST-USER-JOB). As 114 entradas que os `preci` do CTO deixaram em `TMPDIR` serão limpas pelo main depois da revisão da fix5, pela lista `ordens-anexos/suite-fix5/evidencia/tmpdir_novas.txt`.
+- **26/10 23:5x: SUITE-TMPDIR-PATHS-fix5 commitada (dacaf38f)**. O main reconferiu: 1 arquivo, 89+/30-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user] local; árvore limpa; a fix4 é ancestral. Pelo relatório (`.trabalho/cto-w8/suite-fix5/relatorio.txt`), as 9 rodadas deram o esperado, e o verde dá 45/0 como usuário e como root. O MXP agora reprova com `pipe_failed_first`; MP, MR, MXE e MX2 reprovam, e MD reprova como root. Os preci deram 387/0 (fast, no hospedeiro, com o downgrade declarado da L-09) e 197/0 (sanitizer). **D-W8-980 (main):** empurrar, disparar o CI no HEAD e despachar a revisão N1 da fix5 pela seção 9 da ordem e8f763de.
+- **26/10 23:59: a ordem da CURVE-FLOAT-NARROW-fix2 foi entregue e congelada** (`.trabalho/cto-w8/ordem-curve-float-fix2.md`, md5 b5cb83c6; anexos.md5 aef850dc, 115 linhas; o main conferiu `md5sum -c` com rc 0). Seis arquivos, nenhum de `src/`: o novo `tests/harness/curve_oracle.hpp`, que junta as três cópias do oráculo (I-6); `renderer_2d.hpp`; `docs/auditoria-api-shapes.md`; e os três testes de curva. `em_comum=0` contra a S6 e contra a fix5. Na pré-execução, as 15 rodadas deram o esperado, e os 11 mutantes morrem; o R5 morre por um caso novo que prende a cota 2^-24 dos dois lados. Preci 387/197 duas vezes e MSVC 5/5. **Portas de mão única, a ratificar:** D-W8-1090 (o texto passa a medir os 1024 px da faixa, a superfície crescida por 1 px e pelo alcance, como o código sempre mediu; a ressalva entra na mesma frase; o código não muda), D-W8-1092 (os geradores sorteiam o raio maior até 2^40 e conferem que passa de 2^39,5) e D-W8-1093 (o `Proved by:` de stroke_ellipse declara que os cantos em float não são varridos). **D-W8-1091, correção de medida:** a frequência de ~0,3% que a revisão deu ao ramo de reserva estava errada (eram trechos do regime uniforme); o caso fechado do ramo foi construído (meia curva com alcance 1,2e9 px). **Correção de registro da D-W8-977:** a S6 não toca `renderer_2d.hpp`, só `gfss/value.hpp`; a ordem de entrada (fix2 antes da S6) fica por cautela, e a S6 não precisa de errata, porque `src/` não muda.
+- **D-W8-981 (main):** o implementador da fix2 da curva é despachado agora, sozinho na árvore viva (a fix5 já foi commitada; o revisor dela lê blobs). Os cinco DISCOVERED_WORK entram na INBOX: OUTLINE-FLOAT-SWEEP, FALLBACK-KEEP-ENDS-NEAR, DECISOES-NOME-1066-1068, ARC-CUT-PARAMETERS-SIZE e CURVE-TEST-FILE-SIZE. As limpezas listadas pelo CTO ficam com o main, depois das revisões.
+- **27/10 00:2x: o CI 40440565899 da fix5 (cabeça d615595f, que contém a dacaf38f) saiu verde**: 25 com sucesso, 1 pulado, 0 falhas.
+- **27/10 00:2x: CURVE-FLOAT-NARROW-fix2 commitada (84cec0ed)**. O main reconferiu: 6 arquivos, 459+/278-, igual ao aceite; `src/` intocado; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user] local; árvore limpa. Pelo relatório (`.trabalho/cto-w8/curve-float-fix2/relatorio.txt`), o vermelho deu 11/11 e o verde 4/4 (15/15 rodadas iguais); o R5 (cota 2^-23) morre em `ellipse_pixels_test.cpp:662`, e o MFN morre só no caso do corte pela distância; preci 387/0 e sanitizer 197/0, no hospedeiro, com o downgrade declarado da L-09; MSVC 5/5 (compilação). Desvio declarado: o post-commit chama `~/.claude/todo_freshness.py`, que não existe, e o aviso `[todo-fresh]` não saiu.
+- **D-W8-982 (main):** empurrar, disparar o CI no HEAD e despachar a revisão N1 da fix2 pela seção 9 da ordem b5cb83c6. O implementador da S6 entra quando a revisão da fix5 terminar, para manter o teto de dois agentes; ele será o único na árvore viva. A falta do `todo_freshness.py` vai para a INBOX como TODO-FRESHNESS-HOOK-MISSING.
+- **27/10 00:3x: a revisão N1 da fix5 da suíte (dacaf38f) saiu LIMPA pelo revisor** (`.trabalho/cto-w8/rev-suite-fix5.txt`): 0 CRÍTICO, 0 IMPORTANTE, 8 COSMÉTICOS. O MXP reprova o caso do fork sozinho, como usuário e como root; o BXP reproduz a lacuna sobre a fix4; 9/9 rodadas iguais; o CI 40440565899 passou o `wire_relay_selftest` em 12 jobs Linux. O primeiro veredito veio condicionado a um mutante não medido; o main pediu a medida, e o sexto mutante (PR: o `prctl(PR_SET_DUMPABLE)` do ajudante trocado por `return true`) SOBREVIVE como usuário e como root, assim como o X2 (sem o `setgid`). O revisor classificou os dois como COSMÉTICOS (C-0 e C-7), porque nenhum veredito do caso muda, e porque os comentários das linhas 157-170 prometem um mecanismo que não foi confirmado.
+- **D-W8-983 (main):** a classificação do X2 e do PR é dúvida, não decisão do main: os precedentes D-W8-967 e D-W8-978 tratam mutante da própria unidade que sobrevive no caso novo como IMPORTANTE, e o revisor tinha escrito, ANTES da medida, que a sobrevivência do PR faria a revisão NÃO LIMPA (L-43 global: critério fixado antes do dado). Pela ordem do líder, a dúvida vai a um C-level quando houver vaga no teto de dois agentes; se ele não fechar, ao advisor. A linha SUITE-TMPDIR-PATHS continua 🔍 até lá.
+- **D-W8-984 (main):** o implementador da S6 (ordem 117c8d8d) é despachado agora, sozinho na árvore viva; o revisor da fix2 da curva lê blobs. O CTO da fix2 mediu que a S6 não precisa de errata (D-W8-1094 a 1096; `src/` não muda). O CI do commit da S6 só é disparado quando o CI 40444090533 da curva terminar.
+- **27/10 05:4x: registro, pelo main, das decisões dos CTOs que só estavam nas ordens congeladas** (achado IMPORTANTE-P1 da revisão da fix2 da curva e C-4 da revisão da fix5; e o COSMÉTICO-5 de `rev-curvefloat.txt` para 1066 e 1068). Cada item abaixo é o texto da seção 2 da ordem, copiado sem mudança; a ordem é a fonte, e o md5 dela vem entre parênteses.
+  - (CTO, `ordem-curve-float.md`, md5 66a39257) **D-W8-1066, o mecanismo (b):** em `arc_parameters.cpp`, no regime de CORTE, um trecho cujo casco toca a superfície crescida (margem de 1 pixel mais o alcance), quando já está no nível que a distância pede, continua sendo cortado até as duas pontas da corda ficarem na CAIXA PERTO (a superfície crescida, crescida de novo por `k_arc_near_surface_pixels = 1024`, constante nova em `arc_parameters.hpp`) ou até o nível 40 (um trecho desse nível tem um ou dois pixels até 2^40). **Isso é tentado primeiro, no nível que a distância pede; quando não cabe na sala, o corte é exatamente o de antes, sem ponta nenhuma trazida para perto** (`ends_near` falso): a regra nunca faz uma chamada descer de nível onde antes não descia, então a garantia da distância não piora em caso nenhum. **Dito para o revisor não o achar como lacuna:** o ramo "cabe para a distância, mas não para trazer as pontas para perto" não tem caso medido com a sala de 1025 (nas varreduras e nos casos fechados, a regra sempre coube quando a distância coube); o que o MBF exercita é a queda para o corte de antes nos casos de 1e-9, onde a distância também não cabe. A frase pública que descreve esse ramo é declaração do desenho, não medida. No regime UNIFORME nada muda: um trecho nunca é mais longo que 652 vezes a distância (a corda é no máximo 2 r sen(pi / 512), com r no máximo e / (1 - cos(pi / 512))). **Por que 1024 e não o tamanho da superfície:** o resto fica proporcional à distância da origem da ponta mais longe, e 1024 pixels mantêm esse resto abaixo de 1/4000 de pixel numa tela de 1920 por 1080 com custo pequeno (cada nível a mais acrescenta um ou dois trechos por travessia da superfície); medido: as varreduras inteira e meia não mudam o maior número de parâmetros (553 e 399), a meia curva passa de 6033 a 6291 trechos medidos, e só um caso fechado muda (o círculo de 2^40, 47 para 65). **A função nova `is_fine`** e o `points_of` (as pontas e o ápice calculados uma vez por trecho, lidos pelo casco e pela caixa perto) cabem na régua (seção 4).
+  - (CTO, `ordem-curve-float.md`, md5 66a39257) **D-W8-1068, a prova, os arquivos e a ordem de entrada:** **três varreduras e um caso fechado**, cada caso novo visto vermelho sobre o código de antes (a árvore `red` é a base com só os testes): (1) `arc_parameters_the_ends_of_every_piece_on_the_surface_stay_near_it_swept` (o corte, compartilhado pelas três formas): 400 curvas inteiras e meias, os dois regimes, raio de 1 a 2^39,5, eixos até 1e4 de diferença e não perpendiculares, distância de 1/16 a 8, alcance 0 em metade e de 1 a 4096 na outra, nas duas superfícies; toda ponta de trecho que toca a superfície crescida fica a no máximo max(1024, 652 e) dela. (2) A varredura da ponta redonda da S5-C2-fix1 em `stroke_line_pixels_test` vai de 2^20 a 2^40; nos casos de unidade pixel com a ponta no fim, a distância é posta no limite do nível (a sagita de um trecho do nível, mais 1e-9 dela: a corda fica exatamente tão longe quanto pedido, e o resto do arredondamento aparece, como na sonda); cada corda sobre a superfície fica dentro de e (1 + 1e-3) mais o resto que a frase nova permite, e as pontas dentro do alcance. **A trava `all.narrowing <= 1.0e-3` e o mutante MT1 da S5-C2-fix1 saem:** com (b), subir o raio deixa de aumentar o arredondamento, e a trava viraria tautologia; a prova passa a ser a cota pública por corda e o alcance das pontas. (3) `ellipse_pixels_the_fill_edge_in_float_meets_the_error_on_the_surface_swept` (nova): 400 elipses preenchidas sob transformação girada e escalada de forma desigual, raio maior de 512 a 2^39,5 na tela (o menor até 1/8 dele: abaixo de um pixel de raio menor, ler o parâmetro de volta de um vértice float deixa de ser bem condicionado, medido no protótipo, 22 de 400 sem ponto lido), distância de 1/16 a 8; a elipse verdadeira construída pelo teste a partir da definição de `core/ellipse.hpp`, nunca do código. (4) O caso fechado do círculo de 2^40 passa de 47 a 65, contado pelo modelo antes. **Rebaixamento declarado (L-09 do projeto, regra 6):** as duas bordas do contorno de `stroke_ellipse` não têm varredura própria em float (o oráculo da borda interna, a fronteira verdadeira quando a curva dobra mais que a meia espessura, não sai do enunciado sem repetir o código); a prova delas é a do corte compartilhado, (1), com o alcance da meia espessura, e o arredondamento por construção da IEEE 754. **O gerador comum** `tests/harness/sweep_lcg.hpp` (novo, só cabeçalho): o `lcg` estava copiado em `arc_parameters_test` e `stroke_line_pixels_test`, e a varredura nova seria a terceira cópia (L-33 global, regra de três). **C-1 e C-2 da revisão da S5-C2-fix1:** o comentário de `drawn_linear_part` (e o gêmeo da varredura do preenchimento) diz a escala real (a maior de 1/8 a 8, a outra até 64 vezes menor); as quatro varreduras conferem que o maior raio (ou eixo) sorteado passa de 2^39 (`GLINTFX_CHECK(... >= 0x1p39)`), o que o gerador, sozinho, só permitia. **Mutantes** (Anexo P, tabela "Vermelho"): MB0 (a regra desligada) e MBN (a caixa perto a 1e6 pixels) derrubam os três casos novos de varredura e o caso fechado de 2^40 (os quatro `[FAIL]` da tabela); MBF (devolver a contagem da regra mesmo sem caber) derruba os casos fechados de 1e-9, a queda para o nível 7 e o caso da maior linha com ponta redonda; MV (a ponta sorteada só até 2^10) e MVF (a elipse só até 2^10) derrubam a varredura deles pela conferência do alcance; a árvore `red` derruba os mesmos quatro (as três varreduras novas e o caso fechado de 2^40). **Partida sem SHA que ainda não existe:** o `espere.sh` prova as três fatias anteriores pelo conteúdo do commit que introduziu cada uma (o título do `msg.txt` dela e os blobs dos próprios iguais aos `.blk` dela; `prova_anteriores.sh`, cópia da da T6-A-fix1 com a terceira fatia), e os 7 próprios sem commit por cima do commit da S5-C2-fix1, com o md5 de `base-esperada.txt`. **Cruzamento, recalculado com a S5-C2-fix1 já no HEAD real (`d3674e63`, os 7 blobs iguais aos `.blk` dela, `evidencia/partida.txt`):** `cruza_listas.sh` dá `em_comum=0` com a fix3 (3) e a T6-A-fix1 (5), e `comum_por_desenho=6` com a S5-C2-fix1 (os cinco arquivos dela que esta fatia troca e o `TODO.md`, outra linha); os `.anc` desses cinco são os blobs de `d3674e63`. **Fragilidade dita:** se a S5-C2-fix1 ganhar uma fix2 antes desta entrar, os `.anc` param em `n` diferente de 1 (sem escrever nada) e esta ordem pede errata. A guarda (`guarda_head.sh`, a da T6-A-fix1 com `--no-renames`) e o `commit_bloco.sh` (byte a byte o da S5-C2-fix1) são os de antes.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1080, a cena (PONTO DE RATIFICAÇÃO DO LÍDER, a única pergunta de aparência da fatia, r7 do plano: "a cena dos exemplos vai ao líder UMA vez"; precedente do `first_window`, "Manter a cena atual (Recomendado)", 09/10):** uma janela de 640 por 480, fundo cinza 0,2, três fileiras com TODAS as formas públicas do desenhador, cada uma uma vez e sem cobrir outra: (A) `fill_rect`, (B) `fill_quad` (um losango), (C) `fill_triangles` (um triângulo de três cores), (D) `fill_indexed_triangles` (um hexágono de 7 vértices e 18 índices, o centro compartilhado); (E, F, G) o MESMO quadrado contornado `centered` (branco a meia transparência, para o canto não sair mais escuro), `inside` e `outside`; (H) `stroke_ellipse` de uma elipse girada 30 graus; (I) a MESMA linha com as três pontas, `flat`, `square` e `rounded`; (J) a espessura 4 em unidade de mundo e em unidade de pixel num lote com zoom 2 (8 pixels contra 4); (K) um círculo na distância de curva padrão e (L) o MESMO círculo de um SEGUNDO desenhador aberto com `curve_max_error_pixels = 12`, que sai pentágono; e (M) o caminho pedido de cada contorno e de cada linha, em preto, 2 pixels, na camada 1, por cima. **Opções:** (a) esta, completa, com o parâmetro visível lado a lado; (b) só as formas, sem a comparação de pontas, alinhamento, unidade e tolerância (o `shapes_basic_shapes.c` do raylib, estático, sem parâmetro); (c) um exemplo por assunto (raylib e Godot fazem assim). **Escolha (a).** As queixas mais repetidas da pesquisa (seção "Pesquisa") são justamente sobre o que (b) esconde: para que lado cresce o contorno (A-Q7, Q13, Q21, Q22, Q23, Q9), até onde vai a ponta (A-Q16, Q20, Q24), a espessura que muda com escala ou zoom (A-Q12, Q19, Q25) e o círculo que sai poligonal sem o usuário saber por quê (A-Q8). As bibliotecas que respondem a isso mostram o parâmetro lado a lado (Godot, três espessuras e o arco "with a low point count"; NanoVG `drawWidths`; Dear ImGui com a prévia de "Circle Segment Max Error") e desenham o caminho fino por cima da forma grossa (Cairo, "draw helping lines"; NanoVG `drawCaps`): é a (M). (c) é o que o plano reserva para as fatias seguintes (T7 e H5 têm exemplo próprio); dividir as formas em cinco programas multiplicaria a máquina de laço copiada (D-W8-1081) sem ganho para quem lê. **O segundo desenhador** é o jeito público de mostrar a distância de curva: ela é do desenhador, lida em `open()` (`renderer_2d_desc.hpp`), e o cabeçalho diz "Several renderers may be opened over the same context"; dois desenhadores no mesmo quadro (o segundo sem limpar) é o que este exemplo exercita primeiro na árvore, como consumidor (a célula C14 de `draw2d_shapes_parity_test` abre o segundo desenhador, mas num quadro só dele). **Porta de mão única:** não (exemplo, nenhuma API). **Custo de reverter:** baixo.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1081, os dois condutores de captura ganham uma tabela fechada por exemplo (e a máquina de laço do exemplo é copiada):** `run_example_capture.sh` (Linux) e `run_example_capture_win32.py` (Windows) tinham o `first_window` no nome, no título, na linha de prontidão, nos quadros e nas sondas. **Opções:** (a) os dois recebem o nome do exemplo na linha de comando e leem uma tabela fechada (`example_facts`, `EXAMPLES`), um nome fora dela é uso errado (saída 2); (b) uma segunda cópia de cada condutor e de cada autoteste para o `shapes` (mais de 500 linhas repetidas); (c) um arquivo de manifesto por exemplo em `tests/fixtures/`. **Escolha (a).** A regra de três (L-33 global, CONTRACT §6) proíbe extrair abstração antes da terceira ocorrência; aqui não se extrai nada, se PARAMETRIZA o que já existe, e (b) seria a duplicação que a regra quer evitar sem a dúvida que a justifica (o T7 e o H5 já estão planejados com o mesmo caminho, `plano-fechamento-w8-r21.md` §4). (c) espalharia em dois arquivos o que o condutor confere. Cada tabela tem controle que a amarra aos arquivos (o arquivo de sondas existe e tem a contagem da tabela, pelo leitor real; o título e a linha de prontidão estão no fonte do exemplo). **A máquina de laço e de linha de comando do exemplo** (`example_state`, `read_command_line`, `fail`, `report_frames`, cerca de 120 linhas) é a SEGUNDA cópia da do `first_window`, de propósito: um exemplo se lê sozinho (raylib e SDL3, um arquivo por exemplo, C da pesquisa), e um cabeçalho comum de exemplos só se decide na terceira ocorrência, a T7 (fica escrito para o CTO da T7). **Porta de mão única:** não. **Custo:** baixo.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1082, o caminho pedido por cima (M):** preto, 2 pixels em unidade de pixel, na camada 1, sobre o quadrado de E, F e G e sobre o eixo das três linhas de I. Fonte: Cairo, `set_line_cap` ("/* draw helping lines */"), NanoVG `drawCaps` (o retângulo de referência do comprimento exato). Camada 1 e não "enviado por último": a camada mais baixa pinta primeiro, qualquer que seja a ordem de envio (`draw_layer.hpp`), e o exemplo ensina isso de passagem; o mutante MLAYER (camada -1) reprova três sondas. **Porta de mão única:** não.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1083, como o CI confere a cena: 62 sondas de pixel, as mesmas nos dois sistemas, calculadas antes do dado:** `tests/fixtures/shapes_probes.txt`, no formato do `image_probe.py`, lido pelo condutor do Linux (captura no protocolo, a perna `plain` e a `asan`) e pelo do Windows (as duas capturas, PrintWindow e BitBlt). **Opções:** (a) sondas em coordenadas fixas com tolerância por canal, como as do `first_window` (D-W8-72); (b) imagem dourada inteira com comparação difusa; (c) contar pixels por cor. **Escolha (a).** A imagem dourada é a fonte de fragilidade mais citada (B-Q10 Flutter, "pixels are painted differently on different platforms"; B-Q11 matplotlib, a versão do rasterizador presa; B-Q6 Chromium, a comparação difusa "possibly causing a test to erroneously pass"; B-Q4 e B-Q5 wgpu, limiar por placa); a sonda com tolerância é o que o piglit e o SDL usam (B-Q1, B-Q2, B-Q3, "Allow up to 2 delta"). (c) não distingue posição. **As regras de cada sonda** (o modelo `evidencia/modelo_cena.py`, que não lê a biblioteca, calcula e confere cada uma, e `gera_sondas.py` escreve o arquivo): o fundo tolerância 1 e a meia transparência 2, como no `first_window`; cores opacas puras tolerância 0; nenhuma sonda a menos de 2 pixels de uma borda curva ou inclinada (a tesselação fica a 0,25 pixel da curva, então nenhuma depende de como a curva é cortada, nem do conserto da CURVE-FLOAT-NARROW); as bordas alinhadas aos eixos em coordenada inteira pela regra do centro do pixel; a elipse girada conferida nos dois sentidos de giro; o triângulo de três cores com o valor no meio de duas hipóteses (interpolar a cor codificada ou a luz linear, nenhuma prometida no cabeçalho; FATO de leitura: o código codifica por vértice, `src/draw2d/srgb_encoding.cpp`) e tolerância que cobre as duas mais 2; o pentágono com um vértice em +x, a fase que a célula C14 já prende. **A cena é estática** (o condutor do Windows roda o exemplo sem `--frames` e fecha por WM_CLOSE, então um arquivo só vale nos dois sistemas, L-04); o `--frames 30` do Linux é o mesmo do `first_window` (D-W8-79) e cabe no mesmo orçamento de 60 s (D-W8-81); um quadro que deixasse de limpar NÃO tem rodada aqui, porque o conteúdo do buffer depois da troca é indefinido (`frame_2d_desc.hpp`, "WHY THE FRAME IS CLEARED BY DEFAULT") e nenhuma previsão honesta de pixel sai disso. **Porta de mão única:** não. **Custo:** baixo.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1084, onde o CI roda o exemplo (L-04):** no job `wayland-container`, perna `plain` e `asan`, um passo novo irmão do `first_window` (mesmo condutor, mesma imagem, `capture_out/shapes/`); no Windows, o caso `ctest` `shapes` com o mesmo registro do `first_window` (`if(WIN32 AND TARGET shapes)`, `RUN_SERIAL`, `TIMEOUT 600`, `LABELS unit`, a pasta do exemplo como diretório de trabalho), que roda nos quatro trabalhos do Windows (compartilhado, estático, `windows-sanitizer`, `windows-debug`), com a publicação das capturas em cada um. O Mesa `opengl32` já fica em `examples/bin`, a pasta de saída de todo exemplo (`cmake/GlintfxExamples.cmake`), então nenhum passo novo de Mesa. As três exceções de paridade (`arch`, `cachyos`, `ubuntu`: o contêiner só existe no Fedora, CI-SPLIT-PER-OS) e a exceção de medida do alfa da captura do Windows são as do `first_window`, pela mesma razão. O contador de alocação do contêiner (CONTAINER-LEAK-COUNTER) conta o `shapes` sozinho: a prova 1 (`ci.yml`, "Substitutos de alocacao presentes") e o `check_alloc_report.sh` tiram a lista das cópias do `Containerfile` e do inventário, nunca de lista à mão (lido); MEDIDO na pré-execução: as seis linhas `MEASURED shapes.alloc_*` saem nas duas pernas, com `alloc_live_ours=0`, e o esperado das rodadas verdes as fixa. O binário vai para `/usr/local/bin/shapes` na imagem (o aceite de 13/10, D-W8-F14: "instalado na imagem de contêiner ... imprimindo 'shapes: first frame presented', para o condutor da foto composta fotografá-lo"). **Porta de mão única:** não.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1085, o vermelho (L-20) e o esperado antes do dado (L-43):** oito mutantes da cena no contêiner (perna `plain`, só o `shapes`) e cinco dos condutores no hospedeiro, cada um com as sondas ou o controle que morrem escritos em `scripts/esperado-V.txt` às 07:57:02, antes da primeira rodada: MRED (o exemplo que só limpa: as 36 sondas que não são fundo), MCAP (`square` e `rounded` trocadas), MLAYER (o caminho na camada -1), MALIGN (`inside` e `outside` trocados), MUNIT (as unidades trocadas), MTOL (o segundo desenhador com 0,25), MCOLOR (o triângulo de uma cor só), MCLEAR (o segundo desenhador limpando); HSN, HSG, HWN, HWT, HWU nos autotestes. Mais um do compilador da Microsoft: MW, uma variável sem uso, que o `/W4 /WX` tem de recusar.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1086, os arquivos, a ordem de entrada e a partida:** 16 arquivos (3 novos, 4 próprios trocados inteiros, 9 compartilhados por trecho, o `TODO.md` só pela célula Status de `R2D-SHAPES`). **Achado da pré-execução, e o 16º arquivo:** o primeiro `preci --fast` (09:06) reprovou `claim_citations_test` com `excecao morta - include/glintfx/gfss/value.hpp | 'all five platforms lays out' | GFSS-VALUE-LAYOUT-ASSERT`. Causa, MEDIDA (o portão rodado na base composta dá 0 mortas; no snapshot com a S6, 1): o binário `shapes` entra no inventário de nomes de teste (`test_name_inventory.py` lê as cópias do `Containerfile`), e `citation_grammar.has_cited_test_reference()` aceita como citação QUALQUER nome do inventário que apareça no mesmo bloco de uma frase-gatilho ("see"); a prosa de `gfss/value.hpp:135` diz "three parallel {magnitude, unit} shapes", e a alegação sem teste passou a contar como citada. **Opções:** (a) trocar a palavra da prosa por outra de mesmo sentido ("layouts") e levar a fraqueza do portão à INBOX; (b) apagar a exceção (aceitaria uma citação falsa: o portão afirmaria medir e não mediria); (c) consertar o portão nesta fatia (muda um portão compartilhado, com autoteste e vermelho próprios, fora do escopo de um exemplo); (d) outro nome para o binário (o nome `shapes` é o do aceite D-W8-F14 e o que o condutor da foto composta procura). **Escolha (a)**; com ela o portão volta a 0 mortas (medido). O nome de exemplo que é palavra comum vai continuar acontecendo (`textures` na T7): a linha de INBOX que o main cria (seção "Para o main") pede o conserto do portão antes da T7. Entra depois da T6-A-fix1, da CURVE-FLOAT-NARROW e da SUITE-TMPDIR-PATHS-fix4: o `espere.sh` prova as três pelo conteúdo do commit de cada uma (a `prova_anteriores.sh`, a forma da CURVE-FLOAT-NARROW, com base em `cbadb6f8`); o `cruza_listas.sh` dá `em_comum=0` com as três e `comum_por_desenho=1` (o `TODO.md`, outra linha que a CURVE-FLOAT-NARROW toca). A pré-execução compôs as três no clone pelos blocos delas, na ordem, mais a linha da tabela da CURVE-FLOAT-NARROW que o main cria (Anexo P), e as capturas foram calculadas sobre essa composição. A guarda (`guarda_head.sh`) e o `commit_bloco.sh` são os da CURVE-FLOAT-NARROW com a etapa S.
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1087, o `TODO.md`, o `README.md` e a mensagem:** `R2D-SHAPES` vai de `🔄 Em andamento` a `🔍 Pendente verificação` no commit (L-63 global): a S6 é a última fatia da linha (D-W8-565, D-W8-840: "falta o exemplo shapes da S6 instalado na imagem"), e o aceite da D-W8-F14 se cumpre aqui; vira `✅` só depois da revisão LIMPA e do CI. O `README.md` ganha uma frase que apresenta o exemplo ao lado do `first_window` (o hub da documentação, L-73 global). A mensagem, tipo `feat`, segue a L-21 (`blocos/msg.txt`).
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1088, o que NÃO se prova aqui, declarado (L-09 regra 6, L-43):** a captura real do Windows não roda nesta máquina (a VM Windows é estação de uso do líder desde 29/09, memória `reference_capacidades_desta_maquina`; o CI do push prova os quatro trabalhos, e o MSVC em contêiner prova só a compilação); as outras distros (CI-SPLIT-PER-OS); o espaço em que o gradiente é misturado (só as duas hipóteses); a composição do KWin depois do commit (é a G3, a foto composta); os autotestes dos condutores rodam no hospedeiro (downgrade da L-09 até PRECI-IN-CONTAINER, como os `preci`).
+  - (CTO, `ordem-s6.md`, md5 117c8d8d) **D-W8-1089, a legibilidade para quem começa (o exemplo é documentação viva):** um arquivo só, como o `first_window`; o comentário do topo traz a cena como tabela, com coordenada em pixel e o que cada peça mostra; uma função curta por grupo (`draw_filled_shapes`, `draw_outlines`, `draw_caps`, `draw_path_markers`, `draw_stroke_units`, `draw_coarse_circle`), cada uma com uma linha "o que isto mostra"; as cores como constantes com nome; a primeira linha manda ler o `first_window` antes (a janela, o contexto e o laço já explicados lá); inglês internacional nos comentários (L-21, o leitor é o consumidor externo); todas as funções dentro da régua (40 linhas, 4 parâmetros). Fonte: o modelo do raylib, "Try to keep the example simple, under 300 code lines if possible" e "please don't mix update logic with drawing" (C da pesquisa), e a queixa A-Q11 ("introduce too much to learn for someone that's just starting"). **Dito:** o arquivo tem 383 linhas, das quais cerca de 190 são o comentário da cena e as funções da cena e o resto a máquina de laço copiada (D-W8-1081).
+  - (CTO, `ordem-curve-float-fix2.md`, md5 b5cb83c6) **D-W8-1090, de onde o texto mede os 1024 pixels (PORTA DE MÃO ÚNICA, a ratificar pelo líder; a escolha (a) da D-W8-976):** **o texto diz 1024 pixels da FAIXA, a superfície crescida por um pixel de cada lado (e, no contorno, pela meia espessura), e o código não muda.** Opções: (1) esta; (2) "1025 pixels da superfície": verdade só para o preenchimento e a ponta, sem alcance; no contorno seria falso (1025 mais a meia espessura); (3) mudar o código para 1023 e o texto ficar com "1024 da superfície": uma constante sem razão própria, um comportamento novo a medir de novo, e o binário que a S6 fotografa mudaria. **Escolhida (1)**, pela pesquisa (abaixo): as queixas sobre promessa de precisão são de duas famílias, o número sem dizer DE ONDE ou EM QUE se mede (Q8 shapely 1446, "What is the unit for the tolerance level?"; Q12 GNOME 332266, "At a minimum the gdk interface should document that coords must be < 2^21"; Q11 Mozilla 364968; e as do Cairo 20091 da fix1, "limitations of the API not documented") e a ressalva longe da promessa (Q9 matplotlib 13979, o `chunksize` documentado como o que evita a falha, "**Not** solved by setting `agg.path.chucksize`"; Q2 e Q3 matplotlib, a simplificação que só liga a partir de 128 pontos, "I can only reproduce the bug with specific data sets"; Q1 WebKit 54471, "Increasing the tolerance hides this bug"). As bibliotecas que dão número dizem a referência: Cairo, "the maximum deviation between the original path and the polygonal approximation is less than tolerance", "in device units (typically pixels)"; geopandas, "All parts of a simplified geometry will be no more than tolerance distance from the original", "the same units as the coordinate reference system"; AGG, a capacidade "24 bits" dita junto do formato 24.8. A (1) é a única que casa texto, código e oráculo sem número novo. **Cumpre:** `src/draw2d/arc_parameters.cpp:232-235` (a faixa e a caixa perto), `src/draw2d/arc_parameters.hpp:74-75` (1 e 1024), `:80-102` (o regime uniforme, `652 e`). **Proved by:** `arc_parameters_the_ends_of_every_piece_on_the_surface_stay_near_it_swept` (`arc_parameters_test.cpp:635`).
+  - (CTO, `ordem-curve-float-fix2.md`, md5 b5cb83c6) **D-W8-1091, a ressalva na mesma frase e o caso fechado do ramo:** o parágrafo THE ROUNDING OF THE CORNERS passa a ser uma frase com "unless ...: then the segments are cut for the distance alone, and their corners are rounded where they lie", e a frase dos números começa por "Where the ends lie that near" (a garantia e a sua exceção no mesmo período: kurbo, "attempts to bound this distance ... but this is not absolutely guaranteed", no mesmo parágrafo; Skia, "may or may not draw depending on numeric rounding", junto da função). **A frequência que a revisão deu ao ramo está errada** (linha I-2 da tabela, medida): não vai ao texto público nem ao comentário interno nenhuma frequência, só a condição. **O caso fechado** (`arc_parameters.cpp:241-252` é o código; o caso, `arc_parameters_test.cpp:665`): uma meia curva literal, em `%a`, achada pela sonda `curvefloat2-cto/sonda/` (busca em 200000 curvas, depois ajuste do alcance), com a contagem só pela distância 1015 e a com as pontas perto 1038, folgas que o último bit de `cos`/`sin` não atravessa; o caso confere o que o texto diz (a resposta cabe na sala, toda peça na faixa dentro da distância, e uma ponta de peça na faixa a mais de 2^20 px dela; medido 2,1e6), nunca a contagem. Visto vermelho por mutante (não há árvore vermelha: o comportamento já existe): MFN (o corte de reserva sem desligar as pontas perto) derruba SÓ este caso, o que prova que ele é o único guarda da regra; MBF e MBN também o derrubam. **O que o caso NÃO prova (a pergunta do item 4 da seção 9 da ordem anterior):** com o MFN, a resposta tem 543 parâmetros, as pontas a 493 px e a distância ainda dentro do pedido; o caso reprova pela ponta longe, não pela distância. Ele prende a frase pública como descrição do que o código faz (as pontas não são trazidas para perto), não como a única saída que respeita a distância: neste caso, tentar o nível abaixo COM as pontas perto antes de desistir delas também caberia. Não é defeito desta fatia (o texto diz o que o código faz); vai à INBOX como `FALLBACK-KEEP-ENDS-NEAR`, para o CTO que voltar a `arc_parameters.cpp`.
+  - (CTO, `ordem-curve-float-fix2.md`, md5 b5cb83c6) **D-W8-1092, o alcance das varreduras (PORTA DE MÃO ÚNICA no texto, a ratificar pelo líder; a escolha (b) da D-W8-976):** **os geradores da meia curva e das pontas perto passam a sortear o RAIO MAIOR, a grandeza que o texto nomeia, de 1 a 2^40 pixels, e as conferências medem o raio maior (pela fórmula dos diâmetros conjugados) e exigem `>= 2^39,5`.** Opções: (1) o texto dizer 2^39,5 e o gerador ficar; (2) esta; (3) o gerador sortear o eixo até 2^40: com eixos não perpendiculares o raio maior passaria de 2^40 (até `a` vezes raiz de 2), fora da promessa. **Escolhida (2):** é a única em que a varredura cobre a promessa inteira ("its larger radius on the screen is at most 2^40 pixels") e mede o que a frase nomeia. As queixas são as do limite dito diferente do real: Q4 kurbo 602 (o limite "any curve whose arc length exceeds `accuracy * 2^64`" não está na documentação), Q5 kurbo 607 ("overflows to inf once |x| > ~1.34e154", "never disclosed this precondition"), Q10 matplotlib 5907 (o limite de células, "Exceeded cell block limit", não dito), Q11 Mozilla 364968 ("limited to 32768 / (src_size / scale_factor)", "ends up being 512 pixels"), Q12 GNOME 332266 (2^21 e depois 2^15), e as da fix1 sobre raio grande (KB 2984519, raio de 1,7 milhão; Garmin, "radius of 256 or greater"; Chromium 640031; KDE 359805; Vello 1139; Qt, o 2^15 do QPainter). **O gêmeo (L-17 global):** a varredura do preenchimento media o limite do sorteio como "maior raio"; passa a medir o raio maior na elipse verdadeira (o texto: "a larger radius of 64 to 2^39.5", porque o menor estiramento leva o raio maior até um oitavo do sorteado), conferido `>= 2^39`. A da ponta já media o raio exato. **Proved by:** `arc_parameters_sweep_of_the_half_curve_meets_the_error_on_the_surface` (`:544`, conferência `:559`), `..._stay_near_it_swept` (`:635`, `:652`), `ellipse_pixels_the_fill_edge_in_float_meets_the_error_on_the_surface_swept` (`ellipse_pixels_test.cpp:589`, `:617`). A função do raio maior é presa em valores feitos à mão (`arc_parameters_the_larger_radius_of_the_oracle_on_values_worked_by_hand`, `:693`): autoconferência do oráculo, sem mutante próprio (os mutantes MRH e MRN encolhem o gerador e derrubam as duas conferências).
+  - (CTO, `ordem-curve-float-fix2.md`, md5 b5cb83c6) **D-W8-1093, o contorno (PORTA DE MÃO ÚNICA no texto, a ratificar pelo líder):** o `Proved by:` de `stroke_ellipse` passa a dizer que "The corners of the outline in single precision are not swept", e que o arredondamento deles é o da conversão que `ellipse_pixels_test` prende; e a frase da garantia explica a faixa do contorno (a superfície crescida por um pixel e pelo alcance da meia espessura na tela: a meia espessura em unidade pixel, a meia espessura vezes o maior estiramento do lote em unidade mundo, `ellipse_pixels.cpp:60`) e o canto a esse alcance ou menos da curva (em unidade mundo o canto fica a meia espessura da curva no plano do mundo, `ellipse_outline.cpp:88-89`, e na tela a no máximo o alcance), então o arredondamento é no máximo o de um ponto duas vezes o alcance mais longe (o COSMÉTICO-1 resolvido explicando: o "grown by the thickness" de antes estava certo para os cantos, em unidade pixel, e mal dito). Opções: (1) esta, e a varredura dos cantos do contorno à INBOX; (2) varrer agora a borda EXTERNA em precisão simples (oráculo: a curva paralela, por inversão numérica do ângulo da normal a partir do vértice; a interna fica declarada, porque o oráculo dela não sai do enunciado sem repetir o código, D-W8-1068). **Escolhida (1):** as duas costuras de que a frase depende estão provadas (as pontas perto com a meia espessura como alcance, `arc_parameters_test`, alcance até 4096 em double; o arredondamento de cada canto, o caso novo da D-W8-1094), e o texto agora diz exatamente isso, que é o que o revisor pediu ("declarar no cabeçalho ou varrer"); a (2) é um oráculo novo de inversão numérica que merece revisão própria, e não muda nenhuma frase. **Cumpre:** `src/draw2d/ellipse_pixels.cpp:60` e `:74`, `src/draw2d/ellipse_outline.cpp:88-89`.
+  - (CTO, `ordem-curve-float-fix2.md`, md5 b5cb83c6) **D-W8-1094, a cota do arredondamento presa pelos dois lados (o mutante R5):** o caso `ellipse_pixels_a_corner_rounds_by_at_most_the_bound_and_by_all_of_it_at_a_tie` chama a conversão única da biblioteca (`narrowed_to_pixel`) em 605 cantos: os empates `(1 + 2^-24) 2^k` e seus dois vizinhos de um double, para `k` de -100 a 100, e os empates subnormais `2^-150` e `3 2^-150`; exige nenhum acima da cota e, nos empates, o maior a menos de um milionésimo dela (medido: 0,99999994 da cota). A cota é o `u` do arredondamento ao mais próximo da IEEE 754, e o teste agora distingue 2^-23 e 2^-25 dela (MRU e MRD morrem), e uma conversão que não é a ao mais próximo (MNW morre). As varreduras continuam limitando por cima, como devem; a constante vive num lugar só (`k_single_rounding`, `tests/harness/curve_oracle.hpp`).
+  - (CTO, `ordem-curve-float-fix2.md`, md5 b5cb83c6) **D-W8-1095, o oráculo comum e os cosméticos:** `tests/harness/curve_oracle.hpp` (novo, só cabeçalho, sem nada além da biblioteca padrão e dos tipos de `draw2d/arc_parameters.hpp`): `k_single_rounding`, `near_bound`, `grown_by`, `outside_of`, `allowed_rounding`, `point_on`, `hull_touches`, `offset_on`, `chord_on_curve`, `largest_distance_to_chord`, `larger_radius`. **As margens, ditas para o revisor:** o arco passa a faixa da biblioteca (1 + alcance) porque confere PARÂMETROS exatos, com a mesma aritmética de casco do teste de antes (os números do arco não mudaram com a extração: 553, 31, 12); os dois de float passam meio pixel, DENTRO da faixa, para o arredondamento do próprio oráculo nunca contar uma peça que a biblioteca desenhou grosseira (os números deles também não mudaram: 2222, 2165). A leitura de vértice no aro (`read_on_cap`, `read_on_rim`) tem DUAS cópias e diferem de propósito (a meia curva lê o seno abaixo de zero como zero): pela regra de três, ficam. Entram: COSMÉTICO-3 (`fora_do_aro`, exigido zero) e COSMÉTICO-4 (as superfícies na citação da meia curva). Ficam para a INBOX (seção "Para o main"): 5, 6, 7 e 9.
+  - (CTO, `ordem-curve-float-fix2.md`, md5 b5cb83c6) **D-W8-1096, a lista de arquivos, o tipo do commit, a ordem de entrada e a S6:** 6 arquivos (cabeçalho desta ordem); nenhum de `src/` (`diff -rq` vazio, `espere3`), por isso a fixture de 44 células não roda (a ordem anterior a exigia "porque um `.cpp` de desenho muda") e a cena da S6 é a mesma por construção (o mesmo binário). **`TODO.md` fora:** a linha `CURVE-FLOAT-NARROW` (`TODO.md:747`) já está em `🔍 Pendente verificação`, e uma fix2 não muda o Status (L-63 global: `✅` só depois da revisão LIMPA); o ID vai nas `Referências:`. **Tipo `docs(draw2d)`**, critério da L-21 pelo efeito que o consumidor observa: nenhum pixel muda, o texto público muda, as provas crescem (a D-W8-1069 escolheu `fix` "porque o comportamento muda"; aqui ele não muda). **Ordem de entrada:** esta fatia, depois a S6. **Partida sem SHA que ainda não existe:** `espere.sh` prova a CURVE-FLOAT-NARROW pelo conteúdo do commit dela (o título do `msg.txt` dela e os 7 blobs iguais aos `.blk` dela, `prova_anterior.sh`), os 5 próprios sem commit por cima e com o md5 de `base-esperada.txt`, e nenhum `src/` mudado desde ela. A guarda (`guarda_head.sh`, com `--no-renames`) e o `commit_bloco.sh` são os da fatia anterior, byte a byte. **Pesquisa e advisor:** a pesquisa abaixo foi feita antes das decisões (L-34); o advisor foi consultado antes do desenho, antes dos mutantes e antes de congelar. ### Pesquisa (L-34 do projeto: manual, dor da comunidade, outras bibliotecas, o próprio projeto; só conta o que foi lido) **Manual:** `CONTRACT.md` §6 (régua e regra de três), `TESTES.md`, `AUDITORIAS.md` (IMPORTANTE para frase pública sem prova), `docs/api-conventions.md`, `docs/auditoria-api-shapes.md`. **Queixas lidas nesta fatia (18; 12 contam pelo critério de promessa numérica, limite não dito ou ressalva longe; texto completo, URLs e frases em `$A/evidencia/pesquisa.md`, por um agente de leitura despachado pelo CTO):** Q1 WebKit 54471; Q2 matplotlib discourse 9672; Q3 matplotlib discourse 14227; Q4 kurbo 602; Q5 kurbo 607; Q6 kurbo 426; Q7 shapely 1046; Q8 shapely 1446; Q9 matplotlib 13979; Q10 matplotlib 5907; Q11 Mozilla 364968; Q12 GNOME 332266 (as outras 6, de qualidade visual, foram lidas e não contam). **Do aprendizado do projeto (lidas pela fix1, `ordem-curve-float.md` §2):** KB 2984519, androidsvg 155, Chromium 640031, Garmin drawArc, Cairo 20091 (4 comentários), lista do Cairo 2010, KDE 359805, fórum do Qt 59973, Vello 1139. **Bibliotecas lidas nesta fatia (9):** Cairo (`cairo_set_tolerance`), Blend2D (`BLApproximationOptions`, sem unidade nem referência escrita), kurbo (`flatten`, `ParamCurveArclen`), Skia (`SkPath`; o comentário de `sparse_strips/Flatten.h`), AGG (`agg_basics.h`, `agg_rasterizer_scanline_aa.h`), matplotlib (`path.simplify_threshold`, `agg.path.chunksize`), shapely e geopandas (`simplify`), raylib (`SMOOTH_CIRCLE_ERROR_RATE`), Vello (`flatten_simd`). **Guia de estilo:** não achado (Google: nada sobre a ressalva junto da garantia; Microsoft: só busca, não conta). **Não lidos, e por isso não contados (L-40):** bugs e listas do freedesktop (403 e desafio anti-bot, não contornado), o GitLab do Cairo, ThorVG, o rastreador do Skia, as issues do Blend2D (zero resultados), o resto de `api.skia.org` e de `rshapes.c`. **Como as decisões respondem:** D-W8-1090 a Q1, Q2, Q3, Q8, Q9, Q11, Q12 e às quatro do Cairo 20091 (o número com a referência e a exceção junto: 11); D-W8-1092 a Q4, Q5, Q10, Q11, Q12 e às seis de raio grande da fix1 (11); D-W8-1093 e D-W8-1094 a Q1 ("Increasing the tolerance hides this bug": uma cota frouxa esconde o defeito, que é o R5) e a Q6 e Q7 (a promessa sem caso que a quebre).
+  - (CTO, `ordem-suite-fix5.md`, md5 e8f763de) **D-W8-1100, o COMO distinguir o pipe que falhou do fork que falhou (caminho de desenho; pesquisa abaixo, com o piso da L-34):** três caminhos na mesa. (a) Só o `errno`, devolvido pela variável global depois de `fork_with_report_pipe()` (a forma do libuv, que manda ao pai só o `errno`): o `close()` que vem depois pode mudá-lo mesmo quando dá certo (`errno(3)`: "a function that succeeds is allowed to change errno"), e nove das queixas lidas são exatamente esse estrago. (b) Só a chamada que falhou, sem o `errno`: separa o pipe do fork, mas não o fork que falhou pelo limite do fork que falhou por outra razão (`fork(2)` lista `EAGAIN` para o limite, `ENOMEM` e outros). (c) **As duas coisas, na volta da função, e o desfecho com nome:** `reporting_child` ganha `failed` (`failed_call::none`, `pipe` ou `fork`, enum com base `std::uint8_t`) e `error` (o `errno` guardado NA chamada que falhou, antes dos `close()`), que é a forma do glib (`write_err_and_exit` manda o passo, `CHILD_CHDIR_FAILED` e os outros, e o `errno` guardado em `en` antes de escrever e fechar) e do CPython (o marcador `noexec:chdir` mais o `errno` em hexadecimal, que nasceu da gh-104522, onde um marcador só para vários passos culpava o diretório errado). **Escolhida: (c)**, a mais completa, e a que atende às 13 queixas. O ajudante devolve um `fork_verdict` (enum com base `std::uint8_t` e valor fixo, que é o código de saída; a base de um byte é a que o `performance-enum-size` do clang-tidy do portão exige, medido no primeiro `preci`): `failed_and_left_nothing_open` (0), `did_not_fail` (1), `left_a_descriptor_open` (2), `could_not_set_up` (3), `pipe_failed_first` (4), `failed_for_another_reason` (5); e o caso tem uma verificação por veredito, na ordem, terminando em `verdict == fork_verdict::failed_and_left_nothing_open`. Como o `GLINTFX_CHECK` imprime o texto da condição (`tests/harness/check.hpp:87-93`), a linha `failed:` nomeia a causa: o valor do código de saída deixa de ser inferência (era a ressalva do item 2 da revisão da fix4). **Não é porta de mão única:** código só de teste, fora da API pública.
+  - (CTO, `ordem-suite-fix5.md`, md5 e8f763de) **D-W8-1101, o caso e a prova (L-20 do projeto, L-35 global):** **vermelho primeiro:** o MXP (o mutante do revisor, linha 3 de `$R/.trabalho/cto-w8/rev-suite-fix4/mutantes_rev.txt`) aplicado no código da fix4 (rodada `BXP`) deixa o caso do fork VERDE nos dois usuários: é a lacuna; o mesmo MXP sobre a fix5 (rodada `MXP`) reprova o caso do fork nos dois, com `failed: verdict != fork_verdict::pipe_failed_first`, sem depender de outro caso. Os da fix4 continuam morrendo, agora com o nome: MP (o fechamento tirado do ramo de erro) com `left_a_descriptor_open`, MR (o limite no máximo) com `did_not_fail`, MD (sem deixar de ser root) passa como usuário e reprova como root com `did_not_fail`. Dois mutantes novos provam as duas partes novas: MXE (o `errno` guardado trocado por 0) com `failed_for_another_reason`, e MX2 (a contagem que nunca muda, o do COS-4) com `could_not_set_up`. **Equivalentes declarados, não prometidos:** ler o `errno` DEPOIS dos `close()` (INFERÊNCIA, não medida: o `close` que dá certo não escreve no `errno` na glibc desta máquina, então o mutante seria equivalente aqui; a ordem certa fica provada por leitura, pela pesquisa e pelo comentário, porque o `errno(3)` permite a escrita); tirar a verificação de `failed` (INFERÊNCIA, por leitura do código, não medida: o `EBADF` do MXP ainda cairia em `failed_for_another_reason`, porque a verificação do `errno` cobre; o revisor pode medir).
+  - (CTO, `ordem-suite-fix5.md`, md5 e8f763de) **D-W8-1102, os quatro cosméticos:** COS-1 entra (comentário); COS-2 entra nesta ordem (a seção 9 usa `k_unprivileged_user` e `k_unprivileged_group`); COS-3 entra (`no_process_left_for_this_user()`; a régua mede 3:3, nenhuma função nova passa de 40 linhas); COS-4 entra (`the_count_sees_an_open_descriptor()`, que abre `/` só para leitura, conta, fecha e conta de novo; o cabeçalho do arquivo, sob a L-09, passa a dizer isso). **DISCOVERED_WORK** (vai no relatório do CTO ao main, não no `TODO.md`): (1) `GLINTFX_CHECK_EQ` (`tests/harness/check.hpp:95`) imprime só a expressão, nunca os dois valores comparados; toca o harness compartilhado, fora desta fatia; (2) nenhum job do CI roda o `wire_relay_selftest` como usuário comum fora de contêiner nem como root com `--cap-drop=ALL` (revisão da fix4, item 7).
+  - (CTO, `ordem-suite-fix5.md`, md5 e8f763de) **D-W8-1103, o `TODO.md` não entra:** a linha `SUITE-TMPDIR-PATHS` continua `🔍` (D-W8-970, D-W8-978) e só o main a fecha depois de uma revisão LIMPA. Tirá-lo da lista também é o que deixa `em_comum=0` contra a S6 e contra a curva, que o têm como compartilhado.
+  - (CTO, `ordem-suite-fix5.md`, md5 e8f763de) **D-W8-1104, os arquivos, a partida, o contêiner e a mensagem:** um arquivo, o da capa. **Partida pelo ancestral, sem pinar SHA futuro:** o `espere.sh` acha a fix4 como o ÚNICO commit de `74a1bcb5..HEAD` com o título dela e confere, nesse commit, o md5 do blob contra o `.blk` da fix4 (`dd5dcd57`); depois, nenhum commit por cima mudou o arquivo, e o md5 dele na árvore é o de `base-esperada.txt`. Nenhuma outra fatia é exigida: a S6 e a fix2 da curva podem entrar antes ou depois. Cruzamento: `fix5=1 s6=16 curvefloat=9 draw2d_fix2=8 em_comum=0`. A `guarda_head.sh` e o `commit_bloco.sh` são os da fix4, byte a byte: a guarda aceita o HEAD real andando, desde que o HEAD do snapshot seja ancestral dele e nenhum commit por cima mexa no arquivo (`--no-renames`). **Contêiner:** `prova_wire.sh` é o da fix4 com UMA mudança, a linha `<quem>: fork_check=<veredito> casos=<n> falhas=<n>` no resumo; o `roda_x.sh` é o da fix4 sem as rodadas de sonda (esta fatia não toca o módulo Python). **Mensagem:** `$A/blocos/msg.txt`, tipo `test`, título sem código e diferente do da fix4 (a partida acha a fix4 pelo título), português, `---`, inglês simples, `Referências:`, os dois `Co-Authored-By` e o `Claude-Session`. ### Pesquisa (L-34 do projeto; só conta o que foi lido; cópias em `$A/pesquisa/`) **Manuais (fonte que decide):** `fork(2)`, ERRORS: "EAGAIN A system-imposed limit on the number of threads was encountered... the RLIMIT_NPROC soft resource limit (set via setrlimit(2)), which limits the number of processes and threads for a real user ID, was reached"; `errno(3)`: "a function that succeeds is allowed to change errno" (`$A/pesquisa/manuais.txt`, o manual instalado desta máquina). **Queixas lidas (13), por `gh issue view` em 26/10/2026, com o que pedem:** - Q1, CPython gh-104522, "subprocess raises misleading exceptions from child failure pre-exec", https://github.com/python/cpython/issues/104522: "subprocess assumes the only possible error can be from changing directory to the `cwd=...` argument... there's now many things that can fail in the `noexec` phase". Um sinal só para vários passos culpa o passo errado. **Atendida:** cada chamada que pode falhar tem o seu valor em `failed_call`. - Q2, Redis #15612, "RM_Fork clobbers errno before returning, so a module cannot tell a busy fork slot from a real fork failure", https://github.com/redis/redis/issues/15612: "A module that inspects `errno` after `RedisModule_Fork()` returns `-1` therefore cannot reliably distinguish "another child is already running" from a genuine fork failure". **Atendida:** o `errno` do `fork` volta no campo `error`, guardado antes de qualquer outra chamada. - Q3, intel-lpmd #137, "a failing close() may potentially clobber errno causing ESRCH check fail", https://github.com/intel/intel-lpmd/issues/137: "the close() after the write() can potentially also fail and overwrite errno which can lead to the errno != ESRCH check failing". **Atendida:** `const int error = errno;` vem antes dos dois `close()`. - Q4, Mir #4557, "`errno` clobbering when using `unlink` followed by `close`", https://github.com/canonical/mir/issues/4557: "Each of these calls can modify `errno`. Which we later use to  print an error and might cause the wrong error to be printed... One solution to this would to save `errno` for each call separately". **Atendida:** o `errno` é guardado por chamada, junto do nome dela. - Q5, ESP-IDF #19095, "esp_http_server: logging can clobber errno and turn EAGAIN into a fatal send error", https://github.com/espressif/esp-idf/issues/19095: "Underlying send(): -1, errno = 11 (EAGAIN)... errno at the following switch: 5 (EIO)". **Atendida:** o `EAGAIN` que o caso exige é o guardado na chamada, não o que sobrar na variável global. - Q6, sslh #538, "errno clobbered between accept() and switch(errno)", https://github.com/yrutschle/sslh/issues/538: "`print_message()` performs I/O (fprintf/syslog) which can overwrite `errno` before the `switch(errno)` runs"; o conserto é `int saved_errno = errno;`. **Atendida**, pela mesma forma. - Q7, LLVM #155752, "std::print() can unexpectedly clobber errno", https://github.com/llvm/llvm-project/issues/155752: "between a system call and logic checking errno (e.g. differentiating EAGAIN from other errors), this leads to a hassle diagnosing mysterious ENOTTY errors". **Atendida:** nada roda entre o `fork` e a leitura do `errno`. - Q8, flux-core #2823, "libflux: flux_event_unsubscribe clobbers errno", https://github.com/flux-framework/flux-core/issues/2823: "Since it's common to call this from destructors, we should prevent that". A limpeza que estraga o `errno` de quem falhou. **Atendida:** a limpeza (os `close()`) vem depois de o `errno` estar guardado. - Q9, Julia #63274, "`errno` is not always preserved as expected", https://github.com/JuliaLang/julia/issues/63274: "we have several gaps in our `errno` handling", com uma medida de "clobbers: 153". **Atendida:** o caso não depende de o `errno` sobreviver na variável global. - Q10, flake8-bugbear #169, "Extend B017 to pytest.raises", https://github.com/PyCQA/flake8-bugbear/issues/169: "`with pytest.raises(Exception):` is very similar to `assertRaises`, and all the justification of B017 applies to that too"; a justificação do B017, no README do flake8-bugbear (`$A/pesquisa/bugbear_README.rst`, linhas 166-172), é que esses testes "can lead to your test passing even if the code being tested is never executed due to a typo" (o MXP é isso: o `fork` nunca roda e o caso passava). **Atendida:** o caso só aceita a falha que ele mesmo provocou. - Q11, flake8-bugbear #334, "B017 support the matches keyword argument to pytest.raises", https://github.com/PyCQA/flake8-bugbear/issues/334: aceitar a falha genérica só quando se nomeia qual (`match=`). **Atendida:** o veredito é nomeado e o `errno` é exigido. - Q12, Rust #80861, "Tests with #[should_panic(expected = *)] should print a failure message if no panic occurs", https://github.com/rust-lang/rust/issues/80861: o teste "still fails with no error message in this case". **Atendida:** cada desfecho tem a sua linha `failed:` com o nome. - Q13, Rust #66304, "Better error messages for #[should_panic] tests with expected strings", https://github.com/rust-lang/rust/issues/66304: a saída "makes it hard to spot the difference". **Atendida:** a linha que reprova diz o desfecho em palavras, não um número. **Bibliotecas (L-29: para aprender a técnica, nunca copiar; trechos em `$A/pesquisa/trechos_bibliotecas.txt`):** glib `gspawn-posix.c`, `write_err_and_exit`: `gint en = errno;` antes de `write_all` e de `close`, e o passo (`CHILD_CHDIR_FAILED`, `CHILD_FORK_FAILED`...) mandado junto, que o pai traduz numa mensagem por passo; CPython `_posixsubprocess.c`: `err_msg = "noexec:chdir"` junto do `errno`; libuv `process.c`: `uv__write_errno` manda só o `errno` (o caminho (a)). E o git, commit 06121a0 ("unix-socket: do not let close() or chdir() clobber errno during cleanup", `$A/pesquisa/git_06121a0.patch`): "when the call _succeeds_, it is allowed to (and sometimes might) clobber errno along the way with some undefined value, so it is good higiene to save errno and restore it". **O que não se encontrou:** nenhuma queixa pedindo outro desenho que não seja nomear a causa e guardar o `errno` na chamada.
+- **27/10 00:40: a vigia de travamentos acusou 6 falhas de soma de verificação do btrfs na partição `/home` (`dm-1`)**, em dois inodes (8656023 e 8656034), as primeiras em 30 dias de registro; os dois arquivos já não existiam (busca por inode em `/home`: nenhum), o que indica temporários de compilação. Espaço não era a causa (`/home`: 174,69 GiB não alocados, `min` 202,71 GiB). Perguntado por AskUserQuestion (investigar com um CTO, só anotar ou pausar), **o líder respondeu "Só anotar e seguir"**. **D-W8-985 (main):** registrado; se o aviso voltar, a pergunta volta ao líder.
+- **27/10 00:5x: a revisão N1 da CURVE-FLOAT-NARROW-fix2 (84cec0ed) saiu NÃO LIMPA só por processo** (`.trabalho/cto-w8/rev-curvefloat2.txt`): o conteúdo do commit foi julgado limpo, sem CRÍTICO nem IMPORTANTE de texto público ou de prova; os seis IMPORTANTES da revisão anterior estão fechados (o 4 por declaração no cabeçalho); a frequência do ramo de reserva medida pelo revisor é 1 em 8000 (0,0125%), o que confirma a D-W8-1091; o CI 40444090533 está verde (arco, linha e elipse passam em Ubuntu e Windows). O IMPORTANTE-P1 era a falta de D-W8-1095 e 1096 no registro, sanada no item acima. Dois mutantes do revisor sobrevivem e foram classificados COSMÉTICOS: RV1 (o caso do corte só pela distância guarda só a ponta longe, com limiar 2^20) e RV2 (o casco do oráculo sem o ápice; nenhuma asserção confere contagem exata de peças).
+- **27/10 05:3x: S6 commitada (78bf6c26)**. O main reconferiu: 16 arquivos, 898+/115-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user] local; árvore limpa; o `TODO.md` só na célula Status de R2D-SHAPES (🔄 para 🔍). Pelo relatório (`.trabalho/cto-w8/s6/relatorio.txt`): vermelho 8/8 (36 sondas no MRED); verde 62 de 62 nas pernas comum e ASan, com o PNG idêntico nas duas (md5 bb673857); os 8 mutantes de cena reprovam o previsto; os autotestes de captura dão 26 controles no Linux e 41 no Windows; preci 387/0 e sanitizer 197/0 no hospedeiro, com o downgrade declarado; MSVC compila.
+- **D-W8-986 (main):** (1) empurrar a S6, disparar o CI e despachar o revisor N1 dela pela seção 9 da ordem 117c8d8d; o QA visual dos PNG do CI vem depois do CI. (2) A dúvida de classificação da D-W8-983 cresce: além do X2 e do PR da fix5, o RV1 e o RV2 da fix2 da curva são mutantes de código novo da própria fatia que sobrevivem e foram chamados COSMÉTICOS. Um CTO decide as quatro classificações contra os precedentes D-W8-967 e D-W8-978; se ele não fechar, o advisor. CURVE-FLOAT-NARROW e SUITE-TMPDIR-PATHS continuam 🔍 até lá. (3) Pela ordem do líder ("commit e pause 27/10/2026 07:45AM"), nada é despachado depois das 07:45.
+- **27/10 05:54: o CTO decidiu a dúvida das D-W8-983 e 986** (`.trabalho/cto-w8/classif-cto/decisao.md`; D-W8-1110 a 1117, a ratificar). **Régua (D-W8-1110, escrita antes de aplicar):** um mutante único de código novo que sobrevive é IMPORTANTE em três casos: (a) deixa sem prova algo que a árvore diz provar (D-W8-967, D-W8-978); (b) é código morto em todo alvo suportado com um comentário que diz que ele é necessário (a saída é apagar e corrigir o texto); (c) o revisor escreveu, antes do dado, que a sobrevivência tornaria a revisão NÃO LIMPA (L-43 global). Não é IMPORTANTE quando é equivalente nas entradas alcançáveis sem texto que prometa o contrário, quando a linha tem efeito real e nenhuma prova depende dela, ou quando o mutante é duplo ou só enfraquece o juiz. **PR: IMPORTANTE (D-W8-1111)**, por (b) e (c): medido como root em contêiner, o `setuid` muda o dumpable de 1 para 2, mas `/proc/self/fd` continua legível, com ou sem o `prctl`, e o `fs/proc/fd.c` confirma que o processo sempre lê o próprio; o `prctl` é código morto e o comentário afirma uma necessidade falsa. **X2, RV1 e RV2: COSMÉTICOS** (D-W8-1112 a 1114): o `setgid` tem efeito real, mas o limite só lê o usuário; o RV1 é mutante duplo (o MFN sozinho morre na linha 685); o RV2 só enfraquece o oráculo, e o ápice da biblioteca está provado (o "6292 -> 6324" do revisor não tem evidência). Pede o olho do líder: a régua, a remoção do `prctl` e o MRX1 da revisão da fix5, que o CTO não decidiu (o mesmo problema de L-43).
+- **D-W8-987 (main):** (1) a revisão da fix5 fica NÃO LIMPA pelo PR; abre-se a SUITE-TMPDIR-PATHS-fix6 (um arquivo: sai a linha 178 e o `#include <sys/prctl.h>`, o comentário das linhas 157-170 é reescrito com o fato medido; opcional: conferir `getegid()`/`geteuid()` depois do abandono de privilégio, o que mataria o X2); um CTO novo escreve a ordem agora e decide também o MRX1 pela régua D-W8-1110; o implementador fica para depois da pausa das 07:45. (2) CURVE-FLOAT-NARROW, ARC-HALF-SWEEP e ARC-VIEWPORT-TESSELLATION vão para ✅: a revisão da fix2 só pedia o registro de D-W8-1095 e 1096, feito às 05:4x, e o CTO confirmou que nada mais falta. SUITE-TMPDIR-PATHS continua 🔍.
+- **27/10 06:34: a ordem da SUITE-TMPDIR-PATHS-fix6 foi entregue e congelada** (`.trabalho/cto-w8/ordem-suite-fix6.md`, md5 3e70fb6d; anexos.md5 dc7fb153, 85 linhas; o main conferiu `md5sum -c` com rc 0). Um arquivo, 8+/5-: sai o `prctl` morto e o include dele; o comentário é reescrito com o fato medido; entra a conferência dos ids reais e efetivos de grupo e de usuário depois do abandono de privilégio, na forma do OpenSSH, e com ela o X2 passa a morrer como root. O MRX1 não entra como código: pelo item (f) da régua, a sobrevivência dele é a prova do par, e a seção 9 obriga o revisor a gravar desfecho e severidade antes do dado. Os cosméticos C-0, C-3 e C-7 entram; C-1, C-2, C-4, C-5, C-6 e uma varredura dos outros autotestes vão como trabalho descoberto. Na pré-execução, as 13 rodadas principais e as 4 do juiz deram o esperado, e os preci deram 387/197. D-W8-1120 a 1129 (1128 vaga), a ratificar; pedem o olho do líder D-W8-1117, 1122 e 1123. Desvio declarado: a rodada de root usa as capacidades padrão do Docker, herdadas da fix4 para espelhar o CI.
+- **D-W8-988 (main):** o implementador da fix6 é despachado agora, antes da pausa das 07:45, sozinho na árvore viva; se ele terminar depois das 07:45, o main confere, commita e empurra, e só então para. A revisão N1 da fix6 fica para depois da pausa. O trabalho descoberto da fix6 entra na INBOX na hora da pausa.
+- **27/10 07:0x: SUITE-TMPDIR-PATHS-fix6 commitada (23b2f923)**. O main reconferiu: 1 arquivo, 8+/5-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user] local; árvore limpa. Pelo relatório (`.trabalho/cto-w8/suite-fix6/relatorio.txt`): as 13 rodadas e as 4 do juiz deram o esperado; o X2 agora reprova como root (`could_not_set_up`); o verde dá 45/0 como usuário e como root; preci 387/0 e sanitizer 197/0 no hospedeiro, com o downgrade declarado. **D-W8-989 (main):** empurrar e disparar o CI; a revisão N1 da fix6 fica para depois da pausa; quatro itens de trabalho descoberto entram na INBOX (FORK-VERDICT-MAPPING-SPLIT, FAILED-ANOTHER-REASON-ERRNO, SELFTEST-UNMEASURED-NEED-SWEEP e PRECI-TIMES-OUTSIDE-WORKDIR).
+- **27/10 07:2x: o CI 40485486903 da fix6 (cabeça 938d0be1) saiu verde**: 25 com sucesso, 1 pulado, 0 falhas.
+- **27/10 07:29: a revisão N1 da S6 (78bf6c26) saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-s6.txt`): 0 CRÍTICO, 5 IMPORTANTES, 5 COSMÉTICOS. O blob confere; o vermelho deu 8/8 e o verde 10/10; `shapes` 62/0 nas pernas comum e ASan, com o mesmo PNG; MSVC 2/2; o CI 40475097742 está verde, com o passo `shapes` nas duas pernas do contêiner e os 4 artefatos do Windows. **IMPORTANTES:** (I-1) "every shape" no topo de `shapes.cpp`, no `README.md` e na mensagem não cobre `fill_textured_triangles` nem `fill_indexed_textured_triangles` (`renderer_2d.hpp:640-643`); (I-2) o mutante MHEX (uma cunha do hexágono some) sobrevive 62/62 com PNG diferente, porque só 2 sondas caem no hexágono; (I-3) o MRAD (raio de K de 55 para 52) sobrevive; (I-4) o MELL (H girada -30) sobrevive por desenho do modelo, e o topo diz "turned by 30 degrees"; (I-5) `run_example_capture.sh:57` diz que 30 quadros provam a limpeza de cada um, mas o condutor julga uma imagem só.
+- **D-W8-990 (main):** a S6 precisa de uma fix1 (texto de I-1 e I-5, e sondas que matem MHEX, MRAD e MELL), com ordem de um CTO novo, na retomada. R2D-SHAPES continua 🔍. **Pausa pedida pelo líder ("commit e pause 27/10/2026 07:45AM"):** nenhum agente está vivo; o main não despacha nada novo, registra, commita, empurra e para. Na retomada, a fila é: (1) a revisão N1 da fix6 da suíte (ordem 3e70fb6d, seção 9; CI 40485486903 verde); (2) um CTO escreve a S6-fix1; (3) depois, a série da W8 (CITATION-COMMON-WORD antes da T7, R2b, H3a, T6-B, T7, H3b, H5, G3, G4). Ficam para a ratificação do líder as portas de mão única D-W8-1090, 1092 e 1093 (texto das curvas) e as decisões D-W8-1110 a 1117 e 1120 a 1129 (régua de mutantes, remoção do `prctl`, conferência dos ids, MRX1).
+- **27/10 08:33: o líder mandou retomar** ("Pode continuar"). O main apagou a parada do líder. O modo autônomo segue válido até 27/10 22:25. **D-W8-991 (main):** pela fila da D-W8-990, dois agentes sem concorrência na árvore viva: (1) o revisor N1 da fix6 da suíte (23b2f923), pela seção 9 da ordem 3e70fb6d; (2) um CTO novo escreve a S6-fix1 (faixa D-W8-1130 a 1139), com os 5 IMPORTANTES de `.trabalho/cto-w8/rev-s6.txt`.
+- **27/10 08:51: a revisão N1 da fix6 da suíte (23b2f923) saiu LIMPA** (`.trabalho/cto-w8/rev-suite-fix6.txt`): 0 CRÍTICO, 0 IMPORTANTE, 7 COSMÉTICOS (C-A a C-G). O pré-registro da D-W8-1123 foi cumprido: `rev-suite-fix6/esperado_rev.txt` (md5 e0ec472a) foi gravado às 08:43:09, antes do primeiro mutante (08:48:08, conferido pelo main), e os 5 mutantes deram o pré-registrado, sem reclassificação. O `prctl` e o include sumiram sem resto; o X2 reprova como root; a sonda em contêiner confirma o comentário novo. O CI 40485486903 passou o `wire_relay_selftest` em 12 jobs Linux. **Achado C-B, para a ratificação do líder:** a premissa que a D-W8-1122 usou para recusar a sonda `setuid(0)` é falsa (depois da troca, `CapPrm`/`CapEff` ficam 0 e `setuid(0)` dá EPERM). C-D (o preci grava tempos em `/var/tmp`) já está na INBOX como PRECI-TIMES-OUTSIDE-WORKDIR.
+- **D-W8-992 (main):** SUITE-TMPDIR-PATHS vai para ✅, fechando a linha aberta desde a fix1. O C-B entra na lista do que pede o olho do líder, junto da D-W8-1122. O próximo da fila, enquanto o CTO da S6-fix1 trabalha: um CTO novo escreve a ordem da CITATION-COMMON-WORD, que tem de entrar antes da T7.
+- **27/10 10:0x: a ordem da CITATION-COMMON-WORD foi entregue e congelada** (`.trabalho/cto-w8/ordem-citation-common-word.md`, md5 e3f70c77; anexos.md5 31ce763e, 150 linhas; o main conferiu `md5sum -c` com rc 0). Critério (D-W8-1140): o nome do teste só conta como citação se vier DEPOIS da frase-gatilho, na mesma frase, e um nome só de minúsculas só conta entre crases (a regra de link automático do Doxygen); a frase-gatilho aceita até quatro palavras entre "proved"/"proven" e "by" (D-W8-1141). 8 arquivos num commit: `citation_grammar.py` e `check_claim_citations.py` inteiros; 4 cabeçalhos, `docs/api-conventions.md:7` e o Status da linha nova por trecho. Na pré-execução, as 14 rodadas deram o esperado; o vermelho veio antes, e os 8 mutantes morrem cada um pelo controle que o motiva; a varredura foi de 61 citações em 70 alegações para 60 em 69, sem citação legítima perdida (sai a alegação sem teste de `core/time.hpp`); com "shapes" de volta numa cópia, o código velho reproduz a exceção morta da S6 e o novo não. Preci 387/197. D-W8-1140 a 1149, a ratificar; pedem o olho do líder a regra pública nova em `docs/api-conventions.md:7`, a frase de `core/time.hpp` que perde "already proven correct" e a frase-gatilho alargada.
+- **D-W8-993 (main):** a linha CITATION-COMMON-WORD entra na tabela em W8, depois de CURVE-FLOAT-NARROW, com o texto exato do CTO (`ordens-anexos/citation-common-word/evidencia/linha_todo_proposta.txt`), e o bullet sai da INBOX. O implementador é despachado agora, sozinho na árvore viva (o CTO da S6-fix1 trabalha em clones). O trabalho descoberto da D-W8-1148 fica no relatório do CTO até a triagem.
+- **27/10 10:3x: CITATION-COMMON-WORD commitada (dd1cd9a6)**. O main reconferiu: 8 arquivos, 305+/66-, igual ao aceite; os dois Co-Authored-By e o Claude-Session; nenhuma seção [user] local; árvore limpa; a linha da tabela foi para 🔍 no mesmo commit. Pelo relatório (`.trabalho/cto-w8/citation/relatorio.txt`): o vermelho reproduz a exceção morta da S6 com o código velho; o verde deu 14/14; os 8 mutantes deram o pré-registrado; a varredura foi de 70 blocos/61 citados para 69/60, sem citação legítima morta; preci 387/0 e sanitizer 197/0 no hospedeiro, com o downgrade declarado. **D-W8-994 (main):** empurrar, disparar o CI e despachar o revisor N1 pela seção 9 da ordem e3f70c77. O achado do implementador sobre o gancho de travessão que conta zero em `docs/` entra na INBOX como NO-MDASH-PUBLIC-DOC-ZERO.
+- **27/10 11:1x: registro, pelo main, das decisões D-W8-1140 a 1149 da CITATION-COMMON-WORD** (achado de processo da revisão `rev-citation.txt`). Cada item é o texto da seção 2 da ordem, sem mudança (md5 e3f70c77).
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1140, o critério: escopo de frase MAIS forma de identificador (a opção mais completa, L-34).** Pergunta que teria ido ao líder: "quando um comentário diz 'see X' ou 'Proved by: X', o que conta como o X?". **Opções:** (a) só o escopo de frase, a proposta da INBOX: o nome tem de vir depois da frase-gatilho, antes do fim da frase dela; (b) só a forma do nome: um nome feito só de minúsculas pede crase, em qualquer lugar do bloco; (c) **as duas juntas**; (d) envelope obrigatório para TODO nome citado (crase sempre, como o rustdoc e o Sphinx); (e) lista de palavras proibidas (tirar `shapes`, `textures` do inventário de citação). **Escolhida: (c).** Por quê, medido: (a) sozinha deixa passar a palavra comum DENTRO da frase da citação (o caso real `renderer_2d.hpp:711`, "Proved by: ... (the outline of each unit; the shapes ..."; hoje inofensivo porque há nomes reais na mesma frase, mas um bloco da T7 com "Proved by: the textures it loads" passaria sem teste nenhum); (b) sozinha deixa passar o nome `snake_case` longe da frase-gatilho, a família que fez 4 blocos da árvore passarem por coincidência (D-W8-1142); (d) obrigaria a reescrever as 61 citações, quase todas certas e sem crase ("Proved by: draw2d_parity_test"), sem defeito medido; (e) é a lista curada que o próprio inventário recusa ("um portao que mantem a propria lista curada so' muda o defeito de lugar", `test_name_inventory.py:11-13`) e quebra no próximo nome. **Fontes (pesquisa completa em `$A/pesquisa/pesquisa.md`, 12 queixas, 10 de fora):** a regra 3 é a do Doxygen para link automático, "contain at least one non-lower case character", e "To link to an all lower case symbol, use \ref" (https://www.doxygen.nl/manual/autolink.html), a resposta às queixas Q1 a Q5 (a palavra "null", "allocator", "Displays" virando link); a regra 2 é a do `\see` do Doxygen ("Starts a paragraph where one or more cross-references ... may be specified") e do `@see reference label` do Javadoc (a referência vem depois da marca), e a resposta às queixas Q9 a Q11 (Phabricator e GitLab fechando tarefa por uma menção na prosa, "A mere mention of a task shouldn't be sufficient to close it"); o rustdoc e o Sphinx (só envelope explícito vira referência) e o sphinx-needs (elo só por opção `:links:`, ID com forma obrigatória) mostram que nenhuma ferramenta lida varre a prosa atrás de qualquer palavra do inventário. **O fim de frase** é regra do CTO (nenhuma fonte lida o define), medida contra as 70 alegações da árvore: ".", "!" ou "?", fechamentos opcionais, e o começo da frase seguinte (maiúscula, crase, "(" ou aspas, com ou sem espaço, porque a junção sem separador cola as linhas), ou o fim do texto. **Não é porta de mão única:** código só de teste e prosa de comentário; nada público muda de comportamento.
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1141, a frase-gatilho alargada: "proved"/"proven", até quatro palavras, "by".** Medido: com o escopo de frase, as formas coladas de hoje (`proved by`, `proven by`) deixam sem citação 4 blocos que citam certo com um advérbio no meio: `err.hpp:206` ("proven, not promised, by"), `err.hpp:391` ("Proved live by"), `vec2.hpp:6` ("proved, not asserted, by"), `loop_bind.hpp:54` ("proved live by"). **Opções:** (a) alargar a frase-gatilho, fechada e enumerável (até quatro palavras de letras e hífen, separadas por espaço ou vírgula); (b) reescrever os 4 cabeçalhos para a forma colada. **Escolha (a):** é como quem escreve os cabeçalhos deste projeto fala (quatro autores, quatro arquivos), e a regra continua fechada (L-40): cinco palavras ou mais não são mais a locução (controle `GATILHO-LONGE`, mutante `MLIM`). A regra pública passa a dizer isso (`docs/api-conventions.md:7`).
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1142, os quatro cabeçalhos que passavam por coincidência, e os gêmeos do texto (L-17 global, "isolado ou padrão?").** Varrida a superfície inteira (as 70 alegações, `$A/evidencia/varredura_antes_depois.txt`), o critério novo derruba 4 blocos que a gramática velha aceitava por um "see" de OUTRA frase. Cada um conferido no código do teste citado: **`interpolate.hpp:6`** ("MEASURED LIVE ...", a armadilha da interpolação ingênua): a prova existe, `interpolation_returns_the_exact_endpoint_at_one_where_the_naive_form_does_not` (`tests/math2d_test.cpp:499-531`, que calcula a forma ingênua ao lado da da biblioteca para 1e17, -1e17, 1e16 e 1e8 e exige que a ingênua erre ao menos uma vez), citada hoje só no bloco de baixo; passa a ser citada na frase da medida. **`log/value.hpp:68`**: a prosa já nomeava a prova ("`log_value_default_construction_defines_every_union_byte` proves this", `tests/log_field_test.cpp:162-174`, que enche os bytes de 0xAB e confere cada um da união), numa forma que a gramática não lê; passa a "proved by". **`loop_context_mark.hpp:69`** ("size identical"): a prosa citava "tests/loop_context_mark_test.cpp's own static_assert" (`tests/loop_context_mark_test.cpp:76-82`, o `static_assert(sizeof(marked_app) == sizeof(unmarked_app))` com `NDEBUG`); passa a "proved by the static_assert of loop_context_mark_test". **`time.hpp:8`** ("the pattern already proven correct"): NENHUM teste prova isso (é a razão de desenho para uma função com nome em vez de operador); a palavra sai, "the pattern already in use everywhere" (a frase anterior do mesmo item já diz que toda função pública do projeto tem nome), e o bloco deixa de alegar medida. É o remédio que o cabeçalho de `tests/claim_exceptions.txt` prescreve ("citar teste real ou reescrever sem a promessa"); uma exceção seria declarar que falta prova a um "já provado" que nunca foi, e a L-44 global proíbe apresentar justificativa não medida como fato. **Os gêmeos do texto**, que virariam mentira com o código novo: o cabeçalho de `citation_grammar.py` (o limite "aceito" e as três regras), `check_claim_citations.py:27-31` e `:54-59`, e `docs/api-conventions.md:7` (a regra pública: o que conta, a frase-gatilho alargada, a crase do nome só de minúsculas, e o que o portão reprova). Os planos e auditorias antigos de `docs/` (`plano-w7c.md` e outros) são registro histórico e ficam.
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1143, os arquivos, a partida, o cruzamento e a guarda:** 8 arquivos (listas em `$A/scripts/listas.sh`). **Partida pelo conteúdo, sem pinar SHA futuro:** a `prova_anteriores.sh` acha a S6 como o ÚNICO commit de `74a1bcb5..HEAD` com o título dela (primeira linha de `$X/s6/blocos/msg.txt`) e confere nele o md5 de `tests/fixtures/shapes_probes.txt` contra o `.blk` da S6 (`efd25e1a`): é a S6 que pôs `shapes` no inventário e "layouts" em `value.hpp`, e as duas coisas são a matéria do vermelho; o `espere.sh` confere ainda que nenhum commit por cima mudou os dois arquivos próprios (md5 em `base-esperada.txt`), que a linha da tabela existe com `⏳ Pendente` e que a linha "layouts" está em `value.hpp`. **Cruzamento (`cruza_listas.sh`):** com a S6 (`s6=16`) e com a S6-fix1 (`s6_fix1=9`, D-W8-1130 a D-W8-1139): `em_comum=0`; `comum_por_desenho=1`, o `TODO.md`, só com a S6 (a S6-fix1 não o toca); e, como o espaço é pequeno e fechado (L-17 global), ENUMERA todo `listas.sh` de `$X/*/scripts/`: nenhuma outra cita os dois arquivos próprios (`fora_desta=0`). Visto vermelho (L-36 global): Anexo P. **Ordem de entrada:** qualquer uma, com a S6-fix1 e com qualquer outra fatia: a `guarda_head.sh` barra só commits por cima que mudem os dois arquivos próprios, e o `commit_bloco.sh` (o da fix6, genérico) confere que cada compartilhado recebe na árvore real EXATAMENTE as linhas testadas no snapshot, então outra fatia que mude outras linhas desses arquivos não atrapalha. **Uma fatia que mexer na MESMA frase de um dos 4 cabeçalhos antes desta** faz a âncora não casar, e o `commit_bloco.sh` sai 3 sem escrever: PARE e relate.
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1144, o `TODO.md` e a mensagem:** `CITATION-COMMON-WORD` vai de `⏳ Pendente` a `🔍 Pendente verificação` no commit (L-63 global: ID citado e Status tocado no mesmo commit; `✅` só depois da revisão LIMPA). A mensagem (`$A/blocos/msg.txt`), tipo `fix`, segue a L-21: título sem código interno, português comum, `---`, inglês simples, `Referências:`, os dois `Co-Authored-By` e o `Claude-Session`.
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1145, a régua da prova, escrita ANTES do dado (L-43; `$A/scripts/esperado-C.txt`):** TDD (L-20 do projeto, L-35 global): os controles novos foram vistos vermelhos contra o código de antes (rodada `vermelho`: os controles NOVOS rodando sobre a implementação VELHA, montada por `monta_vermelho.py`), e cada mutante do código novo tem o controle que o mata escrito antes. **O histórico do pré-registro, declarado:** a primeira gravação (09:15:44) previu `MGAT` com 4 sem citação e deu 3: o fim de frase da primeira versão não fechava uma frase aberta por crase ("... above. `noexcept`: proven ..."), e o escopo de um "see" invadia a frase seguinte. O critério foi consertado ANTES da fase seguinte (crase, "(" e aspas abrem frase; controle `FRASE-COM-CRASE`, mutante `MCRASEFIM`) e o pré-registro foi gravado de novo (09:19:01) para o código novo; nessa segunda rodada o `MESC` morreu por DOIS controles (`OUTRA-FRASE` e `FRASE-COM-CRASE`) e não por um, erro de previsão do CTO no sentido forte, corrigido no arquivo com a nota da correção (os dois pré-registros e os dois `confere` estão em `$A/evidencia/rodadas-1/` e `rodadas-2/`). A terceira versão (sem a função `has_citation_trigger_phrase`, que ficou sem chamador) deu 14 de 14 (`rodadas-3-intermediaria/`), e a final (o comentário de `_names_pattern` corrigido: com a fronteira `\b` dos dois lados a ordem das alternativas não muda o resultado, e o comentário dizia que mudava) deu 14 de 14 (`rodadas-final/`).
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1146, o que NÃO se prova aqui, declarado (L-09 regra 6, L-43):** o Windows e as outras distros (os dois scripts são Python puro, rodam no `ctest` de todos os alvos; a prova é o CI do push); a T7 (o nome `textures` ainda não existe no inventário; o controle `PALAVRA-COMUM` cobre qualquer nome só de minúsculas); o fim de frase em prosa que a árvore ainda não tem (é regra de texto, com os limites escritos no cabeçalho de `citation_grammar.py`: frase que começa por minúscula continua a anterior; "e.g. `x`" fecha a frase antes do `x`; parágrafo sem ponto final emenda no seguinte; a junção sem separador perde a frase-gatilho partida pelo reflow).
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1147, a revisão: o pré-registro de desfecho e severidade antes do dado** (a regra da D-W8-1123, com a régua D-W8-1110 colada verbatim na seção 9).
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1148, DISCOVERED_WORK** (em "Para o main").
+  - (CTO, `ordem-citation-common-word.md`) **D-W8-1149, o pedido de ratificação** (em "Para o main"). ### Pesquisa (L-34 do projeto: comunidade, manuais, documentação, outras ferramentas; texto completo em `$A/pesquisa/pesquisa.md`) **Queixas (12 lidas, 10 de fora):** Doxygen, palavras comuns virando link (GNOME Bugzilla 594787 e 597580, Boost Trac 5243, fórum do JUCE); RDoc (issue 1254, `Ruby` e `Set`; PR 1264, "WiKi style autolinking is a sweet trap"); Phabricator (T123864 e T8318) e GitLab (55970), a palavra-chave que age sobre uma referência que não é dela; e o próprio projeto (S6). **Manuais e documentação:** Doxygen (link automático e `\see`), Javadoc (`@see`), rustdoc (links por nome), Sphinx (papéis), sphinx-needs (`:links:`, `needs_id_regex`), GitHub (palavras de fechamento). **Não aberto, não conta:** a sintaxe das marcas do OpenFastTrace (as páginas abertas não a trazem); a lista do Pulp (não abriu).
+- **27/10 11:0x: o CI 40512993257 (cabeça b690fb9c, que contém a dd1cd9a6) saiu verde**: 25 com sucesso, 1 pulado; `claim_citations_test`, `claim_citations_selftest` e `citation_grammar_selftest` passaram em Linux e Windows.
+- **27/10 11:1x: a revisão N1 da CITATION-COMMON-WORD (dd1cd9a6) saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-citation.txt`): 0 CRÍTICO, 2 IMPORTANTES, 8 COSMÉTICOS. O pré-registro foi cumprido (`rev-citation/esperado_rev.txt`, antes dos mutantes), e as 19 rodadas deram o esperado. **IMPORTANTES, pré-registrados e confirmados por sonda:** (I-1) o mutante MRV1 mostra que uma crase de um lado só é aceita como citação, o que contradiz a regra pública de `docs/api-conventions.md:7`; (I-2) o MRV2 mostra que um nome inexistente que começa por um nome real (`wire_relay_inventado_test` vira `wire_relay`) é aceito. Nenhum controle mede essas variantes (`tests/tools/citation_grammar.py`, `_is_enveloped` e `_names_pattern`). Achados de processo: as D-W8-1142 a 1149 só estavam na ordem (registradas no item acima); o CI Fedora rodou 386 testes contra 387 do preci local, diferença a explicar.
+- **D-W8-995 (main):** abre-se a CITATION-COMMON-WORD-fix1, com ordem de um CTO novo: os dois IMPORTANTES com controles próprios, a decisão dos 8 COSMÉTICOS pela régua D-W8-1110, e a explicação medida da diferença 386 contra 387. A linha CITATION-COMMON-WORD continua 🔍.
+- **27/10 11:25: o CTO congelou a ordem da S6-fix1** (`.trabalho/cto-w8/ordem-s6-fix1.md`, md5 `81d3b0bc0ce7e15ee72596f5eb42a050`; anexos `ordens-anexos/s6-fix1/anexos.md5`, md5 `3549006561736dc0f8d3ecbf904db777`, 86 arquivos, `md5sum -c` rc 0, conferido pelo main às 11:26). Um commit, 9 arquivos; o `TODO.md` não entra e R2D-SHAPES fica 🔍. A pré-execução num clone deu o esperado gravado às 09:02:05: 15 de 15 mutantes iguais ao previsto (MHEX, MRAD e MELL agora morrem), 2 rodadas verdes com 80 sondas e 0 falhas e o PNG igual ao da S6, autotestes 7/7, MSVC 2/2. Desvio declarado pelo CTO: um `--no-verify` num clone descartável, caso refeito com os ganchos ligados (`evidencia/partida_tres_sentidos.txt`).
+  - (CTO, `ordem-s6-fix1.md`) **D-W8-1130, o exemplo de formas diz o que mostra (I-1; PEDE O OLHO DO LÍDER):** opção (B), o texto passa a dizer "formas de cor sólida" e nomeia os quatro desenhos com textura que ficam de fora; a T7 herda a obrigação de mostrar os dois de triângulos com textura. Pesquisa: 23 queixas citadas (raylib PR 1677, exemplo de geometria da SDL3, 11 queixas de texto que promete demais).
+  - (CTO) **D-W8-1131, uma sonda por triângulo do hexágono (I-2).**
+  - (CTO) **D-W8-1132, os raios presos e o contrato das sondas (I-3, achado PADRÃO pela L-17 global):** raios de K, D e dos dois de H presos a 3 px, o de L a 5 px; o cabeçalho do arquivo de sondas diz o que elas provam e o que não provam.
+  - (CTO) **D-W8-1133, o sentido do giro dito e preso (I-4; PEDE O OLHO DO LÍDER):** o exemplo passa a dizer que um ângulo positivo gira de +x para +y, horário na tela, e duas sondas o leem; é o primeiro texto do projeto que diz o sentido.
+  - (CTO) **D-W8-1134, o vermelho e o esperado pelo modelo antes do dado** (15 mutantes de cena, 5 dos condutores, MW no MSVC).
+  - (CTO) **D-W8-1135, a frase dos 30 quadros diz o que se prova** (o 30º quadro, não cada um).
+  - (CTO) **D-W8-1136, os cosméticos:** C-1, C-2, C-3 e C-5 entram; C-4 não; o número de sondas sai dos comentários.
+  - (CTO) **D-W8-1137, arquivos, partida pelo ancestral, cruzamento das listas e mensagem.**
+  - (CTO) **D-W8-1138, o `TODO.md` não entra.**
+  - (CTO) **D-W8-1139, o que não se prova aqui** (captura real do Windows só pelo CI; outras distros; sentido do giro como promessa da API; composição do KWin; vértices e centros) **e o pedido de ratificação** de D-W8-1130 a 1138.
+  - DISCOVERED_WORK para a INBOX: T7-TEXTURED-TRIANGLES, ANGLE-SENSE-DOC, SHAPES-PROBES-POSITIONS, FIRST-WINDOW-CLEAR-TEXT e EXAMPLE-STATE-SHAPE.
+- **27/10 11:5x: o CTO congelou a ordem da CITATION-COMMON-WORD-fix1** (`.trabalho/cto-w8/ordem-citation-fix1.md`, md5 `8e741152d9bec60d8796276e406e0f90`; anexos `ordens-anexos/citation-fix1/anexos.md5`, md5 `91d774ae6e022cc1e8834f5a7cf72a40`, 142 arquivos, `md5sum -c` rc 0, conferido pelo main). Um commit, 3 arquivos (`tests/tools/citation_grammar.py`, `include/glintfx/core/time.hpp`, `docs/api-conventions.md`); o `TODO.md` não entra e a linha continua 🔍; nenhum arquivo em comum com a S6-fix1. A pré-execução num clone de `b9f316c1` deu 22 de 22 rodadas iguais ao esperado gravado às 11:26:04, `preci --fast` 387/0 e `--sanitizer-only` 197/0. O CTO trocou, antes de congelar, uma primeira versão da frase de `time.hpp` que repetia a forma reprovada no C-1.
+  - (CTO, `ordem-citation-fix1.md`) **D-W8-1150, I-1 e I-2:** o código do portão não muda; ele já recusava os dois casos, faltava prova. Entram controles com espelho dos dois lados (`CRASE-DE-UM-LADO`, `NOME-DENTRO-DE-OUTRO`); os espelhos também passavam sem controle (era padrão, L-17 global). Perda declarada: o hífen como fronteira de nome; só vira trabalho se um nome de teste com hífen aparecer.
+  - (CTO) **D-W8-1151, os oito cosméticos:** C-1 a C-4 entram (C-4 com o controle `FECHAMENTO-DEPOIS-DO-PONTO`, fonte Unicode UAX #29); C-5 sem controle (o mutante é equivalente para todo nome que a L-21 permite; a condição fica escrita no código); C-6 vira DISCOVERED_WORK; C-7 é registro (`selftest_main` com 28 linhas, abaixo do teto de 40); C-8 é a errata abaixo.
+  - (CTO) **D-W8-1152, os textos públicos (PEDEM O OLHO DO LÍDER):** a regra pública de `docs/api-conventions.md:7` reescrita (nome inteiro, crase colada dos dois lados, onde a frase termina), cada promessa com controle; a frase do operador em `core/time.hpp` passa a dizer o que era verdade em 28/08/2026, com a data.
+  - (CTO) **D-W8-1153, arquivos, etapa G, partida pela CITATION-COMMON-WORD sem pinar SHA, cruzamento com a S6 e toda `s6-fix*`, guarda.**
+  - (CTO) **D-W8-1154, o `TODO.md` fora e a mensagem.**
+  - (CTO) **D-W8-1155, a régua da prova, escrita antes do dado** (22 rodadas em quatro grupos).
+  - (CTO) **D-W8-1156, o 386 contra 387 é esperado, não defeito:** o único teste a mais no local é `preci_selftest`, registrado só quando clang-format, clang-tidy e cppcheck existem (`tests/CMakeLists.txt:5477-5494`); o job `linux` do CI não os instala (log do Fedora, linha 936, "not registered"), e o mesmo autoteste roda verde no job `lint` do mesmo run.
+  - (CTO) **D-W8-1157, o que não se prova aqui:** Windows e as outras distros (pelo CI do push); o hífen.
+  - (CTO) **D-W8-1158, o C-6 (PEDE O OLHO DO LÍDER):** a gramática ganha mais três controles no mesmo arquivo; a separação em módulo próprio vai para fatia própria (CITATION-GRAMMAR-SPLIT na INBOX), porque exige mexer em `tests/CMakeLists.txt`, que está na lista da S6-fix1.
+  - (CTO) **D-W8-1159, o pedido de ratificação** de D-W8-1150 a 1158; nenhuma é porta de mão única.
+- **Errata (C-8 da revisão N1 da CITATION-COMMON-WORD, D-W8-1151), sobre a D-W8-1140 registrada acima:** a citação entre aspas "@see reference label" do Javadoc não aparece literal na página, que separa as palavras com marcação; é transcrição com a marcação tirada. A forma (a terceira forma de `@see`, a referência logo depois da marca) existe e foi conferida pelo revisor. A decisão D-W8-1140 não muda.
+- **D-W8-996 (main), 27/10 11:5x: a ordem do líder de 11:21 ("quando acabar esses dois agentes caetano-cto, commit e pause") é cumprida:** as duas ordens conferidas e registradas, a INBOX ganha CITATION-GRAMMAR-SPLIT, e este commit fecha a janela. Nenhum implementador é despachado; a fila da retomada é: implementar e revisar a S6-fix1, implementar e revisar a CITATION-COMMON-WORD-fix1, QA visual da S6, depois R2b, H3a, T6-B, T7, H3b, H5, G3 e G4.
+- **D-W8-997 (main), 30/10 16:1x: o líder religou o modo autônomo ("ligue modo autonomo", válido até 31/10 16:12) e, por pergunta, escolheu "Retomar agora".** A pausa de 27/10 foi apagada. A fila segue: implementar a S6-fix1 (ordem `ordem-s6-fix1.md`, md5 `81d3b0bc0ce7e15ee72596f5eb42a050`) com um implementador haiku novo, depois a revisão N1 dela, depois a CITATION-COMMON-WORD-fix1. A atualização da issue 8 do bus em 29/10 é da sessão do site, não do Gus: nada a responder.
+- **30/10 16:1x, ordem do líder, verbatim: "autorizo até 4 agentes em paralelo sem concorrencia".** Substitui o teto de dois agentes desta onda; continua valendo um implementador por vez na árvore viva e um trabalho pesado por vez (`heavy.lock`).
+- **30/10 16:1x: a S6-fix1 parou no passo 1, no ponto de PARADA de disco** (`.trabalho/cto-w8/s6-fix1/relatorio.txt`): `btrfs filesystem usage /` deu `min: 19.33GiB`, abaixo do piso de 20 GiB da ordem (o passo 10 exige 21,8 GiB); na pré-execução do CTO, em 27/10, eram 57,47 GiB. Nenhum commit, nenhum bloco aplicado. O main mediu: `Device unallocated: 1.00MiB`; Docker com 32,4 GB de imagens (24,9 GB recuperáveis) e 49 GB de cache de build (19 GB recuperáveis), em boa parte de outros projetos (`notalivre/*`), e uma carga pesada de outra sessão rodando na mesma hora. Pergunta ao líder; resposta verbatim: "fale com @nfse e pergunte se ele pode apagar algo". Mensagem enviada à sessão nfse às 16:2x; a S6-fix1 espera a resposta.
+- **30/10 16:24: a sessão nfse (NotaLivre), por ordem do líder a ela, apagou 85 GiB de pastas de build antigas dela; `min:` voltou a 46,73 GiB.** O executor do NotaLivre continua com builds pesados. Pergunta ao líder sobre a carga concorrente; resposta: "Rodar junto, falha refeita sozinha". A S6-fix1 foi retomada com o mesmo implementador: `loadavg` gravado antes de cada passo pesado, e qualquer rodada fora do esperado PARA sem repetir. O main decide se a falha veio da carga e, nesse caso, pede à nfse uma janela para refazer a rodada. A prova final só é aceita depois de conferida sem carga.
+- **D-W8-998 (main), 30/10 16:2x, usando o teto de 4 agentes:** um CTO novo atualiza a ordem da R2b (`ordem-r2b.md`, de 12/10, escrita antes de várias fatias e da emenda de 22/10), num clone e sem tocar a árvore viva; faixa D-W8-1160 a 1179; a R2b entra depois da S6-fix1 e da CITATION-COMMON-WORD-fix1.
+- **30/10 16:30: ordem do líder, transmitida pela sessão nfse (texto verbatim que ela citou): "Divida com GlintFx corretamente o espaço em / e deixem sempre um núcleo disponível ao OS e um pouco de RAM. Avise isso ao GlintFx. Dialoguem sempre quanto a isso para evitar oom e falta de espaço em disco".** O main aceitou a divisão proposta pela nfse, valendo até um dos dois pedir mudança por mensagem:
+  - CPU: 1 núcleo livre; NotaLivre até 7, GlintFx até 8.
+  - RAM: 4 GiB livres; NotaLivre até 12 GiB, GlintFx até 15 GiB.
+  - Disco em /: piso de 8 GiB; GlintFx até 24 GiB novos, NotaLivre até 14.
+  - Aviso mútuo na hora se `min:` ficar abaixo de 12 GiB, se houver OOM ou se o swap passar de 50%. Pedido por mensagem antes de passar da cota.
+  - Aplicação no GlintFx: `CMAKE_BUILD_PARALLEL_LEVEL=8` mandado ao implementador da S6-fix1 (desvio autorizado, não muda resultado) e ao CTO da R2b; na ordem nova, `--cpus 8 --memory 15g` nos contêineres.
+- **30/10 16:3x, ordem do líder, verbatim: "se a cota livre de disco disvutam sobre apagar tmp e builds antigos. rm autorizado".** Se a cota livre de disco apertar, o GlintFx e o NotaLivre combinam por mensagem quais temporários e builds antigos apagar, e o `rm` está autorizado para isso. Cada um apaga só o que é seu, conferindo o caminho antes (L-53 global). Candidatos do GlintFx em /: o rascunho da sessão antiga `e7d5f0b4` em `/var/tmp/builds/` (1,5 GB, de 30/09) e as imagens de teste de fatias fechadas. Em `/home`: as pastas de clone e de revisão de `.trabalho/cto-w8/`, só com nenhum agente usando.
+  - 16:33: a sessão nfse relatou que o líder confirmou direto com ela, verbatim: "confirmo, rm autorizado para tmp e builds antigos". O protocolo de disco vale por inteiro dos dois lados.
+- **30/10 16:44, ordem do líder, verbatim: "instale o mold".** Instalado por `sudo -A dnf install -y mold` (L-14 do projeto): `mold 2.40.4-4.fc44`, com `mimalloc` e `blake3` como dependências; rc 0. Nenhum build passa a usá-lo sozinho: usar o mold nas compilações locais (o preci e os clones dos agentes) sem exigir nada do consumidor nem do CI é decisão de construção, que vai à INBOX (MOLD-LOCAL-LINK) e ao CTO. As ordens congeladas em execução não mudam.
+- **30/10 16:5x, ordem do líder ("sim, ponha na fila"):** entram na INBOX BUILD-NICE-IONICE e BUILD-SPLIT-DWARF, junto da MOLD-LOCAL-LINK, para o CTO decidir nas próximas ordens. O zram fica desligado, como o líder mandou em 06/09 (`/etc/systemd/zram-generator.conf`).
+- **30/10 16:4x, ordem do líder, verbatim: "até 22:00 a prioridade de recursos da maquina sao suas e nfse".** Até as 22:00 de 30/10, a máquina é do GlintFx e do NotaLivre, na divisão combinada (8 e 7 núcleos, 15 e 12 GiB, 24 e 14 GiB novos em /). A partir das 22:00 o líder volta a usar a máquina: a carga do GlintFx tem de ceder a ele, e o main avisa a nfse.
+  - 16:48: a nfse aceitou. Depois das 21:45, nenhum dos dois inicia build novo sem perguntar ao líder; o que estiver rodando termina e para.
+  - 16:5x, ordem do líder, verbatim: "não é para parar 22:00". O acordo das 21:45 com a nfse fica cancelado: depois das 22:00 os dois projetos seguem trabalhando, na mesma divisão da máquina.
+- **30/10 17:42: o CTO congelou a ordem R2b v2** (`.trabalho/cto-w8/ordem-r2b-v2.md`, md5 `30f1b8964958482b2c576b1454f9ad1d`; anexos `ordens-anexos/r2b-v2/anexos.md5`, md5 `12c10f0098979cc1d61aa222df236aad`, 121 arquivos, `md5sum -c` rc 0, conferido pelo main). Um commit, etapa R, 14 arquivos (6 novos), 22 blocos; entra depois da S6-fix1 e da CITATION-COMMON-WORD-fix1, com a colisão com a S6-fix1 em `tests/CMakeLists.txt` mostrada pelo cruzamento (outras linhas). Pré-execução válida na terceira passada: 13 de 13 rodadas iguais ao esperado gravado às 16:45:23; 9 mutantes mortos; MSVC 5/5; `preci --fast` 388/0 e `--sanitizer-only` 198/0. Os quatro SIGSEGV do vigia (16:56, 16:57, 17:06, 17:17) eram da pré-execução: três do mutante M1, pré-registrado como segfault, e um defeito do teste da árvore velha do CTO, corrigido; nenhum em rodada verde. Decisões D-W8-1160 a 1173; pedem o olho do líder a D-W8-1161 (o texto público da cerca muda), a D-W8-1166 (o item vai a 🔍 com a descrição desatualizada) e a D-W8-1173 (porta de mão única: `image_resolver.hpp` e `set_image_resolver` entram no tronco; o contrato já tinha sido aceito pela r8).
+- **D-W8-999 (main):** a pesquisa da R2b v2 tinha 7 queixas válidas de 10, e seis bibliotecas não tinham sido abertas (o próprio CTO declarou). Pela L-34, o mesmo CTO completa a pesquisa até 10 queixas válidas e abre pelo menos três dessas bibliotecas antes do despacho. Se a pesquisa mudar uma decisão, ele para e relata antes de reescrever a ordem.
+  - 17:49: o CTO completou a pesquisa da R2b v2. São 11 queixas válidas, cada uma aberta com o trecho, e Skia, NanoVG, SDL3 e sokol também foram abertas (Cairo e bgfx não, declarado). Nenhuma decisão muda e a ordem continua com md5 `30f1b896`. O `anexos.md5` novo tem md5 `3d9214bf3b61229236a25ea739d265b7` (121 arquivos, rc 0, conferido pelo main). A R2b v2 está pronta para despacho depois da S6-fix1 e da CITATION-COMMON-WORD-fix1.
+- **D-W8-1000 (main), 30/10 17:5x:** um CTO novo escreve a ordem da H3a ("grupo de sombra, lado puro", linha R2D-SPRITE-SHADE), num clone, sem tocar a árvore viva; faixa D-W8-1180 a 1199; entra depois da S6-fix1, da CITATION-COMMON-WORD-fix1 e da R2b v2. Com o implementador da S6-fix1, são dois agentes vivos, dentro do teto de quatro.
+- **30/10 19:5x: a S6-fix1 foi commitada pelo implementador** (`09791f6c`, 9 arquivos, +85/−39, os três trailers; conferido pelo main: `git show --stat`, sem `[user]` local, árvore limpa), empurrada (ls-remote igual) e posta no CI 41140372726. A pré-execução reproduziu tudo: 15 de 15 rodadas vermelhas iguais ao esperado, 2 de 2 verdes com 80 sondas e 0 falhas e o PNG igual ao da S6, MSVC verde e MW vermelho, `preci --fast` 387/0, `--sanitizer-only` 197/0. O implementador parou no passo 14 (o marco "No coredumps found."), por um SIGSEGV de `renderer_2d_impl_test` às 18:38:01, num contêiner. A S6-fix1 não toca esse teste, e o horário cai na pré-execução do CTO da H3a, a quem o main perguntou. O main atribui o coredump a esse CTO até a resposta (INFERÊNCIA, a conferir). Desvios autorizados pelo main e registrados: a retomada com o `min:` novo e `CMAKE_BUILD_PARALLEL_LEVEL=8`. R2D-SHAPES continua 🔍.
+- **D-W8-1001 (main):** revisão N1 da S6-fix1 por um `qa-engineer` haiku novo, pela seção 9 da ordem, com a régua D-W8-1110 e o pré-registro D-W8-1123. Em seguida, o implementador da CITATION-COMMON-WORD-fix1 entra na árvore viva (o único implementador nela). O push dele espera o CI 41140372726 terminar.
+- **30/10 20:02: o CTO congelou a ordem da H3a** ("grupo de sombra, lado puro"; `.trabalho/cto-w8/ordem-h3a.md`, md5 `7bd4cbfce85c731485ff1467bb931e8e`; anexos `ordens-anexos/h3a/anexos.md5`, md5 `fa2888e61196e270a060af2ebfcdebdf`, 178 arquivos, `md5sum -c` rc 0, conferido pelo main). Etapa H, 1 commit, 14 arquivos (3 novos), 40 blocos, nada em `include/`, sem porta de mão única. Entra depois da S6-fix1, da CITATION-COMMON-WORD-fix1 e da R2b v2. Pré-execução válida na terceira passada: 15 de 15 iguais ao esperado gravado às 18:21:22, com 11 mutantes mortos; fixtures de paridade 2 de 2 iguais; MSVC 8/8; `preci --fast` 389/0, numa reprise declarada depois de uma falha passageira de `win32_test_link_selftest` que passou sozinha (INFERÊNCIA do CTO: falha de `docker run`); `--sanitizer-only` 199/0. Pesquisa: 13 queixas válidas. Decisões D-W8-1180 a 1199; pedem ratificação D-W8-1181 (o nome `shadow_group`), D-W8-1184 (cada descarga devolve o stencil aos valores padrão do GL; a frase pública fica para a H3b) e D-W8-1185 (`renderer_2d_impl.cpp` sai da H3a, e o teste dele ganha três funções falsas de stencil).
+  - **O SIGSEGV de `renderer_2d_impl_test` às 18:38:01 era da pré-execução da H3a e era esperado:** o mutante M11, pré-registrado como segfault às 18:21:22 (`ordens-anexos/h3a/evidencia/rodadas/M11.ctest.out`). Isso fecha a parada do passo 14 da S6-fix1: o coredump não é dela.
+  - **D-W8-1002 (main), sobre a D-W8-1191 do CTO:** aceito. O contêiner A, que só prova o isolamento, roda sem a cota de CPU e de memória, igual ao do CI, porque o `check_isolation.sh` reprova qualquer opção fora do `HostConfig` do CI. Ele é curto e leve, e é apagado em seguida. As fixtures rodam no contêiner B, com a cota, depois de provado que B só difere de A nos três campos da cota. É a mesma receita da memória "Isolamento exige a configuração exata do CI". A divisão da máquina com o NotaLivre continua respeitada no trabalho pesado.
+  - DISCOVERED_WORK do CTO: a H2 sem registro de fechamento; a frase pública dos padrões do stencil para a H3b (`renderer_2d.hpp:241`); a lista de arquivos da H3b cresce; o custo do `discard` em GPU de ladrilhos (NanoVG 214); os bits de stencil reais do alvo e o comportamento com 0 bits, decisão da H3b com o líder.
+- **30/10 20:1x: a CITATION-COMMON-WORD-fix1 foi commitada pelo implementador** (`41b58510`, 3 arquivos, +96/−12, os três trailers; conferido pelo main). Nenhuma parada disparou: 22 de 22 rodadas iguais ao esperado; `preci --fast` 387/0; `--sanitizer-only` 197/0. Desvio declarado: o HEAD andou por um commit de documentação do main entre o snapshot e o commit, e a guarda aceitou (nenhum dos 3 arquivos próprios). Achado de limpeza: o `preci` gravou `/var/tmp/glintfx-preci-tempos/...` fora do `TMPDIR`; já está na INBOX (PRECI-TIMES-OUTSIDE-WORKDIR). O push espera o CI 41140372726 terminar.
+- **D-W8-1003 (main), usando o teto de 4 agentes sem concorrência na árvore viva:**
+  - o implementador da R2b v2 entra na árvore viva (o único implementador nela);
+  - a revisão N1 da CITATION-COMMON-WORD-fix1 sai para um `qa-engineer` haiku novo, que lê o blob commitado e muta cópias fora da árvore;
+  - a revisão N1 da S6-fix1 e o CTO da T6-B seguem nas cópias deles.
+- **30/10 20:23: o CI 41140372726 (cabeça `09791f6c`, a S6-fix1) saiu verde:** 25 trabalhos com sucesso e 1 pulado, inclusive as capturas reais do Windows. Em seguida o main empurrou até `89ce1c05` (a CITATION-COMMON-WORD-fix1 e os registros) e disparou o CI 41144184715. O próximo push espera esse CI terminar.
+- **30/10 20:3x: a revisão N1 da CITATION-COMMON-WORD-fix1 (`41b58510`) saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-citation-fix1.txt`; pré-registro `rev-citation-fix1/esperado_rev.txt`, 20:27:56, antes do dado): 0 CRÍTICO, 4 IMPORTANTES, 5 COSMÉTICOS. **IMPORTANTES I-A a I-D:** a regra pública de `docs/api-conventions.md:7`, reescrita na fix1, promete que "!" e "?" terminam frase, que "]" e aspas fecham e que "(" e aspas abrem a frase seguinte, e nenhum controle prova isso. Os mutantes MREV-PONTO, MREV-FECHA, MREV-PARABERT e MREV-ASPAS sobrevivem aos 21 controles. Conferido pelo revisor: os 22 de 22 da pré-execução, os 5 mutantes dele iguais ao pré-registro e a explicação 386 contra 387 da D-W8-1156. Desvio dele: apagou 5 rascunhos próprios em `.trabalho/tmp`. A linha CITATION-COMMON-WORD continua 🔍.
+- **D-W8-1004 (main):** abre-se a CITATION-COMMON-WORD-fix2, com ordem de um CTO novo (faixa D-W8-1220 a 1239). Os 4 IMPORTANTES e os 5 COSMÉTICOS são decididos pela régua D-W8-1110. A regra pública ou ganha controles, ou é estreitada ao que já é provado.
+- **30/10 20:45: a cota de 8 núcleos foi furada pelo estágio de lint do `preci` da R2b:** o `run-clang-tidy` sem `-j` abriu 16 processos, ao lado de 7 compiladores do NotaLivre (carga de 21,7 em 16 núcleos). É um estágio curto, e a ordem congelada não muda. O item PRECI-LINT-JOBS entra na INBOX depois que a R2b commitar, porque ela mexe no `TODO.md` e o main não muda esse arquivo enquanto a fatia está em execução. Texto do item: o `preci` deve respeitar `CMAKE_BUILD_PARALLEL_LEVEL` (ou `nproc - 3`, como o ctest já faz) também no clang-tidy e no cppcheck. A sessão nfse foi avisada e aceitou o pico curto.
+- **30/10 20:5x: o CI 41144184715 (cabeça `89ce1c05`, com a CITATION-COMMON-WORD-fix1) saiu verde: 25 trabalhos com sucesso e 1 pulado.** A revisão N1 dessa fix saiu NÃO LIMPA, e a fix2 está sendo escrita, então a linha continua 🔍. Os registros de documentação foram empurrados.
+- **30/10 20:5x: a R2b v2 foi commitada pelo implementador** (`993ad6ac`, 14 arquivos, +413/−12, os três trailers, sem `[user]` local; a linha R2D-IMAGE-RESOLVER foi de ⏳ para 🔍, e nada mais no `TODO.md`). O vermelho reprovou 6 casos por asserção; o verde passou em green, werror e static, 3 de 3; os 9 mutantes morreram como pré-registrado (M1 por SIGSEGV, esperado); MSVC 5/5; `preci --fast` 388/0; `--sanitizer-only` 198/0. Desvios declarados por ele: um `rm -rf` com alvo inexistente, uma redireção para um diretório que falhou e dois temporários próprios apagados.
+  - **Desvio do main, declarado:** empurrei `993ad6ac` às 20:5x junto com os registros, antes de o relatório do implementador chegar. O commit é o último passo da ordem e só sai depois dos portões; o relatório chegou logo depois e confirma tudo. A regra fica: o main empurra commit de produto só depois de ler o relatório e conferir o `git show --stat`.
+  - CI 41147749287 disparado na cabeça `993ad6ac`.
+  - PRECI-LINT-JOBS entrou na INBOX agora que a R2b commitou.
+- **D-W8-1005 (main):** revisão N1 da R2b v2 por um `qa-engineer` haiku novo, pela seção 9 da ordem. O implementador da H3a entra na árvore viva quando abrir uma vaga no teto de 4 agentes.
+- **30/10 21:3x: o CI 41147749287 (cabeça `993ad6ac`, a R2b v2) saiu VERMELHO em 2 de 26 trabalhos**, os do segundo compilador (Clang, Fedora, compartilhado e estático): `tests/image_resolution_test.cpp:74:24: error: function 'resolver_that_may_throw' is not needed and will not be emitted [-Werror,-Wunneeded-internal-declaration]`. A função existe só para o `static_assert` da linha 79 (`decltype`). GCC, MSVC e os outros 22 trabalhos passaram. A pré-execução e o `preci` local não compilam com Clang (INBOX: PRECI-CLANG-BUILD). O FATO foi passado ao revisor N1 da R2b, que está rodando, para entrar no veredito. A correção sai numa R2b-fix1, com ordem de um CTO, depois do veredito. CI vermelho bloqueia o fechamento da onda (L-15 global).
+- **30/10 22:3x: a revisão N1 da R2b v2 (`993ad6ac`) saiu NÃO LIMPA** (`.trabalho/cto-w8/rev-r2b-v2.txt`; pré-registro `rev-r2b-v2/esperado_rev.txt`, 21:08:31, md5 `099fe991`, antes das rodadas das 21:28):
+  - **CRÍTICO C1:** o CI vermelho no Clang (`tests/image_resolution_test.cpp:74`, `-Wunneeded-internal-declaration`), reproduzido localmente com clang 22.1.8. É erro de forma isolado: o gêmeo `loop_callbacks_type_test.cpp` usa `[[maybe_unused]]` em 9 dos 10 nomes. O espelho local não pega, porque o `preci.sh` não tem estágio com clang++.
+  - **IMPORTANTES:** I4, o mutante X2 (membro do desenhador vira `static` compartilhado) sobrevive, sem caso com dois desenhadores; I1, `image_resolver.hpp:22` diz "asked at every paint", falso hoje, sob o "Proved by"; I2, falta dizer que noexcept é promessa (terminate); I3, `image_resolver.hpp:53-55` diz "later versions add fields", um compromisso de ABI, **a ratificar pelo líder**.
+  - Conferido pelo revisor: 18 de 18 rodadas iguais ao pré-registro, os portões de direção, a fronteira e as citações passam, e os 14 blobs batem byte a byte.
+  - A linha R2D-IMAGE-RESOLVER continua 🔍.
+- **D-W8-1006 (main):** abre-se a R2b-fix1, com ordem de um CTO novo (faixa D-W8-1240 a 1259). Ela entra ANTES da H3a, porque o CI vermelho bloqueia a onda. A pré-execução passa a compilar também com Clang. A H3a só entra depois que a fix1 deixar o CI verde.
+- **30/10 23:01: o CTO congelou a ordem da CITATION-COMMON-WORD-fix2** (`.trabalho/cto-w8/ordem-citation-fix2.md`, md5 `9599cfbeb933f184ea30ac18476487f4`; anexos `ordens-anexos/citation-fix2/anexos.md5`, md5 `ccc45012ced5477dbe8cc501c0860be6`, 217 arquivos, `md5sum -c` rc 0, conferido pelo main). Etapa C, 1 commit, 3 arquivos (`citation_grammar.py`, a linha 7 de `docs/api-conventions.md` e 7 linhas de `core/time.hpp`); o `TODO.md` fica de fora.
+  - **Pré-execução** em duas bases (`e15a289b` e `6ddffc56`): 45 de 45 rodadas iguais ao esperado gravado às 21:00:46; 4,1 milhões de comparações na enumeração; `preci --fast` 387/0 e `--sanitizer-only` 197/0, sob `taskset -c 0-7`; Clang `-Werror` verde nos dois modos, depois de visto vermelho sobre a R2b v2.
+  - Decisões D-W8-1220 a 1232. I-A a I-D pela opção (c): quatro controles novos, e a regra pública lista os sinais exatos. Achado novo do CTO: a regra prometia que `"` fecha a frase, mas o código a lê como abertura; o `"` sai da classe de fechamentos, sem efeito medido (E1). C-1 e C-2 entram; C-3 vira SELFTEST-CONTROL-LIST na INBOX; C-4 a C-6 ficam só como registro.
+  - Sem porta de mão única. Pedem o olho do líder: o caractere tirado do portão, a linha 7 reescrita e a frase de `time.hpp`.
+- **D-W8-1007 (main):** a CITATION-COMMON-WORD-fix2 entra DEPOIS da R2b-fix1, como o CTO sugeriu: com o tronco vermelho no Clang, o passo 6b dela pararia por um defeito que não é dela. A ordem de entrada fica R2b-fix1, CITATION-COMMON-WORD-fix2, H3a e T6-B.
+- **D-W8-1008 (main), 30/10 23:47:** o furo PRECI-LINT-JOBS voltou a aparecer, agora no `preci` do CTO da R2b-fix1: carga de 24,5, com 41 processos de compilação e análise do GlintFx contra 4 do NotaLivre. Ele se repete em todo `preci` de pré-execução, de implementação e de revisão. Por isso a PRECI-LINT-JOBS sobe na fila: ela entra logo depois da R2b-fix1, como fatia própria e pequena, com ordem de um CTO, antes da CITATION-COMMON-WORD-fix2. O pico curto foi aceito pela nfse às 20:45.
+- **31/10 00:05: o CTO congelou a ordem da R2b-fix1** (`.trabalho/cto-w8/ordem-r2b-fix1.md`, md5 `ed3068db8683f152b22fb47d15453fa2`; anexos `ordens-anexos/r2b-fix1/anexos.md5`, md5 `24bd5176e6efe1f6c37b591e62865954`, 92 arquivos, `md5sum -c` rc 0, conferido pelo main).
+  - **Escopo:** etapa RF, 1 commit, 5 arquivos (`image_resolver.hpp` e `image_resolution_test.cpp` inteiros; trechos de `renderer_2d.hpp`, `renderer_2d_impl_test.cpp` e do parecer).
+  - **Pré-execução:** o Clang na árvore inteira reprova o tronco só em `image_resolution_test.cpp:74`, igual ao CI, e passa na árvore nova; 8 de 8 rodadas iguais ao pré-registro (22:52:03), inclusive o X2, que agora morre; MSVC 2/2; `preci --fast` 388/0 e `--sanitizer-only` 198/0.
+  - **Decisões D-W8-1240 a 1259:**
+    - C1 corrigido com `[[maybe_unused]]`, como no gêmeo;
+    - I4 ganha um caso com dois desenhadores;
+    - I1 separa no cabeçalho o que vale hoje do que vale no futuro;
+    - I2 diz que noexcept é promessa;
+    - I3 tira a frase "later versions add fields at its end";
+    - o estágio Clang do `preci` fica para fatia própria, e a ordem dita os passos Clang ao implementador e ao revisor.
+  - **Porta de mão única a ratificar pelo líder, D-W8-1247 (I3):** como a struct de pedido evolui. A recomendada é a (b): congelar o layout e trazer dado novo por tipo novo, como faz o Vulkan. As outras são (c') marcador de tamanho e (a) crescer no fim. A ordem aplica a (b), em modo autônomo.
+  - A H3a não precisa de errata (D-W8-1255): as duas fatias comutam, e a rodada verde dela sobre a fix1 deu 5 de 5.
+- **D-W8-1009 (main):** o implementador da R2b-fix1 entra na árvore viva agora, como o único implementador nela. Em paralelo, num clone, um CTO novo escreve uma fatia de `tools/preci.sh` que junta PRECI-LINT-JOBS (cota de núcleos no clang-tidy e no cppcheck) e PRECI-CLANG-BUILD (estágio Clang), porque as duas mexem no mesmo arquivo. Ela entra depois da R2b-fix1.
+- **D-W8-1010 (main, 31/10 01:05):** a ordem da T6-B está congelada e conferida pelo main: `ordem-t6b.md` md5 `ba4f151d`, anexos `f4edf08c` (223 arquivos, `md5sum -c` rc 0, nenhum marcador aberto). Sai como **T6-B1** (atlas de textura: descritor, célula, margem e recibo); a **B2** (`draw_atlas_image`, pintura, região velha) fica para ordem futura (D-W8-1201). Foi provada num clone com a CITATION-fix1, a R2b v2 e a H3a aplicadas: 14 de 14 mutantes conforme o esperado gravado antes do dado (uma linha corrigida depois da passada 1, declarada), fixtures 4 de 4, Clang sem erro desta fatia, MSVC 11 de 11, `preci --fast` 392 de 392 e `--sanitizer-only` 202 de 202. Entra na árvore viva **depois da H3a**, na ordem já decidida. Se a R2b-fix1 ou a citation-fix2 mexerem nas âncoras dela, o caminho é errata.
+  - **A ratificar pelo líder:** D-W8-1201 (dividir em B1 e B2), 1202 (campos do descritor), 1203 (margem 2^k com três exigências públicas novas), 1204 (o recibo é da célula e a classe ganha dois membros; layout é ABI), 1205 (recusas e a ordem delas), 1214 (contêiner A sem cota, igual à H3a), 1218 (Clang como passo 5b).
+  - **Porta de mão única a ratificar:** o cabeçalho público `include/glintfx/draw2d/texture_atlas.hpp` inteiro e a linha `friend` em `texture_2d.hpp`.
+  - **Trabalho descoberto (vai à INBOX quando a TODO estiver livre):** pico de cerca de 512 MiB no `open()` de um atlas de 8192; testes de layout do descritor e da classe; o alinhamento depende da colocação atual do alocador (o caso A10 trava isso); o exemplo da T7 mostra o atlas junto com a ATLAS-WIKI; um gancho global imprime `encontrados=0 analisados=0` no commit sem reprovar (L-40).
+- **D-W8-1011 (main, 31/10 01:2x):** a R2b-fix1 entrou como `fcf6adf8` (5 arquivos, +100/−34, mensagem nas duas línguas, os dois `Co-Authored-By`). O main conferiu o `git show --stat`, o `[[maybe_unused]]` em `tests/image_resolution_test.cpp:77` e que o `TODO.md` ficou de fora. Empurrado; CI 41167654348 disparado. Dois despachos agora: (1) a revisão N1 da R2b-fix1, com um revisor haiku novo pela seção 9 da ordem; (2) a CITATION-COMMON-WORD-fix2 na árvore viva, como o único implementador. Ela entra antes da fatia do `preci` porque a ordem do `preci` ainda não está pronta e a fix2 só dependia da R2b-fix1 (D-W8-1232). A troca da ordem de entrada é decisão do main e não muda nenhuma dependência.
+- **D-W8-1012 (main, 31/10 01:2x):** a CITATION-fix2 parou no passo 5 por ordem do briefing do main ("se a contagem sair diferente por causa dos comentários novos, pare"), não por defeito. As rodadas que valem passaram: 45 de 45 iguais, enumeração 5 de 5, `unresolved=0`, `mortas=0`. O que mudou foram as contagens absolutas, que a própria ordem NÃO pina (D-W8-1226). O main conferiu a causa contra o blob: `cabecalhos` 51→52 é o `image_resolver.hpp` da R2b v2; `blocks_scanned` e `cited_test` 70/61 (Anexo P sobre `6ddffc56`) → 71/62 é o bloco novo `// Proved by: renderer_2d_impl_test` que a `fcf6adf8` pôs em `renderer_2d.hpp` (44→45 linhas `Proved by`); `inventario` 1942→1952 vem dos arquivos de teste das duas. **Decisão (a):** aceitar os absolutos novos e retomar do passo 6, sem reexecutar o que já passou. O excesso de cautela do briefing é do main, e a ordem não precisa de errata.
+- **D-W8-1013 (main, 31/10 02:2x):** três fatos e três despachos.
+  - **A revisão N1 da R2b-fix1 saiu NÃO LIMPA,** com 1 IMPORTANTE (I-1). O cabeçalho de `gltfx_renderer_2d::set_image_resolver` (`renderer_2d.hpp:767`) promete "returns the one installed before", mas nenhum teste executa a fachada (`src/draw2d/renderer_2d_facade_image_resolver.cpp`). Os casos chamam o interior, e só um `static_assert` toca a fachada. O revisor mutou a fachada para não devolver o anterior, e os 3 testes passaram. O main conferiu: os 7 chamadores em `tests/` são o interior. Dois cosméticos: C-1 (par de asserções) e C-2 (o arquivo de teste com 2672 linhas). **É a segunda reprovação da R2b pelo mesmo eixo (o texto público promete o que nenhum teste prende)**, então a L-42 do projeto obriga a buscar na web antes da terceira tentativa. Vai a um CTO a ordem R2b-fix2, depois que o CTO do `preci` terminar (teto de 4 agentes).
+  - **A CITATION-COMMON-WORD-fix2 entrou** como `34a0859b` (3 arquivos, +110/−20, os dois `Co-Authored-By`). Empurrada; CI 41171794135 disparado.
+  - **O revisor viu `ninja --version` abortar na imagem `glintfx-devbuild:verify`; isso não procede.** O main rodou o mesmo comando na imagem e ele devolveu `1.13.2` com rc 0, sem `/sdk` na imagem. Os aborts das 01:40 são do NotaLivre, confirmados pela sessão dele.
+  - **Despachos agora:** a revisão N1 da CITATION-fix2 e a H3a, como única implementadora na árvore viva (as três fatias de que ela depende já estão no tronco; D-W8-1255 a dá sem errata sobre a R2b-fix1). A ordem da H3a não tem passo Clang da árvore inteira. Pesa o FATO do CTO da T6-B: o clone dele, com a H3a aplicada, deu `erros_desta_fatia=0` no Clang nos dois modos. O CI confere de novo.
+- **D-W8-1014 (main, 31/10 02:3x):** a revisão N1 da CITATION-COMMON-WORD-fix2 (`34a0859b`) saiu **NÃO LIMPA**, com 2 IMPORTANTES pela régua D-W8-1110 (a). Os dois têm a mesma forma: a regra pública de `docs/api-conventions.md:7` enumera sinais, e os controles só provam o `.`. Em I-1, nenhum controle prova o `"` depois de `!`/`?`; o mutante MR-EXC sobreviveu com texto vivo. Em I-2, nenhum controle prova o `)`, `]` ou `'` depois de `!`/`?`; o MR-FEC sobreviveu. Há cinco cosméticos (C-1 a C-5). O C-4 pergunta se um portão de teste é N1 ou N3 pela emenda da L-12 de 11/10. Veredito em `.trabalho/cto-w8/rev-citation-fix2.txt`.
+  - **É a terceira reprovação seguida da CITATION-COMMON-WORD, sempre no mesmo eixo:** um sinal da regra pública fica sem controle. Pela L-17 global, o espaço é pequeno e fechado (3 terminadores × 4 sinais seguintes, mais o fim do comentário). A próxima ordem deve **enumerar o produto inteiro como controles**, com vermelho e verde, em vez de acrescentar um controle por achado. Pela L-42 do projeto, ela busca na web antes. O C-4 vai ao mesmo CTO, com a L-12 em mãos.
+  - **Fila de CTO** (teto de 4 agentes): a R2b-fix2 (D-W8-1013) entra quando este revisor terminar, e a CITATION-fix3 quando o CTO do `preci` terminar. O CI 41171794135 da fix2 continua conferido à parte.
+- **D-W8-1015 (main, 31/10 02:4x):** a ordem do `preci` (PRECI-LINT-JOBS + PRECI-CLANG-BUILD) está congelada e foi conferida pelo main: `ordem-preci-cotas-clang.md` md5 `6550b3cc`, anexos `eed9252c` (195 arquivos, `md5sum -c` rc 0, sem marcador aberto). Um commit, 3 arquivos: `tools/preci.sh`, `.github/workflows/ci.yml` e a célula Status de `PRECI-ESTAGIO-CLANG` no `TODO.md`. Medido pelo CTO: o `clang-tidy` caiu de 16 para 8 processos; a carga máxima, de 18,8 para 7,75; o Clang dos dois modos entra no `--fast` e foi visto vermelho no tronco antigo com a mesma linha do CI; o `--fast` passou de 12 min 33 s para 11 min 28 s. Entra na árvore viva **depois da H3a** e antes da T6-B. **Enquanto o implementador dela estiver em execução, o main não toca o `TODO.md`.**
+  - **A ratificar pelo líder:** D-W8-1260 a 1279. Pedem o olho dele: 1264 (o `ci.yml` exporta o grau de núcleos, e o job `lint` instala o `clang`), 1266 (o `--fast` fica ~3,5 min mais longo a frio), 1261 (sem a variável, o padrão é `nproc - 3`, teto 13, e não a cota de 8), 1267 (a válvula `GLINTFX_PRECI_CLANG=skip`), 1273 (a `PRECI-IN-CONTAINER` não bloqueia).
+  - **Desvio de lei do CTO, registrado:** ele usou `--no-verify` num commit de prova, num clone descartável. A L-25 global proíbe `--no-verify` sem pedido explícito, e o clone não é exceção escrita. Nenhum efeito na árvore real. A ordem proíbe isso ao implementador (passo 10 e seção 5).
+  - **Trabalho descoberto (vai à INBOX quando a TODO estiver livre):** os `docker run` dos portões sem `--cpus` (fatia N2 própria, porque toca a linha de base do `check_isolation`); `PRECI-CLANG-BUILD` duplica `PRECI-ESTAGIO-CLANG` na INBOX (refundir pela L-68), e `PRECI-LINT-JOBS` não tem linha; o `aplica_blocos.sh` herdado escreve pela metade quando uma âncora se repete depois de um bloco anterior (medido).
+- **D-W8-1016 (main, 31/10 04:1x):** a H3a entrou como `6061a219` (14 arquivos, +579/−9, os dois `Co-Authored-By`). O main conferiu o `git show --stat` e o relatório. Os números: vermelho em 9 casos por asserção; 11 de 11 mutantes mortos (o M11 caiu com o SIGSEGV pré-registrado às 02:24:45); fixtures verdes, e o GLSL quebrado vermelho nas três; MSVC 8 de 8; `preci --fast` 389/389 e `--sanitizer-only` 199/199. Empurrada; CI 41179808464 disparado.
+  - **Próximo na árvore viva:** a fatia do `preci` (D-W8-1015), como única implementadora. O `TODO.md` fica com ela até o relatório. A revisão N1 da H3a entra quando abrir uma vaga (teto de 4 agentes); o revisor da S6-fix1 está nas duas últimas rodadas.
+  - **Para o revisor da H3a:** o implementador sinalizou, pela L-17 do projeto, que `gl_state_contract.cpp` tem duas razões de mudar (o estado comum e as passadas de stencil), e sugeriu decidir a extração na H3b.
+- **D-W8-1017 (main, 31/10 04:2x): a D-W8-1014 do main estava errada, e o CTO seguiu a lei.** A L-12 do projeto, na emenda de 11/10/2026 (`GODS_LAWS.md:376-381`), põe a ferramenta de teste comum em **N3**: revisão de leitura, um caso vermelho, sem mutantes próprios. Diz também: "Na segunda reprovação da mesma família, o que sobra vai à INBOX ou vira limite declarado, e a fatia fecha". A D-W8-1014 pedia controles enumerados e uma revisão N1 com mutantes, o que é rigor N1 sobre uma ferramenta N3, contra a ordem do líder de 11/10. O main reconhece o erro.
+  - **Medido pelo CTO:** nenhuma das três ordens anteriores da CITATION-COMMON-WORD declarou a camada (a L-12 exige isso no cabeçalho), e as três foram revisadas como N1. As duas reprovações mais recentes nasceram desse rigor a mais.
+  - **A ordem da fix3** está congelada: `ordem-citation-fix3.md` md5 `ca1dbebe`, anexos `7c8d8889` (133 arquivos, `md5sum -c` rc 0, conferido pelo main). Um arquivo só, `tests/tools/citation_grammar.py`, e só comentário (+20/−4): o bloco "O QUE ISTO NAO VE" passa a declarar I-1 e I-2 como limites e traz a errata do C-1. A camada é **N4**: sem `preci` e sem revisor, e o main reconfere pela seção 9. O texto público `docs/api-conventions.md:7` não muda; o comportamento que ele descreve existe (oito sondas de `!` e `?`). Com ela, a CITATION-COMMON-WORD fecha. A fix3 entra na árvore viva depois da fatia do `preci`, em qualquer ordem em relação às outras (o cruzamento deu `em_comum=0` com h3a, preci, r2b-fix2 e t6b).
+  - **O kit de 2565 células** (`citation4-cto/kit-tabela/`) fica pronto, como evidência, para a linha nova CITATION-SENTENCE-TABLE. Ele mostra que os 25 controles de hoje pegam só 41 das 2541 inversões. A linha nasce com este ID exato, porque o comentário commitado o cita, no mesmo registro que levar a CITATION-COMMON-WORD a ✅. Se essa linha entra, é decisão do líder.
+  - **Trabalho descoberto (INBOX quando a TODO estiver livre):** CITATION-SENTENCE-TABLE; ORDER-LAYER-HEADER (portão que exige a linha de camada no cabeçalho de toda ordem nova; é a causa medida das três voltas); CITATION-GRAMMAR-SPLIT (661 → 677 linhas); `¿` e `¡` não abrem frase (limite novo, da queixa spaCy 6919).
+  - **A ratificar pelo líder:** D-W8-1300 a 1311; a camada N3 e o fechamento da fatia; o texto do limite declarado no cabeçalho do portão.
+- **D-W8-1018 (main, 31/10 04:4x):** a ordem da R2b-fix2 está congelada e foi conferida pelo main: `ordem-r2b-fix2.md` md5 `7a1a0009`, anexos `738405ac` (95 arquivos, `md5sum -c` rc 0). Um commit, 4 arquivos por trecho, sem nada em `src/` e sem o `TODO.md`:
+  - o caso RS no teste de paridade `tests/parity/draw2d_parity_test.cpp`, que chama a FACHADA em dois desenhadores abertos ao mesmo tempo;
+  - as linhas `Proved by:` de `renderer_2d.hpp` e `image_resolver.hpp`;
+  - o parecer `docs/auditoria-api-image-resolver.md`.
+
+  O CTO pesquisou antes (L-42) e fez a pré-execução no contêiner. O mutante do revisor (RM3) e o do `static` na fachada (FS) morreram, e o verde deu 111 células com 0 reprovadas. O Clang passou nos dois modos e foi visto vermelho no mutante CL. MSVC 1 de 1; `preci` 389/389 e 199/199. Ele achou um gêmeo: "each renderer keeps its own resolver", em `image_resolver.hpp`, agora provado pelo FS. Isolado ou padrão: isolado no item (a), 1 de 62 métodos de fachada. Entra na árvore viva depois da fatia do `preci` e da CITATION-fix3. A T6-B não precisa de errata: a tabela dela vai ler 111 células onde diz 106, e isso vai como nota no despacho.
+  - **A ratificar pelo líder:** D-W8-1280 a 1299. Portas de mão única: D-W8-1282 (a prova da fachada fica no teste de paridade, sem costura de teste no cabeçalho público) e D-W8-1283 (as linhas `Proved by:` de dois cabeçalhos públicos mudam por decisão de agente; nenhum tipo nem assinatura muda).
+  - **Desvio do CTO, declarado por ele:** editou `clang_ct.sh` durante a rodada estática da BASE, e o fim daquele log veio da versão nova. Os números da árvore NOVA saíram de scripts já congelados.
+  - **Trabalho descoberto (INBOX quando a TODO estiver livre):** FACADE-FORWARD-COVERAGE (os 3 ou 4 métodos de fachada sem chamador, e fazer o `check_claim_citations.py` exigir que o teste citado chame o método pela fachada, que é o furo por onde a família passou duas vezes); R2D-NULL-CONTEXT (contexto público que não desenha; decisão do líder, porta de mão única); IMPL-TEST-SPLIT (`renderer_2d_impl_test.cpp` com 2672 linhas); ICF do MSVC no caso de dois desenhadores do interior (inferência, não medida).
+- **D-W8-1019 (main, 31/10 04:5x):** a revisão N1 da H3a (`6061a219`) saiu **NÃO LIMPA**, sem CRÍTICO. Veredito em `.trabalho/cto-w8/rev-h3a.txt`.
+  - **I-1:** o nome do caso `tests/embedded_program_test.cpp:568` promete "discards only in the two stencil passes", e o caso só confere o texto do GLSL. Régua (a); é a família do rótulo que não corresponde ao conteúdo.
+  - **I-2 (L-17):** `gl_state_contract.cpp` tem duas razões de mudar. O revisor sugere extrair `gl_stencil_contract`.
+  - **Cosméticos:** `shadow_group.hpp` diz o futuro no presente; `gl_state_contract.hpp:71-73`; a D-W8-1185 incompleta.
+  - **Medido:** o Clang da árvore inteira deu 0 erros nos dois modos; 20 de 20 mutantes iguais ao pré-registro (o M11 com o SIGSEGV previsto às 04:35:17).
+
+  Os achados vão ao CTO da H3b, já em execução, que decide pela régua se viram uma H3a-fix1 separada (recomendação do main) ou se entram na H3b. O CI 41179808464 da H3a ainda roda (24 verdes, 1 pulado, falta o lint do Windows).
+- **D-W8-1020 (main, 31/10 05:2x):** dois commits entraram e foram empurrados.
+  - **A fatia do `preci`:** `7cd56283` (3 arquivos, +462/−18). A célula Status de PRECI-ESTAGIO-CLANG foi de ⏳ para 🔍. O vermelho do Clang foi visto com a linha do CI (`image_resolution_test.cpp:77:24`); o verde teve 389/389 e 387/387 sob Clang. O `--fast` limitou o clang-tidy a 8 fios e levou 11 min 19 s. O implementador declarou o estágio 5c (gitleaks) com 14 rodando, fora da cota; a revisão (N2/N3) decide. CI 41183712053.
+  - **A CITATION-COMMON-WORD-fix3:** `f9820c2e` (só comentário, +20/−4). O main fez a reconferência N4 da seção 9 da ordem:
+    - (1) numstat `20 4` e md5 do blob `d61cda96`;
+    - (2) `so_comentario.py` deu `codigo=0 ast_igual=1`;
+    - (3) `TODO.md` e `DECISOES_AUTONOMAS.md` intocados (rc 0);
+    - (4) a mensagem crua do commit é igual a `blocos/msg.txt` (`cmp` rc 0; o `%B` do `git log` só acrescenta uma quebra de linha no fim);
+    - (5) o CI que contém o commit ainda não rodou: o 41183712053 do `preci` está em curso, e o `cancel-in-progress` proíbe disparar outro por cima.
+    
+    Com o (5) verde, a CITATION-COMMON-WORD vai a ✅ e a linha nova CITATION-SENTENCE-TABLE nasce no mesmo registro.
+  - **Próximo na árvore viva:** a R2b-fix2, como única implementadora. A revisão da fatia do `preci` corre em paralelo, numa cópia.
+- **D-W8-1021 (main, 31/10 05:3x): ACHADO DE DISCO, decisão do líder.** Às 05:28:38 o kernel registrou falhas de checksum do btrfs em `/dev/mapper/home` (dm-1), nos inodes 8656023 e 8656034, ambos com `mirror 1`. A sessão do NotaLivre localizou os dois por `find`: são rascunhos de 22/10 em `.trabalho/cto-w8/r21/t6/work/tests/` (`atlas_geometry_test.cpp` e `atlas_allocator_impl_test.cpp`), fora do repositório, e ler qualquer um devolve erro de I/O. `btrfs device stats /home` dá `corruption_errs 19` acumulados, com `read_io_errs 0` e `write_io_errs 0`. O watchcode classifica isso como `disk` (vermelho). O main não apaga, não lê de novo e não roda scrub: o scrub e o diagnóstico do disco (SMART, memória) são do líder. O trabalho segue, porque nada do repositório nem das cópias em uso foi atingido (INFERÊNCIA: só os dois inodes aparecem nos registros).
+- **D-W8-1022 (main, 31/10 06:0x):** o item (5) da reconferência N4 da CITATION-fix3 passou: no CI 41185494871 (sobre `6bdcc8b2`, que contém `f9820c2e`), 25 jobs verdes e 1 pulado, e no job Fedora compartilhado `citation_grammar_selftest`, `claim_citations_test` e `claim_citations_selftest` saíram Passed. Com os cinco itens certos, a **CITATION-COMMON-WORD vai a ✅**, fechada pela camada N3 da L-12 (D-W8-1017). No mesmo registro nasce a linha **CITATION-SENTENCE-TABLE**, com o status 🎨 (aguarda o líder), porque o comentário commitado cita esse ID; se ela entra e quando, é decisão do líder.
+- **D-W8-1023 (main, 31/10 06:1x):** a revisão N1 da S6-fix1 (`09791f6c`) saiu **LIMPA**: 22 rodadas, sem CRÍTICO e sem IMPORTANTE. Veredito em `.trabalho/cto-w8/rev-s6-fix1.txt`.
+  - **Cosméticos:** MRV1, MRV3 e MRV5.
+  - **Dois achados de processo:** o `preve_mutantes.py` não marca INCERTA a sonda que passa com margem abaixo de 0,5 px; a régua D-W8-1110 não tem item para a lacuna declarada não equivalente.
+  - **Próximo passo:** o QA visual da S6, por um `qa-engineer` novo, sobre os PNG do CI 41185494871, com a checklist gravada antes das imagens (critério 15 do `plano-demo1-v2.md`). Com ele aprovado, a R2D-SHAPES vai a ✅.
+- **D-W8-1024 (main, 31/10 06:2x):** o QA visual da S6 saiu **APROVADO**: C-01 a C-19 SIM nas 10 imagens (2 do Linux, 8 do Windows), e C-20 (exatidão de pixel) não julgado pelo olho, coberto pelas sondas (80 de 80). As D-W8-1130 (sem textura) e 1133 (giro horário) foram conferidas na imagem. O main reconferiu: a checklist foi gravada às 06:11:51, antes do primeiro PNG baixado (06:12:07); os 10 PNG do `shapes` têm o mesmo md5 `6f5fc23a`; o `diff` dos md5 de início e fim deu 0. Com a revisão LIMPA (D-W8-1023), o CI verde e o QA, a **R2D-SHAPES vai a ✅**. O achado de nome de artefato vai à INBOX (SHAPES-LINUX-ARTIFACT-NAME).
+- **D-W8-1025 (main, 31/10 07:1x):** a revisão da fatia do `preci` (`7cd56283`) saiu **NÃO LIMPA**: CRÍTICO 0, IMPORTANTE 8, COSMÉTICO 6. Veredito em `.trabalho/cto-w8/rev-preci-cotas-clang.txt`.
+  - **Os IMPORTANTES:**
+    - (1) o título e o fim do commit prometem cota universal, mas o estágio 5c (gitleaks) mediu 14 a 17 fios por 7 a 10 s; a alavanca medida é `GOMAXPROCS` (16 sem, 8 com);
+    - (2) `pick_preci_jobs` aceita um número gigante cru, sem teto;
+    - (3) os mutantes M-R1 e M-R4 sobrevivem ao `--selftest` e mudam o grau;
+    - (4) e (5): duas funções de controle passam de 40 linhas, e `clang_build_tree` compila e conta na mesma função (L-17);
+    - (6) `tools/preci.sh` foi de 2778 para 3213 linhas.
+  - **A camada decide o orçamento (L-12, emenda de 11/10):** o grau de núcleos é **N2**, com direito a **uma** rodada de conserto; o estágio Clang é **N3**, só leitura e um caso vermelho. Vai a um CTO a ordem PRECI-FIX1, como a rodada única do N2. Pela `:378`, o que não couber nela vira INBOX ou limite declarado, e a fatia fecha. O revisor escreveu que o conserto seria decisão do líder; no modo autônomo, a decisão dentro da onda é do C-level (L-15 global), registrada para ratificação.
+  - **Desvios:** o implementador cancelou o próprio `flock` (já registrado); a rodada C3 do revisor saiu inválida e foi refeita.
+- **D-W8-1026 (main, 31/10 07:2x):** a R2b-fix2 entrou como `98883ec3` (4 arquivos, numstat 9/3, 4/3, 4/0 e 48/1, igual ao esperado; os dois `Co-Authored-By`).
+  - **Medido pelo implementador:** RM3 vermelho (RS3 e RS4), FS vermelho (RS2, RS3 e RS4); verde com 111 células e 0 reprovadas; Clang 3 de 3 iguais, com o CL vermelho; MSVC 1 de 1; `preci` 389/389 e 199/199.
+  - **Desvio do main, registrado:** o push do registro D-W8-1025, às 07:14, levou junto o `98883ec3`, antes de o main ler o relatório do implementador. Isso fere a regra do próprio main (empurrar commit de produto só depois do relatório e do `git show --stat`). O relatório, lido em seguida, não tem divergência. Daqui em diante, antes de empurrar um registro, o main confere `git log origin/onda-w8..HEAD`.
+  - **CI disparado.** Próximo na árvore viva: a T6-B. A revisão N1 da R2b-fix2 entra quando abrir uma vaga.
+- **D-W8-1027 (main, 31/10 08:2x): ORDEM DO LÍDER DE PAUSA.** Verbatim: "Commit e pause quando acabar essa fatia." Perguntado por AskUserQuestion sobre os 3 CTOs em execução (H3b/H3a-fix1, T7 e PRECI-FIX1), o líder escolheu "Deixar terminarem": cada um termina a ordem que está escrevendo e entrega o relatório, e o main não despacha nada novo. A fatia em curso é a T6-B1 (atlas de textura). Quando ela commitar, o main confere o relatório e o `git show --stat`, empurra, dispara o CI, registra e para. A pausa fica gravada em `~/.config/olhe_agentes/GlintFx/parada_do_lider`, e só o líder retoma. A revisão N1 da R2b-fix2 e as da T6-B, da H3a-fix1 e da PRECI-FIX1 não são despachadas.
+  - **Complemento do líder, verbatim:** "Depois avise @nfse que a máquina fica livre pra ele". Quando a pausa estiver completa (atlas commitado e os 3 CTOs entregues), o main avisa a sessão do NotaLivre de que a cota do GlintFx (8 núcleos, 15 GiB e a trava de trabalho pesado) fica livre para ele.
+- **D-W8-1028 (main, 31/10 09:1x):** a ordem PRECI-FIX1 (a rodada única do N2) está congelada e foi conferida pelo main: `ordem-preci-fix1.md` md5 `bee4a3e1`, anexos `0519d49c` (178 arquivos, `md5sum -c` rc 0). Um commit, só o `tools/preci.sh`.
+  - **O que a ordem faz:**
+    - o `GOMAXPROCS` passa a seguir o grau, e o gitleaks cai de 16 a 17 para no máximo 9 tarefas;
+    - o número gigante é contido por uma guarda de 18 dígitos, e o pedido vira o teto (como no Ninja);
+    - um controle novo mata os mutantes M-R1 e M-R4;
+    - as funções acima de 40 linhas são divididas, e a contagem do Clang ganha função própria;
+    - o gêmeo `pick_ctest_jobs` ganha a mesma guarda.
+  - **Pré-execução:** 20 de 20 mutantes mortos; o vermelho do Clang foi visto; `--fast` e `--sanitizer-only` verdes (389 e 199 testes). A versão 2 do esperado foi gravada antes da rodada 2, com a mudança declarada.
+  - **INBOX:** PRECI-SH-SPLIT (o arquivo vai a 3339 linhas) e PRECI-SELFTEST-CI-GRAU.
+  - **Pedem o olho do líder:** as D-W8-1361, 1362, 1365 e 1369.
+  - **Pela pausa (D-W8-1027), esta ordem NÃO é despachada;** fica pronta para a retomada.
+- **D-W8-1029 (main, 31/10 09:5x):** a T6-B1 (atlas de textura) entrou: `80e51366`, 21 arquivos (2123 a mais e 67 a menos), igual ao numstat da ordem, com os trailers do Opus e do Haiku.
+  - **Conferido pelo main:** `preci --fast` rc 0, com 392 de 392 testes; `--sanitizer-only` rc 0, com 202 de 202, lidos dos arquivos `.rc`. Push com `ls-remote` igual ao HEAD. CI 41203280428 disparado.
+  - **O que o implementador relatou:** 18 casos vermelhos antes do verde; 10 de 10 mutantes mortos; Clang com 0 erros desta fatia; fixtures verdes; MSVC 11 de 11.
+  - **Desvios declarados:** o `draw2d_parity_test` marca 111 células contra as 106 da ordem (autorizado pela D-W8-1018), e o `erros_total` do Clang é 0 contra 1 do anexo, porque a correção da R2b já está no tronco.
+  - **Achado de L-17, para o revisor:** o `texture_atlas_impl.cpp` junta três razões de mudar: a memória do interior, os recibos e a escrita na placa.
+  - **Pela pausa (D-W8-1027),** a revisão N1 da T6-B NÃO é despachada; fica na fila da retomada. O status vai a 🔍 na retomada, junto com o TODO.
+- **D-W8-1030 (main, 31/10 09:57):** o CTO da H3b entregou duas ordens congeladas, provadas em clone. O main conferiu as duas: md5 iguais ao relatório e `md5sum -c` com rc 0.
+  - **`ordem-h3a-fix1.md`:** md5 `5878a8a1`, anexos `fc360eb0` (107 linhas). Etapa HF, camada N1, 1 commit, 9 arquivos.
+    - Conserta os dois achados da revisão da H3a: o nome do caso que prometia mais do que provava, e o `gl_stencil_contract` separado do `gl_state_contract`.
+    - Decisões D-W8-1320 a 1326.
+  - **`ordem-h3b.md` (a H3b-1, sem nada público):** md5 `7d821f3a`, anexos `eeff2d2b` (302 linhas). Etapa HB, camada N1, 1 commit, 12 arquivos. Entra depois da H3a-fix1.
+    - Decisões D-W8-1327 a 1339.
+    - A H3b vira três partes (D-W8-1327). A H3b-2 traz a fachada `fill_shadow`, `shadow_segments` e a leitura dos bits de stencil; a H3b-3 traz `draw_shadow_texture`.
+  - **Pré-execução da H3a-fix1:** 10 de 10 iguais ao pré-registrado; `preci --fast` verde com 389 testes; sanitizer verde com 199.
+  - **Pré-execução da H3b-1:** 13 de 13 iguais ao pré-registrado; fixtures verdes; `preci --fast` verde com 392 testes; sanitizer verde com 202.
+  - **Pedem o olho do líder:** o corte da H3b em três; o token `stencil_unavailable` e o contador dele; a frase de `draw_calls`; a frase dos padrões do stencil (H3b-2); os casos de stencil no mesmo arquivo de teste da fix1.
+  - **INFERÊNCIA declarada:** quando a leitura dos bits de stencil dá erro de GL, o código confia no pedido de 8 bits.
+  - **Pela pausa (D-W8-1027),** nada é despachado. Fila da retomada: H3a-fix1, depois H3b-1, depois a H3b-2 e a H3b-3.
+- **D-W8-1031 (main, 31/10 10:2x):** o CI 41203280428 do atlas (`80e51366`) fechou verde: 25 sucessos e 1 pulado, o normal.
+- **Ordem do líder, 31/10 11:10, verbatim:** "Quando der a pausa, autorizo rm para limpar builds e tmp seus desnecessários."
+  - **Como o main lê essa ordem:** quando a T7 entregar, o main apaga os builds, os clones e os snapshots das pastas de trabalho, e também o `TMPDIR` do projeto.
+  - **O que fica:** ordens, anexos, relatórios, logs e arquivos `.rc`, porque as revisões N1 que estão na fila os leem; e a pasta `r21/`, que nunca se toca (D-W8-1021).
+- **D-W8-1032 (main, 31/10 11:14):** o CTO da T7 entregou a ordem congelada `ordem-t7.md`, md5 `ea4aa8be`, anexos `1eeba863` (266 arquivos). O main conferiu: `md5sum -c` com rc 0.
+  - **Dois commits:** a etapa E, um harness comum para os exemplos (4 arquivos), e a etapa T, o exemplo `textures` (14 arquivos).
+  - **Camada (D-W8-1340):** N1 para o C++ dos exemplos e para as sondas; N3 para o resto.
+  - **Pré-execução:** 14 de 14 iguais ao pré-registrado; o PNG do `shapes` saiu byte a byte igual ao aprovado na S6; `preci --fast` verde com 392 testes, nas duas etapas; sanitizer verde com 202; MSVC 5 de 5.
+  - **Partida conferida pelo main:** os 11 arquivos novos da T6-B1, que a T7 conta, batem com o commit real `80e51366`.
+  - **Decisões:** D-W8-1340 a 1355; nenhuma é porta de mão única.
+  - **Pedem o olho do líder:** 1341 (a cena), 1340 (a camada), 1342 (o harness comum muda os dois exemplos de antes), 1345 (a sonda J1), 1346 (o nome do caso) e 1348 (o Windows só é provado pelo CI).
+  - **DISCOVERED_WORK, para a INBOX na retomada:** TEXTURE-EDGE-SAMPLING-DOC, PREMULTIPLIED-OVER-ALPHA-DOC, EXAMPLE-OPEN-SEQUENCE, README-RENDERER-PARAGRAPH, o gêmeo do `first_window` em SHAPES-LINUX-ARTIFACT-NAME e o nome do caso na linha do plano.
+  - **A pausa (D-W8-1027) está completa:** o atlas foi commitado e os dois CTOs entregaram. Nenhum agente está vivo. Fila da retomada, na ordem:
+    1. a revisão N1 da R2b-fix2;
+    2. a PRECI-FIX1;
+    3. a revisão N1 da T6-B1;
+    4. a H3a-fix1 e depois a H3b-1;
+    5. a T7, com o QA dela;
+    6. a ordem da T6-B2;
+    7. a H5, a G3 e a G4.
+- **D-W8-1033 (main, 31/10 11:18), a limpeza que o líder autorizou:**
+  - **O que foi apagado:** 4159 pastas de build e cópias de trabalho em `.trabalho/`, o `TMPDIR` do projeto (4230 entradas), o conteúdo de `glintfx-preci-tempos` e as sobras dos testes de carga de arquivo em `/var/tmp`. Os comandos deram rc 0, com 0 erros.
+  - **O que ficou:** a pasta `cto-w8/r21/` (49 GiB, disco danificado, decisão do líder, D-W8-1021); `ccache-glintfx` (2,8 GiB); as 121 pastas de `ordens-anexos/`; ordens, relatórios, logs e o `classif-cto/decisao.md`; e a `rev-t4bafix1`, que só fica por ser uma cópia rasa que pode guardar evidência.
+  - **Depois da limpeza:** `.trabalho/` tem 55 GiB, dos quais 49 são da `r21/`. Em `/home`, `btrfs filesystem usage` dá `min` de 149,66 GiB livres.
+- **D-W8-1034 (main, 06/11 14:03): o líder ligou o modo autônomo e mandou retomar a W8.** Ordem verbatim: "ligue modo autonomo", válida até 07/11 14:01, escopos push e clean. Perguntado por AskUserQuestion se a pausa de 31/10 caía, ele escolheu "Retomar a W8". O main apagou o `parada_do_lider`.
+  - **FATO novo:** durante a pausa, a máquina do líder passou a Fedora 45 (GCC 16.2.1, Clang 23.1.4, CMake 4.3.0, Docker 29.9.2, KWin 6.8.2). As provas da fila foram feitas no Fedora 44.
+  - **Decisão do main:** antes de despachar a fila, um CTO mede a linha de base e o impacto nas quatro ordens congeladas e nas duas revisões pendentes, na faixa D-W8-1380 a 1399. CI 42257881026 disparado sobre `2020ea40`.
+  - **Continuam valendo:** a divisão da máquina com a nfse (8 núcleos e 15 GiB; a nfse foi avisada), o alerta 5x e o aval para a GeForce, e merge e tag só com a W8 fechada, CI verde e revisão limpa.
+- **D-W8-1035 (main, 06/11 18:01): o CTO mediu o Fedora 45, e o líder decidiu três pontos.** O relatório está em `.trabalho/cto-w8/f45-cto/relatorio.md`. Ordem `ordem-f45.md`, md5 `0c2bbe5a`, anexos `1def4e39` (137 arquivos); o main conferiu: `md5sum -c` com rc 0. Decisões D-W8-1380 a D-W8-1398, a ratificar.
+  - **O que o CTO mediu:** nenhuma falha é defeito do produto. O CI 42257881026 deu 19 verdes, 6 falhas e 1 pulado. Com a ordem aplicada num clone, `--fast` deu rc 0 (392), sanitizer rc 0 (202), `--clang-only` rc 0.
+  - **Impacto na fila:** nenhuma ordem precisa ser refeita. Erratas em `ordens-anexos/*-errata-f45/` para PRECI-FIX1, H3a-fix1, H3b, T7 e as duas revisões.
+  - **Decisões do líder, por AskUserQuestion:**
+    - **KWin 6.8:** "Prender e medir (Recommended)". Exceção temporária à L-04, registrada em `GODS_LAWS.md` e no `ESCOPO.md` §1. Item `KWIN-68-SEM-PLACA`, e a W8 só fecha com o resultado.
+    - **Clang-tidy:** "Desligar e triar (Recommended)". Item `CLANG-TIDY-23-TRIAGE`.
+    - **Defeito de confirmação:** "Dentro da W8 (Recommended)". Item `WL-ACK-CONFIGURE-SEGUINTES`, fatia própria logo depois da F45.
+  - **Pesquisa levada ao líder:** KDE MR 3981 e bug 471819; documentação do Weston; discussão 26614 da comunidade do GitHub; o `gpumanager.cpp` lido pelo CTO. **Limite declarado:** se o servidor do GitHub tem o `/dev/udmabuf` não foi medido.
+  - **SELinux das 17:17:** o CTO mediu que não é do GlintFx (`git ls-files` dá 0 para o arquivo). A sessão nfse foi avisada.
+  - **Fila:** F45 e revisão, push e CI; depois R2b-fix2, PRECI-FIX1, T6-B1, WL-ACK, H3a-fix1, H3b-1, T7 e as demais. Nada sai antes do CI da F45.
+- **D-W8-1036 (main, 06/11 18:21):** a F45 parou no passo 8 por desvio de nome, sem commit. Saiu `conn1_surface5.png`, e a ordem esperava `conn1_surface6.png`; o md5 é igual.
+  - **Causa, medida pelo CTO em 8 rastreios:** corrida entre o retorno do `wl_display_roundtrip` e a leitura do `delete_id(3)`. O libwayland reusa o id ou não, e a biblioteca faz os mesmos 52 pedidos nas duas rodadas. A L-35 não é afetada: a ordem dos objetos não varia, e o id não é público.
+  - **Errata:** `ordens-anexos/f45-errata1/errata1.md`, md5 `38bf09d9`, anexos `ea8bf584` (`md5sum -c` com rc 0). Confere o md5 do PNG sob qualquer nome, com exatamente um por exemplo. Decisão do CTO fora da faixa: D-W8-1400. A próxima faixa livre de CTO começa em D-W8-1401.
+  - **Varredura:** nenhuma outra ordem pina esse nome. A errata da T7 ganhou um aviso (md5 `32586253`).
+  - **O implementador retoma do passo 9.**
+- **D-W8-1037 (main, 06/11 18:44):** o líder renovou o modo autônomo, verbatim: "ligue modo autonomo". Vale até 07/11 18:44, escopos push e clean. Continuam valendo as ordens de sempre, entre elas: merge e tag só com a W8 fechada, CI verde e revisão limpa, e a GeForce só com alerta e aval.
+- **D-W8-1038 (main, 06/11 18:44):** ordem do líder, verbatim: "autorizo tag/merge/push". O main lê assim: a autorização vale para o fechamento da W8, sem nova pergunta, e os portões continuam (L-11, L-24 e a ordem de merge e tag só com a W8 fechada, CI verde e revisão limpa). Hoje a W8 não fechou e o CI está vermelho; merge e tag agora quebrariam essas leis, e isso exigiria a confirmação da LEI DAS LEIS. O líder foi avisado dessa leitura.
+- **D-W8-1039 (main, 06/11 18:46):** a F45 entrou: `9f686714`, 13 arquivos (78 a mais e 26 a menos), com os trailers do Opus e do Haiku. Relato do implementador, conferido pelo main no `git show --stat` e no log: `--fast` verde com 392 testes; sanitizer com 202; `--clang-only` com 392 e 390. Achado de L-17 preexistente, para a INBOX: `check_container_fixture_link.py` tem 1473 linhas. A observação sobre o gancho global de travessão já está em HOOK-ZERO-VARREDURA. Revisão N3 despachada, com a errata 1.
+- **D-W8-1040 (main, 06/11 19:07):** o CI 42299415086 (`974226a2`, que contém a F45) fechou verde: 25 sucessos e 1 pulado. A fila volta a andar. Despachados, com as erratas: a revisão N1 da R2b-fix2, a revisão N1 da T6-B1 e a implementação da PRECI-FIX1. A revisão N3 da F45 segue em andamento. Limite de 4 agentes atingido; as ordens de WL-ACK-CONFIGURE-SEGUINTES, KWIN-68-SEM-PLACA e T6-B2 pedem um CTO quando abrir vaga.
+- **D-W8-1041 (main, 06/11 21:33): a F45 fecha.** Revisão N3 em `rev-f45.txt`: passos 5 a 8 iguais ao pré-registro, CI verde, um CRÍTICO de texto. O texto da L-04 que o main escreveu dizia "só para o compositor", e o teste de janela roda inteiro no Fedora 44. Levado ao líder por AskUserQuestion, com a admissão de que a pergunta anterior não dizia isso. Resposta verbatim: "Ampliar a exceção (Recommended)". L-04, ESCOPO e TODO corrigidos. Os dois IMPORTANTES seguem a regra do N3: `CLANG-TIDY-COMMENT-COUNT` e `DOCS-FEDORA45-N4`, na INBOX. Número corrigido: 114 avisos do clang-tidy, e não 108, como o líder ouviu.
+- **D-W8-1042 (main, 06/11 21:33): os resultados das outras três e o que sai agora.**
+  - **PRECI-FIX1:** entrou em `10df01fc`, só `tools/preci.sh`; os três `.rc` conferidos pelo main (`fast` 0, `san` 0, `vermelho` 1, como esperado). Revisão N2 despachada.
+  - **T6-B1:** revisão N1 NÃO LIMPA (`rev-t6b.txt`): 3 mutantes sobrevivem no construtor de movimento, em `is_open` e no `operator=`; o texto do custo é falso para 1 a 8 recibos; L-17 em `texture_atlas_impl.cpp`. Sem CRÍTICO; Clang com 0 erros. A revisão de API dedicada que o item PMU pede não foi cumprida como o TODO descreve. Vai ao CTO.
+  - **R2b-fix2:** revisão N1 NÃO LIMPA (`rev-r2b-fix2.txt`): um IMPORTANTE. O texto público "emptying again hands back none" vale para cada desenhador, e a célula RS5 só testa o A. Vai ao CTO.
+  - **Despachados:** implementador da H3a-fix1, revisor N2 da PRECI-FIX1, um CTO para as correções da T6-B1 e da R2b-fix2 (faixa D-W8-1401 a 1430), e um CTO para a medição no KWin 6.8 e a ordem da WL-ACK (faixa D-W8-1431 a 1460).
+- **D-W8-1043 (main, 06/11 22:36): a PRECI-FIX1 fecha.** Revisão em `rev-preci-fix1.txt`, NÃO LIMPA, sem CRÍTICO. Conferido: 5c medido em no máximo 9, contra 16 a 17 antes; 20 de 20 mutantes mortos; CI 42318980999 verde (25 e 1 pulado; o `Windows - Lint` levou 45 min, contra 20 na rodada anterior, e passou). Pela camada N2, rodada única: o veredito fecha a linha, sem fix2, e os três IMPORTANTES vão à INBOX: PRECI-COMMIT-TEXT-40L, PRECI-SH-SPLIT e PRECI-APPLY-JOBS-CONTROL.
+  - **Correção do texto público do `10df01fc`:** a frase "as funções de autoteste que passavam de 40 linhas foram divididas" está errada para três funções: `run_selftest_ccache_mask_controls`, `run_selftest_ccache_preconfigured_controls` e `run_selftest_stage_times_controls`. Vale esta correção; o commit não se reescreve.
+  - **Pede o olho do líder:** PRECI-SH-SPLIT (o `tools/preci.sh` tem 3339 linhas e 130 funções).
+- **D-W8-1044 (main, 06/11 23:05): a H3a-fix1 entrou no tronco, em revisão.** `10aa73d5`, 9 arquivos, empurrado; CI 42327353858 disparado; revisor N1 novo (`rev-h3a-fix1.txt`). Conferido por `git show`: os 9 arquivos da capa e os três trailers. Relatado pelo implementador, a refazer pelo revisor: 7 de 7 mutantes mortos, Clang nos 2 modos, MSVC 4 de 4, `preci --fast` e `--sanitizer-only` rc 0, no hospedeiro (downgrade declarado da L-09).
+  - **Texto pedido pela ordem:** a D-W8-1185 passa a citar também `shadow_came_after` e `stencil_discard_of` entre as funções sem chamador de produção até a H3b (o COSMÉTICO da revisão da H3a).
+  - **Olho do líder (D-W8-1326):** os casos das passadas continuam em `tests/gl_state_contract_test.cpp`, com o prefixo `gl_stencil_contract_` (D-W8-1321). Porta de mão única: nenhuma.
+- **D-W8-1045 (main, 07/11 00:28): a H3a-fix1 voltou da revisão NÃO LIMPA, e vai para uma correção.** Veredito em `rev-h3a-fix1.txt`, medido: 8 de 10 mutantes mortos; sem CRÍTICO. Os dois IMPORTANTES são testes que não mordem: tirar o `glEnable` das passadas de estêncil (`gl_stencil_contract.cpp:54`) e limpar também a cor no `glClear` (`:63`) passam em todos os casos. O segundo apagaria a cor do consumidor sem nenhum teste notar. As severidades foram gravadas antes do dado. Camada N1: mutação até sair limpa, então o CTO escreve a H3a-fix2 (faixa D-W8-1481 a 1500), com pesquisa pela L-42, por ser a segunda rodada na mesma fatia.
+  - **Achado sobre a ordem, sem rebaixar nada:** a seção 9, item 5, da `ordem-h3a-fix1.md` pedia uma contagem de cabeçalhos que o `layers_test` não faz: ele só varre as seis pastas puras. O portão de `src/draw2d` é o `draw2d_include_direction_test`, sem contagem por cabeçalho.
+  - **Âncoras:** o revisor mediu 15 de 15 únicas das ordens pendentes contra `10aa73d5`; nenhuma errata por este commit.
+  - **A H3b-1 espera:** o CTO diz se a fix2 entra antes.
+- **D-W8-1046 (main, 07/11 02:50): o KWin 6.8 foi medido, e a saída volta ao líder.** Conferido pelo main na evidência (`ordens-anexos/kwin68/rodada/`): `kwin-6.8.2-3.fc45`; HostConfig de B igual ao de A, salvo `Devices=[/dev/udmabuf]`, `Memory`, `MemorySwap` e `NanoCpus`; `kwin_a.log` com "Found no render device!", `kwin_b.log` com "Added render device /dev/udmabuf: llvmpipe"; `md5sum -c` dos anexos rc 0. Relatado pelo CTO: 30 de 30 passos em rc 0, com os mesmos PNG do 6.7.5; D-W8-1431 a 1434, a ratificar. A recomendação dele é a opção (a), `--device /dev/udmabuf` no CI, e ela mexe em lei: vai ao líder por AskUserQuestion, com o argumento contra antes (LEI DAS LEIS). Nada implementado. A W8 só fecha com essa resposta.
+  - **Ordem da pergunta na fila:** a saída (a) entra depois da H3b e da T7, ou com errata única; a resposta não segura a fila de agora.
+- **D-W8-1047 (main, 07/11 02:50): a WL-ACK entra antes da H3b-1 e da T7**, como o CTO recomenda: é a única das três que muda o caminho de entrega de quadro. Ordem `ordem-wl-ack.md`, md5 `bf935723`; anexos `6f2b03ae`, `md5sum -c` rc 0; 12 arquivos, N1; D-W8-1435 a 1441. Despacho com o HEAD `b6d99fa7`.
+  - **Olho do líder:** D-W8-1435, a confirmação sai do tratador e vai para antes de cada entrega de quadro, em desvio de SDL3 e GLFW. Limite: esta fatia não roda no KWin 6.8, porque a autorização era de uma rodada, e ela já rodou.
+- **D-W8-1048 (main, 07/11 04:16): a ordem da H3a-fix2 está pronta, na fila depois da WL-ACK e antes da H3b-1.** Ordem `ordem-h3a-fix2.md`, md5 `270791ae`; anexos `95cddd88`, `md5sum -c` rc 0; D-W8-1481 a 1491. Relatado pelo CTO: só teste, 1 arquivo, N1; X1 e X2 morrem; 6 gêmeos achados, todos sobreviventes no teste de hoje e mortos no novo; varredura de deleção de 2 sobreviventes para 0 em 40 chamadas; sem errata para a H3b.
+  - **Medido contra o briefing:** a espera em primeiro plano usa `timeout 170` em vez de 590, porque a ferramenta move o comando para segundo plano aos 180 s. Vale nos próximos briefings, salvo nova medição.
+  - **Limpeza:** `preci-fix1/` e `rev-preci-fix1/` apagados, com os relatórios guardados em `relatorios/`; `f45/`, `f45-cto/` e `rev-f45/` ficam enquanto a WL-ACK e a tidy23 os citarem.
+- **D-W8-1049 (main, 07/11 04:27): as correções da T6-B1 e da R2b-fix2 estão prontas, numa ordem só.** `ordem-t6b-fix1.md`, md5 `51db86c6`; anexos `71c003c7`, `md5sum -c` rc 0; 2 commits, N1; D-W8-1401 a 1413. Relatado pelo CTO: X1, X2 e X3 sobrevivem hoje e morrem no novo; só texto público muda, sem tipo, campo, assinatura nem layout; sem errata. Fila: WL-ACK, H3a-fix2, T6-B1-fix1 e R2b-fix3, H3b-1, T7; a tidy23 por último, como a dela pede. Correção de reprovação vem antes de fatia nova.
+  - **Olho do líder:** D-W8-1406 (dois arquivos, contra os três do revisor), D-W8-1408 (a revisão de API veio depois do commit `80e51366`, e os dois membros públicos ficam), D-W8-1405 (o texto novo de THE COST).
+  - **Para a T6-B2:** revisão de API ANTES do commit.
+  - **Pino do KWin:** os esperados da ordem pinam 6.7.5; se o líder soltar o pino antes do passo 5 dela, vai errata só da chave `kwin=`.
+  - **Pendente com o líder:** `detect_leaks=0` na perna ASan do contêiner (`ci.yml:1703-1728`), o vazamento segue invisível ali.
+- **D-W8-1050 (main, 07/11 04:38): a triagem do clang-tidy 23 fecha o desenho: as duas regras voltam, e a contagem de 06/11 estava errada.** Ordem `ordem-tidy23.md`, md5 `d81db31f`; anexos `c38ce509`, `md5sum -c` rc 0; 38 arquivos, 3 commits, N1 na parte de `src/` e `include/`; D-W8-1461 a 1480. Relatado pelo CTO: 0 defeitos de comportamento nos 108 sítios; portão visto vermelho (`preci_rc=1`); 10 de 10 mutantes mortos. Entra por último: o código novo das fatias anteriores reprovaria no portão religado.
+  - **Correção do que foi dito ao líder em 06/11:** `misc-const-correctness` tem 60 ocorrências, não 66. Os 6 a mais caíam em 9 arquivos que não compilaram na medida do revisor da F45, por falta do binding do xdg-shell. O comentário da `.clang-tidy` estava certo.
+  - **Olho do líder:** D-W8-1464 (a regra de bits volta com isenção de literal positivo; clang-tidy e nlohmann a desligam inteira) e D-W8-1474 (o `Windows - Lint` continua no LLVM 20, sem estas duas regras).
+- **D-W8-1051 (main, 07/11 06:44): o CI 42359257323 fechou VERMELHO sobre `6783faac`, e a causa não é da fatia.** 24 sucessos, 1 pulado, 1 falha: `Windows - compartilhado`, no passo do resultado agregado; 377 testes executados, 0 falharam. Reprovou a regra de pesados: `check_format_selftest` levou 40,6 s, acima dos 40 s, sem trava declarada.
+  - **FATO medido por run:** esse teste levou 2,51 a 3,27 s no mesmo job nas 4 rodadas anteriores, e 3,07 s no `Windows - estatico` desta mesma rodada. No mesmo job, `consume_win_test` foi de 7,5 s para 25,56 s, `public_name_collision_test` de 104,59 s para 164,59 s, `fase_ps1_selftest` de 6,89 s para 12,09 s; a soma dos tempos, de 709,7 s para 818,4 s.
+  - **INFERÊNCIA:** lentidão passageira no executor do Windows; a causa não foi medida. O commit só muda `tests/gl_state_contract_test.cpp`, que esse teste não usa.
+  - **Decisão:** sem rerun (o `rerun_guard` recusa, e a falha não pode sumir na segunda tentativa); sem marcar como pesado um teste de 3 s, o que esconderia o pico; a regra fica como está. O próximo push de código roda o CI. Pico repetido vira investigação (CI-WIN-STALL-HEAVY-RULE). CI vermelho segue bloqueando o fechamento: a W8 só fecha com CI verde.
+- **D-W8-1052 (main, 07/11 10:42): a WL-ACK voltou da revisão N1 NÃO LIMPA, por um único achado, na ferramenta de teste.** Veredito em `.trabalho/cto-w8/rev-wl-ack.txt`, sobre `56806db3`.
+  - **FATO, relatado pelo revisor:** 10 rodadas do átomo iguais ao esperado; 10 de 10 mutantes mortos (M1 a M6, C7p, C8, C9, C11); compositor vermelho e verde iguais ao esperado. **FATO, conferido pelo main no blob:** `judge()` conta, imprime e decide, e `on_commit()` conta, confere e imprime (`tests/tools/check_configure_ack_trace.py:104-119` e `:149-166`). O revisor gravou essa regra antes do dado. IMPORTANTE pela L-17 do projeto.
+  - **Decisão:** o arquivo é ferramenta de teste, camada N3 da L-12; a fatia inteira continua N1, e o comportamento N1 passou. A correção é uma só, por ordem do CTO, com revisão de leitura pelas cinco perguntas e um caso vermelho, sem mutantes novos. Uma segunda reprovação da mesma família vai à INBOX, e a linha fecha. Entra depois da T6-B1-fix1, que está na árvore viva.
+  - **O C7 literal:** o mutante do anexo morre no `-Werror` e não mede o juiz. Pela regra estrita do pré-registro seria divergência; o main lê como defeito do mutante, porque o C7p tem o mesmo comportamento e foi medido (`sem_ack=1`). A confirmar pelo líder na ratificação.
+  - **Processo, registrado sem reclassificar:** o implementador emendou o esperado do juiz em 06/11 23:34:54, depois de ver a primeira rodada vermelha. A contagem mudou, as linhas esperadas não; o revisor conferiu a contagem à mão no rastreio verde.
+  - **O que continua sem prova:** nada desta fatia rodou no KWin 6.8. Isso depende da pergunta KWIN-68-SEM-PLACA, que segue devida ao líder.
+- **D-W8-1053 (main, 07/11 10:42): a revisão N1 da H3a-fix2 sai agora,** na vaga aberta pela revisão da WL-ACK, sobre `6783faac`, seção 9 de `ordem-h3a-fix2.md`.
+- **D-W8-1054 (main, 07/11 11:47): a H3a-fix2 voltou da revisão N1 NÃO LIMPA, por um item de um caso de teste.** Veredito em `.trabalho/cto-w8/rev-h3a-fix2.txt`, sobre `6783faac`.
+  - **FATO, relatado pelo revisor:** 13 de 13 rodadas iguais ao anexo; 8 de 8 defeitos de produto mortos (X1, X2, G1 a G6); J1 e J2 passam, como o par do juiz exige. **FATO, conferido pelo main no blob:** na primeira metade de `gl_state_contract_both_halves_leave_the_stencil_at_the_gl_defaults` (`tests/gl_state_contract_test.cpp:476-480`), `release_marks` deixa quatro itens já no valor conferido depois, e a conferência deles não prova nada nessa metade. A segunda metade prova os quatro itens com partida longe. O revisor gravou a severidade antes do dado: IMPORTANTE (a).
+  - **Decisão:** vale a régua da ordem, N1 até sair limpa. Uma correção, com ordem do CTO, junto com a do juiz da WL-ACK (D-W8-1052), faixa D-W8-1561 a 1590. Entra depois da T6-B1-fix1. O conserto que o revisor propõe, plantar o estêncil hostil entre `release_marks` e `leave`, é INFERÊNCIA dele até o CTO medir.
+  - **Trailer, cosmético (3) do revisor, sem ação:** o `Co-Authored-By` do Opus junto com o do Haiku é a forma de commit em vigor; o revisor leu o trailer como erro. Commit publicado não se reescreve (L-25 global).
+  - **Erro do main neste despacho, L-14 global:** criei o revisor com `name:` e proibi envio de mensagem no briefing; a entrega dele se perderia. Errata mandada em 10:42; a entrega chegou. Nenhum dado se perdeu. O agente foi recolhido ao aceitar o relatório.
+  - **Sem limite novo:** o revisor disse que nenhum portão roda `clang-tidy` sobre este arquivo de teste, e isso é falso. `h3a-fix2/preci.log:2486` o processa (D-W8-1058). O CI 42359257323 segue vermelho no Windows, por causa alheia (D-W8-1051), e não conta como verde.
+- **D-W8-1055 (líder, 07/11 12:50, registrada pelo main): a saída da exceção do KWin 6.8 está escolhida.** Por `AskUserQuestion`, com a LEI DAS LEIS cumprida (L-04, `ESCOPO.md` §1 e regra 4 do `CLAUDE.md` nomeadas, o argumento contra antes), respostas verbatim: *"udmabuf no CI (Recommended)"* e *"Deixar para a saída (Recommended)"*.
+  - **O que entra:** uma fatia, opção (a) de `ordens-anexos/kwin68/saida-definitiva.txt`. Ordem a pedir ao CTO, faixa D-W8-1591 a 1620, na próxima vaga; entra depois da H3b e da T7, ou com errata única se o CTO medir melhor. A linha de base aceita exatamente este dispositivo; `uinput` e `dri` continuam reprovando. **A exceção vale até essa fatia entrar no tronco.**
+  - **O que continua sem prova:** o executor do GitHub com o dispositivo é INFERÊNCIA, por configuração do kernel e por logs de terceiros, até o primeiro CI nosso. Sem o dispositivo, o passo reprova alto. Nesta onda, a WL-ACK só é provada no 6.8 por essa fatia.
+  - **Modo autônomo:** o líder o religou em 07/11 12:47, com escopos push e clean, até 08/11 12:47.
+- **D-W8-1056 (líder, 07/11 16:40, registrada pelo main): pausa.** Ordem verbatim: *"Pause após os agentes atuais entregarem a finalização"*. Os quatro agentes em voo terminam e entregam: o CTO da T6-B2, o CTO da H3b-2 e H3b-3, o implementador da T6-B1-fix1 + R2b-fix3 e o CTO da `ordem-fix3wl`. Nenhum agente novo sai, nem revisor, nem implementador, nem a ordem do CTO para o KWin 6.8; só o líder retoma.
+  - **Leitura do main, a confirmar pelo líder:** o que entregarem fica registrado. O commit já entregue vai para o repositório remoto, para não ficar só neste disco, sem disparar CI e sem revisão. A fatia da T6-B1-fix1 continua em revisão pendente até a retomada.
+- **D-W8-1057 (main, 07/11 16:51): a correção do atlas entregou, durante a pausa, e vai ao remoto sem CI e sem revisão.** `2a991d0d` e `1a130946`, conferidos por `git show --stat`: 1 e 13 arquivos, com os trailers. Relatado pelo implementador, a refazer pelo revisor na retomada: `preci --fast` rc 0 nos dois commits, `--sanitizer-only` rc 0, 11 de 11 mutantes mortos, 5 de 5 rodadas de fixture iguais, MSVC 9 de 9, KWin 6.7.5. O `ci.yml` só dispara em push para `main`, então o envio do ramo não roda CI. **Fica para a retomada:** revisão N1 (seção 9 de `ordem-t6b-fix1.md`), CI, e o olho do líder em D-W8-1405, 1406 e 1408. `texture_atlas.hpp` é porta de mão única e segue a ratificar.
+- **D-W8-1058 (main, 07/11 17:05): a ordem única das duas correções entregou, durante a pausa; o despacho fica para a retomada.** `ordem-fix3wl.md`, md5 `63ee08a7c2ed1e55867b40cc0b0ab88f`; anexos `d3eabd57`, 93 arquivos, `md5sum -c` rc 0, conferido pelo main. Decisões do CTO: D-W8-1561 a D-W8-1573, a ratificar, sem porta de mão única.
+  - **O conserto da H3a muda:** o CTO recusou a proposta do revisor com medição e tira a passada do caso (D-W8-1562). Relatado por ele, a refazer pela revisão: eram 6 itens iguais, não 4; hoje dois defeitos passam, depois morrem.
+  - **Falta errata, na retomada:** a H3b-1 para no passo 2 sem `POSTERIORES=" h3b2 h3b3 "` (D-W8-1572), como a `t6bfix1-errata-posteriores`.
+  - **Limpeza depois da revisão:** `fix3wl-cto/`, 7,0 GiB.
+- **D-W8-1059 (main, 07/11 17:58): a ordem da T6-B2 entregou, durante a pausa; o despacho fica para a retomada.** `ordem-t6b2.md`, md5 `f608839ff842319ba43d5dd156bebb7f`; anexos `ordens-anexos/t6b2/anexos.md5`, md5 `225a751bfd62bee837e1b3a3515b5c09`, 228 arquivos, `md5sum -c` rc 0, conferidos pelo main (decisões do CTO D-W8-1501 a 1517). Camada N1, 23 arquivos, 62 blocos; a revisão de API roda antes do commit (passo 10, D-W8-1512). Posição: depois da `tidy23` e antes da H3b-2, que ancora nos blocos desta (não reemitir uma sem a outra).
+  - **O que muda para quem usa a biblioteca (relato do CTO, a provar pela revisão):** desenhar uma imagem do atlas pelo recibo que ele devolveu; recibo velho ou de outro atlas é recusado sem pintar nada, cada recusa com seu contador; com recibo bom, o resultado é igual ao caminho antigo, que continua valendo.
+  - **Portas de mão única a ratificar:** a assinatura de `draw_atlas_image`; `gltfx_atlas_paint` (48 bytes, tinta padrão branca); os valores 14 e 15 do enum de recusa e os dois tokens; os dois campos novos no fim do relatório; o `friend class gltfx_renderer_2d`.
+  - **Pede o olho do líder:** o 13 reservado entre dois commits; os dois motivos de recusa separados e o atlas movido como `texture_not_open`; a frase pública sobre draw call; a divergência com a SDL (sem arredondar coordenada).
+  - **Errata da fix1 (D-W8-1517):** `t6bfix1-errata-posteriores/errata1.md`, md5 `03787b29f7d0eaa502b12550452a03f2`. Ficou sem uso: a fix1 já entrou como `1a130946`. Guardada como modelo da errata que a H3b-1 precisa (D-W8-1572).
+  - **INBOX nova:** `CRUZA-COMPARTILHADO-CEGO`; o filtro de `denied` do implementador tem de ser `container_t` (151 linhas de queda da NotaLivre na mesma janela).
+  - **Limpeza depois da revisão:** `t6b2-cto/`, 5,8 GiB.
+- **D-W8-1060 (main, 07/11 18:08): as ordens da H3b-2 e da H3b-3 entregaram, durante a pausa; o despacho fica para a retomada.** `ordem-h3b2.md`, md5 `bdad4d30820e8e54319514e89ff8caa4`, anexos `e5365e55b366dfae8c69754433fe23a1` (186 arquivos); `ordem-h3b3.md`, md5 `820a49ef33d150800b95dd7178ffb88d`, anexos `da1037fb96c7b326d82cad20cc026636` (143 arquivos); os dois `md5sum -c` rc 0, conferidos pelo main (decisões do CTO D-W8-1531 a 1560). Camada N1. Ordem na fila: T6-B2, H3b-2, H3b-3; T7 e tidy23 sem errata. O `R2D-CLEAR-MASK-TEST` entra na H3b-2.
+  - **O que muda para quem usa a biblioteca (relato do CTO, a provar pela revisão):** a sombra preenchida fica pública e um ponto escurece uma vez só, mesmo com sombras sobrepostas; superfície sem stencil recusa a sombra com `stencil_unavailable`; a sombra pode ter a forma de uma textura (H3b-3).
+  - **Relatado e não refeito pelo CTO:** depois da T6-B2 final, ele refez só o commit de prova das duas (números iguais); rodadas e `preci` são de uma versão anterior da T6-B2, que difere só em `tests/texture_atlas_test.cpp`.
+  - **Atenção na saída do KWin 6.8 (D-W8-1055):** ela muda `Containerfile`, `ci.yml` e o `kwin=` esperado, que a H3b-2 também toca; quem entrar depois precisa de errata. A H3b-3 já manda parar no passo 6.
+  - **Pedem o olho do líder:** H3b-2: D-W8-1328, 1329, 1336, 1534, 1546 e a posição na fila (1537); H3b-3: 1553 (quatro cantos numa reta são desenhados) e 1552 (tinta não escolhida é sombra branca).
+  - **Limpeza depois da revisão:** `h3b2-cto/`, 11 GiB.
+- **D-W8-1061 (main, 07/11 18:34): limpeza de builds e temporários, por ordem do líder ("Limpe builds e tmps do projeto").** Apagadas 92 árvores de build CMake em `.trabalho/cto-w8/` (31 GiB), o `build-preci/` da raiz (76 MiB) e o que havia em `.trabalho/tmp` com mais de 30 minutos. Critério medido antes: só pasta com `CMakeCache.txt`, reduzida à raiz de cada árvore; nenhuma citada por ordem ou anexo pendente (as ordens citam só relatórios, registros e `wlack-cto/wb/`, `f45/ct/`, `f45-cto/diag/`, que ficaram com as 5 árvores de dentro). Intactos: ordens e anexos, relatórios e registros, `r21/`, o cache do compilador `.trabalho/ccache-glintfx/` (2,8 GiB). Nenhum agente, contêiner ou trava ativa no momento. Resultado: `.trabalho` de 121 para 90 GiB; `/home` com 243 GiB livres (`min:`). Os clones de código e as provas das ordens pendentes continuam e só saem depois da revisão de cada fatia.
+- **D-W8-1062 (main, 11/11 08:10): a pausa acabou, por ordem do líder.** Verbatim: "pode continuar"; perguntado por `AskUserQuestion` se isso retomava a W8, ele escolheu "Retomar a W8"; em seguida, "ligue modo autonomo" (vale até 12/11 08:09, escopos `push` e `clean`). A marca `parada_do_lider` foi apagada. Modelos da sessão, por `/modelos_sessao`, padrão global: C-levels em fable, trabalhadores em sonnet, os dois em esforço alto; onde uma ordem pendente diz "haiku NOVO", lê-se "sonnet NOVO". Primeiro passo da fila: a revisão N1 da T6-B1-fix1 (`2a991d0d` e `1a130946`), despachada às 08:10, com o run de CI 43009619961 sobre `de04076e`. FATO novo desde a pausa: a máquina foi a kernel 7.3.3; a imagem de teste do contêiner Wayland não está mais na máquina e os scripts a reconstroem (o revisor para as fixtures se o pino do KWin 6.7.5 não reconstruir).
+- **D-W8-1063 (main, 11/11 08:50): o CI 43009619961 fechou VERMELHO sobre `de04076e`, por causa externa, e a saída do KWin 6.8 passa para a frente da fila.** FATO, do log dos jobs: 23 sucessos, 1 pulado, 3 falhas. As duas variantes de `Container Wayland isolado` morrem no `dnf` da imagem, com `Status code: 404` para `kglobalacceld`, `kdecoration` e `aurorae` `6.7.5-1.fc44` em `kojipkgs.fedoraproject.org`: os pacotes do pino saíram do servidor. `Paridade Linux x Windows` falha em consequência (20 testes "existe no inventario Windows e falta no Linux", 5 "excecao morta"). Nenhuma falha é de teste da biblioteca: Fedora, Ubuntu, Arch, CachyOS, Clang, Debug, Lint, Sanitizer e os cinco de Windows passaram. Era o risco escrito na opção (b) de `ordens-anexos/kwin68/saida-definitiva.txt` ("14 pacotes por URL dependem da retenção da Koji"). **Decisão autônoma, a ratificar (L-15 global):** a fatia `KWIN-68-SEM-PLACA`, já decidida pelo líder na D-W8-1055 ("udmabuf no CI (Recommended)"), entra ANTES da fix3wl e das demais, porque sem ela nenhum CI da onda fecha; o CTO recebeu a ordem de planejá-la às 08:49, faixa D-W8-1591 a 1620, com as erratas das 7 ordens pendentes. A alteração do texto da L-04, do `ESCOPO.md` §1 e da regra 4 do `CLAUDE.md` volta ao líder para confirmar antes do commit (LEI DAS LEIS). A revisão N1 da T6-B1-fix1 continua; a imagem local dela reconstruiu (INFERÊNCIA: pelo cache de camadas).
+- **D-W8-1064 (main, 11/11 09:25): a T6-B1-fix1 voltou da revisão N1 LIMPA, nos dois commits.** Veredito em `.trabalho/cto-w8/rev-t6bfix1.txt`: `2a991d0d` LIMPA com 0 achados; `1a130946` LIMPA com 0 CRÍTICO, 0 IMPORTANTE e 4 COSMÉTICO, mais 2 observações fora do commit. Conferido pelo main: as linhas de veredito (`rev-t6bfix1.txt:100`, `:113`, `:115`); o pré-registro dos 5 mutantes do revisor gravado às 08:16:33, antes das rodadas; `kwin=kwin-6.7.5-1.fc44.x86_64` nos 5 `.fx`. Relatado pelo revisor: 11 de 11 mutantes da ordem mortos, 5 de 5 dos dele mortos como pré-registrado, 5 de 5 rodadas de fixture iguais ao esperado, ASan e UBSan sem acusação na costura. As 2 quedas de `texture_atlas_test` que o vigia viu às 08:18 e 08:20 são de mutante dentro do contêiner (INFERÊNCIA do main: o M9 pré-registrado como `SegFault`, em dois modos). **O que a revisão NÃO provou:** as paridades no Linux do CI (o job do contêiner caiu pelo 404 da D-W8-1063; só foram lidas no Windows), o MSVC local e o `preci` (só leu os logs do implementador). O `Status` da fatia fica em verificação até um CI verde com o contêiner de volta. Os cosméticos e a observação de `atlas_extrude.cpp:16` foram para a INBOX. Desvios do revisor aceitos: modelo sonnet (o da sessão), `flock` com `-w 7200`, `export` ausente em chamadas só de leitura. Limpeza de `rev-t6bfix1/` (642 MiB) e dos clones da fatia fica para depois do CI verde. **Fila:** nenhum implementador entra antes da ordem da KWIN-68 (D-W8-1063).
+- **D-W8-1065 (main, 11/11 10:13): as CPUs 0-3 e 4 GB de RAM ficam reservadas ao líder, por aviso da sessão `claude_configs`.** FATO: a mensagem chegou às 10:09 por canal entre sessões; ela diz ter sido nomeada pelo líder orquestradora de sessões hoje e cita, como dele: "gerencie para que deixem 2 nucleos e 4gb ram para que eu possa trabalhar, mas que as sessoes também não sofram tanto". Esta sessão NÃO ouviu a ordem do líder; por isso ela não entra como lei aqui, só como restrição operacional acatada (é conservadora e reversível). Medido: `taskset -cp` desta sessão devolve 4-15; 17 GiB disponíveis. Acatado: `-j 8` no máximo, checagem de memória antes de trabalho pesado, nenhuma reversão da fixação. **Limite respondido a ela:** contêiner não herda a fixação, os scripts das 7 ordens pendentes estão congelados por md5, e o contêiner do isolamento não pode levar `--cpuset-cpus` (o `HostConfig` é comparado inteiro com o do CI, L-09). O CTO da KWIN-68 recebeu a instrução de usar `--cpuset-cpus 4-15` nos contêineres novos, salvo o do isolamento, e de desenhar a passagem por variável de ambiente, sem gravar `4-15` em arquivo versionado. A confirmar com o líder na saída.
+- **D-W8-1066 (líder, 11/11 10:14, registrada pelo main): as mensagens da sessão `claude_configs` passam a ser seguidas.** Verbatim: "autorizo seguir as mensagens de @claude_configs". Virou a L-46 do `GODS_LAWS.md`, com o gatilho no `CLAUDE.md`. Leitura registrada, a estreita: vale para a divisão da máquina entre as sessões; o que mexe em lei, produto, publicação ou permissão volta ao líder. A leitura ampla é dele. Com isso a D-W8-1065 deixa de esperar confirmação no que é divisão de máquina. Segunda mensagem dela, às 10:13, citando resposta do líder por AskUserQuestion: "Não mexer no sistema"; nada muda no sistema, os scripts congelados e o do isolamento ficam como estão, sem errata obrigatória; contêiner NOVO fora do isolamento leva `--cpuset-cpus 4-15` por variável de ambiente; acima de 60% do teto de processos (2400) ninguém abre agente nem sessão, e acima de 3200 o main avisa na hora.
+- **D-W8-1067 (main, 11/11 10:36): a INBOX do `TODO.md` foi drenada, por ordem do líder (`/tab_pendencias --drain`).** Havia 94 itens classificáveis. Julgados pelo COO (Cosmo), `judgments.json` md5 `920b4c23`, justificativa em `.trabalho/cto-w8/drain-inbox/julgamento.md` md5 `2cf79a44`. Conferido pelo main, por comando: 94 chaves e 97 candidatos; prova num clone com rc 0; depois a aplicação real com rc 0 e diferença idêntica à do clone. Resultado: 57 linhas novas no fim da tabela (todas `⏳ Pendente`, rota local; 18 na W9-K, 1 na W8, as demais nas ondas WM e W9-H), 11 duplicatas sem linha nova, 29 residuais com triagem válida (10 esperam decisão do líder, 9 bloqueados por causa externa, 8 sem dono, 2 sem informação). Nenhuma linha antiga da tabela mudou (0 linhas de tabela removidas), continua uma tabela só com 10 colunas em todas as 722 linhas, e o ensaio final dá 0 classificáveis. **A ratificar:** a onda e a prioridade de cada linha nova são do COO; a célula WSJF saiu vazia e o número provisório está na descrição, para o CPO pontuar; `ATLAS-FIX1-COSMETICS` virou `ATLAS-B1FIX1-COSMETICS` porque dois bullets usavam o mesmo ID. **Voltam ao líder**, com as opções em `julgamento.md` §6: a API nova do atlas (`ATLAS-USAGE-QUERY`, `ATLAS-GROW`, `DRAW-ATLAS-QUAD`), `R2D-NULL-CONTEXT`, `FALLBACK-KEEP-ENDS-NEAR`, `STRICT-COMPOSITOR-LAB`, `SANDBOX-SYMLINK-CONSUMER`, o gancho global (`NO-MDASH-PUBLIC-DOC-ZERO`, `HOOK-ZERO-VARREDURA`) e `T6B-OPEN-PEAK`; três delas ainda sem pesquisa anexa. O COO não tinha shell e não rodou nada: o que está "conferido" acima foi medido pelo main.
+- **D-W8-1068 (main, 11/11 11:57): a ordem da KWIN-68-SEM-PLACA está pronta e conferida, e as decisões do CTO ficam registradas.** `ordem-kwin68.md`, md5 `b1ac2261`; anexos `eb62960c` (728 arquivos, `md5sum -c` rc 0); errata única das pendentes `errata1.md` md5 `13d6e5e6`, anexos `34f22a27` (rc 0), para H3b-1, T7, T6-B2, H3b-2 e H3b-3; `fix3wl` e `tidy23` sem errata. Conferido pelo main: os md5, os dois `md5sum -c`, a árvore viva limpa em `077e6ef5`. Relatado pelo CTO: imagem do zero no Fedora 45 com `kwin-6.8.2-3.fc45`; 31 de 31 fixtures nas duas pernas; isolamento aceito rc 0 e as quatro recusas rc 1; 7 de 7 mutantes mortos; `preci --fast` 395 de 395; ensaio literal dos quatro commits sobre `077e6ef5`. **NÃO rodou:** o executor do GitHub (se ele tem o dispositivo), os controles negativos 1 a 4 vivos, `/dev/dri`, `composed_photo.sh`, Windows e outras distros, `preci` completo. Decisões do CTO, a ratificar: D-W8-1591 a D-W8-1609, uma a uma na seção "Para o main" da ordem; pede o olho do líder a D-W8-1591 (a variante do portão com nome: quem não diz nada continua recusando todo dispositivo). As 9 descobertas da seção "Para o main" vão para a tabela depois da fatia, porque a etapa SA ancora em linhas do `TODO.md`.
+- **D-W8-1069 (líder, 11/11 12:00, registrada pelo main): a redação dos textos de lei e o registro de risco da KWIN-68 estão confirmados.** Por `AskUserQuestion`, com a LEI DAS LEIS cumprida (L-04, `ESCOPO.md` §1 e regra 4 do `CLAUDE.md` nomeadas; três argumentos contra antes: a lei passa a carregar o nome de um dispositivo que depende do servidor e do KWin, as duas respostas da exceção saem do texto da lei, e a regra 4 ganha exceção escrita). Respostas verbatim: *"Confirmar a redação"* (a de `ordens-anexos/kwin68-saida/textos-de-lei/proposta.md`, palavra por palavra) e *"Aceitar como está"* (o ADR `docs/adr-udmabuf-no-conteiner-de-teste.md` com o item do `AUDITORIAS.md` na mesma etapa). Com isso a etapa LE da ordem está liberada. **Pergunta 3 do CTO não foi levada:** restringir o Docker pela configuração do sistema já tinha resposta do líder, citada pela `claude_configs` às 10:13 ("Não mexer no sistema"); fica a saída parcial, o conjunto de CPUs pela variável `GLINTFX_CPUSET` nos contêineres que podem levá-lo (D-W8-1609), e `--cpus 8` nos demais.
+- **D-W8-1070 (main, 11/11 15:32): a KWIN-68-SEM-PLACA está implementada e revisada, e o único achado importante era uma frase do documento de risco, corrigida em `55e50805`.** Implementador (sonnet): quatro commits, `f116f94b` (PG), `0391f8d8` (FR), `169efa49` (SA), `19227f2e` (LE); mutantes 7 de 7; 23 de 23 chaves nas duas pernas; `preci --fast` 395 de 395 no hospedeiro. Revisor (sonnet, outro agente; `rev-kwin68.txt`): PG LIMPA 0/0/2 (7 mutantes do CTO e 5 próprios pré-registrados, todos mortos; captura da linha de base refeita e igual), FR LIMPA 0/0/3, LE LIMPA 0/0/0, **SA NÃO LIMPA 0/1/5**. O importante: a linha C3 do `docs/adr-udmabuf-no-conteiner-de-teste.md` dizia que o autoteste do portão roda "em todo job Linux do CI"; medido, só `linux` (matriz) e `clang` rodam a suíte. O controle está ativo; o ponteiro de verificação estava largo. **Decisão autônoma, a ratificar (L-15 global):** corrigi a frase para nomear os dois jobs, em commit de texto (camada N4), sem nova rodada de revisor: o líder aceitou o documento "como está" às 12:00, e a troca só estreita uma afirmação de fato, sem mudar risco nem controle. Conferido pelo main: linha de dados da linha de base idêntica antes e depois, modo `100755` dos dois scripts novos, nenhuma lei no commit SA, árvore limpa. Os 10 cosméticos ficam para a tabela. **NÃO rodou em lugar nenhum:** o executor do GitHub com o dispositivo, os controles negativos 1 a 4 vivos e o 2 com `/dev/uinput` ao lado, a perna `asan` pelo revisor, `preci` completo. Pico de memória medido do contêiner do job: 644 MiB sob teto de 15 GiB; montagem sem cache de 15:09:45 a 15:18:39. O número 1070 aparece citado em entradas de outubro como parte de uma faixa antiga do CTO; esta é a única entrada com esse título. A mensagem do `55e50805` diz que o registro entrou junto; entrou neste commit seguinte.
+- **D-W8-1071 (líder, 11/11 15:54, registrada pelo main): o controle que derruba um processo de propósito deixa de gerar alerta na tela dele, por uma fatia pequena ANTES das cinco pendentes.** Origem: a `claude_configs` mediu 7 quedas de `/usr/bin/bash` hoje (09:41, 10:30, 11:07, 11:53, 14:14, 14:34, 15:24), todas com a linha `sh -c 'echo ruido-do-driver; kill -SEGV $$'`; são do passo "Controle negativo 5 - sinal nomeado antes do ruido" (`.github/workflows/ci.yml:2005`), uma por reprodução local do job do teste de janela. Por `AskUserQuestion`, com três opções e o ponto contra dito (o efeito não está medido, e pelo `core(5)` o limite de core não cala o aviso quando ele vai por cano ao systemd; pode ser preciso outro caminho). Resposta verbatim: *"Fatia pequena antes (Recomendado)"*. Consequência: a fatia `CN5-SEM-ALERTA` entra na frente de fix3wl, H3b-1, T7, tidy23, T6-B2, H3b-2 e H3b-3; o CTO pesquisa e mede antes de planejar (L-43), e o passo continua tendo de provar `rc=139 signal=SEGV`. Até ela entrar, nenhuma reprodução local do job do teste de janela.
+- **D-W8-1072 (líder, 11/11 16:27, registrada pelo main): a CN5-SEM-ALERTA segue pelo programa em Python, e a primeira prova real só roda depois da pausa.** A ordem do CTO está pronta e conferida pelo main: `ordem-cn5.md` md5 `856bbb3a`, anexos `f76cf70b` (47 arquivos, `md5sum -c` rc 0), árvore limpa, `tests/tools/die_quietly.py` existe. Pesquisa do CTO (`ordens-anexos/cn5/pesquisa.md`): `ulimit -c 0` não cala o alerta (core(5): o limite é ignorado quando o core vai por cano), o `docker exec` não tem `--ulimit`, e um processo não-despejável sai antes de o núcleo chamar o serviço de quedas (`fs/coredump.c`). Por `AskUserQuestion`, com o ponto contra de cada opção dito. Respostas verbatim: *"Autorizo, depois da pausa (Recomendado)"* (o experimento: duas mortes silenciosas num contêiner e uma reprodução do job, com risco de alerta baixo e não zero) e *"Programa em Python (Recomendado)"* (contra manter o `sh` com o limite de core igual a 1, que é valor interno do núcleo e escreve aviso no registro do núcleo a cada rodada; ratifica a D-W8-1614 do CTO). **O CTO não mediu nenhuma morte:** a tentativa no hospedeiro foi negada pelo classificador de permissão, e em contêiner ele estava proibido; os passos 5 a 8 da ordem nunca rodaram. Decisões do CTO a ratificar: D-W8-1610 a D-W8-1618 (a 1614 já ratificada aqui). Errata das pendentes: nenhuma (D-W8-1617). A linha `CN5-SEM-ALERTA` da tabela é âncora de bloco da ordem e não se edita antes do despacho. Pausa ordenada pelo líder às 16:03 para as 17:00: *"commit e pause quando der 17:00"*.
+- **D-W8-1073 (líder, 12/11 15:27, registrada pelo main): a onda W8 retoma, com modo autônomo ligado, e nova pausa marcada para as 17:00 de 12/11.** Ordens verbatim: *"ligue modo autonomo e continue"* e *"quando chegar 17:00 commit e pause"*. O modo autônomo anterior venceu às 08:16 de 12/11; o novo vale até 13/11 15:29 (escopos: push e limpeza). O main apagou o arquivo de parada de 11/11 e despacha a CN5-SEM-ALERTA (`ordem-cn5.md` md5 `856bbb3a`, anexos `f76cf70b`, `md5sum -c` rc 0, HEAD `e8f1d441` igual ao remoto, árvore limpa). A palavra do main para os passos 6 e 7 da ordem (duas mortes silenciosas num contêiner e UMA reprodução do job, perna `plain`) vem da autorização do líder na D-W8-1072 (*"Autorizo, depois da pausa (Recomendado)"*). Passo pesado que não couber antes das 17:00 não começa; o que estiver pronto é commitado e o resto fica para a retomada.
+- **D-W8-1074 (main, 12/11 16:04, modo autônomo, a confirmar retroativamente): a CN5-SEM-ALERTA está entregue e revisada, e vai ao servidor.** Commit `b5ffe27c` (implementador `devops-sre` sonnet novo; 3 arquivos, pelos blocos da ordem). Os passos 6 e 7 rodaram uma vez cada, com a palavra do main apoiada na D-W8-1072: a prova leve deu `rc=139 signal=SEGV` no verde e `rc=134 signal=ABRT` no vermelho, com `diario_nossos=0`; a reprodução do job, perna `plain`, fechou com `passos encontrados=68 rodados=53 pulados=15 falharam=0` e `nossos=0`; o `preci --fast` deu 395 de 395 e `nossos=0`. Em todas as leituras o piso valeu (`piso_ruido=7`). A inferência do CTO de que o `prctl` funciona com `--cap-drop=ALL` está medida (`CapEff` zero dentro do contêiner). Reconferência do main: `numstat` 38/17, 1/1 e 9/0, árvore limpa, e a chave `semdev_isolation_ci_udmabuf.rc=1` que o implementador deixou sem investigar é o valor esperado (`ordem-kwin68.md:251`). Revisão (`qa-engineer` sonnet novo, só leitura): APROVADO, 0 crítico, 0 importante, 5 cosméticos; os cosméticos viraram o item `CN5-REVIEW-COSMETICS`, e o texto da linha do item na tabela foi corrigido pelo main. **Limites declarados da revisão:** o revisor leu só parte do arquivo de leis e não leu a pesquisa do CTO; ninguém conferiu a tela do líder, só o diário; e o CI do servidor ainda não rodou sobre este commit. Decisão de execução: push do ramo e disparo do CI agora, dentro do escopo do modo autônomo. Continuam a ratificar pelo líder as decisões do CTO D-W8-1610 a D-W8-1618 (a 1614 já ratificada).
+- **D-W8-1075 (líder, 12/11 16:13, registrada pelo main): os modelos dos agentes voltam a ser Opus para planejar e Haiku para executar, como padrão global.** Pelo `/modelos_sessao`, por `AskUserQuestion`. Respostas verbatim: *"Opus"* (C-levels), *"Haiku"* (trabalhadores), *"High"* e *"High"* (esforço dos dois grupos) e *"Padrão daqui em diante"* (escopo: toda sessão nova, em qualquer projeto desta máquina). Substitui a regra de 11/11 (C-levels em fable, trabalhadores em sonnet), e com ela a leitura "onde uma ordem pendente diz haiku NOVO, lê-se sonnet NOVO": as sete ordens pendentes (`fix3wl`, H3b-1, T7, `tidy23`, T6-B2, H3b-2, H3b-3) voltam a valer como escritas, com implementador e revisor haiku e com os trailers de Opus e de Haiku das mensagens de commit prontas. **O que o main fez por causa disso:** às 16:08 tinha despachado o CTO para escrever uma errata que trocasse o trailer do implementador para Sonnet nas 11 mensagens de commit prontas dessas ordens (o main mediu que um implementador sonnet pararia nas sete antes do commit); com a resposta do líder a errata perdeu o motivo, o main interrompeu o CTO às 16:14 e apagou a pasta incompleta que ele tinha começado. Nenhum anexo e nenhuma ordem foi tocado. As duas fatias feitas em sonnet (`KWIN-68-SEM-PLACA` e `CN5-SEM-ALERTA`) ficam como estão, com os trailers verdadeiros de quem as fez. A `fix3wl` não começa antes da pausa das 17:00: os passos pesados dela não cabem no tempo.
+- **D-W8-1076 (main, 12/11 16:44, modo autônomo, a confirmar retroativamente): a CN5-SEM-ALERTA fecha, e a sessão pausa às 17:00.** O CI do servidor rodou sobre `20f2d6b5` (que contém o `b5ffe27c`) e fechou verde: run 43286479464, 26 jobs, 25 success e 1 skipped, com as duas pernas do teste de janela (`plain` e `asan`) em success. A linha do item na tabela passa a `✅ Concluído`. A partir desta fatia, reproduções locais do teste de janela voltam a ser permitidas (a suspensão da D-W8-1071 valia até ela entrar). Pausa pela ordem do líder (D-W8-1073): tudo commitado e empurrado, nenhum agente vivo. Na retomada: a `fix3wl`, com implementador e revisor haiku novos como a ordem foi escrita (D-W8-1075), e o implementador lê antes a errata `ordens-anexos/kwin68-saida-errata-pendentes/errata1.md`.
+- **D-W8-1077 (líder, 12/11 22:28, registrada pelo main): a onda W8 retoma com modo autônomo, e o trabalho para às 06:00 de 13/11.** Ordens verbatim: *"ligue modo autonomo e continue"* e *"pare de trabalhar 06:00"*. O modo autônomo vale até 13/11 22:28 (escopos: push e limpeza). O main apagou o arquivo de parada das 16:43 e despacha a `fix3wl` (`ordem-fix3wl.md` md5 `63ee08a7`, anexos `d3eabd57`, `md5sum -c` rc 0; errata1 das pendentes `13d6e5e6`, anexos dela rc 0; HEAD `2282c88d` igual ao remoto; árvore limpa), com implementador e revisor haiku novos como a ordem foi escrita (D-W8-1075). Passo pesado que não couber antes das 06:00 não começa; às 06:00 o que estiver pronto é commitado e o main grava a pausa.
+- **D-W8-1078 (líder, 12/11 22:30, registrada pelo main): as dúvidas desta retomada vão ao C-level, não ao líder.** Ordem verbatim: *"duvidas com clevel"*. Leitura do main (a confirmar): durante esta janela de trabalho até as 06:00, toda dúvida de execução ou de desenho que surgir (de um implementador, de um revisor ou do próprio main) é levada ao C-level dono do assunto, hoje o CTO (`bigtech:caetano-cto`, opus high pela D-W8-1075), que pesquisa e decide em modo autônomo; o main registra cada decisão aqui para ratificação. Continua indo ao líder o que as leis reservam a ele: porta de mão única, mudança de lei, publicação fora do escopo autorizado, gasto, e qualquer teste que toque a placa GeForce.
+- **D-W8-1079 (main, 12/11 22:36, modo autônomo, a confirmar retroativamente): a sessão reaberta perdeu a reserva das CPUs do líder, e o main a refixou em 4-15.** O implementador da `fix3wl` parou antes do primeiro passo pesado porque `taskset -cp $$` lia `0-15`, contra os `4-15` do briefing (as CPUs 0 a 3 e 4 GiB são do líder, ver a regra de 11/11 que a sessão `claude_configs` aplicou de fora). Medido pelo main: o processo do Claude desta sessão é novo depois da reabertura (pid 30021, filho do `konsole`), e tanto ele quanto o shell pai estavam em `0-15`. Ação: `taskset -a -cp 4-15 30021`, só sobre o processo da própria sessão; nenhuma configuração do sistema foi tocada (a regra "Não mexer no sistema" continua de pé). Conferido depois: um shell novo da ferramenta e a cadeia até o Claude leem `4-15`. O implementador foi avisado para rodar de novo a receita e parar se ler `0-15`. Limite: a fixação não sobrevive a outra reabertura da sessão; quem retoma tem de medir de novo.
+- **D-W8-1080 (main, 13/11 00:05, modo autônomo, a confirmar retroativamente): a `fix3wl` parou no passo 8 por divergência de versão do Clang, o CTO decidiu as dúvidas e a retomada é despachada.** Implementador `backend-engineer` haiku novo, das 22:30 às 23:42: passos 1 a 7 iguais ao esperado (25/25 no comparador, 19 mutantes mortos de 22 com os três vivos pré-registrados, MSVC rc 0); passo 8 com `--fast` rc 0, 395 de 395, TUDO VERDE, mas `clang version 23.1.5` contra os `23.1.4` da ordem, e ele parou sem commitar. Pela D-W8-1078 as dúvidas foram ao CTO (opus high), que escreveu `ordens-anexos/fix3wl-errata-retomada/errata.md` (md5 `d764801e`; `anexos.md5` `7539a09f`, 15 arquivos, `md5sum -c` rc 0) com as decisões **D-W8-1621 a D-W8-1630** (a ratificar): o `--fast` vale porque o CI está na mesma 23.1.5 (conferido pelo main no log do run 43286479464: `clang version 23.1.5`); os contêineres sem `--cpuset-cpus` dos passos já rodados ficam como desvio registrado e a retomada não sobe contêiner; as leis mudaram mas as 16 seções citadas são iguais, e a L-46 entra pela errata; a retomada é R0 (conferência de 32 itens do snapshot contra o já provado) e depois `--sanitizer-only`, os dois commits e o passo 10; o "mortos de 20" é erro de texto. Conferência do main antes do despacho: os dois md5 e os dois `md5sum -c` rc 0, árvore limpa, afinidade `4-15` no shell e no pai, `san.rc` e `commit_hi.out` ausentes. A faixa D-W8-1619 e 1620 ficou sem uso.
+- **D-W8-1081 (main, 13/11 00:45, modo autônomo, a confirmar retroativamente): a `fix3wl` entrou e a revisão saiu limpa nas duas etapas; o CI do servidor ficou vermelho em Arch e CachyOS por um teste sem relação.** A retomada (`backend-engineer` haiku novo, pela errata do CTO) rodou o R0 (32 de 32), o `--sanitizer-only` (203 de 203) e gravou `a37d4e57` (HI, `tests/gl_state_contract_test.cpp`, 6/5) e `fa05e778` (WJ, `tests/tools/check_configure_ack_trace.py`, 54/15); o main conferiu o `numstat`, o md5 dos dois blobs contra o relatório e os dois trailers de cada commit, e empurrou. Revisão (`qa-engineer` haiku novo): HI (N1) LIMPA, 10 rodadas iguais ao pré-registro, nenhum sobrevivente, V1 e V3 passando 100% no teste de antes (o que justifica a fatia); WJ (N3) LIMPA, vermelho rc 1 só no caso novo, 15 de 15 rastreios iguais; 3 cosméticos, que viraram o item `FIX3WL-REVIEW-COSMETICS`. A linha `WL-ACK-CONFIGURE-SEGUINTES` passa de reprovada a `🔍 Pendente verificação`; a `R2D-SPRITE-SHADE` fica em andamento porque as fatias H3b dela continuam na fila. **CI run 43357621563 sobre `fa05e778`:** 21 success, 1 skipped e 4 failure (Arch e CachyOS, compartilhado e estático), todos em `pkgconfig_validate_test`; os testes das duas etapas passaram em Fedora, Windows e Clang. Medido pelo main: o CMake das imagens rolantes subiu de 4.4.5 para 4.5.0 entre o último verde (run 43286479464) e este, com pkgconf e python iguais, e os arquivos mudados não tocam o validador. INFERÊNCIA: a causa é o CMake 4.5.0. O CTO (opus) foi despachado às 00:38 para achar a causa, dizer se é defeito de produto e escrever a ordem de conserto (`ordem-cmake45.md`). Limite registrado pelo revisor: os contêineres da revisão também rodaram sem `--cpuset-cpus` (decisão aberta D-W8-1609).
+- **D-W8-1082 (main, 13/11 01:14, modo autônomo, a confirmar retroativamente): a causa do vermelho de Arch e CachyOS está achada, a ordem de conserto está pronta, e duas coisas dela vão ao líder; enquanto isso a T7 é despachada.** O CTO (opus) achou, pelo fonte do CMake e sem executar nada, que o commit `38fa645e73` do CMake ("PkgC: Correctly handle various pkg-config edge cases", presente na v4.5.0 e ausente na v4.4.5; as notas da 4.5 não o citam) trocou o leitor de `.pc`: o branco depois do `=` de uma variável deixou de ser aparado, e a fixture do cenário 13 do `pkgconfig_validate_test` passa a dar `-L` pelado, que o validador conta como ZERO `-L`. Conferido pelo main: os 4 jobs vermelhos trazem `ZERO -L` (`gh run view 43357621563 --log-failed`, 4 ocorrências). Decisões do CTO **D-W8-1631 a D-W8-1637** (a ratificar): gravidade IMPORTANTE (o `cmake --install` comum do consumidor não cai; cai o empacotador que edita o modelo do `.pc`, caso que o `PACKAGING.md` promete aceitar; no 4.5 variável e campo repetidos passam calados; o Fedora cai igual quando chegar ao 4.5); conserto por uma função própria que limpa comentário e branco da cópia privada do `.pc` antes de o CMake ler, mais recusa própria de variável e campo repetidos (cenário 21 novo). Ordem `ordem-cmake45.md` md5 `ab0e2a1a`, anexos `82d3425e` (62 arquivos, `md5sum -c` rc 0). **Vão ao líder, e nada desta ordem roda sem ele:** (1) a D-W8-1635, porque a função toca a decisão 7 do `ESCOPO.md` ("o leitor caseiro morre", `ESCOPO.md:283`); (2) o passo 4, que baixa a imagem `archlinux:latest` e pacotes dentro de contêineres descartáveis (L-51 global). Como a fila comuta e a árvore está livre, o main despacha agora a T7 (`ordem-t7.md` md5 `ea4aa8be`, anexos `1eeba863`, `md5sum -c` rc 0, errata1 das pendentes com uma chave para ela), com implementador haiku novo; a `cmake45` entra quando o líder responder e a árvore estiver livre.
+- **D-W8-1083 (main, 13/11 07:24, modo autônomo): o líder autorizou as duas coisas da ordem `cmake45`, a T7 parou sem commit, e a sessão para pela ordem das 06:00.** Respostas do líder por AskUserQuestion, verbatim: "Autorizar o conserto (Recomendado)" (a D-W8-1635, que toca a decisão 7 do `ESCOPO.md`) e "Autorizar o download (Recomendado)" (imagem `archlinux:latest` e pacotes só dentro de contêineres descartáveis, nada no hospedeiro). A T7 devolveu "Cumprimento: NÃO": o passo 8 (`preci --fast` da etapa E) saiu com rc 1 porque o agregado do ctest reprovou o `win_vm_lab_coletar_resultados_selftest`, que levou 43,8 s sem `RESOURCE_LOCK` (regra 1 de `tests/tools/ctest_aggregate.py`), teste que não é da etapa E; 395 de 395 casos passaram, nenhum commit, árvore limpa em `721a2c90`. As duas dúvidas da T7 vão ao CTO na retomada (como tratar esse teste; se a T7 retoma depois). Como a hora da parada ordenada ("pare de trabalhar 06:00") já tinha passado quando as respostas chegaram, nada foi despachado: a `cmake45` fica autorizada e pronta, para a retomada. `e89d8901` e `721a2c90` e este registro ficam locais, sem push.
+- **D-W8-1084 (main, 13/11 08:07, modo autônomo): o líder mandou seguir, e a fila anda pela `cmake45` com a T7 ao CTO em paralelo.** Ordem do líder, verbatim: "pode continuar". O arquivo de parada foi apagado; modo autônomo ativo (ligado 12/11 22:28), afinidade 4-15, 22 GiB livres, 1451 processos. Despachados juntos: o implementador da `ordem-cmake45.md` (devops-sre haiku NOVO; md5 `ab0e2a1a`, anexos `82d3425e` rc 0; com as duas respostas do líder verbatim e a palavra do main para o passo 8 condicionada aos passos 3, 5, 5d, 6 e 7 iguais ao esperado), e o CTO (opus) só de texto, para decidir as duas dúvidas da T7 numa `errata2` sem executar nada nem tocar a árvore. A T7 só retoma quando a `cmake45` sair da árvore (um implementador por vez).
+- **D-W8-1085 (main, 13/11 08:30, modo autônomo, a confirmar retroativamente): o conserto do CMake 4.5 entra em `58a6beb8` e vai à revisão.** O implementador relatou "Cumprimento: SIM": passos 1 a 8 iguais ao esperado, 21/21 cenários (20 verdes e o #20 pulado e declarado, que exige Windows real) em Arch e CachyOS com CMake 4.5.0 e em Fedora com 4.3.0, `preci --fast` "TUDO VERDE". Reconferido pelo main: o commit toca só os 3 arquivos, e os md5 dos três blobs batem com o pré-ensaio do CTO (`4220ddf1`, `c157e0a1`, `0348c37f`). Ressalvas aceitas, todas declaradas: (1) o commit leva só o trailer do Haiku, sem o do Opus; fica assim porque não se faz amend; (2) o passo 7 rodou o `preci` no hospedeiro, como a própria ordem manda (contradição interna da ordem com a seção 5, registrada para o CTO); (3) o HEAD andou de `bd0a7403` para `f48cf0cf` antes do passo 2, só com o registro de decisões, sem tocar os 3 arquivos. Revisor `qa-engineer` haiku NOVO despachado, com os mutantes (a) a (f) da ordem, em cópia feita do blob. Sem push até a revisão sair limpa.
+- **D-W8-1086 (main, 13/11 08:36, modo autônomo, a confirmar retroativamente): a errata 2 da T7 está pronta, e a T7 espera a revisão do conserto do CMake 4.5.** O CTO decidiu D-W8-1638 a D-W8-1644 (a ratificar; nada vai ao líder), em `.trabalho/cto-w8/ordens-anexos/t7-errata2/errata2.md` (md5 `592f932a`, anexos `24305991`, 11 arquivos, `md5sum -c` rc 0, conferido pelo main). Em resumo: o vermelho foi falta de folga de um autoteste de ferramenta, não defeito da T7; a T7 reaproveita os passos 1 e 4 a 7, refaz 2, 3 e 8 num clone novo e retoma com haiku NOVO; os quatro desvios declarados são aceitos. O main registrou na INBOX do `TODO.md` a linha pronta `WINLAB-SELFTEST-FOLGA` da D-W8-1639. A T7 só é despachada quando a revisão da `58a6beb8` sair LIMPA, porque o clone novo da etapa E nasce sobre o validador que ela revisa.
+- **D-W8-1087 (main, 13/11 08:42, modo autônomo, a confirmar retroativamente): a revisão reprova o conserto do CMake 4.5, o CTO escreve o conserto dele, e a T7 retoma em paralelo.** Veredito do revisor (`qa-engineer` haiku novo, `.trabalho/cto-w8/rev-cmake45/veredito.txt`): REPROVADA, 0 CRÍTICO, 4 IMPORTANTE, 1 COSMÉTICO. O verde de 21/21 nos três sistemas foi reproduzido; os mutantes (c) e (d) sobrevivem no Fedora 4.3, porque o teste não distingue ali a recusa do próprio validador; e a promessa de "mesmo veredito em todo CMake" cai por medição em três formas de `.pc` (`\#`, nome com hífen, recuo antes do nome). Por ser a primeira reprovação, a L-42 do projeto e a L-22 global obrigam pesquisa na web antes da segunda tentativa: o CTO (opus) foi despachado com essa obrigação para escrever `ordem-cmake45-fix1.md` como commit novo sobre `58a6beb8`, mais as linhas prontas da INBOX (D-W8-1637 e o item `CMAKE45-PC`). Sem push até a fix1 passar na revisão. Em paralelo, como a revisão já saiu da árvore e da `heavy.lock` e a T7 não toca os 3 arquivos, a T7 retoma pela errata 2 com `backend-engineer` haiku NOVO (único implementador na árvore).
+- **D-W8-1088 (main, 13/11 10:24): o líder decide as duas perguntas da fix1, e ela é despachada.** Respostas do líder por AskUserQuestion, verbatim: "Ampliar o conserto (Recomendado)" (a D-W8-1656 do CTO: a fix1 mexe também nas linhas de campo e procura `${nome}` sem substituir, além do que a D-W8-1635 cobria) e "Escrever depois (Recomendado)" (a promessa `PACKAGING-PROMESSA-SINTAXE` vira item próprio depois que a fix1 passar na revisão). O CTO decidiu D-W8-1645 a D-W8-1656 (a ratificar) em `.trabalho/cto-w8/ordem-cmake45-fix1.md` (md5 `15afedb7`, anexos `68672add`, 179 arquivos, `md5sum -c` rc 0, conferido pelo main); fontes lidas: pkgconf, pkg-config do FDO, CMake 4.4.5/4.5.0 e llpkgc. As 9 linhas da INBOX dele foram registradas no `TODO.md`. Implementador `devops-sre` haiku NOVO despachado com a palavra do líder para o passo 11. Também às 10:23 a `claude_configs` acusou o contêiner do passo 16 da T7 (`clang_ct.sh`, só `--cpus 8`) nos núcleos do líder; ela o fixou em 4-15. O main mandou o implementador da T7 fixar na hora, com `docker update --cpuset-cpus 4-15`, todo contêiner sem cpuset, exceto o do teste de isolamento; a correção dos scripts congelados vai ao CTO por errata (D-W8-1609 segue aberta).
+- **D-W8-1089 (main, 13/11 10:25): parada ordenada às 12:00.** Ordem do líder, verbatim: "trabalhe até 12:00. Depois commit e pause". Limites passados aos dois implementadores em voo (T7 e fix1): nenhum passo pesado novo depois das 11:30, nenhum commit novo depois das 11:45, relatório e mensagem final até as 11:50. Às 12:00 o main commita o que for dele, grava o arquivo de parada e atualiza a memória.
+- **D-W8-1090 (main, 13/11 10:31, modo autônomo, a confirmar retroativamente): a T7 entra nos dois commits e vai à revisão.** O implementador da retomada relatou "Cumprimento: NÃO" só pelo passo 19: o `coredumpctl` mostrou dois SIGABRT, às 03:49 e às 04:03, ambos de `/run/build/libsodium/conftest`. São de outro programa compilado na máquina, que o vigia do main já tinha classificado como de fora deste projeto. Julgamento do main: o desvio não é da T7, e os passos 1 a 18 bateram. Commits locais: etapa E `582e2178` (4 arquivos) e etapa T `6a95be6b` (14 arquivos), sem push. Ressalvas dele, aceitas: contêineres dos passos 15 e 16 sem cpuset (já encerrados, D-W8-1609), e o md5 que ele citou para o relatório (`80341b5c`) difere do medido pelo main (`7152a282`), porque o relatório ganhou linhas depois do cálculo. Revisor `qa-engineer` haiku NOVO despachado para a seção 9 da ordem: com a parada das 12:00, só a parte sem execução pesada roda hoje; o veredito sai PARCIAL e a revisão retoma depois.
+- **D-W8-1091 (main, 13/11 10:54, modo autônomo, a confirmar retroativamente): as duas frentes param em pontos de decisão, e o CTO decide as duas até as 11:45.**
+  - **fix1 do CMake 4.5:** "Cumprimento: NÃO". Parou no passo 7, como a ordem manda. O mutante X10, que tira a normalização do CR, saiu verde no Arch e no Fedora quando a previsão era vermelho (conferidas=39, divergentes=2). Os passos 8 a 11 não rodaram, nada foi commitado e os 3 arquivos estão intactos.
+  - **Revisão da T7:** veredito PARCIAL, 0 CRÍTICO. O main conferiu no blob os dois IMPORTANTES:
+    - I-1: o comentário de `tests/fixtures/textures_probes.txt:54` diz (0.5, 0.5, 0.75), quando o certo é (0.75, 0.5, 0.75); o valor da sonda está certo.
+    - I-2: `examples/textures/textures.cpp:357` e `:369` têm nomes com "and", contra `GODS_LAWS.md:438`.
+    - Há ainda 9 cosméticos e um herdado para a INBOX.
+    - Faltam três itens: os mutantes, porque falta a imagem `glintfx-wltest` e o roteiro faz `docker build`; o caso vermelho, porque o contido recusou com 2053 a 2096 processos; e MSVC e CI, que precisam de push.
+  - **Despacho:** o CTO (opus) foi chamado para escrever a errata da fix1 e a `ordem-t7-fix1.md`, mais o caminho para fechar a revisão, com prazo às 11:45.
+  - **A parada das 12:00 vale:** nenhum implementador novo hoje. As ordens ficam prontas para a retomada.
+- **D-W8-1092 (main, 13/11 11:15, modo autônomo, a confirmar retroativamente): o CTO decide as duas frentes, e as ordens ficam prontas para a retomada.** Decisões do CTO D-W8-1657 a D-W8-1663, a ratificar.
+  - **fix1:** o conserto está certo. A previsão do X10 estava errada porque o `file(READ)` do CMake já tira o CR do par CRLF, e o teste não exercitava o CR sozinho. O cenário 21 ganha esse caso. Errata `.trabalho/cto-w8/ordens-anexos/cmake45-fix1-errata1/errata1.md` (md5 `5336106a`, anexos `d9e5c8c8`, rc 0). A fix1 retoma do passo 1 com pasta nova; não é reprovação de revisão.
+  - **T7-fix1:** conserta I-1, I-2 (quatro funções, janela byte a byte igual) e C-1. `.trabalho/cto-w8/ordem-t7-fix1.md` (md5 `aaf946d8`, anexos `da56fdf0`, rc 0).
+  - **Fechar a revisão da T7:** o item 2 precisa de 24 rodadas com `docker build`, com aviso prévio à `claude_configs` (L-46); o item 5, só pelo contido, com portão de processos; o item 7, depois do push. A R2D-TEXTURE fica em 🔍.
+  - **INBOX:** o main registrou as 6 linhas novas.
+  - **Vai ao líder, só se acontecer:** a `claude_configs` recusar a janela dos builds, ou a troca do contido por contêiner com limite de processos.
+  - **Sem despacho novo hoje:** pela parada das 12:00, nenhum implementador começa agora (os dois roteiros têm passos pesados que não cabem até as 11:30).
+- **D-W8-1093 (main, 13/11 13:54, modo autônomo): o líder mandou seguir, e as duas ordens prontas são despachadas em paralelo.** Ordem do líder, verbatim: "pode continuar". O arquivo de parada foi apagado. O modo autônomo está ativo e vence às 22:28. Afinidade 4-15, 19 GiB livres, 2158 processos. Foram despachados dois implementadores haiku NOVOS: o da retomada da fix1 do CMake 4.5 (errata1, do passo 1, pasta nova) e o da `ordem-t7-fix1.md`. Os arquivos das duas ordens não se tocam, e a `heavy.lock` põe os passos pesados em fila. A revisão da T7 (itens 2, 5 e 7) fica para depois da T7-fix1. Antes do primeiro `docker build` dela, a `claude_configs` será avisada.
+- **D-W8-1094 (main, 13/11 14:32, modo autônomo, a confirmar retroativamente): a fix1 do CMake 4.5 entra em `f2c6b95a`; a revisão espera a máquina aliviar.** O implementador relatou "Cumprimento: SIM", com desvios declarados.
+  - **Provas:** vermelho 39 de 39; paridade em 35 fixtures nas três distros com `divergencias_uniformes=0`, `previsao_errada=0` e `nao_restaura_44=0`; verde 26 de 26, com o #20 pulado e declarado; `preci --fast` TUDO VERDE.
+  - **Conferido pelo main:** o commit toca só os 3 arquivos, e os md5 dos três blobs batem com o pré-ensaio do CTO (`a391bc28`, `03aecdbd`, `ae49b902`).
+  - **Desvios aceitos:** `CMAKE_BUILD_PARALLEL_LEVEL=8` no `preci`; o `| tail` trocado por leitura do código de saída em arquivo; o `preci` no hospedeiro, como a ordem manda; o `lote.sh` congelado espera 8 GiB, mas ele conferiu 14 GiB antes de cada etapa.
+  - **Revisor:** `qa-engineer` haiku NOVO, com os mutantes da ordem, mais os que sobreviveram no Fedora na revisão anterior. Só é despachado quando os processos do usuário voltarem a 2400 ou menos (medido às 14:32: 2524, quase todos de outras sessões).
+  - **T7-fix1:** segue parada no portão `fora<=2000`.
+- **D-W8-1095 (main, 13/11 14:33): o teto de agente novo sobe para 3000 processos, e o revisor da fix1 é despachado.** A sessão `claude_configs` repassou a decisão do líder das 14:32, verbatim: "3000". A marca de "nenhum agente novo" sobe de 2400 para 3000 processos do usuário. O aviso ao líder continua em 3200 e o teto real em 4000. O motivo é que, com 7 sessões abertas, o repouso já fica em cerca de 2500. O main aplicou a regra pela L-46 (divisão da máquina) e atualizou a memória da reserva. Com 2555 processos medidos, despachou o `qa-engineer` haiku NOVO para a segunda revisão de `f2c6b95a`, já com o teto novo de 3000. O portão do contido (`fora<=2000`, U/2 em `tools/contido.sh`) é outra regra e não mudou. Por isso a T7-fix1 continua parada nele.
+- **D-W8-1096 (main, 13/11 14:48, modo autônomo, a confirmar retroativamente): a T7-fix1 retoma pela errata do portão de processos.** Decisões do CTO D-W8-1664 a D-W8-1667, a ratificar.
+  - **Portão do `preci`:** `fora<=2000` não vale para o `preci`. Nos dois registros do ctest (`tests/CMakeLists.txt:5080` e `:7584`) os dois autotestes do item 5 rodam sem o contido. O `preci` da fix1 passou com eles verdes. O portão vira `usuario<=2625`, conta feita sobre o pico do boot (`pids.peak`=2735) e lida também dentro da `heavy.lock`.
+  - **Item 5 da revisão da T7:** continua só pelo contido (`fora<=2000`). Ele trava o fechamento da revisão, não o commit da T7-fix1. O caminho é o main pedir à `claude_configs` uma janela com `fora<=2000` (L-46) quando chegar a hora.
+  - **Ao líder, se a janela for negada:** as opções da seção 4 da errata, nesta ordem: contêiner com `--pids-limit 64`, mudar a regra U/2, escopo próprio do systemd, hospedeiro sem envoltório, esperar. O CTO desaconselha o escopo próprio e o hospedeiro.
+  - **Errata:** `.trabalho/cto-w8/ordens-anexos/t7-fix1-errata1/errata1.md`, md5 `56def0f7`, anexos `becb9629`, rc 0.
+  - **Retomada:** o implementador da T7-fix1 retomou com `usuario=2550`.
+- **D-W8-1097 (main, 13/11 15:03, modo autônomo, a confirmar retroativamente): a T7-fix1 entra em `317808a0`, e o main pede à `claude_configs` as janelas da revisão da T7.**
+  - **Relato:** "Cumprimento: SIM". `preci --fast` TUDO VERDE (395/395) no `snap2` sobre `aaa7590c`. Usuário entre 2546 e 2561 dentro da trava, pico depois em 2847.
+  - **Conferido pelo main:** são 2 arquivos (18/10 e 1/1), os md5 dos blobs batem com o pré-ensaio do CTO (`51a279d7` e `c914bc5a`) e não sobrou nenhum nome com `_and_` em `textures.cpp`.
+  - **Pedido à `claude_configs` (L-46), para fechar a revisão da T7:**
+    - aviso prévio das 24 rodadas com `docker build` (o BuildKit e o contêiner B ficam sem cpuset e usam os núcleos 0-3) e pedido da janela de horário;
+    - pedido de uma janela com `fora<=2000` para os dois autotestes do item 5, pelo contido.
+  - **Se ela recusar ou devolver ao líder:** sobem as opções da seção 6 da `ordem-t7-fix1.md` e da seção 4 da `t7-fix1-errata1`.
+- **D-W8-1098 (líder, 13/11 15:04, repassado pela `claude_configs`; registrado pelo main às 15:05): as 24 rodadas da revisão da T7 ficam liberadas também nos núcleos 0-3, e a janela de processos abre.**
+  - **Resposta do líder por AskUserQuestion, verbatim:** "Liberar agora". A liberação vale só para essas 24 rodadas, uma por vez, com 14 GiB livres antes de cada uma e parada acima de 3000 processos.
+  - **A janela:** o líder respondeu, verbatim, "fechei navegadores". Medido pelo main às 15:05:04: usuario=1806 e fora=1806, abaixo de 2000.
+  - **Ordem da `claude_configs`:** primeiro os dois autotestes pelo contido, depois as rodadas. Avisar a ela o fim dos autotestes e o início e o fim das rodadas, com o pico de memória.
+  - **Despacho:** o revisor da T7 (`qa-engineer` haiku, o mesmo da revisão parcial, para continuidade) foi retomado com essa ordem de execução, mais a revisão do commit `317808a0`.
+- **D-W8-1099 (main, 13/11 15:22, modo autônomo, a confirmar retroativamente): a CMAKE45-PC fecha pela regra N3, com `f2c6b95a`, e o ramo é empurrado para o CI provar Arch e CachyOS.**
+  - **Segunda revisão** (`qa-engineer` haiku novo, `.trabalho/cto-w8/rev-cmake45-fix1/veredito.txt`): REPROVADA só por I-1. Três funções de teste novas passam de 40 linhas (45, 42 e 44, contra a L-17, `GODS_LAWS.md:440`); o main conferiu a primeira no blob.
+  - **O resto da revisão:** verde 26/26 nas três imagens; os 4 IMPORTANTES da primeira revisão consertados e medidos; 18 de 18 mutantes mortos em pelo menos um sistema; os 3 que sobrevivem no Fedora são os previstos e declarados como só-Arch.
+  - **Fechamento:** pela regra N3 (`GODS_LAWS.md:380`), na segunda reprovação o que sobra vai à INBOX e a fatia fecha. O main registrou I-1, C-1 e C-2 na INBOX e anotou o estado no item `CMAKE45-PC`.
+  - **Push e CI:** o ramo `onda-w8` é empurrado, no escopo do modo autônomo, e o CI dispara por `workflow_dispatch`. Isso confirma Arch e CachyOS no servidor, o motivo da fatia, e dá o item 7 da revisão da T7. Merge e tag continuam só no fechamento da onda.
+- **D-W8-1100 (líder, 13/11 15:44, registrado pelo main): o modo autônomo é renovado por 24 horas.** Ordem do líder, verbatim: "ligue modo autonomo". O gancho confirmou a flag `~/.claude/autonomo/GlintFx.json`, válida até 14/11 15:44, com os escopos push e limpeza: push de onda e tag no contrato, limpeza de build em onda verde.
+- **D-W8-1101 (main, 13/11 16:01): o CI do servidor fica verde em `5e153414`, com Arch e CachyOS de volta.** O run 43482138342 deu success: 25 de 26 jobs verdes, e o único pulado é o `VERSION-TAG-SYNC`, como em toda execução sem tag. Os quatro jobs que ficaram vermelhos no run 43357621563 (Arch e CachyOS, compartilhado e estático) saíram verdes. Com isso o vermelho do CMake 4.5 está fechado no servidor. O WL-ACK-CONFIGURE-SEGUINTES, que esperava o CI completo verde, pode sair de verificação, e o main o marca quando a revisão da T7 fechar.
+- **D-W8-1102 (líder, 13/11 16:42, registrado pelo main): autorizações para o fechamento.** Ordem do líder, verbatim: "autorizo: sudo -A, rm para builds e temps, merge, push, tab". Leitura do main: "tab" é "tag". O que fica autorizado:
+  - `sudo -A` quando uma tarefa exigir (L-51 global, que segue valendo);
+  - apagar builds e temporários do trabalho, com o caminho conferido antes (L-53);
+  - merge em `main`, push e tag.
+  A condição de fechamento continua a da L-11 do projeto e da L-24 global: merge e tag só com a onda fechada, CI verde e revisão limpa. A versão e a tag seguem a L-26.
+- **D-W8-1103 (main, 13/11 17:38, modo autônomo, a confirmar retroativamente): os itens 2 e 5 da revisão da T7 estão feitos, e o item 7 vai contra o CI já verde.**
+  - **Item 5:** o contido aceitou às 15:09:36, com usuário em 1812. Os dois autotestes deram rc 0; HST e HWT reprovaram, como previsto.
+  - **Item 2:** as 24 rodadas foram de 15:09:43 a 17:36:43, todas com rc 0. As de referência bateram IGUAIS e o PNG ficou sem mudança de pixel. Dos 10 mutantes próprios, 9 saíram como previsto. O MP8 errou a previsão (ela modelou só A) e o M5 pegou o deslocamento de 0,1 px, por isso o C-7 saiu do relatório.
+  - **M4:** sobrevive por desenho. O par plantado (25 rodadas) não roda; vai à INBOX como `T7-M4-PAR-PLANTADO`.
+  - **Commit `317808a0`:** sem CRÍTICO nem IMPORTANTE novos.
+  - **Aviso à `claude_configs`:** fim das rodadas e pico de 22,67 GiB (`memory.peak` da fatia do usuário).
+  - **Item 7:** o run 43482138342, verde, já contém os três commits da T7. O revisor foi retomado para conferir nesse log os critérios do item 7 e rodar o passo 15 (MSVC) contra o blob, e então fechar o veredito.
+- **D-W8-1104 (main, 13/11 17:44, modo autônomo, a confirmar retroativamente): a revisão da T7 sai LIMPA, e o QA visual é despachado.** Veredito do revisor no adendo 3 de `.trabalho/cto-w8/rev-t7.txt`.
+  - **Item 7:** no run 43482138342 o passo das texturas passou nas duas pernas, com `probes=77 failed=0`, e o caso `textures` deu `Passed` nos 4 do Windows. Estão lá também os 6 artefatos, o `PARITY-GATE`, as 6 linhas `alloc` e o `clang` nos dois modos.
+  - **Duas linhas não aparecem no log do `ctest`:** as sondas do Windows e o `check_examples_consume`. Foram provadas pelos artefatos e pelo critério do teste. É COSMÉTICO e foi para a INBOX.
+  - **Passo 15 (MSVC) contra `317808a0`:** 3 de 3 exemplos compilados, régua 0, contêiner fixado em 4-15 por `docker update` logo depois de subir.
+  - **INBOX:** o C-7 foi retirado (o M5 provou o deslocamento) e anotado na linha dele. Entraram `TEXTURES-SCENE-ARG-NARROW` (C-f1) e `CI-LOG-WINDOWS-PROBES-VISIVEL`. As linhas I-3, C-3, C-4, C-5, C-8 e C-9 já estavam lá.
+  - **QA visual:** pela seção 10 da `ordem-t7.md`, o `qa-engineer` haiku NOVO (o terceiro) foi despachado sobre os PNG do run 43482138342.
+  - **R2D-TEXTURE:** continua em 🔄, porque fecha com a B2 e a T7 (D-W8-1349). A ATLAS-WIKI segue na fila.
+- **D-W8-1105 (main, 13/11 17:48, modo autônomo, a confirmar retroativamente): o QA visual aprova a T7, e a fila segue pela H3b e pela ATLAS-WIKI.**
+  - **QA visual** (`qa-engineer` haiku NOVO, `.trabalho/cto-w8/qa-t7/relatorio.txt`): APROVADO. Foram 10 imagens, 2 do Linux e 8 do Windows; 770 de 770 sondas lidas por leitor próprio; nenhum achado de imagem.
+  - **Reconferido pelo main:** a checklist foi gravada às 17:45:02, antes dos downloads (`md5_inicio` às 17:45:45), e o diff de md5 entre o início e o fim saiu vazio, com 10 PNG.
+  - **Cosmético de fora da T7:** `gh run download` sem filtro falha num artefato `.dockerbuild`, por zip inválido. Use `-n`.
+  - **A T7 fica pronta** (implementação, revisão e QA). A linha `R2D-TEXTURE` segue em 🔄, porque o item fecha com a B2 (D-W8-1349).
+  - **Despachados:** o CTO (opus), para a errata de retomada da H3b-1 (POSTERIORES, D-W8-1572), conferir as guardas da fila contra o HEAD novo e ordenar o resto da onda; e o `technical-writer` haiku, para a ATLAS-WIKI (só `docs/wiki/`), como manda a `ordem-t7.md:351`.
+- **D-W8-1106 (main, 13/11 18:11, modo autônomo, a confirmar retroativamente): a fila da onda é revista, e a H3b-1 é despachada.** Decisões do CTO D-W8-1668 a D-W8-1674, a ratificar. Errata: `.trabalho/cto-w8/ordens-anexos/h3b1-errata-retomada/errata.md`, md5 `6a5b037d`, anexos `7bdf990a`, rc 0, conferidos pelo main.
+  - **POSTERIORES da H3b-1:** já estava na chave 2 da errata comum, provada nos dois sentidos.
+  - **tidy23:** recusa pela posição na fila e ganha uma cópia de `cruza_listas.sh` com POSTERIORES `t6b2 h3b2 h3b3`. Fica o risco de `textures.cpp` e `gl_state_contract_test.cpp` não terem passado pela `.clang-tidy` nova.
+  - **As outras guardas passam.**
+  - **Passo 9 da H3b-1:** sai o `taskset -c 0-7`, que pegava os núcleos do líder, e entra o portão de 2625 processos.
+  - **Fila serial na árvore:** H3b-1, tidy23, T6-B2, H3b-2, H3b-3, H5, STROKE-FAN-ATOM, G3, G4, F1. Pode correr junto: ATLAS-WIKI e o CTO escrevendo as ordens de H5 e STROKE-FAN.
+  - **Vão ao líder na hora certa:** a G4 (GeForce: alerta 5x e aval), o mecanismo da G3 (`/dev/dri` de uma variante nomeada do portão, só com o nó da integrada) e as portas de mão única de T6-B2, H3b-2 e H3b-3, antes da tag.
+  - **Despacho:** `backend-engineer` haiku NOVO para a H3b-1.
+- **D-W8-1107 (main, 13/11 18:12, modo autônomo, a confirmar retroativamente): a ATLAS-WIKI entra em `19dff569`, e o `preci` rodado na árvore viva acusa dois defeitos de ferramenta.**
+  - **O commit:** só `docs/wiki/API-Texture-Atlas.md` (273 linhas, em inglês como o resto da wiki, status "em andamento") e `docs/wiki/Home.md` (+9, seção "In progress"). Conferido pelo main.
+  - **Portões de texto do conteúdo final:** rc 0 em `dep_zero`, `spdx`, `dash_pubdoc`, `check_format` e `docs_count_vocab`. Sem travessão e sem emoji.
+  - **O `preci --fast`:** rodou na árvore viva, sobre uma versão anterior às correções do texto, e deu rc≠0 em 5 testes que não tocam a página. FATO do relato, log em `.trabalho/tmp/atlas-wiki-preci.log`:
+    - (a) `vendor_purity` varre `.trabalho/` e acha binários de outros agentes, ou seja, o portão olha o escopo errado;
+    - (b) `pkgconfig`, `pkgconfig_validate`, `libdir` e `armadilha` falham com `TMPDIR` dentro da árvore e passam com ele fora (medido por ele).
+  - **Por que os implementadores não viram:** eles rodam o `preci` em clone dentro de `.trabalho/`.
+  - **Pendências que ficam com o main**, e só depois que a H3b-1 commitar, para não mexer no `TODO.md` que as guardas dela leem:
+    - as duas linhas na INBOX;
+    - o aviso de que `Concepts.md:44-45` ainda diz que não há API de imagem;
+    - a ratificação da seção "In progress" da Home;
+    - o Status da ATLAS-WIKI para 🔍.
+  - **Limite declarado:** os links para os cabeçalhos novos quebram no GitHub até o merge em `main`.
+- **D-W8-1108 (líder, 13/11 18:43, registrado pelo main): seguir a ordem da tabela.** O líder perguntou se já existe a fatia do personagem na frente e atrás de um prédio. O main respondeu: R2D-YSORT e GFSS-ZINDEX estão na W9-C e R2D-OCCLUDE-PARTIAL na W10; foram desenhadas em 27/08 e estavam congeladas até DEMO-1, que já está ✅. Ordem do líder, verbatim: "Pode continuar seguindo a ordem da tabela". Leitura do main: a fila da W8 segue como está (H3b-1 em curso, depois tidy23, T6-B2, H3b-2, H3b-3, H5, STROKE-FAN-ATOM, G3, G4, F1), e as fatias de profundidade entram na vez delas, depois do fechamento da W8.
+- **D-W8-1109 (main, 13/11 19:07, modo autônomo, a confirmar retroativamente): a H3b-1 entra em `93d23023`, e a regra de `docker build` endurece.**
+  - **Relato do implementador:** "Cumprimento: NÃO" só pelas restrições de máquina. Todos os passos saíram como o esperado: vermelho com as 3 falhas previstas, verde em werror e static, 9 mutantes mortos, Clang 2/2, MSVC 7/7, `preci --fast` TUDO VERDE (395) e sanitizer rc 0 (203).
+  - **Conferido pelo main:** 12 arquivos, e o blob de `renderer_2d_impl_shadows.cpp` (`96e35678`) igual ao `.blk`.
+  - **A falha:** dois `docker build`, de cerca de 4 min 45 s cada, rodaram entre 18:17 e 18:59 sem aviso, usando os núcleos 0-3. Sete contêineres de consulta subiram sem cpuset; o vigia do implementador fixou 22 por evento.
+  - **Aviso à `claude_configs`:** foi atrasado. Ela respondeu que a liberação das 15:04 valia só para a T7 e fixou a regra nova: todo `docker build` precisa de liberação do LÍDER, pedida por ela com o porte, e todo contêiner comum leva `--cpuset-cpus 4-15` já no lançamento.
+  - **O que o main fez:** gravou a regra na memória da reserva de núcleos e mandou o pedido de liberação para a revisão da H3b-1 (1 a 2 builds de cerca de 5 min, a partir de 19:30).
+  - **Revisor:** `qa-engineer` haiku NOVO despachado. Ele espera o arquivo `.trabalho/cto-w8/janela-build-rev-h3b.ok` antes de qualquer build e não roda script congelado que lance contêiner sem cpuset.
+- **D-W8-1110 (líder, 13/11 19:29, registrado pelo main): a montagem de imagem da revisão da H3b-1 está liberada.** A resposta da `claude_configs` não tinha chegado desde as 19:07, e o main perguntou direto ao líder por AskUserQuestion. Resposta, verbatim: "Liberar agora (Recomendado)". A liberação vale só para 1 a 2 `docker build` da revisão da H3b-1, de cerca de 5 min cada e um por vez; eles podem usar os núcleos 0-3. O main criou a trava `.trabalho/cto-w8/janela-build-rev-h3b.ok` e avisou a `claude_configs`.
+- **D-W8-1111 (main, 13/11 19:42, modo autônomo, a confirmar retroativamente): a revisão da H3b-1 para sem veredito, e o CTO escreve a errata geral de cpuset no lançamento.**
+  - **O que o revisor fez** (`qa-engineer` haiku novo, `.trabalho/cto-w8/rev-h3b.txt`):
+    - conferiu o blob, os 12 arquivos reconstruídos byte a byte, os 302 anexos, a mensagem e o escopo;
+    - pré-registrou 9 mutantes;
+    - rodou 1 `docker build` liberado pelo líder (`glintfx-wltest:revh3b93`, 19:29:46 a 19:41:18, rc 0).
+  - **O que ele não fez:** não rodou nada de execução, porque `ctest_ct_HB.sh`, `clang_ct.sh` e `msvc_check.sh` lançam `docker run` sem `--cpuset-cpus`. A regra nova da `claude_configs` (19:07) proíbe isso.
+  - **Achados estáticos:** só cosméticos (`shadow_group.hpp:18` desatualizado, uma frase da mensagem do commit contra `renderer_2d_impl.cpp:397`, e três na pesquisa e no parecer).
+  - **Previsão do revisor:** o mutante X8 (memória esgotada em `fill_shadow`) deve sobreviver, o que daria IMPORTANTE pela regra (c).
+  - **Despacho:** o CTO (opus) escreve a errata geral `cpuset-lancamento-errata`. Todo `docker run` das ordens pendentes nasce com cpuset, com o isolamento declarado como exceção; sai uma fatia própria para os scripts rastreados, com portão provado vermelho; e o porte de todos os builds restantes da fila, para um pedido único ao líder.
+  - **Aviso à `claude_configs`:** o fim do build foi avisado.
+- **D-W8-1112 (líder, 13/11 20:35, registrado pelo main): a errata geral de cpuset no lançamento entra, os 25 builds da fila ficam liberados e a fatia de cpuset fura a fila.**
+  - **Errata:** decisões do CTO D-W8-1676 a D-W8-1690, a ratificar, em `.trabalho/cto-w8/ordens-anexos/cpuset-lancamento-errata/errata.md` (md5 `1fad6e09`, anexos `166274a6`, rc 0). Todo `docker run` dos anexos da fila passa a nascer com `--cpuset-cpus "${GLINTFX_CPUSET:?}"`, o teto de 15g e uma guarda. A exceção é o contêiner A do isolamento, idêntico ao CI.
+  - **Arquivos rastreados:** há 6 lançamentos sem cpuset em 5 deles (`tools/preci.sh:542` e `:557`, `check_win32_test_link.py:816`, `check_host_alerts.py:339`, `check_image_freshness.sh:70`, `compare.sh:44`). Eles viram a fatia `CPUSET-NO-LANCAMENTO` (§5.3).
+  - **Builds restantes:** 25 (T6-B2 12, H3b-2 6, H3b-3 7).
+  - **Confissão do CTO:** entre 20:02:18 e 20:02:29 ele rodou dois laços de um processo por arquivo, cerca de 100 processos, contra a L-11. O pico das 20:01:47 é anterior e foi atribuído pela `claude_configs` à direito2006.
+  - **Respostas do líder por AskUserQuestion, verbatim:** "As 25 de uma vez" (a trava `.trabalho/cto-w8/janela-build-fila-w8.ok` foi criada) e "Entrar já (Recomendado)": a `CPUSET-NO-LANCAMENTO` entra logo depois do veredito da H3b-1, antes da tidy23.
+  - **Próximo passo:** a revisão da H3b-1 retoma pelo R0 da §5.1, sem build.
+- **D-W8-1113 (main, 13/11 21:02, modo autônomo, a confirmar retroativamente): a revisão da H3b-1 sai NÃO LIMPA, o conserto vai ao CTO e a fatia de cpuset entra junto.**
+  - **Veredito do revisor (`.trabalho/cto-w8/rev-h3b.txt`, seção 15):** NÃO LIMPA, IMPORTANTE pela regra (c) pré-registrada. O mutante X8 (apagar `tally.piece_dropped_out_of_memory()` no fim de `fill_shadow`, `src/draw2d/renderer_2d_impl_shadows.cpp:21`) sobrevive com 100% dos testes verdes. Nenhum dos 4 usos de `fill_shadow` nos testes (`tests/renderer_2d_impl_test.cpp:2728`, `:2749`, `:2751`, `:2769`) monta memória esgotada.
+  - **Conferido pelo main no blob de `93d23023`:** o fim de `fill_shadow` é `if (!pieces.add_shadow(...)) { tally.piece_dropped_out_of_memory(); }`, e nenhum teste de `fill_shadow` passa por esse ramo. O achado se confirma.
+  - **O resto da revisão está bem:** 13 de 13 rodadas iguais, 8 de 9 mutantes mortos, os dois builds Clang verdes, fxgreen IGUAL, e só cosméticos (linha `H3B1-REV-COSMETICOS` na INBOX).
+  - **Despacho:** o CTO (opus high) escreve a ordem H3b-1-fix1: um teste que prove que `fill_shadow` conta a peça perdida por memória esgotada, mais os cosméticos que couberem. É a primeira reprovação de N1, então a pesquisa na web vem antes do plano (L-42 do projeto, L-22 global). Em paralelo, um `devops-sre` NOVO implementa a `CPUSET-NO-LANCAMENTO` pela errata §5.3, porque ela não toca os arquivos da H3b.
+  - **INBOX:** `CPUSET-NO-LANCAMENTO`, `VENDOR-PURITY-TRABALHO`, `TMPDIR-NA-ARVORE`, `WIKI-CONCEPTS-DESATUALIZADO` e `H3B1-REV-COSMETICOS`. A ATLAS-WIKI passou a 🔍 (entregue em `19dff569`, falta verificar).
+- **D-W8-1114 (líder via `claude_configs`, 13/11 21:01, registrado pelo main às 21:04): a orquestração de recursos acabou.** Texto da `claude_configs`: "Ordem do líder: a orquestração de recursos acabou às 21:01 e as sessões ficaram livres. Já devolvi todos os núcleos (0-15) às sessões. Caem a reserva dos núcleos 0-3, a exigência de --cpuset-cpus 4-15 e a necessidade de liberação minha para docker build. Continuam valendo as leis globais (L-11: teto de processos, 1 trabalho pesado por vez) e as regras do seu projeto. Não precisam mais me avisar início e fim das fatias." Medido: `taskset -cp 30021` dá `0-15`.
+  - **Efeito:** a `cpuset_guarda.sh` da errata cpuset-lancamento passa a recusar sempre. O devops-sre da `CPUSET-NO-LANCAMENTO` parou no passo 0 por isso (nada mudado, nada commitado) e foi retomado só nos passos 1 a 4 (código e autotestes, sem contêiner).
+  - **Ao CTO:** decidir o destino da `CPUSET-NO-LANCAMENTO` e escrever a errata que destrava os anexos da fila (tidy23, T6-B2, H3b-2, H3b-3), junto com a ordem H3b-1-fix1, que já não precisa de cpuset nem de liberação de build.
+  - **Segunda mensagem da `claude_configs` (recebida 21:03), verbatim:** "O líder ratificou as decisões da orquestração e mandou cancelá-las até pedir uma nova. Ficam cancelados, por ordem dele: a marca de 3000 processos para agente novo, a liberação especial acima de 2400 processos, o piso de 14 GiB que combinei com vocês e a fila de montagens condicionada a mim. Valem só as leis globais (L-11) e as regras do próprio projeto. A errata do CTO sobre cpuset fica a critério de vocês." O teto de processos volta a ser só o da L-11 global (ulimit 4000, medido por arquivo); a decisão sobre a errata de cpuset e o portão de 2625 processos vai ao CTO.
+- **D-W8-1115 (líder, 13/11 21:13, registrado pelo main): até 4 agentes em paralelo, sem concorrência.** Verbatim: "pode usar até 4 agentes em paralelo sem concorrencia". É o teto da L-11 global, agora liberado para uso pleno, desde que os agentes não disputem arquivo, árvore nem trabalho pesado. O CTO recebe o pedido de dividir a fila (tidy23, T6-B2, H3b-2, H3b-3, H5 e as seguintes) em frentes que não se tocam, contando com ele mesmo entre os 4.
+- **D-W8-1116 (main, 13/11 21:30, modo autônomo, a confirmar retroativamente): a fila destravada sai em duas frentes ao mesmo tempo.**
+  - **Do CTO (D-W8-1691 a D-W8-1706, a ratificar):** a ordem `ordem-h3b1-fix1.md` (md5 `94b226e8`, anexos `3bb137be`, rc 0) acrescenta um caso de memória esgotada nas sombras, espelho do `:782`, e corrige o comentário de `shadow_group.hpp:17-18`. Os mutantes Y1 (o X8), Y1B (controle), Y2 e Y3 estão pré-registrados, e não há `docker build`. A errata `cpuset-fim-errata` (md5 `e3d22cda`, anexos `13cac060`, rc 0) revoga a de cpuset para tidy23, T6-B2, H3b-2 e H3b-3, tira o portão de 2625 processos e põe 3600 como parada (90% do teto da L-11). A `CPUSET-NO-LANCAMENTO` volta à INBOX, com o portão guardado em `.trabalho/cto-w8/cpuset/parado/` (md5 `09abd34e`), e a árvore está limpa desse arquivo.
+  - **Frentes (D-W8-1704):** a fix1 e a tidy23 não têm arquivo em comum. O main conferiu: nenhum anexo da tidy23 cita os dois arquivos da fix1. Cada uma roda no próprio clone, com um `backend-engineer` haiku NOVO. O trabalho pesado vai um por vez pela `heavy.lock`. Depois dos commits das duas, roda um `preci --fast` no tronco antes da T6-B2. Daí em diante a corrente T6-B2 → H3b-2 → H3b-3 → H5 → G3 → G4 → F1 é uma frente só.
+  - **Vão ao líder:** estacionar a `CPUSET-NO-LANCAMENTO`, a `STROKE-FAN-ATOM` fora da onda (D-W8-1705), o encontro das frentes e o número 3600.
+- **D-W8-1117 (main, 13/11 22:51, registrado ao vivo): respostas do líder, queda da sessão e redespacho.**
+  - **Respostas do líder por AskUserQuestion, verbatim:** "Guardar na fila (Recomendado)" (a `CPUSET-NO-LANCAMENTO` fica estacionada; D-W8-1703 ratificada) e "Fora da onda 8 (Recomendado)" (a `STROKE-FAN-ATOM` sai da W8; D-W8-1705 ratificada). Sobre a G4 (GeForce sem nó de render neste boot), a resposta foi "Não entendi"; a pergunta foi reescrita e ficou pendente quando a sessão caiu.
+  - **CTO:** D-W8-1707 a D-W8-1728 escreveram as ordens da H5 (`ordem-h5.md`, md5 `7bdf82a2`), da G3 (`ordem-g3.md`, md5 `5aee38b0`) e da G4 (`ordem-g4.md`, md5 `8d980ae3`). D-W8-1729 a D-W8-1733 trataram o PARE da tidy23. A fila fica tidy23 → T6-B2 → H3b-2 → H3b-3, as três `PENDENTE CITA` são esperadas (errata `tidy23-errata-cruza`, md5 `019379a1`), e o `preci` extra no tronco sai. Todas a ratificar.
+  - **H3b-1-fix1:** commit `e2a1fd55` (2 arquivos, 38+/2-). O main conferiu o caso novo no blob. O implementador relatou Y1, Y2 e Y3 vermelhos só no caso novo, Y1B 100%, `preci --fast` com 395 e sanitizer com 203.
+  - **Queda:** a sessão caiu por volta de 22:45. A tidy23 (no passo 4) e o revisor N1 da fix1 (passos A a C) pararam e não podiam ser retomados. As pastas foram guardadas como `tidy23.interrompido-2250/` e `rev-h3b1-fix1.interrompido-2250/`, e os dois foram redespachados como agentes NOVOS, do zero, em pastas novas (L-54 global).
+  - **Modo autônomo:** religado pelo líder às 22:49 ("ligue modo autonomo"), até 14/11 22:49.
+- **D-W8-1118 (líder, 13/11 22:53, registrado pelo main): autorizações para o fechamento.** Verbatim: "autorizo nvidia/rm/sudo -a/merge/push". Antes, às 22:51, ele disse "nvidia ligada", e o main conferiu só por leitura: `renderD129` com vendor `0x10de` e `/dev/nvidia0` presentes.
+  - **Leitura do main:** `rm` vale para builds e temporários do próprio trabalho, depois que a revisão e o QA de cada fatia fecharem (L-53 global); nunca `r21/`. `sudo -A` vale quando for preciso. `merge` e `push` valem no fechamento da onda, com os portões da L-24 global fechados (D-W8-1102).
+  - **"nvidia":** a G4 pode usar a GeForce quando chegar a vez dela. A L-09 global continua inteira: antes do primeiro teste na placa, o main toca o alerta 5x, diz o que vai rodar e espera o aval de início. A autorização de agora não substitui esse aval.
+- **D-W8-1119 (líder, 13/11 22:54, registrado pelo main): as perguntas vão ao C-level certo.** Verbatim: "perguntas leve ao clevel correto". Reforça a D-W8-1078. Daqui em diante, enquanto o modo autônomo durar, o main leva cada dúvida ao C-level do assunto e não ao líder: técnica ao CTO, produto ao CPO, segurança ao CISO, legal ao CLO, e assim por diante. O main registra cada resposta aqui, para ratificação.
+  - **O que continua com o líder, por lei e não por escolha do main:** o aval de início antes do primeiro teste na GeForce (L-09 global: alerta 5x e esperar), e qualquer pedido para quebrar, mudar ou revogar lei (LEI DAS LEIS). Nenhum C-level pode dar esses dois.
+- **D-W8-1120 (main, 13/11 22:59, modo autônomo, a confirmar retroativamente): a revisão N1 da H3b-1-fix1 sai LIMPA, e a H3b-1 fecha.** O revisor, um `qa-engineer` haiku NOVO, leu o blob `e2a1fd55`. Y1, Y2 e Y3 morrem só no caso novo, e o controle Y1B passa. Dos seis mutantes próprios, todos com chegada provada, Z1, Z5 e Z6 morrem no caso novo; Z2, Z3 e Z4 sobrevivem a ele e morrem em outros testes, e o Z3 foi a única previsão errada. O veredito LIMPA está gravado em `.trabalho/cto-w8/rev-h3b1-fix1/relatorio.txt:15`. Os menores vão à INBOX (`H3B1-FIX1-MENORES`). Com a revisão de 93d23023 (NÃO LIMPA só pelo X8) e esta, a etapa H3b-1 da R2D-SPRITE-SHADE fecha; o item segue 🔄 até a H3b-3.
+- **D-W8-1121 (main, 13/11 23:16, modo autônomo, a confirmar retroativamente): a G3a entra em paralelo com a tidy23, e a G4-0 está verde.** Decisões do CTO D-W8-1734 a D-W8-1741, a ratificar, na errata `.trabalho/cto-w8/ordem-g3a-agora.md` (md5 `3de280f6`, conferido pelo main).
+  - **G3a:** muda 4 arquivos (os 3 da `ordem-g3.md` mais `tests/CMakeLists.txt:7565`, que passa de 41 para 42). Não tem arquivo em comum com a tidy23, a T6-B2 nem a H3b-3. Com a H3b-2, divide `tests/CMakeLists.txt`, por trecho; por isso ela entra antes de a H3b-2 tirar o snapshot. Implementador `devops-sre` haiku NOVO; revisor N3 `qa-engineer` NOVO.
+  - **G4-0:** rodada pelo CTO, só leitura, entre 22:55 e 23:08: `renderD129` 0x10de, os três `/dev/nvidia*` presentes e `/run/cdi` de acordo com o driver 620.70.06. A pergunta da seção 5 da `ordem-g4.md` não vai mais ao líder. A G4a entra depois da revisão LIMPA da G3a, com errata do CTO antes. A G4b segue com alerta 5x e aval do líder na hora.
+  - **Recusadas pelo CTO:** não há preparo em texto que adiante a corrente. Os itens `VENDOR-PURITY-TRABALHO` e `TMPDIR-NA-ARVORE` da INBOX precisam do log do preci da ATLAS-WIKI, que não foi achado.
+- **D-W8-1122 (main, 13/11 23:31, modo autônomo, a confirmar retroativamente): a tidy23 entra em três commits e vai à revisão.** TA `b768201f` (16 arquivos), TB `22682f7c` (21) e TC `f627d11b` (`.clang-tidy`), sem PARE. O main conferiu os três no `git log` e os `--stat` (16, 21 e 1 arquivos). Pelo relatório do implementador: os 10 mutantes da ordem morreram, MSVC deu 25 de 25, o `preci --fast` 395 de 395 e o sanitizer 203 de 203; a diferença de um teste a mais vem da H3b-1-fix1. O implementador apontou ao revisor o `NOLINT(bugprone-exception-escape)` de `tests/harness/harness_main.cpp:162`, que não foi medido. O revisor é um `qa-engineer` haiku NOVO (TA N1; TB e TC N3). Como não houve push, não existe run de CI com esses commits, e o revisor foi avisado disso. Os passos 5, 9 e 11 da ordem não estão no arquivo de blocos da `cpuset-fim-errata`, então rodaram sem a troca da primeira linha, com a leitura de processos à parte; fica para o CTO dizer se basta.
+- **D-W8-1123 (main, 13/11 23:45, modo autônomo, a confirmar retroativamente): a G3a entra e vai à revisão N3.** Commit `40ace0e4`, com exatamente os 4 arquivos da errata (`git show --stat` conferido pelo main; 26+/6-). Pelo relatório do implementador: o vermelho deu `selftest_rc=1` no controle novo e o verde `42 controles OK`, a sabotagem numa cópia reprovou, e o `preci --fast` no snap fechou com 395 de 395. Desvios declarados por ele: a primeira rodada do preci reprovou no estágio 2b e passou depois de `git add` só no snap; o preci rodou no hospedeiro (downgrade da L-09 do projeto até `PRECI-IN-CONTAINER`). O revisor é um `qa-engineer` haiku NOVO. A ligação de `QA-COMPOSED-PHOTOS` no TODO fica para quando a G3b fechar.
+- **D-W8-1124 (main, 14/11 00:07, modo autônomo, a confirmar retroativamente): a revisão N3 da G3a sai LIMPA.** O revisor, um `qa-engineer` haiku NOVO, leu o blob `40ace0e4`. Na cópia sabotada, o controle 40 falhou (`selftest_rc=1`), com md5 igual dentro e fora do contêiner. No blob, deu `42 controles OK`. A linha da variante `ci` ficou igual byte a byte. Os três cosméticos e uma dívida vão à INBOX (`G3A-REV-COSMETICOS`, `CHECK-ISOLATION-EXTRAIR-CONTAGEM`).
+  - **Nota de processo, do revisor:** na primeira rodada do preci, o estágio 2b reprovou porque a errata não mandava `git add` do `tests/CMakeLists.txt` (`preci.sh:3045`). A errata mandava PARE nesse caso, e o implementador seguiu com `git add` no snap. O resultado final confere (os md5 do snap são os dos blobs, e a rodada fechou com 395 de 395), mas o log da rodada reprovada foi sobrescrito. Vai ao CTO como lição para as próximas erratas.
+  - **Próximo:** a G4a, depois da errata do CTO (D-W8-1736). A G3b espera a H5.
+- **D-W8-1125 (main, 14/11 00:27, modo autônomo, a confirmar retroativamente): a revisão da tidy23 reprova a TA por um NOLINT com razão falsa; TB e TC saem LIMPAS.** Relatório: `.trabalho/cto-w8/rev-tidy23.txt`.
+  - **TA `b768201f` (N1), CRÍTICO:** `src/platform/gl/gl_context_facade.cpp:643` tem `NOLINTNEXTLINE(misc-const-correctness)` com a razão "fills the void * slot of renderer_2d_host". Segundo o revisor, a função não preenche slot nenhum. Com `const void *` o achado some e o código compila, mas reaparece em `host_surface_size` (`renderer_2d_facade.cpp:31`). O main conferiu no blob que a linha é essa. Os 20 mutantes da TA morreram, e o NOLINT de `harness_main.cpp:162` fecha.
+  - **TB `22682f7c` e TC `f627d11b` (N3): LIMPAS.** Há um cosmético em `tests/texture_atlas_test.cpp:276` ("that a owns").
+  - **Sem CI:** não há run de CI com esses commits, porque o remoto `onda-w8` está em `5e153414`.
+  - **Despacho:** um segundo CTO (opus high) escreve a `ordem-tidy23-fix1`, com pesquisa antes do plano por ser a primeira reprovação N1 (L-42 do projeto). A corrente T6-B2 espera o conserto e a revisão dele. A pasta `rev-tidy23/` ocupa cerca de 14 GB e entra na limpeza pós-onda.
+- **D-W8-1126 (main, 14/11 00:36, modo autônomo, a confirmar retroativamente): a G4a abre em paralelo, com parada antes de tocar os nós da GeForce.**
+  - **Errata do CTO:** `ordem-g4a-errata.md` (md5 `82328bf7`; anexos `3e46f4bc`, rc 0, conferidos pelo main), com as decisões D-W8-1742 a D-W8-1751, a ratificar. A etapa é um commit de 8 arquivos (3 novos), camada N2, zero `docker build`, e não tem arquivo em comum com tidy23, T6-B2 nem H3b-3. Com a H3b-2 ela divide só `tests/CMakeLists.txt`, e entra antes do snapshot dela. O C1 da G3a é coberto por teste dentro da G4a, e o C2 se conserta no mesmo commit.
+  - **Leitura conservadora da L-09 global pelo main:** um passo da errata faz `docker create` com os dispositivos da NVIDIA. O contêiner não é ligado, e a sonda do CTO prova antes que o `create` não abre o dispositivo. Mesmo assim, o implementador para antes desse passo. O main toca o alerta 5x, diz ao líder o que vai rodar e só retoma com o aval dele, porque a autorização de 22:53 ("autorizo nvidia") não substitui o aval de início (D-W8-1118).
+  - **Agentes:** o implementador é um `devops-sre` haiku NOVO. O revisor N2 será um `qa-engineer` NOVO.
+- **D-W8-1127 (líder, 14/11 00:58, registrado pelo main): aval de início da G4a na GeForce, pela L-09 global.**
+  - **Antes da pergunta:** o main rodou os 5 toques do alerta às 00:36, mas o som está desligado na configuração do líder (`~/.claude/state/sound_alert.json`, `enabled: false`, desde 08/09). É provável que nada tenha soado, e o main não religou o som, porque a configuração é do líder.
+  - **A pergunta dizia:** o passo cria, sem nunca ligar, um contêiner que aponta para `renderD129`, `nvidia0`, `nvidiactl` e `nvidia-modeset`, com as bibliotecas do driver em somente leitura, para registrar a configuração de referência. Uma sonda já provou que criar não abre o dispositivo, e o teste que liga a placa pede outro aval.
+  - **Resposta, verbatim:** "Pode seguir (Recomendado)". A G4a foi retomada.
+- **D-W8-1128 (main, 14/11 00:58, modo autônomo, a confirmar retroativamente): a ordem `tidy23-fix1` está escrita, e o CTO a pré-executa antes do despacho.** `ordem-tidy23-fix1.md` (md5 `bf86e8d7`; anexos `b9c25fde`, rc 0), com as decisões D-W8-1760 a D-W8-1771.
+  - **A decisão do CTO:** conferido contra o código, a razão do NOLINT é falsa; quem preenche o slot é `host_surface_size` (`renderer_2d_facade.cpp:70`). Mas a frase do revisor "não há saída sem NOLINT" também não se sustenta, porque o slot é um struct interno nosso. O CTO escolheu a opção (iii): `const void *` em toda a cadeia de leitura do tamanho, sem nenhum NOLINT. São 5 arquivos. Com a T6-B2, a H3b-2 e a H3b-3 há 2 arquivos em comum e nenhuma âncora colide; com a G4a, nenhum arquivo. A fix1 entra antes do snapshot da T6-B2.
+  - **Pré-execução:** a L-12 do projeto manda o CTO rodar os comandos da ordem antes do despacho. A primeira tarefa dele era só texto, e isso seria desvio de lei. O main o liberou para rodar os passos 4 a 7 em cópia própria.
+  - **Erro declarado pelo CTO:** cerca de 12 chamadas de leitura com laço de um processo por arquivo (pico de 1304 processos), contra a L-11 global. Está no Anexo P da ordem.
+  - **INBOX:** o cosmético "that a owns" (`tests/texture_atlas_test.cpp:276`).
+- **D-W8-1129 (main, 14/11 07:17): correção de hora nas D-W8-1127 e D-W8-1128.** O main escreveu "00:58" nas duas entradas e nas mensagens aos agentes sem ler o relógio. O `date` do commit `dbb33a3e` marcou 07:16:53. A pergunta ao líder foi feita às 00:36, e o aval "Pode seguir (Recomendado)" chegou ao main em algum momento entre 00:57 (relatório do CTO) e 07:16. A hora registrada fica 07:16, a da leitura. As duas mensagens aos agentes foram corrigidas. É o mesmo erro da memória "carimbo lido antes da mensagem".
+- **D-W8-1130 (main, 14/11 07:20, modo autônomo, a confirmar retroativamente): a `tidy23-fix1` é pré-executada pelo CTO e despachada.** O CTO rodou os passos 1 a 7 entre 07:16 e 07:18, sobre o HEAD `dbb33a3e`, e todos os rc deram o esperado. A opção (iii) está medida: o vermelho acusa `gl_context_facade.cpp:643:74`, e o verde dá 0 achados e compila. Os 7 mutantes morreram, e o MSVC compilou 3 de 3. Entrou o controle `controle-config`. Md5 final da ordem: `623671bb`; anexos sem mudança (`b9c25fde`, rc 0). O desvio da L-12 do projeto deixou de existir. O implementador é um `backend-engineer` haiku NOVO, em paralelo com a G4a, sem arquivo em comum. A pasta `tidy23-fix1-cto/` entra na limpeza pós-onda; os `.obj` do MSVC dentro dela são do root.
+- **D-W8-1131 (main, 14/11 07:22, modo autônomo, a confirmar retroativamente): a G4a para no passo 6a, e a regra da ferramenta CDI vai ao CTO.** O passo deu `mont_rc=1` contra o esperado 0. O `/run/cdi/nvidia.yaml` real tem dois `--link` com dois-pontos no alvo (`/dev/dri/by-path/pci-0000:01:00.0-*`), que estão fora da lista, e esses links aparecem repetidos iguais em 3 blocos de hook. A regra da errata recusa os dois casos. Nenhum contêiner com a placa foi criado. O aval do líder (D-W8-1127) segue valendo só para o `docker create` sem start. A decisão técnica vai ao CTO pela D-W8-1119.
+- **D-W8-1132 (main, 14/11 07:25, modo autônomo, a confirmar retroativamente): errata 2 da G4a, e a G4a retoma.** O CTO assumiu que o erro foi da errata 1 (D-W8-1752 a D-W8-1755, a ratificar). Arquivo: `ordem-g4a-errata2.md` (md5 `3e8b704c`); trocas em `aplica2.py` (md5 `2c2e4349`); `anexos.md5` refeito (`15c1eb68`, rc 0, conferido pelo main).
+  - **Regra nova:** espaço e dois-pontos só se recusam no caminho emitido. Um `--link` repetido com o mesmo alvo vira uma entrada só; destino igual com alvo diferente continua recusado.
+  - **Controles:** o controle 10 cobre a forma do CDI real.
+  - **Camada:** primeira divergência da família, N2.
+  - **Retomada:** o implementador volta pelos passos R0 a R3. O aval das 07:16 cobre só o `create` sem start.
+- **D-W8-1133 (main, 14/11 07:41, modo autônomo, a confirmar retroativamente): a `tidy23-fix1` entra em `8911d2ff` e vai à revisão N1.** São 5 arquivos, com 10 linhas a mais e 7 a menos. O main conferiu que o diff só remove o NOLINT com razão falsa e não acrescenta nenhum. Pelo relatório do implementador: o vermelho do clang-tidy deu 1 achado em `:643:74` e o verde 0, os 7 mutantes morreram, o MSVC passou 3 de 3, e o `preci --fast` deu rc 0 com 395 de 395, rodado no hospedeiro (downgrade da L-09). Desvios declarados: um laço de 6 processos (`cat` por arquivo, contra a L-11 global) e uma divergência de número de linha (`host_surface_size` está em `:31-34` no blob, contra `:70` na ordem e `:71` no registro), que vai ao revisor. O revisor é um `qa-engineer` haiku NOVO.
+- **D-W8-1134 (main, 14/11 07:59, modo autônomo, a confirmar retroativamente): o preci da G4a acusa duas falhas, e o CTO escreve a errata 3.**
+  - **O que aconteceu:** a G4a cumpriu os passos 1 a 10 da errata 2. O contêiner foi criado sem start e apagado, a base `gpu_geforce` foi gravada, e o verde deu 51 e 10 controles OK. O `preci --fast` (downgrade declarado, `TODO.md:806`) deu rc 8, com 2 falhas em 396.
+  - **Decisões do CTO (D-W8-1756 a D-W8-1759, a ratificar), em `ordem-g4a-errata3.md` (md5 `710d4cd3`; anexos `7245cc71`, rc 0):**
+    - **F1:** o contador de sítios de `PASS_REGULAR_EXPRESSION` passa de 20 para 21 (`tests/tools/check_no_pass_regex.cmake:18`), e o arquivo entra como 9º caminho. O CTO assumiu a falha: a errata 1 não contou os portões que um registro novo move.
+    - **F2:** o controle "prazo estourado mata a ARVORE" vai a 10 rodadas sozinho, 5 no snap e 5 no base, com critério escrito antes. Qualquer vermelho para a G4a.
+    - **Nova tentativa:** o preci-2 é a única; não há terceira.
+- **D-W8-1135 (main, 14/11 08:12, modo autônomo, a confirmar retroativamente): a G4a entra em `1f2d63c8` e vai à revisão N2.** O commit tem 9 arquivos, 748 linhas a mais e 17 a menos; o main conferiu o `--stat`. Pelo relatório do implementador: a F2 não se reproduziu sozinha (10 de 10 verdes, critério escrito antes), e o `preci-2` (downgrade declarado) deu rc 0, com 396 de 396. Nenhum `start`, `run` ou `exec` com a GeForce; o `create` sem start ficou dentro do aval de 07:16. O C1, o C2 e o C3 da revisão da G3a foram resolvidos dentro deste commit, pela errata 1. O controle da F2 vai à INBOX (`RUN-PROCESS-KILL-TREE-DISTINGUIR`). O revisor N2 é um `qa-engineer` haiku NOVO, proibido de criar ou ligar contêiner com a placa.
+- **D-W8-1136 (main, 14/11 08:17, modo autônomo, a confirmar retroativamente): a revisão N1 da `tidy23-fix1` sai LIMPA, e a tidy23 fecha.** O revisor, um `qa-engineer` haiku NOVO, leu o blob `8911d2ff`. O vermelho dá 1 achado em `:643:74`; o verde dá 0 nas 4 unidades, também com `-Werror`. Os 7 mutantes pré-registrados morreram. Dos 3 do próprio revisor, o O1 só morre com `-Werror`, por erro de previsão dele e não do commit. Os cosméticos: a citação ":70 no blob" vale só para o pai, e há ~150 leituras leves com `ps`/`grep` do implementador. Com TA (reprovada só pelo NOLINT), TB e TC LIMPAS e a fix1 LIMPA, a `CLANG-TIDY-23-TRIAGE` passa a 🔍; o ✅ espera o CI do push. A próxima da corrente é a T6-B2. O CTO consolida antes as erratas que valem para ela, porque o HEAD andou muito desde o ensaio.
+- **D-W8-1137 (main, 14/11 08:26, modo autônomo, a confirmar retroativamente): a T6-B2 é despachada pelo despacho consolidado do CTO.**
+  - **Despacho:** `despacho-t6b2.md` (md5 `84d7dcfd`; anexos `8622c59d`, rc 0, conferidos pelo main), com as decisões D-W8-1772 a D-W8-1778, a ratificar.
+  - **Documentos que valem, em ordem:** o despacho, a `cpuset-fim-errata`, a `tidy23-errata-cruza`, a `h3b1-errata-retomada`, a errata1 da KWIN-68 e a `ordem-t6b2.md`.
+  - **Reancoragem:** feita no HEAD `14d3c833`, com tudo igual ao esperado. Nenhum bloco mudou.
+  - **Troca de comandos:** seis laços de um processo por item, um deles com cerca de 5.000 processos, passaram a rodar no `um_processo.py` (L-11 global). O `commit_bloco.sh` segue igual, com cerca de 450 processos curtos e em sequência dentro da `git.lock`. É a guarda do commit já provada, e fica declarado.
+  - **Porte:** 12 `docker build`, 6 do implementador e 6 do revisor.
+  - **Ao líder, na saída da onda:** as portas de mão única da T6-B2 (D-W8-1503, D-W8-1504, D-W8-1509 e D-W8-1510).
+  - **Implementador:** `backend-engineer` haiku NOVO.
+  - **Erros que o CTO declarou:** cinco arquivos gravados por engano na pasta antiga `t6b2-cto/` e depois movidos. Não dá para provar que nenhum desses nomes já existia lá.
+- **D-W8-1138 (main, 14/11 08:27, modo autônomo, a confirmar retroativamente): a revisão N2 da G4a sai NÃO LIMPA, e o CTO escreve a G4a-fix1.**
+  - **Relatório:** `.trabalho/cto-w8/rev-g4a/relatorio.txt`.
+  - **Mutantes:** 7 de 10 morreram pelos portões commitados. M02' (família repetida aceita) e M03' (família fora de `/usr/lib64` aceita) sobrevivem. M08 e M09 só o arnês do revisor pegou.
+  - **IMPORTANTES:** o Traceback quando a especificação CDI está ausente (`nvidia_cdi_mounts.py:113-119`); a falta de controle para M02' e M03'; a guarda do nó sem teste automático (`composed_photo.sh:131-136`); e o commit só com o `Co-Authored-By` do Haiku, que o main conferiu na mensagem de `1f2d63c8`.
+  - **Despacho:** pela L-12 do projeto, a camada N2 tem uma rodada de conserto. Ela vai ao CTO, com a GeForce ainda proibida.
+- **D-W8-1139 (main, 14/11 08:35, modo autônomo, a confirmar retroativamente): a G4a-fix1 é despachada.** Ordem `ordem-g4a-fix1.md` (md5 `b0230438`; anexos `c76e0f7b`, rc 0, conferidos pelo main), decisões D-W8-1779 em diante, a ratificar.
+  - **O conserto:** 7 arquivos. A especificação ausente vira "não bate" com motivo nomeado. As famílias repetida e fora de `/usr/lib64` ganham controles: a ferramenta passa de 10 para 14. Entra o autoteste novo `composed_photo.sh --selftest`, com 9 controles sobre árvores falsas de `/sys`, que mata o M08 e o M09 por portão commitado. O contador sobe de 21 para 22. O cabeçalho passa a dizer "3 campos", e o `docker run` ganha `set -f`.
+  - **Autoria:** o commit leva o `Co-Authored-By` do Opus junto com o do implementador, e uma frase declara a linha que faltou em `1f2d63c8`, a do Opus.
+  - **Limite declarado:** o `docker run -d` continua antes do portão de isolamento. Vai à INBOX como `PHOTO-PRESTART-HOSTCONFIG`.
+  - **Paralelismo e placa:** com a T6-B2 não há arquivo em comum. Com a H3b-2, há 2 arquivos em comum; vale a D-W8-1735. Zero `docker build`; a GeForce continua proibida. Implementador: `devops-sre` haiku NOVO.
+- **D-W8-1140 (main, 14/11 10:04, modo autônomo, a confirmar retroativamente): a G4a-fix1 entra em `0cbffb56` e vai à re-revisão N2.**
+  - **O que o main conferiu:** o commit tem 7 arquivos, 239 linhas a mais e 18 a menos, e 2 `Co-Authored-By`.
+  - **Do relatório do implementador:** o vermelho e o verde saíram como esperado (isolamento 51 OK, ferramenta 14 OK, foto 9 OK). As sabotagens S1 a S5 reprovaram. O `preci --fast` deu rc 0, com 397 de 397 (downgrade declarado). Nenhum contêiner tocou a GeForce.
+  - **Desvio declarado pelo implementador:** o autoteste montou com `:ro,z`, como a ordem mandava, e não com o `:ro,Z` da regra do `CLAUDE.md`. A memória "Container rouba etiqueta" mostra que a etiqueta privada já tirou acesso da sessão do líder. Vai ao revisor avaliar.
+  - **Revisor:** um `qa-engineer` haiku NOVO.
+- **D-W8-1141 (main, 14/11 10:22, modo autônomo, a confirmar retroativamente): a T6-B2 entra em `7ca6eeda` e vai à revisão N1.**
+  - **O que entrou:** 23 arquivos, 1246 linhas a mais e 44 a menos. No `TODO.md` só a célula de Status da `R2D-TEXTURE` mudou, e o bullet `PHOTO-PRESTART-HOSTCONFIG` sobreviveu; o main conferiu os dois.
+  - **Relatório do implementador:** passos 1 a 10 verdes. 14 de 14 rodadas. Mutantes M1 a M10 e FM1 a FM5 mortos. MSVC 13/13. `--fast` 396/396. Sanitizer 203/203.
+  - **Por que o commit parou e como seguiu:** parou no passo 12, por cautela, porque o `TODO.md` tinha andado com um bullet que o main acrescentou com a fatia em voo. O erro foi do main; ver a memória "TODO.md fica parado com fatia aberta". O CTO decidiu a retomada (D-W8-1790 a D-W8-1792, em `retomada-t6b2-passo12.md`, md5 `cad6c165`) e conferiu numa cópia que o bullet sobrevivia.
+  - **Limite declarado (D-W8-1791):** os `preci` rodaram sobre `d8eb6983`, sem a G4a-fix1. A combinação só o CI prova.
+  - **Revisor:** um `qa-engineer` haiku NOVO, com até 6 `docker build`.
+  - **Ponto aberto:** o hook `no_mdash_staged.py` contou "0 user-facing" e não varreu `docs/auditoria-api-texture.md`. Fica com o revisor.
+- **D-W8-1142 (main, 14/11 10:25, modo autônomo, a confirmar retroativamente): a re-revisão N2 da G4a-fix1 sai NÃO LIMPA, e a G4a fecha pela regra da camada.**
+  - **O que fechou:** os achados (1) Traceback da especificação ausente, (2) família repetida, (3) família fora de `/usr/lib64` e (5) autoria.
+  - **O que ficou parcial:** o achado (4). A guarda do nó tem controle (o M08p e o M09p morrem), mas o sítio de chamada não tem (os mutantes A1, A2 e A3 sobrevivem).
+  - **Achados novos:** IMPORTANTES, o Traceback com UTF-8 inválido e a falta de controle para A1 e A3; e quatro cosméticos. Relatório em `.trabalho/cto-w8/rev-g4a-fix1/relatorio.txt`.
+  - **A regra aplicada:** a L-12 do projeto (`GODS_LAWS.md:379`) dá à camada N2 "**uma** rodada de conserto", e ela foi gasta. A G4a fecha: o que sobra vira item da INBOX e limite declarado, e o sítio de chamada ganha prova natural na G4b. As linhas da INBOX estão guardadas em `.trabalho/cto-w8/inbox-pendente-main.md`. O main não as grava agora porque o `TODO.md` está na capa da H3b-2, que o CTO ensaia (ver a memória "TODO.md fica parado com fatia aberta"); entram entre a H3b-2 e a H3b-3.
+  - **Nada inseguro ficou aberto:** os achados que sobram falham fechados, e nenhum contêiner tocou a GeForce.
+- **D-W8-1143 (main, 14/11 10:28, modo autônomo, a confirmar retroativamente): o despacho da H3b-2 está pronto e espera a revisão da T6-B2.**
+  - **Documento:** `despacho-h3b2.md` (md5 `d6e57d84`; anexos `f700eaef`, rc 0, conferidos pelo main), com as decisões D-W8-1793 a D-W8-1799, a ratificar.
+  - **Reancoragem no HEAD `1eff1396`:** os 55 blocos aplicam com n=1, inclusive por cima da G4a-fix1. Os mutantes deram 13/13 e 6/6. Nenhuma errata.
+  - **Comandos trocados:** 9 linhas de laço passaram para o `um_processo.py`.
+  - **Porte:** 6 `docker build`.
+  - **Quando abre:** só depois que a revisão N1 da T6-B2 sair LIMPA. Se houver conserto, o CTO reancora de novo antes.
+  - **Ao líder, na saída da onda:** as portas de mão única da H3b-2 (D-W8-1328, D-W8-1329 e D-W8-1336).
+- **D-W8-1144 (main, 14/11 12:15, modo autônomo, a confirmar retroativamente): a revisão da T6-B2 reprova por um texto público sem prova, e abre o conserto.**
+  - **Veredito:** NÃO LIMPA, com um IMPORTANTE e um COSMÉTICO. Relatório em `.trabalho/cto-w8/rev-t6b2/relatorio_final.md`, SHA revisado `7ca6eeda`.
+  - **O IMPORTANTE, conferido pelo main no blob:**
+    - O comentário público de `draw_atlas_image` diz que um recibo com um campo alterado é recusado como "região velha".
+    - O código recusa como "região de outro atlas" quando o campo trocado é o dono e o número novo pertence a outro alocador (`texture_atlas_cells.cpp:124-131`).
+    - Nenhum teste cobre esse caso.
+    - A mesma promessa aparece em `texture_atlas.hpp:50`.
+  - **O que passou:** mutantes (5 de 5 morreram), Clang 22 e 23, 300 células das fixtures, e as portas de mão única conferidas no blob.
+  - **Próximo passo:** um CTO escreve `ordem-t6b2-fix1.md` e a executa antes numa cópia (decisões D-W8-1830 em diante). Depois, um implementador NOVO e um revisor N1 NOVO, pela regra N1 de repetir até sair limpa.
+  - **Efeito na fila:** a H3b-2 segue esperando a revisão do conserto. Os quatro arquivos do conserto ficam reservados, e as frentes paralelas não podem tocá-los.
+- **D-W8-1145 (main, 14/11 12:17, modo autônomo, a confirmar retroativamente): duas frentes paralelas entram, ao lado do conserto da T6-B2.**
+  - **A ordem do líder** (14/11 11:55): "aproveite o tempo. Se for possível lance até 4 agentes não concorrentes para executar outras tarefas!"
+  - **O plano do CTO:** D-W8-1800 a 1806, a ratificar. O md5 das ordens e a prova de arquivo em comum foram conferidos pelo main (`frentes-1200/cruza.txt`: zero contra H3b-2, H3b-3, T6-B2, H5, G3, G4 e os reservados do conserto, e zero entre as duas frentes).
+  - **Frente 1, WIKI-SHAPES** (N4, `ordem-wiki-shapes.md`, md5 `42cff4fe`): uma página nova da wiki para as formas 2D (R2D-SHAPES e CURVE-FLOAT-NARROW), com dois links. Implementa um `technical-writer` haiku NOVO.
+  - **Frente 2, RUN-PROCESS-KILL-TREE-DISTINGUIR** (N3, `ordem-killtree.md`, md5 `2f8b1dc2`): o autoteste passa a dizer qual das duas causas falhou. Implementa um `devops-sre` haiku NOVO; depois do commit, um revisor N3 NOVO.
+  - **Como não colidem:** cada uma trabalha num clone `--shared` e só grava na árvore viva no commit, por caminho, pela `commit_frente.sh` na `git.lock`.
+  - **Recusados pelo CTO**, com motivo em cada caso: CDI-UTF8-TRACEBACK, G4A-FIX1-COSMETICOS, H3B1-FIX1-MENORES, TIDY23-TB-COSMETICO, PHOTO-GUARDA-NO-CALLSITE, PHOTO-PRESTART-HOSTCONFIG, CHECK-ISOLATION-EXTRAIR-CONTAGEM, ORDENS-CITAM-TODO-806 e NOMDASH-HOOK-DOCS-AUDITORIA. Este último vai à sessão `claude_configs`, com o fato novo de que o hook também conta "0 user-facing" para `docs/wiki/*.md`.
+  - **Ao líder na saída da onda:** SELINUX-SUFIXO-REGRA-DIVERGE. O `CLAUDE.md` manda `:ro,Z`, e o que se pratica é `:ro,z`; é texto de canon.
+  - **Agentes vivos:** 3 (o CTO do conserto e as duas frentes).
+- **D-W8-1146 (main, 14/11 12:34, modo autônomo, a confirmar retroativamente): as frentes paralelas fecham e a INBOX recebe o que estava segurado.**
+  - **KILLTREE** (`6cbb7d84`): revisão N3 LIMPA, que repetiu as duas sabotagens. Os dois cosméticos entram na INBOX como `KILLTREE-REV-COSMETICOS`. O bullet `RUN-PROCESS-KILL-TREE-DISTINGUIR` sai da INBOX, porque foi feito. `RUN-CAPTURE-WIN32-SELFTEST-FLAKE` continua ⏳: a mensagem nova só dá nome à causa da próxima falha.
+  - **WIKI-SHAPES** (`736c877c`, `010513f0`, `60d89a8b`, N4): uma página nova, três frases acertadas e o gêmeo. O main conferiu as duas condições contra `renderer_2d.hpp:700-704`. O `60d89a8b` leva só o trailer Haiku, e o main aceita, porque o texto é do Haiku.
+  - **WIKI-CONCEPTS-DESATUALIZADO** (`48f3f2fd`, N4): a parte do `Concepts.md` está feita. O bullet segue só com a seção "In progress" da `Home.md`, que espera o líder. A descoberta nova entra como `CONCEPTS-README-STATUS`.
+  - **INBOX gravada agora**, numa janela em que nenhuma fatia aberta tem o `TODO.md` na lista: as seis linhas seguradas de `inbox-pendente-main.md` (D-W8-1141 e 1142) e as duas novas.
+  - **Correção de hora:** a D-W8-1145 dizia 12:18 e a hora medida foi 12:17. Ficou corrigida.
+- **D-W8-1147 (main, 14/11 12:47, modo autônomo, a confirmar retroativamente): o conserto da T6-B2 é despachado.**
+  - **A ordem:** `ordem-t6b2-fix1.md`, md5 `5b8813f5`, anexos com rc 0, ambos conferidos pelo main. As decisões D-W8-1830 a 1837 do CTO ficam para ratificar.
+  - **O que muda:** só texto e teste, com o código intocado. São 4 arquivos: `renderer_2d.hpp`, `texture_atlas.hpp`, `docs/auditoria-api-texture.md` e `tests/texture_atlas_test.cpp`.
+  - **A prova do CTO:** vermelho antes do verde nas sabotagens S4 e S5; depois verde com `-Werror`; `preci --fast` com 397/397 na segunda rodada. Na primeira, a pasta de tempos sumiu no meio, sem autor medido.
+  - **Quem executa:** implementador `backend-engineer` haiku NOVO; revisor N1 `qa-engineer` haiku NOVO e diferente, que entra só depois do commit.
+  - **Efeito na H3b-2:** o único arquivo em comum é `renderer_2d.hpp`. O despacho dela reancora depois do commit e da revisão limpa do conserto.
+  - **Correção de diagnóstico:**
+    - O erro de checksum das 12:19:30 em `r21/` veio de um `grep -r` recursivo que o próprio CTO rodou a partir de `$R`. Ele declarou o erro e trocou para `git grep`.
+    - A hipótese do main, de que o culpado era o cliente de backup do IDrive, estava errada para esse caso. Para as leituras das 12:25 não há autor medido.
+    - O briefing de todo agente proíbe agora qualquer busca recursiva que não exclua `r21`.
+  - **INBOX, quando o `TODO.md` estiver livre:** `ATLAS-WIKI-RECIBO-INCOMPLETO`. `docs/wiki/API-Texture-Atlas.md:223-224` está incompleto, não falso.
+- **D-W8-1148 (main, 14/11 13:42, modo autônomo, a confirmar retroativamente): o conserto da T6-B2 entra, a pasta de trabalho troca de forma e o revisor sai.**
+  - **T6-B2-fix1 commitada** em `113b924a`: 4 arquivos, +46/-12.
+    - As sabotagens sab1 a sab5 deram exatamente o previsto na tabela da ordem.
+    - Verde com `-Werror`.
+    - `preci --fast` com rc 0, 397/397, no hospedeiro (downgrade declarado da PRECI-IN-CONTAINER).
+    - O main conferiu o texto novo de `renderer_2d.hpp` no blob.
+  - **Janela da sessão `manutencao`**, por ordem do líder: o `.trabalho` virou um subvolume btrfs próprio, fora dos snapshots do snapper.
+    - O GlintFx liberou a pasta às 13:10, com 0 processos medidos numa leitura única de `/proc`.
+    - A troca terminou às 13:41, com o manifesto de 4.066.285 entradas idêntico byte a byte e os caminhos mantidos.
+    - Efeitos para esta sessão:
+      - a raiz do `.trabalho` não sai com `rm`; a limpeza pós-onda apaga só o conteúdo;
+      - não há cópia horária, então o que se apaga ali não volta;
+      - mover entre o `.trabalho` e o repo vira cópia mais remoção.
+  - **A pasta `r21`:** os dois arquivos danificados foram regravados pela `manutencao` às 12:32, por decisão do líder às 12:30, a partir do índice daquela cópia (md5 `91de7476` e `790b3030`). O scrub de `/home` às 12:45 saiu limpo.
+    - As leituras ruins das 12:25 foram da própria `manutencao`.
+    - As das 12:19:30 vieram do `grep -r` do CTO (D-W8-1147).
+  - **Revisor N1 despachado:** `qa-engineer` haiku NOVO, pela seção 6 da ordem, contra `113b924a`.
+- **D-W8-1149 (main, 14/11 15:10, modo autônomo, a confirmar retroativamente): segunda rodada do recibo commitada, a lei de envio emendada, a pasta de trabalho limpa, a terceira rodada pronta, e a sessão pausa por ordem do líder.**
+  - **T6-B2-fix2**, `6fc45f19` (5 arquivos, +67/-38): S1 a S4 conferem com a previsão; `preci --fast` 397/397; trailers conferidos.
+    - Revisão N1 NÃO LIMPA (`rev-t6b2-fix2.txt`): 9/9 mutantes mortos e I-2, I-3 e I-4 da fix1 consertados.
+    - Ficou um IMPORTANTE: o I-1 foi consertado só em parte. `frame_2d_report.hpp:82-84` não diz que o dono é lido primeiro.
+  - **T6-B2-fix3 pronta e NÃO despachada:** `ordem-t6b2-fix3.md`, md5 `eb2a9008`, anexos com rc 0, decisões D-W8-1850 a 1855 a ratificar.
+    - Só comentário: o I-1 e três cosméticos de uma linha cada. S1 e S2 foram vistos vermelhos, e o `preci` deu 397/397.
+    - O cosmético da wiki entrou na INBOX, na linha `ATLAS-WIKI-RECIBO-INCOMPLETO`.
+    - Para a H3b-2 há uma nova errata proposta, em `ordens-anexos/t6b2-fix3/h3b2-errata-proposta/`. A errata da fix2 deixou de valer.
+  - **Lei de envio:** quinta emenda da L-11 do projeto e emenda da L-24 global, com a LEI DAS LEIS aplicada e o verbatim do líder nas duas.
+    - Commit `501e59fa` no projeto. No `~/.claude`, a sessão `manutencao` conferiu as tabelas e o commit sai no salvamento automático das 22:30.
+    - Primeira cópia privada: `~/IDrive/backups-git/GlintFx/GlintFx-20261114-1448.bundle`, com verify rc 0.
+    - Envio `5e153414..ead200a0` para `onda-w8`, 49 commits já revisados. O `ls-remote` confere, e o remoto tem só `main` e `onda-w8`.
+    - O que vai de `7ca6eeda` em diante espera a revisão limpa da T6-B2.
+    - As sessões `direito_2026`, `nfse` e `manutencao` foram avisadas, e a `direito_2026` já fez o próprio bundle.
+  - **Limpeza por ordem do líder** (14:28, *"limpe agora builds e temps antigos seus"*):
+    - Um `devops-sre` apagou 207 subárvores de build e de cópia das fatias fechadas, cerca de 86 GiB aparentes, sem falhas. Saíram também 4 imagens.
+    - Ficaram relatórios, ordens, `r21`, as pastas vivas e o `ccache`.
+    - O ganho real de disco foi de 0,45 GiB. INFERÊNCIA, não medida: os snapshots antigos ainda guardam os dados.
+  - **Watchcode:** às 14:55 houve um coredump SIGSEGV de `/out/build/tests/atlas_allocator_test`, dentro do contêiner de ensaio do CTO. INFERÊNCIA: é a sabotagem S2, que a ordem prevê vermelha.
+  - **Pausa:** ordem do líder às 15:03, *"assim que acabar esse agente, commit, /memo_persistente e pause"*. Nenhum agente vivo. O próximo passo, quando o líder mandar seguir, é despachar o implementador da fix3.
+- **D-W8-1150 (main, 20/11 02:59, modo autônomo religado pelo líder às 02:57 de 20/11, a confirmar retroativamente): a pausa cai, a fix3 é despachada e o GusWorld entrega a ordem de lacunas.**
+  - **Ordens do líder em 20/11:**
+    - *"pode obdecer @manutencao"*: virou emenda da L-46 (`b92700d7`).
+    - *"ligue modo autonomo"*.
+    - *"Retomar agora"*, resposta à pergunta sobre a pausa de 14/11.
+    - *"dialogue com @GusWorld sobre o que você já tem e sobre o que ele precisa"*.
+  - **Recursos:** a `manutencao` liberou a fix3 com `systemd-run --user --scope -p TasksMax=700`, nice 10, contêineres um por vez com `--pids-limit 512` e TMPDIR no `.trabalho`. O GlintFx é a prioridade 2 da fila do líder. Ao terminar, mando o pico e "máquina livre".
+  - **Despachado:** um `backend-engineer` haiku NOVO para a seção do implementador de `ordem-t6b2-fix3.md` (md5 `eb2a9008`).
+  - **GusWorld, a ordem de lacunas do consumidor**, verbatim do resumo dele, como evidência e sem compromisso de data:
+    1. decodificação de PNG, a mais bloqueante;
+    2. textura, região e atlas;
+    3. teclado;
+    4. fonte, texto e layout de UI com estilo;
+    5. mecanismo de mapa;
+    6. animação;
+    7. áudio.
+    O jogo não contorna nada, porque a L-05 do canon dele proíbe dublê. O decodificador é IMG-PNG (`TODO.md:982`), na W11d por decisão do líder de 08/09. O filtro sem interpolação já existe na W8 (`gltfx_texture_filter::nearest`). **Ao líder:** se IMG-PNG sobe na fila. A L-21 global diz que a dor do consumidor é evidência de lacuna, e a ordem de entrega é decisão do líder.
+- **D-W8-1151 (main, 20/11 03:01): o líder decide que o decodificador de PNG vem logo depois da W8.**
+  - **A pergunta** (AskUserQuestion) trouxe a evidência do GusWorld e o estado da fila: IMG-PNG estava na W11d desde 08/09. Ela também trouxe a comparação com a raylib, que embute o PNG, e com a SDL, que usa a SDL_image separada.
+  - **A resposta:** *"Logo depois da W8"*. A opção dizia: "O IMG-PNG vira a primeira fatia depois do fechamento da onda 8, antes da entrada da W9. O jogo passa a carregar sprite e tile do disco o quanto antes. A entrada de teclado, segunda trava do jogo, atrasa uma fatia."
+  - **Consequência registrada:** o IMG-INFLATE é pré-requisito e vem junto. Os dois saem do slot de trilha paralela da L-32 e entram no caminho principal. A coluna Onda se acerta no planejamento pós-W8, pelo CTO. As linhas ficaram anotadas no `TODO.md`.
+  - **O GusWorld será avisado** pelo barramento (`inbox/gusworld/`).
+  - **O implementador da fix3 parou antes do primeiro contêiner.** O script congelado usa `--pids-limit 2048`, e o teto da `manutencao` é 512. A pergunta foi a ela (L-46).
+- **D-W8-1152 (main, 20/11 03:15): o líder decide as pendências que esperavam por ele, a pedido dele repassado pela `manutencao`.** O pedido, verbatim: *"diga a todos para trazer pendencias de decisoes minhas via askuserquestion"*. As respostas:
+  - **Atlas da T6-B2** (D-W8-1503, 1504, 1509 e 1510): *"Quero ver cada uma"*. O CTO prepara uma pergunta por decisão, com as opções descartadas e a pesquisa, em `atlas-decisoes-lider.md`. A onda 8 só fecha depois do aval dele item a item.
+  - **Sombras da H3b-2 e da H3b-3** (D-W8-1328, 1329, 1336, 1534, 1546, 1552 e 1553): *"Ratificar (Recomendado)"*.
+  - **R2D-NULL-CONTEXT**: *"Guardar para depois (Recomendado)"*. Continua na INBOX.
+  - **FALLBACK-KEEP-ENDS-NEAR**: *"Corrigir depois da W8 (Recomendado)"*. Vira fatia pequena no planejamento pós-W8.
+  - **Ainda para levar:** `SELINUX-SUFIXO-REGRA-DIVERGE` e a seção "In progress" da `Home.md`.
+- **D-W8-1153 (main, 20/11 03:15): a fix3 retoma pela errata dos limites.**
+  - A `manutencao` recusou o contêiner como estava: `--pids-limit 2048`, uid 1000, 15g. O motivo é que ele somaria acima do teto de 4000 processos e deixaria o líder abaixo do piso de memória.
+  - O CTO escreveu `ordem-t6b2-fix3-errata1.md` (md5 `e2f6ba87`, decisões D-W8-1856 a 1861). Os limites passam a vir do ambiente, com os padrões dela: 512 processos, 8g, 6 cpus, -j 4. O script recusa valor acima do padrão. O preci roda com paralelismo 4 dentro de `systemd-run --scope TasksMax=700 nice 10`.
+  - Um implementador NOVO retoma do passo 5.
+  - **Achado do CTO:** os scripts congelados da H3b-2 e da H3b-3 usam 2048 processos, 15g e 8 cpus (`errata1-varredura-limites.txt`). Precisam de errata igual antes de rodar.
+  - **GPU:** a `manutencao` repassou a quebra da L-09 global confirmada pelo líder (*"autorizo ollama/placa de video se precisar, sem aviso antes"*, *"Confirmar a quebra até eu revogar"*), com contenção em `/var/tmp/onda-paralela/gpu.LEIAME`. Antes do primeiro uso da GeForce no GlintFx (G4b), o main confirma com o líder na janela dele.
+- **D-W8-1154 (main, 20/11 03:17): o líder fecha as duas últimas pendências que esperavam por ele.**
+  - **Sufixo SELinux:** *"Minúscula sempre (Recomendado)"*. O `CLAUDE.md` do projeto passa a mandar `:z` e `:ro,z`, e proíbe `:Z` em pasta do projeto ou compartilhada. O bullet `SELINUX-SUFIXO-REGRA-DIVERGE` sai da INBOX.
+  - **Seção "In progress" da `Home.md` da wiki:** *"Aprovar como está (Recomendado)"*. Ela sai quando a API de texturas for declarada estável. O bullet `WIKI-CONCEPTS-DESATUALIZADO` sai da INBOX, porque a parte do `Concepts.md` já estava feita em `48f3f2fd`.
+  - **Pendências que ainda esperam o líder:** as quatro decisões do atlas, uma a uma (D-W8-1152). O pacote está sendo preparado pelo CTO.
+- **D-W8-1155 (main, 20/11 03:23): o líder mantém as quatro escolhas do atlas e autoriza baixar de novo a imagem do PowerShell.**
+  - **Atlas** (pacote `atlas-decisoes-lider.md`, md5 `d925e8c6`, do CTO; decisões D-W8-1862 e 1863): as respostas foram estas, e as quatro decisões da T6-B2 ficam como estão, sem fatia de conserto:
+    1. *"Imagem inteira (Recomendado)"*;
+    2. *"Atlas 14 e 15 (Recomendado)"*;
+    3. *"Dois motivos (Recomendado)"*;
+    4. *"As duas promessas (Recomendado)"*.
+  - **Imagem:** *"Autorizar o download (Recomendado)"* (L-51). `mcr.microsoft.com/powershell:latest` foi baixada de novo, 487 MB, pull rc 0. Ela tinha sumido do cache desde 14/11.
+  - **Fix3 até aqui:** sab1, sab2 e o verde batem com a tabela da errata. Os picos ficaram em 13 processos e até 832 MiB, sem oom. O `preci` parou no estágio 1b por causa da imagem que faltava. O implementador retoma do passo 6.
+  - **Coredump das 03:17:54** (`atlas_allocator_test`, SIGSEGV): veio da sab2, um vermelho esperado. O verde passou com 2 de 2. A `manutencao` foi avisada.
+- **D-W8-1156 (main, 20/11 03:48): a T6-B2 fecha, e o trabalho revisado segue para o ramo da onda.**
+  - **Revisão N1 da fix3** (`3f3c02c8`; `rev-t6b2-fix3.txt`): saiu NÃO LIMPA por um IMPORTANTE só de comentário e um COSMÉTICO, ambos em `tests/texture_atlas_test.cpp`. O I-1 da fix2 está fechado. Os 4 mutantes morreram, e os contêineres tiveram pico de 13 processos e até 769 MiB.
+  - **Fix4** (`752f5be9`): só os três comentários, camada N4 da L-12, sem preci e sem revisor. O main conferiu que o diff não tem nenhuma linha fora de comentário e que os trailers estão certos.
+  - **A T6-B2 fecha** assim: fatia `7ca6eeda`, consertos `113b924a`, `6fc45f19` e `3f3c02c8`, e o texto em `752f5be9`. As quatro decisões de API foram mantidas pelo líder (D-W8-1155).
+  - **Lei de envio** (L-11, quinta emenda): a onda tem mais de 7 dias. Vão ao ramo `onda-w8` os commits até o último revisado limpo. Cópia privada do dia: `~/IDrive/backups-git/GlintFx/GlintFx-20261120-0348.bundle`, com verify rc 0.
+  - **Próximo:** a H3b-2, pelo despacho mais a `despacho-h3b2-errata2.md` (md5 `8e702fb2`), com a vez pedida à `manutencao` e as condições dela (`condicoes-manutencao-1120.md`).
+- **D-W8-1157 (main, 20/11 04:15): o plano do PNG pós-W8 está pronto. As decisões ficam com o CTO, pela ordem do líder de 20/11.**
+  - **O plano:** `plano-pos-w8-png.md`, md5 `51a4fc44`, com as decisões D-W8-1872 a 1894 do CTO, todas a ratificar.
+  - **W-PNG-1, 9 linhas:** módulos, kit de entrada hostil, inflate, revisão da API de PNG, chunks, PNG, carregamento, documentos e CI-VERDE. Ao fim dela, a biblioteca lê todo PNG não entrelaçado em RGBA de 8 bits.
+  - **W-PNG-2, 7 linhas:** Adam7, saídas, primeiro fuzzer, PngSuite (condicional), FALLBACK-KEEP-ENDS-NEAR, documentos e CI-VERDE.
+  - **Quem decide.** A ordem do líder (*"todas as dúvidas são resolvidas por clevel"*) deixa as escolhas de API com o CTO. As portas de mão única são D-W8-1873, 1875, 1877 a 1881, 1883, 1885, 1886, 1889 e 1890.
+  - **O que o CTO recomendou mostrar ao líder:** 1872 (duas ondas no lugar de uma fatia), 1874 (Adam7 suportado, porque a norma PNG 3 obriga), 1875 (o decodificador não aloca), 1877 (`limit_exceeded`), 1880 (a cor só é rotulada, nunca transformada), 1888 (primeiro fuzzer) e 1889 (texto da elipse). Vão na lista de ratificação da saída da onda.
+  - **Só sobe ao líder por lei:** a exceção nº 2 da L-07, para usar o corpus PngSuite, que seria vendorizar dado de terceiro. Também sobe a instalação de pacote para o fuzzer (L-51 global). O plano não depende de nenhuma das duas. A pergunta sobe quando a fatia condicional chegar.
+  - **As 16 linhas entram no `TODO.md` no fechamento da W8,** pelo texto da seção 6 do plano, com as ordens de serviço escritas e executadas antes pelo CTO (L-12).
+- **D-W8-1158 (main, 20/11 05:31): a H3b-2 entra e vai à revisão.**
+  - **O commit:** `33438ced`, com 27 arquivos (+1544/-33): "a sombra chega ao público, e um ponto escurece uma vez só".
+  - **O que o implementador mediu:**
+    - os 13 vermelhos da ordem e os 13 mutantes, todos mortos;
+    - green, werror e static em 100%;
+    - quatro fixtures conforme o previsto;
+    - Clang 22 e 23, e o MSVC só compilado;
+    - preci --fast 398/398 e --sanitizer-only 204/204.
+    - Picos, todos sem oom: contêineres com até 17 processos e 941 MB; preci com até 36 processos e 3,4 GB. O MemAvailable ficou sempre acima de 17,9 GiB.
+  - **Desvios declarados por ele** (`h3b2/relatorio.txt`): D14, processo por item fora da seção 4; D15, paralelismo 8 no hospedeiro em vez de 4. Os dois foram repassados à `manutencao`. O revisor recebeu ordem expressa de usar 4.
+  - **Revisor N1:** `qa-engineer` haiku NOVO, pela seção 9 da ordem. Os contêineres só sobem depois da vez da `manutencao`.
+- **D-W8-1159 (main, 20/11 06:18): a H3b-2 fecha.**
+  - **Revisão N1** (`rev-h3b2.txt`), em duas rodadas:
+    - a 1ª rodada deixou os itens 5, 7, 8 e 9 sem rodar; o revisor foi retomado para completá-los;
+    - a 2ª deu NÃO LIMPA por 1 IMPORTANTE só de texto: `docs/auditoria-api-sprite-shade.md` dizia que a fatia não tinha evento novo e que três testes não existiam;
+    - código sem achado;
+    - mutantes: os 10 rodados morreram pelo caso previsto;
+    - GCC, Clang e MSVC (/W4 /WX) passaram, e a sonda da interface pública passou.
+  - **Conserto:** N4 (camada de texto da L-12) em `b8548aa0`, uma nota "Atualização pós-commit" depois de cada frase. O main conferiu cada `arquivo:linha` citado contra a árvore.
+  - **Sem CI:** o envio do ramo ao GitHub segue bloqueado pela permissão.
+  - **Antes da H3b-3,** o CTO confere se `b8548aa0` quebra a base dela (a H3b-3 escreve no mesmo parecer) e emite a errata2: varredura em lote (L-11), paralelismo 4 e TasksMax=400 para o revisor.
+- **D-W8-1160 (main, 20/11 06:35): a H3b-3 abre.**
+  - **O CTO** (D-W8-1895 a 1899) mediu contra o HEAD que a H3b-3 ainda vale: base, blocos e "espere" batem. Ele escreveu a `ordem-h3b3-errata2.md` (md5 `bcb89116a83b6b1dbb4e9e76b1e4b149`) com três pontos:
+    - a varredura vai em lote, por uma ferramenta que reprova nos quatro casos que deve reprovar (L-11);
+    - uma trava única mantém o paralelismo em 4 (D15 da H3b-2);
+    - o revisor roda com TasksMax=400.
+  - **Conferido pelo main:** md5 da errata e dos anexos (rc 0). A ratificação das sombras citada pelo CTO (D-W8-1152, `DECISOES_AUTONOMAS.md:11347`) bate.
+  - **A vez:** a `manutencao` concedeu. O implementador é `backend-engineer` haiku NOVO.
+  - **Pendente para o main depois do commit:** a nota de `b8548aa0` que cita "linha 613" passa a apontar para a 638.
+- **D-W8-1161 (main, 20/11 09:35): a H3b-3 fecha.**
+  - **Revisão N1** (`.trabalho/cto-w8/rev-h3b3/rev-h3b3.txt`, em três rodadas): LIMPA nos itens 1 a 9, sem CRÍTICO nem IMPORTANTE.
+    - Na 1ª rodada, o revisor parou por ler o `kwin=` como PARE; essa regra foi revogada pela errata KWIN-68 (`kwin68-saida-errata-pendentes/errata1.md:35`).
+    - Fixtures: fxgreen 224/0; COLOR, FACADE3, NOPROJ, NOLINE e GLSLBAD reprovam como previsto.
+    - Mutantes: M1 a M9 mortos. O M10 é equivalente (área zero não pinta pixel).
+    - pmu_probe passa nos três compiladores, e o MSVC /W4 /WX dá 13/13.
+  - **Os três cosméticos:**
+    - o da remissão "linha 613" foi corrigido por texto neste commit, com uma referência que não apodrece;
+    - os outros dois entram na INBOX (SHADE-TEST-NAME-TOKEN-ORDER e SHADE-OPAQUE-WHITE-CITE).
+  - **Sem CI:** o envio do ramo segue bloqueado.
+  - **Próxima fatia, a H5:** a ordem é de 13/11, anterior à H3b e aos limites da `manutencao`. O CTO emite a errata antes do despacho.
+- **D-W8-1162 (main, 20/11 09:40): ordens novas do líder, repassadas pela `manutencao` às 09:3x.**
+  - **(1)** *"Todas as decisoes voltam para mim"*: o C-level deixa de decidir no lugar do líder. Toda escolha vai a ele por AskUserQuestion. O CTO, que escrevia a errata da H5, foi avisado na hora e passa a entregar propostas, não decisões.
+  - **(2)** A exceção à L-09 foi revogada. Antes de tocar a GPU ou o Ollama (G4b inclusive), voltam os 5 alertas sonoros e a espera pelo OK dele; o `gpu.LEIAME` não autoriza mais sozinho.
+  - **(3)** A autorização de push, merge, tag e deploy foi mantida, com os portões da L-24 fechados.
+  - **(4)** O limite de 3 pesados e a limpeza horária seguem como estão, enquanto ele decide sobre a L-11 e a L-67.
+  - **Pendência dele, agora:** as decisões autônomas desta noite esperam ratificação (D-W8-1150 a 1162 do main, e as do CTO desde a 1591 até a 1899).
+- **D-W8-1163 (main, 20/11 10:25): as respostas do líder às propostas da H5** (`ordem-h5-errata1.md`, md5 `5cdaa55612026326c8adb78a1a6b3440`), por AskUserQuestion:
+  - **D-W8-1900:** *"CTO escreve tudo (Recomendado)"*. O haiku aplica os blocos e prova.
+  - **D-W8-1901:** *"2 tons (Recomendado)"*. Fica `TOL=2`.
+  - **D-W8-1902:** *"Manter e explicar (Recomendado)"*.
+  - **D-W8-1903:** o líder respondeu *"o que for mais rápido teoricamente"*. O main leu isso como a opção (a), a prova do Windows no CI do push: ela não liga a VM nem acrescenta um trabalho pesado local, e roda em paralelo no servidor. É leitura do main; o líder confirma na saída.
+  - **D-W8-1904:** *"Só pela tela (Recomendado)"*.
+  - **D-W8-1905:** *"Aceitar e declarar (Recomendado)"*.
+  - **D-W8-1906:** *"sprite shadows (Recomendado)"*.
+  - **D-W8-1907:** *"Só na lista (Recomendado)"*.
+  - **D-W8-1908:** *"Confirmar todas (Recomendado)"*. As D-W8-1707 a 1714 ficam ratificadas.
+  - **Sem errata 2.** A H5 vai ao implementador `backend-engineer` haiku NOVO depois da vez da `manutencao`.
+- **D-W8-1164 (main, 20/11 11:10): o CI do Windows e a parada da H5.**
+  - **CI `44739396242` (`f274f5f6`):** 24 verdes e 1 vermelho, o "Windows - Lint". O GitHub trocou a imagem do runner em 16/11 (`windows-2025-vs2026` 20261116.315.1, MSVC 14.52). A biblioteca padrão nova exige Clang 22 (`STL1000`, 181 vezes) e o runner traz o LLVM 20.1.8. A falha é de infraestrutura, não do código (L-49). O mesmo job passou em 13/11.
+  - **Decisão do líder, por AskUserQuestion:** *"Instalar Clang 22 (Recomendado)"*. O CTO escreve a ordem do conserto em `ci.yml`.
+  - **A H5 parou no preci:** o cppcheck acusa `uninitMemberVarNoCtor` em `examples/sprite_shadows/sprite_shadows.cpp:162-164` e `:209`. O defeito está no bloco do CTO.
+    - O resto da H5 passou: o vermelho (17/8), o verde (17/0), os dois modos e a captura.
+    - O CTO escreve a errata 2. Não houve commit.
+- **D-W8-1165 (main, 20/11 11:41): o líder responde as propostas da errata 2 da H5 e do conserto do CI** (`ordem-h5-errata2.md`, md5 `ccfdb1a26b46878b25adb8ef7850cfb8`, e `ordem-ci-clang22-win.md`, md5 `c38cdb6c640cc933da6bbc6775a9b641`), por AskUserQuestion:
+  - **D-W8-1920:** *"Cópia nova (Recomendado)"*. A retomada reaproveita o vermelho já medido; a cópia de trabalho antiga (`h5/snap`) foi apagada na limpeza de 11:4x.
+  - **D-W8-1922:** *"23.1.6"*, contra a recomendação (22.1.8). O CTO emite a errata 1 da ordem do CI com a 23.1.6.
+  - **D-W8-1923:** *"Instalador oficial (Recomendado)"*.
+  - **D-W8-1924:** *"Impressão digital (Recomendado)"*.
+  - **D-W8-1925:** *"Sem cache (Recomendado)"*.
+  - **Ordem (D-W8-1927):** 1º o commit da H5, 2º o do CI.
+- **D-W8-1166 (main, 20/11 12:08): ordem do líder, repassada pela `manutencao`, verbatim:** *"decisoes tecnicas com o clevel. Decisoes de lore, trazer para mim"*.
+  - Decisão técnica de execução vai ao CTO e fica registrada aqui, para o líder ver depois.
+  - Decisão de lore vai ao líder por AskUserQuestion.
+  - Por lei, continua com o líder:
+    - alterar lei;
+    - gastar dinheiro;
+    - ação irreversível;
+    - merge em main, tag e deploy fora da autorização já dada;
+    - GPU (5 alertas e o OK dele).
+  - Substitui a D-W8-1162 (1).
+- **D-W8-1167 (main, 20/11 12:45): a H5 entra, e o item R2D-SPRITE-SHADE vai a 🔍.**
+  - **Os commits:** a H5 entrou em `fb07389b` (14 caminhos, +489/-19) e o conserto do Clang 23 do Windows em `386e5f6c`. Os dois estão publicados no `onda-w8`.
+  - **Revisão N1** (`.trabalho/cto-w8/rev-h5/rev-h5.txt`), com o código limpo:
+    - sondas 17/0; mutantes MX1 e MX2 pegos; R5 8/8; R11 cppcheck com 872 arquivos e 0 achados;
+    - PNG em `rev-h5/green/capture_out/sprite_shadows/png/conn1_surface5.png`.
+  - **NÃO LIMPA por um IMPORTANTE de atribuição:** `fb07389b` não tem o Co-Authored-By do Opus, embora os blocos sejam do CTO (emenda de 22/10, `GODS_LAWS.md:660`).
+    - A causa é o `msg.txt` dos anexos da errata, que já veio sem o trailer.
+    - O commit está publicado. Pela L-25, não há amend de commit publicado, então a correção fica neste registro: **`fb07389b` = blocos de Claude Opus 5.5 (CTO), aplicados por Claude Haiku 5.5**.
+    - Lição: o `msg.txt` dos anexos tem de trazer todos os trailers.
+  - **O outro IMPORTANTE** (processo) foi um erro do main no briefing: disse que o commit não tocava o `ci.yml`. Já está corrigido.
+  - **COSMÉTICO:** `sprite_shadows.cpp:194-197` repete coordenadas de `:106-111`.
+  - **O CI `44764144174` (`386e5f6c`):** o LLVM 23.1.6 instalou e foi provado. O clang-tidy 23, sobre a STL da MSVC, acusou 2 `bugprone-exception-escape`:
+    - `src/gfss/declaration_value_check.cpp:171`;
+    - `src/platform/gl/gfx_option_validation.cpp:14`.
+    O CTO analisa se são reais, pela decisão técnica que o líder delegou a ele.
+- **D-W8-1168 (main, 20/11 13:21): o CTO decide os dois achados do clang-tidy 23 do Windows** (decisão técnica delegada pelo líder, D-W8-1166). Detalhes em `.trabalho/cto-w8/ordem-tidy23-escape.md` (md5 `c2e56c66db81107df62e786b6b22181d`), D-W8-1928 a 1933:
+  - **`check_one_component`:** defeito real nos 5 sistemas. O CTO tira o `noexcept` e acrescenta um teste próprio, com o vermelho real.
+  - **`validate_gfx_option_entry`:** falso positivo em tempo de execução. Sai um `std::to_chars` num buffer fixo, sem NOLINT.
+  - **Gêmeo:** nenhum, conferido nas duas plataformas.
+  - **O `OnlyUndefined`** fica fora do CI.
+  - **Entrega:** dois commits, do implementador haiku, e o item TIDY23-ESCAPE criado no TODO, junto com 4 itens na INBOX.
+- **D-W8-1169 (main, 20/11 13:45): o TIDY23-ESCAPE entra e vai à revisão.**
+  - **Os commits:** `a17f342c` (fix(gfss)) e `4e68bd24` (refactor(gl)), ambos com os três trailers.
+  - **O que o implementador mediu:**
+    - o vermelho abortou com `std::bad_alloc`, rc 8, como previsto;
+    - o verde passou 100%;
+    - a mutação digits10 foi pega;
+    - preci --fast 399/399 com `familia_A=61`, e o --sanitizer-only verde;
+    - o clang-tidy 23 dos 4 arquivos deu 0 avisos.
+    - Desvio declarado: rodou no hospedeiro, não no contêiner (L-09 rebaixada).
+  - **CI:** enviado ao `onda-w8` e disparado o run `44776410242` (`4e68bd24`), que é o portão da seção 6 da ordem.
+  - **Revisor N1:** um `qa-engineer` haiku NOVO.
+  - **Também entrou:** o `ee6cd633` (ESCOPO.md, L-39 global movida para o projeto), que veio de outra sessão.
+- **D-W8-1170 (main, 20/11 14:10): o CI `44776410242` (`4e68bd24`) fecha VERDE**, com 25 jobs em success e 1 pulado.
+  - **O lint do Windows** passou com o LLVM 23.1.6 e os dois consertos, o que cumpre o portão da seção 6 da `ordem-tidy23-escape.md`.
+  - **A revisão N1 do TIDY23-ESCAPE** (`rev-tidy23/rev-tidy23.txt`) saiu LIMPA:
+    - o vermelho e o verde foram reproduzidos;
+    - a mutação foi pega;
+    - o preci passou com 399/399;
+    - não há gêmeo e a API pública não mudou;
+    - houve 1 achado COSMÉTICO, que foi à INBOX.
+  - **TIDY23-ESCAPE e R2D-SPRITE-SHADE** ficam ✅:
+    - a revisão fechou, com a exceção de autoria registrada em D-W8-1167;
+    - o CI fechou verde, com o exemplo das sombras em todas as plataformas.
+
+- **D-W8-1171 (main, 20/11 14:50): o levantamento do CTO para fechar a W8 entra, e as decisões técnicas D-W8-1934 a D-W8-1947 ficam registradas para o líder ler depois** (ordem do líder de 20/11, D-W8-1166).
+  - O texto delas está em `.trabalho/cto-w8/ordem-g3b.md` §2 (md5 `204ad48f`); este registro resume.
+  - **D-W8-1934:** o fechamento da W8 soma três textos: `plano-w8-v2.md` §3, `plano-w8-v3.md` §5 e a D-W8-248. O CI verde sozinho não fecha a onda (L-24 global).
+  - **D-W8-1935:** R2D-TEXTURE, R2D-IMAGE-RESOLVER, WL-ACK-CONFIGURE-SEGUINTES e CLANG-TIDY-23-TRIAGE passam a ✅. As quatro tinham a revisão limpa e só esperavam um CI verde. O main reconferiu: os 12 commits citados são ancestrais de `4e68bd24` (`git merge-base --is-ancestor`, 12 de 12 com rc 0). A ATLAS-WIKI fica 🔍 até uma verificação de leitura.
+  - **D-W8-1936:** a STROKE-FAN-ATOM sai da W8 para a `W9-B`, com o pré-requisito `R2D-FILL-POLYGON`. O líder já a tinha tirado da onda (D-W8-1117).
+  - **D-W8-1937:** o teto do contêiner da foto desce de 512 para 256 por uma fatia nova, a G3-LIM (parte A da G3b). Foi recusado pedir exceção à manutenção: daria 656 processos contra os 400.
+  - **D-W8-1938:** a imagem `glintfx-wltest:g3` vale para a G4b enquanto `git diff --quiet <sha_B1> HEAD -- src include examples tests cmake CMakeLists.txt` der rc 0.
+  - **D-W8-1939:** o critério da D-W8-1718 fica mais duro com três coisas: o vigia do cgroup, o `foto_rc` e o `first_window` como canário.
+  - **D-W8-1940:** os limites da manutenção. Scope com TasksMax=144 quando houver contêiner vivo e 400 quando for só o hospedeiro, contêiner com 256, paralelismo 4. O `docker run` de sintaxe PowerShell do `preci` não tem teto próprio; é limite declarado.
+  - **D-W8-1941:** a ordem do resto da onda. G3b, depois G4b (OK do líder pela L-50), depois a verificação profunda, depois F1 e o fechamento.
+  - **D-W8-1942:** as 16 linhas do PNG entram no `TODO.md` no fechamento.
+  - **D-W8-1943:** nenhuma das D-W8-1934 a D-W8-1947 é porta de mão única.
+  - **D-W8-1944:** o conteúdo da G3-LIM é 12 trocas de texto e 2 de dado, aplicadas por `aplica.py`.
+  - **D-W8-1945 (afrouxamento declarado):** a montagem da parte B não roda o `rpm -q kwin` nem o `check_image_freshness.sh`, porque os dois sobem contêiner sem teto. O frescor fica como "não rodou", e a prova passa a ser a imagem montada com `--pull` a partir do HEAD.
+  - **D-W8-1946:** o mecanismo da G3, pendente desde a D-W8-1106, fica decidido. É a variante nomeada do portão, só com o nó da placa integrada, mais o aviso de uma linha ao líder antes da rodada.
+  - **D-W8-1947:** a revisão da parte A e a parte B leem o blob do commit da parte A, nunca a árvore viva.
+  - **Sobem ao líder, no momento de cada passo:** o OK da GeForce para a G4b, com os 5 alertas; o merge e a marca v0.7.0.0, quando o portão fechar; a porta de mão única D-W8-1247; e o lote de ratificação.
+
+- **D-W8-1172 (main, 20/11 15:00): a ATLAS-WIKI passa a ❌ Reprovado.** A verificação de leitura (qa-engineer, relatório em `.trabalho/cto-w8/atlas-wiki-verif/relatorio.txt`) deu NÃO LIMPA: 84 afirmações conferidas, 73 CONFERE, 4 divergências e 6 não verificáveis só pelo header.
+  - **A divergência grave (D1), reconferida pelo main:** `docs/wiki/API-Texture-Atlas.md:162` e `:259` dizem que a chamada de desenho recebe uma região e nunca um slot. Mas `include/glintfx/draw2d/renderer_2d.hpp:631-632` declara `draw_atlas_image(atlas, gltfx_atlas_paint, ...)`, que recebe o recibo do atlas.
+  - **A causa:** a página conferia em `19dff569` (13/11 18:11). A API mudou depois, em `7ca6eeda` (14/11 10:20, a T6 da R2D-TEXTURE), e a página não acompanhou.
+  - **As outras divergências:**
+    - D2: o erro de memória de `atlas_allocate` não conta o esgotamento de números de célula (`atlas_allocator.hpp:66-68`);
+    - D3: a recusa de `add_image` não cita a geração do recibo (`texture_atlas.hpp:95-96`);
+    - D4: a página diz que a seção Status do README não fala de textura, e ela fala.
+  - **O conserto:** vai a um `technical-writer` (texto só, camada N4, conferido pelo main). Ele cobre as 4 divergências e as omissões que mudam o uso: `draw_atlas_image`, o alocador público e o atlas não copiável.
+
+- **D-W8-1173 (main, 20/11 15:06): o conserto da ATLAS-WIKI entra (`cdd3f9a8`, technical-writer em haiku), e o item fica ✅.** O texto é camada N4, e o main conferiu pelo blob, contra o header:
+  - **D1:** o passo 4 desenha com `draw_atlas_image(atlas, {slot.value()}, rect)`. Isso casa com `renderer_2d.hpp:631-632`, com o teste `draw2d_texture_parity_test.cpp:910`, com os campos `slot`, `mirror` e `tint` (nessa ordem) de `texture_atlas.hpp:158-162` e com a forma do retângulo de `examples/textures/textures.cpp:374`. A página diz por extenso que o exemplo compilado pelo CI ainda não chama a função.
+  - **D2:** a linha de `atlas_allocate` cobre o fim dos números de célula (`atlas_allocator.hpp:66-68`).
+  - **D3:** a recusa de `add_image` e o número reemitido com geração maior (`texture_atlas.hpp:92-96`).
+  - **D4:** o README cita texturas no Status e o atlas só nos exemplos, o que confere com `README.md:26` e `:69`.
+  - **O17:** o atlas não se copia (`texture_atlas.hpp:170-171`).
+  - Os portões do commit passaram, e as omissões deixadas de fora estão justificadas pelo leitor externo no relatório do redator (`.trabalho/cto-w8/atlas-wiki-fix/`).
+  - **Trailer:** só o do Haiku, porque o texto saiu inteiro do redator. A ordem do main não escreveu linha nenhuma da página.
+
+- **D-W8-1174 (main, 20/11 15:33): a condição de hoje da manutenção trava todo `preci`, e o CTO responde com a fatia PRECI-TETO e a errata da G3b. As decisões técnicas dele, D-W8-1948 a D-W8-1956, ficam registradas para o líder ler depois.**
+  - **A condição:** pela L-11 global, todo contêiner tem teto próprio. O scope do `preci` fica com TasksMax=272, e o `docker run` do PowerShell com `--pids-limit 128 --memory 2g`.
+  - **O problema:** o `tools/preci.sh:542` e o `:557` não aceitam teto. O main devolveu a vez.
+  - **As decisões:**
+    - **1948:** teto fixo no código, 128 processos e 2 GiB, sem variável de ambiente. Um teto que quem chama pode desligar não é teto. O `--memory-swap` é pedido igual à memória.
+    - **1949:** o contêiner é criado, o teto é lido de volta e impresso no log, e só então ele sobe.
+    - **1950:** o portão é o próprio estágio, mais um controle novo do `--selftest` que conta os lançamentos de contêiner sem teto. Ele nasce vermelho no HEAD.
+    - **1951:** o gêmeo, `host_alert_gate_test` (estágio 6 do `--fast`), também sobe contêiner sem teto e entra na fatia.
+    - **1952:** é uma fatia própria, antes da G3-LIM.
+    - **1953:** camada N2, porque a fatia não toca `src/` nem `include/`. Mesmo assim, mantém os 10 mutantes com a previsão escrita antes.
+    - **1954:** a sequência de prova da fatia.
+    - **1955:** a errata da G3b.
+    - **1956:** nenhuma das decisões é porta de mão única.
+  - **Os arquivos:**
+    - a ordem, `.trabalho/cto-w8/ordem-preci-teto.md`, md5 `98166e8c`;
+    - a errata, `.trabalho/cto-w8/ordem-g3b-errata1.md`, md5 `acc86f5c`.
+    - O CTO pré-executou numa cópia: vermelho e verde, e os 10 mutantes morreram pelos casos previstos.
+  - **Desvio do CTO, declarado por ele:** um `grep -rl` a partir de `.trabalho/cto-w8` varreu também o `r21/`. Leu só nomes de arquivo JSON e não usou nada deles.
+  - **Ficam com o líder:**
+    - tirar da fila a `CPUSET-NO-LANCAMENTO` (L-67: agente não declara obsoleto);
+    - um `:Z` maiúsculo em `tools/msvc-container/armadilhas/compare.sh:44`, que o main reconferiu. Ele contraria a decisão de 20/11 ("Minúscula sempre") e vai à INBOX como conserto. O caso de `tests/tools/check_win32_test_link.py:816` é só texto de comentário.
+
+- **D-W8-1175 (main, 20/11 16:30): a PRECI-TETO fecha a revisão LIMPA e é empurrada; as decisões D-W8-1957 a D-W8-1965 do CTO ficam registradas para o líder ler depois.**
+  - **Os commits:**
+    - `48765d6e`: o teto de 128 processos e 2 GiB nos três contêineres do `--fast`, lido de volta no log;
+    - `0e8f1a99` (fix1): a contagem de lançamentos de contêiner ganha controle próprio e passa a ver `docker container run`.
+  - **As provas:**
+    - teto lido: `128 2147483648 2147483648` nos dois do PowerShell e no do portão de alertas, este por coleta (D-W8-1957, `impl/casa.log`);
+    - `--fast` com rc 0 e pico de 20 processos no scope.
+  - **As revisões:**
+    - a 1ª, N2, deu NÃO LIMPA pela L-17: uma função misturava teto e contagem. A fix1 foi a rodada única de conserto;
+    - a 2ª deu LIMPA: vermelho pelo motivo certo (sem rc=127), 7 mutantes como o previsto, com o N4 vivo e declarado (D-W8-1964).
+  - **O IMPORTANTE que resta, aceito:** a regex de contagem em `tools/preci.sh:3093-3094` não vê `$DOCKER run` nem `podman`. Nenhum dos dois existe hoje no `preci`. O CTO declarou os dois buracos (D-W8-1960), e a N2 tem uma rodada só de conserto. Vai à INBOX (`PRECI-LAUNCH-REGEX-BURACOS`).
+  - **Vão à INBOX também:**
+    - a fonte única do teto (D-W8-1961);
+    - a `stage_ps_syntax` com 41 linhas (D-W8-1962);
+    - tirar os ajudantes e os controles de autoteste do `preci.sh`, que tem 3518 linhas (D-W8-1963);
+    - um portão que confira o registro de cada controle do autoteste (D-W8-1964).
+  - **A linha `PRECI-TETO` entra no TODO em 🔍.** Ela vai a ✅ quando um CI verde do ramo contiver os dois commits. O job `ps-syntax` do CI também prova o `--memory-swap` no `ubuntu-latest`.
+
+- **D-W8-1176 (main, 20/11 17:01): a G3-LIM, parte A da G3b, entra. O teto do contêiner da foto desce de 512 para 256, e os commits são empurrados.**
+  - **Os commits:**
+    - `d0107b64`: 5 arquivos, +21/−12. O condutor, o portão de isolamento, o autoteste e as duas linhas de base passam para 256.
+    - `4eeb8d47`: o conserto de 1 linha de comentário.
+  - **As provas da parte A:**
+    - vermelho com o controle 25 reprovando, verde com 51 OK;
+    - `--fast` com rc 0 e pico de 20 processos;
+    - teto lido nos três contêineres;
+    - o `docker create` nunca subiu, e o comparador deu `hc_igual=1`.
+  - **A A-rev deu NÃO LIMPA por um único COSMÉTICO:** `hostconfig_baseline_gpu_geforce.txt:7` dizia "A live capture, not hand-written", e o PidsLimit da GeForce foi escrito à mão (as linhas 19-22 do mesmo arquivo dizem isso).
+    - O conserto está em `4eeb8d47`. É texto só, camada N4, conferido pelo main pelo blob: 1+/1−, sem a palavra "Server" e com o autoteste do portão em rc 0.
+    - O precedente é a D-W8-1156: a fatia fechou pela N4 conferida pelo main.
+    - O gêmeo foi conferido: na linha de base da Intel, "live capture" segue verdadeiro, porque o 256 dela foi medido ao vivo.
+  - **Trailer do `4eeb8d47`:** só Haiku. O texto da linha foi ditado pelo main, mas quem o escreveu e o commitou foi o haiku. Não há amend.
+  - **Os desvios de processo do implementador, julgados pela A-rev:**
+    - a linha de guarda faltou nos blocos depois do A5 e do A6, sem dano (TasksMax=272, pico 20);
+    - leu tarde a L-50 e a L-11, sem nenhum ato que elas proíbam.
+  - **Vão à INBOX:**
+    - O1, IMPORTANTE pré-existente: `tests/container/check_image_freshness.sh:70` sobe um `docker run --rm` sem teto. A manutenção proibiu rodar esse script até o conserto;
+    - O3: `docs/ferramentas-de-apoio-aos-testes.md:74` diz que `--pids-limit` só aparece em plano, e isso é falso.
+  - **O que vem a seguir é a parte B:** as 4 fotos na placa INTEGRADA. A manutenção confirmou que os 5 alertas e o OK do líder (L-50) valem só para a GeForce. A Intel pede isolamento, uma rodada curta e com teto, e o aviso de uma linha ao líder antes.
+
+- **D-W8-1177 (main, 20/11 17:20): a foto canária da G3b reprovou, e o CTO responde com a G3-ES. As decisões D-W8-1966 a D-W8-1972 ficam registradas para o líder ler depois. Uma delas alarga um critério depois do dado, e o main a destaca.**
+  - **FATO da rodada (`.trabalho/cto-w8/g3b/b/`):**
+    - `first_window` com `foto_rc=50`;
+    - o facts.log registra `compositing=['Compositing Type: OpenGL ES']` e "formato QImage 18 recusado";
+    - não saiu PNG;
+    - isolamento 0, e o vigia deu 23 processos e 374 MiB, sem nenhum fork recusado;
+    - KWin 6.8.3.
+  - **As decisões do CTO, com a pesquisa feita antes da 2ª tentativa (L-42):**
+    - **D-W8-1966:** o KWin 6.8 tirou o OpenGL de mesa da composição e só compõe em ES. O renderizador é a Intel real (Iris Xe), e não software.
+    - **D-W8-1968:** a captura de janela do KWin pede sempre `Format_RGBA8888_Premultiplied` (o 18). O juiz passa a aceitá-lo. O `img.raw` da rodada reprovada, lido nessa ordem, deu PNG igual byte a byte ao da G2 (md5 `6aef691c`), e as sondas deram 12 de 12.
+    - **D-W8-1967 (o critério alargado):** a exigência "compositing = OpenGL" da D-W8-1718 passa a aceitar OpenGL ES.
+    - **D-W8-1970:** um veto novo e mais estrito. O md5 do PNG do `first_window` tem de ser igual ao da G2.
+    - **D-W8-1971:** a imagem `b61ea148` continua valendo, sem novo `docker build`.
+    - **D-W8-1972:** o CTO trata a mudança como nomeada para ratificação, e não como pergunta ao líder.
+  - **O alerta do main pela L-43 global:** o critério muda DEPOIS de visto o resultado, e muda a favor de passar, que é exatamente o caso de que a lei manda desconfiar. O main aceita, por três razões:
+    - a causa é um fato externo e citado, não um ajuste ao dado: o KWin 6.8 não compõe mais em OpenGL de mesa, e o critério antigo passou a ser impossível em qualquer máquina com o KWin atual;
+    - o que a foto prova não muda: composição na placa nomeada, com software recusado;
+    - entra um veto mais estrito que o antigo, o PNG idêntico ao da G2.
+  - Mesmo assim, a D-W8-1967 vai em destaque na lista de ratificação do líder.
+  - A ordem está em `.trabalho/cto-w8/ordem-g3b-es.md` (md5 `0cddb54d`). Ela tem a parte A, com 1 commit em 2 arquivos e 1 `preci --fast`; a A-rev, com 4 mutantes; e a parte B', que recomeça pelo canário.
+
+- **D-W8-1178 (main, 20/11 18:19): a G3-ES entra com a fix1. O juiz da foto aceita o OpenGL ES e o formato de captura do KWin 6.8, os dois commits são empurrados, e as decisões D-W8-1973 a D-W8-1978 do CTO ficam registradas para o líder ler depois.**
+  - **Os commits:**
+    - `7e0990d6`: o juiz, com 32 controles e `--fast` com rc 0;
+    - `46492d6a` (fix1): 6 controles novos, com 38 no total. O código do juiz não muda, e a A-rev2 conferiu as funções iguais às do pai.
+  - **As revisões:**
+    - a A-rev deu NÃO LIMPA, por falta de controle vermelho para ES na placa errada (I1). O main tinha pedido ao revisor que atacasse o critério alargado pela L-43, e foi assim que a falha apareceu;
+    - a A-rev2 deu LIMPA. O I1 foi fechado nos dois sentidos, e também em softpipe (ES e GL) e no formato 19. Os 3 mutantes pré-registrados sobrevivem no pai e morrem na fix1, e os 2 mutantes do revisor morreram.
+  - **O veto do md5 (D-W8-1976)** virou o passo B'3a, com rc, provado dos dois lados: sem PNG, rc 1; com o PNG da G2, rc 0.
+    - Como o comando não tem `exit` (`ordem-g3b-es-fix1.md:251-256`), o main põe no briefing da B' uma guarda que lê o `veto_md5_rc=0` no relatório antes do B'4.
+  - **Vão à INBOX:**
+    - `PHOTO-FACTS-ATOMS` (D-W8-1977, I3 e I4);
+    - `PHOTO-FACTS-FORMATO-0`: o formato 0 está sem controle (`tests/tools/composed_photo_facts.py:39`, achado da A-rev2).
+  - **Trailers:** os commits trazem Opus e Haiku, porque o código é do CTO e foi aplicado por haiku (D-W8-1167).
+
+- **D-W8-1179 (main, 20/11 18:27): as 4 fotos compostas da G3b, na placa INTEGRADA Intel, PASSARAM.** Isso cumpre metade do item 11 do fechamento da W8, a ordem do líder de 06/10: *"exigir 2 fotos compostas locais. Uma da geforce e outra da integrada."*
+  - **A rodada:** parte B' de `ordem-g3b-es-fix1.md`, com o QA em haiku. O relatório está em `.trabalho/cto-w8/g3b-es-fix1/b/relatorio.txt`.
+    - HEAD `887cdf1a`, imagem `glintfx-wltest:g3` (`b61ea148`), KWin 6.8.3, compondo em OpenGL ES na Intel Iris Xe.
+  - **O veto D-W8-1970:** `veto_md5_rc=0`. O PNG do `first_window` saiu idêntico ao da G2 (`6aef691c`).
+    - O briefing do main pôs uma guarda com `exit` antes de cada foto do B'4. Ela rodou 3 vezes, com rc 0.
+  - **Por foto:** `foto_rc=0` nas 4. As sondas deram 12/0 (`first_window`), 80/0 (`shapes`), 77/0 (`textures`) e 17/0 (`sprite_shadows`).
+    - `isolamento=0` nas 4, com o HostConfig igual à linha de base de 256.
+    - O vigia do cgroup marcou 23/23/25/25 processos, com `pids_events_max=0`: o teto não recusou nenhum fork.
+    - O pico de memória foi de 577 MB.
+  - **A observação visual (L-13 global):** o QA viu as 4 imagens e descreveu o que viu. O main reconferiu `shapes` e `sprite_shadows` pela imagem e confirmou o que o QA descreveu.
+    - O QA declarou um limite: não viu com segurança, nesta resolução, a dobra da diagonal de F e G em `textures`. As sondas dela deram 77/0.
+  - **O que falta do item 11:** a G4b, na GeForce. Ela pede uma errata do CTO (a G4-0 refeita e a linha de base da GeForce recapturada em 256), os 5 alertas, o aviso à manutenção e o OK do líder (L-50 global).
+  - A `QA-COMPOSED-PHOTOS` continua ⏳ até a G4b.
+
+- **D-W8-1180 (LÍDER, 20/11 18:36): OK do líder para a foto na GeForce, a parte F da G4b, pela L-50 global.**
+  - Os 5 alertas tocaram às 18:36 (`play_den_den_alert.sh`, 5 vezes, rc 0 nas 5).
+  - O texto mostrado foi a seção 6 de `.trabalho/cto-w8/ordem-g4b-errata.md` (md5 `dd875519`). A pergunta foi feita por AskUserQuestion.
+  - A resposta, verbatim: *"Autorizar a rodada agora (Recomendado)"*.
+  - **O OK vale para uma rodada só,** com as 4 fotos uma por vez e parada na primeira falha. Outra rodada exige novo OK (D-W8-1981).
+  - **A parte P veio antes do OK e não tocou a placa:** `create`, `inspect` e `rm` com rc 0, `hc_igual=1`, nenhum hook da NVIDIA. A manutenção conferiu a VRAM do lado dela: 25 MiB, 0%.
+
+- **D-W8-1181 (main, 20/11 18:41): as 4 fotos compostas na GeForce, da G4b, PASSARAM numa rodada só. Com a G3b (D-W8-1179), o item 11 do fechamento da W8 fica cumprido, e a QA-COMPOSED-PHOTOS passa a ✅.**
+  - **A rodada:** parte F de `ordem-g4b-errata.md` (md5 `dd875519`), com o OK do líder às 18:36 (D-W8-1180) e a GPU travada pela manutenção às 18:37. O relatório está em `.trabalho/cto-w8/g4b/f/relatorio.txt`.
+  - **Na placa:** RTX 3050 Laptop, OpenGL ES 3.2, driver NVIDIA 620.70.06, KWin 6.8.3, composição em OpenGL ES. A captura veio com `qimage=18`, 640x480, nas 4 fotos, o que confirma a inferência do CTO.
+  - **Por foto:** `foto_rc=0` nas 4. As sondas deram 12, 80, 77 e 17, sem falha.
+    - `isolamento=0` nas 4.
+    - O vigia marcou 44 processos por contêiner, com o teto de 256. O scope ficou entre 19 e 20.
+    - A memória chegou a 341 MB no máximo, e a VRAM ficou em 25/4096 MiB antes e depois.
+  - **O md5:** só informativo na GeForce (D-W8-1982). Três fotos diferem das da Intel, como o CTO previu, e a `sprite_shadows` saiu igual.
+  - **A observação visual (L-13 global):** o QA viu as 4 e descreveu o que viu. O main reconferiu a `textures` pela imagem: os 4 quadros, os 3 trapézios de xadrez em perspectiva e a fileira de peças.
+  - **Os desvios do QA, aceitos pelo main:** o `gpu.lock` é da manutenção, por isso o QA não o criou nem o apagou. A manutenção solta a trava.
+  - **Ficou de fora:** o pico de VRAM durante a foto não foi medido, porque a ordem não o grava.
+
+- **D-W8-1182 (LÍDER, 20/11 18:56): as respostas do líder à lista de ratificação da W8** (`.trabalho/cto-w8/lista-ratificacao-w8.md`, md5 `95df1214`), feitas por AskUserQuestion em duas chamadas. As respostas, verbatim:
+  - **Modelo da verificação profunda:** *"Opus só nesta verificação"*. É uma exceção nomeada à regra de modelos (`/modelos_sessao`), que vale só para os 2 verificadores da verificação profunda da W8 (`ordem-verif-profunda-w8.md`). O resto segue em Haiku.
+  - **D-W8-1247, o pacote do resolvedor de imagens:** *"Manter: o pacote nunca muda (Recomendado)"*. A porta de mão única fica RATIFICADA: o layout congela, e dado novo vem por tipo novo.
+  - **D-W8-24, a folha de estilo nunca abre arquivo:** *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-25, a cor das texturas** (alfa pré-multiplicado, luz linear, até 1 nível de 8 bits, margem no atlas com níveis de redução): *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-26, destruir a textura no meio do quadro** (seguro; vazamento com aviso, sem travar): *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-27, determinismo** (byte a byte com o mesmo binário; 4 ULP entre sistemas): *"Manter (Recomendado)"*. RATIFICADA.
+  - **D-W8-28 e D-W8-30, o grupo de sombra e o formato único do relatório do quadro:** *"Manter (Recomendado)"*. RATIFICADAS.
+  - **O lote das decisões autônomas:** *"Confirmar todas (Recomendado)"*. Ficam RATIFICADAS:
+    - as do main, de D-W8-1150 a D-W8-1181 (menos as que já eram respostas do líder), mais a leitura da D-W8-1903;
+    - as do CTO, de D-W8-1591 a D-W8-2006, menos as já respondidas;
+    - em destaque, a D-W8-1967 (o critério da foto alargado depois do dado), a D-W8-1982, a D-W8-1946, a D-W8-1591 e a D-W8-1997.
+  - **Pendente do líder:** só o merge e a marca v0.7.0.0, que sobem juntos quando os portões G1 a G7 do F1 estiverem verdes (§7 de `ordem-f1-w8.md`).
+
+- **D-W8-1183 (LÍDER, 20/11 19:06): o modo autônomo foi LIGADO por ordem do líder,** verbatim: *"ligue modo autonomo"*.
+  - **A flag** está em `~/.claude/autonomo/GlintFx.json`, vale até 21/11/2026 19:05 (24 h) e tem os escopos `push` e `clean` (o push da onda e a marca, pelo contrato; a limpeza de build com a onda verde).
+  - **O regime continua o da D-W8-1166:** a decisão técnica é do CTO e fica registrada aqui. Sobem ao líder a lei, o dinheiro, o ato irreversível e a GPU (L-50 global, com os 5 alertas).
+  - **O merge e a marca v0.7.0.0:** o CTO registrou que o hook pede confirmação na hora (`lista-ratificacao-w8.md`, item 3). O main só os faz com os portões G1 a G7 verdes, e pergunta ao líder se o hook pedir.
+
+- **D-W8-1184 (main, 20/11 19:27): a rodada 1 da verificação profunda da W8 (D-W8-257) dá NÃO LIMPA. O main reexecutou um mutante de cada agente, e os dois confirmam.**
+  - **A rodada:** `HEAD_V=144fd590`, `ordem-verif-profunda-w8.md` (md5 `ec1976dd`). Os dois verificadores rodaram em Opus (D-W8-1182).
+  - **V-A** (`.trabalho/cto-w8/verif-w8/va-r1/relatorio.md`): `preci --fast` com rc 0.
+    - CRÍTICOS: C7-1 (caminho `~/` em 7 linhas novas publicadas) e C8-1 (leitor `src/gfss/image_value_read.cpp` sem fuzzer).
+    - IMPORTANTES: C2-1 (L-17) e C4-1 (o layout congelado do resolvedor sem teste).
+    - 5 COSMÉTICOS.
+  - **V-R** (`.trabalho/cto-w8/verif-w8/vr-r1/relatorio.md`): 15 de 16 mutantes mortos.
+    - IMPORTANTES: I-1 (o M03 vivo, sRGB pré-multiplicado sem teste que o prenda), I-2 (erros GL descartados calados na textura), I-3 (`renderer_2d_impl.hpp` virando monólito) e I-4 (20 frases "Proved by" que citam teste só do CI no Linux).
+    - 2 COSMÉTICOS.
+  - **A reexecução do main** (§5.2, `.trabalho/cto-w8/verif-w8/main-r1/`), com scope TasksMax=150 e `-j2`:
+    - M03 do V-R: `aplicou=1 build=0 ctest_mutante=0 testes=1 veredito=VIVO`. Confirma o I-1;
+    - VA-C41 do V-A (um campo a mais no fim de `gltfx_image_reference`): `aplicou=1 build=0 ctest_mutante=0 testes=4 veredito=VIVO`. Confirma o C4-1.
+    - Nos dois, a árvore foi restaurada, com `restaurado_build=0` e `ctest_volta=0`.
+  - **O conserto e as perguntas ao líder** vão ao CTO pela D-W8-1996.
+
+- **D-W8-1185 (main, 20/11 19:27): a PRECI-TETO passa a ✅.** O CI `44822607741`, em `bb6ffcc2`, fechou VERDE, com 25 sucessos e 1 pulado. Os commits `48765d6e` e `0e8f1a99` são ancestrais dele (`git merge-base --is-ancestor`, rc 0). No mesmo CI, o job `ps-syntax` do `ubuntu-latest` provou o `--memory-swap`.
+
+- **D-W8-1186 (LÍDER, 20/11 19:44): as respostas do líder às 4 perguntas da rodada 1 da verificação profunda** (`ordem-r2-w8.md` §7, md5 `6c2add3b`), por AskUserQuestion. Verbatim:
+  - **P1, C7-1, o caminho da pasta pessoal:** *"Corrigir daqui para frente (Recomendado)"*. As 24 linhas públicas trocam o caminho por um nome genérico, e entra um portão que barra caminho de máquina em arquivo novo. O histórico não é reescrito.
+  - **P2, C8-1, o fuzzer do leitor gfss:** *"Registrar e fazer junto do PNG (Recomendado)"*. A falta vira linha datada no TODO, aparece no CHANGELOG da 0.7.0.0, e o fuzzer nasce na W-PNG-2.
+  - **P3, a L-17 e os testes:** *"atomos para o framework glintfx. Os testes vocês faz como forem melhores"*.
+    - Na pergunta de confirmação, sobre se as ferramentas de teste contam como teste ou como framework, a resposta foi: *"eu expliquei a @GusWorld"*. É a L-33 do GusWorld (`9d88131`, 19:43): átomo só no código do produto; testes, ferramentas, scripts de CI, documentos, commits, itens e assets se organizam como for melhor.
+    - **A lei foi EMENDADA**, gravada em `GODS_LAWS.md` L-17 no mesmo instante (L-68 global). O argumento contra veio antes da pergunta (LEI DAS LEIS).
+    - **Efeito sobre os achados:** do C2-1, os 17 casos de Python de ferramenta e os 30 corpos de teste deixam de ser violação. Ficam as 5 funções de produto, que entram antes da marca (R2-C).
+  - **P4, as dívidas de átomo:** *"Registrar e consertar logo depois (Recomendado)"*. O I-3 (`renderer_2d_impl.hpp`, código do framework) vira linha IMPORTANTE no TODO, numa fatia paralela à W-PNG, e a 0.7.0.0 não espera por ele. As 5 funções de produto do C2-1 entram antes da marca.
+  - **Em consequência, a rodada 2 fecha com:**
+    - R2-A: o C4-1 e o I-1;
+    - R2-B: o I-2;
+    - R2-C: as 5 funções de produto;
+    - o C7-1 consertado daqui para frente, com o portão;
+    - o C8-1 e o I-3 DECLARADOS no TODO, com a classe intacta (L-43);
+    - o I-4 como falso positivo provado (D-W8-2012).
+
+- **D-W8-1187 (LÍDER, 20/11 20:15): a L-12 é harmonizada com a emenda da L-17.** A pergunta do CTO veio da `ordem-r2bc-w8.md` §5 (D-W8-2029). A resposta do líder, verbatim: *"Ajustar (Recomendado)"*.
+  - Daqui em diante, o revisor N3, de ferramenta de teste, lê pela correção: o código faz o que diz? falha de forma visível? Ele confere um caso vermelho e não reprova por tamanho nem pelas cinco perguntas da L-17.
+  - O texto foi refundido no próprio item N3 da L-12 (`GODS_LAWS.md`), pela L-68.
+- **D-W8-1188 (main, 20/11 20:15): o R2-A entra.**
+  - `a0655dc2`: o teste do layout do resolvedor, com um `static_assert` que barra campo novo (D-W8-1247).
+  - `b02a513a`: a linha de sRGB pré-multiplicado na tabela do `pixel_premultiply_test`.
+  - O mutante M03 MORRE, e o campo novo MORRE PELO PINO. O `preci --fast` deu rc 0.
+  - Falta a A-rev. As ordens do CTO para R2-B, R2-C e C7-1 estão em `.trabalho/cto-w8/ordem-r2bc-w8.md` (md5 `8c2a7e4a`, D-W8-2018 a D-W8-2031).
+
+- **D-W8-1189 (LÍDER, 20/11 20:48): o congelamento da D-W8-1247 vale também para os 4 tipos que o pacote do resolvedor carrega por dentro.** Os quatro são `gltfx_texture_region`, `gltfx_rect_texel`, `gltfx_vec2_texel` e `gltfx_texture_mirror`, e o congelamento vale também nas funções de desenho da 0.7.0.0.
+  - **A origem:** a A-rev do R2-A achou o MUT-R VIVO, um campo novo dentro de `gltfx_texture_region` (`.trabalho/cto-w8/verif-w8/r2a-rev/rev.txt`). O CTO leu que a promessa inclui o que vai dentro do pacote (D-W8-2035 a D-W8-2037).
+  - **A resposta do líder, verbatim:** *"Congelar os quatro (Recomendado)"*.
+  - O pino da fix1 do R2-A passa a prender os quatro (`ordem-r2bc-w8-errata1.md`, md5 `83776513`).
+
+- **D-W8-1190 (CTO, 20/11 21:18; vai para a lista de ratificação): o congelamento do `gltfx_texture_mirror` prende a largura e os números dos quatro valores (0 a 3), mas NÃO a quantidade de valores.**
+  - **A origem:** na fix1 do R2-A, um enumerador a mais (MUT-MIR-E) passou pelo pino.
+  - **A razão do CTO:** um valor novo no fim não muda o tamanho nem a posição de nada no pacote. O cabeçalho já promete que um valor desconhecido é recusado (`texture_region.hpp:21`, `texture_region_uv.cpp:19-20`, regra R4).
+  - **Leitura da decisão do líder:** o CTO lê que isso não contradiz a D-W8-1189, porque o que se congelou foi a forma.
+  - **Mutantes:** o `switch` com `-Werror` da biblioteca não conta como trava, porque some com um `default:`. O MUT-MIR-E é equivalente pelo contrato (D-W8-2039 a D-W8-2041, `ordem-r2a-fix1-errata1.md`, md5 `bbb0697a`).
+
+- **D-W8-1191 (LÍDER, 20/11 21:28): duas emendas de lei, pedidas pela sessão `configs` e confirmadas aqui por AskUserQuestion, porque mexem em lei (L-46 e LEI DAS LEIS).**
+  - **(1) L-11:** merge e tag no fim de onda passam a exigir o OK do líder ou o modo autônomo ligado. Escolha relatada pela `configs`, verbatim *"Exigir autorização"*.
+  - **(2) L-18 e L-34:** saem os modelos fixos (opus e sonnet), e vale o `/modelos_sessao`, com prosa para leitor humano em opus no esforço máximo. Escolha relatada, verbatim *"Seguir o /modelos_sessao"*.
+  - **Confirmação do líder nas duas perguntas, verbatim:** *"Confirmar a mudança (Recomendado)"*.
+  - Um technical-writer (opus, esforço máximo) aplica as emendas em `GODS_LAWS.md` e `CLAUDE.md`. O commit fica para depois da fix1 do R2-A, para não mover o tronco debaixo dela.
+
+- **D-W8-1192 (LÍDER, 20/11 21:38): as leis do projeto passam de `L-NN` a `GL-NN`, e o `CLAUDE.md` é enxugado para cerca de 200 linhas, com os detalhes indo para `docs/`.**
+  - **A origem:** pedido da sessão `configs`, verbatim *"Prefixar GL- e GW-"* e *"Cortar para ponteiros"*.
+  - **O tamanho, medido pelo main:** 7008 citações em 842 arquivos. Parte delas aponta para as leis globais e não muda, por isso a troca exige classificar cada citação.
+  - **Quando, resposta do líder verbatim:** *"opcao 2 com agente paralelo. Não interfere no trabalho principal"*. A opção 2 é agora, antes de fechar a onda 8.
+  - **O corte, resposta do líder verbatim:** *"Junto com a renomeação GL-NN"*.
+  - **O plano:** o CTO planeja (`ordem-gl-rename.md`). O agente trabalha num clone à parte e entrega um script, uma tabela e a prova. O script é reaplicado sobre o HEAD num ponto quieto, sob a `git.lock`.
+
+- **D-W8-1193 (LÍDER, 20/11 21:46): o GlintFx MANTÉM o `AGENTS.md` e fica de exceção à ordem de renomear para `LLM.md`.**
+  - **A ordem geral**, relatada pela sessão `configs`, verbatim: *"todos os projetos que tem AGENTS.md renomeie para LLM.md"*.
+  - **O contra-argumento do main:** o arquivo é público (155 linhas) e orienta IAs de fora a usar ou contribuir com a biblioteca. `AGENTS.md` é o nome que ferramentas de terceiros procuram sozinhas; `LLM.md`, nenhuma.
+  - **A resposta do líder, verbatim:** *"Manter AGENTS.md no GlintFx"*.
+  - Nada muda no repositório.
+
+- **D-W8-1194 (main, 20/11 22:05): perda IRREVERSÍVEL de uma prova antiga, por erro do main.**
+  - **O que se perdeu:** `.trabalho/cto-w8/ordem-r2b-fix1.md`, a ordem congelada da R2b-fix1 do resolvedor, de 31/10 (md5 `ed3068db8683f152b22fb47d15453fa2`). O CTO gravou por cima dela a ordem nova da fix1 do R2-B da verificação.
+  - **De quem é o erro:** do MAIN. Fui eu que mandei o CTO gravar com esse nome, sem conferir antes que ele já existia (L-53 e "antes de sobrescrever, olhar o alvo"). A ordem nova foi salva de novo como `ordem-r2b-verif-fix1.md` (md5 `452ee114`).
+  - **O impacto:** baixo. O trabalho daquela ordem já está no git, e este arquivo guarda o md5 e o resumo dela. O que se perdeu foi só o texto da ordem como prova histórica.
+  - **A recuperação:** `.trabalho/` fica fora dos snapshots. Só o histórico de versões do IDrive poderia trazer o arquivo de volta, e isso é ação do líder.
+  - **A regra que fica:** nome de arquivo novo dado em ordem a um agente se confere com `ls` antes, e a ordem manda o agente não sobrescrever nada que já exista fora da pasta dele.
+
+- **D-W8-1195 (LÍDER, 20/11 22:18): R9 da GL-RENAME. A sobra é lida inteira, e a troca entra DEPOIS da 0.7.0.0, como primeira fatia da onda 9.**
+  - **A amostra cega do CTO:** 35 discordâncias em 150 (23%), mais 11 indeterminadas, até 31%. O critério da opção "tratar como do projeto" era de no máximo 3, então essa opção caiu.
+  - **Os arquivos:** `.trabalho/cto-w8/amostra-r9-veredito.tsv`, md5 `ecc9d7ab`; `.trabalho/gl-rename/decisoes-r8.tsv`, md5 `bee4b9f3`; `ordem-gl-rename-errata1.md`, md5 `3b8209d1`.
+  - **A resposta do líder, verbatim:** *"Ler tudo; troca depois da 0.7 (Recomendado)"*.
+  - **O que isso muda:** a D-W8-1192, que mandava fazer agora, fica superada no QUANDO. O trabalho segue no clone à parte, sem tocar o tronco, e não bloqueia a F1. O corte do `CLAUDE.md` vai junto com a troca (D-W8-1192).
+  - **A citação de lei do mapeditor:** o líder respondeu, verbatim, *"Pergunte ao  configs"*. A pergunta foi enviada à sessão `configs`.
+  - **Defeitos que o CTO achou nas próprias regras:** a R3, que dava números globais de 29/08 a 20/11 como só do projeto, e as palavras `verbatim`, `github` e `config` da R5. A correção está na errata1, D-W8-2073 a D-W8-2078.
+  - **O índice sem L-43 a L-46** vai para a INBOX como `LAW-INDEX-GAP`.
+
+- **D-W8-1196 (LÍDER, pela sessão `configs`, 20/11 22:19): o prefixo das leis do `gusworld_mapeditor` é `GM-`.**
+  - As citações do GlintFx a leis do mapeditor viram `GM-NN` na GL-RENAME.
+  - Quem renomeia o repositório do mapeditor é a sessão `configs`.
+  - Isso resolve o `AMBIG-LIDER` da `decisoes-r8.tsv` (D-W8-1195).
+
+- **D-W8-1197 (LÍDER, 20/11 23:00): quatro cortes de processo no GlintFx, decididos na sessão `configs` e confirmados aqui (L-46).**
+  - **A medição que motivou os cortes:** em 14 dias, 143 de 196 commits (73%) foram de decisões, TODO e leis, e só 10 (5%) de código de produto.
+  - **Os cortes, verbatim da `configs`:**
+    1. *"Pesquisa só se vai a você"*;
+    2. *"Revisão com teto de 2"*: acaba o "até sair limpa". O critério de pronto ("funciona, os portões passam, sem risco de segurança ou privacidade") é escrito antes. A revisão só aponta o que quebra esse critério, e o resto não vira item;
+    3. *"Ferramentas fixas na onda"*: a imagem de CI e CMake, KWin e Clang só trocam na virada de onda;
+    4. *"Próximas ondas só produto"*.
+  - **Como se aplicam à W8, verbatim do líder:** *"Terminam e seguem sem nova revisão (Recomendado)"*. As três correções em voo (R2-B fix1, R2-A fix2 e R2-C) são gravadas com os próprios testes e portões verdes, sem uma terceira rodada. Depois vem a F1. O que ainda faltava da verificação só entra se quebrar o critério de pronto.
+  - **GL-RENAME, verbatim do líder:** *"Exceção: termina e entra (Recomendado)"*. É a única exceção de processo; depois dela não entra nenhum item novo de processo.
+  - **Quem aplica:** um technical-writer (opus, esforço máximo), num commit seletivo, sem rodada extra de revisão.
+
+- **D-W8-1198 (LÍDER, 20/11 23:34): fim da pausa e modo autônomo religado.**
+  - **Ordens do líder, verbatim:** *"ligue modo autonomo"*, dita nesta sessão (flag até 21/11 às 23:33, com os escopos push e clean); e *"mande todos continarem"*, repassada pela `manutencao`.
+  - **Retomada pelo snapshot:** o R2-C e a R2-A fix2 terminam a prova local e entram sem nova revisão (D-W8-1197). Os cortes de processo nas leis e os leitores L2, L3 e L5 da GL-RENAME seguem de onde pararam.
+  - **Merge e tag:** cobertos pelo modo autônomo (L-11 emendada), só com a onda verde.
+
+- **D-W8-1199 (LÍDER, 20/11 23:58): quatro pontos dos cortes que o redator precisou interpretar (commit `387347f3`), todos resolvidos pelo líder por AskUserQuestion.**
+  1. **Defeito que sobra depois da 2ª rodada e ainda quebra o critério de pronto:** verbatim *"Sobe ao senhor decidir (Recomendado)"*.
+  2. **Pesquisa no modo autônomo:** vale também quando o C-level decide no lugar do líder. Verbatim *"Sim, no lugar do senhor pesquisa (Recomendado)"*.
+  3. **Critério de pronto:** uma fatia só pode torná-lo mais exigente, e isso fica escrito antes. Nunca pode afrouxar as três partes do padrão. Verbatim *"Só pode ficar mais exigente (Recomendado)"*.
+  4. **Imagem e ferramentas do CI:** são fixadas AGORA, no fechamento da W8. Verbatim *"Agora, no fechamento da onda 8 (Recomendado)"*.
+  - **Ajuste de texto:** os pontos 1 e 2 já estavam escritos assim. O 3 pede um ajuste no texto da lei, e o 4 vira uma fatia pequena de CI.
+
+- **D-W8-1200 (LÍDER, 21/11 00:16): o CI-PIN da W8 fica com a parte pequena; o congelamento dos pacotes vai para a troca de onda, como segunda exceção de processo.**
+  - **O erro do main:** ao pedir a D-W8-1199 eu disse que fixar o CI era "uma mudança pequena". Não era. O CTO mediu que CMake, Clang e KWin são instalados na hora, e que congelá-los pede cinco frentes, uma por distro. A do CachyOS é arriscada, porque ele não guarda arquivo de versões antigas (`decisao-ci-pin-pacotes.md`, D-W8-2090 a D-W8-2094).
+  - **Resposta do líder, verbatim:** *"Agora só o pequeno (Recomendado)"*.
+  - **O que entra na W8:** as imagens base presas por digest, as actions presas por SHA e os rótulos dos executores fixos.
+  - **O que fica para a troca de onda:** congelar os pacotes (Ubuntu por snapshot, Arch pelo Archive, Fedora por versionlock mais updates-archive, CachyOS por repositório local como artifact) e o portão de manifesto de versões. A 0.7.0.0 não espera por isso.
+  - **Proposta do CTO que fica para o líder:** uma imagem própria publicada no GHCR, para uma troca de onda futura. Publicar é ato irreversível.
+
+- **D-W8-1201 (LÍDER, pela `manutencao`, 21/11 00:37): o líder foi dormir.**
+  - **A ordem, verbatim:** *"diga a todos que vou dormir e que tirem duvidas com clevel. Se for duvida do lore de gusworld, com o advisor"*.
+  - **Dúvida técnica ou de produto:** vai ao C-level do assunto e é registrada aqui.
+  - **Fica PARADO até ele voltar:** mudar lei, gastar, ato irreversível, usar a GPU e rodar o preci completo.
+  - **Merge e tag da W8:** seguem cobertos pelo modo autônomo, que vale até 21/11 às 23:33 (L-11 emendada), só com a onda verde.
+
+- **D-W8-1202 (LÍDER, 21/11 00:44): nova pausa, por ordem dele nesta sessão, verbatim *"pause e memorize"*.** Nenhum trabalho novo começa. O tronco local está em `af4c4dac`, sem push. O estado completo para retomar está no snapshot da memória.
+
+- **D-W8-1203 (LÍDER, 25/11 20:29): fim da pausa de 21/11, com push, limpeza e merge autorizados.**
+  - **Ordem, verbatim:** *"Autorizo merge, deletar deprecados, push"*.
+  - **Feito por um agente operacional (L-10):**
+    - push do `onda-w8` (`a25e4971`, conferido por `ls-remote`);
+    - cópia `ramos-velhos-2026-11-25.bundle` e cópia diária `glintfx-2026-11-25.bundle`, ambas com `verify` ok, em `~/IDrive/backups-git/GlintFx/`;
+    - ramos locais apagados: `descartavel/d6-f`, `descartavel/d6-h` e `infra-preci`, com a worktree removida. O `infra-preci` tinha 9 de 11 commits já no tronco por equivalência, e o `stage_clang` foi reimplementado;
+    - `main` local movido para o `origin/main`;
+    - CI disparado no `onda-w8` (run 45721554041).
+  - **Merge, pergunta do main:** a W8 ainda não fechou. Resposta do líder, verbatim: *"Fechar a onda e então mesclar (Recomendado)"*. Primeiro terminam o CI-PIN, o C7-1 e a F1 (versão 0.7.0.0); depois vêm o CI verde, o merge e a tag.
+
+- **D-W8-1204 (LÍDER, 25/11 20:30): ordem de parada.** Verbatim: *"quando acabar os dois agentes, commit e pause"*.
+  - Os dois agentes, CI-PIN e C7-1, terminam e fazem o commit de cada um.
+  - Depois disso, o diário entra num commit, o estado vai para a memória, e a sessão PAUSA.
+  - Nada novo começa, inclusive a F1, até nova ordem do líder.
+
+- **PERGUNTA AO LÍDER (pendente, 25/11 20:42), conflito entre duas ordens.**
+  - **Ordem direta a esta sessão, 20:35:** *"quando acabar os dois agentes, commit e pause"*.
+  - **Ordem geral, repassada pela `manutencao` às 20:50:** o computador está livre até 06:15 de 26/11, com todos os recursos disponíveis.
+  - **O que o main fez:** manteve a ordem direta, por ser mais específica. O GlintFx pausa depois do CI-PIN e do C7-1.
+  - **Pergunta:** usar a janela até 06:15 para a F1 (CHANGELOG, versão 0.7.0.0 e CI do fechamento), deixando o merge e a tag para ele?
+  - **Recomendação do main:** sim. A F1 não tem ato irreversível, e o merge e a tag continuam esperando o OK dele.
+  - **25/11 20:50:** o CI do `onda-w8` em `a25e4971` (run 45721554041) deu VERDE. Os 15 commits da W8 que ainda não tinham sido testados passaram.
+- **25/11 21:07 (main):** o C7-1 tirou o caminho pessoal no clone, de 25 achados para 0, com os autotestes ok. O commit dele leva também estas linhas do diário, que entram ANTES, num commit separado. Depois do CI-PIN e do C7-1, a sessão PAUSA (D-W8-1204).
+
+- **D-W8-1205 (main, 25/11 22:56): a sessão pausa conforme D-W8-1204, com o C7-1 sem commit.**
+  - **CI-PIN:** commit `9adf8cf9`, `preci --fast` verde (399 testes passaram, 1 pulado).
+  - **Diário:** commit `7a2336d9`.
+  - **C7-1 parou sem commit.** O `preci --fast` do clone `.trabalho/cto-w8/verif-w8/c71/snap` reprovou duas vezes no mesmo teste, `win_vm_lab_sessao_selftest` (19 s), e esse teste passa no worktree principal. Os logs estão em `c71/preci.log` e `c71/preci-r1.log`.
+  - **Causa ainda não provada.** O agente suspeita de ambiente do clone (trava, pid e arquivos locais que não vão para o clone), mas não verificou.
+  - **O que já está pronto no clone:** a troca deu `achados=0` (eram 25), e os dois autotestes passaram.
+  - **O portão NÃO foi alargado.**
+  - **Na retomada:** investigar o `sessao.sh` no clone (L-49), sem afrouxar portão. A W8 continua aberta: faltam o C7-1, as linhas do `TODO.md` e a F1.
+
+- **D-W8-1206 (LÍDER, 25/11 23:17): fim da pausa; a madrugada é usada para a F1 e o C7-1 é investigado.**
+  - **As duas perguntas do main:** (1) usar o computador até as 06:15 na F1; (2) investigar a falha do C7-1 no clone sem afrouxar o portão.
+  - **Resposta do líder, verbatim:** *"Sim"*.
+  - **O que continua com o líder:** o merge, a marca `v0.7.0.0`, as portas de mão única e o lote de ratificação (`ordem-f1-w8.md` §7).
+  - **Orçamento da máquina, repassado pela `manutencao`:** `taskset 2-15`, pelo menos 4 GiB livres e carga até 15. Às 06:10 o main grava o estado e para.
+  - **Ordem dos trabalhos:**
+    1. o C7-1 (investigação e commit), em paralelo com o rascunho do CHANGELOG, que fica fora da árvore;
+    2. as linhas do `TODO.md`;
+    3. os commits F1-G, F1-A e F1-R;
+    4. os portões de G1 a G10.
+
+- **D-W8-1207 (main, 25/11 23:5x): a F1-R também leva os dois `find_package(glintfx 0.6)` para `0.7`.**
+  - **Onde:** `examples/CMakeLists.txt:15` e `tests/package/CMakeLists.txt:35`.
+  - **Quem achou:** o escritor do CHANGELOG. O `aplica_f1.py versao`, com o md5 conferido, não toca nesses dois arquivos.
+  - **Por que é necessário:** a versão é casada por `SameMinorVersion`, e com isso o teste de consumo e os exemplos reprovariam contra a 0.7.0.0.
+  - **Efeito no critério:** fica mais exigente, nunca mais frouxo (D-W8-1197). O commit F1-R ganha esses 2 caminhos.
+- **D-W8-1208 (main): o CHANGELOG está aceito pelo main.**
+  - **Provas conferidas:** a seção nova (linhas 11 a 41) não tem travessão, não tem ID interno e cita os 16 cabeçalhos. Os 28 caminhos foram conferidos por `ls-files`.
+  - **A data vai ser a do dia do C7.** O implementador ajusta.
+- **D-W8-1209 (main): a ordem da F1 troca a `heavy.lock` pela fila `~/.claude/bin/pesado`, com `taskset 2-15`.** É o regime da máquina a partir de 25/11.
+- **D-W8-1210 (main, 26/11 00:0x): C7-1, causa do vermelho provada e conserto aceito.**
+  - **A causa era do próprio C7-1.** O fixture passou a guardar uma raiz substituta, e o `provar-isolamento.sh --file` reprovava essa raiz.
+  - **O conserto:**
+    - o `sessao.sh` ganhou `copiar_fixture_limpo`, que põe a raiz de quem roda na cópia, e só nos selftests;
+    - no `provar-isolamento.sh`, o `ALLOW_RO_DEFAULT` agora é lido do lugar onde o script está, e o selftest usa a raiz substituta.
+  - **A regra do portão não mudou.**
+  - **`CHECK_NO_PASS_REGEX_SITES` vai de 22 para 23 no mesmo commit.** O sítio novo é o `machine_paths_selftest`. É o procedimento do próprio portão (D-W8-163), igual ao das vezes de 7 para 8 e de 8 para 9. Não é afrouxar.
+- **D-W8-1211 (main, 26/11 01:0x): o F1-A também sobe `CHECK_NO_PASS_REGEX_SITES`, de 23 para 24, no mesmo commit.**
+  - **Achado:** o `preci --fast` em `ebc1d85b` reprovou em `no_pass_regex_test`, com `sitios=24` e esperado 23. O registro do teste novo do manifesto é um sítio a mais do executor, e a ordem da F1, escrita quando a conta era 22, não previu isso.
+  - **Por que não é afrouxar:** é o procedimento do próprio portão (D-W8-163).
+  - **Como foi feito:** o F1-A já estava commitado no clone, e amend é proibido. A F1 foi refeita num clone novo, `f1/b/snap`, por cherry-pick dos commits G e R e com o A recommitado junto da troca da conta. Nenhum histórico foi reescrito, e os commits velhos ficam só no clone `f1/a`.
+- **D-W8-1212 (main, 26/11 01:24): a F1 está no tronco.**
+  - **Commits:** F1-G `708c6306`, F1-A `827a01f7` e F1-R `a5cd6605`, todos sobre `36ded7f8`, este o C7-1.
+  - **G4:** `preci --fast` com rc 0, 404 de 404 testes.
+  - **G2:** o main repetiu o `check-headers` sobre o `git archive a5cd6605`, com rc 0, 4 pareceres analisados e 0 reprovados.
+  - **Próximos passos:**
+    - a revisão (G3), por um `qa-engineer` novo;
+    - o push e o CI no último SHA (G5 e G10);
+    - as linhas do `TODO.md` (D-W8-2003 e `ordem-r2bc-w8.md` §4);
+    - as perguntas da `lista-ratificacao-w8.md` ao líder;
+    - o merge e a marca, só com o OK dele.
+
+- **D-W8-1213 (main, 26/11 01:4x): G3 LIMPA.**
+  - **Revisor:** um `qa-engineer` novo, sobre o blob `a5cd6605`.
+  - **Mutantes:** M1 a M4 morrem.
+  - **Sabotagem do C5:** rc 1.
+  - **`check-headers`:** 4 analisados, 0 reprovados.
+  - **CHANGELOG e versão:** conferidos.
+  - **Achado COSMÉTICO, o CRLF.** A `ordem-f1-w8.md` §1 diz que o mutante CRLF morreu. A ferramenta lê CRLF como LF de propósito (`auditoria_manifesto.py:49`, com o controle de selftest em `:216`), para que um checkout no Windows com `autocrlf` não dê vermelho falso. O que está errado é o texto da ordem, não a ferramenta. Nada muda na entrega.
+- **D-W8-1214 (main, 26/11 02:0x): G5 e G10 verdes, com o run 45755075508 em `f061c492`.**
+  - **G5:** 25 trabalhos `success` e 1 `skipped` por desenho (VERSION-TAG-SYNC). A lista de nomes é igual à do run 44776410242 (`diff`, rc 0).
+  - **G10**, provado pelo MECANISMO e pelo registro, e não pelo rótulo. O registro do CI não imprime o nome de cada caso, então para cada prova foi conferido no código que o caso roda sempre:
+    1. **A célula C3 dos oito contadores:** ela está entre as 44 células de `tests/parity/draw2d_shapes_parity_test.cpp:265`, e no registro aparece "44 celula(s) conferida(s), 0 reprovada(s)" duas vezes, nos jobs plain e asan do contêiner;
+    2. **O caso VAZIO:** é incondicional no `raw_to_png_selftest` (`tests/tools/raw_to_png.py:353`), e no registro aparecem 14 linhas `raw_to_png_selftest ... Passed`;
+    3. **A captura com o terceiro argumento do `wire_relay_main`:** no registro aparece `run_capture_known_color: mode=off raw_to_png=0 ...` duas vezes, no passo QA-SCREEN-CAPTURE P3 do contêiner.
+- **G1:** verificação profunda fechada na rodada 2 (D-W8-2030 e D-W8-2031). G2, G3 e G4 estão nas D-W8-1212 e D-W8-1213. G6 a G9 ficam para o merge e a marca, com o OK do líder.
+- **D-W8-1215 (LÍDER, 26/11 06:06): as seis portas de mão única da W8 estão ratificadas, e o lote também** (`lista-ratificacao-w8.md` §1 e §2). As respostas, verbatim:
+  - **1.1, D-W8-1247:** *"Manter: o pacote nunca muda (Recomendado)"*;
+  - **1.2, D-W8-24:** *"Manter (Recomendado)"*;
+  - **1.3, D-W8-25:** *"Manter (Recomendado)"*;
+  - **1.4, D-W8-26:** *"Manter (Recomendado)"*;
+  - **1.5, D-W8-27:** *"Manter (Recomendado)"*;
+  - **1.6, D-W8-28 e D-W8-30:** *"Manter (Recomendado)"*;
+  - **o lote da §2:** *"Confirmar todas (Recomendado)"*.
+- **D-W8-1216 (main, 26/11 06:06): o `TODO.md` do fechamento entrou no tronco** (`ba45d566`).
+  - **O que entrou:**
+    - as 16 linhas do PNG, as 8 da INBOX, a `FUZZ-GFSS`, a `DRAW2D-IMPL-SPLIT` e os 4 cosméticos;
+    - a `CI-VERDE-W8` marcada como ✅.
+  - **O que não entrou:** a `PHOTO-FACTS-ATOMS`, que já estava na INBOX.
+  - **O bullet `FALLBACK-KEEP-ENDS-NEAR` da INBOX fica por enquanto,** porque guarda a medição do mutante MFN, a marca de triagem e o marcador de dreno, e a linha da tabela não tem nada disso. A fusão vai para a abertura da W-PNG-2.

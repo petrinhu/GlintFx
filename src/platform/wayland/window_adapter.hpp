@@ -106,7 +106,7 @@ class wayland_window_adapter {
     // this call had already created is destroyed before returning -
     // is_open() reads false either way.
     //
-    // WAIT_FIRST_CONFIGURE IS WHERE THE ACK LIVES (D-W5-7, "ONDE ESTA O
+    // WAIT_FIRST_CONFIGURE IS WHERE THE FIRST ACK LIVES (D-W5-7, "ONDE ESTA O
     // PERIGO" of this fatia's own briefing): a compositor sends the
     // first xdg_surface.configure only after commit_initial()'s bare
     // wl_surface_commit() (no buffer attached yet, D-W5-8) - and NEVER
@@ -169,19 +169,15 @@ class wayland_window_adapter {
     // other adapter accessor in this file already has.
     [[nodiscard]] xdg_toplevel *toplevel() const noexcept { return m_xdg_toplevel; }
 
-    // TEST-ONLY (same "internal, never installed" shape as xdg_surface_
-    // proxy()/toplevel() above): acks whatever configure is currently
-    // pending (window_configure_sequence::take_serial_to_ack()), for a
-    // fixture that triggers a SECOND configure after open() - a
-    // fullscreen/maximize toggle, this project's own real resize path
-    // (SURFACE-SIZE-POLICY-ADAPTER-GAP, TODO.md W6b). wait_first_
-    // configure() above already does this exact half, but only for the
-    // FIRST configure: its own roundtrip loop runs only while
-    // `m_configured` is still false, which becomes true forever after
-    // the first configure ever arrives. A caller drives the dispatch
-    // half itself (connection.roundtrip(), already public) until
-    // state().pixel_size() reflects the new configure, then calls this.
-    void ack_pending_configure() noexcept;
+    // Sends the ack_configure the commit about to happen answers, if any
+    // (WL-ACK-CONFIGURE-SEGUINTES, window_configure_sequence.hpp's own header
+    // comment). wait_first_configure() above acknowledges only the FIRST
+    // configure, the one every later attach depends on; every later configure
+    // reaches here through wayland_egl_context_adapter::present_through_egl(),
+    // the one place in this library that commits a buffer. A window nobody
+    // presents commits nothing, and xdg-shell.xml asks for no ack then ("if a
+    // client commits the surface in response to the configure event").
+    void ack_configure_for_commit(bool buffer_just_resized) noexcept;
 
     // The three listeners' own callbacks (C function-pointer ABI).
     // PUBLIC ONLY so window_adapter.cpp's own anonymous-namespace

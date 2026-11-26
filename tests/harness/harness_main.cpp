@@ -157,7 +157,9 @@ void print_summary(std::size_t total, int failures) {
 // consteval (P2216). clang-tidy's static analysis does not model that
 // guarantee and flags the throw path unconditionally; there is no runtime
 // input here that could make the literal "{}" pattern invalid.
-// NOLINTNEXTLINE(bugprone-exception-escape) reason: literal format string, compile-time checked
+// The standard fixes the type of main's argv, whatever misc-const-correctness says (LLVM 23.1;
+// the check stopped looking at main later, llvm/llvm-project#227988).
+// NOLINTNEXTLINE(bugprone-exception-escape,misc-const-correctness) reason: see the two notes above
 int main(int argc, char **argv) {
     if (argc == 2 && std::string_view{argv[1]} == "--list") {
         print_case_list();

@@ -45,7 +45,7 @@ auto display = std::move(result.value());
 | `err.code()` | Which kind of failure this is - a `gltfx_err_code` value (see the table below). |
 | `err.path()`, `err.line()`, `err.column()`, `err.byte_offset()`, `err.rejected_value()`, `err.os_error_code()` | Extra detail, when the failing call chose to attach it. Reads back empty (for text) or zero (for numbers) when not set - never undefined behavior, so it is always safe to call these. |
 
-`gltfx_err_code` ([`err_code.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/core/err_code.hpp)) - the seven kinds of failure glintfx reports today:
+`gltfx_err_code` ([`err_code.hpp`](https://github.com/petrinhu/GlintFx/blob/main/include/glintfx/core/err_code.hpp)) - the eight kinds of failure glintfx reports today:
 
 | Value | Meaning |
 |---|---|
@@ -56,6 +56,7 @@ auto display = std::move(result.value());
 | `parse_failure` | Text or data being read is not in the expected shape. |
 | `unsupported` | This system, or this build, does not support what was asked for. |
 | `platform_failure` | The operating system reported a failure this list does not name more specifically. |
+| `no_free_space` | A store of fixed size (an atlas) has no free place of the size asked for right now; freeing what it holds, or a second store, can make room. |
 
 `gltfx_err_code_name(code)` returns the identifier above as text (e.g.
 `"not_found"`) - stable, safe to log or match on.

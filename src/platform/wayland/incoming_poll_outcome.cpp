@@ -23,6 +23,7 @@ incoming_poll_outcome classify_incoming_poll(int poll_result, short revents) noe
         // itself.
         return incoming_poll_outcome::nothing_yet;
     }
+    // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: poll(2) types these flags as signed
     if ((revents & POLLNVAL) != 0) {
         // An invalid fd is never something a read could make sense of
         // - latched before any read is attempted, same as the write-
@@ -30,6 +31,7 @@ incoming_poll_outcome classify_incoming_poll(int poll_result, short revents) noe
         // into the same poll_failed outcome as POLLERR/POLLHUP there.
         return incoming_poll_outcome::fatal;
     }
+    // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: poll(2) types these flags as signed
     if ((revents & (POLLIN | POLLHUP | POLLERR)) == 0) {
         // A spurious wake with none of POLLIN/POLLHUP/POLLERR/POLLNVAL
         // set - nothing to read yet, same as a plain timeout.

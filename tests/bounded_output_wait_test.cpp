@@ -66,6 +66,7 @@ namespace {
     // stop - a blocking write() would hang this test's OWN setup step,
     // never reaching the code under test at all.
     const int flags = ::fcntl(write_fd, F_GETFL, 0);
+    // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: fcntl(2) types the flags as int
     ::fcntl(write_fd, F_SETFL, flags | O_NONBLOCK);
 
     char buffer[4096];

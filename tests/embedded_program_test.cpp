@@ -185,6 +185,15 @@ GLint GLINTFX_GL_APIENTRY fake_get_uniform_location(GLuint, const GLchar *name) 
     if (std::strcmp(name, "u_viewport_pixels") == 0) {
         return 7;
     }
+    if (std::strcmp(name, "u_textured") == 0) {
+        return 9; // T4b-B1
+    }
+    if (std::strcmp(name, "u_texture") == 0) {
+        return 10; // T4b-B1
+    }
+    if (std::strcmp(name, "u_stencil_discard") == 0) {
+        return 11; // R2D-SPRITE-SHADE H3a
+    }
     return std::strcmp(name, "u_encode_srgb") == 0 ? 8 : -1;
 }
 
@@ -264,6 +273,9 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK_EQ(result.value().program, GLuint{40});
     GLINTFX_CHECK_EQ(result.value().viewport_location, 7);
     GLINTFX_CHECK_EQ(result.value().encode_srgb_location, 8);
+    GLINTFX_CHECK_EQ(result.value().textured_location, 9); // T4b-B1: each uniform by its own name
+    GLINTFX_CHECK_EQ(result.value().texture_location, 10);
+    GLINTFX_CHECK_EQ(result.value().stencil_discard_location, 11); // H3a: by its own name too
     GLINTFX_CHECK_EQ(driver.shaders_created, GLuint{2});
     GLINTFX_CHECK_EQ(driver.shader_type[1], k_vertex_shader);
     GLINTFX_CHECK_EQ(driver.shader_type[2], k_fragment_shader);
@@ -282,6 +294,9 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK_EQ(program.program, GLuint{0});
     GLINTFX_CHECK_EQ(program.viewport_location, -1);
     GLINTFX_CHECK_EQ(program.encode_srgb_location, -1);
+    GLINTFX_CHECK_EQ(program.textured_location, -1);
+    GLINTFX_CHECK_EQ(program.texture_location, -1);
+    GLINTFX_CHECK_EQ(program.stencil_discard_location, -1);
     disarm();
 }
 
@@ -290,7 +305,7 @@ GLINTFX_TEST(embedded_program_vertex_failure_has_its_token_and_routes_the_messag
     driver.fail_vertex = true;
     driver.message = "0:3(1): error: syntax error";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "vertex_shader");
@@ -322,7 +337,7 @@ GLINTFX_TEST(embedded_program_fragment_failure_has_its_token_and_frees_the_verte
     driver.fail_fragment = true;
     driver.message = "fragment says no";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "fragment_shader");
@@ -339,7 +354,7 @@ GLINTFX_TEST(embedded_program_link_failure_has_its_token_and_frees_everything) {
     driver.fail_link = true;
     driver.program_message = "link: undefined varying";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "program_link");
@@ -360,7 +375,7 @@ GLINTFX_TEST(embedded_program_a_long_driver_message_is_truncated_not_refused) {
     driver.message = std::string(5000, 'x');
     driver.message[0] = 'A';
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == "vertex_shader");
     GLINTFX_CHECK_EQ(captured.count, 1);
@@ -378,7 +393,7 @@ GLINTFX_TEST(embedded_program_an_empty_driver_message_still_logs_the_rejection) 
     driver.fail_link = true;
     driver.program_message = "";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK_EQ(captured.count, 1);
     GLINTFX_CHECK_EQ(captured.field_count, 3);
@@ -396,9 +411,14 @@ GLINTFX_TEST(embedded_program_destroy_on_an_empty_program_is_harmless) {
     disarm();
 }
 
-// The two sources: GLSL 330 core, the three attribute locations the constants name, the one
-// uniform the program reads.
-GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interface) {
+// A guard of TEXT only (D-W8-463): the two sources say GLSL 330 core and the agreed interface (the
+// four attribute locations the constants name, the uniforms the program reads, the varying that
+// carries (u q, v q, q)). It never proves that a value reaches the fragment stage: a sentence in a
+// GLSL comment, or one undone on the next line, passes it. That q reaches the fragment and divides
+// the coordinate is a property of the drawn pixels, for the textured parity cells of T4b-B2 on a
+// real context (D-W8-463: the checkered trapezoid with q not 1, and the attribute location of
+// a_texcoord_q read from the linked program).
+GLINTFX_TEST(embedded_program_sources_hold_the_agreed_interface_text) {
     const std::string_view vertex = glintfx::draw2d::embedded_vertex_shader_source();
     const std::string_view fragment = glintfx::draw2d::embedded_fragment_shader_source();
     GLINTFX_CHECK(vertex.starts_with("#version 330 core"));
@@ -406,15 +426,37 @@ GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interfac
     GLINTFX_CHECK(vertex.find("layout(location = 0) in vec2 a_position") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("layout(location = 1) in vec2 a_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("layout(location = 2) in vec4 a_color") != std::string_view::npos);
+    // T4a (D-W8-406): the homogeneous coordinate q, its own location, handed to the fragment
+    // stage with the texture coordinate as one vec3 (u q, v q, q).
+    GLINTFX_CHECK(vertex.find("layout(location = 3) in float a_texcoord_q") !=
+                  std::string_view::npos);
+    GLINTFX_CHECK(vertex.find("out vec3 v_texcoord") != std::string_view::npos);
+    // ...and the text of the assignment (T4a-fix1, D-W8-445: with 1.0 written in place of
+    // a_texcoord_q, every test stayed green, the N1 review's R6). Text, not behavior: see above.
+    GLINTFX_CHECK(vertex.find("v_texcoord = vec3(a_texcoord, a_texcoord_q);") !=
+                  std::string_view::npos);
+    GLINTFX_CHECK(fragment.find("in vec3 v_texcoord") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("uniform vec2 u_viewport_pixels") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("out vec4 frag_color") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("uniform int u_encode_srgb") != std::string_view::npos);
+    // T4b-B1 (D-W8-469, D-W8-473): a textured run multiplies the color by the texel of unit 0,
+    // read PROJECTIVELY (textureProj divides (u q, v q) by q), and only when u_textured is not 0;
+    // the multiplication comes BEFORE the sRGB encoding, which works on the textured color.
+    GLINTFX_CHECK(fragment.find("uniform int u_textured") != std::string_view::npos);
+    GLINTFX_CHECK(fragment.find("uniform sampler2D u_texture") != std::string_view::npos);
+    const std::size_t textured = fragment.find("if (u_textured == 1) {");
+    const std::size_t sampled = fragment.find("color *= textureProj(u_texture, v_texcoord);");
+    const std::size_t encoded = fragment.find("if (u_encode_srgb != 0");
+    GLINTFX_CHECK(textured != std::string_view::npos && sampled != std::string_view::npos &&
+                  encoded != std::string_view::npos);
+    GLINTFX_CHECK(textured < sampled && sampled < encoded);
     // the sources are NUL-terminated views (they are handed to glShaderSource as C strings)
     GLINTFX_CHECK(vertex.data()[vertex.size()] == '\0');
     GLINTFX_CHECK(fragment.data()[fragment.size()] == '\0');
     GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_position, std::uint32_t{0});
     GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_texcoord, std::uint32_t{1});
     GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_color, std::uint32_t{2});
+    GLINTFX_CHECK_EQ(glintfx::draw2d::k_attribute_texcoord_q, std::uint32_t{3});
     std::println("embedded_program_test: fontes conferidas ({} + {} bytes)", vertex.size(),
                  fragment.size());
 }
@@ -427,7 +469,7 @@ GLINTFX_TEST(embedded_program_a_driver_that_overstates_the_length_cannot_overrun
     driver.lie_about_length = true;
     driver.message = std::string(5000, 'y');
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK_EQ(captured.count, 1);
     GLINTFX_CHECK_EQ(captured.first_field_text.size(), std::size_t{1023});
@@ -443,7 +485,7 @@ GLINTFX_TEST(embedded_program_truncation_is_said_exactly_at_the_capacity_boundar
         driver.fail_fragment = true;
         driver.message = std::string(size, 'z');
         const gl_function_table table = fake_table();
-        auto result = create_embedded_program(table);
+        const auto result = create_embedded_program(table);
         GLINTFX_CHECK(result.has_error());
         GLINTFX_CHECK_EQ(captured.count, 1);
         GLINTFX_CHECK_EQ(captured.first_field_text.size(), std::size_t{1023});
@@ -459,7 +501,7 @@ GLINTFX_TEST(embedded_program_a_long_link_message_says_it_was_truncated) {
     driver.fail_link = true;
     driver.program_message = std::string(3000, 'k');
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == "program_link");
     GLINTFX_CHECK(captured.second_field_value);
@@ -473,7 +515,7 @@ GLINTFX_TEST(embedded_program_a_zero_program_is_refused_without_touching_program
     arm();
     driver.create_program_fails = true;
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == gltfx_err_code::platform_failure);
     GLINTFX_CHECK(result.err().rejected_value() == "program_link");
@@ -493,7 +535,7 @@ GLINTFX_TEST(embedded_program_a_zero_shader_says_why_by_token_with_an_empty_driv
     arm();
     driver.create_shader_fails = true;
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == "vertex_shader");
     GLINTFX_CHECK_EQ(captured.count, 1);
@@ -511,8 +553,55 @@ GLINTFX_TEST(embedded_program_a_link_failure_says_program_link_failed) {
     driver.fail_link = true;
     driver.program_message = "no";
     const gl_function_table table = fake_table();
-    auto result = create_embedded_program(table);
+    const auto result = create_embedded_program(table);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(captured.third_field_text == "program_link_failed");
     disarm();
+}
+
+// R2D-SPRITE-SHADE H3a: the fragment discards only in the two stencil passes of shadow_group.hpp,
+// u_stencil_discard 1 (alpha below half an 8-bit level) and 2 (alpha below 1 minus half a level),
+// each condition with its own discard, AFTER the texel and BEFORE the sRGB encoding; every other
+// pass is 0 and discards nothing. The values are the literal ones, never the constants of the code.
+// Text, not behavior (see the interface case above): that a real driver discards these fragments
+// is for the pixel cells of H3b.
+// R2D-SPRITE-SHADE H3b-3: a silhouette (u_textured 2) multiplies the color by the ALPHA of the
+// texel alone, read projectively, before the discard of the stencil pass looks at the alpha and
+// before the encoding.
+GLINTFX_TEST(embedded_program_a_silhouette_reads_only_the_alpha_of_the_texel) {
+    const std::string_view fragment = glintfx::draw2d::embedded_fragment_shader_source();
+    const std::size_t asked = fragment.find("if (u_textured == 2) {");
+    const std::size_t read = fragment.find("color *= textureProj(u_texture, v_texcoord).a;");
+    const std::size_t discarded = fragment.find("if (u_stencil_discard == 1");
+    const std::size_t encoded = fragment.find("if (u_encode_srgb != 0");
+    GLINTFX_CHECK(asked != std::string_view::npos && read != std::string_view::npos);
+    GLINTFX_CHECK(asked < read && read < discarded && discarded < encoded);
+}
+
+GLINTFX_TEST(embedded_program_source_declares_a_discard_only_in_the_two_stencil_passes) {
+    using glintfx::draw2d::stencil_discard_of;
+    using glintfx::draw2d::stencil_pass;
+    GLINTFX_CHECK_EQ(stencil_discard_of(stencil_pass::plain), 0);
+    GLINTFX_CHECK_EQ(stencil_discard_of(stencil_pass::mark_shadow), 1);
+    GLINTFX_CHECK_EQ(stencil_discard_of(stencil_pass::release_marks), 2);
+    const std::string_view fragment = glintfx::draw2d::embedded_fragment_shader_source();
+    constexpr std::string_view k_transparent =
+        "    if (u_stencil_discard == 1 && color.a < 0.5 / 255.0) {\n        discard;\n    }\n";
+    constexpr std::string_view k_not_opaque = "    if (u_stencil_discard == 2 && color.a < 1.0 - "
+                                              "0.5 / 255.0) {\n        discard;\n    }\n";
+    GLINTFX_CHECK(fragment.find("uniform int u_stencil_discard;") != std::string_view::npos);
+    const std::size_t sampled = fragment.find("color *= textureProj(u_texture, v_texcoord);");
+    const std::size_t transparent = fragment.find(k_transparent);
+    const std::size_t not_opaque = fragment.find(k_not_opaque);
+    const std::size_t encoded = fragment.find("if (u_encode_srgb != 0");
+    GLINTFX_CHECK(sampled != std::string_view::npos && transparent != std::string_view::npos &&
+                  not_opaque != std::string_view::npos && encoded != std::string_view::npos);
+    GLINTFX_CHECK(sampled < transparent && transparent < not_opaque && not_opaque < encoded);
+    // The statement, indented, so the uniform's own name ("u_stencil_discard;") is not counted.
+    std::size_t discards = 0;
+    for (std::size_t at = fragment.find("    discard;"); at != std::string_view::npos;
+         at = fragment.find("    discard;", at + 1)) {
+        ++discards;
+    }
+    GLINTFX_CHECK_EQ(discards, std::size_t{2});
 }

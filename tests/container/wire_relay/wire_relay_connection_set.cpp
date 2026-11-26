@@ -2,7 +2,10 @@
 #include "wire_relay_connection_set.hpp"
 
 #include "../checked_stdio.hpp"
+#include "wire_capture_verdict.hpp"
 #include "wire_error_injector.hpp"
+#include "wire_fd_plan.hpp"
+#include "wire_frame_writer.hpp"
 #include "wire_message.hpp"
 #include "wire_object_table.hpp"
 #include "wire_transport.hpp"
@@ -24,6 +27,12 @@ void pending_fds::push(const std::vector<int> &fds) {
     }
 }
 
+pending_fds::~pending_fds() {
+    for (const int fd : m_queue) {
+        (void)::close(fd);
+    }
+}
+
 std::vector<int> pending_fds::take(std::size_t count) {
     std::vector<int> out;
     while (count > 0 && !m_queue.empty()) {
@@ -36,35 +45,95 @@ std::vector<int> pending_fds::take(std::size_t count) {
 
 namespace {
 
-// Consumes exactly the fds `message` needs (wire_object_table's own
-// fixed table) from `fds`, and forwards the message byte-exact to
-// `target` (encode_raw is the proven-lossless inverse of decode).
+// Every message one read completed, in order.
+std::vector<decoded_message> take_ready_messages(wire_decoder &decoder) {
+    std::vector<decoded_message> batch;
+    while (decoder.poll() == decode_outcome::message_ready) {
+        std::optional<decoded_message> message = decoder.take_message();
+        if (!message) {
+            break;
+        }
+        batch.push_back(std::move(*message));
+    }
+    return batch;
+}
+
+// Each message's modelled descriptor count, read against a COPY of the object table that observes
+// the batch in order: a create_pool on a wl_shm bound earlier in the same batch is modelled.
+std::vector<std::optional<std::size_t>> batch_demands(const wire_object_table &table,
+                                                      const std::vector<decoded_message> &batch,
+                                                      wire_direction direction) {
+    wire_object_table ahead = table;
+    std::vector<std::optional<std::size_t>> demands;
+    demands.reserve(batch.size());
+    for (const decoded_message &message : batch) {
+        demands.push_back(fd_argument_count(ahead.interface_of(message.header.object_id),
+                                            message.header.opcode, direction));
+        (void)ahead.observe(message, direction == wire_direction::from_client);
+    }
+    return demands;
+}
+
+// WIRE-RELAY-FD-PASSTHROUGH-fix1 (D-W8-F13): the descriptors of one batch, by wire_fd_plan.hpp. A
+// doubt is never silent: a descriptor the capture cannot attribute, or a modelled one missing, is
+// printed (stderr, a line of its own: run_compositor.sh and check_isolation.sh parse stdout).
+fd_plan plan_batch(const wire_relay_pipeline &pipe, const std::vector<decoded_message> &batch,
+                   const pending_fds &fds, wire_direction direction) {
+    fd_plan plan = plan_fd_shares(batch_demands(pipe.table, batch, direction), fds.size());
+    std::size_t doubtful = 0;
+    for (const fd_share &share : plan.shares) {
+        doubtful += (!share.certain && share.count > 0) ? 1U : 0U;
+    }
+    if (doubtful > 0 || plan.missing > 0) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "wire_relay: descritores sem atribuicao certa=%zu faltando=%zu (a captura nao "
+            "adivinha; o fio segue na ordem)\n",
+            doubtful, plan.missing);
+    }
+    return plan;
+}
+
+void close_all(const std::vector<int> &fds) {
+    for (const int fd : fds) {
+        (void)::close(fd);
+    }
+}
+
+// Forwards the message byte-exact to `target` (encode_raw is the
+// proven-lossless inverse of decode) with the descriptors it carries,
+// then closes the relay's own copies: sendmsg() already gave `target`
+// its own, and the snapshot atom holds a duplicate of whatever it
+// needs - nothing here may outlive the message.
 void forward_message(const wire_transport &target, const decoded_message &message,
-                     const wire_relay_pipeline &pipe, pending_fds &fds) {
-    const known_interface interface = pipe.table.interface_of(message.header.object_id);
-    const std::vector<int> message_fds =
-        fds.take(fd_argument_count(interface, message.header.opcode));
+                     const std::vector<int> &message_fds) {
     const std::vector<std::uint8_t> raw = encode_raw(message);
     target.write_once(raw.data(), raw.size(), message_fds);
+    close_all(message_fds);
 }
 
 // Client -> upstream: rule-checked (R1/R2). Returns false when the
 // session must end (a protocol violation just injected the error and
 // closed both sides).
-bool forward_client_message(const wire_transport &client, const wire_transport &upstream,
-                            const decoded_message &message, relay_session &session) {
+bool forward_client_message(active_connection &conn, const decoded_message &message,
+                            const fd_share &share) {
+    relay_session &session = conn.session;
+    // Descriptors first, then the snapshot copies what a commit
+    // presents - BEFORE anything is forwarded: once the compositor can
+    // read the commit, the client may reuse the buffer. A share that is
+    // not certain goes on the wire but never to the snapshot (D-W8-F13).
+    const std::vector<int> message_fds = session.client_state.fds.take(share.count);
+    const std::vector<int> no_fds;
+    session.pipe.snapshot.observe(message,
+                                  session.pipe.table.interface_of(message.header.object_id),
+                                  share.certain ? message_fds : no_fds);
     const std::optional<rule_violation> violation =
         observe_and_evaluate(session.pipe, message, true);
     if (!violation) {
-        forward_message(upstream, message, session.pipe, session.client_state.fds);
+        forward_message(wire_transport(conn.upstream_fd), message, message_fds);
         return true;
     }
-    ++session.stats.violations;
-    const std::vector<std::uint8_t> error_bytes =
-        encode_display_error(*violation, "protocol error injected by wire_relay");
-    client.write_once(error_bytes.data(), error_bytes.size(), {});
-    client.shutdown_write();
-    upstream.shutdown_write();
+    reject_client_message(conn, *violation, message_fds);
     return false;
 }
 
@@ -112,7 +181,7 @@ void append_connection_poll_entries(active_connection &conn, std::vector<struct 
     }
 }
 
-void build_poll_lists(const relay_endpoints &endpoints, connection_list &connections,
+void build_poll_lists(const relay_endpoints &endpoints, const connection_list &connections,
                       std::vector<struct pollfd> &out_fds, std::vector<poll_entry_meta> &out_meta) {
     out_fds.push_back({endpoints.listen_fd, POLLIN, 0});
     out_meta.push_back({nullptr, false});
@@ -122,6 +191,7 @@ void build_poll_lists(const relay_endpoints &endpoints, connection_list &connect
 }
 
 bool entry_ready(const struct pollfd &pfd) {
+    // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: poll(2) types these flags as signed
     return (pfd.revents & (POLLIN | POLLHUP | POLLERR)) != 0;
 }
 
@@ -149,19 +219,58 @@ void dispatch_ready_entries(const std::vector<struct pollfd> &fds,
     }
 }
 
-void remove_finished_connections(connection_list &connections) {
+// QA-SCREEN-CAPTURE P1: when capture is on, saves the connection's
+// last committed frames and prints the verdict line - a SEPARATE line
+// from "connection closed", whose format run_compositor.sh and
+// check_isolation.sh parse and which stays untouched.
+void save_and_report_capture(const relay_endpoints &endpoints, const active_connection &conn) {
+    if (endpoints.capture_dir.empty()) {
+        return;
+    }
+    const capture_report report = save_session_frames(
+        conn.session.pipe.snapshot, capture_target{endpoints.capture_dir, conn.serial});
+    glintfx::container_fixture::checked_fprintf(stdout, "%s\n",
+                                                describe_capture(report, conn.serial).c_str());
+    (void)std::fflush(stdout);
+}
+
+void remove_finished_connections(const relay_endpoints &endpoints, connection_list &connections) {
     connections.erase(std::remove_if(connections.begin(), connections.end(),
-                                     [](const std::unique_ptr<active_connection> &conn) {
+                                     [&endpoints](const std::unique_ptr<active_connection> &conn) {
                                          if (!connection_finished(*conn)) {
                                              return false;
                                          }
+                                         save_and_report_capture(endpoints, *conn);
                                          close_and_report(*conn);
                                          return true;
                                      }),
                       connections.end());
 }
 
+// Running number of accepted connections; the relay is one poll()
+// loop, one thread - a plain counter is enough.
+std::size_t next_connection_serial() {
+    static std::size_t last_serial = 0;
+    return ++last_serial;
+}
+
 } // namespace
+
+void reject_client_message(active_connection &conn, const rule_violation &violation,
+                           const std::vector<int> &message_fds) {
+    // Whatever descriptors the rejected message carried are the
+    // relay's to close: nothing is forwarded. Today's R1/R2 only fire
+    // on messages that carry none, but that lives in two other files.
+    close_all(message_fds);
+    ++conn.session.stats.violations;
+    const wire_transport client(conn.client_fd);
+    const wire_transport upstream(conn.upstream_fd);
+    const std::vector<std::uint8_t> error_bytes =
+        encode_display_error(violation, "protocol error injected by wire_relay");
+    client.write_once(error_bytes.data(), error_bytes.size(), {});
+    client.shutdown_write();
+    upstream.shutdown_write();
+}
 
 void pump_client_direction(active_connection &conn) {
     const wire_transport client(conn.client_fd);
@@ -181,14 +290,13 @@ void pump_client_direction(active_connection &conn) {
     conn.session.client_state.decoder.feed(chunk.bytes.data(), chunk.bytes.size());
     conn.session.client_state.fds.push(chunk.fds);
 
-    while (conn.session.client_state.decoder.poll() == decode_outcome::message_ready) {
-        const std::optional<decoded_message> message =
-            conn.session.client_state.decoder.take_message();
-        if (!message) {
-            break;
-        }
+    const std::vector<decoded_message> batch =
+        take_ready_messages(conn.session.client_state.decoder);
+    const fd_plan plan = plan_batch(conn.session.pipe, batch, conn.session.client_state.fds,
+                                    wire_direction::from_client);
+    for (std::size_t i = 0; i < batch.size(); ++i) {
         ++conn.session.stats.messages_from_client;
-        if (!forward_client_message(client, upstream, *message, conn.session)) {
+        if (!forward_client_message(conn, batch[i], plan.shares[i])) {
             conn.client_open = false;
             return;
         }
@@ -213,16 +321,17 @@ void pump_upstream_direction(active_connection &conn) {
     conn.session.upstream_state.decoder.feed(chunk.bytes.data(), chunk.bytes.size());
     conn.session.upstream_state.fds.push(chunk.fds);
 
-    while (conn.session.upstream_state.decoder.poll() == decode_outcome::message_ready) {
-        const std::optional<decoded_message> message =
-            conn.session.upstream_state.decoder.take_message();
-        if (!message) {
-            break;
-        }
+    const std::vector<decoded_message> batch =
+        take_ready_messages(conn.session.upstream_state.decoder);
+    const fd_plan plan = plan_batch(conn.session.pipe, batch, conn.session.upstream_state.fds,
+                                    wire_direction::from_compositor);
+    for (std::size_t i = 0; i < batch.size(); ++i) {
         ++conn.session.stats.messages_from_upstream;
-        (void)observe_and_evaluate(conn.session.pipe, *message,
+        const std::vector<int> message_fds =
+            conn.session.upstream_state.fds.take(plan.shares[i].count);
+        (void)observe_and_evaluate(conn.session.pipe, batch[i],
                                    false); // never violates this direction
-        forward_message(client, *message, conn.session.pipe, conn.session.upstream_state.fds);
+        forward_message(client, batch[i], message_fds);
     }
 }
 
@@ -262,6 +371,7 @@ void accept_new_connection(const relay_endpoints &endpoints, connection_list &co
     auto conn = std::make_unique<active_connection>();
     conn->client_fd = client_fd;
     conn->upstream_fd = upstream_fd;
+    conn->serial = next_connection_serial();
     connections.push_back(std::move(conn));
 }
 
@@ -274,7 +384,7 @@ void run_relay_cycle(const relay_endpoints &endpoints, connection_list &connecti
         return;
     }
     dispatch_ready_entries(fds, meta, endpoints, connections);
-    remove_finished_connections(connections);
+    remove_finished_connections(endpoints, connections);
 }
 
 } // namespace glintfx::test::wire_relay

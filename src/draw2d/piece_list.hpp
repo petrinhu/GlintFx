@@ -4,12 +4,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
+#include <type_traits>
 
 #include <glintfx/core/color.hpp>
 
 #include "draw2d/draw_order.hpp"
 #include "draw2d/pod_buffer.hpp"
 #include "draw2d/quad_vertices.hpp"
+#include "draw2d/triangle_batch.hpp"
+#include "draw2d/triangle_store.hpp"
 
 // draw2d/piece_list.hpp - R2D-BATCH, fatia B4 (docs/plano-w7d.md sec. 4.3, D-W7D-11,
 // docs/auditoria-api- draw2d.md B0 "THE ORDER, frozen"): the PENDING pieces of the frame - each one
@@ -26,11 +30,55 @@
 // nothing and cannot fail, so the paint order never depends on memory.
 namespace glintfx::draw2d {
 
+// What a textured quad is painted with (T4b-B1): the texture's GL name, where each corner reads it,
+// and the tint. Grouped so add_textured() stays within four parameters.
+struct textured_quad_paint {
+    std::uint32_t texture = 0;
+    quad_texture_corners texture_corners = k_role_texture_corners;
+    glintfx::gltfx_rgba tint{1.0F, 1.0F, 1.0F, 1.0F};
+    // A shadow with a texture, a silhouette (R2D-SPRITE-SHADE H3b-3): its run marks what it
+    // darkens.
+    stencil_role stencil = stencil_role::ordinary;
+};
+
+// What the piece is: a quadrilateral (`corners`, one `color`) or a TRIANGLE piece (S2a), whose
+// vertices and local indices sit in the piece_list's own stores, at the offsets below.
+enum class piece_kind : std::uint8_t { quad, triangles };
+
 struct pending_piece {
     quad_corners_pixel corners{};
     glintfx::gltfx_rgba color{};
     std::int32_t layer = k_default_draw_layer;
     std::uint32_t submission = 0;
+    piece_kind kind = piece_kind::quad;
+    std::size_t first_vertex = 0; // triangles only: where its vertices start in the vertex store
+    std::size_t vertex_count = 0;
+    std::size_t first_index = 0; // triangles only: where its LOCAL indices start in the index store
+    std::size_t index_count = 0; // 0 when the piece came with no indices (0..n-1 in order)
+    // Textured triangles only (R2D-TEXTURE T5, D-W8-674): where the reads of its vertices start in
+    // the read store, one read per vertex. Paid by every piece, as the texture fields below are.
+    std::size_t first_read = 0;
+    // The GL name of the texture, 0 for an untextured piece: a quad's (T4b-B1, D-W8-470) or a
+    // triangle piece's (T5). Quads only: where each corner reads it; an untextured quad carries the
+    // coordinates by role and q = 1. Inline, so the sort keeps copying one plain value: a texture
+    // name and four corners more per piece, paid by every piece.
+    std::uint32_t texture = 0;
+    quad_texture_corners texture_corners = k_role_texture_corners;
+    // What the piece is to the stencil (shadow_group.hpp; R2D-SPRITE-SHADE H3b): a shadow, or an
+    // ordinary piece. Carried through the sort with the rest, so the batch keys the run by it.
+    stencil_role stencil = stencil_role::ordinary;
+};
+static_assert(std::is_trivially_copyable_v<pending_piece>,
+              "a pending piece is copied by value through the sort (D-B4-2)");
+
+// One TEXTURED triangle piece for the list (R2D-TEXTURE T5): its geometry (pixel vertices, one read
+// per vertex, local indices) and the GL name of its texture (not zero). Grouped so
+// add_textured_triangles() stays within four parameters. The field is not called `triangles`: the
+// list's own triangle store has that name, and tests/tools/check_noexcept_alloc.py resolves a
+// receiver by NAME across the tree (measured: the second type made append() look allocating).
+struct textured_triangle_piece {
+    textured_triangles geometry;
+    std::uint32_t texture = 0;
 };
 
 class piece_list {
@@ -54,7 +102,41 @@ class piece_list {
     [[nodiscard]] bool add(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,
                            std::int32_t layer) noexcept;
 
+    // Adds one TEXTURED quad (T4b-B1): the texture's GL name (not zero) and where each corner reads
+    // it, with `tint` as the color. The same bound and the same refusal as add().
+    [[nodiscard]] bool add_textured(const quad_corners_pixel &corners,
+                                    const textured_quad_paint &paint, std::int32_t layer) noexcept;
+
+    // Adds one SHADOW (R2D-SPRITE-SHADE H3b): a quad of one color, `tint`, with the stencil role
+    // shadow. The same bound and the same refusal as add().
+    [[nodiscard]] bool add_shadow(const quad_corners_pixel &corners, glintfx::gltfx_rgba tint,
+                                  std::int32_t layer) noexcept;
+
     [[nodiscard]] std::size_t size() const noexcept;
+
+    // Adds one TRIANGLE piece (S2a): its vertices and its local indices are COPIED into the list
+    // (the caller's arrays may change after the call). `local_indices` empty means 0..n-1. False,
+    // list unchanged, when memory ran out or the list is at its bound.
+    [[nodiscard]] bool add_triangles(std::span<const colored_pixel_vertex> vertices,
+                                     std::span<const std::uint32_t> local_indices,
+                                     std::int32_t layer) noexcept;
+
+    // Adds one TEXTURED triangle piece (T5): its vertices, its reads and its local indices are
+    // COPIED into the list, with the texture's GL name. add_triangles() is this call with no reads
+    // and texture 0. The same bound and the same refusal: every store the piece needs grows BEFORE
+    // anything is written, and an untextured piece asks the read store for nothing.
+    [[nodiscard]] bool add_textured_triangles(const textured_triangle_piece &piece,
+                                              std::int32_t layer) noexcept;
+
+    // The vertices and the local indices of a TRIANGLE piece of THIS list (empty for a quad).
+    [[nodiscard]] std::span<const colored_pixel_vertex>
+    triangle_vertices(const pending_piece &piece) const noexcept;
+    [[nodiscard]] std::span<const std::uint32_t>
+    triangle_indices(const pending_piece &piece) const noexcept;
+    // Where each vertex of a TEXTURED triangle piece of THIS list reads its texture (T5): one read
+    // per vertex; empty for a quad and for an untextured triangle piece.
+    [[nodiscard]] std::span<const triangle_texture_read>
+    triangle_reads(const pending_piece &piece) const noexcept;
 
     // Puts the pieces in paint order, in place. Allocates nothing and cannot fail. Every piece on
     // one layer (the common case) is already in paint order and costs nothing.
@@ -68,10 +150,23 @@ class piece_list {
     void clear() noexcept;
 
   private:
+    // The one path of every quad piece (add(), add_textured(), add_shadow(); H3b, the third, rule
+    // of 3): appends `piece` with the next submission number. False, list unchanged, at the bound
+    // or when memory ran out.
+    [[nodiscard]] bool append_quad(pending_piece piece) noexcept;
+    // Keeps `one_layer` true only while every piece is on the layer of the first one.
+    void note_layer(std::int32_t layer) noexcept;
+    // Room in one go for a triangle piece with these counts, in the piece store and in the triangle
+    // store (its reads included, T5); false when refused, nothing written.
+    [[nodiscard]] bool room_for_triangle_piece(const textured_triangles &piece) noexcept;
+
     batch_allocator allocator;
     std::size_t bound;
     pod_buffer<pending_piece> piece_store;
     bool one_layer = true;
+    // The vertices and the local indices of the triangle pieces (S2b-0, D-W8-367): the list keeps
+    // the order, the store keeps the data.
+    triangle_store triangles;
 };
 
 } // namespace glintfx::draw2d

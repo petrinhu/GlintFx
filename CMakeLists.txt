@@ -40,7 +40,7 @@ cmake_minimum_required(VERSION 4.1)
 # example itself is a twin of tests/package/CMakeLists.txt's own
 # requested version - both move together, see that file's own comment
 # for why a stale copy of this number is not a hypothetical risk).
-project(glintfx VERSION 0.6.1.0 LANGUAGES CXX)
+project(glintfx VERSION 0.7.0.0 LANGUAGES CXX)
 
 # C, under UNIX only (WL-PROTO, GODS_LAWS.md L-05): the private-code
 # half of a wayland-scanner binding (cmake/GlintfxWaylandProtocols.cmake)
@@ -74,8 +74,14 @@ set(GLINTFX_GENERATED_INCLUDE_DIR "${PROJECT_BINARY_DIR}/generated/include")
 
 include(GlintfxOptions)
 include(GlintfxCompileOptions)
+include(GlintfxToolchainFloor)
+# S5-A-fix4 (D-W8-465): MSVC older than Visual Studio 2022 does not build glintfx.
+if(MSVC)
+    glintfx_require_msvc_floor("${MSVC_VERSION}")
+endif()
 include(GlintfxLibrary)
 include(GlintfxInstall)
+include(GlintfxExamples)
 include(GlintfxPkgConfigValidate)
 
 # UNIX only (GODS_LAWS.md L-05): pkg_check_modules(... REQUIRED ...)
@@ -152,6 +158,13 @@ if(GLINTFX_INSTALL)
     # step has to find glintfx.pc already written to disk when it runs
     # at `cmake --install` time.
     glintfx_register_pkgconfig_validation()
+endif()
+
+# The consumer examples (DEMO-1): after src/, because an example links the
+# library target. Options and output directory are applied here, to the
+# example's targets, by cmake/GlintfxExamples.cmake - never inside examples/.
+if(GLINTFX_BUILD_EXAMPLES)
+    glintfx_add_examples("${PROJECT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}")
 endif()
 
 if(GLINTFX_BUILD_TESTS)

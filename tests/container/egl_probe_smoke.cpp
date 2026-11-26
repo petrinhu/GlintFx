@@ -277,8 +277,8 @@ class egl_context_guard {
 // probe_smoke.<key>=<value>` and never turns this into a failure -
 // docs/plano-w6b-placa-e-laco.md sec. 5's own decision tree is what
 // turns these lines into a decision, not this function.
-[[nodiscard]] bool probe_egl_and_gl(glintfx::platform::wayland_display_adapter &adapter,
-                                    glintfx::platform::wayland_window_adapter &window,
+[[nodiscard]] bool probe_egl_and_gl(const glintfx::platform::wayland_display_adapter &adapter,
+                                    const glintfx::platform::wayland_window_adapter &window,
                                     const glintfx::platform::window_size &pixel_size) {
     // THE ONE ASSERTION THIS PROBE MAKES (this file's own header
     // comment): wl_egl_window_create() over a wl_surface this
@@ -474,6 +474,7 @@ class egl_context_guard {
                         get_integerv(k_gl_minor_version, &gl_minor);
                         get_integerv(k_gl_context_profile_mask, &gl_profile_mask);
                         const bool core_profile =
+                            // NOLINTNEXTLINE(bugprone-signed-bitwise) reason: GL reads it as GLint
                             (gl_profile_mask & k_gl_context_core_profile_bit) != 0;
                         glintfx::container_fixture::checked_fprintf(
                             stdout,

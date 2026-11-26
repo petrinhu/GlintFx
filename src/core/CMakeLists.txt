@@ -21,3 +21,20 @@ target_sources(glintfx_library PRIVATE version.cpp err_code.cpp err.cpp color.cp
 # a handful of files, same shape err_code.cpp/err.cpp already share
 # with the files right above), never its own top-level layer.
 target_sources(glintfx_library PRIVATE log/severity.cpp log/event.cpp log/sink.cpp)
+
+# R2D-SPRITE-SHADE, H1 (docs/auditoria-api-sprite-shade.md, section 2): the shadow of an upright
+# piece, by a directional and by a point light, as a quadrilateral (projected_shadow.hpp); the
+# refusals by name live in their own atom, projected_shadow_validation.cpp (GODS_LAWS.md L-17).
+target_sources(glintfx_library PRIVATE projected_shadow.cpp projected_shadow_validation.cpp)
+
+# R2D-SPRITE-SHADE, H4 (docs/auditoria-api-sprite-shade.md, section 2.1): the light that point lights
+# put on ground vertices (light_tint.hpp); the refusals by name live in their own atom,
+# light_tint_validation.cpp (GODS_LAWS.md L-17).
+target_sources(glintfx_library PRIVATE light_tint.cpp light_tint_validation.cpp)
+
+# R2D-TEXTURE (core/atlas_allocator.hpp): the atlas allocator. The public handle
+# (atlas_allocator.cpp) forwards to its interior (atlas_allocator_impl.cpp), which carries each
+# call out on three atoms: the shelves and free runs (atlas_geometry.cpp), the numbers of the cells
+# (atlas_slots.cpp) and the refusals by name (atlas_request_check.cpp) (GODS_LAWS.md L-17).
+target_sources(glintfx_library PRIVATE atlas_allocator.cpp atlas_allocator_impl.cpp
+                                       atlas_geometry.cpp atlas_slots.cpp atlas_request_check.cpp)

@@ -15,8 +15,14 @@
 // gltfx_renderer_2d_desc (see that header). New counters are appended
 // at the end, never inserted, never reordered.
 //
-// WHAT A "PIECE" IS: one call of fill_rect() or fill_quad(). Every piece
-// submitted while a frame is open ends in exactly one of four places:
+// WHAT A "PIECE" IS: one call of a drawing method (fill_rect(), fill_quad(),
+// fill_triangles(), fill_indexed_triangles(), stroke_line(), stroke_rect(),
+// fill_ellipse(), stroke_ellipse(), draw_texture(), draw_texture_quad(),
+// draw_atlas_image(), fill_textured_triangles(),
+// fill_indexed_textured_triangles(), fill_shadow() or draw_shadow_texture()), whatever the method:
+// a triangle call with a hundred triangles is one piece, and a refusal refuses the whole call,
+// once. A call that does nothing (no vertices, or no indices for the indexed one) is not a piece at
+// all. Every piece submitted while a frame is open ends in exactly one of four places:
 //
 //   pieces_submitted == pieces_drawn + pieces_refused
 //                       + pieces_dropped_out_of_memory
@@ -42,12 +48,56 @@ enum class gltfx_draw_2d_refusal : std::uint8_t {
     not_a_number = 1,
     infinite = 2,
     negative_size = 3,
+    // Appended in W8 (D-W8-30, D-W8-285, D-W8-287): the triangle refusals
+    // and the option refusal share this one enum, so first_refusal names
+    // any of them.
+    index_out_of_range = 4,
+    count_not_multiple_of_three = 5,
+    unknown_option = 6,
+    too_many_vertices = 7,
+    // Appended by S2b-fix1: every value given was a finite number, but
+    // the batch transform made of a position a pixel coordinate larger
+    // in magnitude than the library's vertex program can scale without
+    // overflowing (about 1.7e38: half the largest 32-bit float, less 3
+    // units in the last place), or the transform itself holds a value
+    // that is not a finite number. A position outside the surface is NOT
+    // this: it is drawn, and simply covers no pixel.
+    pixel_position_out_of_range = 8,
+    // Appended by R2D-TEXTURE T4b-A (D-W8-290, the one list of the texture
+    // reasons): the texture of a drawing call is released or was never
+    // opened; it belongs to another renderer; the source region, or a texel
+    // coordinate of a textured triangle (R2D-TEXTURE T5), reaches
+    // outside the texture; or the four corners of a textured quadrilateral
+    // define no projective mapping (three on one line, edges that cross, or
+    // a corner pointing inward; decided exactly), or define one with a
+    // projective weight of 2^63 or more (draw_texture_quad() in
+    // renderer_2d.hpp).
+    texture_not_open = 9,
+    texture_other_renderer = 10,
+    region_out_of_range = 11,
+    degenerate_quad = 12,
+    // Appended by R2D-SPRITE-SHADE H3b-2 (D-W8-1328): a shadow, on a surface
+    // with no stencil bits. Such a surface cannot keep a shadow from darkening
+    // a pixel twice, and the graphics card would say nothing (fill_shadow() in
+    // renderer_2d.hpp).
+    stencil_unavailable = 13,
+    // Appended by R2D-TEXTURE T6-B2, the two reasons of the receipt of
+    // draw_atlas_image() (renderer_2d.hpp), the owner read first: the owner
+    // is 0 (the receipt was never handed out), or it is the atlas's and the
+    // cell was released or the rect, id or generation was changed; the owner
+    // is neither 0 nor the atlas's, whatever the other fields say.
+    stale_region = 14,
+    region_other_atlas = 15,
 };
 
 // The token for `reason`: "none", "not_a_number", "infinite",
-// "negative_size". A value this build does not know (a newer glintfx
-// crossing the library boundary) reads "unknown" (docs/api-
-// conventions.md R4). The returned text lives as long as the program.
+// "negative_size", "index_out_of_range", "count_not_multiple_of_three",
+// "unknown_option", "too_many_vertices", "pixel_position_out_of_range",
+// "texture_not_open", "texture_other_renderer", "region_out_of_range",
+// "degenerate_quad", "stencil_unavailable", "stale_region" or
+// "region_other_atlas". A value this build does not know (a newer glintfx crossing the library
+// boundary) reads "unknown" (docs/api-conventions.md R4). The returned text lives as long as the
+// program.
 [[nodiscard]] GLINTFX_API std::string_view
 gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal reason) noexcept;
 
@@ -57,9 +107,22 @@ struct gltfx_frame_2d_report {
     // Pieces that reached the graphics card. A piece whose area is zero
     // is drawn: it simply covers no pixel.
     std::uint64_t pieces_drawn = 0;
-    // Pieces refused because a value was not a finite number, or a
-    // rectangle had a negative width or height. The frame goes on
-    // without them; this is not an error of the frame.
+    // Pieces refused, one count per refused call: a value that is not a
+    // finite number, a rectangle with a negative width or height, a line with
+    // a negative thickness, a rectangle outline with a negative thickness, an
+    // ellipse with a negative radius or thickness, an
+    // index out of range, a count that is not a
+    // multiple of three, an unknown option, too many vertices, a position
+    // whose pixel coordinate is out of the range the vertex program can
+    // scale, a texture that is not open or belongs to another renderer, a
+    // texel coordinate of a textured triangle outside its texture, a
+    // source region outside its texture, a textured quadrilateral with no
+    // projective mapping or with a projective weight of 2^63 or more, an atlas
+    // receipt that is stale or of another atlas, or a shadow on a surface with
+    // no stencil bits.
+    // The frame goes on without them; this is not an error of the
+    // frame. The counters at the end of this struct, one per reason, add up
+    // to this one.
     std::uint64_t pieces_refused = 0;
     // Why the first of those was refused; `none` when pieces_refused is
     // zero.
@@ -87,9 +150,55 @@ struct gltfx_frame_2d_report {
     std::uint64_t batches = 0;
     // How many flush() barriers this frame had.
     std::uint64_t flushes = 0;
-    // How many draw calls reached the graphics card. Printed for you to
-    // measure, never promised as a number.
+    // How many draw calls reached the graphics card, every one of them. A
+    // run of pieces is one call, and an ordinary run drawn after a shadow in
+    // its segment is two: it paints, and then it releases the marks of the
+    // shadows (fill_shadow() in renderer_2d.hpp). So a rectangle, a shadow
+    // and a rectangle are 4 calls, in a frame where three rectangles are 1.
+    // A flush whose data or drawing the card refuses counts none of its draw
+    // calls: its pieces count in pieces_dropped_graphics_failure, and
+    // finish_frame() returns an error. Printed for you to measure, never
+    // promised as a number.
+    // Proved by: draw2d_shadow_parity_test (the 4 calls of that frame, on a
+    // real context).
     std::uint64_t draw_calls = 0;
+    // Appended in W8 (D-W8-30): one counter per refusal reason. Their sum,
+    // with the two that R2D-TEXTURE T6-B2 appended after texture_switches, is
+    // pieces_refused, always.
+    std::uint64_t pieces_refused_not_a_number = 0;
+    std::uint64_t pieces_refused_infinite = 0;
+    std::uint64_t pieces_refused_negative_size = 0;
+    std::uint64_t pieces_refused_index_out_of_range = 0;
+    std::uint64_t pieces_refused_count_not_multiple_of_three = 0;
+    std::uint64_t pieces_refused_unknown_option = 0;
+    std::uint64_t pieces_refused_too_many_vertices = 0;
+    std::uint64_t pieces_refused_pixel_position_out_of_range = 0;
+    // Appended by R2D-TEXTURE T4b-A, one per texture reason.
+    std::uint64_t pieces_refused_texture_not_open = 0;
+    std::uint64_t pieces_refused_texture_other_renderer = 0;
+    std::uint64_t pieces_refused_region_out_of_range = 0;
+    std::uint64_t pieces_refused_degenerate_quad = 0;
+    // Appended by R2D-TEXTURE T4b-B1 (D-W8-471): how many times the bound
+    // texture changed between two draw calls, a change to or from no
+    // texture included; the first draw call of every flush counts when it
+    // binds a texture. A flush the card refuses counts none of its
+    // switches, as for draw_calls. A cost, printed for you to measure, never
+    // promised as a number: a textured piece between two untextured ones
+    // costs two.
+    std::uint64_t texture_switches = 0;
+    // Appended by R2D-TEXTURE T6-B2: the counters of the two reasons of the
+    // receipt of draw_atlas_image().
+    std::uint64_t pieces_refused_stale_region = 0;
+    std::uint64_t pieces_refused_region_other_atlas = 0;
+    // Appended by R2D-SPRITE-SHADE H3b-2 (D-W8-322): the segments that drew at
+    // least one shadow, counted at the barrier that closes each (flush() or
+    // finish_frame()). A segment with no shadow drawn counts nothing, a shadow
+    // refused or dropped included. A flush the card refuses counts none, as for
+    // draw_calls. A cost, printed for you to measure: each of these clears the
+    // stencil once.
+    std::uint64_t shadow_segments = 0;
+    // Appended by R2D-SPRITE-SHADE H3b-2 (D-W8-1328), the counter of its reason.
+    std::uint64_t pieces_refused_stencil_unavailable = 0;
 };
 
 } // namespace glintfx

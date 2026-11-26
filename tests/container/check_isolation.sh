@@ -85,7 +85,7 @@
 # smuggled device or mount still breaks the match on content, exactly
 # as before - only a field's own element ORDER stops being significant,
 # never whether an element is present, absent, or new. See
-# normalize_host_config() and sort_json_arrays() below.
+# normalize_host_config() and sort_json_arrays() in hostconfig_json.sh.
 #
 # NULL-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): the ORDER-
 # DRIFT fix above was step one of a step, not the end of the story -
@@ -123,7 +123,7 @@
 # same blind rewrite, which is precisely the thing this whole check
 # exists to prevent ("null e [] sao o mesmo nada; mas [] e
 # [\"/dev/uinput\"] nunca podem virar a mesma coisa", L-40). The fix,
-# collapse_null_outside_strings() below, replaces the blind sed with a
+# collapse_null_outside_strings() in hostconfig_json.sh, replaces the blind sed with a
 # character-by-character scan that tracks whether the cursor is inside
 # a JSON string (honoring backslash escapes, so a string containing an
 # escaped quote does not flip the tracker early) and only ever rewrites
@@ -133,7 +133,23 @@
 # env var, a label - is left untouched, byte for byte, no matter what
 # it is followed by.
 #
-# Usage: check_isolation.sh <container-name> <socket-name>
+# VARIANTES POR PLACA (QA-COMPOSED-PATH G1b, D-W8-266): an optional third argument picks the baseline file of the
+# whole-block HostConfig compare. The list is CLOSED: ci (the default, no third argument), ci_udmabuf,
+# gpu_integrated, gpu_integrated_photo and gpu_geforce. A name outside it is refused by name, before docker is
+# touched. The FORBIDDEN_PATH_PATTERNS list does not change per variant. gpu_geforce is the GeForce photo
+# container (QA-COMPOSED-PHOTOS G4a); its baseline is hostconfig_baseline_gpu_geforce.txt.
+#
+# CI_UDMABUF (KWIN-68-SEM-PLACA, the leader's decision of 07/11/2026): since KWin 6.8 the compositor of this
+# container only paints with a render device, and the one it gets is /dev/udmabuf (tests/container/Containerfile).
+# The grant is written as a permanent refusal plus one named exception, never as a looser default: "ci" stays the
+# variant of a call with no third argument and still refuses EVERY device, this one included; only a caller that
+# NAMES ci_udmabuf is compared against hostconfig_baseline_ci_udmabuf.txt, which holds exactly this device with
+# exactly "rw". Another device in its place, one more device beside it, the same device with mknod ("rwm"),
+# another host device under its name and no device at all are five different HostConfig texts, and each one fails
+# the whole-block compare (the controls are in check_isolation_selftest.sh).
+#
+# Usage: check_isolation.sh <container-name> <socket-name> [variante]
+# Usage: check_isolation.sh --selftest   (D-W8-274: the controls of hostconfig_json.sh, no container, no docker)
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -165,7 +181,11 @@ readonly EXPECTED_HOSTCONFIG_KEY_COUNT=63
 # ROOT_DIR resolution): combining them would mask a `dirname` failure
 # behind `readonly`'s own always-0 exit status.
 BASELINE_DIR="$(dirname "$0")" || fail "nao foi possivel resolver o diretorio deste script (dirname \"\$0\" falhou)"
-readonly BASELINE_FILE="$BASELINE_DIR/hostconfig_baseline.txt"
+# The HostConfig normalization lives in its own file (D-W8-274, G1a); its controls live in check_isolation_selftest.sh.
+# shellcheck source=hostconfig_json.sh
+. "$BASELINE_DIR/hostconfig_json.sh"
+# No readonly BASELINE_FILE here on purpose (G1b): the file depends on the variant of the run, chosen by
+# baseline_file_for_variant(), so one process can read more than one baseline (the selftest does).
 
 # Defense in depth for the ss/lsof TEXT output check further down
 # (assert_output_has_no_forbidden_pattern) only - the HostConfig this
@@ -177,7 +197,30 @@ readonly BASELINE_FILE="$BASELINE_DIR/hostconfig_baseline.txt"
 readonly FORBIDDEN_PATH_PATTERNS="/run/user wayland-0 /dev/uinput /tmp/.X11-unix"
 
 require_args() {
-    [ "$#" -eq 2 ] || fail "usage: check_isolation.sh <container-name> <socket-name>"
+    { [ "$#" -eq 2 ] || [ "$#" -eq 3 ]; } || fail "usage: check_isolation.sh <container-name> <socket-name> [variante]"
+}
+
+# The third argument is the variant; without it the run is the CI one (G1b, D-W8-266).
+variant_of_args() {
+    if [ "$#" -ge 3 ]; then printf '%s' "$3"; else printf '%s' ci; fi
+}
+
+# The closed list of variants, and the one file each reads. Printed to stdout so the caller takes the path with
+# $(...); an unknown name fails here, by name, before any file or docker call. gpu_integrated_photo is
+# gpu_integrated plus a ceiling of 256 processes: the container tests/container/composed_photo.sh photographs
+# (QA-COMPOSED-PATH G2-fix1, D-W8-F18). ci_udmabuf is ci plus exactly /dev/udmabuf with "rw": the container of
+# the wayland-container CI job and of every local round since KWin 6.8 (KWIN-68-SEM-PLACA). gpu_geforce is the
+# only GeForce container there is, the photo one: the NVIDIA nodes, the read-only driver libraries and
+# label=disable, with the same ceiling of 256 (QA-COMPOSED-PHOTOS G4a; 512 until G3-LIM, 20/11/2026).
+baseline_file_for_variant() {
+    case "$1" in
+        ci) printf '%s' "$BASELINE_DIR/hostconfig_baseline.txt" ;;
+        ci_udmabuf) printf '%s' "$BASELINE_DIR/hostconfig_baseline_ci_udmabuf.txt" ;;
+        gpu_integrated) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_integrated.txt" ;;
+        gpu_integrated_photo) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_integrated_photo.txt" ;;
+        gpu_geforce) printf '%s' "$BASELINE_DIR/hostconfig_baseline_gpu_geforce.txt" ;;
+        *) fail "variante desconhecida '$1' (lista fechada: ci, ci_udmabuf, gpu_integrated, gpu_integrated_photo, gpu_geforce; QA-COMPOSED-PATH D-W8-266)" ;;
+    esac
 }
 
 # `docker inspect` failing outright (typo'd container name, daemon
@@ -223,6 +266,14 @@ hostconfig_key_count() {
     printf '%s\n' "$keys" | sed '/^$/d' | wc -l
 }
 
+# The count line names the Docker version of the baseline file the run is compared against (G3a, residue R-2), never
+# the CI constant for a file measured later. No docker call: it reads only the header of the baseline file (L-17),
+# so the selftest calls it on the committed files.
+key_count_message() {
+    printf 'check_isolation.sh: HostConfig tem %s campo(s) de topo (baseline: %s, medido com Docker %s)' \
+        "$1" "$EXPECTED_HOSTCONFIG_KEY_COUNT" "$(baseline_docker_version "$2")"
+}
+
 # GODS_LAWS.md L-40: the count is printed even when this passes -
 # "distingue olhou e estava tudo bem de nao olhou" - and a mismatch
 # gets a dedicated message pointing at the baseline file, instead of
@@ -230,7 +281,7 @@ hostconfig_key_count() {
 assert_hostconfig_key_count_matches_baseline() {
     container="$1"
     count="$(hostconfig_key_count "$container")"
-    echo "check_isolation.sh: HostConfig tem $count campo(s) de topo (baseline: $EXPECTED_HOSTCONFIG_KEY_COUNT, medido com Docker $BASELINE_DOCKER_VERSION)"
+    echo "$(key_count_message "$count" "$2")"
     [ "$count" -gt 0 ] || fail "HostConfig nao retornou NENHUM campo de topo (varredura vazia disfarcada de OK)"
     [ "$count" -eq "$EXPECTED_HOSTCONFIG_KEY_COUNT" ] \
         || fail "HostConfig tem $count campo(s) de topo, o baseline esperava $EXPECTED_HOSTCONFIG_KEY_COUNT - campo novo apareceu (ex.: --mount populando .HostConfig.Mounts, que fica AUSENTE quando nao usado) ou o Docker mudou de versao: reconfira tests/container/hostconfig_baseline.txt (GODS_LAWS.md L-40/ISO-BASELINE)"
@@ -285,291 +336,14 @@ assert_cpu_masked_path_count_matches_host() {
         || fail "MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle, esperava $expected_count (contagem real de /sys/devices/system/cpu/cpuN/thermal_throttle neste host, GODS_LAWS.md L-40/ISO-BASELINE - nao 'nproc': maquina virtualizada pode ter nucleos sem essa interface, e dockerd so mascara o que existe): provavel --security-opt systempaths=unconfined (ou equivalente) esvaziando MaskedPaths/ReadonlyPaths sem tocar nenhum dos campos que este portao checava antes do ISO-BASELINE"
 }
 
-# ORDER-DRIFT (27/08/2026): canonicalizes the element order of every
-# flat JSON array in `text` - a `[...]` span whose contents hold no
-# nested `[`, `]`, `{` or `}` - by sorting its comma-separated elements
-# under `LC_ALL=C`. Text-level on purpose, same reason as
-# normalize_host_config() below (no JSON parser in this project,
-# GODS_LAWS.md L-07): the restriction to bracket spans with no `{`/`}`
-# inside is exactly what keeps this safe on an object-valued array
-# (Devices, Ulimits, Blkio*) without needing to parse one - the regex
-# below simply never matches into it, so its content (and therefore
-# its presence/absence signal) passes through untouched. Piped through
-# `awk`, not sed: this needs an actual sort, not a substitution, and
-# `awk` is already this project's established host-tooling pattern for
-# text logic sed cannot express (tests/tools/check_public_name_collision.sh's
-# enumerate_names.awk) - it is host-side test tooling, not something
-# the shipped library links against, so GODS_LAWS.md L-07 does not
-# reach it. Plain POSIX awk only (`match`, `split`, string `>`): this
-# script is proven with `shellcheck -s sh` across five platforms, and
-# the CI job that runs it is Ubuntu, whose default `awk` is mawk, not
-# gawk - no `asort()`, no gawk-only extension.
-sort_json_arrays() {
-    text="$1"
-    printf '%s' "$text" | LC_ALL=C awk '
-        function sort_csv(inner,    n, i, j, tmp, tok, out) {
-            if (inner == "") return ""
-            n = split(inner, tok, ",")
-            for (i = 2; i <= n; i++) {
-                tmp = tok[i]
-                j = i - 1
-                while (j >= 1 && tok[j] > tmp) {
-                    tok[j + 1] = tok[j]
-                    j--
-                }
-                tok[j + 1] = tmp
-            }
-            out = tok[1]
-            for (i = 2; i <= n; i++) out = out "," tok[i]
-            return out
-        }
-        {
-            s = $0
-            result = ""
-            while (match(s, /\[[^][{}]*\]/)) {
-                pre = substr(s, 1, RSTART - 1)
-                grp = substr(s, RSTART, RLENGTH)
-                inner = substr(grp, 2, length(grp) - 2)
-                result = result pre "[" sort_csv(inner) "]"
-                s = substr(s, RSTART + RLENGTH)
-            }
-            printf "%s", result s
-        }
-    '
-}
-
-# NULL-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): the
-# `wayland-container` CI job reproved the positive control a SECOND
-# time, on a runner that had never shown the ORDER-DRIFT shape - this
-# time `"Dns":null` on one side against `"Dns":[]` on the other, same
-# meaning (no DNS override, the field was never set), different Go
-# encoding/json spelling of "zero elements" for a slice field (`nil`
-# marshals as `null`, a non-nil empty slice marshals as `[]`; which one
-# a given Docker build/runner produces for an UNSET `[]string` field is
-# not a promise `docker inspect` makes, same root cause as ORDER-DRIFT's
-# array-order non-promise, one layer earlier). Per L-40's own
-# instruction to enumerate the whole space instead of patching one
-# field: this is NOT "Dns does this", it is "any field whose zero value
-# is a slice can be spelled either way", so the fix is the generic sed
-# step below, not a Dns-shaped one - see this function's own trailing
-# comment for the six other spellings-of-the-same-value forms that were
-# enumerated alongside this fix (lista vazia/null is this one; cadeia
-# vazia/null, numero/cadeia numerica, 0/false, campo ausente/presente-
-# e-nulo, maiusculas em valor de modo) and why each is or is not
-# covered.
-#
-# ISO-NULL-QUOTE (28/08/2026): character-scan replacement for the old
-# blind `sed -E 's#:null([,}])#:[]\1#g'`. Tracks JSON string boundaries
-# (`in_str`) with backslash-escape handling, so the ":null,"/":null}"
-# rewrite only ever fires when the cursor is OUTSIDE a string - the
-# exact position a real JSON `null` value occupies, and never inside
-# one, where "null" can only ever be literal string CONTENT. `prev`
-# holds the character immediately before the cursor (in the ORIGINAL
-# text, not the rewritten `out`), so the "preceded by a bare colon"
-# requirement from the old regex survives unchanged; only the "must not
-# be inside a string" guard is new. Plain POSIX awk, same reasoning as
-# sort_json_arrays() above (no gawk-only extension, host-side test
-# tooling so GODS_LAWS.md L-07 does not reach it, proven on mawk via
-# the Ubuntu CI job that runs this script).
-collapse_null_outside_strings() {
-    text="$1"
-    printf '%s' "$text" | LC_ALL=C awk '
-        {
-            s = $0
-            n = length(s)
-            out = ""
-            in_str = 0
-            prev = ""
-            i = 1
-            while (i <= n) {
-                c = substr(s, i, 1)
-                if (in_str) {
-                    out = out c
-                    if (c == "\\" && i < n) {
-                        i++
-                        nc = substr(s, i, 1)
-                        out = out nc
-                        prev = nc
-                        i++
-                        continue
-                    }
-                    if (c == "\"") in_str = 0
-                    prev = c
-                    i++
-                    continue
-                }
-                if (c == "\"") {
-                    in_str = 1
-                    out = out c
-                    prev = c
-                    i++
-                    continue
-                }
-                if (c == "n" && prev == ":" && substr(s, i, 4) == "null") {
-                    nxt = substr(s, i + 4, 1)
-                    if (nxt == "," || nxt == "}") {
-                        out = out "[]"
-                        prev = "]"
-                        i += 4
-                        continue
-                    }
-                }
-                out = out c
-                prev = c
-                i++
-            }
-            printf "%s", out
-        }
-    '
-}
-
-# Normalizes the four genuinely execution- or encoding-dependent parts
-# of a raw HostConfig capture before comparing it to the measured
-# baseline - see hostconfig_baseline.txt's own header for the fuller
-# reasoning on the first three. The first three substitutions stay
-# text-level sed on purpose (no JSON parser in this project, GODS_LAWS.md
-# L-07): each targets a fixed, specific key name or path string
-# (`"ConsoleSize":`, the literal `/sys/devices/system/cpu/cpuN/
-# thermal_throttle` paths, `"OomKillDisable":`) that would require a
-# deliberately adversarial field VALUE to spoof, and none has been
-# observed to do so (GODS_LAWS.md L-20/L-27: normalize only what was
-# measured, not every theoretical shape) - unlike the fourth, whose
-# match text is the four bytes "null", plain enough to occur by
-# coincidence inside perfectly ordinary string content, and which
-# ISO-NULL-QUOTE (28/08/2026) proved actually does. That fourth step is
-# now collapse_null_outside_strings() above, not a blind sed. A fifth
-# step, sort_json_arrays() above, runs last: it is idempotent on
-# already-normalized text (no ConsoleSize/cpuN/OomKillDisable/
-# null-as-empty-array pattern survives to re-match), which is what lets
-# assert_full_hostconfig_matches_baseline() below run this same
-# function over the committed baseline file too, instead of requiring
-# hostconfig_baseline.txt to be hand-edited into sorted order.
-#
-# The third (OomKillDisable) was found live while proving this
-# function's OWN positive control: the CI job's positive-control step
-# uses `docker run -d` (a STARTED container), while its three negative
-# controls use `docker create` (deliberately never started, so the
-# poisoned ENTRYPOINT never runs - see ci.yml's own comment on that).
-# Measured side by side on the identical clean invocation:
-# `OomKillDisable` reads back as the literal `false` right after
-# `docker create`, and as `null` once the same container is actually
-# `docker run`-started - nothing else in the whole block moves between
-# the two states. Neither value is a security loosening (both mean
-# "OOM killer not explicitly disabled"); only `--oom-kill-disable`
-# (which sets it to the literal `true`) is, and that is left
-# unnormalized on purpose, so it still breaks the match.
-#
-# The fourth (NULL-DRIFT, `:null` before a `,` or `}` boundary rewritten
-# to `:[]` by collapse_null_outside_strings() above) is deliberately
-# UNNAMED and UNSCOPED to any particular field, same reasoning as
-# sort_json_arrays() being generic instead of a named-field list. It is
-# provably safe to apply to every key, not just slice-typed ones,
-# because of what it can and cannot ever equate: it only ever rewrites
-# a bare, OUT-OF-STRING `null` token into `[]`, on BOTH the live capture
-# and the baseline text (normalize_host_config() runs on both sides in
-# assert_full_hostconfig_matches_baseline()) - it never touches a
-# populated array, and it never touches ANY occurrence of the four bytes
-# "null" that sits inside a JSON string, which is exactly the case
-# ISO-NULL-QUOTE (28/08/2026) added the in-string guard for: the old,
-# string-blind version of this step could and did rewrite "null" found
-# inside ordinary field CONTENT (a bind-mount spec, an env value), which
-# is a different failure from the type-confusion paragraph below - it is
-# corrupting a real value's real text before the compare ever runs, not
-# collapsing two spellings of the same nothing. A scalar field (an
-# `*int64` like MemorySwappiness or PidsLimit) that is unset also reads
-# back as a bare `null` OUTSIDE any string and would still pass through
-# this rewrite into `[]`, which looks type-confused on paper but changes
-# nothing about what the check can catch: Docker never serializes a SET
-# int64 pointer as `[]` (it would show the real number instead), so an
-# actual value on that field is untouched by this scan and still breaks
-# the match exactly as before. In short: this step can only ever
-# collapse two spellings of "nothing" into one, and only where "nothing"
-# actually IS the JSON value at that position; it can never collapse
-# "nothing" with "something", nor can it any longer touch "something"
-# that merely happens to spell the word "null" as part of its own text -
-# which is the one property GODS_LAWS.md L-40's own closing warning
-# ("null e [] sao o mesmo nada; mas [] e [\"/dev/uinput\"] nunca podem
-# virar a mesma coisa") requires of it.
-normalize_host_config() {
-    raw="$1"
-    sed_normalized="$(printf '%s' "$raw" \
-        | sed -E 's#"ConsoleSize":\[[0-9]+,[0-9]+\]#"ConsoleSize":"NORMALIZED"#' \
-        | sed -E 's#,"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle"##g; s#"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle",##g' \
-        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#')"
-    sort_json_arrays "$(collapse_null_outside_strings "$sed_normalized")"
-}
-
-# ENUMERATION (27/08/2026, GODS_LAWS.md L-40's own instruction: an
-# enumerable space gets enumerated whole, not searched inside). Six
-# forms in which two Docker/runner builds can spell the identical
-# HostConfig meaning differently were named at the same time this
-# fatia was opened. This table is the record of that enumeration, not
-# just the one fix above:
-#
-#   1. lista vazia contra null (`[]` vs `null`) - the bug this fatia
-#      fixes. OBSERVED live (Dns, this file's own header). COBERTA by
-#      the `:null([,}])` -> `:[]\1` step above, applied to every key.
-#   2. cadeia vazia contra null (`""` vs `null`) - every string-typed
-#      HostConfig field visible in this project's own baseline
-#      (NetworkMode, VolumeDriver, PidMode, IpcMode, UTSMode,
-#      UsernsMode, Cgroup, CgroupParent, CgroupnsMode, Runtime,
-#      Isolation, CpusetCpus, CpusetMems, ContainerIDFile) is a plain
-#      Go `string`, never a `*string` - encoding/json emits a non-
-#      pointer string's zero value as `""`, and can only ever emit
-#      `null` for a pointer or interface type. NAO PODE OCORRER neste
-#      bloco, and NAO COBERTA on purpose: equating `""` with `null`
-#      would be speculative code with no red test to prove it is
-#      needed (GODS_LAWS.md L-20), and unlike the array case there is
-#      no Go-typing argument that makes it provably safe in general -
-#      only "not observed here yet" for this specific field set.
-#   3. numero contra cadeia numerica (`0` vs `"0"`) - every numeric
-#      HostConfig field visible here (ShmSize, OomScoreAdj, CpuShares,
-#      Memory, NanoCpus, and the rest of the Cpu*/Blkio*/Memory* family)
-#      is a plain Go integer type, always emitted bare, never quoted,
-#      by the same encoding/json rule as case 2. NAO OBSERVADA, NAO
-#      COBERTA, same reasoning as case 2: no evidence, so no code.
-#   4. `0` contra `false` - a real type change (bool field becoming an
-#      int, or vice versa) between Docker versions, not something this
-#      project's own history has produced (the one boolean-shaped drift
-#      actually measured, OomKillDisable's `false`/`null`, is a
-#      DIFFERENT pair and is already normalized above). NAO OBSERVADA,
-#      NAO COBERTA. If it ever happens, this check fails CLOSED (a real
-#      mismatch reported), same as case 2 and 3 - never silently open -
-#      and gets diagnosed and normalized the same way OomKillDisable
-#      was: by measuring both sides side by side, never by guessing.
-#   5. campo ausente contra campo presente-e-nulo - a key missing from
-#      the JSON entirely versus the same key present with value `null`.
-#      JA COBERTA, and not by anything in this function:
-#      assert_hostconfig_key_count_matches_baseline() (above,
-#      predating this fatia) counts the keys actually present before
-#      any content comparison runs, so a field that disappears or
-#      appears moves that count independently of what
-#      normalize_host_config() does to the values.
-#   6. maiusculas em valor de modo (`"bridge"` vs `"Bridge"`, `"no"` vs
-#      `"No"`) - every mode-like string field here (NetworkMode,
-#      IpcMode, UsernsMode, CgroupnsMode, RestartPolicy.Name, Isolation)
-#      is Docker's own enum spelling, not user input, and has not been
-#      observed to vary in case across this project's Docker Server
-#      29.7.2 measurements. NAO OBSERVADA, NAO COBERTA, same
-#      fails-closed reasoning as case 4.
-#
-# Cases 1 and 5 are covered because they were OBSERVED (this fatia and
-# the pre-existing key-count check respectively). Cases 2, 3, 4 and 6
-# are deliberately left uncovered, not overlooked: GODS_LAWS.md L-20
-# and L-27 both forbid writing normalization code to a form nobody has
-# seen this Docker version actually produce - the failure mode of doing
-# that is a normalizer with a hole nobody tested, which is the exact
-# genus L-40 exists to close, not to reopen with an "obviously safe"
-# guess. The floor stays fail-closed for all four: an unnormalized
-# genuine equivalence produces a spurious HostConfig mismatch (loud,
-# investigated, safe) never a silent pass (quiet, exploitable, unsafe).
 
 read_baseline_or_fail() {
-    [ -f "$BASELINE_FILE" ] \
-        || fail "baseline ausente: $BASELINE_FILE (portao sem baseline nao aprova por omissao, GODS_LAWS.md L-40)"
-    content="$(grep -v '^#' "$BASELINE_FILE")"
+    baseline_file="$1"
+    [ -f "$baseline_file" ] \
+        || fail "baseline ausente: $baseline_file (portao sem baseline nao aprova por omissao, GODS_LAWS.md L-40)"
+    content="$(grep -v '^#' "$baseline_file")"
     [ -n "$content" ] \
-        || fail "baseline vazio (so tinha comentario) em $BASELINE_FILE - varredura vazia disfarcada de OK"
+        || fail "baseline vazio (so tinha comentario) em $baseline_file - varredura vazia disfarcada de OK"
     printf '%s' "$content"
 }
 
@@ -592,14 +366,22 @@ read_baseline_or_fail() {
 # already-normalized text (see its own comment) - a baseline file that
 # somehow already went through this same pipeline once would compare
 # identically either way.
+# The Docker Server version a baseline names in its own header ("Docker Server X"), so the line below never claims
+# another version for a file measured later (G2-fix1, D-W8-F18). The CI baseline's header names none: the constant.
+baseline_docker_version() {
+    found="$(sed -n 's/.*Docker Server \([0-9][0-9.]*\).*/\1/p' "$1" | head -n 1)"
+    printf '%s' "${found:-$BASELINE_DOCKER_VERSION}"
+}
+
 assert_full_hostconfig_matches_baseline() {
     container="$1"
     raw="$2"
+    baseline_file="$3"
     normalized="$(normalize_host_config "$raw")"
-    baseline_raw="$(read_baseline_or_fail)"
+    baseline_raw="$(read_baseline_or_fail "$baseline_file")"
     baseline="$(normalize_host_config "$baseline_raw")"
     if [ "$normalized" = "$baseline" ]; then
-        echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $BASELINE_DOCKER_VERSION)"
+        echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $(baseline_docker_version "$baseline_file"), $(basename "$baseline_file"))"
         return 0
     fi
     diff_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-iso-baseline-XXXXXX")"
@@ -616,7 +398,7 @@ assert_full_hostconfig_matches_baseline() {
     printf '%s\n' "$normalized" | tr ',' '\n' > "$diff_dir/atual"
     echo "check_isolation.sh: HostConfig DIVERGE do baseline medido (um campo por linha, virgula quebrada para leitura):" >&2
     diff -u "$diff_dir/baseline" "$diff_dir/atual" >&2 || true
-    fail "HostConfig nao bate com o baseline medido em $BASELINE_FILE (GODS_LAWS.md L-40/ISO-BASELINE)"
+    fail "HostConfig nao bate com o baseline medido em $baseline_file (GODS_LAWS.md L-40/ISO-BASELINE)"
 }
 
 compositor_pid_in_container() {
@@ -742,6 +524,11 @@ main() {
     require_args "$@"
     container="$1"
     socket_name="$2"
+    # The variant is resolved BEFORE any docker call: an unknown name is refused by name, and the baseline file of
+    # the run is fixed here (G1b, D-W8-266).
+    variant="$(variant_of_args "$@")"
+    baseline_file="$(baseline_file_for_variant "$variant")"
+    echo "check_isolation.sh: variante de placa '$variant' (baseline: $(basename "$baseline_file"))"
 
     # Metadata checks only (docker inspect, never docker exec) go
     # first and in full, on purpose: every one of them has to pass
@@ -749,13 +536,21 @@ main() {
     # `raw` is fetched once and shared by the three checks below so
     # they all read the same snapshot.
     raw="$(raw_host_config "$container")"
-    assert_hostconfig_key_count_matches_baseline "$container"
+    assert_hostconfig_key_count_matches_baseline "$container" "$baseline_file"
     assert_cpu_masked_path_count_matches_host "$raw"
-    assert_full_hostconfig_matches_baseline "$container" "$raw"
+    assert_full_hostconfig_matches_baseline "$container" "$raw" "$baseline_file"
 
     assert_only_internal_socket "$container" "$socket_name"
 
     echo "check_isolation.sh: isolamento provado para '$container' (GODS_LAWS.md L-09)"
 }
 
-main "$@"
+# --selftest (D-W8-274): the only argument this script takes besides the two of the real check. The controls live
+# beside it (D-W8-137), load with `.`, and never touch docker, a container or a socket.
+if [ "$#" -eq 1 ] && [ "$1" = "--selftest" ]; then
+    # shellcheck source=check_isolation_selftest.sh
+    . "$BASELINE_DIR/check_isolation_selftest.sh"
+    selftest_main
+else
+    main "$@"
+fi

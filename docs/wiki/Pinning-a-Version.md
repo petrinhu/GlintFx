@@ -79,7 +79,7 @@ include(FetchContent)
 FetchContent_Declare(
   glintfx
   GIT_REPOSITORY https://github.com/petrinhu/GlintFx.git
-  GIT_TAG        v0.6.1.0  # an example; replace with the tag name you picked above
+  GIT_TAG        v0.7.0.0  # an example; replace with the tag name you picked above
 )
 FetchContent_MakeAvailable(glintfx)
 

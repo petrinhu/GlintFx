@@ -120,6 +120,36 @@ inline std::vector<std::uint8_t> encode_shm_create_pool(std::uint32_t shm_id, st
     return encode_message(shm_id, 0, body);
 }
 
+inline std::vector<std::uint8_t>
+encode_shm_pool_create_buffer(std::uint32_t pool_id, std::uint32_t new_id, std::uint32_t offset,
+                              std::uint32_t width, std::uint32_t height, std::uint32_t stride,
+                              std::uint32_t format) {
+    std::vector<std::uint8_t> body;
+    append_u32(body, new_id);
+    append_u32(body, offset);
+    append_u32(body, width);
+    append_u32(body, height);
+    append_u32(body, stride);
+    append_u32(body, format);
+    return encode_message(pool_id, 0, body);
+}
+
+inline std::vector<std::uint8_t> encode_shm_pool_destroy(std::uint32_t pool_id) {
+    return encode_message(pool_id, 1, {});
+}
+
+inline std::vector<std::uint8_t> encode_shm_pool_resize(std::uint32_t pool_id, std::int32_t size) {
+    std::vector<std::uint8_t> body;
+    append_u32(body, static_cast<std::uint32_t>(size));
+    return encode_message(pool_id, 2, body);
+}
+
+// wl_buffer.release is an EVENT (compositor -> client), opcode 0, no
+// arguments; opcode 0 of the REQUEST side is destroy.
+inline std::vector<std::uint8_t> encode_buffer_release(std::uint32_t buffer_id) {
+    return encode_message(buffer_id, 0, {});
+}
+
 inline std::vector<std::uint8_t> encode_surface_attach(std::uint32_t surface_id,
                                                        std::uint32_t buffer_id) {
     std::vector<std::uint8_t> body;

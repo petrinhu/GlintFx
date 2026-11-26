@@ -146,7 +146,7 @@ std::string make_underflow_leaning_lexeme(std::size_t leading_zero_count,
     std::string text = "0.";
     text.append(leading_zero_count, '0');
     text.push_back('1');
-    text += "e";
+    text += 'e';
     text += std::to_string(explicit_exponent);
     return text;
 }
@@ -165,7 +165,7 @@ std::string make_exponent_digit_overflow_lexeme(std::size_t leading_zero_count,
     std::string text = "0.";
     text.append(leading_zero_count, '0');
     text.push_back('1');
-    text += "e";
+    text += 'e';
     if (exponent_is_negative) {
         text.push_back('-');
     }
@@ -193,7 +193,7 @@ std::string make_overflow_leaning_lexeme_without_decimal_point(std::size_t trail
                                                                long long explicit_exponent) {
     std::string text = "1";
     text.append(trailing_zero_count, '0');
-    text += "e";
+    text += 'e';
     text += std::to_string(explicit_exponent);
     return text;
 }

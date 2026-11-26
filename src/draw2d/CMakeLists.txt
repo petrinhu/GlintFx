@@ -15,17 +15,72 @@ target_sources(glintfx_library PRIVATE
     quad_vertices.cpp
     draw_order.cpp
     triangle_batch.cpp
+    shadow_group.cpp
     frame_report_tally.cpp
     piece_refusal.cpp
     embedded_program.cpp
     gl_state_contract.cpp
+    gl_stencil_contract.cpp
     vertex_stream.cpp
+    prior_gl_errors.cpp
+    own_gl_errors.cpp
     piece_list.cpp
+    triangle_store.cpp
     gl_load_refusal.cpp
     srgb_encoding.cpp
+    pixel_premultiply.cpp
+    texture_request_check.cpp
+    mipmap_reduce.cpp
     frame_2d_report.cpp
     renderer_2d_impl.cpp
+    renderer_2d_impl_textures.cpp
+    textured_quad_corners.cpp
     renderer_2d_facade.cpp
+    image_resolution.cpp
+    renderer_2d_impl_image_resolver.cpp
+    renderer_2d_facade_image_resolver.cpp
+    texture_upload.cpp
+    texture_release.cpp
+    texture_release_queue.cpp
+    texture_2d_facade.cpp
+    renderer_2d_facade_textures.cpp
+    projective_quad.cpp
+    exact_cross.cpp
+    filtered_cross.cpp
+    texture_region_uv.cpp
+    texture_region_check.cpp
+    texture_sampling.cpp
+    mipmap_chain.cpp
+    kept_texels.cpp
+    texture_update_check.cpp
+    texture_update.cpp
+    texture_update_kept.cpp
+    atlas_cell.cpp
+    atlas_extrude.cpp
+    texture_atlas_impl.cpp
+    texture_atlas_cells.cpp
+    texture_atlas_facade.cpp
+    renderer_2d_facade_atlas.cpp
+    triangle_list_check.cpp
+    renderer_2d_facade_shapes.cpp
+    triangle_pixel_vertices.cpp
+    arc_segments.cpp
+    stroke_line_check.cpp
+    stroke_geometry.cpp
+    stroke_line_pixels.cpp
+    stroke_rect_check.cpp
+    stroke_rect_geometry.cpp
+    stroke_rect_pixels.cpp
+    arc_parameters.cpp
+    ellipse_check.cpp
+    ellipse_frame.cpp
+    ellipse_triangles.cpp
+    ellipse_outline.cpp
+    ellipse_pixels.cpp
+    renderer_2d_impl_ellipses.cpp
+    renderer_2d_impl_shadows.cpp
+    renderer_2d_facade_shadows.cpp
+    surface_stencil.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

@@ -77,7 +77,7 @@ namespace glintfx::platform {
 // unit coverage proves instead is that OUR classification of the five
 // documented shapes is complete and correct, regardless of which one
 // (if any) a given driver actually returns.
-[[nodiscard]] bool is_unresolved_sentinel(void *address) noexcept;
+[[nodiscard]] bool is_unresolved_sentinel(const void *address) noexcept;
 
 } // namespace glintfx::platform
 

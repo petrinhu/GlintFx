@@ -8,6 +8,7 @@
 #include <glintfx/core/color.hpp>
 
 #include "draw2d/piece_list.hpp"
+#include "draw2d/triangle_batch.hpp"
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
@@ -36,7 +37,9 @@
 using glintfx::gltfx_rgba;
 using glintfx::gltfx_vec2_screen;
 using glintfx::draw2d::batch_allocator;
+using glintfx::draw2d::colored_pixel_vertex;
 using glintfx::draw2d::default_batch_allocator;
+using glintfx::draw2d::piece_kind;
 using glintfx::draw2d::piece_list;
 using glintfx::draw2d::quad_corners_pixel;
 
@@ -251,4 +254,260 @@ GLINTFX_TEST(piece_list_the_paint_order_does_not_depend_on_memory_after_the_rese
     GLINTFX_CHECK_EQ(g_armed.calls, calls_before_sort); // the sort called the allocator no more
     // layer 0: 1,4,8; layer 1: 2,5,6; layer 2: 0,3,7 - each in submission order
     GLINTFX_CHECK((paint_order(list) == std::vector<int>{1, 4, 8, 2, 5, 6, 0, 3, 7}));
+}
+
+// S2a: a TRIANGLE piece (its vertices in pixels, a color each, and local indices or none) takes
+// its place in the paint order of quads: same layer, same order of submission.
+namespace {
+
+[[nodiscard]] colored_pixel_vertex vertex_at(float x, float y) {
+    return colored_pixel_vertex{gltfx_vec2_screen{x, y}, k_red};
+}
+
+// Three vertices whose x is `marker`, `marker + 1`, `marker + 1`.
+[[nodiscard]] std::array<colored_pixel_vertex, 3> triangle_marked(float marker) {
+    return {vertex_at(marker, 0.0F), vertex_at(marker + 1.0F, 0.0F),
+            vertex_at(marker + 1.0F, 1.0F)};
+}
+
+// The marker of a piece: the x of its first corner (quad) or of its first vertex (triangles).
+[[nodiscard]] int marker_of(const piece_list &list, std::size_t position) {
+    const auto &piece = list.painted(position);
+    if (piece.kind == piece_kind::triangles) {
+        return static_cast<int>(list.triangle_vertices(piece)[0].position.x);
+    }
+    return static_cast<int>(piece.corners[0].x);
+}
+
+[[nodiscard]] std::vector<int> paint_markers(const piece_list &list) {
+    std::vector<int> order;
+    order.reserve(list.size());
+    for (std::size_t i = 0; i < list.size(); ++i) {
+        order.push_back(marker_of(list, i));
+    }
+    return order;
+}
+
+} // namespace
+
+// Q1 (layer 0), T1 (layer 0, 3 vertices), Q2 (layer 0): painted Q1, T1, Q2, submissions 0, 1, 2.
+GLINTFX_TEST(piece_list_triangle_takes_its_place_in_the_quad_order) {
+    piece_list list;
+    const auto t1 = triangle_marked(20.0F);
+    GLINTFX_CHECK(list.add(marked(10), k_red, 0));
+    GLINTFX_CHECK(list.add_triangles(t1, {}, 0));
+    GLINTFX_CHECK(list.add(marked(30), k_red, 0));
+    list.sort();
+    GLINTFX_CHECK((paint_markers(list) == std::vector<int>{10, 20, 30}));
+    GLINTFX_CHECK_EQ(list.painted(0).submission, std::uint32_t{0});
+    GLINTFX_CHECK_EQ(list.painted(1).submission, std::uint32_t{1});
+    GLINTFX_CHECK_EQ(list.painted(2).submission, std::uint32_t{2});
+}
+
+// T1 on layer 1, submitted first; then Q1 on layer 0: painted Q1, T1.
+GLINTFX_TEST(piece_list_triangle_on_a_higher_layer_is_painted_after_the_quad_below) {
+    piece_list list;
+    const auto t1 = triangle_marked(20.0F);
+    GLINTFX_CHECK(list.add_triangles(t1, {}, 1));
+    GLINTFX_CHECK(list.add(marked(10), k_red, 0));
+    list.sort();
+    GLINTFX_CHECK((paint_markers(list) == std::vector<int>{10, 20}));
+}
+
+// Q1 (layer 0), T1 (layer 1), Q2 (layer 0): the triangle breaks the "one layer" shortcut, so the
+// sort must run: painted Q1, Q2, T1. A list that forgot the layer of a triangle keeps the
+// submission order (Q1, T1, Q2) and fails here.
+GLINTFX_TEST(piece_list_triangle_on_another_layer_breaks_the_one_layer_shortcut) {
+    piece_list list;
+    const auto t1 = triangle_marked(20.0F);
+    GLINTFX_CHECK(list.add(marked(10), k_red, 0));
+    GLINTFX_CHECK(list.add_triangles(t1, {}, 1));
+    GLINTFX_CHECK(list.add(marked(30), k_red, 0));
+    list.sort();
+    GLINTFX_CHECK((paint_markers(list) == std::vector<int>{10, 30, 20}));
+}
+
+// The piece COPIES its vertices and indices: the caller overwrites its own arrays after the add,
+// and the list keeps the values submitted. The expected values are the literals written here.
+GLINTFX_TEST(piece_list_triangle_piece_copies_its_vertices_and_indices) {
+    piece_list list;
+    std::array<colored_pixel_vertex, 3> source = triangle_marked(20.0F);
+    std::array<std::uint32_t, 3> source_indices{0U, 1U, 2U};
+    GLINTFX_CHECK(list.add_triangles(source, source_indices, 0));
+    source = triangle_marked(99.0F);
+    source_indices = {2U, 1U, 0U};
+    const auto &piece = list.painted(0);
+    const auto stored = list.triangle_vertices(piece);
+    GLINTFX_CHECK_EQ(stored.size(), std::size_t{3});
+    GLINTFX_CHECK(stored[0].position.x == 20.0F && stored[0].position.y == 0.0F);
+    GLINTFX_CHECK(stored[1].position.x == 21.0F && stored[2].position.y == 1.0F);
+    const auto indices = list.triangle_indices(piece);
+    GLINTFX_CHECK_EQ(indices.size(), std::size_t{3});
+    GLINTFX_CHECK(indices[0] == 0U && indices[1] == 1U && indices[2] == 2U);
+}
+
+// R2D-TEXTURE T4b-B1 (D-W8-470): a textured quad keeps its texture's name, where each corner reads
+// it and its tint (as the color) through the sort; an untextured quad carries texture 0 and the
+// coordinates by role with q = 1.
+GLINTFX_TEST(piece_list_a_textured_quad_keeps_its_texture_and_reads_through_the_sort) {
+    const glintfx::draw2d::quad_texture_corners reads{
+        {{0.25F, 0.5F, 2.0F}, {0.75F, 0.5F, 0.5F}, {0.75F, 1.0F, 4.0F}, {0.25F, 1.0F, 0.25F}}};
+    piece_list list;
+    GLINTFX_CHECK(list.add(marked(1), k_red, 5));
+    GLINTFX_CHECK(list.add_textured(
+        marked(2),
+        glintfx::draw2d::textured_quad_paint{42U, reads, gltfx_rgba{0.5F, 0.25F, 1.0F, 0.75F}}, 1));
+    list.sort();
+    const auto &textured = list.painted(0); // the layer-1 piece
+    GLINTFX_CHECK(textured.corners[0].x == 2.0F);
+    GLINTFX_CHECK(textured.kind == piece_kind::quad);
+    GLINTFX_CHECK_EQ(textured.texture, std::uint32_t{42});
+    GLINTFX_CHECK(textured.texture_corners[1].u == 0.75F && textured.texture_corners[1].q == 0.5F);
+    GLINTFX_CHECK(textured.texture_corners[3].v == 1.0F && textured.texture_corners[3].q == 0.25F);
+    GLINTFX_CHECK(textured.color.red == 0.5F && textured.color.alpha == 0.75F);
+    GLINTFX_CHECK_EQ(textured.layer, std::int32_t{1});
+    const auto &plain = list.painted(1);
+    GLINTFX_CHECK_EQ(plain.texture, std::uint32_t{0});
+    int role_corners = 0;
+    for (std::size_t corner = 0; corner < 4; ++corner) {
+        const auto &read = plain.texture_corners[corner];
+        const auto &role = glintfx::draw2d::k_role_texture_corners[corner];
+        role_corners += read.u == role.u && read.v == role.v && read.q == 1.0F ? 1 : 0;
+    }
+    GLINTFX_CHECK_EQ(role_corners, 4);
+}
+
+// add_textured() has the bound and the refusal of add(): over the bound, or with the memory
+// refused, it adds nothing and says false; the next call works again.
+GLINTFX_TEST(piece_list_add_textured_honors_the_bound_and_the_memory_refusal) {
+    const glintfx::draw2d::textured_quad_paint paint{7U, glintfx::draw2d::k_role_texture_corners,
+                                                     k_red};
+    {
+        piece_list list(default_batch_allocator(), 1);
+        GLINTFX_CHECK(list.add_textured(marked(1), paint, 0));
+        GLINTFX_CHECK(!list.add_textured(marked(2), paint, 0));
+        GLINTFX_CHECK_EQ(list.size(), std::size_t{1});
+    }
+    {
+        g_armed = armed_state{};
+        g_armed.fail_at = 1;
+        piece_list list(armed());
+        GLINTFX_CHECK(!list.add_textured(marked(1), paint, 0));
+        GLINTFX_CHECK_EQ(list.size(), std::size_t{0});
+        GLINTFX_CHECK(list.add_textured(marked(2), paint, 0));
+        GLINTFX_CHECK_EQ(list.size(), std::size_t{1});
+        GLINTFX_CHECK_EQ(list.painted(0).texture, std::uint32_t{7});
+    }
+}
+
+// R2D-TEXTURE T5 (D-W8-674): a textured triangle piece keeps its texture's name and one read per
+// vertex through the sort; an untextured triangle piece has texture 0 and no reads.
+GLINTFX_TEST(piece_list_a_textured_triangle_piece_keeps_its_texture_and_its_reads) {
+    const std::array<colored_pixel_vertex, 3> tri = triangle_marked(30.0F);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{
+        {{0.25F, 0.5F}, {0.75F, 0.5F}, {0.5F, 1.0F}}};
+    piece_list list;
+    GLINTFX_CHECK(list.add_triangles(triangle_marked(10.0F), {}, 4));
+    GLINTFX_CHECK(list.add_textured_triangles(
+        glintfx::draw2d::textured_triangle_piece{
+            glintfx::draw2d::textured_triangles{tri, reads, {}}, 42U},
+        1));
+    list.sort();
+    const auto &textured = list.painted(0); // the layer-1 piece
+    GLINTFX_CHECK(textured.kind == piece_kind::triangles);
+    GLINTFX_CHECK_EQ(textured.texture, std::uint32_t{42});
+    const auto kept = list.triangle_reads(textured);
+    GLINTFX_CHECK_EQ(kept.size(), std::size_t{3});
+    GLINTFX_CHECK(kept.size() == 3 && kept[1].u == 0.75F && kept[2].v == 1.0F);
+    GLINTFX_CHECK(list.triangle_vertices(textured)[0].position.x == 30.0F);
+    const auto &plain = list.painted(1);
+    GLINTFX_CHECK_EQ(plain.texture, std::uint32_t{0});
+    GLINTFX_CHECK_EQ(list.triangle_reads(plain).size(), std::size_t{0});
+}
+
+// add_textured_triangles() has the refusal of add_triangles(): with the read store refused it adds
+// nothing (no piece, no vertex) and says false; the next call works again (T5).
+GLINTFX_TEST(piece_list_textured_triangles_refused_by_the_read_store_add_nothing) {
+    const std::array<colored_pixel_vertex, 3> tri = triangle_marked(5.0F);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> reads{};
+    const glintfx::draw2d::textured_triangle_piece piece{
+        glintfx::draw2d::textured_triangles{tri, reads, {}}, 7U};
+    g_armed = armed_state{};
+    g_armed.fail_at = 3; // the piece store, the vertex store, then the read store
+    piece_list list(armed());
+    GLINTFX_CHECK(!list.add_textured_triangles(piece, 0));
+    GLINTFX_CHECK_EQ(list.size(), std::size_t{0});
+    GLINTFX_CHECK(list.add_textured_triangles(piece, 0));
+    GLINTFX_CHECK_EQ(list.size(), std::size_t{1});
+    GLINTFX_CHECK_EQ(list.triangle_vertices(list.painted(0)).size(), std::size_t{3});
+    GLINTFX_CHECK_EQ(list.triangle_reads(list.painted(0)).size(), std::size_t{3});
+    // No vertex was left behind by the refusal: the accepted piece starts at the first vertex.
+    GLINTFX_CHECK_EQ(list.painted(0).first_vertex, std::size_t{0});
+}
+
+// Each textured triangle piece reads its OWN reads (T5-A-fix1): the reads of the second one start
+// where those of the first one end, an untextured piece between them takes none, and the link
+// survives a sort that paints them out of their submission order.
+GLINTFX_TEST(piece_list_each_textured_triangle_piece_reads_its_own_reads) {
+    const std::array<colored_pixel_vertex, 3> tri = triangle_marked(30.0F);
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> first{
+        {{0.0F, 0.0F}, {0.0F, 0.25F}, {0.25F, 0.0F}}};
+    const std::array<glintfx::draw2d::triangle_texture_read, 3> second{
+        {{0.5F, 0.5F}, {0.75F, 0.5F}, {0.5F, 1.0F}}};
+    piece_list list;
+    GLINTFX_CHECK(list.add_textured_triangles(
+        glintfx::draw2d::textured_triangle_piece{
+            glintfx::draw2d::textured_triangles{tri, first, {}}, 1U},
+        1));
+    GLINTFX_CHECK(list.add_triangles(triangle_marked(10.0F), {}, 0));
+    GLINTFX_CHECK(list.add_textured_triangles(
+        glintfx::draw2d::textured_triangle_piece{
+            glintfx::draw2d::textured_triangles{tri, second, {}}, 2U},
+        0));
+    list.sort(); // painted: the untextured piece, the second textured one, then the first (layer 1)
+    GLINTFX_CHECK_EQ(list.painted(1).texture, std::uint32_t{2});
+    const auto later = list.triangle_reads(list.painted(1));
+    GLINTFX_CHECK(later.size() == 3 && later[0].u == 0.5F && later[1].u == 0.75F &&
+                  later[2].v == 1.0F);
+    GLINTFX_CHECK_EQ(list.painted(2).texture, std::uint32_t{1});
+    const auto earlier = list.triangle_reads(list.painted(2));
+    GLINTFX_CHECK(earlier.size() == 3 && earlier[1].v == 0.25F && earlier[2].u == 0.25F);
+}
+
+// R2D-SPRITE-SHADE H3b: a shadow is a quad of one color with the stencil role shadow, kept through
+// the sort with its corners and its tint; every other way of adding a quad is ordinary.
+// R2D-SPRITE-SHADE H3b-3: a textured piece keeps the role of its paint: a silhouette is a shadow
+// with a texture, and a textured piece that asked for nothing is ordinary.
+GLINTFX_TEST(piece_list_a_silhouette_keeps_its_role_and_its_texture) {
+    piece_list list;
+    GLINTFX_CHECK(list.reserve(4));
+    const quad_corners_pixel corners{};
+    glintfx::draw2d::textured_quad_paint silhouette{};
+    silhouette.texture = 7U;
+    silhouette.stencil = glintfx::draw2d::stencil_role::shadow;
+    GLINTFX_CHECK(list.add_textured(corners, glintfx::draw2d::textured_quad_paint{}, 0));
+    GLINTFX_CHECK(list.add_textured(corners, silhouette, 0));
+    list.sort();
+    GLINTFX_CHECK(list.painted(0).stencil == glintfx::draw2d::stencil_role::ordinary);
+    GLINTFX_CHECK(list.painted(1).stencil == glintfx::draw2d::stencil_role::shadow);
+    GLINTFX_CHECK_EQ(list.painted(1).texture, 7U);
+}
+
+GLINTFX_TEST(piece_list_a_shadow_keeps_its_role_through_the_sort) {
+    using glintfx::draw2d::stencil_role;
+    piece_list list;
+    GLINTFX_CHECK(list.add(marked(1), k_red, 2));
+    GLINTFX_CHECK(list.add_shadow(marked(2), gltfx_rgba{0.0F, 0.0F, 0.0F, 0.5F}, 1));
+    GLINTFX_CHECK(list.add_textured(
+        marked(3),
+        glintfx::draw2d::textured_quad_paint{7U, glintfx::draw2d::k_role_texture_corners, k_red},
+        0));
+    list.sort();
+    GLINTFX_CHECK((paint_order(list) == std::vector<int>{3, 2, 1}));
+    const auto &shadow = list.painted(1);
+    GLINTFX_CHECK(shadow.stencil == stencil_role::shadow && shadow.kind == piece_kind::quad);
+    GLINTFX_CHECK(shadow.color.alpha == 0.5F && shadow.color.red == 0.0F);
+    GLINTFX_CHECK(shadow.texture == 0U && shadow.layer == 1);
+    GLINTFX_CHECK(list.painted(0).stencil == stencil_role::ordinary);
+    GLINTFX_CHECK(list.painted(2).stencil == stencil_role::ordinary);
 }

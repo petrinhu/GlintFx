@@ -46,6 +46,48 @@ glintfx_add_test(harness_check_invariant_test)
 # color_test.cpp's own header comment.
 glintfx_add_test(color_test)
 
+# R2D-SHAPES, S1 (docs/auditoria-api-shapes.md section 2; GODS_LAWS.md L-19/L-20/L-26): frozen
+# layout of the public formas-2D types - the vertex of fill_triangles() (vertex_2d_layout_test)
+# and the ellipse of core/ellipse.hpp (ellipse_test). See each file's own header comment.
+glintfx_add_test(vertex_2d_layout_test)
+# W8 deep verification C4-1 (D-W8-2008): the resolver packets never change shape (D-W8-1247); the
+# static_asserts of image_resolver_layout_test.cpp stop the build if a field is added or retyped.
+glintfx_add_test(image_resolver_layout_test)
+glintfx_add_test(ellipse_test)
+
+# R2D-SPRITE-SHADE, H1 (docs/auditoria-api-sprite-shade.md, section 2): the projection of an upright
+# piece's shadow, directional and point - see projected_shadow_test.cpp's own header comment.
+glintfx_add_test(projected_shadow_test)
+
+# R2D-SPRITE-SHADE, H4 (docs/auditoria-api-sprite-shade.md, section 2.1): the light that point lights
+# put on ground vertices, a pure function of the core - see light_tint_test.cpp's own header comment.
+glintfx_add_test(light_tint_test)
+
+# R2D-TEXTURE (core/atlas_allocator.hpp): the atlas allocator through its public API
+# (atlas_allocator_test), and its interior and two of its atoms alone, each recompiled straight
+# into its own test - none has a GLINTFX_API symbol, so an armed memory reaches every request on
+# every system, Windows/SHARED included, with no DLL hook (the loop_open_alloc_failure_test
+# technique). See each file's own header comment.
+glintfx_add_test(atlas_allocator_test)
+glintfx_add_test(atlas_geometry_test)
+target_include_directories(atlas_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src/core/atlas_geometry.cpp")
+glintfx_add_test(atlas_slots_test)
+target_include_directories(atlas_slots_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_slots_test PRIVATE "${PROJECT_SOURCE_DIR}/src/core/atlas_slots.cpp")
+glintfx_add_test(atlas_allocator_impl_test)
+target_include_directories(atlas_allocator_impl_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_allocator_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_allocator_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_slots.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_request_check.cpp"
+)
+
+# R2D-SHAPES, S1-fix1 (review N1 of S1, achado A1): the public defaults and the enumerator values of
+# draw2d/stroke.hpp, each as the parecer fixes them - see stroke_test.cpp's own header comment.
+glintfx_add_test(stroke_test)
+
 # CORE-TIME (TODO.md W3, GODS_LAWS.md L-19/L-20/L-26): the core
 # layer's public representation of elapsed time - gltfx_duration/
 # gltfx_time_point and the four gltfx_duration_*/gltfx_now() functions
@@ -356,6 +398,17 @@ target_sources(gfss_value_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
 )
 
+# GFSS-IMAGE-VALUE (R2D-IMAGE-RESOLVER, fatia R1; docs/auditoria-api-image-resolver.md):
+# the reader of an image-bearing value (none / url(...) / a gradient out of
+# this slice), internal in this slice (GODS_LAWS.md L-19). It compiles its own
+# .cpp a second time, the SAME reason gfss_value_test above does: the reader is
+# not GLINTFX_API, so the library's hidden copy cannot be linked from here.
+glintfx_add_test(gfss_image_value_test)
+target_include_directories(gfss_image_value_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_image_value_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/image_value_read.cpp"
+)
+
 # GFSS-PROP-REGISTRY (TODO.md wave W4, GODS_LAWS.md L-17/L-19/L-20/
 # L-26/L-27/L-40, docs/gfss-property-registry-v1.md - 340 lines,
 # twenty-two decisions, CTO, ratified in the project leader's own
@@ -437,6 +490,21 @@ target_sources(gfss_declaration_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_flex_flow.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_expand.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_reset_notice.cpp"
+)
+
+# TIDY23-ESCAPE (clang-tidy 23 bugprone-exception-escape over the
+# Microsoft STL, CI run 44764144174): the first build of
+# declaration_value_check.cpp's own keyword-detail table, forced to
+# fail, has to reach the caller as std::bad_alloc. Its own binary
+# because that table is a function-local static, built once per
+# process - see the test file's own header comment.
+glintfx_add_test(gfss_keyword_detail_oom_test)
+target_include_directories(gfss_keyword_detail_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_keyword_detail_oom_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_value_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/value_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
 )
 
 # GFSS-SHEET-PARSE (TODO.md wave W6, GODS_LAWS.md L-17/L-19/L-20/L-40):
@@ -958,23 +1026,78 @@ set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES
 # broken behavior ALSO exits non-zero (a crash's return code is
 # non-zero too), so a plain "did the process fail" check would stay
 # green across the regression this test exists to catch.
-# PASS_REGULAR_EXPRESSION checks the ACTUAL diagnostic text instead
-# (CTest ignores the return code once this property is set) - the
-# CLEAN parse_decimal_number()-plus-fail() message this tool now
-# prints, naming both the culprit ARGUMENT ("argumento max-version")
-# and the culprit VALUE (the exact invalid text), never the generic
-# libstdc++ terminate() banner the crash used to print.
+# The exit code (1, from fail() in main.cpp) and the exact diagnostic line are both checked by
+# tests/tools/expect_exit_and_line.cmake (D-W8-114): the CLEAN parse_decimal_number()-plus-fail()
+# message this tool now prints, naming both the culprit ARGUMENT ("argumento max-version")
+# and the culprit VALUE (the exact invalid text), never the generic libstdc++ terminate() banner
+# the crash used to print. The executor sits in front of the command because ctest resolves a target
+# name only in the first COMMAND token, so the binary is passed as $<TARGET_FILE:...>.
 # glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/bad_max_version/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
 add_test(
     NAME gl_registry_codegen_bad_max_version_argument_reproves_test
-    COMMAND gl_registry_codegen
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=gl_registry_codegen: argumento max-version nao e um numero decimal valido: 'nao-e-numero'"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "$<TARGET_FILE:gl_registry_codegen>"
         "${CMAKE_CURRENT_SOURCE_DIR}/gl_registry_codegen_fixtures/empty_registry.xml"
         "${CMAKE_CURRENT_BINARY_DIR}/gl_registry_codegen_cli_out/bad_max_version"
         "nao-e-numero"
 )
 set_tests_properties(gl_registry_codegen_bad_max_version_argument_reproves_test PROPERTIES
-    LABELS unit
-    PASS_REGULAR_EXPRESSION "argumento max-version nao e um numero decimal valido: 'nao-e-numero'")
+    LABELS unit)
+
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(
+    NAME expect_exit_and_line_selftest
+    COMMAND "${CMAKE_COMMAND}" -DSELFTEST=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake"
+)
+set_tests_properties(expect_exit_and_line_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# Guard against PASS_REGULAR_EXPRESSION coming back (D-W8-114, L-36): fails on any non-comment use of it
+# in this file, and on a number of sites (the executor followed by `--`) other than the exact count in
+# tests/tools/check_no_pass_regex.cmake.
+add_test(
+    NAME no_pass_regex_test
+    COMMAND "${CMAKE_COMMAND}" "-DREGISTRY=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_pass_regex.cmake"
+)
+set_tests_properties(no_pass_regex_test PROPERTIES LABELS consume)
+
+# The guard's own selftest (D-W8-149, L-36): nine synthetic registries, in memory, with the counts and the
+# verdict fixed before the run. Not through the executor: that would make it a site and inflate the count it
+# protects.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(
+    NAME check_no_pass_regex_selftest
+    COMMAND "${CMAKE_COMMAND}" -DSELFTEST=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_pass_regex.cmake"
+)
+set_tests_properties(check_no_pass_regex_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# The ONE value of the filter that keeps MEASURED and SCANCOUNT lines out of a selftest's output (D-W8-200), and
+# its guard (D-W8-201): every decided leak sample caught, no clean line caught, the two owners setting it through
+# the variable after this include(), and no filter of that kind written by hand. Not through the executor: that
+# would make it a site of check_no_pass_regex.cmake.
+include("${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake")
+add_test(
+    NAME measured_leak_filter_test
+    COMMAND "${CMAKE_COMMAND}" "-DREGISTRY=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake"
+)
+set_tests_properties(measured_leak_filter_test PROPERTIES LABELS consume)
+
+# The guard's own selftest (D-W8-201, L-36): the controls over values and texts built in memory.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(
+    NAME measured_leak_filter_selftest
+    COMMAND "${CMAKE_COMMAND}" -DSELFTEST=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/measured_leak_filter.cmake"
+)
+set_tests_properties(measured_leak_filter_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
 
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
@@ -1258,6 +1381,21 @@ target_sources(frame_callback_sequence_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
 )
 
+# frame_request_present.hpp and frame_callback_wait.hpp (WL-FRAME-ORDER-ARM-TEST, D-W8-226 and
+# D-W8-227) are the same "Wayland-DOMAIN, not Wayland-ONLY" shape as frame_callback_sequence just
+# above: templates over ports, with no wl_callback, no EGLDisplay and no socket, so both register
+# unguarded and run on all systems.
+glintfx_add_test(frame_request_present_test)
+target_include_directories(frame_request_present_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_request_present_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+)
+glintfx_add_test(frame_callback_wait_test)
+target_include_directories(frame_callback_wait_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_callback_wait_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+)
+
 # GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.4; docs/plano-w6b-
 # fatias-5b-revisao.md sec. 4.3, D-W6b-30/33/38): the SAME "domain, not
 # only" shape as window_configure_sequence_test/frame_callback_
@@ -1396,6 +1534,15 @@ target_sources(triangle_batch_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-SPRITE-SHADE H3a: the stencil sequence of a batch (draw2d/shadow_group.hpp), on pure data.
+glintfx_add_test(shadow_group_test)
+target_include_directories(shadow_group_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(shadow_group_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/shadow_group.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(frame_report_tally_test)
 target_include_directories(frame_report_tally_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(frame_report_tally_test PRIVATE
@@ -1426,8 +1573,282 @@ target_compile_definitions(piece_refusal_test PRIVATE GLINTFX_LIBRARY_STATIC_DEF
 glintfx_add_test(piece_list_test)
 target_include_directories(piece_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(piece_list_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+)
+
+# R2D-SHAPES S2b-0 (D-W8-367): o depósito de triângulos é um átomo próprio; a lista de peças guarda só a ordem.
+glintfx_add_test(triangle_store_test)
+target_include_directories(triangle_store_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(triangle_store_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
+    "${PROJECT_SOURCE_DIR}/tests/triangle_store_test.cpp"
+)
+
+# R2D-SHAPES S2b (docs/plano-fechamento-w8-r19.md, §3 S2b): a validação pura de uma chamada de triângulos.
+glintfx_add_test(triangle_list_check_test)
+target_include_directories(triangle_list_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol: the standalone build of this target needs the static define (as frame_report_tally_test does).
+target_compile_definitions(triangle_list_check_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+target_sources(triangle_list_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_list_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
+    "${PROJECT_SOURCE_DIR}/tests/triangle_list_check_test.cpp"
+)
+
+# R2D-SHAPES S2b-fix1 (revisão N1 de 00cdbb4e, I-8): os vértices em pixel de uma chamada de triângulos, átomo
+# próprio fora de renderer_2d_impl.
+glintfx_add_test(triangle_pixel_vertices_test)
+target_include_directories(triangle_pixel_vertices_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(triangle_pixel_vertices_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_pixel_vertices.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+    "${PROJECT_SOURCE_DIR}/tests/triangle_pixel_vertices_test.cpp"
+)
+
+# R2D-SHAPES S3, etapa A: the layout of core/segment.hpp, and the pure atoms of stroke_line(): the count of
+# arc segments on the screen, the check of one call, the frame and the outline of the line, and the line as
+# pixel triangles. No GL, no window.
+glintfx_add_test(segment_test)
+
+# S5-A-fix3 (D-W8-441, D-W8-443): the build rounds each floating-point operation as written;
+# the test fails when a * b + c is fused into one multiply-add
+# (cmake/GlintfxCompileOptions.cmake).
+glintfx_add_test(fp_contract_test)
+
+# S5-A-fix4 (D-W8-465, D-W8-466): the build refuses an MSVC older than Visual Studio 2022
+# (cmake/GlintfxToolchainFloor.cmake). The same function the top CMakeLists.txt calls, run by
+# script on both sides of the floor: 1929 (the last of Visual Studio 2019) must stop the configure,
+# 1930 (the first of Visual Studio 2022) must not. WILL_FAIL alone would also pass on a broken
+# script; the twin that must SUCCEED through the same script and module is what rules that out.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refuses_visual_studio_2019
+    COMMAND "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+            "-DMSVC_VERSION_UNDER_TEST=1929"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refuses_visual_studio_2019 PROPERTIES LABELS unit WILL_FAIL TRUE)
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_accepts_visual_studio_2022
+    COMMAND "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+            "-DMSVC_VERSION_UNDER_TEST=1930"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_accepts_visual_studio_2022 PROPERTIES LABELS unit)
+# S5-A-fix5 (D-W8-481): the floor's non-numeric branch, by its message. A value that is not a
+# number must be refused SAYING so; without the MATCHES guard of GlintfxToolchainFloor.cmake, 'x'
+# and '' would be accepted (S5-A-fix4 review, X2). Exit code and line through the house executor
+# (D-W8-114: never PASS_REGULAR_EXPRESSION). The line is CMake's own wrapping of the FATAL_ERROR
+# text, measured with CMake 4.3: two spaces of indent, broken after "Visual Studio".
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refuses_a_version_that_is_not_a_number
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  glintfx: MSVC_VERSION 'x' is not a number, so the floor of Visual Studio"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DMSVC_VERSION_UNDER_TEST=x"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refuses_a_version_that_is_not_a_number PROPERTIES LABELS unit)
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refuses_an_empty_version
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  glintfx: MSVC_VERSION '' is not a number, so the floor of Visual Studio"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DMSVC_VERSION_UNDER_TEST="
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refuses_an_empty_version PROPERTIES LABELS unit)
+# S5-A-fix5 (D-W8-482): the CALL of the floor in the top-level CMakeLists.txt. Without MSVC
+# nothing executes it (if(MSVC)), so this READS the file: the include, then the call under
+# if(MSVC), each one as whole lines (a commented line does not count). DECLARED LIMIT: it proves
+# the wiring is written, not that an MSVC configure refuses; no MSVC below the floor runs
+# anywhere, the Windows CI's included (S5-A-fix4 review, X3 and X5).
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_is_wired_in_the_top_level_cmake
+    COMMAND "${CMAKE_COMMAND}" "-DTOP_LEVEL_LISTS=${PROJECT_SOURCE_DIR}/CMakeLists.txt"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_wiring_check.cmake")
+set_tests_properties(msvc_floor_is_wired_in_the_top_level_cmake PROPERTIES LABELS unit)
+# S5-A-fix6 (D-W8-517, D-W8-518): the two refusals of msvc_floor_wiring_check.cmake that no test had
+# seen (S5-A-fix5 review, I-1: a search with no order, and a call with no if(MSVC), both passed the
+# whole suite). One fixture per failure mode, the shape of CMake's own Tests/RunCMake (a case file,
+# the expected exit code, the expected output): the call written before the include, and the call
+# under a guard other than if(MSVC). Exit code 1 and the refusal line, whole, through the house
+# executor (D-W8-114); the check keeps that line short enough that CMake does not wrap it.
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_wiring_refuses_the_call_before_the_include
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  msvc_floor_wiring_check: no call under if(MSVC) after the include"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}"
+        "-DTOP_LEVEL_LISTS=${CMAKE_CURRENT_SOURCE_DIR}/tools/fixtures/msvc_floor_wiring/call_before_include.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_wiring_check.cmake")
+set_tests_properties(msvc_floor_wiring_refuses_the_call_before_the_include PROPERTIES LABELS unit)
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_wiring_refuses_the_call_under_another_guard
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  msvc_floor_wiring_check: no call under if(MSVC) after the include"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}"
+        "-DTOP_LEVEL_LISTS=${CMAKE_CURRENT_SOURCE_DIR}/tools/fixtures/msvc_floor_wiring/call_under_another_guard.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_wiring_check.cmake")
+set_tests_properties(msvc_floor_wiring_refuses_the_call_under_another_guard PROPERTIES LABELS unit)
+# S5-A-fix6 (D-W8-519): the SECOND line of the non-numeric refusal, which the two tests that check
+# its first line leave open (S5-A-fix5 review, C-1: the floor's number in it could change unseen).
+# The same wrapping by CMake as there: measured with CMake 4.3, and the first line passes on the
+# CMake 4.1.6 of the Windows CI (run 38665857294).
+# glintfx-blob: fora - script CMake, sem forma python/sh; coberto pelo ctest do preci
+add_test(NAME msvc_floor_refusal_names_the_floor_it_cannot_check
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=1"
+        "-DEXPECT_LINE=  2022 (1930) cannot be checked."
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${CMAKE_COMMAND}" "-DGLINTFX_CMAKE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        "-DMSVC_VERSION_UNDER_TEST=x"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/msvc_floor_check.cmake")
+set_tests_properties(msvc_floor_refusal_names_the_floor_it_cannot_check PROPERTIES LABELS unit)
+
+glintfx_add_test(arc_segments_test)
+target_include_directories(arc_segments_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(arc_segments_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(stroke_line_check_test)
+target_include_directories(stroke_line_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_line_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_check.cpp"
+)
+
+glintfx_add_test(stroke_geometry_test)
+target_include_directories(stroke_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_geometry_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(stroke_line_pixels_test)
+target_include_directories(stroke_line_pixels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_line_pixels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+# R2D-SHAPES S4, etapa A: the pure atoms of stroke_rect(): the check of one call, the two polygons of the
+# outline and its triangles, and the outline as pixel triangles. No GL, no window.
+glintfx_add_test(stroke_rect_check_test)
+target_include_directories(stroke_rect_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_rect_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_check.cpp"
+)
+
+glintfx_add_test(stroke_rect_geometry_test)
+target_include_directories(stroke_rect_geometry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_rect_geometry_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(stroke_rect_pixels_test)
+target_include_directories(stroke_rect_pixels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(stroke_rect_pixels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+# R2D-SHAPES S5, etapa A (TODO.md ARC-VIEWPORT-TESSELLATION): where the segments of an arc on the screen begin and
+# end, uniform up to 512 segments and cut by the surface above that. No GL, no window.
+glintfx_add_test(arc_parameters_test)
+target_include_directories(arc_parameters_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(arc_parameters_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+# R2D-SHAPES S5, etapa B: the pure atoms of the ellipse: the check of one call, the two forms of an ellipse and the
+# points of its curve by the angle of their normal, the triangles of a fan and of a ring, the band of a thick
+# outline, and one call as pixel triangles. No GL, no window.
+glintfx_add_test(ellipse_check_test)
+target_include_directories(ellipse_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_check.cpp"
+)
+
+glintfx_add_test(ellipse_frame_test)
+target_include_directories(ellipse_frame_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_frame_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(ellipse_triangles_test)
+target_include_directories(ellipse_triangles_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_triangles_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+)
+
+glintfx_add_test(ellipse_outline_test)
+target_include_directories(ellipse_outline_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_outline_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_outline.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+glintfx_add_test(ellipse_pixels_test)
+target_include_directories(ellipse_pixels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(ellipse_pixels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_outline.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
+# R2D-TEXTURE T4b, etapa A: the pure atoms of the textured drawing: the weights that make a quadrilateral projective,
+# where the corners read the texture (with the mirroring), and the checks of one call. No GL, no window.
+glintfx_add_test(projective_quad_test)
+target_include_directories(projective_quad_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(projective_quad_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/filtered_cross.cpp"
+)
+# R2D-TEXTURE T4b-A-fix4 (D-W8-551): the exact cross product the weights stand on is an atom of its own, with its
+# own pure test.
+glintfx_add_test(exact_cross_test)
+target_include_directories(exact_cross_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(exact_cross_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
+)
+# R2D-TEXTURE T4b-A-FILTER (D-W8-637): the double-double filter in front of the exact cross product is an atom of
+# its own, with its own pure test; exact_cross.cpp is the reference that test compares it with.
+glintfx_add_test(filtered_cross_test)
+target_include_directories(filtered_cross_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(filtered_cross_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/filtered_cross.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
+)
+
+glintfx_add_test(texture_region_uv_test)
+target_include_directories(texture_region_uv_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_region_uv_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
+)
+
+glintfx_add_test(texture_region_check_test)
+target_include_directories(texture_region_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_region_check_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_check.cpp"
 )
 
 glintfx_add_test(gl_load_refusal_test)
@@ -1436,10 +1857,146 @@ target_sources(gl_load_refusal_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_load_refusal.cpp"
 )
 
+# R2D-TEXTURE T2a, etapa A: the pure check of a texture request (every refusal by name and in the published
+# order), and one reduced mipmap level made on the CPU in linear light. No GL.
+glintfx_add_test(texture_desc_validation_test)
+target_include_directories(texture_desc_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_desc_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+glintfx_add_test(mipmap_reduce_test)
+target_include_directories(mipmap_reduce_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(mipmap_reduce_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+# R2D-TEXTURE T2a, etapa B: the making and the release of the GL texture object against a FAKE context and a
+# table of FAKE GL functions (the generated loader header and gl_abi.hpp, as renderer_2d_impl_test).
+# R2D-TEXTURE T2a-fix1: the release of the GL texture object, apart from its making, against a FAKE context
+# and two FAKE GL functions (the generated loader header and gl_abi.hpp, as texture_upload_test).
+glintfx_add_test(texture_release_test)
+add_dependencies(texture_release_test glintfx_gl_functions_generated)
+target_include_directories(texture_release_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_release_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
+)
+
+# R2D-TEXTURE T3, etapa A: the queue of the textures a renderer holds for release (D-W8-288), against a FAKE
+# context and a FAKE glDeleteTextures; the release itself is texture_release.cpp's.
+glintfx_add_test(texture_release_queue_test)
+add_dependencies(texture_release_queue_test glintfx_gl_functions_generated)
+target_include_directories(texture_release_queue_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_release_queue_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release_queue.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
+)
+
+# R2D-TEXTURE T3, etapa B: the pure atoms of update_texture(): where each level lies in the one block of kept
+# texels, the reduced texels a change touches and their recomputation alone, the ownership of the kept texels,
+# and the check of one call. No GL.
+glintfx_add_test(mipmap_chain_test)
+target_include_directories(mipmap_chain_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(mipmap_chain_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+glintfx_add_test(mipmap_region_test)
+target_include_directories(mipmap_region_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(mipmap_region_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+glintfx_add_test(kept_texels_test)
+target_include_directories(kept_texels_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(kept_texels_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+
+glintfx_add_test(texture_update_region_test)
+add_dependencies(texture_update_region_test glintfx_gl_functions_generated)
+target_include_directories(texture_update_region_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_update_region_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+glintfx_add_test(texture_upload_test)
+add_dependencies(texture_upload_test glintfx_gl_functions_generated)
+target_include_directories(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/own_gl_errors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+# R2D-TEXTURE T2b: the pure translation of a texture's filter and number of reduced levels into the four GL
+# sampling parameters (texture_sampling.hpp), as a closed table. No GL; gl_abi.hpp gives the GL types.
+# texture_upload_test (above) applies the table to the texture it makes, so it compiles the translation too.
+glintfx_add_test(texture_sampling_test)
+target_include_directories(texture_sampling_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+)
+target_sources(texture_sampling_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+)
+target_sources(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+)
+
 glintfx_add_test(srgb_encoding_test)
 target_include_directories(srgb_encoding_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(srgb_encoding_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+# R2D-TEXTURE T1: the image view's conversion into stored texels (sRGB encoded, straight alpha),
+# with the table of the T1 order checked by formula. Needs the encode curve of srgb_encoding.cpp.
+glintfx_add_test(pixel_premultiply_test)
+target_include_directories(pixel_premultiply_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(pixel_premultiply_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+# R2D-IMAGE-RESOLVER R2b: the resolver installed in a renderer, asked directly (in this version no draw call asks it,
+# D-W8-328): install and swap, a null function is "no owner", the context and the text reach the resolver untouched,
+# the answer comes back unchanged, and a resolver that is not noexcept does not convert (static_assert matrix).
+glintfx_add_test(image_resolution_test)
+target_include_directories(image_resolution_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(image_resolution_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/image_resolution.cpp"
 )
 
 # R2D-BATCH B3b: the embedded drawing program against a table of FAKE GL functions. The test needs the
@@ -1468,6 +2025,7 @@ target_include_directories(gl_state_contract_test PRIVATE
 )
 target_sources(gl_state_contract_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_stencil_contract.cpp"
 )
 
 glintfx_add_test(vertex_stream_test)
@@ -1479,23 +2037,61 @@ target_include_directories(vertex_stream_test PRIVATE
 )
 target_sources(vertex_stream_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+# R2D-SPRITE-SHADE H3b: draw_batch() gives each run the passes of the stencil atom (shadow_group.cpp), sets each pass in
+# GL (gl_stencil_contract.cpp) and the program's discard of each pass (embedded_program.cpp).
+target_sources(vertex_stream_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/shadow_group.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_stencil_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
+)
+
+# R2D-SHAPES S5-C1 (D-W8-566): the one field of the renderer's descriptor that open() can refuse, checked by a pure
+# predicate (header only), on every system.
+glintfx_add_test(renderer_2d_desc_check_test)
+target_include_directories(renderer_2d_desc_check_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# R2D-SPRITE-SHADE H3b-2 (D-W8-1328): whether the surface has stencil bits, asked of a table of FAKE GL functions.
+glintfx_add_test(surface_stencil_test)
+add_dependencies(surface_stencil_test glintfx_gl_functions_generated)
+target_include_directories(surface_stencil_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(surface_stencil_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/surface_stencil.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/own_gl_errors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
 )
 
 # R2D-BATCH B4: the frame machine behind the public handle, against a FAKE host and a table of FAKE GL functions.
 glintfx_add_test(renderer_2d_impl_test)
 add_dependencies(renderer_2d_impl_test glintfx_gl_functions_generated)
+# R2D-IMAGE-RESOLVER R2b: renderer_2d_impl keeps the installed resolver (renderer_2d_impl_image_resolver.cpp and
+# image_resolution.cpp).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_image_resolver.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/image_resolution.cpp"
+)
 target_include_directories(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}/src/render"
     "${PROJECT_BINARY_DIR}/generated/render"
 )
 target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_pixel_vertices.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_list_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_store.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_stencil_contract.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
@@ -1510,6 +2106,183 @@ target_sources(renderer_2d_impl_test PRIVATE
 # both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
 # win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
 target_compile_definitions(renderer_2d_impl_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+# R2D-SHAPES S4, etapa B: stroke_rect() reaches the frame machine, so this target compiles the atoms of the outline.
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_rect_geometry.cpp"
+)
+# R2D-SHAPES S5-C1: fill_ellipse() and stroke_ellipse() reach the frame machine (renderer_2d_impl_ellipses.cpp), so
+# this target compiles them and the atoms of the ellipse (S5-B).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_ellipses.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_outline.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_frame.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/ellipse_triangles.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_parameters.cpp"
+)
+# R2D-SPRITE-SHADE H3b: fill_shadow() reaches the frame machine (renderer_2d_impl_shadows.cpp), and draw_batch() asks
+# the atom of the stencil passes (shadow_group.cpp).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_shadows.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/shadow_group.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/surface_stencil.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/own_gl_errors.cpp"
+)
+# R2D-SHAPES S3, etapa B: stroke_line() reaches the frame machine, so this target compiles the atoms of the line.
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_line_pixels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/stroke_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/arc_segments.cpp"
+)
+
+# R2D-TEXTURE T3, etapa A: the frame machine holds the textures destroyed while a frame is open and releases
+# them when it ends (D-W8-288), so this target compiles the queue and the release.
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release_queue.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_release.cpp"
+)
+
+# R2D-TEXTURE T3, etapa C: the writing of update_texture() against a FAKE context and FAKE GL, over textures
+# made by the making on the same fake card.
+glintfx_add_test(texture_update_test)
+add_dependencies(texture_update_test glintfx_gl_functions_generated)
+target_include_directories(texture_update_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_update_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/own_gl_errors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+# R2D-TEXTURE T3-fix1: the kept texels of an updatable texture with reduced levels taking an update and giving it
+# back (texture_update_kept.hpp). Pure: no GL, no texture record.
+glintfx_add_test(texture_update_kept_test)
+target_include_directories(texture_update_kept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(texture_update_kept_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+
+# R2D-TEXTURE T6-B1: the texture atlas (draw2d/texture_atlas.hpp). Its arithmetic (atlas_cell_test: the refusals of
+# open(), the cell, and the bilinear rule of each level enumerated) and the texels of a cell (atlas_extrude_test),
+# pure; and the atlas itself over a FAKE context and FAKE GL (texture_atlas_test), with the allocator's interior and
+# the making and writing of a texture recompiled into it, as texture_update_test does.
+glintfx_add_test(atlas_cell_test)
+target_include_directories(atlas_cell_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_cell_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_cell.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+glintfx_add_test(atlas_extrude_test)
+target_include_directories(atlas_extrude_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(atlas_extrude_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_extrude.cpp")
+glintfx_add_test(texture_atlas_test)
+add_dependencies(texture_atlas_test glintfx_gl_functions_generated)
+target_include_directories(texture_atlas_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_atlas_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_atlas_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_atlas_cells.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_cell.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/atlas_extrude.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_allocator_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_geometry.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_slots.cpp"
+    "${PROJECT_SOURCE_DIR}/src/core/atlas_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/own_gl_errors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/prior_gl_errors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_upload.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_request_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_sampling.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+)
+# R2D-TEXTURE T6-B1-fix1: the public handle of the atlas (texture_atlas_facade.cpp) over a link seam: the handle's own
+# two files, recompiled, and fakes of what they forward to, so that a move is counted without a window. The renderer
+# and the interior are the fakes in the test. Defines GLINTFX_API symbols, hence the same define as renderer_2d_impl_test.
+glintfx_add_test(texture_atlas_facade_test)
+add_dependencies(texture_atlas_facade_test glintfx_gl_functions_generated)
+target_include_directories(texture_atlas_facade_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(texture_atlas_facade_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_atlas_facade.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_2d_facade.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+target_compile_definitions(texture_atlas_facade_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+
+# R2D-TEXTURE T3, etapa C: a texture record now owns its kept texels (kept_texels.hpp), so every target that makes
+# or frees a record compiles their ownership; the making keeps them in one block (mipmap_chain.hpp); and the
+# frame machine forwards update_texture() to its check and its writing.
+target_sources(texture_upload_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+target_sources(texture_release_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp")
+target_sources(texture_release_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp")
+target_sources(texture_update_region_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp")
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_kept.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_update_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_chain.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/mipmap_reduce.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/pixel_premultiply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/kept_texels.cpp"
+)
+# R2D-TEXTURE T4b-B1: draw_texture() and draw_texture_quad() reach the frame machine (renderer_2d_impl_textures.cpp),
+# so this target compiles them and the pure atoms they ask (T4b-A).
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl_textures.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/filtered_cross.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_check.cpp"
+)
+# R2D-TEXTURE T4b-B1-fix1 (D-W8-506): where the corners of a textured quad read the texture is an atom of its own;
+# the frame machine compiles it, and it has its own pure test.
+target_sources(renderer_2d_impl_test PRIVATE "${PROJECT_SOURCE_DIR}/src/draw2d/textured_quad_corners.cpp")
+glintfx_add_test(textured_quad_corners_test)
+target_include_directories(textured_quad_corners_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(textured_quad_corners_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/textured_quad_corners.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/projective_quad.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/exact_cross.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/filtered_cross.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/texture_region_uv.cpp"
+)
 
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -2027,6 +2800,19 @@ if(UNIX)
     # o resto), porque o segundo caso deste alvo escreve um evento
     # wl_display.error de verdade e despacha por ela antes de conferir
     # connection_failure_if_dead().
+    # egl_present_wiring_test - WL-FRAME-ORDER-ARM-TEST-fix1 (D-W8-F11): the binding of the
+    # presentation ports to the wire (egl_present_wire.hpp), with every system call scripted.
+    # The SAME source tree as incoming_poll_wiring_test above (the real_* calls live in
+    # egl_context_adapter.cpp, which drags the rest), read from that target instead of copied a
+    # fourth time (GODS_LAWS.md L-33): its own test file is filtered out.
+    glintfx_add_test(egl_present_wiring_test)
+    target_include_directories(egl_present_wiring_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    get_target_property(_glintfx_egl_wire_sources incoming_poll_wiring_test SOURCES)
+    list(FILTER _glintfx_egl_wire_sources EXCLUDE REGEX "incoming_poll_wiring_test\\.cpp$")
+    target_sources(egl_present_wiring_test PRIVATE ${_glintfx_egl_wire_sources})
+    glintfx_add_wayland_xdg_shell_binding(egl_present_wiring_test)
+    glintfx_add_egl(egl_present_wiring_test)
+
     glintfx_add_test(connection_failure_test)
     target_include_directories(connection_failure_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(connection_failure_test PRIVATE
@@ -2488,6 +3274,7 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/first_present_map.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
@@ -2520,6 +3307,40 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
     )
     target_link_libraries(win32_iconic_present_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+
+    # win32_first_present_maps_test - WIN-MAP-FIRST-PRESENT (D-W8-38, D-W8-41): the first presented
+    # frame maps the window, once, even when the process was launched with SW_HIDE. Same object set
+    # as win32_iconic_present_test (a REAL display + window + WGL context); plus the atom that maps.
+    # RUN_SERIAL: it shows a real top-level window, and another test window opened in parallel would
+    # cover it (the same reasoning as the C2b capture test, D-W8-40).
+    glintfx_add_test(win32_first_present_maps_test)
+    target_include_directories(win32_first_present_maps_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_first_present_maps_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/first_present_map.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/gl_device_luid.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+    )
+    target_link_libraries(win32_first_present_maps_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+    set_tests_properties(win32_first_present_maps_test PROPERTIES RUN_SERIAL TRUE)
 
     # win32_wait_events_test - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-
     # 6-8.md sec. 8.2, D-W6b-50, "Prova Windows" column): the Win32
@@ -2582,13 +3403,20 @@ endif()
 # above: linked against the PUBLIC glintfx::glintfx target directly,
 # if(WIN32) only here - the Linux side of this SAME name is the
 # container fixture P-0 feeds into the paridade inventory instead.
+# RUN_SERIAL (PRESENT-EMPTY-FRAME, D-W8-58): now that a refused swap reproves at once, the vsync=off cell times
+# 60 REAL presentations against the budget of its presentation class (D-W8-70); ctest running another test in parallel on the same runner
+# already falsified a timing measurement on Windows (LOOP-HIDDEN-SERIAL below).
+# _CRT_SECURE_NO_WARNINGS only on THIS target (D-W8-70): the test reads GLINTFX_PRESENT_PACING and WGL_SWAP_INTERVAL
+# with std::getenv, which MSVC flags as C4996 (an error under /WX), and the parity source may not carry an #if to hide
+# it (the same reasoning as present_empty_frame_parity_test below).
 if(WIN32)
     add_executable(gl_context_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/gl_context_parity_test.cpp")
     target_link_libraries(gl_context_parity_test PRIVATE glintfx::glintfx)
+    target_compile_definitions(gl_context_parity_test PRIVATE _CRT_SECURE_NO_WARNINGS)
     glintfx_apply_compile_options(gl_context_parity_test)
     glintfx_copy_runtime_dlls_after_build(gl_context_parity_test)
     add_test(NAME gl_context_parity_test COMMAND gl_context_parity_test)
-    set_tests_properties(gl_context_parity_test PROPERTIES LABELS consume)
+    set_tests_properties(gl_context_parity_test PROPERTIES LABELS consume RUN_SERIAL TRUE)
 endif()
 
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_parity_
@@ -2623,6 +3451,63 @@ if(WIN32)
     glintfx_copy_runtime_dlls_after_build(draw2d_parity_test)
     add_test(NAME draw2d_parity_test COMMAND draw2d_parity_test)
     set_tests_properties(draw2d_parity_test PROPERTIES LABELS consume)
+endif()
+
+# PRESENT-EMPTY-FRAME (D-W8-53, D-W8-54): present_empty_frame_parity_test.cpp (tests/parity/) is the fifth member
+# of the same family - ONE file, only-public-API, no-#if, proving that a frame presented with nothing drawn is
+# either presented or refused with an ordinary platform_failure, on both systems, through the context, the loop
+# and the 2D renderer. Same mechanism as the others: linked against the PUBLIC glintfx::glintfx target,
+# if(WIN32) only here - the Linux side of this SAME name is the container fixture the paridade inventory picks
+# up. RUN_SERIAL: it shows real top-level windows, and another test window opened in parallel would cover them
+# (the same reasoning as win32_first_present_maps_test). _CRT_SECURE_NO_WARNINGS only on THIS target: the test
+# reads GLINTFX_EMPTY_FRAME_EXPECT with std::getenv, which MSVC flags as C4996 (an error under /WX), and the
+# parity source may not carry an #if to hide it (tests/err_context_test.cpp:160-167 has the same problem).
+if(WIN32)
+    add_executable(present_empty_frame_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/present_empty_frame_parity_test.cpp")
+    target_link_libraries(present_empty_frame_parity_test PRIVATE glintfx::glintfx)
+    target_compile_definitions(present_empty_frame_parity_test PRIVATE _CRT_SECURE_NO_WARNINGS)
+    glintfx_apply_compile_options(present_empty_frame_parity_test)
+    glintfx_copy_runtime_dlls_after_build(present_empty_frame_parity_test)
+    add_test(NAME present_empty_frame_parity_test COMMAND present_empty_frame_parity_test)
+    set_tests_properties(present_empty_frame_parity_test PROPERTIES LABELS consume RUN_SERIAL TRUE)
+endif()
+
+# R2D-SHAPES S2b (docs/plano-fechamento-w8-r19.md, §3 S2b): draw2d_shapes_parity_test.cpp (tests/parity/) is the
+# triangle cell of the shape family, the same family as draw2d_parity_test: ONE file, only the public API, no #if.
+# The Linux side is the container fixture of this exact name (tests/container/Containerfile, ci.yml); this block
+# is the Windows side only.
+if(WIN32)
+    add_executable(draw2d_shapes_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_shapes_parity_test.cpp")
+    target_link_libraries(draw2d_shapes_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_shapes_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_shapes_parity_test)
+    add_test(NAME draw2d_shapes_parity_test COMMAND draw2d_shapes_parity_test)
+    set_tests_properties(draw2d_shapes_parity_test PROPERTIES LABELS consume)
+endif()
+
+# R2D-SPRITE-SHADE H3b-2 (docs/auditoria-api-sprite-shade.md, sec. 2 and 4.2): draw2d_shadow_parity_test.cpp
+# (tests/parity/) is the shadow cell of the same family: ONE file, only the public API, no #if. The Linux side is the
+# container fixture of this exact name (tests/container/Containerfile, ci.yml); this block is the Windows side only.
+if(WIN32)
+    add_executable(draw2d_shadow_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_shadow_parity_test.cpp")
+    target_link_libraries(draw2d_shadow_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_shadow_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_shadow_parity_test)
+    add_test(NAME draw2d_shadow_parity_test COMMAND draw2d_shadow_parity_test)
+    set_tests_properties(draw2d_shadow_parity_test PROPERTIES LABELS consume)
+endif()
+
+# R2D-TEXTURE T4b-B2 (D-W8-475 a 480): draw2d_texture_parity_test.cpp (tests/parity/) is the textured cell of the same
+# family: the filter of D-W8-305, the projective trapezoid, the attribute of q, the order of textures, the mirrors and
+# the tint, in both values of srgb_framebuffer. ONE file, only the public API, no #if. The Linux side is the container
+# fixture of this exact name (tests/container/Containerfile, ci.yml); this block is the Windows side only.
+if(WIN32)
+    add_executable(draw2d_texture_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_texture_parity_test.cpp")
+    target_link_libraries(draw2d_texture_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_texture_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_texture_parity_test)
+    add_test(NAME draw2d_texture_parity_test COMMAND draw2d_texture_parity_test)
+    set_tests_properties(draw2d_texture_parity_test PROPERTIES LABELS consume)
 endif()
 
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_hidden_
@@ -2690,6 +3575,7 @@ if(WIN32)
         # (its own comment there records the THREE separate rounds of
         # LNK2019 that taught this list what it has to carry).
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/first_present_map.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_pixel_format_cascade.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
@@ -2912,6 +3798,28 @@ add_test(
 )
 set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
+# W8 deep verification C7-1 (D-W8-2025; AUDITORIAS.md chapter 7; the leader's answer of 20/11/2026):
+# no tracked text file names the home folder of a person's machine. Rule A reads the home of whoever
+# runs the gate, rule B the shape /home/<name>/ and /Users/<name>/ outside a closed list of stand-ins;
+# nothing of one machine is written in the gate (see its header). Python pure, both systems.
+add_test(
+    NAME machine_paths_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_machine_paths.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(machine_paths_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME machine_paths_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 12 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_machine_paths.py" --selftest
+)
+set_tests_properties(machine_paths_selftest PROPERTIES LABELS selftest)
+
 # NOEXCEPT-ALLOC-B8 fatia F6 (GODS_LAWS.md L-22 do projeto: "nenhuma
 # excecao cruza a API publica"; docs/api-conventions.md R3; ESCOPO.md
 # Decisao 8/9/13). Promovido de /var/tmp/builds/claude-1000/varredura-
@@ -3010,7 +3918,7 @@ set_tests_properties(vendor_purity_selftest PROPERTIES LABELS selftest)
 # resolved earlier in this file (hygiene_coverage_test's own
 # registration above) - find_program() is idempotent across repeated
 # calls with the same cache variable, so it is not re-called here.
-# glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (310,66 s serial no Windows compartilhado (TIMEOUT 900), run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
+# glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (310,66 s serial no Windows compartilhado, run 36202987723, medido pelo CTO com o TIMEOUT de 900 s da epoca; TIMEOUT 1230 desde EMBED-WIN-TIMEOUT); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 add_test(
     NAME public_name_collision_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3086,7 +3994,14 @@ set_tests_properties(public_name_collision_test PROPERTIES LABELS consume RESOUR
 # 300s is ~2.98x); it is not sized against the 300.06s timeout itself,
 # since that number is censored (the process was killed mid-run, not
 # measured to completion).
-set_tests_properties(public_name_collision_test PROPERTIES TIMEOUT 900)
+#
+# THIRD TIMEOUT override, 900s -> 1230s (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): rule 4 of docs/plano-ci-split-per-os.md 4.8 over the worst
+# completed time. That is 400.79 s ("Windows - estatico", run 37515318202, the value
+# check_ctest_parallel_policy.py's MEASURED_HEAVY already recorded, re-read from that run's log);
+# the thirteen runs 38177249612 to 38672501272 went up to 351.15 s ("Windows - Debug", run
+# 38672501272). 400.79 s is above a third of 900 s; 3 x 400.79 = 1202.37 -> 1230 s.
+set_tests_properties(public_name_collision_test PROPERTIES TIMEOUT 1230)
 
 add_test(
     NAME public_name_collision_selftest
@@ -3261,12 +4176,61 @@ set_tests_properties(layers_test PROPERTIES LABELS consume)
 # inside check_layers.py was never exercised by the suite otherwise.
 # Wiring --selftest here closes that gap, same consume/selftest label
 # taxonomy as the other gates in this file.
+# glintfx-nested-build: heavy - o --selftest do check_layers.py cria processos por controle e mediu 45,1 s no Windows estatico (14,4 a 34,2 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME layers_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py" --selftest
 )
-set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
+set_tests_properties(layers_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
+
+# R2D-IMAGE-RESOLVER R2a (CONTRACT.md 5.3; D-W8-24, D-W8-332 and D-W8-335, with the gate shape of the R2a order):
+# draw2d never includes gfss, neither directly nor through a header of core or of any other module. The gate reads the
+# dependency list the COMPILER wrote during this build (the Ninja deps log, read by ONE `ninja -t deps`) for every
+# object compiled from src/draw2d, and fails if any of them reached glintfx/gfss/ or src/gfss/. One process for the
+# whole tree, never one compiler run per file (GODS_LAWS.md global L-11, item 6, and project L-45). It requires the
+# Ninja generator (every CI job and tools/preci.sh use it) and fails, naming the generator, under any other.
+# RESOURCE_LOCK glintfx_build_dir: `ninja -t deps` opens the deps log of this build directory, and Ninja may rewrite
+# that log when it opens it; the lock keeps every other writer of the build directory away meanwhile.
+# The PROBE: one translation unit, generated at configure time, that includes every public header of draw2d. Some
+# public headers are included by no .cpp of src/draw2d (measured on 12/10/2026: stroke.hpp and vertex_2d.hpp), so
+# without it the compiler would never write their closure into the deps log. Built in `all`, never linked, never run.
+file(GLOB GLINTFX_DRAW2D_PROBE_HEADERS CONFIGURE_DEPENDS LIST_DIRECTORIES false
+    RELATIVE "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/include/glintfx/draw2d/*.hpp" "${PROJECT_SOURCE_DIR}/include/glintfx/draw2d/*.h")
+set(GLINTFX_DRAW2D_PROBE_TEXT "// Generated by tests/CMakeLists.txt (R2D-IMAGE-RESOLVER R2a). Do not edit.\n")
+foreach(GLINTFX_DRAW2D_PROBE_HEADER IN LISTS GLINTFX_DRAW2D_PROBE_HEADERS)
+    string(APPEND GLINTFX_DRAW2D_PROBE_TEXT "#include <${GLINTFX_DRAW2D_PROBE_HEADER}>\n")
+endforeach()
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/draw2d_include_direction_probe.cpp"
+    CONTENT "${GLINTFX_DRAW2D_PROBE_TEXT}")
+add_library(draw2d_include_direction_probe OBJECT "${CMAKE_CURRENT_BINARY_DIR}/draw2d_include_direction_probe.cpp")
+target_link_libraries(draw2d_include_direction_probe PRIVATE glintfx::glintfx)
+glintfx_apply_compile_options(draw2d_include_direction_probe)
+add_test(
+    NAME draw2d_include_direction_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_draw2d_include_direction.py" --check
+        --source "${PROJECT_SOURCE_DIR}"
+        --build "${PROJECT_BINARY_DIR}"
+        --ninja "${CMAKE_MAKE_PROGRAM}"
+        --generator "${CMAKE_GENERATOR}"
+        --probe "${CMAKE_CURRENT_BINARY_DIR}/draw2d_include_direction_probe.cpp"
+)
+set_tests_properties(draw2d_include_direction_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
+
+# R2a: the selftest of check_draw2d_include_direction.py, over canned `ninja -t deps` text and a canned
+# compile_commands.json in a temp dir; no compiler and no ninja run. The executor requires exit 0 and the exact line
+# with the control count: dropping a control is a visible change, never a silent one.
+add_test(
+    NAME draw2d_include_direction_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 17 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_draw2d_include_direction.py" --selftest
+)
+set_tests_properties(draw2d_include_direction_selftest PROPERTIES LABELS selftest)
 
 # ORACULO DIFERENCIAL DE CAMADAS (LAYERS-GATE-GFSS-GFUI sub-fatia L-5,
 # docs/plano-layers-l5.md, GODS_LAWS.md projeto L-45, decisao do lider
@@ -3313,12 +4277,13 @@ set_tests_properties(layers_oracle_test PROPERTIES LABELS consume TIMEOUT 900 SK
 # for chamado durante --selftest). Roda em TODO sistema, opcao ligada ou
 # nao - mesma taxonomia consume/selftest dos demais portoes deste
 # arquivo.
+# glintfx-nested-build: heavy - zero compilador, mas o --selftest exporta as fixturas do check_layers.py (3409 diretorios e 2174 arquivos criados, 2184 arquivos e 3111 diretorios apagados, medido em container Linux em 21/10/2026): custo de sistema de arquivos, 0,90 s no Fedora, 6,4 a 32,8 s (mediana 12,8 s) nos 45 runs verdes do Windows estatico e 58,5 s no run 39546765562 (Windows estatico, regua de 40 s do ctest_aggregate.py reprovou), sempre sobreposto a public_name_collision_test (46 de 46 jobs estaticos); trinco por MEDICAO (MEASURED_HEAVY em check_ctest_parallel_policy.py), nao por build aninhado
 add_test(
     NAME layers_oracle_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers_oracle.py" --selftest
 )
-set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest)
+set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 
 # LAYERS-ORACLE-REPORT sub-fatia J1 (docs/plano-w7c-adendo-
 # revalidacao.md secao 3.J, achado N8, decisao D-A11, 24/09/2026): as
@@ -3571,6 +4536,11 @@ set_tests_properties(dep_zero_selftest PROPERTIES
     LABELS selftest
     RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FAILED")
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 60.66 s ("Windows - compartilhado", CI
+# 36535342498, the run the comment above already cites, re-read from its log; the thirteen runs
+# 38177249612 to 38672501272 went up to 55.11 s); rule 4: 3 x 60.66 = 181.98 -> 210 s.
+set_tests_properties(dep_zero_selftest PROPERTIES TIMEOUT 210)
 
 # PARITY-GATE: sub-check (c) given a NAME OF ITS OWN, unconditional
 # (reuses GLINTFX_DEP_ZERO_LIB_ARG computed above, so it sees the same
@@ -3686,6 +4656,7 @@ set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE RE
 # mode, but the belt costs nothing and keeps the taxonomy uniform
 # across every selftest in this file, sh or python3 alike.
 # glintfx-blob: fora - configura projetos CMake de fixtura (pesado); coberto pelo ctest do preci
+# glintfx-nested-build: heavy - o --selftest configura projetos CMake de fixtura e mediu 51,0 s no Windows estatico (16,7 a 34,7 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME dep_zero_trace_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3694,6 +4665,7 @@ add_test(
 )
 set_tests_properties(dep_zero_trace_selftest PROPERTIES
     LABELS selftest
+    RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FAILED")
 
 # Duplicated-law gate (GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO,
@@ -3987,10 +4959,11 @@ endif()
 # not on Windows, which does not have `sh` by default. Windows coverage
 # of this same embedding path is a dedicated CI step, not a ctest case,
 # same shape as consume_test's own Windows counterpart above -
-# tools/ci/check-embed.ps1 proves the identical four things (configure/
+# tools/ci/check-embed.ps1 proves the identical five things (configure/
 # build/run via add_subdirectory, generated headers scoped under the
-# embedded build dir, GLINTFX_INSTALL default not leaking headers, and
-# the GLINTFX_INSTALL=ON opt-in genuinely installing them), invoked from
+# embedded build dir, GLINTFX_INSTALL default not leaking headers, the
+# GLINTFX_INSTALL=ON opt-in genuinely installing them, and
+# GLINTFX_BUILD_EXAMPLES=OFF in the embedded cache), invoked from
 # the `windows` job in .github/workflows/ci.yml (CI-CONSUME).
 if(UNIX)
     # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
@@ -4002,6 +4975,11 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(embed_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): ***Timeout 120.90 sec on "Arch - estatico" (run 38247951304,
+    # a killed process, not used as a time); worst completed time 93.84 s ("Arch - compartilhado",
+    # run 38665857294); rule 4: 3 x 93.84 = 281.52 -> 300 s.
+    set_tests_properties(embed_test PROPERTIES TIMEOUT 300)
 endif()
 
 # EMBED-DLL decision-logic gate: proves glintfx_colocate_embedded_
@@ -4107,6 +5085,101 @@ add_test(
 )
 set_tests_properties(embed_dll_colocation_test PROPERTIES LABELS consume)
 
+# EXAMPLES-DEFAULT: the default of GLINTFX_BUILD_EXAMPLES, both branches
+# (see tests/examples_option_default/CMakeLists.txt for what it proves
+# and for what it leaves to embed_test). It lives HERE and not in an
+# included file (D-W8-91, revokes D-W8-89): this file is the ONLY test
+# registry, and tests/tools/check_single_test_registry.py fails any other
+# file that registers a test.
+# glintfx-build-dir: private-subdir - tests/examples_option_default_check/ (configura um build aninhado so' ali, LANGUAGES NONE, sem compilador)
+add_test(
+    NAME examples_option_default_test
+    COMMAND "${CMAKE_COMMAND}"
+        --fresh
+        -S "${CMAKE_CURRENT_SOURCE_DIR}/examples_option_default"
+        -B "${CMAKE_CURRENT_BINARY_DIR}/examples_option_default_check"
+        -G "${CMAKE_GENERATOR}"
+        "-DGLINTFX_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(examples_option_default_test PROPERTIES LABELS consume)
+
+# EXAMPLES-PASS (D-W8-93, D-W8-101): the examples pass on sixteen plantas, one fresh
+# configure each, WITHOUT the library (see tests/examples_pass/CMakeLists.txt
+# for what it configures, and tests/tools/check_examples_pass.py for the
+# expectation of each planta). The rc of each configure is the signal, read
+# by the driver; no PASS_REGULAR_EXPRESSION here, on purpose.
+# glintfx-build-dir: private-subdir - tests/examples_pass_check/ (um configure aninhado por planta, LANGUAGES CXX, sem construir nada)
+# glintfx-nested-build: heavy - um configure aninhado por planta, dezesseis plantas, e mediu 40,90 s no Windows estatico (mediana 5,11 s em 179 amostras de 13 runs); trinco por MEDICAO (run 38672501272, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py, EMBED-WIN-TIMEOUT D-W8-529), vira `PROCESSORS n` medido
+add_test(
+    NAME examples_pass_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_examples_pass.py"
+        --cmake "${CMAKE_COMMAND}"
+        --generator "${CMAKE_GENERATOR}"
+        --source "${PROJECT_SOURCE_DIR}"
+        --work "${CMAKE_CURRENT_BINARY_DIR}/examples_pass_check"
+)
+set_tests_properties(examples_pass_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 40.90 s (above); rule 4: 3 x 40.90 = 122.70 -> 150 s.
+set_tests_properties(examples_pass_test PROPERTIES TIMEOUT 150)
+
+# DEMO-1 D7 (D-W8-76, D-W8-194): every example builds as a CONSUMER of the INSTALLED glintfx. Installs this build
+# into a private prefix, configures examples/ on its own (the find_package branch of examples/CMakeLists.txt) with
+# CMAKE_PREFIX_PATH only there and the same compiler, builds it, and never runs it. LABELS consume: a plain consumer
+# against a sanitized library fails by construction (the same reason as consume_test).
+# glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - MEDIDO 11/10/2026: `cmake --install` escreve install_manifest.txt no build dir (o unico arquivo novo no topo do build dir, medido com find -newer), gemeo do consume_test
+# glintfx-nested-build: heavy - instala a biblioteca num prefixo proprio (cmake --install) e configura e constroi examples/ contra ela com o gerador desta construcao, CMAKE_GENERATOR (build aninhado)
+add_test(
+    NAME examples_consume_installed_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_examples_consume.py"
+        --cmake "${CMAKE_COMMAND}"
+        --generator "${CMAKE_GENERATOR}"
+        --compiler "${CMAKE_CXX_COMPILER}"
+        --build "${PROJECT_BINARY_DIR}"
+        --examples "${PROJECT_SOURCE_DIR}/examples"
+        --work "${CMAKE_CURRENT_BINARY_DIR}/examples_consume_check"
+        --config "$<CONFIG>"
+)
+set_tests_properties(examples_consume_installed_test PROPERTIES LABELS consume
+    RESOURCE_LOCK "glintfx_build_dir;glintfx_nested_build")
+
+# DEMO-1 D7: the selftest of check_examples_consume.py. Builds trees in a temp dir and answers the cmake steps with a
+# double; one subprocess (the script with no argument, exit 2). The executor requires exit 0 and the exact line with
+# the control count: dropping a control is a visible change, never a silent one.
+add_test(
+    NAME check_examples_consume_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 15 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_examples_consume.py" --selftest
+)
+set_tests_properties(check_examples_consume_selftest PROPERTIES LABELS selftest)
+
+# DEMO-1 D5b (D-W8-75, D-W8-125): the DRIVER of the Windows capture of one example, first_window,
+# shapes, textures or sprite_shadows (tests/tools/run_example_capture_win32.py, its table opened by R2D-SHAPES S6,
+# D-W8-1081). Its
+# --selftest needs no Windows, no tool and no window: a tool double writes the capture files and the
+# REAL helpers (raw_to_png.py, image_probe.py) judge them. Python, so it runs on every system (no parity
+# exception). The executor requires exit 0 and the exact line with the control count: dropping a control
+# is a visible change, never a silent one. The real runs (first_window, shapes, textures and sprite_shadows on
+# Windows) are
+# registered further down; this is only the selftest.
+add_test(
+    NAME run_example_capture_win32_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 45 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py" --selftest
+)
+# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it. The value and its rule
+# (anything but a letter, a digit or '_' after the word) live in tests/tools/measured_leak_filter.cmake (D-W8-200).
+set_tests_properties(run_example_capture_win32_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "${GLINTFX_MEASURED_LEAK_FILTER}")
+
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
 # non-default include directory on its own, with no other install() rule
@@ -4143,6 +5216,11 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): ***Timeout 120.68 sec on "Arch - estatico" (run 38247951304,
+    # a killed process, not used as a time); worst completed time 67.19 s ("Clang (Fedora -
+    # segundo compilador, compartilhado)", run 38659724788); rule 4: 3 x 67.19 = 201.57 -> 210 s.
+    set_tests_properties(install_packager_layout_test PROPERTIES TIMEOUT 210)
 endif()
 
 # GL-CODEGEN-HOST-TOOL H-5 (D-11 of docs/plano-fecho-w7b.md, the Qt 6
@@ -4163,6 +5241,11 @@ add_test(
         "${CMAKE_GENERATOR}"
 )
 set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): ***Timeout 120.90 sec on "Arch - estatico" (run 38247951304, a
+# killed process, not used as a time); worst completed time 72.61 s ("Windows - Debug", run
+# 38390738988); rule 4: 3 x 72.61 = 217.83 -> 240 s.
+set_tests_properties(gl_codegen_host_leak_test PROPERTIES TIMEOUT 240)
 
 # glintfx-blob: fora - monta CMake + Ninja de fixtura (pesado); coberto pelo ctest do preci
 
@@ -4290,7 +5373,10 @@ if(UNIX)
     # magnitude as that precedent's ~3x) - never widening the SUITE-WIDE
     # 120s default itself, only this one test's own budget, sized to its
     # own measured worst case.
-    set_tests_properties(pkgconfig_test PROPERTIES TIMEOUT 300)
+    # SECOND TIMEOUT override, 300s -> 360s (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): worst completed time 117.10 s ("Arch - compartilhado", run
+    # 38665857294), above a third of 300 s; rule 4: 3 x 117.10 = 351.30 -> 360 s.
+    set_tests_properties(pkgconfig_test PROPERTIES TIMEOUT 360)
 endif()
 
 # Post-install pkg-config VALIDATOR gate (PKG-VALIDATE): proves the
@@ -4350,6 +5436,10 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
 )
 set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 116.84 s ("Windows - estatico", run
+# 38672501272), 97% of the 120 s default; rule 4: 3 x 116.84 = 350.52 -> 360 s.
+set_tests_properties(pkgconfig_validate_test PROPERTIES TIMEOUT 360)
 
 # --selftest: pure logic controls (normalize_wrapped_message's own
 # wrap-immunity across a range of widths - the fix that also closes the
@@ -4396,6 +5486,7 @@ set_tests_properties(pkgconfig_validate_selftest PROPERTIES LABELS selftest)
 # CMAKE_CXX_COMPILER could be found" before ever reaching the blank-var
 # guard - a false negative that hid the real assertion this test
 # exists to make.
+# glintfx-nested-build: heavy - gemeo de forma do libdir_includedir_mix_rejected_test (L-17): quatro configures CMake aninhados com o compilador real; mediu 33,4 s (5,3 vezes a mediana de 6,3 s dos 45 runs verdes) no Windows estatico do run 39546765562, abaixo da regua de 40 s por 7 s; trinco pelo RECURSO que o teste usa, fora da MEASURED_HEAVY (que so' leva medido acima de 40 s)
 add_test(
     NAME blank_install_dir_rejected_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4403,7 +5494,7 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CXX_COMPILER}"
 )
-set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
+set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # --selftest: pure text-processing controls (classify_configure_result,
 # normalize_wrapped_message) - no nested cmake configure, no compiler
@@ -4431,6 +5522,7 @@ set_tests_properties(blank_install_dir_rejected_selftest PROPERTIES LABELS selft
 # stay unaffected in the same run. Same GATE-TREE-PARITY shape as
 # blank_install_dir_rejected_test above: unguarded by platform
 # (GODS_LAWS.md L-04), resolved via GLINTFX_PYTHON3_EXECUTABLE.
+# glintfx-nested-build: heavy - quatro configures CMake aninhados com o compilador real (um por cenario), um build aninhado em miniatura; mediu 41,3 s no Windows estatico do run 39546765562 (6,1 a 23,9 s, mediana 9,7 s, nos 45 runs verdes), onde a regua de 40 s do ctest_aggregate.py reprovou; trinco por MEDICAO (MEASURED_HEAVY em check_ctest_parallel_policy.py)
 add_test(
     NAME libdir_includedir_mix_rejected_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4438,7 +5530,7 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CXX_COMPILER}"
 )
-set_tests_properties(libdir_includedir_mix_rejected_test PROPERTIES LABELS consume)
+set_tests_properties(libdir_includedir_mix_rejected_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # --selftest: pure text-processing controls (classify_configure_result)
 # - no nested cmake configure, no compiler needed. Same
@@ -4782,12 +5874,13 @@ add_test(
 )
 set_tests_properties(version_matches_tag_test PROPERTIES LABELS consume)
 
+# glintfx-nested-build: heavy - o --selftest cria repositorios git temporarios, processo por controle, e mediu 64,2 s no Windows estatico (6,6 a 10,4 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME version_matches_tag_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_version_matches_tag.py" --selftest
 )
-set_tests_properties(version_matches_tag_selftest PROPERTIES LABELS selftest)
+set_tests_properties(version_matches_tag_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 
 # Rounding-order gate (TODO.md GATE-LLROUND-ORDER, GODS_LAWS.md L-20/
 # L-36/L-40): closed static check that every llround/lround/round/
@@ -5104,6 +6197,29 @@ add_test(
 )
 set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
 
+# DEMO-1 D1-fix-a (D-W8-91): this file is the ONLY test registry. Fails any
+# add_test()/glintfx_add_test() in code in another CMakeLists.txt or *.cmake
+# (the exclusions are printed with their reason). Reads `git ls-files`, so it
+# is `consume` like ignored_fixtures_test above.
+add_test(
+    NAME single_test_registry_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_single_test_registry.py" "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(single_test_registry_test PROPERTIES LABELS consume)
+
+# The executor requires the exact line with the control count: dropping a control is a visible
+# change, never a silent one. Python only, builds fixture trees in a temp dir.
+add_test(
+    NAME single_test_registry_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=check_single_test_registry.py --selftest: os 15 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_single_test_registry.py" --selftest
+)
+set_tests_properties(single_test_registry_selftest PROPERTIES LABELS selftest)
+
 # CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
 # INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).
 # CI-SPLIT-PER-OS A5 F1 (DESENHO.md 3.3): helper de FASE nas tres linguagens, mesmo formato byte a byte
@@ -5228,6 +6344,32 @@ add_test(
         "${PROJECT_SOURCE_DIR}/docs/auditoria-api-draw2d.md"
 )
 set_tests_properties(auditoria_texto_congelado_test PROPERTIES LABELS consume)
+
+# W8 closure F1 (D-W8-1997): the appendix of each W8 API review is a manifest of the public headers its
+# section 2 names, by git blob id (tools/auditoria_manifesto.py). The selftest count is exact, so a dropped
+# control fails. `verify` proves that no one edited an appendix by hand nor changed a review body after the
+# freeze; it never reads the headers, because later waves change them on purpose. `check-headers` runs
+# only at the closing commit, before the tag, and is never registered here (it would freeze the headers).
+add_test(
+    NAME auditoria_manifesto_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 12 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_manifesto.py" --selftest
+)
+set_tests_properties(auditoria_manifesto_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME auditoria_manifesto_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/auditoria_manifesto.py" verify "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-shapes.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-texture.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-image-resolver.md"
+        "${PROJECT_SOURCE_DIR}/docs/auditoria-api-sprite-shade.md"
+)
+set_tests_properties(auditoria_manifesto_test PROPERTIES LABELS consume)
 
 # CI-SPLIT-PER-OS (achado 4 da revisao do CTO, 29/09/2026): o agregado
 # declarados/executados/passaram/falharam dos jobs de ctest e' medido por
@@ -5368,6 +6510,15 @@ add_test(
 set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
+# WL-ACK-CONFIGURE-SEGUINTES: the judge of the WAYLAND_DEBUG trace the wayland-container job reads (ci.yml). Its
+# --selftest reads synthetic traces of its own and starts nothing, so it runs on every system.
+add_test(
+    NAME configure_ack_trace_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_configure_ack_trace.py" --selftest
+)
+set_tests_properties(configure_ack_trace_selftest PROPERTIES LABELS selftest)
+
 # CONTAINER-LOG-SIGNAL-FIRST (TODO.md, GODS_LAWS.md L-40/L-45/L-49,
 # /var/tmp/glintfx-plan/cauda-w6b.md sec. 4.1): tests/container/
 # exec_fixture.sh e' o atomo que os 18 passos `docker exec ... | tee
@@ -5401,7 +6552,44 @@ if(UNIX)
         NAME container_exec_fixture_selftest
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/exec_fixture.sh" --selftest
     )
-    set_tests_properties(container_exec_fixture_selftest PROPERTIES LABELS selftest)
+    # TEST-CRASH-QUIET (13/10/2026): os controles de sinal do selftest morrem
+    # por tests/tools/die_quietly.py, NAO-DUMPABLE, rodado por este python3;
+    # sem a variavel, o selftest recusa em vez de presumir um interpretador.
+    set_tests_properties(container_exec_fixture_selftest PROPERTIES LABELS selftest
+        ENVIRONMENT "GLINTFX_PYTHON3=${GLINTFX_PYTHON3_EXECUTABLE}")
+
+    # HOST-ALERT-GATE (13/10/2026, GODS_LAWS.md L-09 e L-50): teste nenhum
+    # chega a mesa do lider. O selftest prova o vermelho e o verde do portao SO
+    # sobre registros de exemplo do diario e, desde o redesenho de 14/10/2026,
+    # roda a medicao inteira contra um hospedeiro de mentira (nao acende alerta
+    # nenhum). O teste ao vivo sobe um conteiner da casa e roda o
+    # exec_fixture.sh --selftest no hospedeiro, e reprova se aparecer AVC com a
+    # categoria MCS daquele conteiner ou core dump do escopo proprio do teste ou
+    # do conteiner. Sai 77 (pulo DECLARADO, "Skipped" no ctest) SO onde alerta
+    # nenhum nosso e mensuravel: SELinux desligado (nem enforcing nem permissive)
+    # ou sem o CLI do docker, e o core dump fora de alcance (kernel.core_pattern
+    # sem systemd-coredump, ou o teste dentro de um conteiner, fora do namespace
+    # de PID inicial, como nos jobs Linux do CI: o core dump vai ao diario do
+    # hospedeiro, que dali nao se le). Onde um alerta e mensuravel e falta o que
+    # o mede (a imagem da casa, o diario legivel por conteudo antes, durante e
+    # depois da janela, o escopo do systemd-run, o logger), REPROVA: fonte
+    # ausente nunca passa, e programa ausente e fonte ausente, sem traceback
+    # (alertas-fix1, alertas-fix2 e redesenho; a regra 77 contra 99 do Automake
+    # e do Meson).
+    add_test(
+        NAME host_alert_gate_selftest
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_host_alerts_selftest.py" --selftest
+    )
+    set_tests_properties(host_alert_gate_selftest PROPERTIES LABELS selftest)
+    add_test(
+        NAME host_alert_gate_test
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}" -I
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_host_alerts.py" --live
+            "${PROJECT_SOURCE_DIR}" "${GLINTFX_PYTHON3_EXECUTABLE}"
+    )
+    set_tests_properties(host_alert_gate_test PROPERTIES LABELS host
+        SKIP_RETURN_CODE 77 RUN_SERIAL TRUE TIMEOUT 300)
 endif()
 
 # CONTAINER-LEAK-COUNTER sub-fatia S3 (/var/tmp/glintfx-plan/leak-
@@ -5499,12 +6687,13 @@ endif()
 # rodada completa do espelho (tools/preci.sh, estagio win32-link) ou do
 # job `windows` do CI - nunca em `ctest -N`.
 # glintfx-blob: fora - liga alvos win32 contra o cl.exe/link.exe (so' no Windows/container MSVC)
+# glintfx-nested-build: heavy - o --selftest procura docker e a imagem MSVC (cria processos) e mediu 92,2 s, mesmo pulado com rc 77, no Windows estatico (4,2 a 5,2 s nos runs verdes); trinco por MEDICAO (run 37515318202, Windows estatico, onde a regua de 40 s do ctest_aggregate.py reprovou; MEASURED_HEAVY em check_ctest_parallel_policy.py), vira `PROCESSORS n` medido
 add_test(
     NAME win32_test_link_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_win32_test_link.py" --selftest
 )
-set_tests_properties(win32_test_link_selftest PROPERTIES LABELS selftest)
+set_tests_properties(win32_test_link_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 set_tests_properties(win32_test_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
 # Varredura do gemeo (GODS_LAWS.md L-17), feita ao consertar o orfao
@@ -5744,7 +6933,7 @@ if(WIN32)
 
     # CI-CONSUME (Concluido): par de embed_test (if(UNIX) acima,
     # tools/check_embed.sh) - ver tests/parity_aliases.txt.
-    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (75,24 s serial no Windows, com o TIMEOUT padrao de 120 s, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (75,24 s serial no Windows no run 36202987723; ate 117,05 s no Windows Debug no run 38669031219, com TIMEOUT proprio de 360 s desde EMBED-WIN-TIMEOUT); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
     add_test(
         NAME embed_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5753,6 +6942,29 @@ if(WIN32)
             -EmbedSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed"
     )
     set_tests_properties(embed_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-525; the same precedent as
+    # public_name_collision_test and pkgconfig_test above, GODS_LAWS.md L-44): this test inherited
+    # the SUITE-WIDE 120 s default until it timed out on "Windows - Debug" (run 38659724788,
+    # ***Timeout 120.06 sec: a killed process, not a completion time, so it is not used below).
+    # Completed times pulled from the server (gh run view --job <id> --log, never estimated):
+    # 75.24 s (run 36202987723); 102.27 s Debug (run 38575186902); 109.59 s Debug (run
+    # 38543250846); 111.12 s Debug (run 38556511988); 107.71 s Debug, 108.78 s static, 105.49 s
+    # shared (run 38665857294); 117.05 s Debug, 107.90 s static, 76.25 s shared (run 38669031219);
+    # 76.89 s Debug, 110.13 s static, 110.58 s shared (run 38672501272). Worst completed time:
+    # 117.05 s, 98% of the old ceiling. Rule 4 of docs/plano-ci-split-per-os.md 4.8 (the one
+    # tests/tools/ctest_p1_compare.py applies): 3 x the worst completed time, rounded UP to a
+    # multiple of 30 s, never below the current ceiling: 3 x 117.05 = 351.15 -> 360 s.
+    # GODS_LAWS.md L-17, not isolated: over the thirteen runs 38177249612 to 38672501272, every
+    # test whose worst completed time reached a third of its own ceiling (the trigger of rule 4
+    # itself, the "folga P2" line tests/tools/ctest_aggregate.py prints in every CI leg) got the
+    # same rule, each with its own numbers at its own registration: public_name_collision_test,
+    # pkgconfig_test, pkgconfig_validate_test, embed_test, gl_codegen_host_leak_test,
+    # install_packager_layout_test, no_target_collision_win_test, install_includedir_win_test,
+    # dep_zero_selftest, claim_citations_test, claim_citations_selftest and examples_pass_test.
+    # Where the file already recorded a worse completed time (re-read from that run's log), that
+    # one counts. install_includedir_test timed out once (run 38247951304, where four tests timed
+    # out), but its worst completed time, 36.08 s, is below 40 s: rule 4 does not move it.
+    set_tests_properties(embed_win_test PROPERTIES TIMEOUT 360)
 
     # PRECI-WIN (Concluido): par de preci_selftest (if(UNIX) acima) -
     # ver tests/parity_aliases.txt. Custo aceito e declarado: no job
@@ -5796,6 +7008,10 @@ if(WIN32)
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
     )
     set_tests_properties(install_includedir_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): worst completed time 60.11 s ("Windows - Debug", run
+    # 38556511988); rule 4: 3 x 60.11 = 180.33 -> 210 s.
+    set_tests_properties(install_includedir_win_test PROPERTIES TIMEOUT 210)
 
     # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (37,52 s serial no Windows, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 
@@ -5807,6 +7023,10 @@ if(WIN32)
             -FixtureSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
     )
     set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep
+    # are written at embed_win_test): worst completed time 61.04 s ("Windows - Debug", run
+    # 38533813188); rule 4: 3 x 61.04 = 183.12 -> 210 s.
+    set_tests_properties(no_target_collision_win_test PROPERTIES TIMEOUT 210)
 
     # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - INFERENCIA por leitura de check-output-name-win.ps1 (`cmake --install $buildDir`, gemeo do output_name_test); nao medido aqui
 
@@ -6029,6 +7249,29 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_orphan.py" --selftest
 )
 set_tests_properties(check_selftest_orphan_selftest PROPERTIES LABELS selftest)
+
+# SELFTEST-CHECK-CANARY, CANARY-2 (D-W8-357, GODS_LAWS.md L-33, L-36, L-40): one owner for check(). The
+# SELFTEST-CHECK-CANARY, CANARY-3 (D-W8-360 to D-W8-362, GODS_LAWS.md L-17, L-36, L-40): the EFFECT of check().
+# Every module of the repository that names check is imported, and its check, called with a false condition,
+# must stop with a non-zero SystemExit. The --selftest is the executor's form, so its line is a site of
+# check_no_pass_regex.cmake (the helper's site leaves and this one enters: the count stays 12).
+add_test(
+    NAME selftest_check_effect_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_check_effect.py" --check
+        "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(selftest_check_effect_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME check_selftest_check_effect_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 8 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_check_effect.py" --selftest
+)
+set_tests_properties(check_selftest_check_effect_selftest PROPERTIES LABELS selftest)
 
 # check_format_selftest - o autoteste do gate de formato que entrou em
 # be66fa6 (item LOOP-FMT-CLASS, cadeia de ganchos do commit) - registro
@@ -6309,6 +7552,332 @@ add_test(
 )
 set_tests_properties(python_unbuffered_selftest PROPERTIES LABELS selftest)
 
+# QA-SCREEN-CAPTURE P2 (D-W8-20, D-W8-32, D-W8-33): the reader of the
+# wire relay's frame captures. raw_to_png.py turns conn<N>_surface<S>.raw
+# plus .meta into PNG with an md5 per image and REJECTS zero images
+# (CAPTURE-ZERO-FRAME-VERDICT); image_probe.py checks pixel probes on a
+# PNG and rejects zero probes. Each one's --selftest runs the three L-40
+# controls (good passes, bad rejects, empty rejects). Standard library
+# only (L-07). The consumer is P3 (capture_known_color_smoke).
+# Each selftest below is checked by tests/tools/expect_exit_and_line.cmake (D-W8-114, GODS_LAWS.md
+# L-36/L-40): its exit code must be 0 AND its "N controles OK" line must appear exactly once, with N the
+# exact control count. A main that never runs prints no line and fails; a selftest that prints the line
+# and then exits 1 also fails. The count is exact, so dropping one control is a visible failure.
+add_test(
+    NAME raw_to_png_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 44 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/raw_to_png.py" --selftest
+)
+set_tests_properties(raw_to_png_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME image_probe_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 26 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/image_probe.py" --selftest
+)
+set_tests_properties(image_probe_selftest PROPERTIES LABELS selftest)
+
+# QA-COMPOSED-PATH G2 (plano-fechamento-w8-r2.md sec. 5.4, D-W8-254/267): composed_photo_facts.py judges one
+# composed photo taken by tests/container/composed_photo.sh: which card composed (OpenGL, the expected maker,
+# never llvmpipe or softpipe; OpenGL ES too since KWin 6.8, G3-ES) and what ScreenShot2 handed over (QImage
+# format 6, 4 or 18, mapped to wl_shm; 18 with R and B swapped). The
+# selftest is the criterion table written before the data (L-43); the count is exact, so a dropped control fails.
+# G2-fix1: the capture must also be the expected size (640x480 for the demo, D-W8-72) at scale 1.
+add_test(
+    NAME composed_photo_facts_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 38 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/composed_photo_facts.py" --selftest
+)
+set_tests_properties(composed_photo_facts_selftest PROPERTIES LABELS selftest)
+
+# QA-COMPOSED-PHOTOS G4a: nvidia_cdi_mounts.py turns the CDI specification that matches the loaded NVIDIA driver
+# into the read-only binds of the GeForce photo container (tests/container/composed_photo.sh, card nvidia). The
+# selftest reads a hand-written specification with a fake driver version; the count is exact, so a dropped
+# control fails.
+add_test(
+    NAME nvidia_cdi_mounts_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 14 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/nvidia_cdi_mounts.py" --selftest
+)
+set_tests_properties(nvidia_cdi_mounts_selftest PROPERTIES LABELS selftest)
+
+# QA-SCREEN-CAPTURE P3 (D-W8-33): capture_vs_readback.py compares the relay's
+# capture of a frame against the client's own glReadPixels of the same frame,
+# pixel by pixel, alpha included. Its --selftest runs on a 2x2 image
+# asymmetric in both axes and in every channel (a missing flip or a missing
+# R/B swap changes a byte), plus the L-40 controls (equal passes, one byte
+# rejects, empty/ambiguous capture rejects) and the real process exit codes.
+# The consumer is tests/container/run_capture_known_color.sh.
+add_test(
+    NAME capture_vs_readback_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 23 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_vs_readback.py" --selftest
+)
+set_tests_properties(capture_vs_readback_selftest PROPERTIES LABELS selftest)
+
+# QA-SCREEN-CAPTURE C2b-3 (D-W8-36, D-W8-39): the DRIVER of the Windows capture proof
+# (tests/tools/run_capture_known_color_win32.py), the Python counterpart of the container's
+# run_capture_known_color.sh. Its --selftest needs no Windows, no tool and no window: a tool double
+# writes the capture files, the REAL helpers (raw_to_png.py, capture_vs_readback.py, image_probe.py)
+# judge them, and the wiring (modes exactly {off, on}, one pair per mechanism, the alpha-absent flag,
+# the probes over the internal reading) is proven with run() doubles. Python, so it runs on every
+# system (the sh driver's selftest above is UNIX-only). The executor requires exit 0 and the exact line
+# with the control count: dropping a control is a visible change, never a silent one. The real run is registered with the fixture
+# (C2b-4); this is only the selftest.
+add_test(
+    NAME run_capture_known_color_win32_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 111 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py" --selftest
+)
+# FAIL_REGULAR_EXPRESSION: a MEASURED or SCANCOUNT line in the selftest output fails it. The value and its rule
+# (anything but a letter, a digit or '_' after the word) live in tests/tools/measured_leak_filter.cmake (D-W8-200).
+set_tests_properties(run_capture_known_color_win32_selftest PROPERTIES LABELS selftest
+    FAIL_REGULAR_EXPRESSION "${GLINTFX_MEASURED_LEAK_FILTER}")
+
+# QA-SCREEN-CAPTURE P3, revision of the adversarial review: the pure decisions of
+# the driver tests/container/run_capture_known_color.sh (stale output directory
+# is removed, the mode set is exactly {off, on}, the wait names the presenting
+# connection, a timed-out wait says what it expected) and the wiring of one_mode, with its collaborators stubbed (the
+# five call mutants of QA-SCREEN-CAPTURE R4-A, DEMO-1 D2a, CAPTURE-DRIVER-WIRING-UNTESTED). No container, no docker:
+# only the shell. The executor below requires exit 0 and the exact line with the control count:
+# dropping a control is a visible change, never a silent one.
+# if(UNIX): the driver is POSIX sh and its selftest uses mktemp; neither exists natively on the Windows CI
+# (same reason as container_exec_fixture_selftest above). The Windows side is declared in parity_exceptions.txt.
+if(UNIX)
+    add_test(
+        NAME run_capture_known_color_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 34 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_capture_known_color.sh" --selftest
+    )
+    set_tests_properties(run_capture_known_color_selftest PROPERTIES LABELS selftest)
+endif()
+
+# QA-COMPOSED-PATH G1a (D-W8-274): the controls of the HostConfig normalization that check_isolation.sh uses
+# (hostconfig_json.sh), loaded by the driver's own --selftest (check_isolation_selftest.sh). No container, no docker,
+# no socket: every input is text derived from hostconfig_baseline.txt, and the gold hashes were measured before the
+# split. The executor requires exit 0 and the exact line with the control count. if(UNIX): POSIX sh, md5sum and
+# mktemp do not exist natively on the Windows CI (same reason as run_capture_known_color_selftest above).
+if(UNIX)
+    add_test(
+        NAME check_isolation_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 51 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/check_isolation.sh" --selftest
+    )
+    set_tests_properties(check_isolation_selftest PROPERTIES LABELS selftest)
+endif()
+
+# QA-COMPOSED-PHOTOS G4a-fix1: the controls of composed_photo.sh's choice of card, the guards that run BEFORE any
+# docker call (the node by vendor and driver, the node the GeForce baseline names, label=disable only on nvidia),
+# loaded by the driver's own --selftest (composed_photo_selftest.sh). Fake /sys trees under mktemp; no container,
+# no device. The executor requires exit 0 and the exact line with the control count. if(UNIX): POSIX sh and
+# mktemp, same reason as check_isolation_selftest above.
+if(UNIX)
+    add_test(
+        NAME composed_photo_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 9 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/composed_photo.sh" --selftest
+    )
+    set_tests_properties(composed_photo_selftest PROPERTIES LABELS selftest)
+endif()
+
+# KWIN-68-SEM-PLACA: the controls of the text judges of tests/container/check_image_freshness.sh (the stamp of the
+# dnf layer, the Fedora release against the registry's, the kwin package, the verdict), loaded by the driver's --selftest
+# (check_image_freshness_selftest.sh). No docker, no network, no image: every input is text. The executor requires
+# exit 0 and the exact line with the control count. if(UNIX): POSIX sh, same reason as check_isolation_selftest.
+if(UNIX)
+    add_test(
+        NAME check_image_freshness_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 17 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/check_image_freshness.sh" --selftest
+    )
+    set_tests_properties(check_image_freshness_selftest PROPERTIES LABELS selftest)
+endif()
+
+# DEMO-1 D3 (D-W8-74, D-W8-81, D-W8-138): the DRIVER of the Linux capture of one example, first_window, shapes,
+# textures or sprite_shadows
+# (tests/container/run_example_capture.sh, its table opened by R2D-SHAPES S6, D-W8-1081); its controls live in
+# run_example_capture_selftest.sh, loaded by the
+# driver's own --selftest. No container and no docker daemon: doubles of docker and of the example on PATH, the REAL
+# exec_fixture.sh and timeout, and the REAL raw_to_png.py and image_probe.py. The executor requires exit 0 and the exact
+# line. if(UNIX): POSIX sh, mktemp and timeout do not exist on the Windows CI; the Windows side is declared in
+# parity_exceptions.txt (the Windows driver of the example is tests/tools/run_example_capture_win32.py, D5b).
+if(UNIX)
+    add_test(
+        NAME run_example_capture_selftest
+        COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+            "-DEXPECT_LINE=selftest: 30 controles OK"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+            sh "${CMAKE_CURRENT_SOURCE_DIR}/container/run_example_capture.sh" --selftest
+    )
+    set_tests_properties(run_example_capture_selftest PROPERTIES LABELS selftest)
+endif()
+
+# DEMO-1 D6-red (D-W8-75, D-W8-127, D-W8-188): the Windows side of the example first_window, the SAME name the
+# container inventory gives the Linux capture (check_test_parity.py pairs them by name; arch, cachyos and ubuntu are
+# declared in parity_exceptions.txt). The ctest runs the DRIVER (tests/tools/run_example_capture_win32.py): it
+# launches the capture tool, which launches the example built by the tree (its options and examples/bin come from
+# the glintfx root, cmake/GlintfxExamples.cmake), and judges both captures with the 12 static probes. Executes on the
+# CI runner only (a real desktop, GODS_LAWS.md L-09). The Mesa opengl32 sits beside the example in examples/bin
+# (ci.yml). RUN_SERIAL: another window could cover this one and give a false OCLUIDA. TARGET first_window: a tree
+# configured with the examples OFF and the tests ON configures on Windows as it does on Linux (L-04); in the CI the
+# parity gate fails if the name is missing.
+# WORKING_DIRECTORY is the example's own folder (EXAMPLE-RUN-DIR, D-W8-226): the example runs from where a consumer
+# runs it. From tests/, Windows found glintfx.dll in the CURRENT folder (the copy put there for the tests, which the
+# DLL search order reaches after the system folders), so the example's own POST_BUILD copy of its runtime DLLs was
+# never exercised (the disposable V-12 run 38108577899 survived).
+if(WIN32 AND TARGET first_window)
+    add_test(
+        NAME first_window
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" first_window "$<TARGET_FILE:first_window>"
+            "${CMAKE_CURRENT_BINARY_DIR}/first_window_capture_out"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:first_window>"
+    )
+    # LABELS unit, not consume (D-W8-60, the same reason as capture_known_color_smoke): the example is built through
+    # the root's options, sanitized in the sanitizer job, so the job's `ctest -L '^unit$'` reaches it.
+    set_tests_properties(first_window PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
+# R2D-SHAPES S6 (D-W8-1081, D-W8-1084): the Windows side of the example shapes, registered exactly as first_window
+# above (the same driver, the same reasons for every line), judged with its static probes
+# (tests/fixtures/shapes_probes.txt, D-W8-1083; the count is the driver's table). The SAME name as the Linux capture
+# in the container inventory.
+if(WIN32 AND TARGET shapes)
+    add_test(
+        NAME shapes
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" shapes "$<TARGET_FILE:shapes>"
+            "${CMAKE_CURRENT_BINARY_DIR}/shapes_capture_out"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:shapes>"
+    )
+    set_tests_properties(shapes PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
+# R2D-TEXTURE T7: the Windows side of the example textures, registered exactly as shapes above (the same driver, the
+# same reasons for every line), judged with its static probes (tests/fixtures/textures_probes.txt; the count is the
+# driver's table). The SAME name as the Linux capture in the container inventory.
+if(WIN32 AND TARGET textures)
+    add_test(
+        NAME textures
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" textures "$<TARGET_FILE:textures>"
+            "${CMAKE_CURRENT_BINARY_DIR}/textures_capture_out"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:textures>"
+    )
+    set_tests_properties(textures PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
+# R2D-SPRITE-SHADE H5: the Windows side of the example sprite_shadows, registered exactly as textures above (the same
+# driver, the same reasons for every line), judged with its static probes (tests/fixtures/sprite_shadows_probes.txt;
+# the count is the driver's table). The SAME name as the Linux capture in the container inventory.
+if(WIN32 AND TARGET sprite_shadows)
+    add_test(
+        NAME sprite_shadows
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_example_capture_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" sprite_shadows "$<TARGET_FILE:sprite_shadows>"
+            "${CMAKE_CURRENT_BINARY_DIR}/sprite_shadows_capture_out"
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:sprite_shadows>"
+    )
+    set_tests_properties(sprite_shadows PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
+# QA-SCREEN-CAPTURE C2b-1 (D-W8-36, D-W8-37, D-W8-40; /var/tmp/cto-w8/decisao-c2b.md): the PURE rules of
+# the Windows window-capture tool (window count, client area against the virtual screen, the five
+# occlusion points and their verdict, the XRGB8888 .meta text). No <windows.h>, no system call: it runs
+# on every system, so there is no parity exception.
+glintfx_add_test(window_capture_rules_test)
+target_include_directories(window_capture_rules_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_sources(window_capture_rules_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp")
+
+# QA-SCREEN-CAPTURE D5a (D-W8-113, DEMO-1): the command line of the Windows window-capture tool, as a
+# pure unit (the options it accepts, the --ready-line text, the budget ceiling). No <windows.h>, no
+# system call: it runs on every system, so there is no parity exception.
+glintfx_add_test(window_capture_options_test)
+target_include_directories(window_capture_options_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_sources(window_capture_options_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_options.cpp")
+
+# QA-SCREEN-CAPTURE C2b-2 (D-W8-36, D-W8-37, D-W8-40): the Windows window-capture tool. It launches the
+# fixture itself, finds its window by PID and title (exactly one), reads the pixels by PrintWindow and by
+# BitBlt of the screen, and writes one capture pair per mechanism. NOT a test: an executable the driver
+# (C2b-3/C2b-4) runs, so no add_test here and no glintfx_add_test (the win32 link gate enumerates those).
+# It never shows, hides or activates the FIXTURE'S window (D-W8-37); the only window it shows is its
+# own occluder, and only with --sabotage-occlude.
+if(WIN32)
+    add_executable(win32_window_capture
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_window_capture.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_child.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_grab.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_occluder.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/win32_capture_text.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_rules.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/window_capture_options.cpp")
+    target_link_libraries(win32_window_capture PRIVATE user32 gdi32)
+    glintfx_apply_compile_options(win32_window_capture)
+endif()
+
+# QA-SCREEN-CAPTURE C2b-4 (D-W8-39, D-W8-40, D-W8-41): the Windows side of capture_known_color_smoke, the
+# SAME name and the SAME source (tests/parity/capture_known_color_smoke.cpp, public API only, no #if) as the
+# container fixture of the Linux side, so check_test_parity.py pairs them by name with no exception line.
+# The ctest runs the DRIVER (tests/tools/run_capture_known_color_win32.py): it launches the capture tool, which
+# launches the fixture, reads its window by PrintWindow and by BitBlt of the screen, and compares both against
+# the fixture's own glReadPixels. Executes on the CI runner only (the window needs a real desktop, GODS_LAWS.md
+# L-09: never on the leader's live session); locally this target is only compiled (MSVC in a container).
+# The Mesa opengl32 sits beside the fixture in ${builddir}/tests, like every GL test of this file.
+# RUN_SERIAL: ANOTHER test window running in parallel could cover this one's client area, and the BitBlt
+# would give a false OCLUIDA. (The output directory below lives in the build tree, and RUN_SERIAL also
+# keeps any other test from touching it.)
+if(WIN32)
+    add_executable(capture_known_color_smoke "${CMAKE_CURRENT_SOURCE_DIR}/parity/capture_known_color_smoke.cpp")
+    target_link_libraries(capture_known_color_smoke PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(capture_known_color_smoke)
+    glintfx_copy_runtime_dlls_after_build(capture_known_color_smoke)
+    add_test(
+        NAME capture_known_color_smoke
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_capture_known_color_win32.py"
+            "$<TARGET_FILE:win32_window_capture>" "$<TARGET_FILE:capture_known_color_smoke>"
+            "${CMAKE_CURRENT_BINARY_DIR}/capture_known_color_win32_out"
+    )
+    # LABELS unit, not consume (D-W8-60): the `consume` label exists for gates that link a PLAIN consumer
+    # against the sanitized library, which fails by construction under ASan. This test builds its fixture
+    # and its tool through glintfx_apply_compile_options, so both are sanitized themselves (and the driver
+    # is Python), and the job windows-sanitizer already runs a real window and a SW_HIDE child under ASan
+    # (win32_first_present_maps_test). The rule of that job (ctest -L '^unit$') now reaches the capture.
+    set_tests_properties(capture_known_color_smoke PROPERTIES LABELS unit RUN_SERIAL TRUE TIMEOUT 600)
+endif()
+
 # CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
 # sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
 # por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de
@@ -6356,14 +7925,19 @@ set_tests_properties(test_name_inventory_selftest PROPERTIES
 # GODS_LAWS.md L-40 (piso de varredura nao-vazia) aplicado tambem ao
 # proprio arquivo de excecoes (regra de morte identica a check_test_
 # parity.py's own alias hygiene, C3).
+# glintfx-nested-build: heavy - o --check varre include/**/*.hpp e mediu 57,13 s no Arch estatico (mediana 8,22 s em 179 amostras de 13 runs); trinco por MEDICAO (run 38247951304, Arch estatico, o run em que quatro testes deram Timeout, acima da regua de 40 s do ctest_aggregate.py; MEASURED_HEAVY em check_ctest_parallel_policy.py, EMBED-WIN-TIMEOUT D-W8-529), vira `PROCESSORS n` medido
 add_test(
     NAME claim_citations_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claim_citations.py"
         --check "${PROJECT_SOURCE_DIR}"
 )
-set_tests_properties(claim_citations_test PROPERTIES LABELS consume)
+set_tests_properties(claim_citations_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 57.13 s (above); rule 4: 3 x 57.13 = 171.39 -> 180 s.
+set_tests_properties(claim_citations_test PROPERTIES TIMEOUT 180)
 
+# glintfx-nested-build: heavy - o --selftest mediu 52,11 s no Arch estatico (mediana 7,58 s em 179 amostras de 13 runs); trinco por MEDICAO (run 38247951304, Arch estatico, o run em que quatro testes deram Timeout, acima da regua de 40 s do ctest_aggregate.py; MEASURED_HEAVY em check_ctest_parallel_policy.py, EMBED-WIN-TIMEOUT D-W8-529), vira `PROCESSORS n` medido
 add_test(
     NAME claim_citations_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -6371,7 +7945,11 @@ add_test(
 )
 set_tests_properties(claim_citations_selftest PROPERTIES
     LABELS selftest
+    RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FALHOU")
+# TIMEOUT override, MEASURED not guessed (EMBED-WIN-TIMEOUT, D-W8-526; the rule and the sweep are
+# written at embed_win_test): worst completed time 52.11 s (above); rule 4: 3 x 52.11 = 156.33 -> 180 s.
+set_tests_properties(claim_citations_selftest PROPERTIES TIMEOUT 180)
 
 # DOCS-COUNT-VOCAB sub-fatia D1b (achado do main, 24/09/2026,
 # check_selftest_orphan_test #223): citation_grammar.py declara
@@ -6500,6 +8078,25 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a1_selftest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a2_selftest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a3c_selftest.cpp"
+        # QA-SCREEN-CAPTURE P1 (D-W8-20/D-W8-32): the relay keeps the
+        # last COMMITTED wl_shm buffer of each surface (snapshot) and
+        # saves it when the client leaves (frame writer), a verdict atom
+        # judges the count; the three selftests below (snapshot,
+        # writer, whole relay) drive them over memfd pixels written by
+        # hand. Same
+        # executable on purpose - one selftest source per sub-fatia.
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_shm_snapshot.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_frame_writer.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_capture_verdict.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_shm_snapshot_selftest.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_shm_writer_selftest.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_shm_capture_selftest.cpp"
+        # WIRE-RELAY-FD-PASSTHROUGH (D-W8-F07): a message with a descriptor reaches the other
+        # side with it, in both directions, even on an interface the relay does not model.
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_fd_passthrough_selftest.cpp"
+        # SUITE-TMPDIR-PATHS (fix1): scratch_dir itself, the test-only folder the cases above use,
+        # leaves nothing behind in TMPDIR when it cannot open its own descriptor.
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_scratch_dir_selftest.cpp"
     )
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)
@@ -6530,4 +8127,10 @@ endif()
 get_property(_glintfx_every_registered_test DIRECTORY PROPERTY TESTS)
 foreach(_glintfx_test_name IN LISTS _glintfx_every_registered_test)
     set_property(TEST "${_glintfx_test_name}" APPEND PROPERTY ENVIRONMENT "PYTHONUNBUFFERED=1")
+    # HOST-ALERT-GATE (13/10/2026): nenhum teste le a pasta de pacotes do
+    # USUARIO (~/.local/lib/python3.*/site-packages). A biblioteca tem
+    # dependencia zero, e um teste que importasse dali dependeria em silencio
+    # do que esta instalado na maquina de quem roda; desligada aqui, uma
+    # dependencia assim reprova em vez de passar so nesta maquina.
+    set_property(TEST "${_glintfx_test_name}" APPEND PROPERTY ENVIRONMENT "PYTHONNOUSERSITE=1")
 endforeach()

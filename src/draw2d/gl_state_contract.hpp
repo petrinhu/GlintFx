@@ -29,6 +29,9 @@
 //   - GL_FRAMEBUFFER_SRGB on exactly when the context option `srgb_framebuffer` is on.
 // (The element-array binding is state OF the vertex array, so zeroing it while the array is still
 // bound is part of unbinding the array; set_gl_state_for_drawing rebinds it every time.)
+// Beyond that list, and not yet promised by the public text: the stencil at the values GL starts
+// with (leave_stencil_at_gl_defaults() of gl_stencil_contract.hpp; R2D-SPRITE-SHADE H3a; the public
+// sentence comes with the shadow drawing, H3b). Both functions below leave it so.
 namespace glintfx::draw2d {
 
 // What set_gl_state_for_drawing() needs to know.

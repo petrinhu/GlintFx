@@ -16,7 +16,10 @@
 // that is not b - and not merely off by a rounding step.
 //
 // MEASURED LIVE in a container on 05/09/2026 (GODS_LAWS.md L-09),
-// double precision, this exact expression:
+// double precision, this exact expression (proved by
+// `interpolation_returns_the_exact_endpoint_at_one_where_the_naive_form_does_not`
+// in tests/math2d_test.cpp, which computes the naive form next to the
+// one used here, from these starting values):
 //
 //     a = 1e17, b = 1.0, t = 1.0
 //       naive `a + t * (b - a)`  ->  0            WRONG

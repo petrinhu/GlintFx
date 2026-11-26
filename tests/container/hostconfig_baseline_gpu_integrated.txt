@@ -1,0 +1,37 @@
+# tests/container/hostconfig_baseline_gpu_integrated.txt - SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Measured baseline for check_isolation.sh's variant "gpu_integrated" (QA-COMPOSED-PATH G1b, D-W8-266).
+# It is the HostConfig of a container that gets the INTEGRATED GPU node and nothing else. Same discipline as
+# hostconfig_baseline.txt (the "ci" variant, GODS_LAWS.md L-40, ISO-BASELINE): a live capture, not hand-written.
+#
+# Capture (11/10/2026, Docker Server 29.7.2, image glintfx-wltest:egl, the only glintfx-wltest image on the host):
+#
+#   docker create --name glintfx-g1b-gpu-integrated --cap-drop=ALL --cap-add=SYS_NICE \
+#       --device /dev/dri/renderD128 glintfx-wltest:egl
+#   docker inspect --format '{{json .HostConfig}}' glintfx-g1b-gpu-integrated
+#   docker rm glintfx-g1b-gpu-integrated
+#
+# The container was NEVER started: `docker create` only builds the HostConfig, so no GPU was opened by the
+# capture (GODS_LAWS.md L-09; the GeForce is /dev/dri/renderD129 and is not in this file).
+#
+# Which node is which, measured on the host by /sys/class/drm (not assumed):
+#   renderD128 -> driver i915, vendor 0x8086 (Intel, INTEGRATED)   <- this variant
+#   renderD129 -> driver nvidia, vendor 0x10de (NVIDIA GeForce)     <- NOT this variant; the variant gpu_geforce
+#                                                                       has its own baseline, born in G4a (§5.6)
+#
+# The only difference from hostconfig_baseline.txt (the "ci" variant) is the Devices array: here it holds the
+# renderD128 node, there it is empty. Nothing else moved (checked with diff, field by field).
+#
+# Placeholders, the same three as the "ci" baseline, applied with the same sed steps normalize_host_config()
+# runs (see hostconfig_json.sh), so the two files compare field by field:
+#   1. "ConsoleSize":[0,0] -> "ConsoleSize":"NORMALIZED" (tty geometry, not container security).
+#   2. Each "/sys/devices/system/cpu/cpuN/thermal_throttle" entry of MaskedPaths removed. The count of those
+#      entries is checked separately against the host by assert_cpu_masked_path_count_matches_host().
+#   3. "OomKillDisable":false -> "OomKillDisable":"NORMALIZED" (docker create reads back false; docker run,
+#      null; both placeholdered).
+#
+# Re-measure this file, with the same command, whenever the pinned Docker version or the device layout of the
+# host changes. The JSON below is kept as measured; it is NOT hand-sorted (arrays are sorted at compare time).
+#
+# Usage: check_isolation.sh <container> <socket> gpu_integrated
+{"Binds":null,"ContainerIDFile":"","LogConfig":{"Type":"json-file","Config":{}},"NetworkMode":"bridge","PortBindings":{},"RestartPolicy":{"Name":"no","MaximumRetryCount":0},"AutoRemove":false,"VolumeDriver":"","VolumesFrom":null,"ConsoleSize":"NORMALIZED","CapAdd":["CAP_SYS_NICE"],"CapDrop":["ALL"],"CgroupnsMode":"private","Dns":null,"DnsOptions":[],"DnsSearch":[],"ExtraHosts":null,"GroupAdd":null,"IpcMode":"private","Cgroup":"","Links":null,"OomScoreAdj":0,"PidMode":"","Privileged":false,"PublishAllPorts":false,"ReadonlyRootfs":false,"SecurityOpt":null,"UTSMode":"","UsernsMode":"","ShmSize":67108864,"Runtime":"runc","Isolation":"","CpuShares":0,"Memory":0,"NanoCpus":0,"CgroupParent":"","BlkioWeight":0,"BlkioWeightDevice":[],"BlkioDeviceReadBps":[],"BlkioDeviceWriteBps":[],"BlkioDeviceReadIOps":[],"BlkioDeviceWriteIOps":[],"CpuPeriod":0,"CpuQuota":0,"CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CpusetCpus":"","CpusetMems":"","Devices":[{"PathOnHost":"/dev/dri/renderD128","PathInContainer":"/dev/dri/renderD128","CgroupPermissions":"rwm"}],"DeviceCgroupRules":null,"DeviceRequests":null,"MemoryReservation":0,"MemorySwap":0,"MemorySwappiness":null,"OomKillDisable":"NORMALIZED","PidsLimit":null,"Ulimits":[],"CpuCount":0,"CpuPercent":0,"IOMaximumIOps":0,"IOMaximumBandwidth":0,"MaskedPaths":["/proc/acpi","/proc/asound","/proc/interrupts","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/sched_debug","/proc/scsi","/proc/timer_list","/proc/timer_stats","/sys/devices/virtual/powercap","/sys/firmware"],"ReadonlyPaths":["/proc/bus","/proc/fs","/proc/irq","/proc/sys","/proc/sysrq-trigger"]}

@@ -37,7 +37,7 @@ namespace glintfx::platform {
 // something an anonymous-namespace (internal-linkage) function in this
 // TU could never give a SEPARATE test .cpp that compiles this file a
 // second time (tests/CMakeLists.txt's own comment on that technique).
-bool is_unresolved_sentinel(void *address) noexcept {
+bool is_unresolved_sentinel(const void *address) noexcept {
     const auto value = reinterpret_cast<std::intptr_t>(address);
     return value == 0 || value == 1 || value == 2 || value == 3 || value == -1;
 }

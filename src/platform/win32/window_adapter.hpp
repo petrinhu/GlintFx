@@ -33,8 +33,9 @@
 // D-W5-8/D-W5-13 (confirmed for this fatia too): the window is created
 // WITHOUT WS_VISIBLE and open() never calls ShowWindow - a window
 // "nasce invisivel ate o primeiro desenho" on both platforms; mapping/
-// showing is a later fatia's job (whoever paints the first frame),
-// never this adapter's.
+// showing is the job of whoever presents the first frame - since
+// WIN-MAP-FIRST-PRESENT (D-W8-38) that is win32_gl_context_adapter::
+// swap_buffers() through first_present_map.hpp, never this adapter's.
 //
 // WHY THE FIRST WM_SIZE NEEDS A SEPARATE ROUTING PATH (sec. 5 risk 2 of
 // the plan, "o primeiro WM_SIZE chega DURANTE CreateWindowExW"):

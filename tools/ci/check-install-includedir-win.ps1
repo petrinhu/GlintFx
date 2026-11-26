@@ -41,7 +41,7 @@ function New-ScratchWorkdir() {
 # Windows cai para NMake, que nao acha cl.exe sozinho).
 function Invoke-ConfigureWithNonDefaultIncludeDir([string]$glintfxSrc, [string]$buildDir) {
     cmake -S $glintfxSrc -B $buildDir -G Ninja -DCMAKE_BUILD_TYPE=Release `
-        "-DCMAKE_INSTALL_INCLUDEDIR=$($script:NonDefaultIncludeDir)" -DGLINTFX_BUILD_TESTS=OFF
+        "-DCMAKE_INSTALL_INCLUDEDIR=$($script:NonDefaultIncludeDir)" -DGLINTFX_BUILD_TESTS=OFF -DGLINTFX_BUILD_EXAMPLES=OFF
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

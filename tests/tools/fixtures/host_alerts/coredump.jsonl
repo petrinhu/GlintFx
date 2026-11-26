@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# HOST-ALERT-GATE: registros de exemplo do diario, um JSON por linha, copiados dos reais de 13/10/2026.
+{"MESSAGE_ID": "fc2e22bc6ee647b6b90729ab34a250b1", "COREDUMP_CGROUP": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4188.scope/tab(4202).scope", "COREDUMP_CMDLINE": "sh -c $'kill -SEGV $$'", "COREDUMP_SIGNAL_NAME": "SIGSEGV"}
+{"MESSAGE_ID": "fc2e22bc6ee647b6b90729ab34a250b1", "COREDUMP_CGROUP": "/system.slice/docker-05c48f7f9318962edbccdf721a750a09b768040c4fd4f7b8664def569e216f04.scope", "COREDUMP_CMDLINE": "sh -c $'kill -ABRT $$'", "COREDUMP_SIGNAL_NAME": "SIGABRT"}
+{"MESSAGE_ID": "fc2e22bc6ee647b6b90729ab34a250b1", "COREDUMP_CGROUP": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-com.brave.Browser-11.scope", "COREDUMP_CMDLINE": "/opt/brave.com/brave/brave", "COREDUMP_SIGNAL_NAME": "SIGTRAP"}
+{"MESSAGE_ID": "0123456789abcdef0123456789abcdef", "MESSAGE": "outro registro qualquer"}

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# HOST-ALERT-GATE: registros de exemplo do diario, um JSON por linha, copiados dos reais de 13/10/2026.
+{"_TRANSPORT": "audit", "_AUDIT_TYPE_NAME": "BPF", "MESSAGE": "BPF prog-id=50627 op=UNLOAD"}
+{"_TRANSPORT": "audit", "_AUDIT_TYPE_NAME": "AVC", "MESSAGE": "AVC avc:  denied  { read } for  pid=77420 comm=\"python3\" name=\"site-packages\" dev=\"dm-1\" ino=920477 scontext=system_u:system_r:container_t:s0:c400,c612 tcontext=unconfined_u:object_r:gconf_home_t:s0 tclass=dir permissive=0"}
+{"_TRANSPORT": "audit", "_AUDIT_TYPE_NAME": "AVC", "MESSAGE": "AVC avc:  denied  { read } for  pid=900 comm=\"python3\" name=\"site-packages\" dev=\"dm-1\" ino=920477 scontext=system_u:system_r:container_t:s0:c7,c8 tcontext=unconfined_u:object_r:gconf_home_t:s0 tclass=dir permissive=0"}
+{"_TRANSPORT": "audit", "_AUDIT_TYPE_NAME": "AVC", "MESSAGE": "AVC avc:  denied  { getattr } for  pid=901 comm=\"ls\" scontext=system_u:system_r:container_t:s0 tcontext=system_u:object_r:locale_t:s0 tclass=dir permissive=0"}

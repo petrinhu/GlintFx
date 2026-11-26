@@ -1,19 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 name: CI
 
+# Imagens e actions fixadas por digest e SHA; pacotes instalados no job ainda
+# NAO congelados: isso fica para a troca de onda (D-W8-1200).
 # Cinco alvos distintos, por ordem do lider (GODS_LAWS.md, L-04):
 # Fedora, Ubuntu, CachyOS, Arch e Windows.
-# Fedora e o ALVO PRIMARIO: e o sistema que o lider usa. O PINO EM
-# fedora:44 FOI SOLTO em 27/08/2026, por ordem dele (ESCOPO.md S1,
-# verbatim "solte para latest estavel" e depois "ponha todos como
-# latest e instale a ferramenta nos que precisarem"): a matriz inteira
-# usa :latest agora, nao so os alvos que ja estavam assim. A razao do
-# pino continua satisfeita, nao anulada: MEDIDO ao vivo em 27/08/2026
-# que fedora:latest e a MESMA versao 44 da maquina dele, com a mesma
-# ferramenta de build na mesma versao (4.3.0) - o alvo primario ainda
-# falha quando a maquina dele falharia, so que agora acompanha sozinho
-# quando ele atualizar, em vez de exigir alguem subindo o numero a
-# mao. Os demais alvos sao de portabilidade.
+# Fedora e o ALVO PRIMARIO: e o sistema que o lider usa. Desde
+# 27/08/2026 a matriz usa a tag :latest (ordem dele, ESCOPO.md S1), e
+# cada imagem agora traz o digest da tag, para o que roda ser o que foi
+# medido. A imagem fica fixa durante a onda e so troca na virada de
+# onda (L-04, 20/11/2026). Os demais alvos sao de portabilidade.
 # CachyOS NAO e coberto pelo job de Arch: imagem propria, repositorios
 # proprios, toolchain propria. Verde no Arch nao autoriza declarar
 # CachyOS suportado.
@@ -145,7 +141,7 @@ jobs:
   # ============================================================
   linux:
     name: ${{ matrix.nome }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: ${{ matrix.imagem }}
@@ -236,16 +232,17 @@ jobs:
           # mitigacao de design, nao uma confirmacao de que funciona.
           # Se a primeira execucao real no Windows reprovar aqui,
           # é a estreia que mede o nome certo, nao suposicao.
+          # Imagens fixas por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
           - nome: Fedora (primario) - compartilhado
             slug: fedora
-            imagem: fedora:latest
+            imagem: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Fedora (primario) - estatico
             slug: fedora
-            imagem: fedora:latest
+            imagem: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -273,42 +270,42 @@ jobs:
           # CI a partir desta fatia.
           - nome: Ubuntu - compartilhado
             slug: ubuntu
-            imagem: ubuntu:latest
+            imagem: ubuntu:latest@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Ubuntu - estatico
             slug: ubuntu
-            imagem: ubuntu:latest
+            imagem: ubuntu:latest@sha256:d66b366dac61b575bee2aef07e9c26e8070096fbe84a3d4d3eb0da069b5d76db
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: Arch - compartilhado
             slug: arch
-            imagem: archlinux:latest
+            imagem: archlinux:latest@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Arch - estatico
             slug: arch
-            imagem: archlinux:latest
+            imagem: archlinux:latest@sha256:d4594bb2300cba11f41c2f27923eb56f63d9988909c402f9c95517d1e362c899
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: CachyOS - compartilhado
             slug: cachyos
-            imagem: cachyos/cachyos:latest
+            imagem: cachyos/cachyos:latest@sha256:8d6a83bd74bb39298cbb4fc9de3151bc2870408f37e5ecd86569e2018b47a180
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: CachyOS - estatico
             slug: cachyos
-            imagem: cachyos/cachyos:latest
+            imagem: cachyos/cachyos:latest@sha256:8d6a83bd74bb39298cbb4fc9de3151bc2870408f37e5ecd86569e2018b47a180
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -345,7 +342,7 @@ jobs:
       # pelo passo "Checkout e' repositorio git" logo abaixo. Nenhum
       # passo ANTES do checkout REAL pode usar git (G1 confere isso).
       - name: Checkout de bootstrap (so' o preparo)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: _bootstrap
 
@@ -379,7 +376,7 @@ jobs:
       # via "reachable_v_tags=0" numa arvore que genuinamente tem
       # etiquetas e reprovava por um checkout raso, nunca por deriva
       # real. Mesmo par usado no job version-tag.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -678,7 +675,7 @@ jobs:
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-${{ matrix.slug }}-${{ matrix.modo }}
           path: parity_inventory.txt
@@ -689,7 +686,7 @@ jobs:
       # maiores. O JUnit inteiro sai como artefato, igual nos dois sistemas.
       - name: Publicar JUnit do ctest (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
           path: |
@@ -761,7 +758,7 @@ jobs:
 
       - name: Publicar MEASURED (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: measured-${{ matrix.slug }}-${{ matrix.modo }}
           path: measured_linux.txt
@@ -800,7 +797,7 @@ jobs:
 
       - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
         if: ${{ !cancelled() && matrix.oracle_flag != '' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-linux-${{ strategy.job-index }}
           path: layers_oracle_report.txt
@@ -808,7 +805,7 @@ jobs:
 
   windows:
     name: Windows - ${{ matrix.modo }}
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
@@ -834,7 +831,7 @@ jobs:
       # 19/09/2026): mesmo motivo do job `linux` acima - esta matriz
       # roda a suite ctest INTEIRA sem filtro de rotulo, e
       # version_matches_tag_test (LABELS consume) esta nela.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -1074,6 +1071,11 @@ jobs:
         shell: pwsh
         run: tools/ci/install-mesa-opengl32.ps1 -DestDir "${{ matrix.builddir }}/tests"
 
+      # DEMO-1 D6-red (D-W8-75): o exemplo roda de <builddir>/examples/bin e precisa do Mesa ao lado dele.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para o exemplo first_window (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "${{ matrix.builddir }}/examples/bin"
+
       # WIN-HANG: colhe evidencia real do runner (localizacao do .dll x
       # .exe, execucao direta com limite de tempo proprio) ANTES do
       # ctest tentar rodar version_test.exe - GODS_LAWS.md L-27, fato
@@ -1156,7 +1158,7 @@ jobs:
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-${{ matrix.slug }}-${{ matrix.modo }}
           path: parity_inventory.txt
@@ -1167,7 +1169,7 @@ jobs:
       # maiores. O JUnit inteiro sai como artefato, igual nos dois sistemas.
       - name: Publicar JUnit do ctest (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
           path: |
@@ -1264,10 +1266,63 @@ jobs:
 
       - name: Publicar MEASURED (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: measured-${{ matrix.slug }}-${{ matrix.modo }}
           path: measured_windows.txt
+          retention-days: 7
+
+      # QA-SCREEN-CAPTURE C2b-4 (gemeo do passo "Publicar a captura no protocolo" do job wayland-container):
+      # o diretorio de saida do driver da captura no Windows (capturas PrintWindow e BitBlt, leitura interna,
+      # PNGs). A saida de TEXTO do driver, com a linha `veredito:`, vai no log do ctest acima. Roda mesmo com o
+      # passo de testes vermelho: o quadro e para olhar quando falha.
+      - name: Publicar a captura no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
+      - name: Publicar a captura do exemplo first_window no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-first-window-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/first_window_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
+      - name: Publicar a captura do exemplo shapes no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-shapes-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/shapes_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
+      - name: Publicar a captura do exemplo textures no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-textures-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/textures_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no Windows (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-sprite_shadows-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/tests/sprite_shadows_capture_out
+          if-no-files-found: warn
           retention-days: 7
 
       # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN:
@@ -1395,10 +1450,10 @@ jobs:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
     needs: [linux, windows, wayland-container, lint]
     if: ${{ !cancelled() && github.ref_type != 'tag' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45  # classe `dependente` - ver o bloco de classes logo abaixo de `jobs:`
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
@@ -1426,7 +1481,7 @@ jobs:
       # (`parity-inv-<slug>-<modo|container|lint>`), entao um pattern
       # so' recolhe tudo, e o passo seguinte separa por sistema.
       - name: Baixar inventarios (todos os sistemas)
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: parity-inv-*
           path: inventarios/todos
@@ -1561,7 +1616,7 @@ jobs:
       # escreve os dois arquivos legados (para o `--compare` que
       # continua igual).
       - name: Baixar MEASURED (todos os sistemas)
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: measured-*
           path: medidas/todos
@@ -1637,6 +1692,15 @@ jobs:
   # nunca monta /dev/uinput, nunca fala X11 (L-05). Bloqueante como os
   # demais jobs (L-18): job que nao consegue ficar verde nao entra no
   # push.
+  # KWIN-68-SEM-PLACA (decisao do lider, 07/11/2026): a imagem segue o
+  # a imagem fica fixa por digest durante a onda (L-04, 20/11/2026), e o
+  # KWin e o do repositorio na virada de onda. Desde o 6.8 o KWin so
+  # compoe com um dispositivo de renderizacao, e o conteiner recebe
+  # EXATAMENTE um, /dev/udmabuf (o alocador do nucleo que faz de memoria
+  # do processo um dma-buf; sem entrada, sem tela, sem placa). E desvio
+  # de risco com controles compensatorios, nunca conformidade:
+  # docs/adr-udmabuf-no-conteiner-de-teste.md diz qual passo deste job
+  # prova cada controle.
   # SANITIZER-CONTAINER-GAP (TODO.md, /var/tmp/glintfx-plan/cauda-w6b.md
   # sec. 4.2, D-CAUDA-3): duas pernas da MESMA receita (Containerfile,
   # com $GLINTFX_FIXTURE_SANITIZE), nao um segundo job - um job separado
@@ -1646,7 +1710,7 @@ jobs:
   # legendas (`plain`, `asan`) carregam informacao distinta.
   wayland-container:
     name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
@@ -1690,9 +1754,45 @@ jobs:
         --env ASAN_OPTIONS=detect_stack_use_after_return=1:abort_on_error=1:detect_leaks=0:strict_string_checks=1
         --env UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1:abort_on_error=1
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # KWIN-68-SEM-PLACA: o executor hospedado tem /dev/udmabuf? Este passo
+      # responde com nome, antes de o `docker run` do compositor responder
+      # com um erro generico do Docker, e confere que o no e mesmo o
+      # alocador (o numero do no contra o que o nucleo registra em
+      # /sys/class/misc/udmabuf/dev): o `--device` entrega o que estiver
+      # naquele caminho, seja o que for. Fica ANTES da guarda de reexecucao
+      # e do marco `id: prep`: a ausencia do dispositivo e defeito do
+      # executor, nao do codigo, conta como preparo, e a guarda deixa tentar
+      # outro executor uma vez (a guarda tem de ser o passo logo antes do
+      # marco: tests/tools/check_ci_step_independence.py, G6). E tambem o
+      # controle C5 do docs/adr-udmabuf-no-conteiner-de-teste.md: se o
+      # GitHub tirar o dispositivo do nucleo do executor, o job reprova
+      # aqui, alto, e a saida volta ao lider (maquina virtual com nucleo
+      # proprio, ou outro caminho); nunca se contorna com outro --device.
+      - name: O executor tem /dev/udmabuf (KWIN-68-SEM-PLACA)
+        run: |
+          set -eu
+          uname -r
+          if [ ! -c /dev/udmabuf ]; then
+            echo "aviso: /dev/udmabuf ausente; tentando carregar o modulo do nucleo neste executor" >&2
+            sudo -n modprobe udmabuf || true
+            sudo -n udevadm settle --timeout=10 || true
+          fi
+          if [ ! -c /dev/udmabuf ]; then
+            echo "ERRO: este executor nao tem /dev/udmabuf (nucleo $(uname -r)). Sem ele o KWin deste conteiner nao compoe e nenhuma fixture de janela roda. Nao e defeito do codigo: ver docs/adr-udmabuf-no-conteiner-de-teste.md, controle C5." >&2
+            exit 1
+          fi
+          no="$(stat -c '%t:%T' /dev/udmabuf)"
+          registrado="$(cat /sys/class/misc/udmabuf/dev)"
+          if [ "$((0x${no%%:*})):$((0x${no##*:}))" != "$registrado" ]; then
+            echo "ERRO: o no /dev/udmabuf e o dispositivo $no (em hexadecimal) e o nucleo registra o udmabuf em $registrado: o no nao e o alocador, e nao entra no conteiner." >&2
+            exit 1
+          fi
+          ls -l /dev/udmabuf
+          echo "ok: /dev/udmabuf presente no executor, identidade $registrado conferida contra o nucleo"
 
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
@@ -1752,7 +1852,7 @@ jobs:
       # compositor`, e as fixturas passam a depender dos DOIS.
       - name: Build da imagem
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: tests/container
           file: tests/container/Containerfile
@@ -1762,12 +1862,29 @@ jobs:
           # imagem sempre foi); a perna `asan` passa as flags do bloco
           # `env:` acima do job - uma receita so, duas construcoes
           # (D-CAUDA-3).
+          # GLINTFX_IMAGE_STAMP (KWIN-68-SEM-PLACA): o cache `type=gha`
+          # abaixo guardaria a camada do dnf, e com ela o KWin, do dia em
+          # que o cache foi enchido. O carimbo e novo a cada execucao e a
+          # cada tentativa, e por isso essa camada e refeita sempre; o
+          # estagio que compila as fixtures continua no cache. `pull:
+          # true` deixa escrito que a base vem do registro.
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
+            GLINTFX_IMAGE_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
+          pull: true
           load: true
           push: false
           cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
           cache-to: type=gha,mode=max,scope=wayland-container-${{ matrix.perna }}
+
+      # KWIN-68-SEM-PLACA: a prova de que a imagem e do dia, sem pinar
+      # versao nenhuma. O carimbo lido de dentro da imagem tem de ser o
+      # desta execucao (a camada do dnf foi refeita agora), e a versao do
+      # Fedora da imagem tem de ser a que o registro chama de `latest`
+      # agora. O pacote do KWin e impresso para quem le o log.
+      - name: Imagem do dia - carimbo e base (KWIN-68-SEM-PLACA)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: tests/container/check_image_freshness.sh glintfx-wltest:ci-${{ matrix.perna }} "${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Tempo de build da imagem
         run: |
@@ -1791,7 +1908,7 @@ jobs:
       # nao um segundo trabalho pesado) tagueia o estagio que de fato
       # tem o compilador, sem tocar o Containerfile so' para isto.
       - name: Build da imagem do estagio builder (para inspecionar o compilador)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: tests/container
           file: tests/container/Containerfile
@@ -1799,6 +1916,7 @@ jobs:
           tags: glintfx-wltest:builder-${{ matrix.perna }}
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
+          pull: true
           load: true
           push: false
           cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
@@ -1829,11 +1947,14 @@ jobs:
       # not permitted" antes mesmo de o compositor subir.
       # --cap-drop=ALL --cap-add=SYS_NICE (nao --cap-add puro): forma
       # estritamente menor, verificada ao vivo que ainda sobe o
-      # compositor (revisao adversarial TEST-WLCONT, conserto 4). Nada
-      # alem disso: sem --privileged, sem --pid=host, sem /dev/dri
-      # (GODS_LAWS.md L-09 regra 4 - render por software, reproduzivel
-      # em qualquer runner); check_isolation.sh confere esse HostConfig
-      # exato por lista branca.
+      # compositor (revisao adversarial TEST-WLCONT, conserto 4). Alem
+      # disso, UM dispositivo e so ele: /dev/udmabuf, com leitura e
+      # escrita e sem mknod (KWIN-68-SEM-PLACA; o KWin 6.8 faz dele o
+      # dispositivo de renderizacao por software). Continua sem
+      # --privileged, sem --pid=host, sem /dev/dri (GODS_LAWS.md L-09
+      # regra 4 - render por software, reproduzivel em qualquer runner)
+      # e sem /dev/uinput; check_isolation.sh, na variante ci_udmabuf,
+      # confere esse HostConfig exato por lista branca.
       # CONT-WARMUP C-1 conserto (docs/plano-fecho-w7b.md D-10,
       # GODS_LAWS.md L-17 "gemeo"): este passo tinha o MESMO defeito
       # que tests/container/run_compositor.sh's own wait_for_
@@ -1871,7 +1992,7 @@ jobs:
         id: compositor
         run: |
           set -eux
-          docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci-${{ matrix.perna }}
+          docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE --device /dev/udmabuf:/dev/udmabuf:rw glintfx-wltest:ci-${{ matrix.perna }}
           tests/container/wait_for_ready_marker.sh glintfx-wltest-clean-${{ matrix.perna }}
           docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null
@@ -1880,37 +2001,58 @@ jobs:
       # interagir. Este passo roda antes do smoke test de proposito.
       - name: Isolamento provado (controle positivo)
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
-        run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
+        run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test ci_udmabuf
 
-      # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
-      # /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.1/4.1): responde a
-      # pergunta que a literatura de terceiro NAO responde sozinha -
-      # se `docker exec` propaga o codigo 128+sinal de um processo
-      # morto por sinal que NAO e' o PID 1 do container (kwin_wayland
-      # continua vivo; o alvo aqui e' um `sh -c` avulso rodando DENTRO
-      # do mesmo container, o mesmo caminho que os 18 passos de
-      # fixture abaixo vao seguir). Roda ANTES de qualquer fixture
-      # real, mesma posicao do controle positivo acima - prova o
-      # mecanismo antes de confiar nele pelo resto do job. Se a
-      # medicao contrariar a literatura (rc diferente de 139), este
-      # passo reprova E FICA reprovado - nunca se ajusta o `grep` para
-      # o que apareceu (GODS_LAWS.md L-43).
+      # Negative control 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md;
+      # CN5-SEM-ALERTA, 11/11/2026): answers the question third-party
+      # literature does not answer alone - whether `docker exec`
+      # propagates the 128+signal code of a process killed by a signal
+      # that is NOT PID 1 of the container (kwin_wayland stays alive;
+      # the target is the very process `docker exec` starts, the same
+      # path every fixture step below follows). It runs BEFORE any real
+      # fixture, right after the positive control above: the mechanism
+      # is proven before the rest of the job relies on it. If the
+      # measurement contradicts the literature (rc other than 139), this
+      # step fails AND STAYS failed - the `grep` is never adjusted to
+      # whatever showed up (GODS_LAWS.md L-43).
+      #
+      # The process that dies is tests/tools/die_quietly.py, run by the
+      # python3 of the image, and no longer `sh -c 'kill -SEGV $$'`. A
+      # shell killed that way is dumpable, and kernel.core_pattern is
+      # not namespaced: the kernel of whatever machine hosts the
+      # container hands the crash to that machine's crash handler
+      # (measured on 11/11/2026: seven "sh dumped core" records and
+      # seven crash alerts on a developer's desktop, one per local run
+      # of this job). die_quietly.py makes itself non-dumpable first
+      # (prctl PR_SET_DUMPABLE 0, read back) and refuses to die
+      # otherwise (rc 3, never 139); the signal and the exit code the
+      # parent sees do not change. The script travels as the text of
+      # `-c`, read from the checkout: one source for this step and for
+      # exec_fixture.sh --selftest, and nothing is copied into the
+      # container. python3 is the process `docker exec` starts, with no
+      # shell in between: a shell would turn the death into its own
+      # exit code 139, and this step would stop proving what Docker
+      # propagates.
       - name: Controle negativo 5 - sinal nomeado antes do ruido
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu
-          if tests/container/exec_fixture.sh glintfx-wltest-clean-${{ matrix.perna }} sh -c 'echo ruido-do-driver; kill -SEGV $$' > cn5.out 2>&1; then
+          if tests/container/exec_fixture.sh glintfx-wltest-clean-${{ matrix.perna }} python3 -I -c "$(cat tests/tools/die_quietly.py)" SEGV > cn5.out 2>&1; then
             echo "ERRO: exec_fixture.sh deveria ter reprovado (processo morto por SIGSEGV dentro do container)" >&2
             cat cn5.out >&2
             exit 1
           fi
           if ! head -1 cn5.out | grep -q 'rc=139 signal=SEGV'; then
-            echo "ERRO: primeira linha nao trouxe 'rc=139 signal=SEGV' - docker exec pode nao estar propagando 128+sinal para um processo do proprio exec (ver secao 2.1 do plano)" >&2
+            echo "ERRO: primeira linha nao trouxe 'rc=139 signal=SEGV' - docker exec pode nao estar propagando 128+sinal para um processo do proprio exec (ver secao 2.1 do plano); rc=3 e' a recusa do die_quietly.py (nao ficou nao-despejavel), rc=127 e' a imagem sem python3" >&2
             cat cn5.out >&2
             exit 1
           fi
-          echo "ok: docker exec propaga 128+sinal (SIGSEGV=139) para um processo do proprio exec, sinal nomeado antes do ruido"
-
+          if ! grep -q -x -F 'die_quietly: morrendo por SIGSEGV sem core dump' cn5.out; then
+            echo "ERRO: a saida nao trouxe a linha do die_quietly.py - quem morreu nao foi o processo nao-despejavel (CN5-SEM-ALERTA)" >&2
+            cat cn5.out >&2
+            exit 1
+          fi
+          echo "ok: docker exec propaga 128+sinal (SIGSEGV=139) para um processo do proprio exec, sinal nomeado antes do ruido, sem core dump"
       - name: Smoke test - wayland-info dentro do container
         run: docker exec glintfx-wltest-clean-${{ matrix.perna }} smoke.sh glintfx-test
 
@@ -2226,13 +2368,17 @@ jobs:
       # manda um xdg_toplevel.configure tardio, medido e reportado ao
       # CTO com arquivo:linha) - este passo fica VERMELHO ate esse
       # conserto (fora do escopo desta fatia, em outras fachadas) landar.
+      # PRESENT-EMPTY-FRAME (D-W8-70): a CLASSE de apresentacao do aparato mora aqui, no preparo do sistema (GODS_LAWS.md L-04),
+      # nunca no teste: o container recebe `free` (a regua estrita, vsync=off <= 700 ms contra 25 a 89 ms medidos), e
+      # GITHUB_ACTIONS=true entra para a guarda do teste reprovar um aparato sem classe (L-40). O irmao Windows recebe
+      # `compositor` de tools/ci/install-mesa-opengl32.ps1.
       - name: GL-CONTEXT fatia 5 - paridade do contexto GL dentro do container
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "gl_context_parity_test" >> parity_inventory.txt
           codigo=0
-          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gl_context_parity_test || codigo=$?
+          tests/container/exec_fixture.sh --env GLINTFX_PRESENT_PACING=free --env GITHUB_ACTIONS=true ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gl_context_parity_test || codigo=$?
           printf 'gl_context_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
 
@@ -2249,6 +2395,173 @@ jobs:
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_parity_test || codigo=$?
           printf 'draw2d_parity_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
+
+      # R2D-SHAPES S2b (docs/plano-fechamento-w8-r19.md, §3 S2b): a prova viva das formas triangulares (pixels lidos)
+      # dentro do container, contra este MESMO compositor, so pela API publica. O irmao Windows de mesmo nome e um alvo
+      # ctest (tests/CMakeLists.txt, if(WIN32)). ORDEM: depois de draw2d_parity_test (mesmo EGL, mesmo compositor).
+      - name: R2D-SHAPES S2b - formas triangulares (pixels lidos) dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "draw2d_shapes_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_shapes_parity_test || codigo=$?
+          printf 'draw2d_shapes_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # R2D-SPRITE-SHADE H3b-2 (docs/auditoria-api-sprite-shade.md, sec. 2): a prova viva das sombras (pixels lidos)
+      # dentro do container, contra este MESMO compositor, so pela API publica: um pixel escurecido uma vez por segmento,
+      # a peca opaca que libera a marca, a barreira, a contagem e o estencil que a barreira deixa. O irmao Windows de mesmo
+      # nome e um alvo ctest (tests/CMakeLists.txt, if(WIN32)). ORDEM: depois de draw2d_shapes_parity_test.
+      - name: R2D-SPRITE-SHADE H3b-2 - sombras (pixels lidos) dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "draw2d_shadow_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_shadow_parity_test || codigo=$?
+          printf 'draw2d_shadow_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # R2D-TEXTURE T4b-B2 (D-W8-475 a 480): a prova viva do desenho com textura (pixels lidos) dentro do container,
+      # contra este MESMO compositor, so pela API publica: o filtro da D-W8-305, o trapezio projetivo, o atributo de q,
+      # a ordem das texturas, os espelhos e a tinta. O irmao Windows de mesmo nome e um alvo ctest
+      # (tests/CMakeLists.txt, if(WIN32)). ORDEM: depois de draw2d_shapes_parity_test (mesmo EGL, mesmo compositor).
+      - name: R2D-TEXTURE T4b-B2 - desenho com textura (pixels lidos) dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "draw2d_texture_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} draw2d_texture_parity_test || codigo=$?
+          printf 'draw2d_texture_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # PRESENT-EMPTY-FRAME (D-W8-53, D-W8-54): o quadro apresentado sem nada desenhado, pelo contexto, pelo laco e pelo
+      # desenho 2D, contra este MESMO compositor e este MESMO EGL. O irmao Windows de mesmo nome e um alvo ctest comum
+      # (tests/CMakeLists.txt, if(WIN32)). A EXPECTATIVA do aparato mora aqui, no preparo do sistema (GODS_LAWS.md
+      # L-04), nunca no teste: o llvmpipe apresenta o quadro vazio (0 de 125 trocas vazias falharam no Fedora, run
+      # 37535326010), entao `presented`. GITHUB_ACTIONS=true entra no container para a guarda do teste reprovar um aparato
+      # sem expectativa (L-40); sem ele o container nao enxerga a variavel do runner. ORDEM: depois de draw2d_parity_test
+      # (mesmo EGL, mesmo compositor).
+      - name: PRESENT-EMPTY-FRAME - quadro vazio apresentado ou recusado, dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "present_empty_frame_parity_test" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh --env GLINTFX_EMPTY_FRAME_EXPECT=presented --env GITHUB_ACTIONS=true ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} present_empty_frame_parity_test || codigo=$?
+          printf 'present_empty_frame_parity_test\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # QA-SCREEN-CAPTURE P3 (D-W8-20, D-W8-33): a PROVA DA CAPTURA NO PROTOCOLO. Um segundo rele de fios, dentro do
+      # MESMO container e diante do MESMO KWin, guarda o ultimo buffer wl_shm que o cliente entrega; o cliente
+      # (capture_known_color_smoke) le o proprio quadro por glReadPixels antes do swap; o driver compara captura e
+      # leitura pixel a pixel, alfa incluido, e confere as cores conhecidas, uma vez com srgb_framebuffer desligado e
+      # uma com ligado. ORDEM: depois de draw2d_parity_test (mesmo EGL, mesmo compositor).
+      - name: QA-SCREEN-CAPTURE P3 - captura no protocolo igual a leitura interna dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "capture_known_color_smoke" >> parity_inventory.txt
+          codigo=0
+          tests/container/run_capture_known_color.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          printf 'capture_known_color_smoke\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # DEMO-1 D6-red (D-W8-74, D-W8-90, D-W8-142, D-W8-191): o exemplo first_window, construido pelo CMakeLists.txt
+      # dele contra a biblioteca INSTALADA na imagem, capturado no protocolo pelo driver de exemplo. A saida vai para o
+      # MESMO capture_out (subdiretorio first_window/), publicado pelo passo seguinte. A duracao impressa e um TETO
+      # (inclui rele e docker cp): acima de 12 s volta ao CTO antes de fechar (D-W8-81).
+      - name: DEMO-1 - exemplo first_window capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "first_window" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} first_window glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "first_window: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, regra 12, D-W8-81)"
+          printf 'first_window\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # R2D-SHAPES S6 (D-W8-1081, D-W8-1084): o exemplo shapes, irmao do passo de cima (mesmo driver, mesma imagem,
+      # mesmo capture_out, subdiretorio shapes/), julgado pelas sondas de tests/fixtures/shapes_probes.txt (D-W8-1083;
+      # a contagem e a da tabela do driver). Roda mesmo com o first_window vermelho: cada exemplo tem o seu veredito.
+      - name: R2D-SHAPES - exemplo shapes capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "shapes" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} shapes glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "shapes: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, D-W8-81)"
+          printf 'shapes\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # R2D-TEXTURE T7: o exemplo textures, irmao dos dois passos de cima (mesmo driver, mesma imagem, mesmo
+      # capture_out, subdiretorio textures/), julgado pelas sondas de tests/fixtures/textures_probes.txt (a contagem
+      # e a da tabela do driver). Roda mesmo com os outros exemplos vermelhos: cada exemplo tem o seu veredito.
+      - name: R2D-TEXTURE - exemplo textures capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "textures" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} textures glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "textures: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, D-W8-81)"
+          printf 'textures\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # R2D-SPRITE-SHADE H5: o exemplo sprite_shadows, irmao dos passos de cima (mesmo driver, mesma imagem, mesmo
+      # capture_out, subdiretorio sprite_shadows/), julgado pelas sondas de tests/fixtures/sprite_shadows_probes.txt (a
+      # contagem e a da tabela do driver). Roda mesmo com os outros exemplos vermelhos: cada exemplo tem o seu veredito.
+      - name: R2D-SPRITE-SHADE - exemplo sprite_shadows capturado no protocolo dentro do container
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          echo "sprite_shadows" >> parity_inventory.txt
+          codigo=0
+          inicio=$(date +%s)
+          tests/container/run_example_capture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} sprite_shadows glintfx-wltest-clean-${{ matrix.perna }} capture_out || codigo=$?
+          echo "sprite_shadows: duracao_do_passo=$(( $(date +%s) - inicio )) s (orcamento 60, D-W8-81)"
+          printf 'sprite_shadows\t%s\n' "$codigo" >> results.tsv
+          exit "$codigo"
+
+      # QA-SCREEN-CAPTURE P3 (S3 da revisao): as imagens da captura (PNG, raw, meta, log do rele) saem como artefato,
+      # para que uma falha deixe o quadro para olhar. Roda mesmo com o passo anterior vermelho.
+      - name: Publicar a captura no protocolo (${{ matrix.perna }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-${{ matrix.perna }}
+          path: capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-TEXTURE T7: as duas capturas do exemplo textures tambem num artefato com o nome do exemplo, como as do
+      # Windows (o artefato acima continua inteiro): quem procura pelo nome do exemplo acha as do Linux.
+      - name: Publicar a captura do exemplo textures no protocolo (${{ matrix.perna }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-textures-${{ matrix.perna }}
+          path: capture_out/textures
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SPRITE-SHADE H5: as duas capturas do exemplo sprite_shadows tambem num artefato com o nome do exemplo,
+      # como as do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no protocolo (${{ matrix.perna }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-sprite_shadows-${{ matrix.perna }}
+          path: capture_out/sprite_shadows
+          if-no-files-found: warn
+          retention-days: 7
 
       # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.4/S4.6): a
       # PROVA AO VIVO do laco principal contra este MESMO compositor
@@ -2442,6 +2755,18 @@ jobs:
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} surface_size_policy_adapter_test || codigo=$?
           printf 'surface_size_policy_adapter_test\t%s\n' "$codigo" >> results.tsv
           exit "$codigo"
+
+      # WL-ACK-CONFIGURE-SEGUINTES: o KWin nao reclama de confirmacao que falta (docs/plano-w7c.md, F4), entao quem julga
+      # e o rastreio do protocolo, nas mesmas duas fixtures de cima: uma que muda de tamanho e outra que recebe um segundo
+      # configure sem mudar. Sem linha no inventario: as duas fixtures ja estao nele, e aqui so se rele o que elas fazem.
+      - name: WL-ACK-CONFIGURE-SEGUINTES - cada configure confirmado, lido do rastreio do protocolo
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu -o pipefail
+          tests/container/exec_fixture.sh --env WAYLAND_DEBUG=1 ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} surface_size_policy_adapter_test > ack_resize.trace 2>&1
+          python3 tests/tools/check_configure_ack_trace.py ack_resize.trace --min-configures 3 --min-commits 4 --min-resizes 2
+          tests/container/exec_fixture.sh --env WAYLAND_DEBUG=1 ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} first_window --frames 30 > ack_first_window.trace 2>&1
+          python3 tests/tools/check_configure_ack_trace.py ack_first_window.trace --min-configures 2 --min-commits 5
 
       # CONTAINER-LEAK-COUNTER sub-fatia S4 (/var/tmp/glintfx-plan/leak-
       # counter.md sec. 5 S4): a 18a fixture, e a unica que abre e
@@ -2709,7 +3034,7 @@ jobs:
       # artefato A MAIS, nunca substituindo o outro).
       - name: Publicar MEASURED do container (MEASURED-COLLECTOR)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: measured-fedora-container${{ matrix.perna == 'asan' && '-asan' || '' }}
           path: measured_linux_container.txt
@@ -2765,7 +3090,7 @@ jobs:
       # nunca passa calado.
       - name: Publica o inventario do container (P-0)
         if: ${{ !cancelled() && matrix.perna == 'plain' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-fedora-container
           path: publicado/parity_inventory.txt
@@ -2782,29 +3107,39 @@ jobs:
       # (--pid=host) nao chega a rodar processo nenhum - os tres
       # controles se apoiam so em `docker inspect`, o que
       # check_isolation.sh confere ANTES de qualquer `docker exec`.
+      # KWIN-68-SEM-PLACA: cada conteiner envenenado leva tambem o
+      # dispositivo aceito e e julgado na variante ci_udmabuf, para
+      # diferir da forma aceita SO pelo veneno. Sem isso os quatro
+      # reprovariam pela falta do dispositivo e deixariam de provar que o
+      # portao ve a montagem, o device a mais, o --pid=host e o
+      # systempaths. Os controles 6 e 7, no fim, provam as outras duas
+      # bordas do dispositivo: a chamada sem variante continua recusando
+      # todo dispositivo, e a grafia padrao (com mknod) nao passa. Esses
+      # dois conferem tambem o MOTIVO da reprovacao, lido da saida do
+      # portao: reprovar por outra razao nao prova o que o nome diz.
       - name: Controle negativo 1 - montagem proibida (FURO 1/3)
         if: ${{ !cancelled() }}
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-mount-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            -v /tmp:/run/user/1000:ro glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mount-${{ matrix.perna }} glintfx-test; then
+            --device /dev/udmabuf:/dev/udmabuf:rw -v /tmp:/run/user/1000:ro glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mount-${{ matrix.perna }} glintfx-test ci_udmabuf; then
             echo "ERRO: check_isolation.sh deveria ter acusado a montagem proibida" >&2
             exit 1
           fi
           echo "ok: montagem proibida foi acusada, como esperado"
 
-      - name: Controle negativo 2 - device passado (FURO 1)
+      - name: Controle negativo 2 - device a mais ao lado do aceito (FURO 1)
         if: ${{ !cancelled() }}
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-device-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            --device=/dev/uinput glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-test; then
-            echo "ERRO: check_isolation.sh deveria ter acusado o --device proibido" >&2
+            --device /dev/udmabuf:/dev/udmabuf:rw --device=/dev/uinput glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-test ci_udmabuf; then
+            echo "ERRO: check_isolation.sh deveria ter acusado o --device proibido ao lado do aceito" >&2
             exit 1
           fi
-          echo "ok: --device proibido foi acusado, como esperado"
+          echo "ok: --device proibido ao lado do aceito foi acusado, como esperado"
 
       # O mais serio dos tres: sob --pid=host, um `pgrep` DENTRO do
       # container deixa de estar escopado ao container e passa a ver
@@ -2817,8 +3152,8 @@ jobs:
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-pid-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            --pid=host glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-pid-${{ matrix.perna }} glintfx-test; then
+            --device /dev/udmabuf:/dev/udmabuf:rw --pid=host glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-pid-${{ matrix.perna }} glintfx-test ci_udmabuf; then
             echo "ERRO: check_isolation.sh deveria ter acusado --pid=host" >&2
             exit 1
           fi
@@ -2842,33 +3177,77 @@ jobs:
         run: |
           set -eux
           docker create --name glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
-            --security-opt systempaths=unconfined glintfx-wltest:ci-${{ matrix.perna }}
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} glintfx-test; then
+            --device /dev/udmabuf:/dev/udmabuf:rw --security-opt systempaths=unconfined glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} glintfx-test ci_udmabuf; then
             echo "ERRO: check_isolation.sh deveria ter acusado --security-opt systempaths=unconfined" >&2
             exit 1
           fi
           echo "ok: --security-opt systempaths=unconfined foi acusado, como esperado"
+
+      # KWIN-68-SEM-PLACA, a negativa permanente: a chamada SEM o nome da
+      # variante continua comparando com a linha de base sem dispositivo,
+      # e por isso recusa ate o conteiner limpo deste job, que leva o
+      # /dev/udmabuf. So `docker inspect`: a comparacao do HostConfig
+      # reprova antes de qualquer `docker exec`, e o conteiner pode ja
+      # estar parado (o passo do erro fatal mata o compositor dele).
+      - name: Controle negativo 6 - sem o nome da variante, o dispositivo aceito tambem reprova
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
+        run: |
+          set -eu
+          if tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test > cn6.out 2>&1; then
+            cat cn6.out >&2
+            echo "ERRO: check_isolation.sh sem variante deveria ter acusado o /dev/udmabuf do conteiner limpo" >&2
+            exit 1
+          fi
+          cat cn6.out
+          if ! grep -q 'HostConfig nao bate com o baseline medido' cn6.out; then
+            echo "ERRO: check_isolation.sh reprovou, mas nao pela comparacao do HostConfig: o controle nao provou o que o nome dele diz" >&2
+            exit 1
+          fi
+          echo "ok: sem o nome da variante, o dispositivo aceito foi acusado pelo HostConfig, como esperado"
+
+      # KWIN-68-SEM-PLACA, o alvo estreito: `--device /dev/udmabuf` na
+      # grafia padrao do Docker da tambem mknod ("rwm"). A linha de base
+      # guarda "rw", e a grafia larga tem de reprovar.
+      - name: Controle negativo 7 - o dispositivo aceito com mknod reprova
+        if: ${{ !cancelled() }}
+        run: |
+          set -eu
+          docker create --name glintfx-wltest-poisoned-mknod-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
+            --device /dev/udmabuf glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mknod-${{ matrix.perna }} glintfx-test ci_udmabuf > cn7.out 2>&1; then
+            cat cn7.out >&2
+            echo "ERRO: check_isolation.sh deveria ter acusado o dispositivo com mknod" >&2
+            exit 1
+          fi
+          cat cn7.out
+          if ! grep -q '"CgroupPermissions":"rwm"' cn7.out; then
+            echo "ERRO: check_isolation.sh reprovou, mas a diferenca impressa nao e a permissao rwm do dispositivo: o controle nao provou o que o nome dele diz" >&2
+            exit 1
+          fi
+          echo "ok: o dispositivo com mknod foi acusado pela permissao, como esperado"
 
       - name: Limpeza
         if: always()
         run: |
           docker rm -f glintfx-wltest-clean-${{ matrix.perna }} glintfx-wltest-poisoned-mount-${{ matrix.perna }} \
             glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-wltest-poisoned-pid-${{ matrix.perna }} \
-            glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} || true
+            glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} glintfx-wltest-poisoned-mknod-${{ matrix.perna }} || true
 
   lint:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       - name: Instalar toolchain e ferramentas de lint
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck
+          wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck clang
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -2935,6 +3314,9 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
+          # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
+          export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
           tools/preci.sh --lint-only
 
       # PARITY-LINT-INV (TODO.md, GODS_LAWS.md L-04/L-40, 09/09/2026):
@@ -2970,7 +3352,7 @@ jobs:
 
       - name: Publicar inventario de paridade (lint)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: parity-inv-fedora-lint
           path: parity_inventory.txt
@@ -3017,11 +3399,11 @@ jobs:
   # e' exatamente a classe de gemeo que diverge, GODS_LAWS.md L-17).
   ps-syntax:
     name: Sintaxe PowerShell (GATE-PS-SYNTAX, container pwsh)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Popular o cache da imagem pwsh (GLINTFX_PS_IMAGE)
         run: |
@@ -3065,15 +3447,14 @@ jobs:
   # confirmado no proprio repositorio: windows-latest = windows-2025)
   # e o script de instalacao images/windows/scripts/build/Install-LLVM.ps1
   # (fetched 03/09/2026):
-  #   - LLVM 20.1.8 standalone, instalado via `Install-ChocoPackage llvm`
-  #     no caminho x64 (nao o ramo ARM64 do mesmo script) - o pacote
-  #     oficial da LLVM traz clang-tidy.exe no mesmo bin/ que clang.exe,
-  #     que o proprio Pester de fabrica da imagem (LLVM.Tests.ps1) ja
-  #     prova estar no PATH ("clang --version" sem caminho completo).
-  #   - Visual Studio 2022 Enterprise 17.14 traz os componentes
-  #     VC.Llvm.Clang e VC.Llvm.ClangToolset (integracao clang-cl com o
-  #     MSBuild/IDE) - NAO e o que este job usa; o clang-tidy vem do
-  #     LLVM standalone acima, que fala com qualquer compile_commands.json,
+  #   - o LLVM standalone da imagem (`Install-ChocoPackage llvm`, caminho
+  #     x64) e os componentes VC.Llvm.Clang/VC.Llvm.ClangToolset do Visual
+  #     Studio NAO sao mais o clang-tidy deste job: desde a imagem
+  #     windows-2025-vs2026 (run 44739396242) o job instala o LLVM 23.1.6
+  #     oficial e prova qual clang-tidy esta no PATH (CLANG-WIN-STL, ver os
+  #     passos "Instalar o LLVM 23.1.6 oficial" e "Versoes da toolchain").
+  #     O pacote oficial da LLVM traz clang-tidy.exe no mesmo bin/ que
+  #     clang.exe, e o clang-tidy fala com qualquer compile_commands.json,
   #     inclusive um gerado por cl.exe (deteccao automatica de driver
   #     estilo MSVC no clang-tidy, sem flag extra).
   #   - cppcheck e gitleaks NAO constam no inventario desta imagem
@@ -3090,20 +3471,11 @@ jobs:
   #     depender de plataforma nenhuma.
   windows-lint:
     name: Windows - Lint (clang-tidy sobre src/)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 65  # classe `estatica_windows` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
-
-      # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE) -
-      # CMAKE_EXPORT_COMPILE_COMMANDS precisa de um CMake que atenda o
-      # piso 4.1 que este projeto declara, e o clang-tidy le o
-      # compile_commands.json que o CMake escreve, nao o compilador em
-      # si.
-      - name: Versoes da toolchain
-        shell: pwsh
-        run: clang-tidy --version
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Mesmo passo CI-WIN-ENV do job `windows` acima: sem o ambiente do
       # MSVC preparado, o cl.exe que o CMake vai gravar dentro do
@@ -3142,6 +3514,88 @@ jobs:
         shell: pwsh
         run: tools/ci/windows/prep.ps1
 
+      # CLANG-WIN-STL (D-W8-1164: o lider escolheu por AskUserQuestion
+      # "Instalar Clang 22 (Recomendado)"; depois, D-W8-1922 "23.1.6",
+      # D-W8-1923 "Instalador oficial", D-W8-1924 "Impressao digital" e
+      # D-W8-1925 "Sem cache", 20/11/2026). MEDIDO no run 44739396242
+      # (commit f274f5f6): a imagem passou a ser windows-2025-vs2026
+      # 20261116.315.1, com o Visual Studio 18 e o MSVC 14.52.37025, e o
+      # LLVM da imagem continuou 20.1.8. A STL do MSVC 14.52 recusa todo
+      # Clang abaixo do 22 (yvals_core.h:923, "error STL1000: Unexpected
+      # compiler version, expected Clang 22 or newer"): 181 de 183
+      # arquivos reprovaram por isso, nenhum por achado do proprio codigo.
+      # O run 43482138342 (13/11/2026, imagem anterior) passou com o
+      # mesmo job.
+      #
+      # O CONSERTO: o LLVM 23.1.6 oficial (release llvmorg-23.1.6 de
+      # github.com/llvm/llvm-project), pelo instalador MSI
+      # LLVM-23.1.6-win64.msi - a linha 23 nao publica mais o .exe NSIS.
+      # O destino e' $env:RUNNER_TEMP, pela propriedade INSTALL_ROOT: o
+      # llvm/CMakeLists.txt da tag usa o gerador WIX do CPack, com escopo
+      # perMachine, e o modelo WIX.template.in do CMake liga
+      # WIXUI_INSTALLDIR a INSTALL_ROOT (lido no codigo-fonte, nao medido
+      # no runner). INTEGRIDADE: o SHA-256 abaixo e' FIXO, medido em
+      # 20/11/2026 por curl e sha256sum no proprio arquivo da release, e
+      # igual ao `digest` que a API de releases do GitHub publica; um byte
+      # diferente reprova antes de qualquer execucao. msiexec: /qn (sem
+      # janela), /norestart, e o log /l*v em $env:RUNNER_TEMP. O msiexec
+      # devolve o controle antes do fim: Start-Process -Wait -PassThru,
+      # para esperar e ler o codigo de saida. 0 e 3010 (sucesso, com um
+      # reinicio pedido e nao feito) passam; outro codigo reprova e
+      # imprime o fim do log. O caminho nao pode ter espaco, para o
+      # msiexec nao depender de aspas. A imagem instalou o 20.1.8 pelo
+      # NSIS (Chocolatey), e o MSI so' reconhece instalacoes pelo
+      # UpgradeCode dele: INFERENCIA, nao medida, de que o MSI nao toca
+      # aquela instalacao. ANTES do marco prep: download e instalacao sao
+      # preparo, e uma queda de rede aqui e' falha de infraestrutura
+      # (rerun_guard). A PROVA de que o clang-tidy chamado e' este vem num
+      # passo PROPRIO depois do marco prep ($env:GITHUB_PATH so' vale do
+      # passo seguinte em diante). GEMEO (GODS_LAWS.md L-17): os jobs
+      # `windows`, `windows-sanitizer` e `windows-debug` compilam com o
+      # cl.exe, nunca com o Clang, e passaram no mesmo run e na mesma
+      # imagem; o portao win32-link (tools/msvc-container/) roda o cl.exe
+      # sob Wine. So' este job usa o Clang do lado Windows.
+      - name: Instalar o LLVM 23.1.6 oficial (clang-tidy deste job)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $versao = '23.1.6'
+          $sha256 = '81F7EB520CA698EB2D5CD8BC4B8F24F7ADD9ED66ED40A6F722A6E6F060737C00'
+          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$versao/LLVM-$versao-win64.msi"
+          $instalador = Join-Path $env:RUNNER_TEMP "LLVM-$versao-win64.msi"
+          $destino = Join-Path $env:RUNNER_TEMP "llvm-$versao"
+          $registro = Join-Path $env:RUNNER_TEMP "llvm-$versao-msiexec.log"
+          $comEspaco = @(@($instalador, $destino, $registro) | Where-Object { $_ -match '\s' })
+          if ($comEspaco.Count -gt 0) {
+            Write-Error "um dos caminhos tem espaco ('$instalador', '$destino', '$registro') - o msiexec deste passo nao usa aspas"
+            exit 1
+          }
+          Invoke-WebRequest -Uri $url -OutFile $instalador -MaximumRetryCount 3 -RetryIntervalSec 10
+          $obtido = (Get-FileHash -Algorithm SHA256 -LiteralPath $instalador).Hash
+          if ($obtido -ne $sha256) {
+            Write-Error "SHA-256 do instalador nao confere: obtido $obtido, esperado $sha256 ($url). Nada foi executado."
+            exit 1
+          }
+          Write-Host "sha256 ok: $obtido ($url)"
+          $argumentos = "/i $instalador /qn /norestart INSTALL_ROOT=$destino /l*v $registro"
+          $processo = Start-Process -FilePath 'msiexec.exe' -ArgumentList $argumentos -Wait -PassThru
+          Write-Host "msiexec saiu com codigo $($processo.ExitCode)"
+          if ($processo.ExitCode -ne 0 -and $processo.ExitCode -ne 3010) {
+            if (Test-Path -LiteralPath $registro) {
+              Get-Content -LiteralPath $registro -Tail 40 | ForEach-Object { Write-Host $_ }
+            }
+            Write-Error "o msiexec do LLVM $versao saiu com codigo $($processo.ExitCode) (log: $registro)"
+            exit 1
+          }
+          $binario = Join-Path $destino 'bin\clang-tidy.exe'
+          if (-not (Test-Path -LiteralPath $binario)) {
+            Write-Error "$binario nao existe depois do msiexec (INSTALL_ROOT nao foi respeitado?)"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $destino 'bin')
+          Write-Host "instalado: $binario"
+
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
       # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
@@ -3171,6 +3625,38 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # CLANG-WIN-STL, a PROVA (GODS_LAWS.md L-40): o clang-tidy que o
+      # passo `clang-tidy - src/` chama pelo nome, no PATH, e' o
+      # instalado acima, e e' o 23.1.6. Passo proprio, depois do marco
+      # prep e do CMake pinado: o $env:GITHUB_PATH do passo de instalacao
+      # so' vale daqui em diante, e o PATH que o vcvarsall gravou em
+      # $env:GITHUB_ENV poe pastas do Visual Studio no caminho - o que
+      # decide e' quem o Get-Command acha primeiro, nunca a ordem
+      # presumida. Reprova se o primeiro clang-tidy do PATH nao for o
+      # arquivo instalado, ou se a versao nao for exatamente a 23.1.6.
+      - name: Versoes da toolchain
+        shell: pwsh
+        run: |
+          $esperado = Join-Path $env:RUNNER_TEMP 'llvm-23.1.6\bin\clang-tidy.exe'
+          $achado = @(Get-Command clang-tidy -CommandType Application -ErrorAction Stop)[0].Source
+          Write-Host "primeiro clang-tidy do PATH: $achado"
+          if ($achado -ne $esperado) {
+            Write-Error "o clang-tidy do PATH e' '$achado', nao o instalado '$esperado' - o da imagem ou o do Visual Studio esta na frente"
+            exit 1
+          }
+          $saida = @(& $achado --version)
+          $rc = $LASTEXITCODE
+          Write-Host ($saida -join "`n")
+          if ($rc -ne 0) {
+            Write-Error "clang-tidy --version saiu com codigo $rc"
+            exit 1
+          }
+          if (-not (($saida -join "`n") -match 'LLVM version 23\.1\.6(\s|$)')) {
+            Write-Error "clang-tidy --version nao diz 'LLVM version 23.1.6'"
+            exit 1
+          }
+          Write-Host "ok: clang-tidy 23.1.6 do LLVM oficial, em $achado"
 
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real
@@ -3485,10 +3971,11 @@ jobs:
 
   sanitizer:
     name: Sanitizer (Fedora - ASan/UBSan)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       # libasan/libubsan: pacotes de RUNTIME, separados de gcc-c++ no
       # Fedora. gcc-c++ traz so a copia interna em
@@ -3505,7 +3992,7 @@ jobs:
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel libasan libubsan
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -3552,6 +4039,9 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
+          # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
+          export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
           tools/preci.sh --sanitizer-only
 
   # GATE-GL-CROSS-COVERAGE (achado 3 da revisao adversarial de
@@ -3587,17 +4077,18 @@ jobs:
   # outras pernas da matriz.
   gl-codegen-host-cross:
     name: GL-CODEGEN-HOST-TOOL (Fedora - construcao cruzada MinGW, 4 vias)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       - name: Instalar toolchain (nativo + cruzado MinGW)
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel mingw64-gcc-c++
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -3667,13 +4158,20 @@ jobs:
   # a lib sanitizada de proposito, e isso falha por construcao sob ASan
   # em QUALQUER compilador (o runtime do sanitizer tem que vir primeiro
   # no processo), nao so no GCC/Clang.
+  #
+  # QA-SCREEN-CAPTURE C2b-5 (D-W8-60): um teste construido com
+  # glintfx_apply_compile_options NAO e' "consumidor comum" - ele recebe
+  # as mesmas flags de sanitizer da lib. capture_known_color_smoke (a
+  # fixture e a ferramenta de captura) e' assim, por isso passou do
+  # rotulo `consume` para `unit` e roda neste job: a captura da janela
+  # nos quatro trabalhos Windows (shared, estatico, Debug e ASan).
   windows-sanitizer:
     name: Windows - Sanitizer (ASan)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE).
       # Mesmo passo CI-WIN-ENV do job `windows` acima.
@@ -3769,6 +4267,11 @@ jobs:
         shell: pwsh
         run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-shared/tests"
 
+      # DEMO-1 D6-red (D-W8-75): o exemplo roda de <builddir>/examples/bin e precisa do Mesa ao lado dele.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para o exemplo first_window
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-shared/examples/bin"
+
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar:
       # ctest -N conta quantos casos o rotulo `unit` casa ANTES de
       # confiar no passo seguinte - mesmo padrao que "Saida verbosa da
@@ -3794,12 +4297,65 @@ jobs:
           ctest --test-dir build-shared -L '^unit$' --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # QA-SCREEN-CAPTURE C2b-5 (D-W8-60): o mesmo artefato dos jobs `windows` e `windows-debug`, para o
+      # build ASan (capture_known_color_smoke roda aqui desde que passou ao rotulo `unit`). Nome distinto
+      # dos outros dois: o upload-artifact recusa nome repetido no mesmo run.
+      - name: Publicar a captura no Windows (ASan)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-windows-sanitizer
+          path: build-shared/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
+      - name: Publicar a captura do exemplo first_window no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-first-window-windows-sanitizer
+          path: build-shared/tests/first_window_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
+      - name: Publicar a captura do exemplo shapes no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-shapes-windows-sanitizer
+          path: build-shared/tests/shapes_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
+      - name: Publicar a captura do exemplo textures no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-textures-windows-sanitizer
+          path: build-shared/tests/textures_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no Windows (sanitizer)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-sprite_shadows-windows-sanitizer
+          path: build-shared/tests/sprite_shadows_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
       # Mesmo toolchain do job `lint` acima (nenhum runtime de
       # sanitizer aqui - GATE-DEBUG e sobre NDEBUG/assert(), nao sobre
@@ -3823,7 +4379,7 @@ jobs:
       # 19/09/2026): este job roda `preci.sh --debug-only`, que executa
       # a suite ctest INTEIRA sem filtro `-L unit` (ver comentario logo
       # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -3882,6 +4438,9 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
+          # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
+          export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
           tools/preci.sh --debug-only
 
   # Item DEBUG-PARITY-WIN (TODO.md, GODS_LAWS.md L-04/L-40): o par
@@ -3914,7 +4473,7 @@ jobs:
   # numero escrito aqui apodrece, o comando que mede nao).
   windows-debug:
     name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
@@ -3922,7 +4481,7 @@ jobs:
       # 19/09/2026): este job roda a suite ctest INTEIRA sem filtro de
       # rotulo (ver "ctest --test-dir build-debug --output-on-failure"
       # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -4063,6 +4622,11 @@ jobs:
         shell: pwsh
         run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-debug/tests"
 
+      # DEMO-1 D6-red (D-W8-75): o exemplo roda de <builddir>/examples/bin e precisa do Mesa ao lado dele.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para o exemplo first_window
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-debug/examples/bin"
+
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar -
       # mesmo padrao que o job `windows-sanitizer` acima ja usa.
       - name: Prova - suite nao esta vazia
@@ -4117,10 +4681,60 @@ jobs:
 
       - name: Publicar relatorio do oraculo de camadas (Debug)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-windows-debug
           path: layers_oracle_report.txt
+          retention-days: 7
+
+      # QA-SCREEN-CAPTURE C2b-4: o mesmo artefato do job `windows` acima, para o build Debug (a suite inteira roda aqui).
+      - name: Publicar a captura no Windows (Debug)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-windows-debug
+          path: build-debug/tests/capture_known_color_win32_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # DEMO-1 D6-red (D-W8-90): as capturas do exemplo first_window, irmas das da fumaca acima.
+      - name: Publicar a captura do exemplo first_window no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-first-window-windows-debug
+          path: build-debug/tests/first_window_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SHAPES S6 (D-W8-1084): as capturas do exemplo shapes, irmas das do first_window acima.
+      - name: Publicar a captura do exemplo shapes no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-shapes-windows-debug
+          path: build-debug/tests/shapes_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-TEXTURE T7: as capturas do exemplo textures, irmas das do shapes acima.
+      - name: Publicar a captura do exemplo textures no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-textures-windows-debug
+          path: build-debug/tests/textures_capture_out
+          if-no-files-found: warn
+          retention-days: 7
+
+      # R2D-SPRITE-SHADE H5: as capturas do exemplo sprite_shadows, irmas das do textures acima.
+      - name: Publicar a captura do exemplo sprite_shadows no Windows (debug)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-out-sprite_shadows-windows-debug
+          path: build-debug/tests/sprite_shadows_capture_out
+          if-no-files-found: warn
           retention-days: 7
 
   # Item CLANG-JOB da onda W2 (25/08/2026): honra a promessa de robustez
@@ -4139,10 +4753,11 @@ jobs:
   # antes deste job existir: os DOIS modos compilam limpos, zero aviso.
   clang:
     name: Clang (Fedora - segundo compilador, ${{ matrix.modo }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
-    container: fedora:latest
+    # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
+    container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     strategy:
       fail-fast: false
       matrix:
@@ -4161,7 +4776,7 @@ jobs:
           dnf -y install clang cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -4308,7 +4923,7 @@ jobs:
 
       - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
         if: always() && matrix.oracle_flag != ''
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-clang-${{ strategy.job-index }}
           path: layers_oracle_report.txt
@@ -4316,7 +4931,7 @@ jobs:
 
   gitleaks:
     name: Gitleaks (scan de segredo)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
@@ -4325,7 +4940,7 @@ jobs:
       # .gitleaksignore); o checkout raso default (profundidade 1) so
       # exporia o ultimo commit ao scanner, dando falsa sensacao de
       # cobertura completa.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -4356,11 +4971,11 @@ jobs:
 
   leis:
     name: Gate das leis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
@@ -4465,11 +5080,11 @@ jobs:
   # `version-tag.yml`, contra o servidor de verdade.
   version-tag:
     name: Versao == etiqueta (VERSION-TAG-SYNC)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type == 'tag'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cmath>
+
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/rect.hpp>
 #include <glintfx/draw2d/frame_2d_report.hpp>
@@ -18,9 +20,31 @@
 // pixel) - a shape, not a bad value. The report keeps the reason of the FIRST refused piece only.
 namespace glintfx::draw2d {
 
+// The reason a set of numbers is refused, in the order of the vocabulary: any NaN first, then any
+// infinity; `none` when every one is finite. `negative_size` is the caller's own test. Shared by
+// every piece that is a list of numbers: the quad, the rectangle and the line
+// (stroke_line_check.hpp; extracted at its third use, CONTRACT.md section 6).
+template <typename... Values>
+[[nodiscard]] gltfx_draw_2d_refusal refusal_of_values(Values... values) noexcept {
+    if ((std::isnan(values) || ...)) {
+        return gltfx_draw_2d_refusal::not_a_number;
+    }
+    if ((std::isinf(values) || ...)) {
+        return gltfx_draw_2d_refusal::infinite;
+    }
+    return gltfx_draw_2d_refusal::none;
+}
+
 // Why a quad in world position, with this color, is refused (`none` when it is not).
 [[nodiscard]] gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,
                                                     glintfx::gltfx_rgba color) noexcept;
+
+// Why a shadow is refused (`none` when it is not): what a quad is refused for, and then, with every
+// value finite, a surface with no stencil bits (D-W8-1328). A value names itself first, as in the
+// vocabulary: it is wrong on any surface.
+[[nodiscard]] gltfx_draw_2d_refusal refusal_of_shadow(const quad_corners_world &corners,
+                                                      glintfx::gltfx_rgba tint,
+                                                      bool surface_has_stencil) noexcept;
 
 // The same for a rectangle in world position, which can also have a negative size.
 [[nodiscard]] gltfx_draw_2d_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,

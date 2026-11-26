@@ -47,7 +47,8 @@ configure_glintfx_with_nondefault_includedir() {
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER="$cxx" \
         -DCMAKE_INSTALL_INCLUDEDIR="$NONDEFAULT_INCLUDEDIR" \
-        -DGLINTFX_BUILD_TESTS=OFF
+        -DGLINTFX_BUILD_TESTS=OFF \
+        -DGLINTFX_BUILD_EXAMPLES=OFF
 }
 
 build_and_install_glintfx() {

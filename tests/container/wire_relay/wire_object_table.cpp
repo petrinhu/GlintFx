@@ -66,8 +66,13 @@ known_interface interface_from_name(std::string_view name) {
     return known_interface::unknown;
 }
 
-std::size_t fd_argument_count(known_interface interface, std::uint16_t opcode) {
-    if (interface == known_interface::wl_shm && opcode == 0) {
+std::optional<std::size_t> fd_argument_count(known_interface interface, std::uint16_t opcode,
+                                             wire_direction direction) {
+    if (interface == known_interface::unknown) {
+        return std::nullopt;
+    }
+    if (interface == known_interface::wl_shm && opcode == 0 &&
+        direction == wire_direction::from_client) {
         return 1; // wl_shm.create_pool(new_id, fd, int32 size)
     }
     return 0;
@@ -85,12 +90,12 @@ void wire_object_table::declare(std::uint32_t object_id, known_interface interfa
 void wire_object_table::retire(std::uint32_t object_id) { m_objects.erase(object_id); }
 
 known_interface wire_object_table::interface_of(std::uint32_t object_id) const {
-    auto it = m_objects.find(object_id);
+    const auto it = m_objects.find(object_id);
     return it == m_objects.end() ? known_interface::unknown : it->second;
 }
 
 std::optional<std::uint32_t> wire_object_table::xdg_surface_for(std::uint32_t surface_id) const {
-    auto it = m_xdg_surface_of_wl_surface.find(surface_id);
+    const auto it = m_xdg_surface_of_wl_surface.find(surface_id);
     if (it == m_xdg_surface_of_wl_surface.end()) {
         return std::nullopt;
     }
@@ -170,6 +175,9 @@ std::optional<std::uint32_t> wire_object_table::observe(const decoded_message &m
     }
     if (source == known_interface::wl_shm && message.header.opcode == 0) {
         return declare_child(message.payload, known_interface::wl_shm_pool);
+    }
+    if (source == known_interface::wl_shm_pool && message.header.opcode == 0) {
+        return declare_child(message.payload, known_interface::wl_buffer);
     }
     return std::nullopt;
 }

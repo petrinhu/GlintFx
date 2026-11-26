@@ -11865,3 +11865,34 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     2. as linhas do `TODO.md`;
     3. os commits F1-G, F1-A e F1-R;
     4. os portões de G1 a G10.
+
+- **D-W8-1207 (main, 25/11 23:5x): a F1-R também leva os dois `find_package(glintfx 0.6)` para `0.7`.**
+  - **Onde:** `examples/CMakeLists.txt:15` e `tests/package/CMakeLists.txt:35`.
+  - **Quem achou:** o escritor do CHANGELOG. O `aplica_f1.py versao`, com o md5 conferido, não toca nesses dois arquivos.
+  - **Por que é necessário:** a versão é casada por `SameMinorVersion`, e com isso o teste de consumo e os exemplos reprovariam contra a 0.7.0.0.
+  - **Efeito no critério:** fica mais exigente, nunca mais frouxo (D-W8-1197). O commit F1-R ganha esses 2 caminhos.
+- **D-W8-1208 (main): o CHANGELOG está aceito pelo main.**
+  - **Provas conferidas:** a seção nova (linhas 11 a 41) não tem travessão, não tem ID interno e cita os 16 cabeçalhos. Os 28 caminhos foram conferidos por `ls-files`.
+  - **A data vai ser a do dia do C7.** O implementador ajusta.
+- **D-W8-1209 (main): a ordem da F1 troca a `heavy.lock` pela fila `~/.claude/bin/pesado`, com `taskset 2-15`.** É o regime da máquina a partir de 25/11.
+- **D-W8-1210 (main, 26/11 00:0x): C7-1, causa do vermelho provada e conserto aceito.**
+  - **A causa era do próprio C7-1.** O fixture passou a guardar uma raiz substituta, e o `provar-isolamento.sh --file` reprovava essa raiz.
+  - **O conserto:**
+    - o `sessao.sh` ganhou `copiar_fixture_limpo`, que põe a raiz de quem roda na cópia, e só nos selftests;
+    - no `provar-isolamento.sh`, o `ALLOW_RO_DEFAULT` agora é lido do lugar onde o script está, e o selftest usa a raiz substituta.
+  - **A regra do portão não mudou.**
+  - **`CHECK_NO_PASS_REGEX_SITES` vai de 22 para 23 no mesmo commit.** O sítio novo é o `machine_paths_selftest`. É o procedimento do próprio portão (D-W8-163), igual ao das vezes de 7 para 8 e de 8 para 9. Não é afrouxar.
+- **D-W8-1211 (main, 26/11 01:0x): o F1-A também sobe `CHECK_NO_PASS_REGEX_SITES`, de 23 para 24, no mesmo commit.**
+  - **Achado:** o `preci --fast` em `ebc1d85b` reprovou em `no_pass_regex_test`, com `sitios=24` e esperado 23. O registro do teste novo do manifesto é um sítio a mais do executor, e a ordem da F1, escrita quando a conta era 22, não previu isso.
+  - **Por que não é afrouxar:** é o procedimento do próprio portão (D-W8-163).
+  - **Como foi feito:** o F1-A já estava commitado no clone, e amend é proibido. A F1 foi refeita num clone novo, `f1/b/snap`, por cherry-pick dos commits G e R e com o A recommitado junto da troca da conta. Nenhum histórico foi reescrito, e os commits velhos ficam só no clone `f1/a`.
+- **D-W8-1212 (main, 26/11 01:24): a F1 está no tronco.**
+  - **Commits:** F1-G `708c6306`, F1-A `827a01f7` e F1-R `a5cd6605`, todos sobre `36ded7f8`, este o C7-1.
+  - **G4:** `preci --fast` com rc 0, 404 de 404 testes.
+  - **G2:** o main repetiu o `check-headers` sobre o `git archive a5cd6605`, com rc 0, 4 pareceres analisados e 0 reprovados.
+  - **Próximos passos:**
+    - a revisão (G3), por um `qa-engineer` novo;
+    - o push e o CI no último SHA (G5 e G10);
+    - as linhas do `TODO.md` (D-W8-2003 e `ordem-r2bc-w8.md` §4);
+    - as perguntas da `lista-ratificacao-w8.md` ao líder;
+    - o merge e a marca, só com o OK dele.

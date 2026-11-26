@@ -11854,3 +11854,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O que já está pronto no clone:** a troca deu `achados=0` (eram 25), e os dois autotestes passaram.
   - **O portão NÃO foi alargado.**
   - **Na retomada:** investigar o `sessao.sh` no clone (L-49), sem afrouxar portão. A W8 continua aberta: faltam o C7-1, as linhas do `TODO.md` e a F1.
+
+- **D-W8-1206 (LÍDER, 25/11 23:17): fim da pausa; a madrugada é usada para a F1 e o C7-1 é investigado.**
+  - **As duas perguntas do main:** (1) usar o computador até as 06:15 na F1; (2) investigar a falha do C7-1 no clone sem afrouxar o portão.
+  - **Resposta do líder, verbatim:** *"Sim"*.
+  - **O que continua com o líder:** o merge, a marca `v0.7.0.0`, as portas de mão única e o lote de ratificação (`ordem-f1-w8.md` §7).
+  - **Orçamento da máquina, repassado pela `manutencao`:** `taskset 2-15`, pelo menos 4 GiB livres e carga até 15. Às 06:10 o main grava o estado e para.
+  - **Ordem dos trabalhos:**
+    1. o C7-1 (investigação e commit), em paralelo com o rascunho do CHANGELOG, que fica fora da árvore;
+    2. as linhas do `TODO.md`;
+    3. os commits F1-G, F1-A e F1-R;
+    4. os portões de G1 a G10.

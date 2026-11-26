@@ -11925,3 +11925,32 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - a `CI-VERDE-W8` marcada como ✅.
   - **O que não entrou:** a `PHOTO-FACTS-ATOMS`, que já estava na INBOX.
   - **O bullet `FALLBACK-KEEP-ENDS-NEAR` da INBOX fica por enquanto,** porque guarda a medição do mutante MFN, a marca de triagem e o marcador de dreno, e a linha da tabela não tem nada disso. A fusão vai para a abertura da W-PNG-2.
+
+- **D-W8-1217 (main): o G9, o DEPLOY_CHECKLIST aplicado à marca `v0.7.0.0`, item por item, como no G9 da v0.6.1.0 (`plano-hotfix-0601.md:72-88`).**
+  - **Fase 0 `[PASSOU]`:** a marca não cai em nenhuma das quatro classes (schema, autenticação, chave, DROP ou ALTER). Ela fica registrada como "marca pública de biblioteca, irreversível na prática".
+  - **Fase 1 `[N/A: não há dado nem backup]`:** o estado anterior, a `v0.6.1.0`, continua publicado e imutável. Há também a cópia diária `glintfx-2026-11-25.bundle`, com o `verify` ok.
+  - **Fase 2 `[N/A: não há tráfego]`:** no lugar dela vale a dupla validação. De um lado, o verde local: o `preci --fast` com 404 de 404 testes, em `a5cd6605`. Do outro, a matriz do servidor: o G5, com o run 45755075508, e o G6.
+  - **Fases 3 e 4 `[N/A: não há banco, 2FA nem cabeçalho HTTP]`:** o `gitleaks` rodou verde no G5.
+  - **Fase 5:**
+    - **rollback:** é fix-forward. Uma marca publicada nunca é apagada nem movida (L-11). Se houver defeito, a saída é a `v0.7.0.1` ou a `v0.7.1.0`;
+    - **health check:** G6 e G7 verdes;
+    - **5.3 `[N/A: declarado]`:** não há estado legado, e a marca anterior fica para sempre.
+  - **Fase 6:**
+    - **o registro:** está neste arquivo, com os run ids e o verbatim do líder;
+    - **os avisos:** o bus `gusworld`, o Gus Dragon e a manutenção;
+    - **o ramo da onda:** é apagado depois do `merge-base --is-ancestor`.
+- **D-W8-1218 (LÍDER, 26/11 06:10): merge e marca autorizados.** Verbatim: *"Autorizo merge e tag"*.
+  - **Ordem em que o main executa:** espera o G6, o CI do PR #17, dar verde. Depois o merge, com `gh pr merge 17 --merge`, como os PR #14 a #16. Em seguida o G7 (CI do `main` no SHA do merge), a marca anotada `v0.7.0.0` nesse SHA, o G8 (job `version-tag`), a exclusão do ramo `onda-w8` e os avisos.
+  - **A ordem do líder vale por cima do fim da janela livre (06:15),** porque foi dada direto nesta sessão.
+- **D-W8-1219 (main, 26/11 07:45): a W8 está publicada como `v0.7.0.0`.**
+  - **G6:** PR #17, run 45789095234 em `7d2b9257`, com 25 trabalhos ok e 1 pulado; a lista de nomes é igual à da referência.
+  - **Merge:** `cd39edfe`, com os pais `680aa609` e `7d2b9257`, por commit de merge.
+  - **G7:** run 45793980991 no `main`, com 25 ok e 1 pulado; a lista é igual à da referência.
+  - **A marca:** `v0.7.0.0`, anotada, aponta para `cd39edfe` e foi conferida por `ls-remote ^{}`.
+  - **G8:** run 45797021372, com o job VERSION-TAG-SYNC em `success`. O `project(glintfx VERSION 0.7.0.0` foi conferido no commit marcado.
+  - **G9:** veja a D-W8-1217 acima.
+  - **Depois da marca:**
+    - o ramo `onda-w8` é apagado depois do `merge-base --is-ancestor`;
+    - os avisos vão ao bus `gusworld`, ao Gus Dragon e à manutenção;
+    - a imagem `glintfx-wltest:g3` e os clones de `.trabalho/` saem pela L-53.
+  - **Este registro vai direto no `main`,** como a L-11 permite para registro de decisão.

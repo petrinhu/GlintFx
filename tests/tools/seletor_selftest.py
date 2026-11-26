@@ -155,6 +155,14 @@ def make_build(scratch, targets):
     return build
 
 
+def _ler_lint(scratch, label):
+    caminho = os.path.join(scratch, f"{label}-lint.txt")
+    if not os.path.exists(caminho):
+        return None
+    with open(caminho, encoding="utf-8") as handle:
+        return [linha.strip() for linha in handle if linha.strip()]
+
+
 def write_ctest(scratch, data=CTEST_FIXTURE):
     path = os.path.join(scratch, "ctest.json")
     with open(path, "w", encoding="utf-8") as handle:
@@ -211,6 +219,8 @@ def caso_positivo(scratch):
     rc_r, tests, text_r = resolver(scratch, "positivo", os.path.join(scratch, "positivo.json"), build, ctest)
     check("1 positivo: resolver seleciona so x_test", rc_r == 0 and tests == ["x_test"],
           f"rc={rc_r} testes={tests} {text_r.strip()}")
+    lint = _ler_lint(scratch, "positivo")
+    check("1 positivo: a lista de lint e' exatamente tests/x_test.cpp", lint == ["tests/x_test.cpp"], f"lint={lint}")
 
 
 def caso_teste_sem_command(scratch):
@@ -423,6 +433,45 @@ def caso_cmake_so_comentario_texto(scratch):
           f"rc={rc_r} testes={tests} {text_r.strip()}")
 
 
+def caso_cabecalho_c3(scratch):
+    # E1-fix1: um .hpp de teste (C3) poe na lista de lint as unidades .cpp que o incluem (por _includers)
+    files = dict(BASE_FILES)
+    files["tests/x_helper.hpp"] = "#pragma once\ninline int ajuda() { return 1; }\n"
+    files["tests/x_test.cpp"] = '#include "x_helper.hpp"\nint main() { return ajuda() - 1; }\n'
+    repo = make_repo(scratch, "cabecalho_c3", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "tests", "x_helper.hpp"), "a", encoding="utf-8") as handle:
+        handle.write("// mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "cabecalho_c3", "--base", base, "--head", head)
+    targets = dict(TARGETS_FIXTURE)
+    targets["x_test"] = ["tests/x_test.cpp", "tests/x_helper.hpp"]
+    build = make_build(scratch, targets)
+    ctest = write_ctest(scratch)
+    rc_r, tests, text_r = resolver(scratch, "cabecalho_c3", os.path.join(scratch, "cabecalho_c3.json"), build, ctest)
+    lint = _ler_lint(scratch, "cabecalho_c3")
+    check("1b cabecalho C3 incluido por x_test.cpp: lint e' tests/x_test.cpp",
+          rc_r == 0 and lint == ["tests/x_test.cpp"] and tests == ["x_test"],
+          f"rc={rc_r} lint={lint} testes={tests} {text_r.strip()}")
+
+
+def caso_completo_lint_tests(scratch):
+    # E1-fix1: no completo, a lista de lint leva as unidades .cpp do codemodel, nao so as de src/
+    repo = make_repo(scratch, "completo_lint", BASE_FILES)
+    base = head_of(repo)
+    with open(os.path.join(repo, "CMakeLists.txt"), "a", encoding="utf-8") as handle:
+        handle.write("# mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "completo_lint", "--base", base, "--head", head)
+    build = make_build(scratch, TARGETS_FIXTURE)
+    ctest = write_ctest(scratch)
+    rc_r, tests, text_r = resolver(scratch, "completo_lint", os.path.join(scratch, "completo_lint.json"), build, ctest)
+    lint = _ler_lint(scratch, "completo_lint")
+    check("completo lista unidade de tests/ no lint (tests/x_test.cpp)",
+          rc_r == 0 and data and data["modo"] == "completo" and "tests/x_test.cpp" in (lint or []),
+          f"rc={rc_r} modo={data and data['modo']} lint={lint} {text_r.strip()}")
+
+
 def caso_negativo(scratch):
     repo = make_repo(scratch, "negativo", BASE_FILES)
     base = head_of(repo)
@@ -447,11 +496,12 @@ def caso_vazio(scratch):
     check("3 vazio: completo leva todos os testes", rc_r == 0 and sorted(tests) == ["lendo_test", "w_test", "x_test", "y_test"],
           f"rc={rc_r} testes={tests}")
     # subconjunto sem teste nem lint: z_test.cpp nao esta em nenhum alvo do inventario
+    # E1-fix1: um .cpp de teste entra na lista de lint por si; o caso sem nada e' um cabecalho que nenhuma unidade inclui
     files = dict(BASE_FILES)
-    files["tests/z_test.cpp"] = "int main() { return 0; }\n"
+    files["tests/z_helper.hpp"] = "#pragma once\n"
     repo_z = make_repo(scratch, "vazio_z", files)
     base_z = head_of(repo_z)
-    with open(os.path.join(repo_z, "tests", "z_test.cpp"), "a", encoding="utf-8") as handle:
+    with open(os.path.join(repo_z, "tests", "z_helper.hpp"), "a", encoding="utf-8") as handle:
         handle.write("// z\n")
     head_z = commit_all(repo_z)
     rc_z, data_z, _ = classificar(repo_z, scratch, "vazio_z", "--base", base_z, "--head", head_z)
@@ -581,7 +631,7 @@ def main():
         for caso in (caso_positivo, caso_teste_sem_command, caso_leitor_c3, caso_leitor_c1,
                      caso_glob_sem_citacao, caso_argv_sem_linha, caso_glob_c1,
                      caso_leitor_c3_literal, caso_cmake_positivo, caso_cmake_negativo, caso_cmake_piso,
-                     caso_cmake_comentario_bloco, caso_cmake_so_comentario_texto, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
+                     caso_cmake_comentario_bloco, caso_cmake_so_comentario_texto, caso_cabecalho_c3, caso_completo_lint_tests, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
                      caso_varredura, caso_orfa, caso_arvore, caso_dado_de_teste, caso_renomeacao,
                      caso_base_invalida):
             sub = tempfile.mkdtemp(prefix=caso.__name__ + "-", dir=scratch)

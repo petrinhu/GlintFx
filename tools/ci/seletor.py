@@ -847,7 +847,9 @@ def _includers(raiz, unidades, cabecalho):
         except OSError:
             continue
         for incluido in padrao.findall(texto):
-            if incluido == chave or incluido.endswith("/" + chave):
+            # casa nos dois sentidos: o include e' relativo ao arquivo que inclui ("x_helper.hpp" para
+            # tests/x_helper.hpp) ou ao caminho do include ("glintfx/core/x.hpp" para include/glintfx/core/x.hpp)
+            if incluido == chave or incluido.endswith("/" + chave) or chave.endswith("/" + incluido):
                 achados.append(unidade)
                 break
     return achados
@@ -864,7 +866,8 @@ def resolver(mudancas, build, ctest_json):
 
     if modo == "completo":
         selecionados = set(nomes)
-        lint = sorted(f for f in unidades_cpp if f.startswith("src/"))
+        # E1-fix1 (ordem do CTO): o completo leva todas as unidades .cpp do codemodel, o mesmo universo do stage_tidy
+        lint = list(unidades_cpp)
         precisa_build = True
     elif modo == "texto-sem-leitor":
         selecionados, lint, precisa_build = set(), [], False
@@ -883,6 +886,11 @@ def resolver(mudancas, build, ctest_json):
                     lint.update(_includers(raiz, unidades_cpp, caminho))
             elif classe == "C3":
                 precisa_build = True
+                # E1-fix1: .cpp de teste entra na lista de lint; cabecalho de teste põe as unidades que o incluem
+                if caminho.endswith(".cpp"):
+                    lint.add(caminho)
+                elif caminho.endswith((".hpp", ".h")):
+                    lint.update(_includers(raiz, unidades_cpp, caminho))
                 for teste in testes:
                     alvo = _alvo_do_teste(teste)
                     if caminho in alvos.get(alvo, set()) or _cita(teste, caminho):

@@ -3282,12 +3282,40 @@ run_selftest_texto_sem_leitor_control() {
     echo "selftest: controle de texto sem leitor OK (pula, diz que pulou, e imprime PULADO por estagio)"
 }
 
+run_selftest_zero_recusa_control() {
+    # E2-fix1 (B1 da revisao N3 da E2): a RECUSA do zero, e nao so' a mesclagem. Uma fixture git com
+    # o preci e o seletor COMMITADOS (senao a propria copia conta como mudanca), sem mudanca nenhuma.
+    # O script e' carregado da fixture, para que a raiz seja ela (ROOT_DIR e' somente leitura aqui);
+    # run_mudancas tem de sair 1 e dizer "nada tocado". So' a classificacao roda: a recusa vem antes
+    # de qualquer estagio. A sabotagem que troca a recusa por "exit 0" tem de deixar este controle vermelho.
+    (
+        dir="$(mktemp -d "${TMPDIR}/glintfx-zero-selftest.XXXXXX")" || fail "selftest: zero recusa: mktemp falhou"
+        git init -q "$dir" || fail "selftest: zero recusa: git init falhou"
+        git -C "$dir" config user.email "selftest@preci.invalid"
+        git -C "$dir" config user.name "preci selftest"
+        mkdir -p "$dir/tools/ci"
+        cp "$ROOT_DIR/tools/preci.sh" "$dir/tools/preci.sh"
+        cp "$ROOT_DIR/tools/ci/seletor.py" "$dir/tools/ci/seletor.py"
+        grep -E "^(tools/ci/seletor\.py|tools/preci\.sh) " "$ROOT_DIR/tools/ci/varreduras-de-arvore.txt" > "$dir/tools/ci/varreduras-de-arvore.txt"
+        git -C "$dir" add -A && git -C "$dir" commit -q -m base || fail "selftest: zero recusa: commit da fixture falhou"
+        saida="$(bash -c 'source <(sed "\$d" "$0"); PRECI_OWNER="$BASHPID"; trap preci_limpa EXIT; run_mudancas HEAD nao' "$dir/tools/preci.sh" 2>&1)" && rc=0 || rc=$?
+        rm -rf "$dir"
+        if [ "$rc" != "1" ]; then fail "selftest: zero recusa: sem mudanca devia sair 1 (saiu $rc): $saida"; fi
+        case "$saida" in
+            *"nada tocado contra HEAD; use --since <rev>"*) ;;
+            *) fail "selftest: zero recusa: a recusa nao disse 'nada tocado' (saida: $saida)" ;;
+        esac
+    ) || fail "selftest: controle de zero recusa FALHOU"
+    echo "selftest: controle de zero recusa OK (sem mudanca, run_mudancas sai 1 com 'nada tocado')"
+}
+
 run_selftest_efic_preci_controls() {
     run_selftest_isolamento_control
     run_selftest_teto_control
     run_selftest_subconjunto_ctest_control
     run_selftest_zero_caminhos_control
     run_selftest_texto_sem_leitor_control
+    run_selftest_zero_recusa_control
 }
 
 run_selftest() {

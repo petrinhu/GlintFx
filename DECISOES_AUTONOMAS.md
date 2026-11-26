@@ -11999,3 +11999,38 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 - **D-W8-1229 (main, 26/11): o que fica fora deste pedido do líder,** que abrangia as ondas de W1 até o fim da W8.
   - 20 linhas de ondas futuras (W9-I, W9-D, W9-G, W9-H, W9-K, WM4, WM12, WM15, WM20, W11c e W17) ainda trazem "PERGUNTA AO LÍDER" no texto. As três da W9-I são as mais próximas. Sobem na abertura de cada onda (lista em `.trabalho/cto-w8/perguntas-inbox-pos-w8.md` §5).
   - A seção "Decisões abertas" do topo do `TODO.md` está velha, pela leitura do CTO. A limpeza fica para a abertura da W-PNG-1.
+
+- **D-W8-1230 (main, 26/11 10:27): a wiki do GitHub foi publicada na versão 0.7.0.0.** Isso cumpre a decisão do líder registrada na linha 10010 deste arquivo, *"Sim, publique no fechamento (Recomendado)"*.
+  - **O que foi para a wiki:** uma cópia exata de `docs/wiki` da marca `v0.7.0.0`, com o SHA da wiki passando de `5c09dd36` para `23363d69`. Entraram 2 páginas novas, `API-Draw-2D-Shapes` e `API-Texture-Atlas`, e 5 atualizadas.
+  - **Conferência:** pelo site, a `API-Texture-Atlas` responde 200 e a `Pinning-a-Version` cita `v0.7.0.0`.
+- **D-W8-1231 a D-W8-1238 (LÍDER, 26/11 ~11:45): o projeto se ajusta às leis gerais de 23/11 e à L-35 de 26/11.** O plano do COO está em `.trabalho/cto-w8/auditoria-eficacia-leis-2311.md`, com o argumento contra cada recomendação. As respostas, verbatim:
+  - **D-W8-1231, B0, exceção ao "só produto":**
+    - na primeira formulação, o líder respondeu *"nao entendi"*;
+    - reformulada, a resposta foi *"Sim, agora, antes do PNG (Recomendado)"*;
+    - efeito: um lote fechado de ferramenta e CI, só com os itens aprovados hoje, entra antes da primeira fatia do PNG.
+  - **D-W8-1232, B1, teste sem janela:** *"Seguir a lei geral (Recomendado)"*. O que não abre janela roda no computador, com teto; janela, teclado e mouse continuam sempre em contêiner (L-09 do projeto).
+  - **D-W8-1233, B2, conferência local:** *"Só o que a fatia tocou (Recomendado)"*. A conferência inteira roda só antes do envio ao GitHub, e o portão é o CI (L-23 e L-18 do projeto).
+  - **D-W8-1234, B3, CI seletivo:** *"Os dois (Recomendado)"*.
+    - No meio do ramo, o CI compara com o último verde do ramo e roda o mesmo subconjunto em todos os sistemas.
+    - No fechamento e no merge, roda tudo.
+    - A busca de segredo e o portão das leis rodam sempre.
+    - O envio só de texto que nenhum teste lê pula os testes.
+  - **D-W8-1235, B4, publicação:** *"Cada parte, a sua versão (Recomendado)"*. Cada parte pronta é mesclada sozinha, com uma passagem só do CI, e o OK do líder vale para cada versão (L-11 e L-18 do projeto).
+  - **D-W8-1236, B5, revisão:** *"Pesada só onde importa (Recomendado)"*.
+    - A revisão pesada fica no que lê arquivo de fora (PNG, folha de estilo e mapa) e no que congela promessa pública.
+    - O resto passa pelo CI e por uma conferência pontual (L-12, L-17, L-34 e L-40 do projeto).
+  - **D-W8-1237, B6, o diário:** *"Rascunho fora, agente leva (Recomendado)"*. O main anota ao vivo no scratchpad, e o agente da fatia leva a anotação ao diário no commit dele (L-34 do projeto).
+  - **D-W8-1238, B7, parar no primeiro erro:** *"Parar no meio, completo no fim"*. Nos envios do meio do ramo, o CI para no primeiro erro; no fechamento, todos os sistemas rodam até o fim (L-04 do projeto).
+  - **A7 do plano, mecânico:** a falha de preparo se refaz com `gh run rerun --failed`, nunca com commit novo.
+- **D-W8-1239 (LÍDER, 26/11 12:08): os detalhes da publicação por partes** (`emendas-leis-2611.md` §10). As respostas, verbatim:
+  - **P1, o que é uma parte:** *"Um recurso público completo (Recomendado)"*. A parte é uma capacidade pública completa em todos os sistemas, listada no plano da onda; cada parte tem o seu ramo, que é apagado no merge;
+  - **P2, as rodadas:** *"Duas por parte (Recomendado)"*. Uma rodada completa antes do merge e outra no `main` depois dele;
+  - **P3, o checklist:** *"Marca sai da lista longa (Recomendado)"*. A marca de biblioteca deixa de passar pelo DEPLOY_CHECKLIST e fica com os portões do CI e o OK do líder. A regra de nunca apagar nem mover uma marca continua;
+  - **P4, o número:** *"Mesclar sem versão (Recomendado)"*. A troca de onda entra no `main` sem marca, e a primeira parte do PNG leva a próxima versão.
+- **D-W8-1240 (main, 26/11 12:08): a P5, que é do main.** A parada no primeiro erro vale só dentro das quatro matrizes, nos envios do meio. A rodada inteira NÃO é cancelada, para não cortar no meio a busca de segredo nem o portão das leis. É a recomendação do COO.
+- **D-W8-1241 (main, 26/11 12:08): ficam no lote as quatro peças que o COO acrescentou por conta própria** (`ordem-lote-eficacia.md` §7):
+  - a lista de varreduras de árvore;
+  - o isolamento do `XDG_RUNTIME_DIR`, que protege a sessão do líder;
+  - o `ci_verde_completo.py`, porque um verde com zero teste reprova (L-40 do projeto);
+  - a guarda de teto, porque o líder pediu o teste sem janela "com teto".
+  Cada uma protege uma condição que o líder pôs.

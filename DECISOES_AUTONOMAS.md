@@ -11821,3 +11821,27 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **Merge e tag da W8:** seguem cobertos pelo modo autônomo, que vale até 21/11 às 23:33 (L-11 emendada), só com a onda verde.
 
 - **D-W8-1202 (LÍDER, 21/11 00:44): nova pausa, por ordem dele nesta sessão, verbatim *"pause e memorize"*.** Nenhum trabalho novo começa. O tronco local está em `af4c4dac`, sem push. O estado completo para retomar está no snapshot da memória.
+
+- **D-W8-1203 (LÍDER, 25/11 20:29): fim da pausa de 21/11, com push, limpeza e merge autorizados.**
+  - **Ordem, verbatim:** *"Autorizo merge, deletar deprecados, push"*.
+  - **Feito por um agente operacional (L-10):**
+    - push do `onda-w8` (`a25e4971`, conferido por `ls-remote`);
+    - cópia `ramos-velhos-2026-11-25.bundle` e cópia diária `glintfx-2026-11-25.bundle`, ambas com `verify` ok, em `~/IDrive/backups-git/GlintFx/`;
+    - ramos locais apagados: `descartavel/d6-f`, `descartavel/d6-h` e `infra-preci`, com a worktree removida. O `infra-preci` tinha 9 de 11 commits já no tronco por equivalência, e o `stage_clang` foi reimplementado;
+    - `main` local movido para o `origin/main`;
+    - CI disparado no `onda-w8` (run 45721554041).
+  - **Merge, pergunta do main:** a W8 ainda não fechou. Resposta do líder, verbatim: *"Fechar a onda e então mesclar (Recomendado)"*. Primeiro terminam o CI-PIN, o C7-1 e a F1 (versão 0.7.0.0); depois vêm o CI verde, o merge e a tag.
+
+- **D-W8-1204 (LÍDER, 25/11 20:30): ordem de parada.** Verbatim: *"quando acabar os dois agentes, commit e pause"*.
+  - Os dois agentes, CI-PIN e C7-1, terminam e fazem o commit de cada um.
+  - Depois disso, o diário entra num commit, o estado vai para a memória, e a sessão PAUSA.
+  - Nada novo começa, inclusive a F1, até nova ordem do líder.
+
+- **PERGUNTA AO LÍDER (pendente, 25/11 20:42), conflito entre duas ordens.**
+  - **Ordem direta a esta sessão, 20:35:** *"quando acabar os dois agentes, commit e pause"*.
+  - **Ordem geral, repassada pela `manutencao` às 20:50:** o computador está livre até 06:15 de 26/11, com todos os recursos disponíveis.
+  - **O que o main fez:** manteve a ordem direta, por ser mais específica. O GlintFx pausa depois do CI-PIN e do C7-1.
+  - **Pergunta:** usar a janela até 06:15 para a F1 (CHANGELOG, versão 0.7.0.0 e CI do fechamento), deixando o merge e a tag para ele?
+  - **Recomendação do main:** sim. A F1 não tem ato irreversível, e o merge e a tag continuam esperando o OK dele.
+  - **25/11 20:50:** o CI do `onda-w8` em `a25e4971` (run 45721554041) deu VERDE. Os 15 commits da W8 que ainda não tinham sido testados passaram.
+- **25/11 21:07 (main):** o C7-1 tirou o caminho pessoal no clone, de 25 achados para 0, com os autotestes ok. O commit dele leva também estas linhas do diário, que entram ANTES, num commit separado. Depois do CI-PIN e do C7-1, a sessão PAUSA (D-W8-1204).

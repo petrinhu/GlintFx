@@ -250,6 +250,419 @@ def leitores_por_citacao(caminho, textos):
                   if leitor != caminho and (alvo in bruto or nome in bruto))
 
 
+# --- Rodada 3: papel do leitor e efeito (decisao do CTO, E1 rodada 3) ------------------------------------------
+#
+# Um leitor de p (um arquivo que cita p, ou que o varre por glob) tem um PAPEL, e o papel dá o EFEITO da citacao.
+# A tabela e' esta, e tudo se decide no TEXTO, dentro do classificar, igual em todo sistema. O resolver so cruza
+# nomes com o inventario.
+#   CMake: lexer tira comentarios e respeita aspas e colchetes. Efeito pela invocacao que contem p.
+#   Orquestrador (.github/, tools/preci.sh): linha com '#' nao conta; citacao e' leitor e nao seleciona teste.
+#   Script (.py/.sh/.ps1 de C1 ou C4): seleciona os testes que citam o script (regra do CMake). Piso de dois niveis.
+#   Compilado (.cpp/.hpp/.h de C1, C3, C6): comentarios C/C++ saem; citacao que sobra num literal ou no codigo: completo.
+#   Dado (C4b e o resto de C1): consumidores do dado pelas regras do CMake e do Script, um nivel; sem consumidor: completo.
+#   Codigo de fora (C6 nao compilado): completo.
+# Texto fora de tests/ (C5 lido por outro texto): nao executa nada, nao seleciona e nao torna completo.
+
+PAPEL_CMAKE = "CMake"
+PAPEL_ORQ = "Orquestrador"
+PAPEL_SCRIPT = "Script"
+PAPEL_COMPILADO = "Compilado"
+PAPEL_DADO = "Dado"
+PAPEL_FORA = "Codigo de fora"
+PAPEL_TEXTO = "Texto"
+
+
+def papel_de(leitor):
+    """Papel do leitor, pela tabela do CTO. Ordem: a primeira que casa vence."""
+    cls = classe_de(leitor)[0]
+    nome = leitor.rsplit("/", 1)[-1]
+    if nome == "CMakeLists.txt" or leitor.endswith(".cmake") or leitor.startswith("cmake/"):
+        return PAPEL_CMAKE
+    if leitor.startswith(".github/") or leitor == "tools/preci.sh":
+        return PAPEL_ORQ
+    if cls in ("C1", "C4") and leitor.endswith((".py", ".sh", ".ps1")):
+        return PAPEL_SCRIPT
+    if leitor.endswith((".cpp", ".hpp", ".h")) and cls in ("C1", "C3", "C6"):
+        return PAPEL_COMPILADO
+    if cls == "C6":
+        return PAPEL_FORA
+    if cls in ("C4b", "C1"):
+        return PAPEL_DADO
+    return PAPEL_TEXTO
+
+
+def cmake_chamadas(texto):
+    """Invocacoes de nivel de comando de um arquivo CMake. Comentarios '#' e '#[[ ]]' saem; aspas e colchetes sao
+    respeitados (um argumento entre aspas ou colchetes e' texto, nao codigo). Cada chamada: nome, linha, argumentos
+    e o tipo de cada argumento ('q' aspas, 'b' colchetes, 'w' palavra nua, 'p' parentese aninhado)."""
+    tokens = []
+    i, n, linha = 0, len(texto), 1
+    while i < n:
+        c = texto[i]
+        if c == "\n":
+            linha += 1
+            i += 1
+            continue
+        if c in " \t\r":
+            i += 1
+            continue
+        if c == "#":
+            m = re.match(r"#\[(=*)\[", texto[i:i + 80])
+            if m:
+                fim = "]" + m.group(1) + "]"
+                j = texto.find(fim, i + m.end())
+                j = n if j < 0 else j + len(fim)
+                linha += texto.count("\n", i, j)
+                i = j
+                continue
+            j = texto.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if c in "()":
+            tokens.append(("(" if c == "(" else ")", c, linha))
+            i += 1
+            continue
+        if c == '"':
+            j = i + 1
+            buf = []
+            while j < n and texto[j] != '"':
+                if texto[j] == "\\" and j + 1 < n:
+                    buf.append(texto[j:j + 2])
+                    j += 2
+                    continue
+                buf.append(texto[j])
+                j += 1
+            tokens.append(("q", "".join(buf), linha))
+            linha += texto.count("\n", i, j)
+            i = j + 1
+            continue
+        m = re.match(r"\[(=*)\[", texto[i:i + 80])
+        if m:
+            fim = "]" + m.group(1) + "]"
+            j = texto.find(fim, i + m.end())
+            j = n if j < 0 else j
+            tokens.append(("b", texto[i + m.end():j], linha))
+            linha += texto.count("\n", i, j)
+            i = n if j >= n else j + len(fim)
+            continue
+        m = re.match(r'[^\s()#"]+', texto[i:])
+        palavra = m.group(0)
+        tokens.append(("w", palavra, linha))
+        i += len(palavra)
+    chamadas = []
+    k = 0
+    while k < len(tokens):
+        tipo, valor, ln = tokens[k]
+        if tipo == "w" and k + 1 < len(tokens) and tokens[k + 1][0] == "(":
+            args, kinds, prof = [], [], 0
+            k += 2
+            while k < len(tokens):
+                tt, vv, _ = tokens[k]
+                if tt == "(":
+                    prof += 1
+                    args.append("(")
+                    kinds.append("p")
+                elif tt == ")":
+                    if prof == 0:
+                        break
+                    prof -= 1
+                    args.append(")")
+                    kinds.append("p")
+                else:
+                    args.append(vv)
+                    kinds.append(tt)
+                k += 1
+            chamadas.append({"name": valor, "line": ln, "args": args, "kinds": kinds})
+        k += 1
+    return chamadas
+
+
+def _sem_comentarios_cpp(texto):
+    """Texto C/C++ com os comentarios trocados por espacos. Literais, raw strings e o separador 1'000 ficam."""
+    out = []
+    i, n = 0, len(texto)
+    while i < n:
+        c = texto[i]
+        if texto.startswith("//", i):
+            j = texto.find("\n", i)
+            j = n if j < 0 else j
+            out.append(" " * (j - i))
+            i = j
+            continue
+        if texto.startswith("/*", i):
+            j = texto.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out.append(re.sub(r"[^\n]", " ", texto[i:j]))
+            i = j
+            continue
+        if c == "R" and texto.startswith('R"', i) and (i == 0 or not (texto[i - 1].isalnum() or texto[i - 1] == "_")):
+            m = re.match(r'R"([^()\\ \t\n]{0,16})\(', texto[i:i + 40])
+            if m:
+                fim = ")" + m.group(1) + '"'
+                j = texto.find(fim, i + m.end())
+                j = n if j < 0 else j + len(fim)
+                out.append(texto[i:j])
+                i = j
+                continue
+        if c == '"':
+            j = i + 1
+            while j < n and texto[j] != '"':
+                j += 2 if texto[j] == "\\" else 1
+            j = min(n, j + 1)
+            out.append(texto[i:j])
+            i = j
+            continue
+        if c == "'":
+            prev = texto[i - 1] if i > 0 else ""
+            nxt = texto[i + 1] if i + 1 < n else ""
+            if prev.isalnum() and nxt.isalnum():  # separador de digito: 1'000
+                out.append(c)
+                i += 1
+                continue
+            j = i + 1
+            while j < n and texto[j] != "'":
+                j += 2 if texto[j] == "\\" else 1
+            j = min(n, j + 1)
+            out.append(texto[i:j])
+            i = j
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _vazio():
+    return {"testes": set(), "alvos": set(), "completo": False, "motivos": []}
+
+
+def _completo(motivo):
+    e = _vazio()
+    e["completo"] = True
+    e["motivos"].append(motivo)
+    return e
+
+
+def _soma(a, b):
+    a["testes"] |= b["testes"]
+    a["alvos"] |= b["alvos"]
+    a["completo"] = a["completo"] or b["completo"]
+    a["motivos"] += b["motivos"]
+    return a
+
+
+def _cita_chamada(chamada, p, nome):
+    return any((p in a) or (nome and nome in a) for a in chamada["args"])
+
+
+def _efeito_chamada(c, p, nome, arquivo, chamadas, outros, profundo=False):
+    """Efeito de UMA invocacao de comando que cita p. Tabela do CTO: add_test, set_tests_properties, set_property(TEST),
+    target_compile_definitions, message, option (texto de ajuda), set (com e sem CACHE). Qualquer outra: completo."""
+    cmd = c["name"].lower()
+    args, kinds = c["args"], c["kinds"]
+    idx = [i for i, a in enumerate(args) if (p in a) or (nome and nome in a)]
+    local = f"{arquivo}:{c['line']} {c['name']}"
+    if cmd == "message":
+        return _vazio()
+    if cmd == "add_test":
+        if "NAME" not in args or args.index("NAME") + 1 >= len(args):
+            return _completo(f"{local}: add_test sem NAME literal")
+        nome_teste = args[args.index("NAME") + 1]
+        if "${" in nome_teste:
+            return _completo(f"{local}: nome de teste com ${{}}")
+        e = _vazio()
+        e["testes"].add(nome_teste)
+        return e
+    if cmd == "set_tests_properties":
+        if "PROPERTIES" not in args:
+            return _completo(f"{local}: set_tests_properties sem PROPERTIES")
+        fim = args.index("PROPERTIES")
+        nomes = args[:fim]
+        if not nomes or any("${" in x for x in nomes) or any(i < fim for i in idx):
+            return _completo(f"{local}: nome com ${{}} ou citacao antes de PROPERTIES")
+        e = _vazio()
+        e["testes"] |= set(nomes)
+        return e
+    if cmd == "set_property":
+        if args[:1] == ["TEST"] and "PROPERTY" in args:
+            fim = args.index("PROPERTY")
+            nomes = args[1:fim]
+            if not nomes or any("${" in x for x in nomes):
+                return _completo(f"{local}: nome de teste com ${{}}")
+            e = _vazio()
+            e["testes"] |= set(nomes)
+            return e
+        return _completo(f"{local}: set_property fora de TEST")
+    if cmd == "target_compile_definitions":
+        if not args or "${" in args[0] or any(i == 0 for i in idx):
+            return _completo(f"{local}: alvo com ${{}} ou citacao no nome do alvo")
+        e = _vazio()
+        e["alvos"].add(args[0])
+        return e
+    if cmd == "option":
+        if idx and all(i == 1 for i in idx):
+            return _vazio()  # texto de ajuda de option()
+        return _completo(f"{local}: citacao fora do texto de ajuda de option()")
+    if cmd == "set":
+        if not args:
+            return _completo(f"{local}: set vazio")
+        if "CACHE" in args:
+            ci = args.index("CACHE")
+            if idx and all(i == ci + 2 for i in idx):
+                return _vazio()  # texto de ajuda de set(... CACHE)
+            return _completo(f"{local}: citacao em set CACHE fora do texto de ajuda")
+        if profundo:
+            return _completo(f"{local}: segundo nivel de set (so um nivel e' seguido)")
+        return _segue_variavel(args[0], c, arquivo, chamadas, outros)
+    return _completo(f"{local}: outra invocacao ({c['name']}) com a citacao de {p}")
+
+
+def _segue_variavel(var, origem, arquivo, chamadas, outros):
+    """set(var ...) com a citacao no valor: segue cada ${var} do arquivo, um nivel. Completo se var aparece pelo nome
+    sem ${} em outra invocacao, se aparece em outro arquivo CMake, ou se nao tem uso."""
+    marca = "${" + var + "}"
+    local = f"{arquivo}:{origem['line']} set({var})"
+    for c2 in chamadas:
+        if c2 is origem or (c2["name"].lower() == "set" and c2["args"][:1] == [var]):
+            continue
+        if any(k == "w" and a == var for a, k in zip(c2["args"], c2["kinds"])):
+            return _completo(f"{local}: {var} sem ${{}} em {c2['name']} (linha {c2['line']})")
+    for outro, texto in outros.items():
+        if outro != arquivo and marca in texto:
+            return _completo(f"{local}: {marca} tambem em {outro}")
+    usos = [c2 for c2 in chamadas if c2 is not origem and any(marca in a for a in c2["args"])]
+    if not usos:
+        return _completo(f"{local}: {marca} sem uso")
+    e = _vazio()
+    for u in usos:
+        _soma(e, _efeito_chamada(u, marca, marca, arquivo, chamadas, outros, profundo=True))
+    return e
+
+
+def _efeito_arquivo_cmake(p, nome, arquivo, chamadas, outros):
+    """Efeito das invocacoes de um arquivo CMake que citam p (ou o nome). Comentario nao aparece aqui: nada."""
+    e = _vazio()
+    for c in chamadas:
+        if _cita_chamada(c, p, nome):
+            _soma(e, _efeito_chamada(c, p, nome, arquivo, chamadas, outros))
+    return e
+
+
+def _cita_em_cmake(p, nome, ctx):
+    return any(_cita_chamada(c, p, nome) for info in ctx["cmake"].values() for c in info["chamadas"])
+
+
+def _efeito_cmake_todos(p, nome, ctx):
+    e = _vazio()
+    outros = {a: info["texto"] for a, info in ctx["cmake"].items()}
+    for arquivo, info in ctx["cmake"].items():
+        _soma(e, _efeito_arquivo_cmake(p, nome, arquivo, info["chamadas"], outros))
+    return e
+
+
+def _testes_do_script(s, ctx):
+    """Testes que citam o script s pela regra do CMake (um nivel, sem piso)."""
+    return _efeito_cmake_todos(s, s.rsplit("/", 1)[-1], ctx)
+
+
+def _efeito_script(s, ctx):
+    """Efeito de um script que le ou varre: os testes que o citam. Piso de dois niveis: sem teste e fora do
+    orquestrador, sobe um nivel (os scripts que citam o nome dele); se ainda nada, completo."""
+    nome = s.rsplit("/", 1)[-1]
+    e = _testes_do_script(s, ctx)
+    if e["testes"] or e["alvos"] or e["completo"]:
+        return e
+    if nome.encode("utf-8") in ctx["orquestrador"]:
+        return e  # o CI roda o script: nada a selecionar, sem piso
+    for leitor, bruto in ctx["scripts"].items():
+        if leitor != s and nome.encode("utf-8") in bruto:
+            _soma(e, _testes_do_script(leitor, ctx))
+    if e["testes"] or e["alvos"] or e["completo"]:
+        return e
+    return _completo(f"piso: {s} sem teste que o cite, fora do orquestrador e sem script que o cite")
+
+
+def _efeito_dado(d, ctx):
+    """Dado: consumidores pelas regras do CMake e do Script, um nivel. Sem consumidor: completo."""
+    nome = d.rsplit("/", 1)[-1]
+    e = _vazio()
+    achou = False
+    for arquivo, info in ctx["cmake"].items():
+        if _cita_em_cmake(d, nome, {"cmake": {arquivo: info}}):
+            achou = True
+    if achou:
+        _soma(e, _efeito_cmake_todos(d, nome, ctx))
+    for leitor, bruto in ctx["scripts"].items():
+        if leitor != d and nome.encode("utf-8") in bruto:
+            achou = True
+            _soma(e, _testes_do_script(leitor, ctx))
+    if not achou:
+        return _completo(f"dado {d} sem consumidor")
+    return e
+
+
+def _efeito_compilado(bruto, p, nome, leitor):
+    """Compilado: citacao que sobra fora de comentario (literal ou codigo): completo. Comentario nao executa nada."""
+    limpo = _sem_comentarios_cpp(bruto.decode("utf-8", "replace"))
+    if (p in limpo) or (nome and nome in limpo):
+        return _completo(f"{leitor}: citacao de {p} em literal ou codigo do compilado")
+    return _vazio()
+
+
+def efeito_do_leitor(p, nome, leitor, ctx):
+    """Efeito de UM leitor sobre o caminho p, pelo papel dele (tabela do CTO)."""
+    papel = papel_de(leitor)
+    if papel == PAPEL_CMAKE:
+        info = ctx["cmake"][leitor]
+        return _efeito_arquivo_cmake(p, nome, leitor, info["chamadas"], {a: i["texto"] for a, i in ctx["cmake"].items()})
+    if papel == PAPEL_SCRIPT:
+        return _efeito_script(leitor, ctx)
+    if papel == PAPEL_COMPILADO:
+        return _efeito_compilado(ctx["bruto"][leitor], p, nome, leitor)
+    if papel == PAPEL_DADO:
+        return _efeito_dado(leitor, ctx)
+    if papel == PAPEL_FORA:
+        return _completo(f"{leitor}: codigo de fora, nao compilado")
+    return _vazio()  # Orquestrador e Texto: nao selecionam teste
+
+
+def contexto_de_leitura(textos):
+    """Uma vez por classificacao: os arquivos CMake ja lexados, e os textos de orquestrador e de script."""
+    ctx = {"cmake": {}, "orquestrador": b"", "scripts": {}, "bruto": textos}
+    orq = []
+    for arq, bruto in textos.items():
+        papel = papel_de(arq)
+        if papel == PAPEL_CMAKE:
+            texto = bruto.decode("utf-8", "replace")
+            ctx["cmake"][arq] = {"texto": texto, "chamadas": cmake_chamadas(texto)}
+        elif papel == PAPEL_ORQ:
+            orq.append(bruto)
+        elif papel == PAPEL_SCRIPT:
+            ctx["scripts"][arq] = bruto
+    ctx["orquestrador"] = b"\n".join(orq)
+    return ctx
+
+
+def _resumo(e):
+    return {"testes": sorted(e["testes"]), "alvos": sorted(e["alvos"]),
+            "completo": e["completo"], "motivos": e["motivos"]}
+
+
+def _entrada_c5_ou_c4(caminho, classe, ctx, textos, varreduras):
+    """Efeito de um caminho C4 (o proprio script) ou C5 (lido por leitores), pela tabela do CTO."""
+    nome = caminho.rsplit("/", 1)[-1]
+    if classe == "C4":
+        ef = _efeito_script(caminho, ctx)
+        return ef, [{"leitor": caminho, "papel": PAPEL_SCRIPT, "efeito": _resumo(ef)}]
+    ef = _vazio()
+    registros = []
+    for leitor in leitores_de(caminho, classe, textos, varreduras):
+        e1 = efeito_do_leitor(caminho, nome, leitor, ctx)
+        _soma(ef, e1)
+        registros.append({"leitor": leitor, "papel": papel_de(leitor), "efeito": _resumo(e1)})
+    return ef, registros
+
+
+
 def classificar(raiz, base, head, arvore):
     rastreados = tracked(raiz)
     varreduras = ler_varreduras(raiz, set(rastreados))
@@ -276,13 +689,18 @@ def classificar(raiz, base, head, arvore):
     textos = ler_leitores_texto(raiz, rastreados)
     por_caminho = []
     contagem = {classe: 0 for classe, _n, _c in CLASSES}
+    ctx = contexto_de_leitura(textos)
     for caminho in caminhos:
         classe, regra = classe_de(caminho)
-        leitores = leitores_de(caminho, classe, textos, varreduras) if classe in ("C4", "C5") else []
-        citacao = leitores_por_citacao(caminho, textos) if classe == "C5" else []
+        if classe in ("C4", "C5"):
+            ef, registros = _entrada_c5_ou_c4(caminho, classe, ctx, textos, varreduras)
+        else:
+            ef, registros = _vazio(), []
+        leitores = [r["leitor"] for r in registros] if classe == "C5" else []
         contagem[classe] += 1
         por_caminho.append({"caminho": caminho, "classe": classe, "regra": regra, "leitores": leitores,
-                            "leitores_citacao": citacao})
+                            "efeitos": registros, "completo": ef["completo"], "motivos": ef["motivos"],
+                            "testes": sorted(ef["testes"]), "alvos": sorted(ef["alvos"])})
     contagem["total"] = len(caminhos)
 
     if motivo_base:
@@ -290,10 +708,16 @@ def classificar(raiz, base, head, arvore):
     elif not caminhos:
         modo, motivo = "completo", "zero caminhos tocados"
     else:
-        completos = [e for e in por_caminho if e["classe"] in COMPLETA or _lido_por_completo(e)]
+        completos = [e for e in por_caminho if e["classe"] in COMPLETA or e["completo"]]
         if completos:
             modo = "completo"
-            motivo = "caminho completo: " + ", ".join(_motivo_completo(e) for e in completos)
+            partes = []
+            for e in completos:
+                if e["classe"] in COMPLETA:
+                    partes.append(f"{e['caminho']} ({e['classe']})")
+                else:
+                    partes.append(f"{e['caminho']} (C5): " + " | ".join(e["motivos"]))
+            motivo = "caminho completo: " + "; ".join(partes)
         elif all(e["classe"] == "C5" and not e["leitores"] for e in por_caminho):
             modo = "texto-sem-leitor"
             motivo = f"todo caminho e texto sem leitor ({len(por_caminho)} caminhos)"
@@ -312,25 +736,6 @@ def classificar(raiz, base, head, arvore):
         "por_caminho": por_caminho,
         "contagem": contagem,
     }
-
-
-LEITOR_COMPLETO = ("C1", "C4b", "C6")
-
-
-def _lido_por_completo(entrada):
-    """Caminho C5 CITADO por leitor C1, C4b ou C6 (estrutura, dado de teste, codigo desconhecido) vira completo:
-    o leitor pode mudar o que a mudanca afeta, e nao sabemos quanto. Lado seguro (critério B1). Leitor que chega
-    so por glob da lista de varreduras NAO torna o caminho completo: ele segue a regra do C4 (ver resolver)."""
-    if entrada["classe"] != "C5":
-        return False
-    return any(classe_de(leitor)[0] in LEITOR_COMPLETO for leitor in entrada["leitores_citacao"])
-
-
-def _motivo_completo(entrada):
-    if entrada["classe"] in COMPLETA:
-        return f"{entrada['caminho']} ({entrada['classe']})"
-    lidos = [leitor for leitor in entrada["leitores_citacao"] if classe_de(leitor)[0] in LEITOR_COMPLETO]
-    return f"{entrada['caminho']} (C5 lido por {', '.join(lidos)})"
 
 
 def cmd_classificar(args):
@@ -470,22 +875,15 @@ def resolver(mudancas, build, ctest_json):
                     if caminho in alvos.get(alvo, set()) or _cita(teste, caminho):
                         selecionados.add(teste["name"])
             elif classe in ("C4", "C5"):
-                if classe == "C4":
-                    selecionados |= {t["name"] for t in testes if _cita(t, caminho)}
-                for leitor in sorted(leitores):
-                    classe_leitor = classe_de(leitor)[0]
-                    if classe_leitor == "C3":
-                        # leitor .cpp sob tests/: os testes dos alvos que o tem entre as fontes (regra do C3)
-                        selecionados |= _testes_de_fonte(testes, alvos, leitor)
-                    elif classe_leitor == "C5":
-                        pass  # texto nao executa nada
-                    else:
-                        # C4, C1, C4b, C6 que chegaram por glob: os testes que citam o script, um nivel, qualquer
-                        # que seja a classe dele (regra do C4). Os que citaram o caminho ja deixaram completo.
-                        selecionados |= {t["name"] for t in testes if _cita(t, leitor)}
+                # o efeito ja foi decidido no classificar (tabela do CTO): aqui so cruza nomes com o inventario
+                selecionados |= {nome for nome in entrada.get("testes", []) if nome in nomes}
+                for alvo in entrada.get("alvos", []):
+                    selecionados |= {t["name"] for t in testes if _alvo_do_teste(t) == alvo}
         if not selecionados and not lint:
             raise SemAlvo("subconjunto sem teste nem unidade de lint: a classificacao disse que havia o que conferir "
                           "(L-40 do projeto)")
+    if any(_alvo_do_teste(t) in alvos for t in testes if t["name"] in selecionados):
+        precisa_build = True  # teste compilado selecionado liga o build
     lista_testes = sorted(selecionados)
     lista_lint = sorted(lint)
     return lista_testes, lista_lint, len(nomes), precisa_build

@@ -54,7 +54,8 @@ LISTA_FIXTURE = (
 
 BASE_FILES = {
     "CMakeLists.txt": "cmake_minimum_required(VERSION 3.20)\n",
-    "tests/CMakeLists.txt": "# registro de teste\n",
+    # registro CMake: lendo_test cita tests/tools/lendo.py (o consumidor que o piso exige)
+    "tests/CMakeLists.txt": "add_test(NAME lendo_test COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/lendo.py)\n",
     "tests/x_test.cpp": "int main() { return 0; }\n",
     "tests/y_test.cpp": "int main() { return 0; }\n",
     "tests/w_test.cpp": "int main() { return 0; }\n",
@@ -228,42 +229,6 @@ def caso_teste_sem_command(scratch):
           f"rc={rc_r} testes={tests} {text_r.strip()}")
 
 
-def caso_leitor_c3(scratch):
-    # B1: leitor .cpp sob tests/ (classe C3) seleciona os testes do alvo que o tem entre as fontes
-    files = dict(BASE_FILES)
-    files["tests/leitor_test.cpp"] = "// le docs/a.md em tempo de execucao\nint main() { return 0; }\n"
-    repo = make_repo(scratch, "leitor_c3", files)
-    base = head_of(repo)
-    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
-        handle.write("mudou\n")
-    head = commit_all(repo)
-    rc, data, text = classificar(repo, scratch, "leitor_c3", "--base", base, "--head", head)
-    leitores = data["por_caminho"][0].get("leitores", []) if data else []
-    check("9 leitor C3: docs/a.md tem o leitor tests/leitor_test.cpp",
-          rc == 0 and "tests/leitor_test.cpp" in leitores, f"rc={rc} leitores={leitores} {text.strip()}")
-    targets = dict(TARGETS_FIXTURE)
-    targets["leitor_test"] = ["tests/leitor_test.cpp"]
-    ctest_data = {"tests": CTEST_FIXTURE["tests"] + [{"name": "leitor_test", "command": ["/build/tests/leitor_test"]}]}
-    build = make_build(scratch, targets)
-    ctest = write_ctest(scratch, ctest_data)
-    rc_r, tests, text_r = resolver(scratch, "leitor_c3", os.path.join(scratch, "leitor_c3.json"), build, ctest)
-    check("9 leitor C3: resolver seleciona leitor_test (C3) e lendo_test (C4)",
-          rc_r == 0 and sorted(tests) == ["leitor_test", "lendo_test"], f"rc={rc_r} testes={tests} {text_r.strip()}")
-
-
-def caso_leitor_c1(scratch):
-    # B1: leitor C1 (tests/CMakeLists.txt) deixa o caminho C5 em completo, com motivo
-    files = dict(BASE_FILES)
-    files["tests/CMakeLists.txt"] = "# le docs/a.md\n"
-    repo = make_repo(scratch, "leitor_c1", files)
-    base = head_of(repo)
-    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
-        handle.write("mudou\n")
-    head = commit_all(repo)
-    rc, data, text = classificar(repo, scratch, "leitor_c1", "--base", base, "--head", head)
-    check("9 leitor C1: docs/a.md lido por C1 vira completo, com motivo",
-          rc == 0 and data and data["modo"] == "completo" and "tests/CMakeLists.txt" in data["motivo"],
-          f"rc={rc} {text.strip()}")
 
 
 def caso_glob_sem_citacao(scratch):
@@ -298,12 +263,60 @@ def caso_argv_sem_linha(scratch):
     check("A6 argv com linha: passa", rc2 == 0, f"rc={rc2} {text2.strip()}")
 
 
+
+def caso_leitor_c3(scratch):
+    # Decisao do CTO (rodada 3): .cpp que cita o doc so em COMENTARIO nao executa nada. Seleciona so o consumidor CMake.
+    files = dict(BASE_FILES)
+    files["tests/leitor_test.cpp"] = "// le docs/a.md em tempo de execucao\nint main() { return 0; }\n"
+    repo = make_repo(scratch, "leitor_c3", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "leitor_c3", "--base", base, "--head", head)
+    entrada = data["por_caminho"][0] if data else {}
+    check("9 leitor C3 em comentario nao seleciona (regra do CTO)",
+          rc == 0 and data and data["modo"] == "subconjunto" and entrada.get("testes") == ["lendo_test"],
+          f"rc={rc} testes={entrada.get('testes')} {text.strip()}")
+
+
+def caso_leitor_c3_literal(scratch):
+    # Decisao do CTO: citacao que sobra num literal de .cpp (fora de comentario) dá completo
+    files = dict(BASE_FILES)
+    files["tests/leitor_test.cpp"] = 'const char* doc = "docs/a.md";\nint main() { return 0; }\n'
+    repo = make_repo(scratch, "leitor_c3_literal", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "leitor_c3_literal", "--base", base, "--head", head)
+    check("9c leitor C3 com citacao em literal: completo, com motivo",
+          rc == 0 and data and data["modo"] == "completo" and "leitor_test.cpp" in data["motivo"],
+          f"rc={rc} {text.strip()}")
+
+
+def caso_leitor_c1(scratch):
+    # B1-C1 por citacao em CODIGO (configure_file): continua dando completo, com a linha no motivo
+    files = dict(BASE_FILES)
+    files["tests/CMakeLists.txt"] = "configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/a.md out.txt)\n"
+    repo = make_repo(scratch, "leitor_c1", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "leitor_c1", "--base", base, "--head", head)
+    check("9 leitor C1 por configure_file: docs/a.md -> completo, com a linha no motivo",
+          rc == 0 and data and data["modo"] == "completo" and "tests/CMakeLists.txt:1" in data["motivo"]
+          and "configure_file" in data["motivo"], f"rc={rc} {text.strip()}")
+
+
 def caso_glob_c1(scratch):
-    # Rodada 2b: documento que so casa o glob de um varredor C1 (tools/ci/) e ninguem cita. O glob nao torna o
-    # caminho completo: so a CITACAO de leitor C1/C4b/C6 faz isso. Aqui o varredor so le por glob -> subconjunto.
+    # Decisao do CTO: documento que so casa o glob de um varredor C1 segue a regra do Script. Aqui o varredor
+    # tem um add_test que o cita: seleciona esse teste -> subconjunto. (Antes da rodada 3 dava completo.)
     files = dict(BASE_FILES)
     files["tools/ci/varredor.ps1"] = "# varre a arvore em silencio\n"
     files["docs/z.md"] = "# z\n"
+    files["tests/CMakeLists.txt"] = "add_test(NAME varredor_test COMMAND pwsh ${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/varredor.ps1)\n"
     files["tools/ci/varreduras-de-arvore.txt"] = LISTA_FIXTURE + "tools/ci/varredor.ps1 docs/*\n"
     repo = make_repo(scratch, "glob_c1", files)
     base = head_of(repo)
@@ -311,8 +324,80 @@ def caso_glob_c1(scratch):
         handle.write("mudou\n")
     head = commit_all(repo)
     rc, data, text = classificar(repo, scratch, "glob_c1", "--base", base, "--head", head)
-    check("9b leitor C1 so por glob: docs/z.md -> subconjunto, nao completo",
-          rc == 0 and data and data["modo"] == "subconjunto", f"rc={rc} modo={data and data['modo']} {text.strip()}")
+    entrada = data["por_caminho"][0] if data else {}
+    check("9b leitor C1 so por glob: docs/z.md -> subconjunto com varredor_test, nao completo",
+          rc == 0 and data and data["modo"] == "subconjunto" and entrada.get("testes") == ["varredor_test"],
+          f"rc={rc} modo={data and data['modo']} testes={entrada.get('testes')} {text.strip()}")
+
+
+def caso_cmake_positivo(scratch):
+    # Decisao do CTO, positivo: docs/a.md como argumento de add_test dá so o teste nomeado
+    files = dict(BASE_FILES)
+    files["tests/tools/lendo.py"] = "print('ok')\n"  # sem outro leitor de docs/a.md: so o add_test decide
+    files["tests/CMakeLists.txt"] = ("add_test(NAME doc_test COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/docs/a.md)\n"
+                                     "add_test(NAME outro_test COMMAND true)\n")
+    repo = make_repo(scratch, "cmake_positivo", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "cmake_positivo", "--base", base, "--head", head)
+    entrada = data["por_caminho"][0] if data else {}
+    check("D positivo: add_test com docs/a.md dá so doc_test",
+          rc == 0 and data and data["modo"] == "subconjunto" and entrada.get("testes") == ["doc_test"],
+          f"rc={rc} modo={data and data['modo']} testes={entrada.get('testes')} {text.strip()}")
+
+
+def caso_cmake_negativo(scratch):
+    # Decisao do CTO, negativo: um configure_file a mais, com o mesmo arquivo, dá completo com a linha no motivo
+    files = dict(BASE_FILES)
+    files["tests/tools/lendo.py"] = "print('ok')\n"
+    files["tests/CMakeLists.txt"] = ("add_test(NAME doc_test COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/docs/a.md)\n"
+                                     "configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/a.md out.txt)\n")
+    repo = make_repo(scratch, "cmake_negativo", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "cmake_negativo", "--base", base, "--head", head)
+    check("D negativo: configure_file com docs/a.md dá completo, com a linha no motivo",
+          rc == 0 and data and data["modo"] == "completo" and "tests/CMakeLists.txt:2" in data["motivo"]
+          and "configure_file" in data["motivo"], f"rc={rc} motivo={data and data['motivo'][:200]} {text.strip()}")
+
+
+def caso_cmake_piso(scratch):
+    # Decisao do CTO, piso: docs/a.md citado por add_test e tambem por um script fora de comentario que nenhum
+    # teste nem o CI alcança: dá completo, nunca so doc_test
+    files = dict(BASE_FILES)
+    files["tests/CMakeLists.txt"] = "add_test(NAME doc_test COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/docs/a.md)\n"
+    files["tools/orfao.py"] = "# ninguem chama\nopen('docs/a.md')\n"
+    repo = make_repo(scratch, "cmake_piso", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "cmake_piso", "--base", base, "--head", head)
+    check("D piso: script orfao sem teste nem CI dá completo, nunca so doc_test",
+          rc == 0 and data and data["modo"] == "completo" and "piso" in data["motivo"], f"rc={rc} {text.strip()}")
+
+
+def caso_cmake_comentario_bloco(scratch):
+    # Lexer: citacao so dentro de comentario de bloco CMake (#[[ ]]) ou de linha nao executa nada
+    files = dict(BASE_FILES)
+    files["tests/tools/lendo.py"] = "print('ok')\n"
+    files["tests/CMakeLists.txt"] = ("#[[ add_test(NAME falso COMMAND docs/a.md) ]]\n"
+                                     "# configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/a.md out.txt)\n")
+    repo = make_repo(scratch, "cmake_comentario", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "cmake_comentario", "--base", base, "--head", head)
+    entrada = data["por_caminho"][0] if data else {}
+    check("lexer CMake: citacao so em comentario nao executa nada (zero testes, sem completo)",
+          rc == 0 and data and data["modo"] == "subconjunto" and entrada.get("testes") == []
+          and not entrada.get("completo"), f"rc={rc} modo={data and data['modo']} {text.strip()}")
+
 
 
 def caso_negativo(scratch):
@@ -471,7 +556,9 @@ def main():
     scratch = make_fenced_scratch_dir("seletor-selftest-", parent=os.environ.get("TMPDIR") or None)
     try:
         for caso in (caso_positivo, caso_teste_sem_command, caso_leitor_c3, caso_leitor_c1,
-                     caso_glob_sem_citacao, caso_argv_sem_linha, caso_glob_c1, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
+                     caso_glob_sem_citacao, caso_argv_sem_linha, caso_glob_c1,
+                     caso_leitor_c3_literal, caso_cmake_positivo, caso_cmake_negativo, caso_cmake_piso,
+                     caso_cmake_comentario_bloco, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
                      caso_varredura, caso_orfa, caso_arvore, caso_dado_de_teste, caso_renomeacao,
                      caso_base_invalida):
             sub = tempfile.mkdtemp(prefix=caso.__name__ + "-", dir=scratch)

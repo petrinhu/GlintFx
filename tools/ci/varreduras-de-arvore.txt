@@ -112,6 +112,6 @@ tools/ci/windows/prep.ps1 *
 tools/contido_dentro.sh -
 tools/preci.ps1 *
 tools/preci.sh *
-tools/win-vm-lab/check-sem-segredo.sh *
+tools/win-vm-lab/check-sem-segredo.sh tools/win-vm-lab/*
 tools/win-vm-lab/coletar-resultados.sh *
 tools/win-vm-lab/criar-vm.sh *

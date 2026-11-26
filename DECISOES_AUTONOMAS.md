@@ -11896,3 +11896,32 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - as linhas do `TODO.md` (D-W8-2003 e `ordem-r2bc-w8.md` §4);
     - as perguntas da `lista-ratificacao-w8.md` ao líder;
     - o merge e a marca, só com o OK dele.
+
+- **D-W8-1213 (main, 26/11 01:4x): G3 LIMPA.**
+  - **Revisor:** um `qa-engineer` novo, sobre o blob `a5cd6605`.
+  - **Mutantes:** M1 a M4 morrem.
+  - **Sabotagem do C5:** rc 1.
+  - **`check-headers`:** 4 analisados, 0 reprovados.
+  - **CHANGELOG e versão:** conferidos.
+  - **Achado COSMÉTICO, o CRLF.** A `ordem-f1-w8.md` §1 diz que o mutante CRLF morreu. A ferramenta lê CRLF como LF de propósito (`auditoria_manifesto.py:49`, com o controle de selftest em `:216`), para que um checkout no Windows com `autocrlf` não dê vermelho falso. O que está errado é o texto da ordem, não a ferramenta. Nada muda na entrega.
+- **D-W8-1214 (main, 26/11 02:0x): G5 e G10 verdes, com o run 45755075508 em `f061c492`.**
+  - **G5:** 25 trabalhos `success` e 1 `skipped` por desenho (VERSION-TAG-SYNC). A lista de nomes é igual à do run 44776410242 (`diff`, rc 0).
+  - **G10**, provado pelo MECANISMO e pelo registro, e não pelo rótulo. O registro do CI não imprime o nome de cada caso, então para cada prova foi conferido no código que o caso roda sempre:
+    1. **A célula C3 dos oito contadores:** ela está entre as 44 células de `tests/parity/draw2d_shapes_parity_test.cpp:265`, e no registro aparece "44 celula(s) conferida(s), 0 reprovada(s)" duas vezes, nos jobs plain e asan do contêiner;
+    2. **O caso VAZIO:** é incondicional no `raw_to_png_selftest` (`tests/tools/raw_to_png.py:353`), e no registro aparecem 14 linhas `raw_to_png_selftest ... Passed`;
+    3. **A captura com o terceiro argumento do `wire_relay_main`:** no registro aparece `run_capture_known_color: mode=off raw_to_png=0 ...` duas vezes, no passo QA-SCREEN-CAPTURE P3 do contêiner.
+- **G1:** verificação profunda fechada na rodada 2 (D-W8-2030 e D-W8-2031). G2, G3 e G4 estão nas D-W8-1212 e D-W8-1213. G6 a G9 ficam para o merge e a marca, com o OK do líder.
+- **D-W8-1215 (LÍDER, 26/11 06:06): as seis portas de mão única da W8 estão ratificadas, e o lote também** (`lista-ratificacao-w8.md` §1 e §2). As respostas, verbatim:
+  - **1.1, D-W8-1247:** *"Manter: o pacote nunca muda (Recomendado)"*;
+  - **1.2, D-W8-24:** *"Manter (Recomendado)"*;
+  - **1.3, D-W8-25:** *"Manter (Recomendado)"*;
+  - **1.4, D-W8-26:** *"Manter (Recomendado)"*;
+  - **1.5, D-W8-27:** *"Manter (Recomendado)"*;
+  - **1.6, D-W8-28 e D-W8-30:** *"Manter (Recomendado)"*;
+  - **o lote da §2:** *"Confirmar todas (Recomendado)"*.
+- **D-W8-1216 (main, 26/11 06:06): o `TODO.md` do fechamento entrou no tronco** (`ba45d566`).
+  - **O que entrou:**
+    - as 16 linhas do PNG, as 8 da INBOX, a `FUZZ-GFSS`, a `DRAW2D-IMPL-SPLIT` e os 4 cosméticos;
+    - a `CI-VERDE-W8` marcada como ✅.
+  - **O que não entrou:** a `PHOTO-FACTS-ATOMS`, que já estava na INBOX.
+  - **O bullet `FALLBACK-KEEP-ENDS-NEAR` da INBOX fica por enquanto,** porque guarda a medição do mutante MFN, a marca de triagem e o marcador de dreno, e a linha da tabela não tem nada disso. A fusão vai para a abertura da W-PNG-2.

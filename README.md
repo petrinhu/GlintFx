@@ -29,7 +29,7 @@ This section states what actually exists in the source tree today, not what is p
 
 **Experimental:** two installed parts of the public headers are marked experimental. One is reading a whole file into memory (`include/glintfx/platform/asset/file.hpp`), which reports a missing or unreadable file as an error. The other is the style-sheet pieces under `include/glintfx/gfss/`: the token and tokenizer types, the value and keyword types, and the property registry. Experimental means you can use them, but they are outside the compatibility contracts described in "Versioning and compatibility" below: their functions and types may change, or be removed, in any later release, without a `MAJOR` bump. One promise in `gfss/property.hpp` stays in force all the same: a numeric property identity that has already been published keeps its meaning. Each of those headers says this at its top.
 
-**Several versions have been tagged; the most recent at the time of writing is `v0.6.1.0`, cut 10/10/2026.** To see all of them, newest first, run `git tag --list 'v*' --sort=-v:refname` against a clone, or open the repository's [Tags page](https://github.com/petrinhu/GlintFx/tags). None of them is accompanied by a formal GitHub Release: there is no entry on the repository's releases page for any tag (checked directly against the repository, not assumed from this file), so each tag's own annotated message, together with [`CHANGELOG.md`](CHANGELOG.md), is the authoritative description of what it marks and what it does not guarantee. There is still no ABI (the compiled binary interface that programs link against) or file-format compatibility guarantee across a `MAJOR` bump before `1.0.0.0`; see "Versioning" below for exactly what that means, and "Pinning a version" below for what a consumer can do with a tag today.
+**Several versions have been tagged; the most recent at the time of writing is `v0.7.0.0`, cut 26/11/2026.** To see all of them, newest first, run `git tag --list 'v*' --sort=-v:refname` against a clone, or open the repository's [Tags page](https://github.com/petrinhu/GlintFx/tags). None of them is accompanied by a formal GitHub Release: there is no entry on the repository's releases page for any tag (checked directly against the repository, not assumed from this file), so each tag's own annotated message, together with [`CHANGELOG.md`](CHANGELOG.md), is the authoritative description of what it marks and what it does not guarantee. There is still no ABI (the compiled binary interface that programs link against) or file-format compatibility guarantee across a `MAJOR` bump before `1.0.0.0`; see "Versioning" below for exactly what that means, and "Pinning a version" below for what a consumer can do with a tag today.
 
 ## Supported platforms
 
@@ -115,14 +115,14 @@ glintfx tracks **three separate compatibility contracts**, not two, because a bi
 
 "Pinning" means telling your build to always use one exact, specific copy of glintfx, instead of whatever the latest commit happens to be at the moment you build. **If you do not pin, a later build of your own project can silently pull in a glintfx that compiles differently, links differently, or behaves differently than the one you tested against** - before 1.0 (see the table above), that is not a rare edge case, it is the expected state of this repository at any given moment.
 
-**The most recent tag at the time of writing is `v0.6.1.0`** (see "Status" above). Pin to it, or to any earlier tag (`git tag --list 'v*' --sort=-v:refname` against a clone lists them all, newest first) - `GIT_TAG` takes a tag name exactly the way it takes a commit SHA:
+**The most recent tag at the time of writing is `v0.7.0.0`** (see "Status" above). Pin to it, or to any earlier tag (`git tag --list 'v*' --sort=-v:refname` against a clone lists them all, newest first) - `GIT_TAG` takes a tag name exactly the way it takes a commit SHA:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
   glintfx
   GIT_REPOSITORY https://github.com/petrinhu/GlintFx.git
-  GIT_TAG        v0.6.1.0
+  GIT_TAG        v0.7.0.0
 )
 FetchContent_MakeAvailable(glintfx)
 ```

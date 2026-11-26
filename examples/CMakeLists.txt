@@ -12,7 +12,7 @@
 if(NOT TARGET glintfx::glintfx)
     cmake_minimum_required(VERSION 3.28)
     project(glintfx_examples LANGUAGES CXX)
-    find_package(glintfx 0.6 CONFIG REQUIRED)
+    find_package(glintfx 0.7 CONFIG REQUIRED)
 endif()
 
 add_subdirectory(first_window)

@@ -297,13 +297,15 @@ documento tambem passa por portao), ele escolheu a **excecao mais estreita**:
 
 | O que vai | Destino |
 |---|---|
-| **Registro de decisao e memoria** - o que nenhum portao exercita | Direto no ramo principal |
+| **Registro de decisao e memoria** - o que nenhum portao exercita | Direto no ramo principal (REVOGADO em 26/11/2026, ver a emenda abaixo) |
 | **Todo o resto**: codigo, construcao, teste, fluxo do servidor, e **todo documento coberto por portao** (este canon, o escopo, os planos, o manual, qualquer coisa que licenca, travessao ou numero volatil reprovem) | **Ramo proprio**, como o codigo |
 
 **Por que a fronteira e esta, e nao "texto contra codigo":** documento coberto
 por portao **tambem constroi** - ele reprova, e ja reprovou nesta mesma noite
 (sete arquivos entraram sem cabecalho de licenca e o vermelho so apareceu no
 servidor). O que sai da regra e apenas o que nenhum portao le.
+
+**EMENDA de 26/11/2026, ordem do líder: a exceção do registro acabou.** Diante da contradição entre a tabela acima e a L-24 geral ("Mande o trabalho a um ramo próprio, nunca ao `main`"), levada pelo CTO com o argumento contra, o líder respondeu por AskUserQuestion, verbatim: *"Sem exceção: só vai no ramo da onda"*. Desde então, a linha "Registro de decisao e memoria" da tabela acima NÃO vale mais: todo registro de decisão e de memória vai ao ramo da onda viva, como o código. Entre uma onda e outra, o registro fica no `main` local, protegido pela cópia diária (item 1 da cópia privada, abaixo), e sai com o ramo da onda seguinte. O `main` remoto só muda no fechamento de onda (D-W8-1220).
 
 ⚠️ **"Tudo verde" é o conjunto, não a fatia.** Cada fatia ter passado o próprio portão **não substitui** a verificação de conjunto: é justamente onde fatias entregues em paralelo se atropelam, e onde uma contagem que cada uma ajustou sozinha deixa de bater.
 

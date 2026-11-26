@@ -59,7 +59,7 @@ BASE_FILES = {
     "tests/x_test.cpp": "int main() { return 0; }\n",
     "tests/y_test.cpp": "int main() { return 0; }\n",
     "tests/w_test.cpp": "int main() { return 0; }\n",
-    "tests/tools/lendo.py": "# le docs/a.md\nprint('ok')\n",
+    "tests/tools/lendo.py": "print('le docs/a.md')\n",  # citacao em codigo: linha com '#' nao conta (N1)
     "docs/a.md": "# a\n",
     "docs/b.md": "# b\n",
     "tests/fixtures/c.txt": "dado\n",
@@ -394,10 +394,33 @@ def caso_cmake_comentario_bloco(scratch):
     head = commit_all(repo)
     rc, data, text = classificar(repo, scratch, "cmake_comentario", "--base", base, "--head", head)
     entrada = data["por_caminho"][0] if data else {}
-    check("lexer CMake: citacao so em comentario nao executa nada (zero testes, sem completo)",
-          rc == 0 and data and data["modo"] == "subconjunto" and entrada.get("testes") == []
-          and not entrada.get("completo"), f"rc={rc} modo={data and data['modo']} {text.strip()}")
+    check("lexer CMake: citacao so em comentario nao e leitor (texto-sem-leitor, sem completo)",
+          rc == 0 and data and data["modo"] == "texto-sem-leitor" and not entrada.get("completo"),
+          f"rc={rc} modo={data and data['modo']} {text.strip()}")
 
+
+
+def caso_cmake_so_comentario_texto(scratch):
+    # N1 (ajuste pontual, decisao do CTO): citacao so em comentario CMake nao e leitor. Sem outro leitor, o caminho
+    # e C5 sem leitor, e o modo e texto-sem-leitor (o resolver sai com 0, nao com 1).
+    files = dict(BASE_FILES)
+    files["tests/tools/lendo.py"] = "print('ok')\n"
+    files["tests/CMakeLists.txt"] = "# configure_file(${CMAKE_CURRENT_SOURCE_DIR}/docs/a.md out.txt)\n"
+    repo = make_repo(scratch, "so_comentario_texto", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "docs", "a.md"), "a", encoding="utf-8") as handle:
+        handle.write("mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "so_comentario_texto", "--base", base, "--head", head)
+    check("N1 citacao so em comentario CMake: docs/a.md -> texto-sem-leitor, sem leitor",
+          rc == 0 and data and data["modo"] == "texto-sem-leitor" and data["por_caminho"][0]["leitores"] == [],
+          f"rc={rc} modo={data and data['modo']} {text.strip()}")
+    build = make_build(scratch, TARGETS_FIXTURE)
+    ctest = write_ctest(scratch)
+    rc_r, tests, text_r = resolver(scratch, "so_comentario_texto", os.path.join(scratch, "so_comentario_texto.json"),
+                                   build, ctest)
+    check("N1 citacao so em comentario CMake: resolver sai com 0 e sem testes", rc_r == 0 and tests == [],
+          f"rc={rc_r} testes={tests} {text_r.strip()}")
 
 
 def caso_negativo(scratch):
@@ -558,7 +581,7 @@ def main():
         for caso in (caso_positivo, caso_teste_sem_command, caso_leitor_c3, caso_leitor_c1,
                      caso_glob_sem_citacao, caso_argv_sem_linha, caso_glob_c1,
                      caso_leitor_c3_literal, caso_cmake_positivo, caso_cmake_negativo, caso_cmake_piso,
-                     caso_cmake_comentario_bloco, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
+                     caso_cmake_comentario_bloco, caso_cmake_so_comentario_texto, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
                      caso_varredura, caso_orfa, caso_arvore, caso_dado_de_teste, caso_renomeacao,
                      caso_base_invalida):
             sub = tempfile.mkdtemp(prefix=caso.__name__ + "-", dir=scratch)

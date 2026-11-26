@@ -8,7 +8,7 @@
 # ou um repositorio temporario do proprio autoteste). Toda primitiva de varredura num script sob tests/
 # ou tools/ precisa de uma linha aqui (conferencia embutida do seletor, sai com 2 se faltar).
 # '-' so' onde toda primitiva cai em linha de comentario, ou onde o script so' le o proprio repositorio temporario.
-tests/CMakeLists.txt -
+tests/CMakeLists.txt include/*
 tests/container/check_isolation.sh *
 tests/container/prepare_arch_ports_fixture.sh *
 tests/container/run_capture_known_color.sh *

@@ -224,30 +224,43 @@ def ler_leitores_texto(raiz, rastreados):
     return textos
 
 
-def leitores_de(caminho, classe, textos, varreduras):
-    """C4: os scripts que citam o nome do arquivo (um nivel). C5: quem cita o caminho ou o nome, e os scripts
-    de varredura cujo glob casa o caminho. Sem nenhum, o caminho e texto sem leitor."""
-    nome = caminho.rsplit("/", 1)[-1].encode("utf-8")
-    alvo = caminho.encode("utf-8")
+def _texto_util(leitor, ctx):
+    """Texto do leitor que sobra depois do que o papel dele nao executa: comentario C/C++ para Compilado; linha com
+    '#' para Script e Orquestrador. Cacheado no contexto, uma vez por leitor."""
+    cache = ctx.setdefault("util", {})
+    if leitor not in cache:
+        texto = ctx["bruto"][leitor].decode("utf-8", "replace")
+        papel = papel_de(leitor)
+        if papel == PAPEL_COMPILADO:
+            texto = _sem_comentarios_cpp(texto)
+        elif papel in (PAPEL_SCRIPT, PAPEL_ORQ):
+            texto = "\n".join(ln for ln in texto.splitlines() if "#" not in ln)
+        cache[leitor] = texto
+    return cache[leitor]
+
+
+def _cita_util(leitor, caminho, nome, ctx):
+    """Um leitor cita o caminho (ou o nome) de forma que conta? CMake: so' numa invocacao (o lexer ja separou
+    comentario). Os outros: no texto que sobra. Citacao so' em comentario nao e' leitor (decisao do CTO, N1)."""
+    if papel_de(leitor) == PAPEL_CMAKE:
+        return any(_cita_chamada(c, caminho, nome) for c in ctx["cmake"][leitor]["chamadas"])
+    texto = _texto_util(leitor, ctx)
+    return (caminho in texto) or (nome in texto)
+
+
+def leitores_de(caminho, classe, textos, varreduras, ctx):
+    """C4: os scripts que citam o nome do arquivo (um nivel). C5: quem cita o caminho ou o nome de forma que conta
+    (ver _cita_util), e os scripts de varredura cujo glob casa o caminho. Sem nenhum, texto sem leitor."""
+    nome = caminho.rsplit("/", 1)[-1]
     achados = []
-    for leitor, bruto in sorted(textos.items()):
-        if leitor == caminho:
-            continue
-        if alvo in bruto or nome in bruto:
+    for leitor in sorted(textos):
+        if leitor != caminho and _cita_util(leitor, caminho, nome, ctx):
             achados.append(leitor)
     if classe == "C5":
         for script, glob in varreduras:
             if fnmatch.fnmatchcase(caminho, glob) and script != caminho and script not in achados:
                 achados.append(script)
     return sorted(set(achados))
-
-
-def leitores_por_citacao(caminho, textos):
-    """Leitores que citam o caminho ou o nome dele (sem contar a lista de varreduras)."""
-    nome = caminho.rsplit("/", 1)[-1].encode("utf-8")
-    alvo = caminho.encode("utf-8")
-    return sorted(leitor for leitor, bruto in textos.items()
-                  if leitor != caminho and (alvo in bruto or nome in bruto))
 
 
 # --- Rodada 3: papel do leitor e efeito (decisao do CTO, E1 rodada 3) ------------------------------------------
@@ -655,7 +668,7 @@ def _entrada_c5_ou_c4(caminho, classe, ctx, textos, varreduras):
         return ef, [{"leitor": caminho, "papel": PAPEL_SCRIPT, "efeito": _resumo(ef)}]
     ef = _vazio()
     registros = []
-    for leitor in leitores_de(caminho, classe, textos, varreduras):
+    for leitor in leitores_de(caminho, classe, textos, varreduras, ctx):
         e1 = efeito_do_leitor(caminho, nome, leitor, ctx)
         _soma(ef, e1)
         registros.append({"leitor": leitor, "papel": papel_de(leitor), "efeito": _resumo(e1)})

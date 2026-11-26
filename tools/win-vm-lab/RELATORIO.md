@@ -134,7 +134,7 @@ recusa rodar (sai com erro) se algum dos dois aparecer instalado depois.
 **Primeira rodada do `provar-isolamento.sh --selftest` MENTIU.** Contra a
 definicao sabotada de proposito (`fixtures/dominio-sabotado.xml`, com
 `<input type="evdev">`, `<hostdev type="usb">`, VNC escutando `0.0.0.0`,
-`<filesystem>` da pasta `/home/petrus` inteira, `<filesystem>` de
+`<filesystem>` da pasta `~` inteira, `<filesystem>` de
 `/var/tmp` sem `<readonly/>`, canal `spicevmc` e `<clipboard
 copypaste="yes">`), o portao respondeu **"APROVADO"**, contagem zero em
 todas as cinco categorias -- exatamente o defeito que a L-40 do projeto

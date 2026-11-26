@@ -63,8 +63,8 @@ foi lido nesta pesquisa (só documentação, rastreadores e listas); a L-29 não
    estado do `swtpm`. https://libvirt.org/formatdomain.html (as datas de "desde" foram lidas por resumo automático da
    página; `[A MEDIR]` contra o 12.0.0 instalado).
    `[FATO]` `virsh dumpxml --inactive glintfx-win11-lab`: a máquina tem `<nvram>` em
-   `/home/petrus/.config/libvirt/qemu/nvram/glintfx-win11-lab_VARS.qcow2` e `<tpm model='tpm-crb'>` com estado em
-   `/home/petrus/.config/libvirt/qemu/swtpm/214f47ad-ab8d-4e57-bc50-7ea9ca995230/` (`ls`). **Nenhum dos dois está na
+   `~/.config/libvirt/qemu/nvram/glintfx-win11-lab_VARS.qcow2` e `<tpm model='tpm-crb'>` com estado em
+   `~/.config/libvirt/qemu/swtpm/214f47ad-ab8d-4e57-bc50-7ea9ca995230/` (`ls`). **Nenhum dos dois está na
    sobreposição.** Ver D-4: o "descartável" do plano de 22/09 vaza por aqui.
 8. `[FONTE]` Rede de usuário do QEMU: ICMP em geral **não funciona** nesse modo (só o eco para o roteador `10.0.2.2`).
    https://www.qemu.org/docs/master/system/devices/net.html

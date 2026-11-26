@@ -62,7 +62,9 @@ if ! command -v xmlstarlet >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-ALLOW_RO_DEFAULT="/home/petrus/IDrive/Documentos/projetos_claudebrain/Projects/GlintFx"
+# The project root, read from where this script lives (W8 deep verification C7-1): never the path
+# of one machine written here.
+ALLOW_RO_DEFAULT="$(cd -- "$SCRIPT_DIR/../.." &>/dev/null && pwd)"
 # qemu:///session, nunca qemu:///system: mesma decisao medida de
 # criar-vm.sh (07/09/2026) -- o modo de sistema depende de polkit e pode
 # reabrir dialogo grafico na sessao do lider; o de sessao nao pede
@@ -411,6 +413,9 @@ verificar_nomes_borda() {
 selftest() {
   local rc_bad rc_clean rc_borda saida_borda n_borda nomes_borda_ok
   local esperado_borda=3
+  # The fixtures name the project by a stand-in, so the selftest never depends on where the
+  # repository lives (W8 deep verification C7-1).
+  ALLOW_RO="/caminho/do/projeto/GlintFx"
 
   echo ">>> SELFTEST 1/3: rodando contra a definicao SABOTADA (deve REPROVAR)"
   rodar_varredura "$SCRIPT_DIR/fixtures/dominio-sabotado.xml"

@@ -224,7 +224,7 @@ sessão de agente:
   `2f5a3db6f98f60552b28ea9d23966aaa`) e o `dumpxml --inactive` atual mostra
   **uma única linha acrescentada** (`<link state='down'/>`) - nada mais na
   definição mudou.
-- `/home/petrus/.config/libvirt/qemu/glintfx-win11-lab.xml` (o arquivo de
+- `~/.config/libvirt/qemu/glintfx-win11-lab.xml` (o arquivo de
   configuração persistente do libvirt) tem `mtime` de 22/09/2026 16:19:57,
   batendo com o horário do comando; o `nvram` do domínio manteve o `mtime`
   de antes (09:04:35) - nenhuma outra parte do domínio foi tocada.

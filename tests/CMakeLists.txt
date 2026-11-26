@@ -3798,6 +3798,28 @@ add_test(
 )
 set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
+# W8 deep verification C7-1 (D-W8-2025; AUDITORIAS.md chapter 7; the leader's answer of 20/11/2026):
+# no tracked text file names the home folder of a person's machine. Rule A reads the home of whoever
+# runs the gate, rule B the shape /home/<name>/ and /Users/<name>/ outside a closed list of stand-ins;
+# nothing of one machine is written in the gate (see its header). Python pure, both systems.
+add_test(
+    NAME machine_paths_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_machine_paths.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(machine_paths_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME machine_paths_selftest
+    COMMAND "${CMAKE_COMMAND}" "-DEXPECT_EXIT=0"
+        "-DEXPECT_LINE=selftest: 12 controles OK"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/expect_exit_and_line.cmake" --
+        "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_machine_paths.py" --selftest
+)
+set_tests_properties(machine_paths_selftest PROPERTIES LABELS selftest)
+
 # NOEXCEPT-ALLOC-B8 fatia F6 (GODS_LAWS.md L-22 do projeto: "nenhuma
 # excecao cruza a API publica"; docs/api-conventions.md R3; ESCOPO.md
 # Decisao 8/9/13). Promovido de /var/tmp/builds/claude-1000/varredura-

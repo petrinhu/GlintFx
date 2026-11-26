@@ -91,7 +91,7 @@ Notas das versões 29.x e 28.x lidas só em parte; página de instalação do `s
 
 ## 3. O plugin Docker do Claude Code (docker-skills)
 
-FATO: versão 0.3.1 (29/09/2026), autor Docker Inc., Apache-2.0, instalado em `/home/petrus/.claude/plugins/cache/docker/docker-skills/0.3.1/`. Traz 11 skills (arquivos `SKILL.md`, referências, modelos e verificações), sem binário e sem hook. Cada skill dispara pela própria descrição; não há skill de entrada. Cobertura de leitura da pesquisa: sete `SKILL.md` na íntegra; os três de sandbox e o de `env` só em corpo principal, títulos e amostragem (cerca de 235 KB de apoio, não lidos linha a linha).
+FATO: versão 0.3.1 (29/09/2026), autor Docker Inc., Apache-2.0, instalado em `~/.claude/plugins/cache/docker/docker-skills/0.3.1/`. Traz 11 skills (arquivos `SKILL.md`, referências, modelos e verificações), sem binário e sem hook. Cada skill dispara pela própria descrição; não há skill de entrada. Cobertura de leitura da pesquisa: sete `SKILL.md` na íntegra; os três de sandbox e o de `env` só em corpo principal, títulos e amostragem (cerca de 235 KB de apoio, não lidos linha a linha).
 
 **Servem a este projeto** (INFERÊNCIA sobre utilidade):
 

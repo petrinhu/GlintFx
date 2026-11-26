@@ -60,7 +60,8 @@ MEM_GIB=8
 VCPUS=4
 SENHA_FILE="${LAB_DIR}/.senha-conta-lab-NAO-VERSIONAR.txt"
 
-PROJETO_RO="/home/petrus/IDrive/Documentos/projetos_claudebrain/Projects/GlintFx"
+# The project root, read from where this script lives (W8 deep verification C7-1).
+PROJETO_RO="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd)"
 
 ARRANCAR=0
 if [ "${1:-}" = "--arrancar-de-verdade" ]; then

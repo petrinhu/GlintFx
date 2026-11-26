@@ -7,10 +7,10 @@
 > **Como ler.** `FATO` = medido por mim nesta sessão, com comando ou `arquivo:linha`. `FONTE` = achado de pesquisa externa, com URL. `INFERÊNCIA` = julgamento meu, pode estar errado. `DECISÃO AUTÔNOMA` = decidi no lugar do líder (L-34), com as fontes que a sustentam; o main registra em `DECISOES_AUTONOMAS.md`.
 >
 > **Fontes internas que o implementador lê INTEIRAS (L-27 item 3, passar a fonte e não o resumo):**
-> - `/home/petrus/IDrive/Documentos/projetos_claudebrain/Projects/GlintFx/docs/plano-w6b-fatias-5.md` §2 (D-W6b-34, 35, 44) e §5 inteira (fatia 5c): é o desenho de `GFX-PRESET`, válido com as correções da seção 3 abaixo.
+> - `<raiz-do-projeto>/docs/plano-w6b-fatias-5.md` §2 (D-W6b-34, 35, 44) e §5 inteira (fatia 5c): é o desenho de `GFX-PRESET`, válido com as correções da seção 3 abaixo.
 > - `/var/tmp/glintfx-plan/entrada-teclado-ponteiro.md`: o plano parcial da entrada; o desenho D1 a D10 continua valendo, com as emendas da seção 5 abaixo.
-> - `/home/petrus/.claude/projects/-home-petrus-IDrive-Documentos-projetos-claudebrain-Projects-GlintFx/memory/project_decisoes_api_desenho_2d.md`: as três decisões do líder sobre desenho 2D (não se reabrem).
-> - `docs/api-conventions.md` (R1 a R10), `GODS_LAWS.md` do projeto (L-04, L-09, L-17, L-19, L-20, L-22, L-32, L-35, L-40), `/home/petrus/.claude/GODS_LAWS.md`.
+> - `~/.claude/projects/-home-petrus-IDrive-Documentos-projetos-claudebrain-Projects-GlintFx/memory/project_decisoes_api_desenho_2d.md`: as três decisões do líder sobre desenho 2D (não se reabrem).
+> - `docs/api-conventions.md` (R1 a R10), `GODS_LAWS.md` do projeto (L-04, L-09, L-17, L-19, L-20, L-22, L-32, L-35, L-40), `~/.claude/GODS_LAWS.md`.
 
 ---
 

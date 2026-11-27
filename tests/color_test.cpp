@@ -230,3 +230,9 @@ GLINTFX_TEST(gltfx_rgba_premultiplied_at_full_alpha_is_identity) {
     GLINTFX_CHECK_EQ(premultiplied.blue, opaque.blue);
     GLINTFX_CHECK_EQ(premultiplied.alpha, opaque.alpha);
 }
+
+// sonda-efic S4: vermelho de proposito, para provar a parada no primeiro erro (EFIC-SONDAS).
+GLINTFX_TEST(sonda_efic_s4_red_on_purpose) {
+    constexpr glintfx::gltfx_rgba color{.red = 0.1F, .green = 0.2F, .blue = 0.3F, .alpha = 0.4F};
+    GLINTFX_CHECK_EQ(color.red, 0.9F);
+}

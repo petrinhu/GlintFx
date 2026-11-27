@@ -54,7 +54,7 @@ fi
 # confirma como ignorada. O find da auto-prova (dentro_da_sandbox.sh) continua sem poda: so' deixa de
 # ver o que a caixa nao alcanca. Sem a condicao, nada se cobre.
 trab="$raiz/.trabalho"
-if [ -d "$trab" ] && [ ! -L "$trab" ] && git -C "$raiz" check-ignore -q -- .trabalho/ 2>/dev/null; then
+if [ -d "$trab" ] && [ ! -L "$trab" ] && git -C "$raiz" check-ignore -q -- .trabalho 2>/dev/null; then
   args+=(--tmpfs "$trab")
   echo "run_com_armadilha.sh: .trabalho/ da raiz (L-09 do projeto, ignorada pelo git) coberta por tmpfs na caixa" >&2
 fi

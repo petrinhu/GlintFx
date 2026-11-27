@@ -136,6 +136,22 @@ g2_trabalho_prefixo_reprova() {
   printf '%s' "$saida" | grep -q "glintfx-win-lab VISIVEL" || falha ".trabalho-x: a reprovacao nao nomeia o laboratorio: $saida"
 }
 
+# E2c (rodada 3, revisao): a .trabalho/ que e' um LINK simbolico nao e' coberta por tmpfs. O tmpfs
+# cairia no alvo do link, fora da raiz. A condicao "nao e' atalho" (! -L) e' o que impede isso, e
+# este caso a prova: o envoltorio NAO cobre, nao imprime o aviso de cobertura, e o selftest o declara.
+g2_trabalho_link_simbolico_nao_coberta() {
+  local raiz="$work/trab-link" alvo saida rc
+  g2_trabalho_raiz "$raiz" "/.trabalho"
+  alvo="$work/trab-link-alvo"
+  mkdir -p "$alvo/x/glintfx-win-lab"
+  ln -s "$alvo" "$raiz/.trabalho"
+  saida="$("$raiz/tests/tools/armadilha/run_com_armadilha.sh" /usr/bin/true 2>&1)"; rc=$?
+  printf '%s' "$saida" | grep -q "coberta por tmpfs na caixa" \
+    && falha ".trabalho que e' link simbolico foi coberta por tmpfs (a condicao ! -L nao vale): $saida"
+  printf '%s' "$saida" | grep -q "run_com_armadilha.sh: .trabalho/" && falha "link simbolico: aviso de cobertura sem ser cobertura: $saida"
+  echo "armadilha_selftest: link simbolico .trabalho/ NAO coberta por tmpfs (declarado: a condicao ! -L da E2c) (rc=$rc)"
+}
+
 g1_simulacao_so_neste_script() {
   # GLINTFX_ARMADILHA_SIMULAR_SEM_BWRAP so' pode ser lida por este selftest, e so' move para o lado seguro
   if grep -q "GLINTFX_ARMADILHA_SIMULAR_SEM_BWRAP" "$WRAP" "$DIR/dentro_da_sandbox.sh"; then
@@ -270,7 +286,7 @@ g2_armadilha_na_frente_do_path() {
 }
 
 GRUPO1=(g1_ferramentas_saem_97 g1_qemu_img_nao_e_armadilha g1_gates_estaticos_do_envoltorio g1_simulacao_so_neste_script g1_sem_bwrap_sai_77 g1_auto_prova_recusa_raiz_gravavel g1_duble_e_envoltorio_com_o_mesmo_contrato)
-GRUPO2=(g2_toca_virsh_reprova g2_rc_atravessa g2_sentinela_do_hospedeiro_invisivel g2_lab_visivel_na_raiz_reprova g2_raiz_por_symlink_resolve_fisico g2_reflink_dentro g2_raiz_sob_var_tmp g2_disco_do_hospedeiro_imune g2_armadilha_na_frente_do_path g2_tmpdir_dentro_da_raiz_coberto g2_trabalho_coberta g2_trabalho_nao_ignorada_reprova g2_trabalho_fora_da_raiz_reprova g2_trabalho_prefixo_reprova)
+GRUPO2=(g2_toca_virsh_reprova g2_rc_atravessa g2_sentinela_do_hospedeiro_invisivel g2_lab_visivel_na_raiz_reprova g2_raiz_por_symlink_resolve_fisico g2_reflink_dentro g2_raiz_sob_var_tmp g2_disco_do_hospedeiro_imune g2_armadilha_na_frente_do_path g2_tmpdir_dentro_da_raiz_coberto g2_trabalho_coberta g2_trabalho_nao_ignorada_reprova g2_trabalho_fora_da_raiz_reprova g2_trabalho_prefixo_reprova g2_trabalho_link_simbolico_nao_coberta)
 
 roda_grupo() {  # roda_grupo <funcoes...>: imprime nada; devolve em $ok_grupo quantos controles passaram
   local f antes

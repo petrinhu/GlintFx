@@ -12102,3 +12102,9 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - o nome ausente no `--tests-from-file`, que com o ctest 4.3 sai rc=0 sem rodar nada;
   - o campo `raiz` gravado com caminho absoluto;
   - o tipo `labeled` no `on:`.
+- **D-W8-1270 (CTO no lugar do líder, modo autônomo, 26/11 22:18): as quatro dúvidas da E3.** A decisão completa, com a sonda que a sustenta, está em `.trabalho/efic/e3/decisao-cto-e3.md`.
+  - D1: quando a lista de um sistema sai vazia, ele NÃO cai para `completo`, porque isso contrariaria o "mesmo subconjunto" da L-04 do projeto. O sistema pula, declara o pulo e conta. O piso de zero da L-40 do projeto fica no `parity`.
+  - D2: o arquivo da lista é a referência. Um `tools/ci/conferir_lista.py` novo confere os nomes um a um. O ctest roda com `--no-tests=error`, e o `ctest_aggregate` ganha `--lista`. Medido no ctest 4.3.0: um nome ausente ao lado de um válido some calado, mesmo com `--no-tests=error`.
+  - D3: o campo `raiz` é corrigido na E1-fix2, antes do commit da E3. O `resolver` ganha `--raiz` e passa a recusar raiz errada.
+  - D4: o `labeled` fica na E4. A E3 ganha duas regras na escolha da base: a cabeça não serve de base a si mesma, e uma falha da API dá `completo`.
+- **D-W8-1271 (main, 26/11 22:18): a sonda S6b, depois da S6, entra na E5.** Ela é a única que prova a regra (a) do D4 no servidor. O custo é um envio e uma rodada a mais.

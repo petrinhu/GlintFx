@@ -134,9 +134,10 @@ def commit_all(repo, message="mudanca"):
     return head_of(repo)
 
 
-def make_build(scratch, targets):
-    """Cria um diretorio de construcao de fixture com a resposta da File API (codemodel-v2)."""
-    build = os.path.join(scratch, "build")
+def make_build(scratch, targets, geradas=(), nome="build"):
+    """Cria um diretorio de construcao de fixture com a resposta da File API (codemodel-v2). `geradas` lista os
+    caminhos de fonte marcados com isGenerated (como o CMake marca o que um gerador escreve)."""
+    build = os.path.join(scratch, nome)
     reply = os.path.join(build, ".cmake", "api", "v1", "reply")
     os.makedirs(reply)
     index = {"reply": {"codemodel-v2": {"jsonFile": "codemodel-v2-1.json", "kind": "codemodel", "version": {"major": 2, "minor": 6}}}}
@@ -144,7 +145,8 @@ def make_build(scratch, targets):
     for name, sources in targets.items():
         target_file = f"target-{name}-Debug.json"
         entries.append({"name": name, "jsonFile": target_file})
-        body = {"name": name, "type": "EXECUTABLE", "sources": [{"path": p, "compileGroupIndex": 0} for p in sources]}
+        body = {"name": name, "type": "EXECUTABLE", "sources": [
+            {"path": p, "compileGroupIndex": 0, **({"isGenerated": True} if p in geradas else {})} for p in sources]}
         with open(os.path.join(reply, target_file), "w", encoding="utf-8") as handle:
             json.dump(body, handle)
     codemodel = {"configurations": [{"name": "Debug", "targets": entries}]}
@@ -188,12 +190,12 @@ def classificar(repo, scratch, label, *extra):
     return rc, data, out + err
 
 
-def resolver(scratch, label, mudancas_path, build, ctest_path):
+def resolver(scratch, label, mudancas_path, build, ctest_path, *extra):
     testes = os.path.join(scratch, f"{label}-testes.txt")
     lint = os.path.join(scratch, f"{label}-lint.txt")
     rc, out, err = run_seletor(
         "resolver", "--mudancas", mudancas_path, "--build", build,
-        "--ctest-json", ctest_path, "--saida-testes", testes, "--saida-lint", lint,
+        "--ctest-json", ctest_path, "--saida-testes", testes, "--saida-lint", lint, *extra,
     )
     tests = []
     if os.path.exists(testes):
@@ -625,6 +627,149 @@ def caso_base_invalida(scratch):
           f"rc={rc2} {text2.strip()}")
 
 
+def com_raiz(scratch, label, mudancas_path, raiz):
+    """Copia o JSON de mudancas trocando so o campo `raiz`, como se a classificacao tivesse sido feita em outra
+    maquina (E1-fix2)."""
+    with open(mudancas_path, encoding="utf-8") as handle:
+        dados = json.load(handle)
+    dados["raiz"] = raiz
+    caminho = os.path.join(scratch, f"{label}-raiz.json")
+    with open(caminho, "w", encoding="utf-8") as handle:
+        json.dump(dados, handle)
+    return caminho
+
+
+def _repo_cabecalho_c3(scratch, label):
+    """Repositorio com x_helper.hpp (incluido por x_test.cpp) mudado: o caso que aciona _includers (E1-fix2)."""
+    files = dict(BASE_FILES)
+    files["tests/x_helper.hpp"] = "#pragma once\ninline int ajuda() { return 1; }\n"
+    files["tests/x_test.cpp"] = '#include "x_helper.hpp"\nint main() { return ajuda() - 1; }\n'
+    repo = make_repo(scratch, label, files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "tests", "x_helper.hpp"), "a", encoding="utf-8") as handle:
+        handle.write("// mudou\n")
+    head = commit_all(repo)
+    return repo, base, head
+
+
+def caso_raiz_errada(scratch):
+    # E1-fix2 (a) e (b): raiz do JSON de outra maquina (inexistente) ou subpasta do repositorio -> rc 2 com a
+    # mensagem da guarda, em modo subconjunto e em modo completo (a guarda vale em todo modo)
+    repo, base, head = _repo_cabecalho_c3(scratch, "raiz_errada")
+    rc, data, text = classificar(repo, scratch, "raiz_errada", "--base", base, "--head", head)
+    check("E1-fix2 (b) positivo base: classifica subconjunto", rc == 0 and data and data["modo"] == "subconjunto",
+          f"rc={rc} {text.strip()}")
+    targets = dict(TARGETS_FIXTURE)
+    targets["x_test"] = ["tests/x_test.cpp", "tests/x_helper.hpp"]
+    build = make_build(scratch, targets)
+    ctest = write_ctest(scratch)
+    origem = os.path.join(scratch, "raiz_errada.json")
+    for rotulo, errada in (("maquina_outra", "/nao/existe/glintfx-raiz"), ("subpasta", os.path.join(repo, "tests"))):
+        caminho = com_raiz(scratch, rotulo, origem, errada)
+        rc_e, _tests, text_e = resolver(scratch, rotulo, caminho, build, ctest)
+        check(f"E1-fix2 (b) raiz {rotulo} sem --raiz: rc 2 com a mensagem da guarda",
+              rc_e == 2 and "nao e a raiz do repositorio" in text_e and "(passe --raiz)" in text_e,
+              f"rc={rc_e} {text_e.strip()}")
+    repo_c, base_c, head_c = _repo_cabecalho_c3(scratch, "raiz_completo")
+    with open(os.path.join(repo_c, "CMakeLists.txt"), "a", encoding="utf-8") as handle:
+        handle.write("# mudou\n")
+    head_c = commit_all(repo_c, "completo")
+    rc_c, data_c, text_c = classificar(repo_c, scratch, "raiz_completo", "--base", base_c, "--head", head_c)
+    origem_c = os.path.join(scratch, "raiz_completo.json")
+    caminho_c = com_raiz(scratch, "completo_errada", origem_c, "/nao/existe/glintfx-raiz")
+    rc_ce, _tc, text_ce = resolver(scratch, "completo_errada", caminho_c, build, ctest)
+    check("E1-fix2 (b) modo completo com raiz errada: rc 2 (a guarda vale em todo modo)",
+          rc_c == 0 and data_c and data_c["modo"] == "completo" and rc_ce == 2
+          and "nao e a raiz do repositorio" in text_ce, f"rc={rc_ce} modo={data_c and data_c['modo']} {text_ce.strip()}")
+
+
+def caso_raiz_por_flag(scratch):
+    # E1-fix2 (a): com --raiz certa, a raiz do JSON errada e' vencida, e os includers saem (rc 0)
+    repo, base, head = _repo_cabecalho_c3(scratch, "raiz_flag")
+    rc, data, text = classificar(repo, scratch, "raiz_flag", "--base", base, "--head", head)
+    targets = dict(TARGETS_FIXTURE)
+    targets["x_test"] = ["tests/x_test.cpp", "tests/x_helper.hpp"]
+    build = make_build(scratch, targets)
+    ctest = write_ctest(scratch)
+    caminho = com_raiz(scratch, "raiz_flag", os.path.join(scratch, "raiz_flag.json"), "/nao/existe/glintfx-raiz")
+    rc_r, tests, text_r = resolver(scratch, "raiz_flag_com", caminho, build, ctest, "--raiz", repo)
+    lint = _ler_lint(scratch, "raiz_flag_com")
+    check("E1-fix2 (a) --raiz certa vence a raiz do JSON: rc 0 e o includer entra no lint",
+          rc_r == 0 and lint == ["tests/x_test.cpp"] and tests == ["x_test"],
+          f"rc={rc_r} lint={lint} testes={tests} {text_r.strip()}")
+
+
+def caso_unidade_ausente(scratch):
+    # E1-fix2 (c): unidade do codemodel que nao abre e nao e' gerada -> rc 2 nomeando o caminho; a MESMA unidade
+    # marcada isGenerated -> rc 0, saida de fora da busca de include, e o includer continua no lint
+    repo, base, head = _repo_cabecalho_c3(scratch, "unidade_ausente")
+    rc, data, text = classificar(repo, scratch, "unidade_ausente", "--base", base, "--head", head)
+    targets = dict(TARGETS_FIXTURE)
+    targets["x_test"] = ["tests/x_test.cpp", "tests/x_helper.hpp", "tests/fantasma_test.cpp"]
+    build = make_build(scratch, targets, nome="build_nao_gerada")
+    ctest = write_ctest(scratch)
+    origem = os.path.join(scratch, "unidade_ausente.json")
+    rc_a, _ta, text_a = resolver(scratch, "unidade_nao_gerada", origem, build, ctest)
+    check("E1-fix2 (c) unidade ausente e nao gerada: rc 2 nomeando o caminho",
+          rc_a == 2 and "tests/fantasma_test.cpp" in text_a, f"rc={rc_a} {text_a.strip()}")
+    build_g = make_build(scratch, targets, geradas=("tests/fantasma_test.cpp",), nome="build_gerada")
+    rc_g, tg, text_g = resolver(scratch, "unidade_gerada", origem, build_g, ctest)
+    lint = _ler_lint(scratch, "unidade_gerada")
+    check("E1-fix2 (c) mesma unidade marcada isGenerated: rc 0, contada fora da busca de include",
+          rc_g == 0 and lint == ["tests/x_test.cpp"] and "geradas fora da busca de include: 1" in text_g,
+          f"rc={rc_g} lint={lint} {text_g.strip()}")
+
+
+def caso_ausentes_c4(scratch):
+    # E1-fix2 (d): nome selecionado por script que nao esta no inventario do ctest nao e' falha: sai rc 0 com a
+    # contagem impressa (lint de C3 junto, para nao cair em SemAlvo)
+    files = dict(BASE_FILES)
+    repo = make_repo(scratch, "ausentes_c4", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "tests", "tools", "lendo.py"), "a", encoding="utf-8") as handle:
+        handle.write("# mudou\n")
+    with open(os.path.join(repo, "tests", "x_test.cpp"), "a", encoding="utf-8") as handle:
+        handle.write("// x\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "ausentes_c4", "--base", base, "--head", head)
+    build = make_build(scratch, TARGETS_FIXTURE)
+    sem_lendo = {"tests": [t for t in CTEST_FIXTURE["tests"] if t["name"] != "lendo_test"]}
+    ctest = write_ctest(scratch, sem_lendo)
+    rc_r, tests, text_r = resolver(scratch, "ausentes_c4", os.path.join(scratch, "ausentes_c4.json"), build, ctest)
+    check("E1-fix2 (d) nome ausente do inventario: rc 0, selecao so x_test, contagem impressa",
+          rc_r == 0 and tests == ["x_test"] and "ausentes deste inventario: 1" in text_r,
+          f"rc={rc_r} testes={tests} {text_r.strip()}")
+
+
+def caso_ausentes_sem_alvo(scratch):
+    # E1-fix2 (d) no rc 1: a contagem sai antes do SemAlvo (a E3 trata o rc 1 como pulo declarado)
+    files = dict(BASE_FILES)
+    repo = make_repo(scratch, "ausentes_sem_alvo", files)
+    base = head_of(repo)
+    with open(os.path.join(repo, "tests", "tools", "lendo.py"), "a", encoding="utf-8") as handle:
+        handle.write("# mudou\n")
+    head = commit_all(repo)
+    rc, data, text = classificar(repo, scratch, "ausentes_sem_alvo", "--base", base, "--head", head)
+    build = make_build(scratch, TARGETS_FIXTURE)
+    sem_lendo = {"tests": [t for t in CTEST_FIXTURE["tests"] if t["name"] != "lendo_test"]}
+    ctest = write_ctest(scratch, sem_lendo)
+    rc_r, tests, text_r = resolver(scratch, "ausentes_sem_alvo", os.path.join(scratch, "ausentes_sem_alvo.json"),
+                                   build, ctest)
+    check("E1-fix2 (d) rc 1 SemAlvo imprime a contagem dos ausentes",
+          rc_r == 1 and tests == [] and "ausentes deste inventario: 1" in text_r,
+          f"rc={rc_r} testes={tests} {text_r.strip()}")
+
+
+def caso_mudancas_inexistente(scratch):
+    # E1-fix2 (e): erro que nao e' SemAlvo nem Guarda sai com 2 e nomeia o arquivo, nunca com 1
+    build = make_build(scratch, TARGETS_FIXTURE)
+    ctest = write_ctest(scratch)
+    nao_existe = os.path.join(scratch, "nao-existe.json")
+    rc, _tests, text = resolver(scratch, "mudancas_inexistente", nao_existe, build, ctest)
+    check("E1-fix2 (e) --mudancas inexistente: rc 2 nomeando o arquivo (nunca rc 1)",
+          rc == 2 and "nao-existe.json" in text, f"rc={rc} {text.strip()}")
+
+
 def main():
     scratch = make_fenced_scratch_dir("seletor-selftest-", parent=os.environ.get("TMPDIR") or None)
     try:
@@ -633,7 +778,8 @@ def main():
                      caso_leitor_c3_literal, caso_cmake_positivo, caso_cmake_negativo, caso_cmake_piso,
                      caso_cmake_comentario_bloco, caso_cmake_so_comentario_texto, caso_cabecalho_c3, caso_completo_lint_tests, caso_negativo, caso_vazio, caso_texto_lido, caso_texto_sem_leitor,
                      caso_varredura, caso_orfa, caso_arvore, caso_dado_de_teste, caso_renomeacao,
-                     caso_base_invalida):
+                     caso_base_invalida, caso_raiz_errada, caso_raiz_por_flag, caso_unidade_ausente,
+                     caso_ausentes_c4, caso_ausentes_sem_alvo, caso_mudancas_inexistente):
             sub = tempfile.mkdtemp(prefix=caso.__name__ + "-", dir=scratch)
             try:
                 caso(sub)

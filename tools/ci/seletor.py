@@ -10,13 +10,14 @@
 #       Classifica cada caminho tocado numa tabela fechada (C1 a C6) e decide o modo:
 #       completo, subconjunto ou texto-sem-leitor. Imprime e grava um JSON.
 #   resolver --mudancas <json> --build <dir> --saida-testes <arq> --saida-lint <arq>
-#            [--ctest-json <arq>]
+#            [--ctest-json <arq>] [--raiz <dir>]
 #       Lê o inventario de testes (ctest --show-only=json-v1) e o codemodel da CMake File API do diretorio
-#       de construcao, e escreve a lista de testes e a de unidades de lint.
+#       de construcao, e escreve a lista de testes e a de unidades de lint. A raiz efetiva e' --raiz, se dado,
+#       senao o campo `raiz` do JSON (que e' da maquina que classificou); ela tem de ser a raiz do git (E1-fix2).
 #
-# Codigos de saida: 0 ok; 1 subconjunto sem teste nem lint (resolver, L-40 do projeto); 2 falha de guarda
-# (conferencia de varredura, linha orfa, lista malformada, git ou insumo ausente). Nenhuma falha vira
-# "pulado" em silencio.
+# Codigos de saida: 0 ok; 1 subconjunto sem teste nem lint (resolver, L-40 do projeto) e so isso; 2 falha de
+# guarda ou de insumo (conferencia de varredura, linha orfa, lista malformada, raiz errada, git, arquivo de
+# entrada ilegivel ou qualquer outra excecao). Nenhuma falha vira "pulado" em silencio.
 #
 # Regras que o CI e o espelho dependem, todas nesta tabela e nao espalhadas:
 #   - toda leitura do git sai com -z, porque nome com acento ou espaco vem entre aspas sem -z;
@@ -785,7 +786,9 @@ def _inventario_testes(build, ctest_json):
 
 
 def _codemodel(build):
-    """Alvos e fontes pela CMake File API (codemodel v2). A consulta e criada antes do configure, por quem chama."""
+    """Alvos e fontes pela CMake File API (codemodel v2). A consulta e criada antes do configure, por quem chama.
+    Devolve (alvos, geradas): `alvos` mapeia alvo -> fontes; `geradas` e' o conjunto das fontes que o codemodel marca
+    com isGenerated (escritas por um gerador: existem so' depois do build, e saem da busca de include)."""
     reply = os.path.join(build, ".cmake", "api", "v1", "reply")
     if not os.path.isdir(reply):
         raise Guarda(f"sem resposta da File API em {reply}: crie .cmake/api/v1/query/codemodel-v2 antes do configure")
@@ -800,6 +803,7 @@ def _codemodel(build):
     with open(os.path.join(reply, cm_info["jsonFile"]), encoding="utf-8") as handle:
         codemodel = json.load(handle)
     alvos = {}
+    geradas = set()
     for configuracao in codemodel.get("configurations", []):
         for alvo in configuracao.get("targets", []):
             with open(os.path.join(reply, alvo["jsonFile"]), encoding="utf-8") as handle:
@@ -809,9 +813,12 @@ def _codemodel(build):
                 caminho = fonte.get("path", "")
                 if os.path.isabs(caminho):
                     continue  # fonte fora da arvore nao e caminho do repositorio
-                fontes.append(caminho.replace(os.sep, "/"))
+                caminho = caminho.replace(os.sep, "/")
+                fontes.append(caminho)
+                if fonte.get("isGenerated") is True:
+                    geradas.add(caminho)
             alvos.setdefault(corpo["name"], set()).update(fontes)
-    return alvos
+    return alvos, geradas
 
 
 def _cita(teste, caminho):
@@ -835,17 +842,22 @@ def _testes_de_fonte(testes, alvos, caminho):
     return nomes
 
 
-def _includers(raiz, unidades, cabecalho):
-    """Unidades .cpp que incluem o cabecalho, por sufixo do caminho do include (sem include/ nem src/)."""
+def _includers(raiz, unidades, cabecalho, geradas=frozenset()):
+    """Unidades .cpp que incluem o cabecalho, por sufixo do caminho do include (sem include/ nem src/). Unidade
+    gerada (isGenerated) sai da busca: não existe antes do build. Unidade não gerada que não abre é falha de guarda
+    (E1-fix2), nunca um `continue` silencioso."""
     chave = cabecalho.split("/", 1)[1] if cabecalho.startswith(("include/", "src/")) else cabecalho
     padrao = re.compile(r'^[ \t]*#[ \t]*include[ \t]*[<"]([^>"]+)[>"]', re.MULTILINE)
     achados = []
     for unidade in sorted(unidades):
+        if unidade in geradas:
+            continue
         try:
             with open(os.path.join(raiz, unidade), encoding="utf-8", errors="replace") as handle:
                 texto = handle.read()
-        except OSError:
-            continue
+        except OSError as exc:
+            raise Guarda(f"unidade do codemodel {unidade!r} nao abre em {raiz} ({exc.strerror}) e nao e' gerada: "
+                         "o codemodel e a arvore nao batem")
         for incluido in padrao.findall(texto):
             # casa nos dois sentidos: o include e' relativo ao arquivo que inclui ("x_helper.hpp" para
             # tests/x_helper.hpp) ou ao caminho do include ("glintfx/core/x.hpp" para include/glintfx/core/x.hpp)
@@ -855,14 +867,39 @@ def _includers(raiz, unidades, cabecalho):
     return achados
 
 
-def resolver(mudancas, build, ctest_json):
+# Sensibilidade a maiusculas e' fato do ambiente: o NTFS (Windows) preserva a caixa mas nao a distingue, e o Unix
+# distingue. Por isso a raiz do git e a raiz do JSON passam pelo mesmo normcase(realpath) antes da igualdade; no
+# Unix normcase e' identidade, e nos dois a comparacao fica igual em qualquer maquina.
+def _norma_caminho(caminho):
+    return os.path.normcase(os.path.realpath(caminho))
+
+
+def _conferir_raiz(raiz):
+    """E1-fix2 (b): a raiz efetiva tem de ser a raiz do git. Raiz de outra maquina (o campo `raiz` do JSON) ou uma
+    subpasta do repositorio viram Guarda, antes de qualquer leitura. Usa o proprio git, sem _git: a mensagem e' a
+    da guarda, e nao a da falha do git."""
+    if not os.path.isdir(raiz):
+        raise Guarda(f"raiz {raiz} nao e a raiz do repositorio (passe --raiz): o diretorio nao existe")
+    proc = subprocess.run(["git", "-C", raiz, "rev-parse", "--show-toplevel"], capture_output=True)
+    if proc.returncode != 0:
+        raise Guarda(f"raiz {raiz} nao e a raiz do repositorio (passe --raiz): git nao acha repositorio aqui")
+    topo = proc.stdout.decode("utf-8", "replace").strip()
+    if _norma_caminho(topo) != _norma_caminho(raiz):
+        raise Guarda(f"raiz {raiz} nao e a raiz do repositorio (passe --raiz); a raiz do repositorio e {topo}")
+
+
+def resolver(mudancas, build, ctest_json, raiz):
+    """Devolve (testes, lint, total, precisa_build, ausentes, geradas_fora). `ausentes` são os nomes que a
+    classificação selecionou e que não estão no inventário do ctest (E1-fix2 d); não é falha, mas é contado."""
+    _conferir_raiz(raiz)
     testes = _inventario_testes(build, ctest_json)
-    alvos = _codemodel(build)
+    alvos, geradas = _codemodel(build)
     todas_fontes = set().union(*alvos.values()) if alvos else set()
     unidades_cpp = sorted(f for f in todas_fontes if f.endswith(".cpp"))
+    geradas_fora = sorted(f for f in unidades_cpp if f in geradas)
     nomes = {t["name"] for t in testes}
-    raiz = mudancas["raiz"]
     modo = mudancas["modo"]
+    ausentes = set()
 
     if modo == "completo":
         selecionados = set(nomes)
@@ -883,14 +920,14 @@ def resolver(mudancas, build, ctest_json):
                 if caminho.endswith(".cpp"):
                     lint.add(caminho)
                 elif caminho.endswith((".hpp", ".h")):
-                    lint.update(_includers(raiz, unidades_cpp, caminho))
+                    lint.update(_includers(raiz, unidades_cpp, caminho, geradas))
             elif classe == "C3":
                 precisa_build = True
                 # E1-fix1: .cpp de teste entra na lista de lint; cabecalho de teste põe as unidades que o incluem
                 if caminho.endswith(".cpp"):
                     lint.add(caminho)
                 elif caminho.endswith((".hpp", ".h")):
-                    lint.update(_includers(raiz, unidades_cpp, caminho))
+                    lint.update(_includers(raiz, unidades_cpp, caminho, geradas))
                 for teste in testes:
                     alvo = _alvo_do_teste(teste)
                     if caminho in alvos.get(alvo, set()) or _cita(teste, caminho):
@@ -898,25 +935,40 @@ def resolver(mudancas, build, ctest_json):
             elif classe in ("C4", "C5"):
                 # o efeito ja foi decidido no classificar (tabela do CTO): aqui so cruza nomes com o inventario
                 selecionados |= {nome for nome in entrada.get("testes", []) if nome in nomes}
+                ausentes |= {nome for nome in entrada.get("testes", []) if nome not in nomes}
                 for alvo in entrada.get("alvos", []):
                     selecionados |= {t["name"] for t in testes if _alvo_do_teste(t) == alvo}
         if not selecionados and not lint:
-            raise SemAlvo("subconjunto sem teste nem unidade de lint: a classificacao disse que havia o que conferir "
-                          "(L-40 do projeto)")
+            erro = SemAlvo("subconjunto sem teste nem unidade de lint: a classificacao disse que havia o que conferir "
+                           "(L-40 do projeto)")
+            erro.ausentes = sorted(ausentes)
+            erro.geradas_fora = geradas_fora
+            raise erro
     if any(_alvo_do_teste(t) in alvos for t in testes if t["name"] in selecionados):
         precisa_build = True  # teste compilado selecionado liga o build
     lista_testes = sorted(selecionados)
     lista_lint = sorted(lint)
-    return lista_testes, lista_lint, len(nomes), precisa_build
+    return lista_testes, lista_lint, len(nomes), precisa_build, sorted(ausentes), geradas_fora
+
+
+def _linhas_contagem(ausentes, geradas_fora):
+    """E1-fix2 (d) e (c): as contagens que o rc 0 e o rc 1 mostram, sempre, para que nada saia calado."""
+    nomes = f" ({', '.join(ausentes)})" if ausentes else ""
+    return [f"seletor: ausentes deste inventario: {len(ausentes)}{nomes}",
+            f"seletor: geradas fora da busca de include: {len(geradas_fora)}"]
 
 
 def cmd_resolver(args):
     with open(args.mudancas, encoding="utf-8") as handle:
         mudancas = json.load(handle)
+    raiz = args.raiz or mudancas["raiz"]
     try:
-        testes, lint, total, precisa_build = resolver(mudancas, args.build, args.ctest_json)
+        testes, lint, total, precisa_build, ausentes, geradas_fora = resolver(
+            mudancas, args.build, args.ctest_json, raiz)
     except SemAlvo as exc:
         print(f"seletor: {exc}", file=sys.stderr)
+        for linha in _linhas_contagem(exc.ausentes, exc.geradas_fora):
+            print(linha, file=sys.stderr)
         return 1
     with open(args.saida_testes, "w", encoding="utf-8") as handle:
         handle.write("".join(f"{nome}\n" for nome in testes))
@@ -924,6 +976,8 @@ def cmd_resolver(args):
         handle.write("".join(f"{caminho}\n" for caminho in lint))
     print(f"seletor: {len(testes)} testes de {total} no inventario; {len(lint)} arquivos para lint; "
           f"precisa de build: {'sim' if precisa_build else 'nao'}")
+    for linha in _linhas_contagem(ausentes, geradas_fora):
+        print(linha)
     return 0
 
 
@@ -945,6 +999,7 @@ def main(argv=None):
     p_res.add_argument("--saida-testes", required=True)
     p_res.add_argument("--saida-lint", required=True)
     p_res.add_argument("--ctest-json")
+    p_res.add_argument("--raiz", help="raiz do repositorio; vence o campo `raiz` do JSON (E1-fix2)")
     p_res.set_defaults(func=cmd_resolver)
 
     args = parser.parse_args(argv)
@@ -955,6 +1010,9 @@ def main(argv=None):
         return 1
     except Guarda as exc:
         print(f"seletor: FALHOU - {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:  # E1-fix2 (e): qualquer outra excecao e' insumo ruim, nunca o rc 1 do SemAlvo
+        print(f"seletor: FALHOU - {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
 

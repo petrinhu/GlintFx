@@ -48,7 +48,12 @@ def _git_listing(real_source):
                              capture_output=True, env=env)
         if top.returncode != 0:
             return None
-        if os.path.realpath(top.stdout.decode("utf-8", "surrogateescape").strip()) != real_source:
+        # fato do ambiente (GATE-ENV-SWEEP, sensibilidade a maiusculas): o git no Windows responde
+        # C:/caminho e o realpath responde C:\caminho, e o Windows nao distingue caixa. Por isso os dois
+        # lados passam por normcase, que no POSIX nao muda nada. Sem isso, a fonte com git no Windows
+        # cairia na varredura por disco (ausencia declarada aqui, nao calada).
+        toplevel = os.path.normcase(os.path.realpath(top.stdout.decode("utf-8", "surrogateescape").strip()))
+        if toplevel != os.path.normcase(real_source):
             return None
         done = subprocess.run(
             ["git", "-C", real_source, "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
@@ -151,8 +156,14 @@ def _control_git_inside(work):
         (not os.path.exists(os.path.join(dst, "ignorado.txt")), "o ignorado nao devia ser copiado"),
         (not os.path.exists(os.path.join(dst, "apagado.txt")), "o apagado sem commit nao devia ser copiado"),
         (not os.path.exists(os.path.join(dst, "rascunho")), "o rascunho nao pode entrar na copia (recursao)"),
-        ((os.stat(os.path.join(dst, "exec.sh")).st_mode & 0o777) == 0o755, "o bit executavel se perdeu"),
     ]
+    if os.name == "nt":
+        # Declarado, nunca calado: NTFS nao tem bit de execucao, entao o modo 0o755 nao existe aqui.
+        print("source_snapshot.py --selftest: controle bit executavel PULADO neste sistema "
+              "(Windows nao tem bit de execucao; o modo e' conferido so em POSIX)")
+    else:
+        checks.append(((os.stat(os.path.join(dst, "exec.sh")).st_mode & 0o777) == 0o755,
+                       "o bit executavel se perdeu"))
     return _verdict("rascunho dentro de repositorio", checks)
 
 

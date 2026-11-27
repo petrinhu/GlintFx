@@ -5348,14 +5348,6 @@ if(UNIX)
     # E2c (TMPDIR-NA-ARVORE): o shell chama source_snapshot.py pelo interpretador que o configure achou.
     set_tests_properties(pkgconfig_test PROPERTIES ENVIRONMENT "GLINTFX_PYTHON3=${GLINTFX_PYTHON3_EXECUTABLE}")
 
-    # E2c: o autoteste do auxiliar que copia a fonte para o rascunho (tests/tools/source_snapshot.py).
-    add_test(
-        NAME source_snapshot_selftest
-        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/source_snapshot.py" --selftest
-    )
-    set_tests_properties(source_snapshot_selftest PROPERTIES LABELS selftest)
-
     # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44,
     # same precedent as public_name_collision_test's own TIMEOUT 300
     # above): this test had been inheriting the SUITE-WIDE 120s default
@@ -5401,6 +5393,17 @@ if(UNIX)
     # 38665857294), above a third of 300 s; rule 4: 3 x 117.10 = 351.30 -> 360 s.
     set_tests_properties(pkgconfig_test PROPERTIES TIMEOUT 360)
 endif()
+
+# E2c: o autoteste do auxiliar que copia a fonte para o rascunho (tests/tools/source_snapshot.py).
+# D-W8-1282 (27/11/2026): saiu do if(UNIX), pois o autoteste e' Python puro e roda nos dois sistemas
+# (L-04: o mesmo comportamento em todo sistema, cada um provando). Ver source_snapshot.py para o
+# que e' portavel e o unico controle que pula no Windows, declarado na saida.
+add_test(
+    NAME source_snapshot_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/source_snapshot.py" --selftest
+)
+set_tests_properties(source_snapshot_selftest PROPERTIES LABELS selftest)
 
 # Post-install pkg-config VALIDATOR gate (PKG-VALIDATE): proves the
 # install(CODE) step in cmake/GlintfxPkgConfigValidate.cmake /

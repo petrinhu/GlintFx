@@ -12150,3 +12150,4 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **No Windows:** o `seletor_selftest` levou 60,4 s, acima da régua de pesados de 40 s, sem `PROCESSORS` nem `RESOURCE_LOCK`.
   - **A parada no primeiro erro da E4 funcionou no servidor:** as outras 9 pernas da matriz saíram `cancelled`.
   - **O conserto** segue a L-49 global: diagnóstico pelo log e correção por commit, sem reexecutar.
+- **D-W8-1282 (main, 27/11 01:50): a segunda rodada do servidor (45939975844, `0903ea11`) saiu vermelha só no `parity`.** O `source_snapshot_selftest`, criado na E2c, foi registrado dentro de um `if(UNIX)` sem motivo, então existe no Linux e falta no Windows. Pela L-04 do projeto, ele passa a rodar nos dois sistemas. O espelho local não acha esse defeito, porque o `parity` precisa do inventário do Windows. As duas correções da rodada 1 passaram no servidor.

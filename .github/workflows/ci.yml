@@ -44,9 +44,11 @@ name: CI
 # `windows`, por simetria - antes eram dois PASSOS sequenciais dentro da
 # mesma entrada de matriz, e uma falha no compartilhado abortava o job
 # inteiro, pulando o estatico sem rodar (aconteceu duas vezes na mesma
-# tarde: CI-CONSUME e CI-CONSUME-2). `fail-fast: false`, ja presente no
-# `linux`, so garante independencia ENTRE entradas de matriz - nunca
-# ajudou aqui, porque compartilhado/estatico eram passos, nao entradas.
+# tarde: CI-CONSUME e CI-CONSUME-2). A regra de `fail-fast` (EFIC-FAIL-FAST, L-04 do
+# projeto, emenda de 26/11): no meio do ramo a primeira entrada vermelha cancela as
+# irmas; no fechamento (push ao main, dispatch, PR com o rotulo `ci-completo`) todas
+# vao ate o fim. Antes do compartilhado/estatico virarem entradas, isso nunca ajudou
+# aqui, porque eles eram passos, nao entradas.
 #
 # CONTAGEM DE CELULAS, pedida explicitamente pelo lider - "cinco alvos x
 # dois modos continua sendo dez": ANTES, `linux` tinha 4 entradas de
@@ -73,7 +75,11 @@ on:
     # coisa que nunca acontecia antes (o gatilho de push so tinha
     # `branches`) e nao tem por que comecar a acontecer agora.
     tags: ['v[0-9]*']
+  # EFIC-FAIL-FAST (L-04 do projeto, emenda de 26/11): `labeled` entra para que pôr o
+  # rotulo `ci-completo` num PR dispare a rodada completa. Rotulo de outro nome dispara
+  # uma rodada normal, no modo do meio; nunca se pula a rodada inteira por rotulo.
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
     inputs:
       ctest_paralelo:
@@ -268,7 +274,7 @@ jobs:
     needs: mudancas
     container: ${{ matrix.imagem }}
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         include:
           # MATRIZ ENXUTA (CI-SPLIT-PER-OS A3b, docs/plano-ci-split-per-
@@ -292,8 +298,9 @@ jobs:
           # compartilhado e estatico sao entradas DISTINTAS da matriz, nao
           # dois passos dentro da mesma entrada, para que uma falha no
           # compartilhado de um alvo nunca esconda o resultado do
-          # estatico irmao (nem o de nenhum outro alvo - fail-fast: false
-          # ja cobria isso entre alvos; agora cobre entre modos tambem).
+          # estatico irmao (nem o de nenhum outro alvo). EFIC-FAIL-FAST (L-04
+          # do projeto, emenda de 26/11): o `fail-fast` da matriz so cancela as
+          # irmas no meio do ramo; no fechamento todas as entradas vao ate o fim.
           #
           # c_compiler, campo novo (PKG-NATIVE, 27/08/2026): antes desta
           # fatia nenhuma entrada passava -DCMAKE_C_COMPILER explicito - o
@@ -940,7 +947,7 @@ jobs:
     if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
     needs: mudancas
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         include:
           # Duas entradas, nao mais dois passos dentro de uma - mesma
@@ -1588,7 +1595,11 @@ jobs:
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
     needs: [mudancas, linux, windows, wayland-container, lint]
-    if: ${{ !cancelled() && github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
+    # EFIC-FAIL-FAST (L-04 do projeto, emenda de 26/11): no meio do ramo (PR sem o rotulo
+    # `ci-completo`) o parity so roda com as pernas todas verdes (`success()`); no
+    # fechamento (push ao main, dispatch, PR com o rotulo, ou evento sem PR) roda com
+    # `!cancelled()`, para reportar mesmo com perna vermelha. M = o predicado do meio.
+    if: ${{ github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor' && ((github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') && success()) || (!(github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo')) && !cancelled())) }}  # VERSION-TAG-SYNC, ver on:push:tags acima
     runs-on: ubuntu-24.04
     timeout-minutes: 45  # classe `dependente` - ver o bloco de classes logo abaixo de `jobs:`
     steps:
@@ -1845,8 +1856,9 @@ jobs:
   # com $GLINTFX_FIXTURE_SANITIZE), nao um segundo job - um job separado
   # duplicaria os 17 passos `docker exec` a mao, a mesma doenca que
   # tests/tools/check_container_fixture_link.py nasceu para conter.
-  # `fail-fast: false`: uma perna vermelha nao cancela a outra - as duas
-  # legendas (`plain`, `asan`) carregam informacao distinta.
+  # EFIC-FAIL-FAST (L-04 do projeto, emenda de 26/11): no meio do ramo (PR sem o rotulo
+  # `ci-completo`) a primeira perna vermelha cancela a outra; no fechamento as duas vao
+  # ate o fim. As duas legendas (`plain`, `asan`) carregam informacao distinta.
   wayland-container:
     name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
     runs-on: ubuntu-24.04
@@ -1854,7 +1866,7 @@ jobs:
     if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
     needs: mudancas
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         perna: [plain, asan]
     env:
@@ -5020,7 +5032,7 @@ jobs:
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         include:
           - modo: compartilhado

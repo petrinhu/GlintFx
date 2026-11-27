@@ -12128,3 +12128,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **B2:** o item 8 da E3 (remedir a proteção do `main`) não deixou saída gravada. O implementador mediu (404 "Branch not protected" e rulesets vazios), mas não gravou nada. A chamada se refaz com a saída gravada.
   - **Como entra:** a E3-fix vem depois do commit da E4, para que haja um só escritor na árvore.
   - **O que passou:** o `mudancas` só por env, sem injeção; as regras D4 a e b; os 13 `needs` sem `paths`; o `RERUN_DERIVADO` só no `parity`; e as três sabotagens do revisor, que morderam.
+- **D-W8-1278 (main, 27/11 00:33): a E3 fechou.** O main conferiu de forma pontual os dois consertos da E3-fix (`38218b82`):
+  - as duas linhas da INBOX voltaram, com a marca "consumido pela E2c ... drenar no --reorder";
+  - a proteção do `main` foi gravada em `.trabalho/efic/e3/protecao-main.txt`: 404 "Branch not protected" e rulesets vazios.
+
+  A `EFIC-CI-SELETIVO` fica em 🔍 até o CI verde.
+- **D-W8-1279 (main, 27/11 00:33): a revisão 1 da E4 (`00dac1e7`) reprovou por dois motivos, e os dois se resolvem no passo do primeiro envio.**
+  - B1: o rótulo `ci-completo` ainda não existe. A ordem do main mandou criá-lo só no envio.
+  - B2: o `--fast` inteiro não rodou na fatia. A L-23 do projeto pede o `--changed` por fatia e o `--fast` só antes do envio ao GitHub.
+
+  O agente de envio roda o `--fast` no HEAD, cria o rótulo e envia o `onda-wpng1` com um PR em rascunho. Tudo isso fica autorizado pelo modo autônomo, pelo "Tudo liberado" (D-W8-1260) e pela janela D-W8-1274.
+  - Limite que o revisor declarou: nenhum portão do `ci.yml` pega a troca de uma das quatro expressões de `fail-fast` por `false`. Vai para a INBOX como `FAIL-FAST-PORTAO`.

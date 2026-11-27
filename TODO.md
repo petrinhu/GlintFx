@@ -425,6 +425,7 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 - [triage 26/11/2026, D-W8-1270, do CTO via main] `PRECI-GITHUB-ACTIONS-LOCAL`: um `GITHUB_ACTIONS=1` exportado na máquina local desliga a guarda e o isolamento do espelho `tools/preci.sh`, que passam a supor que o ambiente é o do CI.
 - [triage 26/11/2026, D-W8-1270, do CTO via main] `SELETOR-CONFERENCIA-NO-FAST`: o `tools/preci.sh --fast` não roda a conferência do seletor sobre a árvore real (só o autoteste dele), então uma classificação errada da árvore só aparece no CI.
 - [triage 26/11/2026, D-W8-1276, do CTO via main] `MEASURED-SUBCONJUNTO`: os itens 3 e 5 da E3 (EFIC-CI-SELETIVO) saem desta fatia. Linux, Windows, contêiner, sanitizer e debug rodam a suíte inteira, porque a coleta MEASURED tem piso de zero (L-40) e o parity lê as pernas. Falta uma regra de MEASURED em subconjunto. A recomendação do CTO é a referência não-zero vinda da rodada verde-base que o `mudancas` escolhe, sem mexer na lei; a alternativa é perguntar ao líder se o zero da coleta pode virar pulo declarado. Ver `.trabalho/efic/e3p2/decisao-cto-e3p2.md` §4.
+- [triage 27/11/2026, D-W8-1279, do revisor da E4 via main] `FAIL-FAST-PORTAO`: nenhum portão do `ci.yml` pega a troca de uma das quatro expressões de `fail-fast` por `false`. Limite declarado pelo revisor na revisão 1 da E4 (`00dac1e7`), registrado em `DECISOES_AUTONOMAS.md`.
 
 
 

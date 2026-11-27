@@ -12108,3 +12108,10 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - D3: o campo `raiz` é corrigido na E1-fix2, antes do commit da E3. O `resolver` ganha `--raiz` e passa a recusar raiz errada.
   - D4: o `labeled` fica na E4. A E3 ganha duas regras na escolha da base: a cabeça não serve de base a si mesma, e uma falha da API dá `completo`.
 - **D-W8-1271 (main, 26/11 22:18): a sonda S6b, depois da S6, entra na E5.** Ela é a única que prova a regra (a) do D4 no servidor. O custo é um envio e uma rodada a mais.
+- **D-W8-1272 (main, 26/11 22:50): a E1-fix2 (`39b57c7f`) foi aprovada na revisão 1.**
+  - Provas: o autoteste passou 47 de 47; o mutante A e a sabotagem do revisor (a precedência do JSON sobre `--raiz`) ficaram vermelhos; na árvore real, a raiz errada sai com rc=2 e a mensagem pedida.
+  - Os dois desvios foram aceitos: a declaração em `_norma_caminho`, que o `env_sweep` exige, e o rc 1 sem as listas, que a E3 trata como "sem alvo".
+  - O `DECISOES_AUTONOMAS.md` entrou no commit da fatia por ordem do main. Isso segue a emenda de 26/11 da L-34 do projeto, a B6: "o agente da fatia leva ao diário no commit dela". Essa regra vale sobre a lista de "pode tocar" da ordem.
+- **D-W8-1273 (main, 26/11 22:51): a Ordem B da E3 se divide em dois commits.**
+  - Primeiro, as ferramentas: o `conferir_lista` e o `ctest_aggregate --lista`, que não mudam o comportamento do CI.
+  - Depois, o `ci.yml` inteiro numa rodada só, para nenhum sistema ficar em subconjunto enquanto outro roda completo, o que quebraria o critério (f).

@@ -7553,6 +7553,16 @@ add_test(
 )
 set_tests_properties(ci_verde_completo_selftest PROPERTIES LABELS selftest)
 
+# EFIC-CI-SELETIVO (E3, Ordem B, decisao D2 do CTO): autoteste de tools/ci/conferir_lista.py. Os JSON
+# de inventario, universo e selecao saem do ctest real de um projeto descartavel em TMPDIR. Sem guarda
+# de sistema: exige cmake e ctest no PATH, e reprova sem eles (nao ha pulo).
+add_test(
+    NAME conferir_lista_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/conferir_lista_selftest.py" --selftest
+)
+set_tests_properties(conferir_lista_selftest PROPERTIES LABELS selftest)
+
 # LAYERS-ORACLE-REPORT sub-fatia J2 (docs/plano-w7c-adendo-revalidacao.md
 # secao 3.J, achado N9, decisao D-A11, 24/09/2026): nenhum portao Python
 # registrado neste arquivo rodava sem buffer - sob ctest, stdout de

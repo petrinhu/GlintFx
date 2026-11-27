@@ -15,6 +15,7 @@ tests/container/run_capture_known_color.sh *
 tests/package/CMakeLists.txt -
 tests/tools/armadilha/armadilha_selftest.sh *
 tests/tools/armadilha/dentro_da_sandbox.sh *
+tests/tools/armadilha/run_com_armadilha.sh -
 tests/tools/blob_selftests.py *
 tests/tools/capture_vs_readback.py *
 tests/tools/check_blank_install_dir_rejected.py *

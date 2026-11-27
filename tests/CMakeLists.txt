@@ -7543,6 +7543,16 @@ add_test(
 )
 set_tests_properties(check_ci_timeouts_selftest PROPERTIES LABELS selftest)
 
+# EFIC-CI-SELETIVO (E3, D-W8-1231; GODS_LAWS.md L-40 do projeto): autoteste do instrumento
+# tools/ci/ci_verde_completo.py. Controles em memoria: nenhum gh, nenhum git, nenhum Docker. Sem
+# guarda de sistema, mesma forma que check_ci_timeouts_selftest acima.
+add_test(
+    NAME ci_verde_completo_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_verde_completo_selftest.py" --selftest
+)
+set_tests_properties(ci_verde_completo_selftest PROPERTIES LABELS selftest)
+
 # LAYERS-ORACLE-REPORT sub-fatia J2 (docs/plano-w7c-adendo-revalidacao.md
 # secao 3.J, achado N9, decisao D-A11, 24/09/2026): nenhum portao Python
 # registrado neste arquivo rodava sem buffer - sob ctest, stdout de

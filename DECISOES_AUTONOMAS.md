@@ -12075,3 +12075,30 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - Limite declarado: o `_includers` segue um nível só. Um cabeçalho que só é incluído por outro cabeçalho não chega ao `.cpp`.
 - **D-W8-1259 (líder, 26/11 18:18): o modo autônomo foi ligado de novo.** As palavras dele, verbatim: *"ligue modo autonomo"*. A flag vale até 27/11 18:18. Antes disso, às 17:16, ele tinha pausado a sessão pela `manutencao` e, às 18:10, mandou retomar pela `gerencia`, com confirmação dele por AskUserQuestion: *"Sim, retome (Recomendado)"*.
 - **D-W8-1260 (líder, 26/11 18:19, por AskUserQuestion): o envio, a mescla e a versão estão liberados no modo autônomo.** Resposta dele, verbatim: *"Tudo liberado"*. Isso desfaz a restrição posta na pausa. Os três saem sem nova pergunta, mas só com tudo verde (L-11 e L-24 do projeto, e L-15 global, item 3).
+- **D-W8-1261 (main, 26/11 18:42): a revisão 1 da E2 (`7d6ee466`) reprovou por dois achados, e o main aceitou os dois.**
+  - B1: nenhum autoteste cobre a recusa do "zero caminhos". O revisor trocou a recusa por `exit 0`, e o `--selftest` continuou verde.
+  - B2: falta a prova de ponta a ponta de que o portão herda o escopo `pesado-*.scope`. A linha "escopo herdado" saiu de uma chamada direta, e não do `ctest` que passou.
+
+  A E2-fix1 entra depois do commit da E2c, para que haja um só escritor na árvore.
+  - Nota N1, que vai para a INBOX com decisão do CTO: `GITHUB_ACTIONS=1` definido na máquina local desliga a guarda e o isolamento.
+- **D-W8-1262 (CTO no lugar do líder, modo autônomo, 26/11 18:40): o GitHub Pro não muda o desenho da E3, da E4 nem da E5.** O ganho é a concorrência, que passa de 20 para 40 trabalhos ao mesmo tempo. Na última rodada completa, com 26 trabalhos, 6 esperavam na fila e deixam de esperar. Falta conferir o gasto da cópia privada diária contra a franquia de US$ 18 do Pro. A ordem da E2c está em `.trabalho/efic/e2c/ordem-e2c.md`.
+- **D-W8-1263 (main, 26/11 19:38): a E2 fechou.** A revisão 2, que era a última, aprovou a E2-fix1 (`531ed9b9`). Com a sabotagem da recusa, o `--selftest` sai com rc=1, e o `ctest -V` dentro do espelho mostra "escopo herdado". A `EFIC-PRECI` fica em 🔍 até o CI verde.
+- **D-W8-1264 (main, 26/11 19:38): a revisão 1 da E2c (`f7119c56`) reprovou.** Com o `TMPDIR` dentro de um clone, `_git_listing` sobe até o repositório de fora, e o `source_snapshot_selftest` cai. Na árvore principal o teste passa só porque o `.trabalho` é um subvolume btrfs próprio. A linha que a E2c acrescentou em `varreduras-de-arvore.txt` foi julgada necessária, e não um desvio.
+- **D-W8-1265 (CTO no lugar do líder, modo autônomo, 26/11 20:31): a armadilha leva 32 s na árvore principal porque o `find /` percorre 2,3 milhões de arquivos de `.trabalho/`.** A caixa de areia passa a cobrir `<raiz>/.trabalho` com um `tmpfs` vazio, só quando essa pasta é filha direta da raiz e o git confirma que ela é ignorada.
+  - Opções recusadas: podar o `find` e tirá-lo do caminho quente, porque afrouxam a prova; limpar a `.trabalho/`, porque não está ao alcance da fatia; refazer a base de tempo, porque esconderia o salto.
+  - O que ganha: o isolamento fica mais forte, a base de tempo continua a mesma e o `dentro_da_sandbox.sh` não muda.
+  - Ordem completa: `.trabalho/efic/e2c/decisao-tempo-armadilha.md`.
+- **D-W8-1266 (líder, 26/11 21:49): o modo autônomo foi renovado.** A ordem dele, verbatim: *"ligue modo autonomo"*. A flag agora vale até 27/11 21:49. A liberação de envio, mescla e versão, dada às 18:19 com as palavras *"Tudo liberado"*, continua valendo, sempre com tudo verde.
+- **D-W8-1267 (main, 26/11 21:57): a E2c fechou.** Ela é feita de três commits: `f7119c56`, `2b39bf59` e `92a969f3`.
+  - A revisão 2, que era a última, deixou uma lacuna: nenhum controle provava a condição de atalho. O ajuste pontual `92a969f3` fechou essa lacuna, e o main conferiu.
+  - O `armadilha_selftest --selftest` passou 15 de 15, com rc=0. O mutante sem o `-L` reprova o caso novo, ficando em 14 de 15.
+  - Na árvore principal, com o TMPDIR da lei, o `--fast` passa nos 406 testes, com o portão de tempo verde contra a base sem mudança.
+  - Os itens `VENDOR-PURITY-TRABALHO` e `TMPDIR-NA-ARVORE` estão consumidos e saem da INBOX no próximo commit que tocar o `TODO.md`.
+- **D-W8-1268 (main, 26/11 22:05): a E3 achou um defeito que veio da E2c.** O commit `92a969f3` pôs a palavra "find " num comentário de `run_com_armadilha.sh` sem a linha correspondente em `varreduras-de-arvore.txt`. Por isso o seletor sai com rc=2 em qualquer árvore.
+  - O main autorizou a E3 a acrescentar a linha `tests/tools/armadilha/run_com_armadilha.sh -` no commit dela, depois de conferir que a primitiva aparece só no comentário.
+  - Gêmeo (L-17 global): nenhum portão do `--fast` roda a conferência do seletor sobre a árvore real, e por isso a E2c passou verde. Só o `--changed` e o trabalho `mudancas` do CI rodam essa conferência. O caso vai para a INBOX com o nome `SELETOR-CONFERENCIA-NO-FAST`.
+- **D-W8-1269 (main, 26/11 22:05): quatro pontos de desenho da E3 foram ao CTO.**
+  - a lista de testes vazia por sistema;
+  - o nome ausente no `--tests-from-file`, que com o ctest 4.3 sai rc=0 sem rodar nada;
+  - o campo `raiz` gravado com caminho absoluto;
+  - o tipo `labeled` no `on:`.

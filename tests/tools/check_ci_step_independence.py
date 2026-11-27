@@ -708,14 +708,59 @@ def rerun_guard_errors(job_name, steps, job_block_text=""):
         for var in ("GH_TOKEN", "RERUN_CHECK_RUN_ID")
         if var not in codigo
     ]
-    tem_needs = bool(_JOB_NEEDS_RE.search(job_block_text))
+    needs = _needs_do_job(job_block_text)
+    if needs is None:
+        return [f"job {job_name!r}: forma de needs nao lida (escalar, lista em linha ou lista em bloco) - I1, G6"]
+    # I1 (CTO, D5 de 26/11/2026): `mudancas` e' a pre-etapa do envio, nunca a perna
+    # de que a falha de teste depende. Um job cujo unico `needs` e' `mudancas` NAO
+    # e' derivado: se o `mudancas` falha, ele sai pulado, e pulado segue na tentativa 2.
+    derivado = any(n != NEEDS_SEM_DERIVACAO for n in needs)
     tem_env = bool(_RERUN_DERIVADO_RE.search(codigo))
-    if tem_needs != tem_env:
+    if derivado != tem_env:
         errors.append(
             f"job {job_name!r}, passo {nome!r}: RERUN_DERIVADO: \"1\" no env se e so' se o job tem "
-            f"`needs:` (tem needs={tem_needs}, tem env={tem_env}) - I1, G6"
+            f"`needs:` alem de {NEEDS_SEM_DERIVACAO!r} (needs={needs}, derivado={derivado}, tem env={tem_env}) - I1, G6"
         )
     return errors
+
+
+NEEDS_SEM_DERIVACAO = "mudancas"
+_NEEDS_ESCALAR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _needs_do_job(job_block_text):
+    """Lista de nomes do `needs:` no nivel do job (4 espacos), nas tres formas que o
+    GitHub aceita. Devolve None quando a forma nao e' lida, nunca uma lista vazia por
+    engano: forma nao lida reprova no portao."""
+    linhas = job_block_text.split("\n")
+    idx = [i for i, l in enumerate(linhas) if re.match(r"^    needs:", l)]
+    if not idx:
+        return []
+    if len(idx) != 1:
+        return None
+    resto = linhas[idx[0]][len("    needs:"):].split("#", 1)[0].strip()
+    if resto.startswith("["):
+        if not resto.endswith("]"):
+            return None
+        nomes = [n.strip() for n in resto[1:-1].split(",") if n.strip()]
+    elif resto == "":
+        nomes = []
+        for l in linhas[idx[0] + 1:]:
+            if not l.strip() or l.lstrip().startswith("#"):
+                continue
+            if not l.startswith("      "):
+                break
+            m = re.match(r"^      - (.+?)\s*(#.*)?$", l)
+            if not m:
+                return None
+            nomes.append(m.group(1).strip())
+        if not nomes:
+            return None
+    else:
+        nomes = [resto]
+    if not nomes or not all(_NEEDS_ESCALAR_RE.match(n) for n in nomes):
+        return None
+    return nomes
 
 
 _TOP_ON_RE = re.compile(r"^on:\s*$", re.MULTILINE)
@@ -2596,6 +2641,40 @@ def selftest_derived_job_with_env_passes():
 
 
 
+def _i1_derivada(extra_needs, env):
+    def mutar(t):
+        t = t.replace("    container: fedora:latest\n", "    container: fedora:latest\n" + extra_needs, 1)
+        if env:
+            t = t.replace("          GH_TOKEN: ${{ github.token }}\n", "          GH_TOKEN: ${{ github.token }}\n          RERUN_DERIVADO: \"1\"\n", 1)
+        return t
+    return mutar
+
+
+def selftest_needs_only_mudancas_with_env_reproves():  # I1 (D5)
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", _i1_derivada("    needs: mudancas\n", True))
+    return _g5_expect("I1-SO-MUDANCAS-COM-ENV", resultado, "lint", "RERUN_DERIVADO")
+
+
+def selftest_needs_only_mudancas_without_env_passes():  # I1 (D5)
+    exit_code, output = _run_real_main_capturing(_i1_derivada("    needs: mudancas\n", False)(_FIXTURE_FIXED_JOB), job_name="lint")
+    if exit_code not in (None, 0):
+        print(f"selftest: I1-SO-MUDANCAS-SEM-ENV FALHOU: {output!r}", file=sys.stderr)
+        return False
+    print("selftest: I1-SO-MUDANCAS-SEM-ENV OK")
+    return True
+
+
+def selftest_needs_list_with_other_without_env_reproves():  # I1 (D5)
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", _i1_derivada("    needs: [mudancas, outro]\n", False))
+    return _g5_expect("I1-LISTA-MUDANCAS-OUTRO-SEM-ENV", resultado, "lint", "RERUN_DERIVADO")
+
+
+def selftest_needs_block_list_with_other_without_env_reproves():  # I1 (D5): forma em bloco
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", _i1_derivada("    needs:\n      - mudancas\n      - outro\n", False))
+    return _g5_expect("I1-BLOCO-MUDANCAS-OUTRO-SEM-ENV", resultado, "lint", "RERUN_DERIVADO")
+
+
+
 # I3 (CTO 29/09): o P2 do plano exige a duracao de CADA teste; o log so' traz
 # as 25 maiores. O job que mede (agregado) publica o JUnit inteiro como
 # artefato `ctest-junit-<slug>-<modo>`, `!cancelled()`, retention 7.
@@ -2742,6 +2821,10 @@ def selftest_main():
         selftest_derived_job_without_env_reproves(),
         selftest_env_without_needs_reproves(),
         selftest_derived_job_with_env_passes(),
+        selftest_needs_only_mudancas_with_env_reproves(),
+        selftest_needs_only_mudancas_without_env_passes(),
+        selftest_needs_list_with_other_without_env_reproves(),
+        selftest_needs_block_list_with_other_without_env_reproves(),
         selftest_pin_off_minimum_reproves(),
         selftest_minimum_drift_reproves(),
         selftest_floor_sh_threshold_drift_reproves(),

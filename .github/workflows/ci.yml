@@ -125,6 +125,11 @@ jobs:
   #   compilacao        = 40 min  (configura, compila, testa, ou sobe container)
   #   estatica_windows  = 65 min  (checagem estatica paralela do Windows)
   #   dependente        = 45 min  (trabalho com `needs:` - hoje so `parity`.
+  #                                Desde a E3 (EFIC-CI-SELETIVO) os demais
+  #                                trabalhos tambem tem `needs: mudancas`,
+  #                                e ficam na classe da sua funcao (teto
+  #                                de 40 ou 65 min). A espera por
+  #                                `mudancas` e curta (classe curta).
   #                                A espera pela dependencia pode ou nao
   #                                contar contra o relogio do teto; isto
   #                                NAO foi provado ao vivo nesta fatia -
@@ -139,11 +144,128 @@ jobs:
   # sem classe reprova, entrada desta tabela sem trabalho correspondente
   # reprova, teto fora do valor da classe reprova.
   # ============================================================
+  # EFIC-CI-SELETIVO (E3, D-W8-1270, decisoes D1-D4 do CTO em 26/11/2026): decide, uma vez,
+  # o modo deste envio. `completo` roda tudo (push ao main, workflow_dispatch, PR com o rotulo
+  # `ci-completo`, evento nao previsto); `subconjunto` roda so o que a mudanca toca, pelo
+  # seletor (tools/ci/seletor.py); `texto-sem-leitor` pula os trabalhos de teste e de lint.
+  # Base do PR: a execucao mais nova DESTE workflow, no ramo da cabeca, com status=success,
+  # cuja cabeca e' ancestral da cabeca atual e diferente dela (regras D4 a e b). Se a API do
+  # GitHub falhar, o modo e' `completo` com o motivo impresso (critério d: o desconhecido roda
+  # tudo). Todo valor do evento entra por `env:`, nunca por `${{ }}` dentro de `run:`.
+  mudancas:
+    name: Mudancas (decide o modo do CI)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    outputs:
+      modo: ${{ steps.decidir.outputs.modo }}
+      base: ${{ steps.decidir.outputs.base }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # A4 (D-A4): rerun_guard antes do marco prep (G6), como nos demais trabalhos. O trabalho
+      # nao tem `needs:`, entao RERUN_DERIVADO nao entra no env (I1).
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
+      # A3c (D-A13): marco `id: prep` - so' echo, G3 confere um por job.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
+      - name: Decidir o modo do envio (E3)
+        id: decidir
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          LABELS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          saida="$RUNNER_TEMP/mudancas.json"
+          rotulo_completo() {
+            python3 -c 'import json,sys; json.dump({"modo": "completo", "base": "", "head": "", "motivo": sys.argv[1]}, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False)' "$1" "$saida"
+            echo "modo: completo - $1"
+            echo "modo=completo" >> "$GITHUB_OUTPUT"
+            echo "base=" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Modo do CI (E3)"
+              echo "- modo: **completo** - $1"
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            rotulo_completo "evento $EVENT_NAME: envio ao main, dispatch ou evento sem seletor"
+            exit 0
+          fi
+          if python3 -c 'import json,os,sys; sys.exit(0 if "ci-completo" in json.loads(os.environ["LABELS_JSON"]) else 1)'; then
+            rotulo_completo "PR com o rotulo ci-completo"
+            exit 0
+          fi
+          # Base: a execucao mais nova deste workflow no ramo da cabeca, com sucesso (regra D4 b:
+          # se a API falhar, o modo e' completo; nunca se adivinha a base).
+          runs="$RUNNER_TEMP/runs.json"
+          if gh api -X GET "repos/$REPO/actions/workflows/ci.yml/runs" -f branch="$HEAD_REF" -f status=success -f per_page=50 > "$runs" 2> "$RUNNER_TEMP/gh.err"; then
+            api_rc=0
+          else
+            api_rc=$?
+          fi
+          if [ "$api_rc" -ne 0 ]; then
+            rotulo_completo "base nao medida: API do GitHub falhou (rc=$api_rc)"
+            exit 0
+          fi
+          candidatas="$(python3 -c 'import json,os,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); seen=[]; [seen.append(r["head_sha"]) for r in d.get("workflow_runs", []) if r.get("head_sha") and r["head_sha"] != os.environ["HEAD_SHA"] and r["head_sha"] not in seen]; print("\n".join(seen))' "$runs")" || {
+            rotulo_completo "base nao medida: resposta da API ilegivel"
+            exit 0
+          }
+          base=""
+          {
+            echo "### Base do PR (E3, regras D4 a e b)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for sha in $candidatas; do
+            if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+              echo "excluida $sha: commit fora do clone" | tee -a "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            if git merge-base --is-ancestor "$sha" "$HEAD_SHA"; then
+              base="$sha"
+              echo "escolhida $sha: execucao verde mais nova, ancestral da cabeca" | tee -a "$GITHUB_STEP_SUMMARY"
+              break
+            fi
+            echo "excluida $sha: nao e' ancestral da cabeca" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          if [ -z "$base" ]; then
+            base="$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")"
+            echo "sem execucao verde ancestral: base = merge-base com origin/$BASE_REF ($base)" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          python3 tools/ci/seletor.py classificar --raiz "$GITHUB_WORKSPACE" --base "$base" --head "$HEAD_SHA" --saida "$saida" > "$RUNNER_TEMP/classificar.log"
+          tail -n 1 "$RUNNER_TEMP/classificar.log"
+          modo="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["modo"])' "$saida")"
+          echo "modo: $modo (base $base)"
+          echo "modo=$modo" >> "$GITHUB_OUTPUT"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "- modo: **$modo**, base \`$base\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar a decisao de modo (mudancas)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mudancas
+          path: ${{ runner.temp }}/mudancas.json
+          retention-days: 7
+
   linux:
     name: ${{ matrix.nome }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     container: ${{ matrix.imagem }}
     strategy:
       fail-fast: false
@@ -474,6 +596,14 @@ jobs:
       - name: Preparo concluido
         id: prep
         run: echo "preparo concluido"
+
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: alimenta MEASURED e o parity)" >> "$GITHUB_STEP_SUMMARY"
 
       # PKG-NATIVE: falha o job cedo e com mensagem clara se o passo
       # "Instalar toolchain" acima nao alcancou o piso que
@@ -807,7 +937,8 @@ jobs:
     name: Windows - ${{ matrix.modo }}
     runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     strategy:
       fail-fast: false
       matrix:
@@ -925,6 +1056,7 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+
       # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
       # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
       # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
@@ -935,6 +1067,13 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- modo desta perna: completo, declarado (D6: alimenta MEASURED e o parity; gemeo do linux)"
 
       # PKG-WIN-SCOPE: passo PERMANENTE, independente de matrix.builddir
       # (roda identico nas duas entradas, como "Padrao C++23 aceito"
@@ -1448,8 +1587,8 @@ jobs:
   #    inventarios (todos os sistemas)"), nenhum re-baixa nada.
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
-    needs: [linux, windows, wayland-container, lint]
-    if: ${{ !cancelled() && github.ref_type != 'tag' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: [mudancas, linux, windows, wayland-container, lint]
+    if: ${{ !cancelled() && github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
     runs-on: ubuntu-24.04
     timeout-minutes: 45  # classe `dependente` - ver o bloco de classes logo abaixo de `jobs:`
     steps:
@@ -1712,7 +1851,8 @@ jobs:
     name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     strategy:
       fail-fast: false
       matrix:
@@ -1811,6 +1951,14 @@ jobs:
       - name: Preparo concluido
         id: prep
         run: echo "preparo concluido"
+
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: alimenta MEASURED e o parity-inv do contentor; a suite do contentor nao passa pelo seletor)" >> "$GITHUB_STEP_SUMMARY"
 
       # P-0's own declared blind spot, fechado nesta mesma fatia
       # (tests/tools/check_container_fixture_inventory.py's proprio
@@ -3238,7 +3386,8 @@ jobs:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
@@ -3248,6 +3397,8 @@ jobs:
           wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck clang
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -3311,13 +3462,23 @@ jobs:
       # format, configure -Werror, build, clang-tidy, cppcheck, NOLINT.
       - name: preci.sh --lint-only
         id: build
+        env:
+          MODO: ${{ needs.mudancas.outputs.modo }}
+          BASE: ${{ needs.mudancas.outputs.base }}
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
           # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
           export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
-          tools/preci.sh --lint-only
+          # EFIC-CI-SELETIVO (E3, D6): em subconjunto o lint roda so' nos arquivos que a mudanca
+          # toca, desde a base escolhida pelo trabalho mudancas. Fora dele, o lint inteiro, como antes.
+          if [ "$MODO" = "subconjunto" ]; then
+            if [ -z "$BASE" ]; then echo "FALHOU: subconjunto sem base de --since" >&2; exit 1; fi
+            tools/preci.sh --lint-only --since "$BASE"
+          else
+            tools/preci.sh --lint-only
+          fi
 
       # PARITY-LINT-INV (TODO.md, GODS_LAWS.md L-04/L-40, 09/09/2026):
       # `preci_selftest` (tests/CMakeLists.txt, if(UNIX)) so se registra
@@ -3401,7 +3562,8 @@ jobs:
     name: Sintaxe PowerShell (GATE-PS-SYNTAX, container pwsh)
     runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -3473,7 +3635,8 @@ jobs:
     name: Windows - Lint (clang-tidy sobre src/)
     runs-on: windows-2025-vs2026
     timeout-minutes: 65  # classe `estatica_windows` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -3596,6 +3759,14 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $destino 'bin')
           Write-Host "instalado: $binario"
 
+      # EFIC-CI-SELETIVO (E3, D5): a decisao de modo vem do trabalho `mudancas`, baixada antes
+      # do guarda (zona de preparo). Sem contentor: o caminho e' o do executor.
+      - name: Baixar a decisao de modo (mudancas)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mudancas
+          path: ${{ runner.temp }}/ci-mudancas
+
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
       # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
@@ -3658,6 +3829,13 @@ jobs:
           }
           Write-Host "ok: clang-tidy 23.1.6 do LLVM oficial, em $achado"
 
+      # EFIC-CI-SELETIVO (E3, D2): a consulta da File API existe ANTES do configure, para o resolver
+      # ler o codemodel depois de gerar as fontes. So' o resolver a usa, em subconjunto.
+      - name: Consulta da File API (E3)
+        run: |
+          New-Item -ItemType Directory -Force -Path build-lint/.cmake/api/v1/query | Out-Null
+          New-Item -ItemType File -Force -Path build-lint/.cmake/api/v1/query/codemodel-v2 | Out-Null
+
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real
       # dentro - o clang-tidy analisa a partir da base de compilacao, nao
@@ -3689,6 +3867,30 @@ jobs:
             exit 1
           }
           Write-Host "gerado: $gerado"
+
+      # EFIC-CI-SELETIVO (E3, D2, D6): so' em subconjunto. O resolver le o codemodel desta
+      # configuracao e grava a lista de lint. A lista de testes nao e' usada aqui: entra um
+      # inventario vazio, e os testes ficam para o clang. Em completo este passo nao roda.
+      - name: Selecao de lint (E3)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $raiz = $env:GITHUB_WORKSPACE
+          $mud = Join-Path $env:RUNNER_TEMP 'ci-mudancas\mudancas.json'
+          if (-not (Test-Path -LiteralPath $mud)) { Write-Error "FALHOU: mudancas.json ausente em $mud"; exit 1 }
+          $sel = Join-Path $raiz '.ci-selecao'
+          New-Item -ItemType Directory -Force -Path $sel | Out-Null
+          $invVazio = Join-Path $sel 'inventario-vazio.json'
+          [System.IO.File]::WriteAllText($invVazio, '{"tests": []}')
+          & python tools/ci/seletor.py resolver --mudancas $mud --build build-lint --saida-testes (Join-Path $sel 'lista.txt') --saida-lint (Join-Path $sel 'lint.txt') --ctest-json $invVazio --raiz $raiz
+          $rc = $LASTEXITCODE
+          if ($rc -eq 1) {
+            New-Item -ItemType File -Force -Path (Join-Path $sel 'lint.txt') | Out-Null
+            Write-Host 'resolver: sem alvo de lint (rc 1, SemAlvo): lista vazia'
+          } elseif ($rc -ne 0) {
+            Write-Error "FALHOU: resolver rc=$rc"; exit 1
+          }
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- selecao de lint (E3): $((Get-Content -LiteralPath (Join-Path $sel 'lint.txt') | Measure-Object -Line).Lines) arquivo(s) na lista"
 
       # PROVA que o clang-tidy ENXERGA o codigo de Windows (piso de
       # varredura nao-vazia, GODS_LAWS.md L-40) - nao basta o passo
@@ -3762,6 +3964,8 @@ jobs:
       - name: clang-tidy - src/
         id: build
         shell: pwsh
+        env:
+          MODO_LINT: ${{ needs.mudancas.outputs.modo }}
         run: |
           $arquivos = @(git ls-files -- 'src/*.cpp')
           if ($arquivos.Count -eq 0) {
@@ -3939,7 +4143,26 @@ jobs:
           # forma thread-safe por construcao).
           $buildLintPath = (Resolve-Path "build-lint").Path
 
-          $resultados = @($noBanco | ForEach-Object -Parallel {
+          # EFIC-CI-SELETIVO (E3, D6): em subconjunto, o clang-tidy roda so' na interseccao do universo
+          # src/ com a lista de lint do resolver. O piso de varredura acima continua sobre o universo inteiro.
+          $aRodar = @($noBanco)
+          if ($env:MODO_LINT -eq 'subconjunto') {
+            $listaArq = Join-Path $env:GITHUB_WORKSPACE '.ci-selecao\lint.txt'
+            if (-not (Test-Path -LiteralPath $listaArq)) { Write-Error "FALHOU: lista de lint ausente: $listaArq (o passo do resolver nao concluiu)"; exit 1 }
+            $lista = @(Get-Content -LiteralPath $listaArq | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+            foreach ($l in $lista) {
+              if ([System.IO.Path]::IsPathRooted($l) -or $l.Contains('\')) { Write-Error "FALHOU: lista de lint com caminho fora da forma relativa com barra: '$l' (nao se normaliza por palpite, D6)"; exit 1 }
+            }
+            $aRodar = @($noBanco | Where-Object { $lista -contains $_ })
+            $foraDeSrc = @($lista | Where-Object { $arquivos -notcontains $_ })
+            Write-Host "lint: lista $($lista.Count); universo src $($arquivos.Count); a rodar $($aRodar.Count); fora de src $($foraDeSrc.Count)"
+            if ($aRodar.Count -eq 0) {
+              Write-Host "clang-tidy PULADO neste passo: 0 de $($lista.Count) da lista de lint em src/"
+              exit 0
+            }
+          }
+
+          $resultados = @($aRodar | ForEach-Object -Parallel {
             $arquivo = $_
             $buildDir = $using:buildLintPath
             $saida = & clang-tidy -p $buildDir --quiet $arquivo 2>&1
@@ -3958,9 +4181,9 @@ jobs:
           $analisados = $resultados.Count
           $comFalha = @($resultados | Where-Object { $_.Rc -ne 0 } | ForEach-Object { $_.Arquivo })
 
-          Write-Host "Analisados $analisados de $($noBanco.Count) arquivo(s) no banco."
-          if ($analisados -ne $noBanco.Count) {
-            Write-Error "Cobertura perdida: no_banco $($noBanco.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."
+          Write-Host "Analisados $analisados de $($aRodar.Count) arquivo(s) no banco."
+          if ($analisados -ne $aRodar.Count) {
+            Write-Error "Cobertura perdida: no_banco $($aRodar.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."
             exit 1
           }
           if ($comFalha.Count -gt 0) {
@@ -3973,7 +4196,8 @@ jobs:
     name: Sanitizer (Fedora - ASan/UBSan)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
@@ -4028,6 +4252,14 @@ jobs:
         id: prep
         run: echo "preparo concluido"
 
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: o ctest roda dentro do preci.sh, sem lista; a E2 da a lista ao --sanitizer-only)" >> "$GITHUB_STEP_SUMMARY"
+
       # GODS_LAWS.md L-23 portao 2 ("ASan e UBSan a cada fatia fechada").
       # `ctest -L unit` apenas (dentro de tools/preci.sh): os gates de
       # consumo (LABELS consume, tests/CMakeLists.txt) linkam um
@@ -4079,7 +4311,8 @@ jobs:
     name: GL-CODEGEN-HOST-TOOL (Fedora - construcao cruzada MinGW, 4 vias)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
@@ -4169,7 +4402,8 @@ jobs:
     name: Windows - Sanitizer (ASan)
     runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -4228,6 +4462,7 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+
       # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
       # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
       # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
@@ -4238,6 +4473,13 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- modo desta perna: completo, declarado (D6: gemeo do sanitizer)"
 
       # -DGLINTFX_SANITIZE=address: o par Windows de
       # -DGLINTFX_SANITIZE=address,undefined do job `sanitizer` (Fedora)
@@ -4353,7 +4595,8 @@ jobs:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
@@ -4418,6 +4661,14 @@ jobs:
         id: prep
         run: echo "preparo concluido"
 
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: o ctest roda dentro do preci.sh, sem lista; a E2 da a lista ao --debug-only)" >> "$GITHUB_STEP_SUMMARY"
+
       # GODS_LAWS.md L-40 / TODO.md GATE-DEBUG / DECISOES_AUTONOMAS.md
       # D4: -DCMAKE_BUILD_TYPE=Release (todo OUTRO job desta matriz)
       # define NDEBUG, o que apaga todo assert() de produto - nenhum
@@ -4475,7 +4726,8 @@ jobs:
     name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
     runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
       # 19/09/2026): este job roda a suite ctest INTEIRA sem filtro de
@@ -4541,6 +4793,7 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+
       # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
       # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
       # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
@@ -4551,6 +4804,13 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- modo desta perna: completo, declarado (D6: gemeo do debug)"
 
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40), mesma regra de
       # count_real_asserts_in_file/count_product_asserts de tools/
@@ -4755,7 +5015,8 @@ jobs:
     name: Clang (Fedora - segundo compilador, ${{ matrix.modo }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     strategy:
@@ -4799,6 +5060,15 @@ jobs:
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
       # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # EFIC-CI-SELETIVO (E3, D5): a decisao de modo vem do trabalho `mudancas`. O download
+      # fica ANTES do guarda, na zona de preparo (falha de download e de infraestrutura).
+      # Caminho relativo ao workspace: dentro do contentor, ${{ runner.temp }} nao existe.
+      - name: Baixar a decisao de modo (mudancas)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mudancas
+          path: .ci-mudancas
+
       # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
       - name: Guarda de reexecucao (rerun_guard)
         env:
@@ -4815,6 +5085,13 @@ jobs:
       - name: Versao do Clang
         run: clang++ --version
 
+      # EFIC-CI-SELETIVO (E3, D2): a consulta da File API existe ANTES do configure, para o
+      # resolver ler o codemodel depois do build. Barata; so' o resolver a usa em subconjunto.
+      - name: Consulta da File API (E3, ${{ matrix.modo }})
+        run: |
+          mkdir -p "${{ matrix.builddir }}/.cmake/api/v1/query"
+          touch "${{ matrix.builddir }}/.cmake/api/v1/query/codemodel-v2"
+
       - name: Build (${{ matrix.modo }})
         id: build
         run: |
@@ -4822,6 +5099,36 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
+
+      # EFIC-CI-SELETIVO (E3, D2, D5, D6): so' em subconjunto. A lista vem do resolver
+      # (tools/ci/seletor.py) e e' conferida pelo conferir_lista.py antes do ctest. Em
+      # completo este passo nao roda e o ctest roda a suite inteira, como antes.
+      - name: Selecao de testes (E3, ${{ matrix.modo }})
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && needs.mudancas.outputs.modo == 'subconjunto' }}
+        env:
+          ORACULO: ${{ matrix.oracle_flag }}
+        run: |
+          set -eu
+          raiz="$GITHUB_WORKSPACE"
+          mud="$raiz/.ci-mudancas/mudancas.json"
+          sel="$raiz/.ci-selecao"
+          mkdir -p "$sel"
+          test -f "$mud" || { echo "FALHOU: mudancas.json ausente em $mud" >&2; exit 1; }
+          ctest --version | head -n 1
+          ctest --test-dir "${{ matrix.builddir }}" --show-only=json-v1 > "$sel/inventario.json"
+          rc=0
+          python3 tools/ci/seletor.py resolver --mudancas "$mud" --build "$raiz/${{ matrix.builddir }}" --saida-testes "$sel/lista.txt" --saida-lint "$sel/lint.txt" --ctest-json "$sel/inventario.json" --raiz "$raiz" || rc=$?
+          case "$rc" in
+            0) ;;
+            1) : > "$sel/lista.txt"; : > "$sel/lint.txt"; echo "resolver: sem alvo de teste nem de lint (rc 1, SemAlvo): lista vazia" ;;
+            *) echo "FALHOU: resolver rc=$rc" >&2; exit 1 ;;
+          esac
+          ctest --test-dir "${{ matrix.builddir }}" --show-only=json-v1 --tests-from-file "$sel/lista.txt" > "$sel/selecao.json"
+          python3 tools/ci/conferir_lista.py --lista "$sel/lista.txt" --inventario "$sel/inventario.json" --universo "$sel/inventario.json" --selecao "$sel/selecao.json" --saida-veredito "$sel/veredito.txt"
+          echo "- selecao de testes (E3, ${{ matrix.modo }}): veredito $(cat "$sel/veredito.txt")" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$ORACULO" ]; then
+            echo "- relatorio do oraculo de camadas: so' em completo neste envio (declarado, D6)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # REBAIXAMENTO REMOVIDO em 22/09/2026 (TODO.md CLANG-INSTALL-
       # LAYOUT-ARCH, CLANG-PKGCONFIG-PROBE, CLANG-PUBLIC-NAME-
@@ -4887,10 +5194,21 @@ jobs:
       # perdida por `set -e` abortando a linha.
       - name: ctest (${{ matrix.modo }})
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          MODO: ${{ needs.mudancas.outputs.modo }}
         run: |
           set -eux
           set +e
-          ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          if [ "$MODO" = "subconjunto" ]; then
+            veredito="$(cat "$GITHUB_WORKSPACE/.ci-selecao/veredito.txt" 2>/dev/null || echo ausente)"
+            case "$veredito" in
+              rodar) ctest --test-dir ${{ matrix.builddir }} --output-on-failure --tests-from-file "$GITHUB_WORKSPACE/.ci-selecao/lista.txt" --no-tests=error ;;
+              pular) echo "ctest PULADO neste passo (veredito pular: a linha de conferencia esta acima)"; exit 0 ;;
+              *) echo "FALHOU: veredito '$veredito' (o passo de selecao nao concluiu)" >&2; exit 1 ;;
+            esac
+          else
+            ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          fi
           ctest_ec=$?
           set -e
           cp "${{ matrix.builddir }}/Testing/Temporary/LastTest.log" "${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
@@ -4900,7 +5218,7 @@ jobs:
       # snapshot tirado pelo passo acima, nunca re-roda o oraculo. So'
       # roda na perna compartilhada (`oracle_flag` ligado).
       - name: Relatorio do oraculo de camadas (${{ matrix.modo }})
-        if: always() && matrix.oracle_flag != ''
+        if: always() && matrix.oracle_flag != '' && needs.mudancas.outputs.modo != 'subconjunto'
         run: |
           set -eu
           log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
@@ -4922,7 +5240,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
-        if: always() && matrix.oracle_flag != ''
+        if: always() && matrix.oracle_flag != '' && needs.mudancas.outputs.modo != 'subconjunto'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-clang-${{ strategy.job-index }}

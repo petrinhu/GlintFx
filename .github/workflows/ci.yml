@@ -3890,7 +3890,7 @@ jobs:
           $raiz = $env:GITHUB_WORKSPACE
           $mud = Join-Path $env:RUNNER_TEMP 'ci-mudancas\mudancas.json'
           if (-not (Test-Path -LiteralPath $mud)) { Write-Error "FALHOU: mudancas.json ausente em $mud"; exit 1 }
-          $sel = Join-Path $raiz '.ci-selecao'
+          $sel = Join-Path $env:RUNNER_TEMP 'ci-selecao'
           New-Item -ItemType Directory -Force -Path $sel | Out-Null
           $invVazio = Join-Path $sel 'inventario-vazio.json'
           [System.IO.File]::WriteAllText($invVazio, '{"tests": []}')
@@ -4159,7 +4159,7 @@ jobs:
           # src/ com a lista de lint do resolver. O piso de varredura acima continua sobre o universo inteiro.
           $aRodar = @($noBanco)
           if ($env:MODO_LINT -eq 'subconjunto') {
-            $listaArq = Join-Path $env:GITHUB_WORKSPACE '.ci-selecao\lint.txt'
+            $listaArq = Join-Path $env:RUNNER_TEMP 'ci-selecao\lint.txt'
             if (-not (Test-Path -LiteralPath $listaArq)) { Write-Error "FALHOU: lista de lint ausente: $listaArq (o passo do resolver nao concluiu)"; exit 1 }
             $lista = @(Get-Content -LiteralPath $listaArq | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
             foreach ($l in $lista) {
@@ -5123,7 +5123,7 @@ jobs:
           set -eu
           raiz="$GITHUB_WORKSPACE"
           mud="$raiz/.ci-mudancas/mudancas.json"
-          sel="$raiz/.ci-selecao"
+          sel="$RUNNER_TEMP/ci-selecao"
           mkdir -p "$sel"
           test -f "$mud" || { echo "FALHOU: mudancas.json ausente em $mud" >&2; exit 1; }
           ctest --version | head -n 1
@@ -5212,9 +5212,9 @@ jobs:
           set -eux
           set +e
           if [ "$MODO" = "subconjunto" ]; then
-            veredito="$(cat "$GITHUB_WORKSPACE/.ci-selecao/veredito.txt" 2>/dev/null || echo ausente)"
+            veredito="$(cat "$RUNNER_TEMP/ci-selecao/veredito.txt" 2>/dev/null || echo ausente)"
             case "$veredito" in
-              rodar) ctest --test-dir ${{ matrix.builddir }} --output-on-failure --tests-from-file "$GITHUB_WORKSPACE/.ci-selecao/lista.txt" --no-tests=error ;;
+              rodar) ctest --test-dir ${{ matrix.builddir }} --output-on-failure --tests-from-file "$RUNNER_TEMP/ci-selecao/lista.txt" --no-tests=error ;;
               pular) echo "ctest PULADO neste passo (veredito pular: a linha de conferencia esta acima)"; exit 0 ;;
               *) echo "FALHOU: veredito '$veredito' (o passo de selecao nao concluiu)" >&2; exit 1 ;;
             esac

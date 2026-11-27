@@ -3282,6 +3282,37 @@ run_selftest_texto_sem_leitor_control() {
     echo "selftest: controle de texto sem leitor OK (pula, diz que pulou, e imprime PULADO por estagio)"
 }
 
+run_selftest_lint_sem_gitleaks_control() {
+    # EFIC-PRECI (sonda S1 da E5): o --lint-only nao chama o gitleaks. Um gitleaks falso que grava a
+    # chamada e sai 127 (o que a imagem do lint faz) prova que o seletor de lint nao o chama. O mesmo
+    # falso com CHG_LINT=nao prova que o --changed local continua chamando o 5c (controle negativo).
+    (
+        dir="$(mktemp -d "${TMPDIR}/glintfx-lint-gitleaks-selftest.XXXXXX")" || fail "selftest: lint sem gitleaks: mktemp falhou"
+        printf '#!/bin/sh\necho chamada >> "%s/calls.txt"\nexit 127\n' "$dir" > "$dir/gitleaks" \
+            || { rm -rf "$dir"; fail "selftest: lint sem gitleaks: nao gravei o gitleaks falso"; }
+        chmod +x "$dir/gitleaks" || { rm -rf "$dir"; fail "selftest: lint sem gitleaks: chmod do gitleaks falso falhou"; }
+        PATH="$dir:$PATH"
+        CHG_LINT="sim"
+        saida="$(changed_gitleaks 2>&1)" || { rm -rf "$dir"; fail "selftest: lint sem gitleaks: a funcao saiu com erro (saida: $saida)"; }
+        if [ -e "$dir/calls.txt" ]; then
+            rm -rf "$dir"
+            fail "selftest: lint sem gitleaks: o --lint-only CHAMOU o gitleaks (o 5c tinha de pular)"
+        fi
+        case "$saida" in
+            *"5c: gitleaks PULADO (seletor: gitleaks tem trabalho proprio no CI)"*) ;;
+            *) rm -rf "$dir"; fail "selftest: lint sem gitleaks: a linha PULADO nao saiu (saida: $saida)" ;;
+        esac
+        CHG_LINT="nao"
+        if changed_gitleaks > /dev/null 2>&1; then
+            rm -rf "$dir"
+            fail "selftest: --changed: o gitleaks falso saiu 127 e a funcao devia falhar"
+        fi
+        [ -e "$dir/calls.txt" ] || { rm -rf "$dir"; fail "selftest: --changed: o 5c nao chamou o gitleaks (o pulo vazou para o --changed)"; }
+        rm -rf "$dir"
+    ) || fail "selftest: controle lint sem gitleaks FALHOU"
+    echo "selftest: controle lint sem gitleaks OK (--lint-only pula o 5c e diz que pulou; --changed continua chamando o gitleaks)"
+}
+
 run_selftest_zero_recusa_control() {
     # E2-fix1 (B1 da revisao N3 da E2): a RECUSA do zero, e nao so' a mesclagem. Uma fixture git com
     # o preci e o seletor COMMITADOS (senao a propria copia conta como mudanca), sem mudanca nenhuma.
@@ -3315,6 +3346,7 @@ run_selftest_efic_preci_controls() {
     run_selftest_subconjunto_ctest_control
     run_selftest_zero_caminhos_control
     run_selftest_texto_sem_leitor_control
+    run_selftest_lint_sem_gitleaks_control
     run_selftest_zero_recusa_control
 }
 
@@ -3994,6 +4026,17 @@ changed_noexcept() {
     stage_noexcept_alloc
 }
 
+# EFIC-PRECI (sonda S1 da E5, rodada 45982523713): o 5c nao roda no --lint-only. A imagem do
+# job lint nao tem o binario gitleaks (sai 127); o gitleaks tem o job proprio `gitleaks` do CI,
+# que roda sempre. No --changed local (CHG_LINT=nao) o 5c continua rodando.
+changed_gitleaks() {
+    if [ "$CHG_LINT" = "sim" ]; then
+        echo "5c: gitleaks PULADO (seletor: gitleaks tem trabalho proprio no CI)"
+        return 0
+    fi
+    stage_gitleaks
+}
+
 changed_ctest() {
     if [ "$CHG_LINT" = "sim" ]; then
         echo "6: ctest PULADO (seletor: modo lint, --lint-only --since)"
@@ -4016,7 +4059,7 @@ run_lint_completo() {
     timed_stage "4: clang-tidy" stage_tidy
     timed_stage "5: cppcheck" stage_cppcheck
     timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
-    timed_stage "5c: gitleaks (sempre)" stage_gitleaks
+    timed_stage "5c: gitleaks (sempre)" changed_gitleaks
     timed_stage "5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)" stage_noexcept_alloc
     report_stage_times
     echo "preci.sh --lint-only --since: VERDE (modo completo)"
@@ -4032,7 +4075,7 @@ run_mudancas_subconjunto() {
     timed_stage "4: clang-tidy (lista do seletor)" changed_tidy
     timed_stage "5: cppcheck (lista do seletor)" changed_cppcheck
     timed_stage "5b: justificativa de NOLINT (lista do seletor)" changed_nolint
-    timed_stage "5c: gitleaks (sempre)" stage_gitleaks
+    timed_stage "5c: gitleaks (sempre)" changed_gitleaks
     timed_stage "5d: noexcept-alloc (so' se mudou a biblioteca)" changed_noexcept
     timed_stage "6: ctest (so' os testes selecionados, --tests-from-file)" changed_ctest
     report_stage_times
@@ -4058,7 +4101,7 @@ run_mudancas() {
             ;;
         texto-sem-leitor)
             changed_pula_texto "$CHG_N"
-            timed_stage "5c: gitleaks (sempre)" stage_gitleaks
+            timed_stage "5c: gitleaks (sempre)" changed_gitleaks
             report_stage_times
             echo "preci.sh --changed: VERDE (texto sem leitor, $CHG_N caminhos)"
             ;;

@@ -12151,3 +12151,16 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **A parada no primeiro erro da E4 funcionou no servidor:** as outras 9 pernas da matriz saíram `cancelled`.
   - **O conserto** segue a L-49 global: diagnóstico pelo log e correção por commit, sem reexecutar.
 - **D-W8-1282 (main, 27/11 01:50): a segunda rodada do servidor (45939975844, `0903ea11`) saiu vermelha só no `parity`.** O `source_snapshot_selftest`, criado na E2c, foi registrado dentro de um `if(UNIX)` sem motivo, então existe no Linux e falta no Windows. Pela L-04 do projeto, ele passa a rodar nos dois sistemas. O espelho local não acha esse defeito, porque o `parity` precisa do inventário do Windows. As duas correções da rodada 1 passaram no servidor.
+- **D-W8-1283 (main, 27/11 02:37): a terceira rodada do servidor (45944740328, `566a27aa`) saiu VERDE, com 26 trabalhos `success` e 1 `skipped`, o VERSION-TAG-SYNC, que só roda em marca.** É a primeira rodada verde do ramo com o CI seletivo, e vira a base das sondas da E5. A E5 começa às 02:3x pela ordem `.trabalho/efic/e5/ordem-e5.md`.
+- **D-W8-1284 (líder, por AskUserQuestion, 27/11): a resposta dele, verbatim: *"Autorizo o ramo separado (Recomendado)"*.** Ele autoriza o envio do ramo `sonda-efic` e um PR em rascunho contra o `onda-wpng1`, para as sondas da E5. Antes disso, o classificador do modo automático tinha negado esse envio, e o main não contornou a negação. A autorização chegou no fim da janela das 06:15, por isso a E5 não começou. Ela fica para a próxima janela.
+- **D-W8-1285 (líder, pela sessão `gerencia`, 27/11 manhã): o trabalho foi retomado, com o líder usando o computador.**
+  - O trabalho pesado fica nos núcleos 2-15.
+  - No máximo 12 GiB de RAM, somando todas as sessões.
+  - Nada sobe com menos de 8 GiB livres.
+  - A pausa é às 12:00 de 27/11. Na E5, nenhuma sonda começa depois das 11:00, e o fim roda às 11:30.
+- **D-W8-1286 (main, 27/11 07:53): a sonda S1 (45982523713) saiu vermelha, e a causa é defeito do lote, não da sonda.** O main diagnosticou pelo log.
+  - **O `lint` em subconjunto:** o estágio 5c do `preci --lint-only` chama o `gitleaks`, que não existe no contêiner de lint (rc 127). O gitleaks já tem trabalho próprio no CI.
+  - **O `clang`:** as listas do seletor ficam em `.ci-selecao/`, dentro do workspace, e o `spdx_test` reprova esses arquivos não rastreados.
+  - **O conserto** vai para o `onda-wpng1`: no `--lint-only`, o 5c é pulado e declarado; as listas passam a ficar em `runner.temp`. Esconder pelo `.gitignore` foi recusado, porque afrouxa o portão.
+  - **A E5** fica parada, e o `sonda-efic` recebe o conserto por merge, sem force.
+  - **O que a S1 já provou:** a seleção existe. O clang e o lint rodaram com a lista do seletor, com 2 unidades. A parada no primeiro erro cancelou o clang compartilhado.

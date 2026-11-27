@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// sonda-efic S1: comentario sem efeito no comportamento (EFIC-SONDAS).
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

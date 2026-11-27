@@ -12164,3 +12164,28 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O conserto** vai para o `onda-wpng1`: no `--lint-only`, o 5c é pulado e declarado; as listas passam a ficar em `runner.temp`. Esconder pelo `.gitignore` foi recusado, porque afrouxa o portão.
   - **A E5** fica parada, e o `sonda-efic` recebe o conserto por merge, sem force.
   - **O que a S1 já provou:** a seleção existe. O clang e o lint rodaram com a lista do seletor, com 2 unidades. A parada no primeiro erro cancelou o clang compartilhado.
+- **D-WP1-0001 (main, 27/11 08:10): ERRATA DE NUMERAÇÃO. As entradas D-W8-1242 a D-W8-1286, de 26/11 e 27/11, colidem com faixas antigas do diário.**
+  - **Onde está a colisão:** as linhas 10757 a 10792 citam "D-W8-1255" e as faixas "D-W8-1260 a 1279" e "D-W8-1280 a 1299", da W8 de 13/11 e 14/11.
+  - **A causa:** um erro do main. Ele conferiu só 1242 a 1252 antes de escolher os números e não buscou as faixas citadas.
+  - **Como desambiguar:** o arquivo é só de acréscimo, então nada se reescreve. Cada entrada de 26/11 e 27/11 se identifica pelo número junto com a data e a hora entre parênteses. Toda citação a elas, daqui em diante, leva a data: por exemplo, "D-W8-1276 (27/11)".
+  - **Daqui em diante:** as decisões novas usam a série `D-WP1-NNNN`, que começa em 0001 e nunca foi usada. Antes de cada número, o main confere a série com `grep`.
+- **D-WP1-0002 (líder, por AskUserQuestion, 27/11 09:40): quatro ratificações.**
+  - **O corte da E3** (D-W8-1276, 27/11), resposta verbatim *"Confirmo o corte (Recomendado)"*: os testes continuam completos em todo sistema, e a `MEASURED-SUBCONJUNTO` fica na INBOX para uma onda futura.
+  - **As quatro decisões técnicas do CTO**, resposta verbatim *"Ratifico as quatro (Recomendado)"*:
+    - os papéis dos leitores (D-W8-1248, 26/11);
+    - o `host_alert` herda o escopo da fila (D-W8-1252, 26/11);
+    - o DBUS sai do isolamento (D-W8-1253, 26/11);
+    - o tmpfs cobre a `.trabalho` (D-W8-1265, 26/11).
+  - **O corte da S2** (D-W8-1280, 27/11), resposta verbatim *"Confirmo, fica anotado (Recomendado)"*.
+  - **As imagens de teste**, resposta verbatim *"Apagar só a de construção (Recomendado)"*: o main apagou `glintfx-devbuild:verify` (2,27 GB) e manteve `glintfx-msvc:latest`, que serve ao laboratório Windows.
+- **D-WP1-0003 (líder, por AskUserQuestion, 27/11 09:58): ritmo de quadros no Wayland, inspirado no DXVK 3.2.** Resposta verbatim: *"Estudo do CTO agora (Recomendado)"*.
+  - O CTO estuda a viabilidade sem tocar no código, em `.trabalho/cto-w8/estudo-present-timing.md`.
+  - Os protocolos do estudo são `commit-timing-v1`, `fifo-v1` e `presentation-time`.
+  - O estudo cobre o EGL do Mesa, o suporte nos compositores, o equivalente no Windows e a API pública.
+  - O tema fica fora da W-PNG-1 (L-32 do projeto). Vai ao líder numa conversa na abertura de uma onda de janela.
+- **D-WP1-0004 (líder, por AskUserQuestion, 27/11 10:13): o ritmo de quadros fica só na metade segura.** A resposta do líder, verbatim: *"Só a metade segura (Recomendado)"*. O estudo do CTO está em `.trabalho/cto-w8/estudo-present-timing.md`.
+  - **O que entra:** o `wp_presentation`, que informa a hora em que cada quadro foi exibido, e um limitador que não dá trancos. Funciona com qualquer driver. São 3 fatias, mais 1 de API pública.
+  - **O Windows:** só há o relógio global do DWM. O alinhamento ainda precisa ser provado lá, e a hora de cada quadro fica declarada como ausente.
+  - **O que fica fora:** o `fifo-v1` e o `commit-timing-v1`, porque o `egl-wayland2` da NVIDIA já cria esses objetos, e um segundo objeto derruba a conexão do jogo. Isso foi lido no código da NVIDIA, não medido.
+  - **Onde entra:** na INBOX, como `PRESENT-TIMING`, que absorve o `LOOP-PRESENTATION-TIME`. A onda candidata é a de janela e laço, depois das ondas de PNG.
+  - **O que fica para a abertura da onda:** três portas de mão única (o texto do limitador, a estatística pública de quadro e o relógio da hora de exibição) e a primeira sonda, `wayland-info` no KWin do CI.

@@ -12139,3 +12139,14 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
 
   O agente de envio roda o `--fast` no HEAD, cria o rótulo e envia o `onda-wpng1` com um PR em rascunho. Tudo isso fica autorizado pelo modo autônomo, pelo "Tudo liberado" (D-W8-1260) e pela janela D-W8-1274.
   - Limite que o revisor declarou: nenhum portão do `ci.yml` pega a troca de uma das quatro expressões de `fail-fast` por `false`. Vai para a INBOX como `FAIL-FAST-PORTAO`.
+- **D-W8-1280 (CTO no lugar do líder, modo autônomo, 27/11 00:52): a sonda S2 sai da E5.** O CTO mediu que nenhum caminho da árvore cai em `texto-sem-leitor`: as 63 varreduras de glob `*` leem qualquer arquivo, até um novo. A prova está em `.trabalho/efic/e5/medicao-texto-sem-leitor.txt`.
+  - O limite fica declarado: o pulo desse modo nunca rodou no servidor.
+  - A alternativa recusada foi um alvo fabricado no fim, que custaria uma rodada completa a mais.
+  - A ordem da E5 está em `.trabalho/efic/e5/ordem-e5.md`, com 7 rodadas: S1, S3, S4, S5, S6, S6b e S7.
+  - Pela regra nova de reexecução, `gh run rerun --failed` só vale nas sondas verdes. Nas vermelhas de propósito, a reexecução sai por commit vazio ou por troca de rótulo.
+  - Nenhuma sonda começa depois das 05:30, e às 05:50 o fim roda de qualquer jeito.
+- **D-W8-1281 (main, 27/11 01:09): a primeira rodada do servidor com a receita nova (45936134734, `f31949cf`) saiu vermelha, com dois defeitos reais que o espelho local não pegava.**
+  - **No Arch:** o `conferir_lista_selftest` chama `cmake` sem gerador, e a imagem do Arch não tem `make`.
+  - **No Windows:** o `seletor_selftest` levou 60,4 s, acima da régua de pesados de 40 s, sem `PROCESSORS` nem `RESOURCE_LOCK`.
+  - **A parada no primeiro erro da E4 funcionou no servidor:** as outras 9 pernas da matriz saíram `cancelled`.
+  - **O conserto** segue a L-49 global: diagnóstico pelo log e correção por commit, sem reexecutar.

@@ -3801,12 +3801,15 @@ set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 # Seletor unico do espelho e do CI (EFIC-SELETOR, lote de eficacia, D-W8-1231): autoteste da classificacao
 # (tools/ci/seletor.py) sobre repositorios git temporarios sob TMPDIR. So biblioteca padrao (L-07 do projeto).
 # Sem PASS_REGULAR_EXPRESSION e sem expect_exit_and_line: o codigo de saida conta.
+#
+# glintfx-nested-build: heavy - o --selftest cria repositorios git e dezenas de subprocessos git (um por caso) e mediu 60,4 s no Windows compartilhado (rodada 45936134734, 27/11/2026), acima da regua de 40 s do ctest_aggregate.py; trinco por MEDICAO, na mesma forma do layers_selftest (custo de sistema de arquivos e de processos, nao build aninhado). O trinco serializa o seletor com os pesados, que e' a disputa de nucleos que a regua quer evitar.
+# TIMEOUT 210 = regra 4 (3 x 60,4 = 181,2, arredondado para cima em multiplos de 30 s; ctest_p1_compare.py). Com 120, a duracao medida ja passava de TIMEOUT/2: sem folga.
 add_test(
     NAME seletor_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/seletor_selftest.py" --selftest
 )
-set_tests_properties(seletor_selftest PROPERTIES LABELS selftest)
+set_tests_properties(seletor_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build TIMEOUT 210)
 
 # W8 deep verification C7-1 (D-W8-2025; AUDITORIAS.md chapter 7; the leader's answer of 20/11/2026):
 # no tracked text file names the home folder of a person's machine. Rule A reads the home of whoever
@@ -7555,13 +7558,19 @@ set_tests_properties(ci_verde_completo_selftest PROPERTIES LABELS selftest)
 
 # EFIC-CI-SELETIVO (E3, Ordem B, decisao D2 do CTO): autoteste de tools/ci/conferir_lista.py. Os JSON
 # de inventario, universo e selecao saem do ctest real de um projeto descartavel em TMPDIR. Sem guarda
-# de sistema: exige cmake e ctest no PATH, e reprova sem eles (nao ha pulo).
+# de sistema: exige cmake e ctest no PATH, e reprova sem eles (sem pulo para isso).
+#
+# GERADOR (defeito do CI do Arch, rodada 45936134734): o cmake aninhado nao herda o gerador deste build;
+# sem -G cai em "Unix Makefiles", e a imagem do Arch nao tem `make`. ENVIRONMENT passa o mesmo gerador
+# desta construcao (CMAKE_GENERATOR), e o autoteste usa Ninja se essa variavel faltar. Sem gerador
+# nenhum, o autoteste sai com 77: SKIP_RETURN_CODE, pulo declarado e contado pelo agregado.
+# Pesado? Nao: fora do top-25 do Windows (piso 5,01 s), sem propriedade de pesado.
 add_test(
     NAME conferir_lista_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/conferir_lista_selftest.py" --selftest
 )
-set_tests_properties(conferir_lista_selftest PROPERTIES LABELS selftest)
+set_tests_properties(conferir_lista_selftest PROPERTIES LABELS selftest ENVIRONMENT "CMAKE_GENERATOR=${CMAKE_GENERATOR}" SKIP_RETURN_CODE 77)
 
 # LAYERS-ORACLE-REPORT sub-fatia J2 (docs/plano-w7c-adendo-revalidacao.md
 # secao 3.J, achado N9, decisao D-A11, 24/09/2026): nenhum portao Python

@@ -6,6 +6,13 @@
 # `ctest --show-only=json-v1` REAL de um projeto CMake descartavel, criado em TMPDIR (nunca fixture
 # colada a mao). Sem cmake ou ctest no PATH o autoteste reprova: nao ha pulo.
 #
+# GERADOR DO BUILD ANINHADO (defeito do CI do Arch, 27/11/2026): o cmake aninhado NAO herda o gerador
+# do build que o chamou; sem -G cai em "Unix Makefiles", que so existe onde ha `make` (a imagem do
+# Arch so instala ninja). Por isso o gerador vem, nesta ordem, de: CMAKE_GENERATOR do ambiente
+# (registrado em tests/CMakeLists.txt com o mesmo gerador desta construcao), senao `ninja` no PATH.
+# Sem gerador nenhum, o autoteste sai com o codigo de pulo do projeto (77, SKIP_RETURN_CODE no
+# registro): pulo declarado e contado pelo agregado, nunca verde calado.
+#
 # Usage:
 #   conferir_lista_selftest.py --selftest
 
@@ -20,7 +27,9 @@ import sys
 import tempfile
 
 SCRIPT_NAME = "conferir_lista_selftest.py"
-ALVO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools", "ci", "conferir_lista.py"))
+# Codigo de pulo do projeto (CTest SKIP_RETURN_CODE, o mesmo de check_container_fixture_link.py).
+SKIP_RETURN_CODE = 77
+ALVO =os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools", "ci", "conferir_lista.py"))
 
 PROJETO_COM_TESTES = """cmake_minimum_required(VERSION 3.29)
 project(probe NONE)
@@ -58,13 +67,24 @@ def _ctest_json(build, arquivo_saida, *args):
     return arquivo_saida
 
 
-def _configurar(raiz, nome, conteudo):
+def _gerador():
+    """Gerador do build aninhado: CMAKE_GENERATOR do ambiente (o do build que chamou este autoteste),
+    senao Ninja no PATH. None quando nao ha nenhum: quem chama sai com o pulo declarado."""
+    declarado = os.environ.get("CMAKE_GENERATOR", "").strip()
+    if declarado:
+        return declarado
+    if shutil.which("ninja") is not None:
+        return "Ninja"
+    return None
+
+
+def _configurar(raiz, nome, conteudo, gerador):
     fonte = os.path.join(raiz, nome, "src")
     os.makedirs(fonte)
     with open(os.path.join(fonte, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
         handle.write(conteudo)
     build = os.path.join(raiz, nome, "b")
-    proc = subprocess.run(["cmake", "-S", fonte, "-B", build], capture_output=True, text=True)
+    proc = subprocess.run(["cmake", "-G", gerador, "-S", fonte, "-B", build], capture_output=True, text=True)
     if proc.returncode != 0:
         raise RuntimeError(f"cmake {nome} saiu {proc.returncode}: {proc.stderr.strip()}")
     return build
@@ -76,10 +96,10 @@ def _escrever_lista(caminho, nomes):
     return caminho
 
 
-def _fixtures(raiz):
+def _fixtures(raiz, gerador):
     """Gera os JSON reais e devolve um dicionario de caminhos."""
-    com = _configurar(raiz, "com", PROJETO_COM_TESTES)
-    vazio = _configurar(raiz, "vazio", PROJETO_VAZIO)
+    com = _configurar(raiz, "com", PROJETO_COM_TESTES, gerador)
+    vazio = _configurar(raiz, "vazio", PROJETO_VAZIO, gerador)
     f = {}
     f["inv"] = _ctest_json(com, os.path.join(raiz, "inv.json"))
     f["uni_unit"] = _ctest_json(com, os.path.join(raiz, "uni_unit.json"), "-L", "^unit$")
@@ -173,11 +193,19 @@ def selftest_main():
     if shutil.which("cmake") is None or shutil.which("ctest") is None:
         print(f"{SCRIPT_NAME}: cmake e ctest sao obrigatorios no PATH (sem pulo)", file=sys.stderr)
         return 1
+    gerador = _gerador()
+    if gerador is None:
+        print(
+            f"{SCRIPT_NAME}: sem gerador de CMake: CMAKE_GENERATOR ausente no ambiente e `ninja` fora do PATH "
+            f"- pulo declarado (codigo {SKIP_RETURN_CODE}), nao e' verde",
+            file=sys.stderr,
+        )
+        return SKIP_RETURN_CODE
     modulo = _carregar_alvo()
     raiz = tempfile.mkdtemp(prefix="conferir-lista-")
     falhas = []
     try:
-        f, com = _fixtures(raiz)
+        f, com = _fixtures(raiz, gerador)
         casos = _casos(raiz, com, f)
         for nome, lista_nomes, inv, uni, sel, rc_esperado, vered, trecho in casos:
             problemas = _rodar_caso(modulo, raiz, nome, lista_nomes, inv, uni, sel, rc_esperado, vered, trecho)

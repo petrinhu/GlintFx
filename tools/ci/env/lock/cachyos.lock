@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# cachyos.lock - CI-PIN-PKG-C (D-WP1-0014). Gerado por gerar_cachyos_repo.sh.
+# Formato: repo nome versao arquivo sha256 pkgbuild_sha256 (- para o Arch).
+# Os de repo core/extra/multilib vem do ALA e sao provados por sha256; os cachyos saem do artifact.
+cachyos mesa 3:26.3.1-5 mesa-3:26.3.1-5-x86_64.pkg.tar.zst 08f2d05906c08b5353e68b611e44e36052c4352821f017455a09c597746c65a2 7f21728d361defb9b479df992eab1537a467e970e360bef232d31e37823170d2
+cachyos python 3.14.10-3 python-3.14.10-3-x86_64.pkg.tar.zst 8ec0a55f3704302ee8e2071613d189a9078660553a49fc25119d2c53c1bbc8e4 bc770dd20c6a863c1415e3ec9b984cb448931029d895ba97e7fd9a17c880ab50
+core cryptsetup 2.8.9-1 cryptsetup-2.8.9-1-x86_64.pkg.tar.zst 23db777b92977e48a9445db5fa2b4571868b9f3e849f7bca106c98c71fcb4ee5 -
+core flex 2.7.9-1 flex-2.7.9-1-x86_64.pkg.tar.zst ccf61bb14037597bcaccfd87f6c82a36360d89c55066e46926e452f09c26adc6 -
+core gcc 16.2.1+r23+gd564253eb6c8-1 gcc-16.2.1+r23+gd564253eb6c8-1-x86_64.pkg.tar.zst 1d79371ccf3138e3c172dd83b51560687b65ab824c1ad7e9cb41b7857ed9c55f -
+core glib2 2.90.2-1 glib2-2.90.2-1-x86_64.pkg.tar.zst b395f016a950c9f35a3bc149a2b0828d7c7584ca0d07478fe6fa29eb33a9eba5 -
+core gpgme 2.3.1-1 gpgme-2.3.1-1-x86_64.pkg.tar.zst b3899143ff1caf8d6ddc1957d6ad0a664a6e9bb2b8da75d322c977130d11f1a4 -
+core kmod 34.4-1 kmod-34.4-1-x86_64.pkg.tar.zst f1d909a336480a198b679733c83a59d2aebcfe29e6b4c91687caa50e11a894f7 -
+core libseccomp 2.6.2-1 libseccomp-2.6.2-1-x86_64.pkg.tar.zst c9d02d05cdb05cf10096dda3ebaabcf0c7a63bef360886a50427e7fea9ecb3e8 -
+core pkgconf 3.0.11-1 pkgconf-3.0.11-1-x86_64.pkg.tar.zst da534ddab613748216815fbe9b2dfe7cebe8fec913cbc2da90033e84cf7d7d54 -
+core tpm2-tss 4.2.2s-2 tpm2-tss-4.2.2s-2-x86_64.pkg.tar.zst 04bae6177ed83b204bc4ff1e054b25eea8e820ac619809dcdaf67d97cff0e82a -
+extra cmake 4.5.1-1 cmake-4.5.1-1-x86_64.pkg.tar.zst cf86b5cab22b5bd3d6420fff11420e56e90edd01ba1ce04e3bc031ca79de7d2f -
+extra cppdap 1.58.0-3 cppdap-1.58.0-3-x86_64.pkg.tar.zst 5c8bd9b3881ba9b2bea98eefa95df21d92b026f0c7537105d943857b22388be3 -
+extra default-cursors 3-1 default-cursors-3-1-any.pkg.tar.zst ae52028372c3b2f66547baab41f1614b25472489d927b1a50b596bb8df7c056e -
+extra git 2.56.1-1 git-2.56.1-1-x86_64.pkg.tar.zst e03b17fa53ecb9af41a00b599f5304fafdaa04bd36c9fdd04eb18ad7d7f537ad -
+extra hicolor-icon-theme 0.18-1 hicolor-icon-theme-0.18-1-any.pkg.tar.zst 22ec69012b9a55e276b5891f916366f692541dce3793bff3e85a28a10b91990a -
+extra jsoncpp 1.9.8-1 jsoncpp-1.9.8-1-x86_64.pkg.tar.zst 2b13a7ebfe92e2a7b98475acca628d0a0281fa08360cff2f27ec7337b0d909c6 -
+extra libdrm 2.4.134-1 libdrm-2.4.134-1-x86_64.pkg.tar.zst 29d101f13d219d01ee4aae25e8f84026e0740d747d56c37ea5573c4618e7df04 -
+extra libglvnd 1.7.0-3 libglvnd-1.7.0-3-x86_64.pkg.tar.zst 633c2e95d7798d0ce7ee1b7fe970a22325f7f6d35b9f923bb61b223a80934437 -
+extra libpciaccess 0.19-1 libpciaccess-0.19-1-x86_64.pkg.tar.zst ef533895e7688da61749bee185103435dbe635d9773d092fb0516e132817e39f -
+extra libuv 1.53.0-1 libuv-1.53.0-1-x86_64.pkg.tar.zst f72536a8283b7a4b7d6126e2920496e95defa2b3708b1289ab0330d4ff3b9122 -
+extra libx11 1.8.14-1 libx11-1.8.14-1-x86_64.pkg.tar.zst 47fff5bbeadabe30b5fb1ad3f3609c20e6064ef002ba0377dfd8564ec813da7b -
+extra libxau 1.0.12-1 libxau-1.0.12-1-x86_64.pkg.tar.zst 605c8b059c36792f4e0cc235acadf39d0762df6c7878825a1be01a00ae7ea21e -
+extra libxcb 1.17.0-1 libxcb-1.17.0-1-x86_64.pkg.tar.zst 2b2e7ac64b1d56c08a227c10bcab179605f2773f31db0a8c89f49f4e5b2f1292 -
+extra libxdmcp 1.1.5-2 libxdmcp-1.1.5-2-x86_64.pkg.tar.zst 623c957c2fd4b427a0f5a531da44931f9f66521391ee0bd0e635479947036b65 -
+extra libxext 1.3.7-1 libxext-1.3.7-1-x86_64.pkg.tar.zst ac56905dc51bb652eca5f706fd7e7bb7ea81d4e057a236139fc769ce5ea10cf1 -
+extra libxshmfence 1.3.3-1 libxshmfence-1.3.3-1-x86_64.pkg.tar.zst 39d0f128e4efc393fcd3b42f20046ec0e854341b601f14b457d67add86036d13 -
+extra libxxf86vm 1.1.7-1 libxxf86vm-1.1.7-1-x86_64.pkg.tar.zst b9215b44734a0149f6e9b3c9bfcbb5abef2b6f32b2767ed628bafc3f0cc38934 -
+extra llvm-libs 23.1.5-1 llvm-libs-23.1.5-1-x86_64.pkg.tar.zst 5c9613f1d807d4f5b0d9ae9d70163026732ce12934b9d891d28922036ccebdcb -
+extra lm_sensors 1:3.6.2-1 lm_sensors-1:3.6.2-1-x86_64.pkg.tar.zst 5363304255a506cf71e1ed4f0464166e5f2aad6f0ae444fe08cafd8c83bf11ff -
+extra ninja 1.13.2-3 ninja-1.13.2-3-x86_64.pkg.tar.zst 19e12c1a169d27e427c3fa678ed3573825ac2a1043c6d47dd96e76ec3d34236c -
+extra rhash 1.4.6-1 rhash-1.4.6-1-x86_64.pkg.tar.zst 6f791b676347898dc72d20cd94be0da2228a26339e6bc511b17f1278d8110706 -
+extra spirv-tools 1:1.4.363.0-1 spirv-tools-1:1.4.363.0-1-x86_64.pkg.tar.zst 04b83f2e9fbf38cd349031b105a49d6baf451f7116e84428fc0bfe55a3968010 -
+extra wayland 1.26.0-1 wayland-1.26.0-1-x86_64.pkg.tar.zst 0bf83ec9dd5b9e4037e7fd7d5ded70838bb50f82aa43e8280c8c0025c92804a9 -
+extra wayland-protocols 1.50-1 wayland-protocols-1.50-1-any.pkg.tar.zst 9fc5d6f59513343bf20a994037591373e3d473f005c58c33ed089b01f52a9c84 -
+extra xcb-proto 1.17.0-4 xcb-proto-1.17.0-4-any.pkg.tar.zst 98f661ef7c7e05eb7a687e859cf123a92806ceed8f55c0d70ddbac799988239a -
+extra xorgproto 2026.1-1 xorgproto-2026.1-1-any.pkg.tar.zst 1fca2c5a52c8cacf9825fc76531a4286de441099d8d6eb912725b136be70eae7 -

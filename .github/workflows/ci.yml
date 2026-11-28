@@ -492,6 +492,10 @@ jobs:
       # nunca do checkout real (que ainda nao aconteceu).
       - name: Instalar toolchain
         shell: bash
+        env:
+          # CI-PIN-PKG-C (D-WP1-0014): o token do run, igual em todas as pernas, sem if:. So' a
+          # perna CachyOS o usa (baixa o artifact cachyos-repo-onda pela API); as outras o ignoram.
+          GH_TOKEN: ${{ github.token }}
         run: bash _bootstrap/tools/ci/env/${{ matrix.slug }}.sh
 
       - name: Remove o checkout de bootstrap

@@ -175,6 +175,7 @@ n_ala=$(find "$ala" -maxdepth 1 -name '*.pkg.tar.zst' | wc -l)
 # ---------------------------------------------------------------------------
 lock="$pub/cachyos.lock"
 {
+    echo "# SPDX-License-Identifier: AGPL-3.0-or-later"
     echo "# cachyos.lock - CI-PIN-PKG-C (D-WP1-0014). Gerado por gerar_cachyos_repo.sh."
     echo "# Formato: repo nome versao arquivo sha256 pkgbuild_sha256 (- para o Arch)."
     echo "# Os de repo core/extra/multilib vem do ALA e sao provados por sha256; os cachyos saem do artifact."

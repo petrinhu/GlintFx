@@ -1,19 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# tools/ci/wave-manifest/cachyos.txt - manifesto da perna CachyOS (CI-PIN-PKG-C).
+# tools/ci/wave-manifest/cachyos.txt - manifesto da perna CachyOS (CI-PIN-PKG-C, D-WP1-0014).
 # Formato: "<pacote> <versao>", no que pacman -Q <pacote> imprime.
 #
-# PROVISORIO, NAO MEDIDO NO CACHYOS. O CachyOS nao tem indice datado no espelho oficial
-# (D-W8-2094), entao nenhum valor aqui foi lido do repositorio da onda. Os valores
-# abaixo sao COPIA do manifesto do Arch derivado do Arch Linux Archive de 27/11/2026
-# (tools/ci/wave-manifest/arch.txt), so' para o piso (L-40) ter entrada enquanto o
-# gerador nao roda. O CachyOS sobrepoe pacotes ao Arch (medido: mesa, python e
-# pacman), entao esta copia pode estar errada para qualquer pacote da lista.
-# Antes de qualquer disparo da perna CachyOS, o manifesto e' SUBSTITUIDO pelas versoes
-# gravadas pelo job cachyos-repo-gerar (cachyos-versoes.txt do artifact), e so' ai o
-# portao de manifesto vale. Enquanto este cabecalho disser PROVISORIO, o portao
-# reprova no servidor, de proposito.
-cmake 4.5.1-1
+# MEDIDO no artifact cachyos-repo-onda do run 46187286978 (cachyos-versoes.txt): as versoes
+# da lista de hoje, a mesma que tools/ci/env/cachyos.sh instala. O lock (tools/ci/env/lock/cachyos.lock)
+# prova os sha256 dos 37 pacotes; este manifesto so' confere a lista.
 gcc 16.2.1+r23+gd564253eb6c8-1
+cmake 4.5.1-1
 ninja 1.13.2-3
+pkgconf 3.0.11-1
+git 2.56.1-1
 wayland 1.26.0-1
+wayland-protocols 1.50-1
+libglvnd 1.7.0-3
+python 3.14.10-3

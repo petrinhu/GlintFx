@@ -6453,6 +6453,24 @@ add_test(
 )
 set_tests_properties(ci_system_uniformity_selftest PROPERTIES LABELS selftest)
 
+# CI-PIN-PKG-A (D-W8-2091, ordem do CTO): portao de manifesto de pacote das
+# pernas Ubuntu e Arch. O autoteste roda em todo sistema (so' a comparacao
+# pura, com fixtures em memoria); o piso confere que nenhum manifesto ficou
+# vazio e que o carimbo da onda tem formato valido (GODS_LAWS.md L-40).
+add_test(
+    NAME wave_manifest_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wave_manifest.py" --selftest
+)
+set_tests_properties(wave_manifest_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME wave_manifest_piso_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wave_manifest.py" --piso
+)
+set_tests_properties(wave_manifest_piso_test PROPERTIES LABELS consume)
+
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
 # spot the whole-tree rewrite of prepare_arch_ports_fixture.sh's own

@@ -31,6 +31,21 @@ set -eu
 CC_BIN="cc"
 CXX_BIN="c++"
 
+# CI-PIN-PKG-A (D-W8-2091, ordem do CTO): a onda inteira congela num
+# instante so' (tools/ci/wave-stamp.env). A data do Arch sai do mesmo
+# ONDA_STAMP por fatiamento - nao ha segunda variavel.
+. "$(dirname "$0")/../wave-stamp.env"
+arch_date="${ONDA_STAMP:0:4}/${ONDA_STAMP:4:2}/${ONDA_STAMP:6:2}"
+
+# Uma linha so', no mirrorlist: o ALA por data. $repo e $arch ficam entre
+# aspas simples para o pacman expandi-los, nao o shell.
+printf '%s\n' 'Server = https://archive.archlinux.org/repos/'"$arch_date"'/$repo/os/$arch' \
+    > /etc/pacman.d/mirrorlist
+
+# -Syy força o banco a vir do ALA: o cache da imagem pode ser mais novo que
+# o arquivo datado, e o pacman nao baixaria de novo. A linha seguinte
+# (-Syu com a lista) e' a instalacao de sempre, so' que sobre o banco certo.
+pacman -Syy
 pacman -Syu --noconfirm gcc cmake ninja pkgconf git \
     wayland wayland-protocols libglvnd python
 
@@ -43,3 +58,8 @@ pacman -Syu --noconfirm gcc cmake ninja pkgconf git \
 "$CC_BIN" --version
 "$CXX_BIN" --version
 cmake --version
+
+# Portao de manifesto (CI-PIN-PKG-A): o instalado tem de bater com
+# tools/ci/wave-manifest/arch.txt. Divergencia reprova o preparo e imprime
+# as duas listas (L-40: manifesto vazio reprova).
+python3 "$(dirname "$0")/../../../tests/tools/check_wave_manifest.py" --slug arch

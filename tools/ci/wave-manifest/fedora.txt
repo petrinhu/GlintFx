@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/ci/wave-manifest/fedora.txt - manifesto das pontos Fedora (CI-PIN-PKG-B).
+# Formato: "<pacote> <versao-release>", no que `rpm -q --qf '%{VERSION}-%{RELEASE}'` imprime.
+# ORIGEM: LIDO do lock tools/ci/env/lock/fedora.versionlock.toml (evr sem o epoch 0), gerado pelo job fedora-lock
+# (run 46153216370). Os pacotes sao os que TODOS os pontos Fedora instalam (fedora.sh, os cinco jobs e o
+# builder do Containerfile). Pontos sem python3 (lint, sanitizer, gl-codegen-host-cross, clang) nao rodam este
+# portao: DECLARADO no relatorio do CI-PIN-PKG-B.
+cmake 4.3.0-7.fc45
+gcc 16.2.1-3.fc45
+gcc-c++ 16.2.1-3.fc45
+ninja-build 1.13.2-6.fc45
+libwayland-client 1.26.0-3.fc45

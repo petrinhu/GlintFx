@@ -44,9 +44,11 @@ name: CI
 # `windows`, por simetria - antes eram dois PASSOS sequenciais dentro da
 # mesma entrada de matriz, e uma falha no compartilhado abortava o job
 # inteiro, pulando o estatico sem rodar (aconteceu duas vezes na mesma
-# tarde: CI-CONSUME e CI-CONSUME-2). `fail-fast: false`, ja presente no
-# `linux`, so garante independencia ENTRE entradas de matriz - nunca
-# ajudou aqui, porque compartilhado/estatico eram passos, nao entradas.
+# tarde: CI-CONSUME e CI-CONSUME-2). A regra de `fail-fast` (EFIC-FAIL-FAST, L-04 do
+# projeto, emenda de 26/11): no meio do ramo a primeira entrada vermelha cancela as
+# irmas; no fechamento (push ao main, dispatch, PR com o rotulo `ci-completo`) todas
+# vao ate o fim. Antes do compartilhado/estatico virarem entradas, isso nunca ajudou
+# aqui, porque eles eram passos, nao entradas.
 #
 # CONTAGEM DE CELULAS, pedida explicitamente pelo lider - "cinco alvos x
 # dois modos continua sendo dez": ANTES, `linux` tinha 4 entradas de
@@ -73,7 +75,11 @@ on:
     # coisa que nunca acontecia antes (o gatilho de push so tinha
     # `branches`) e nao tem por que comecar a acontecer agora.
     tags: ['v[0-9]*']
+  # EFIC-FAIL-FAST (L-04 do projeto, emenda de 26/11): `labeled` entra para que pôr o
+  # rotulo `ci-completo` num PR dispare a rodada completa. Rotulo de outro nome dispara
+  # uma rodada normal, no modo do meio; nunca se pula a rodada inteira por rotulo.
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
     inputs:
       ctest_paralelo:
@@ -125,6 +131,11 @@ jobs:
   #   compilacao        = 40 min  (configura, compila, testa, ou sobe container)
   #   estatica_windows  = 65 min  (checagem estatica paralela do Windows)
   #   dependente        = 45 min  (trabalho com `needs:` - hoje so `parity`.
+  #                                Desde a E3 (EFIC-CI-SELETIVO) os demais
+  #                                trabalhos tambem tem `needs: mudancas`,
+  #                                e ficam na classe da sua funcao (teto
+  #                                de 40 ou 65 min). A espera por
+  #                                `mudancas` e curta (classe curta).
   #                                A espera pela dependencia pode ou nao
   #                                contar contra o relogio do teto; isto
   #                                NAO foi provado ao vivo nesta fatia -
@@ -139,14 +150,131 @@ jobs:
   # sem classe reprova, entrada desta tabela sem trabalho correspondente
   # reprova, teto fora do valor da classe reprova.
   # ============================================================
+  # EFIC-CI-SELETIVO (E3, D-W8-1270, decisoes D1-D4 do CTO em 26/11/2026): decide, uma vez,
+  # o modo deste envio. `completo` roda tudo (push ao main, workflow_dispatch, PR com o rotulo
+  # `ci-completo`, evento nao previsto); `subconjunto` roda so o que a mudanca toca, pelo
+  # seletor (tools/ci/seletor.py); `texto-sem-leitor` pula os trabalhos de teste e de lint.
+  # Base do PR: a execucao mais nova DESTE workflow, no ramo da cabeca, com status=success,
+  # cuja cabeca e' ancestral da cabeca atual e diferente dela (regras D4 a e b). Se a API do
+  # GitHub falhar, o modo e' `completo` com o motivo impresso (critério d: o desconhecido roda
+  # tudo). Todo valor do evento entra por `env:`, nunca por `${{ }}` dentro de `run:`.
+  mudancas:
+    name: Mudancas (decide o modo do CI)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    outputs:
+      modo: ${{ steps.decidir.outputs.modo }}
+      base: ${{ steps.decidir.outputs.base }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # A4 (D-A4): rerun_guard antes do marco prep (G6), como nos demais trabalhos. O trabalho
+      # nao tem `needs:`, entao RERUN_DERIVADO nao entra no env (I1).
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
+      # A3c (D-A13): marco `id: prep` - so' echo, G3 confere um por job.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
+      - name: Decidir o modo do envio (E3)
+        id: decidir
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          LABELS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          saida="$RUNNER_TEMP/mudancas.json"
+          rotulo_completo() {
+            python3 -c 'import json,sys; json.dump({"modo": "completo", "base": "", "head": "", "motivo": sys.argv[1]}, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False)' "$1" "$saida"
+            echo "modo: completo - $1"
+            echo "modo=completo" >> "$GITHUB_OUTPUT"
+            echo "base=" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Modo do CI (E3)"
+              echo "- modo: **completo** - $1"
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            rotulo_completo "evento $EVENT_NAME: envio ao main, dispatch ou evento sem seletor"
+            exit 0
+          fi
+          if python3 -c 'import json,os,sys; sys.exit(0 if "ci-completo" in json.loads(os.environ["LABELS_JSON"]) else 1)'; then
+            rotulo_completo "PR com o rotulo ci-completo"
+            exit 0
+          fi
+          # Base: a execucao mais nova deste workflow no ramo da cabeca, com sucesso (regra D4 b:
+          # se a API falhar, o modo e' completo; nunca se adivinha a base).
+          runs="$RUNNER_TEMP/runs.json"
+          if gh api -X GET "repos/$REPO/actions/workflows/ci.yml/runs" -f branch="$HEAD_REF" -f status=success -f per_page=50 > "$runs" 2> "$RUNNER_TEMP/gh.err"; then
+            api_rc=0
+          else
+            api_rc=$?
+          fi
+          if [ "$api_rc" -ne 0 ]; then
+            rotulo_completo "base nao medida: API do GitHub falhou (rc=$api_rc)"
+            exit 0
+          fi
+          candidatas="$(python3 -c 'import json,os,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); seen=[]; [seen.append(r["head_sha"]) for r in d.get("workflow_runs", []) if r.get("head_sha") and r["head_sha"] != os.environ["HEAD_SHA"] and r["head_sha"] not in seen]; print("\n".join(seen))' "$runs")" || {
+            rotulo_completo "base nao medida: resposta da API ilegivel"
+            exit 0
+          }
+          base=""
+          {
+            echo "### Base do PR (E3, regras D4 a e b)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for sha in $candidatas; do
+            if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+              echo "excluida $sha: commit fora do clone" | tee -a "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            if git merge-base --is-ancestor "$sha" "$HEAD_SHA"; then
+              base="$sha"
+              echo "escolhida $sha: execucao verde mais nova, ancestral da cabeca" | tee -a "$GITHUB_STEP_SUMMARY"
+              break
+            fi
+            echo "excluida $sha: nao e' ancestral da cabeca" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          if [ -z "$base" ]; then
+            base="$(git merge-base "origin/$BASE_REF" "$HEAD_SHA")"
+            echo "sem execucao verde ancestral: base = merge-base com origin/$BASE_REF ($base)" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          python3 tools/ci/seletor.py classificar --raiz "$GITHUB_WORKSPACE" --base "$base" --head "$HEAD_SHA" --saida "$saida" > "$RUNNER_TEMP/classificar.log"
+          tail -n 1 "$RUNNER_TEMP/classificar.log"
+          modo="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["modo"])' "$saida")"
+          echo "modo: $modo (base $base)"
+          echo "modo=$modo" >> "$GITHUB_OUTPUT"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "- modo: **$modo**, base \`$base\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar a decisao de modo (mudancas)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mudancas
+          path: ${{ runner.temp }}/mudancas.json
+          retention-days: 7
+
   linux:
     name: ${{ matrix.nome }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     container: ${{ matrix.imagem }}
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         include:
           # MATRIZ ENXUTA (CI-SPLIT-PER-OS A3b, docs/plano-ci-split-per-
@@ -170,8 +298,9 @@ jobs:
           # compartilhado e estatico sao entradas DISTINTAS da matriz, nao
           # dois passos dentro da mesma entrada, para que uma falha no
           # compartilhado de um alvo nunca esconda o resultado do
-          # estatico irmao (nem o de nenhum outro alvo - fail-fast: false
-          # ja cobria isso entre alvos; agora cobre entre modos tambem).
+          # estatico irmao (nem o de nenhum outro alvo). EFIC-FAIL-FAST (L-04
+          # do projeto, emenda de 26/11): o `fail-fast` da matriz so cancela as
+          # irmas no meio do ramo; no fechamento todas as entradas vao ate o fim.
           #
           # c_compiler, campo novo (PKG-NATIVE, 27/08/2026): antes desta
           # fatia nenhuma entrada passava -DCMAKE_C_COMPILER explicito - o
@@ -363,6 +492,10 @@ jobs:
       # nunca do checkout real (que ainda nao aconteceu).
       - name: Instalar toolchain
         shell: bash
+        env:
+          # CI-PIN-PKG-C (D-WP1-0014): o token do run, igual em todas as pernas, sem if:. So' a
+          # perna CachyOS o usa (baixa o artifact cachyos-repo-onda pela API); as outras o ignoram.
+          GH_TOKEN: ${{ github.token }}
         run: bash _bootstrap/tools/ci/env/${{ matrix.slug }}.sh
 
       - name: Remove o checkout de bootstrap
@@ -474,6 +607,14 @@ jobs:
       - name: Preparo concluido
         id: prep
         run: echo "preparo concluido"
+
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: alimenta MEASURED e o parity)" >> "$GITHUB_STEP_SUMMARY"
 
       # PKG-NATIVE: falha o job cedo e com mensagem clara se o passo
       # "Instalar toolchain" acima nao alcancou o piso que
@@ -807,9 +948,10 @@ jobs:
     name: Windows - ${{ matrix.modo }}
     runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         include:
           # Duas entradas, nao mais dois passos dentro de uma - mesma
@@ -925,6 +1067,7 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+
       # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
       # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
       # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
@@ -935,6 +1078,13 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- modo desta perna: completo, declarado (D6: alimenta MEASURED e o parity; gemeo do linux)"
 
       # PKG-WIN-SCOPE: passo PERMANENTE, independente de matrix.builddir
       # (roda identico nas duas entradas, como "Padrao C++23 aceito"
@@ -1448,8 +1598,12 @@ jobs:
   #    inventarios (todos os sistemas)"), nenhum re-baixa nada.
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
-    needs: [linux, windows, wayland-container, lint]
-    if: ${{ !cancelled() && github.ref_type != 'tag' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: [mudancas, linux, windows, wayland-container, lint]
+    # EFIC-FAIL-FAST (L-04 do projeto, emenda de 26/11): no meio do ramo (PR sem o rotulo
+    # `ci-completo`) o parity so roda com as pernas todas verdes (`success()`); no
+    # fechamento (push ao main, dispatch, PR com o rotulo, ou evento sem PR) roda com
+    # `!cancelled()`, para reportar mesmo com perna vermelha. M = o predicado do meio.
+    if: ${{ github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor' && ((github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') && success()) || (!(github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo')) && !cancelled())) }}  # VERSION-TAG-SYNC, ver on:push:tags acima
     runs-on: ubuntu-24.04
     timeout-minutes: 45  # classe `dependente` - ver o bloco de classes logo abaixo de `jobs:`
     steps:
@@ -1706,15 +1860,17 @@ jobs:
   # com $GLINTFX_FIXTURE_SANITIZE), nao um segundo job - um job separado
   # duplicaria os 17 passos `docker exec` a mao, a mesma doenca que
   # tests/tools/check_container_fixture_link.py nasceu para conter.
-  # `fail-fast: false`: uma perna vermelha nao cancela a outra - as duas
-  # legendas (`plain`, `asan`) carregam informacao distinta.
+  # EFIC-FAIL-FAST (L-04 do projeto, emenda de 26/11): no meio do ramo (PR sem o rotulo
+  # `ci-completo`) a primeira perna vermelha cancela a outra; no fechamento as duas vao
+  # ate o fim. As duas legendas (`plain`, `asan`) carregam informacao distinta.
   wayland-container:
     name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         perna: [plain, asan]
     env:
@@ -1812,6 +1968,14 @@ jobs:
         id: prep
         run: echo "preparo concluido"
 
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: alimenta MEASURED e o parity-inv do contentor; a suite do contentor nao passa pelo seletor)" >> "$GITHUB_STEP_SUMMARY"
+
       # P-0's own declared blind spot, fechado nesta mesma fatia
       # (tests/tools/check_container_fixture_inventory.py's proprio
       # cabecalho): um fixture pode ganhar uma linha `COPY --from=...`
@@ -1838,6 +2002,13 @@ jobs:
       - name: Prepara a fixture ARCH-PORTS e confere includes (R4, L-40)
         run: tests/container/prepare_arch_ports_fixture.sh "$(pwd)"
 
+      # CI-PIN-PKG-B (D-W8-2090): o carimbo da imagem e' o sha256 do lock Fedora da onda. O conteudo do lock e'
+      # fixo durante a onda, entao a camada do dnf so' e' refeita quando o lock muda, e a prova de frescor compara
+      # esse mesmo hash com o que ficou gravado dentro da imagem.
+      - name: Carimbo do lock Fedora da onda (CI-PIN-PKG-B)
+        id: lock
+        run: echo "sha=$(sha256sum tools/ci/env/lock/fedora.versionlock.toml | cut -c1-64)" >> "$GITHUB_OUTPUT"
+
       - name: Marca o inicio do build da imagem
         id: build_image
         run: echo "inicio=$(date +%s)" >> "$GITHUB_OUTPUT"
@@ -1856,35 +2027,46 @@ jobs:
         with:
           context: tests/container
           file: tests/container/Containerfile
+          # CI-PIN-PKG-B: o contexto `lock` leva o lock e o updates-archive ao Containerfile (COPY --from=lock).
+          build-contexts: |
+            lock=tools/ci/env/lock
           tags: glintfx-wltest:ci-${{ matrix.perna }}
           # A perna `plain` passa a mesma string vazia que este build-arg
           # ja tinha por default no Containerfile (byte-a-byte o que a
           # imagem sempre foi); a perna `asan` passa as flags do bloco
           # `env:` acima do job - uma receita so, duas construcoes
           # (D-CAUDA-3).
-          # GLINTFX_IMAGE_STAMP (KWIN-68-SEM-PLACA): o cache `type=gha`
-          # abaixo guardaria a camada do dnf, e com ela o KWin, do dia em
-          # que o cache foi enchido. O carimbo e novo a cada execucao e a
-          # cada tentativa, e por isso essa camada e refeita sempre; o
-          # estagio que compila as fixtures continua no cache. `pull:
-          # true` deixa escrito que a base vem do registro.
+          # GLINTFX_IMAGE_STAMP (CI-PIN-PKG-B): o carimbo e' o sha256 do lock da onda. O cache `type=gha`
+          # guarda a camada do dnf; com o lock inalterado ela e' reaproveitada, e com lock novo ela e' refeita
+          # (o conteudo do carimbo muda). O estagio que compila as fixtures continua no cache. `pull:
+          # true` deixa escrito que a base vem do registro, pelo digest fixado.
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
-            GLINTFX_IMAGE_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
+            GLINTFX_IMAGE_STAMP=${{ steps.lock.outputs.sha }}
           pull: true
           load: true
           push: false
           cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
           cache-to: type=gha,mode=max,scope=wayland-container-${{ matrix.perna }}
 
-      # KWIN-68-SEM-PLACA: a prova de que a imagem e do dia, sem pinar
-      # versao nenhuma. O carimbo lido de dentro da imagem tem de ser o
-      # desta execucao (a camada do dnf foi refeita agora), e a versao do
-      # Fedora da imagem tem de ser a que o registro chama de `latest`
-      # agora. O pacote do KWin e impresso para quem le o log.
-      - name: Imagem do dia - carimbo e base (KWIN-68-SEM-PLACA)
+      # CI-PIN-PKG-B: a prova de que a imagem e' a da onda. O carimbo lido de dentro da imagem tem de ser o sha256
+      # do lock desta execucao, e a base tem de ser a do digest fixado no Containerfile. O pacote do KWin e impresso
+      # para quem le o log. O portao de manifesto do KWin, logo abaixo, confere a versao contra o manifesto.
+      - name: Imagem da onda - carimbo e base (CI-PIN-PKG-B)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: tests/container/check_image_freshness.sh glintfx-wltest:ci-${{ matrix.perna }} "${{ github.run_id }}-${{ github.run_attempt }}"
+        run: tests/container/check_image_freshness.sh glintfx-wltest:ci-${{ matrix.perna }} "${{ steps.lock.outputs.sha }}"
+
+      # CI-PIN-PKG-B: portao de manifesto do KWin e da biblioteca Wayland DENTRO da imagem (tests/tools/
+      # check_wave_manifest.py, manifesto tools/ci/wave-manifest/fedora-container.txt). A coleta roda com `rpm` da
+      # propria imagem, sem montar nada do host (GODS_LAWS.md L-09). Pacote ausente vira linha malformada e reprova.
+      - name: Portao de manifesto do KWin no contenedor (CI-PIN-PKG-B)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -eu
+          docker run --rm --pull never --network none --cap-drop=ALL --entrypoint rpm \
+            glintfx-wltest:ci-${{ matrix.perna }} -q --qf '%{NAME} %{VERSION}-%{RELEASE}\n' kwin libwayland-client \
+            > "$RUNNER_TEMP/instalado-container.txt" || true
+          python3 tests/tools/check_wave_manifest.py --slug fedora-container --instalado-fixture "$RUNNER_TEMP/instalado-container.txt"
 
       - name: Tempo de build da imagem
         run: |
@@ -1913,9 +2095,13 @@ jobs:
           context: tests/container
           file: tests/container/Containerfile
           target: arch-ports-builder
+          # CI-PIN-PKG-B: mesmo contexto `lock` do build principal; o estagio builder aplica o lock antes do dnf.
+          build-contexts: |
+            lock=tools/ci/env/lock
           tags: glintfx-wltest:builder-${{ matrix.perna }}
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
+            GLINTFX_IMAGE_STAMP=${{ steps.lock.outputs.sha }}
           pull: true
           load: true
           push: false
@@ -3238,16 +3424,32 @@ jobs:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain e ferramentas de lint
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck clang
 
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
@@ -3311,13 +3513,23 @@ jobs:
       # format, configure -Werror, build, clang-tidy, cppcheck, NOLINT.
       - name: preci.sh --lint-only
         id: build
+        env:
+          MODO: ${{ needs.mudancas.outputs.modo }}
+          BASE: ${{ needs.mudancas.outputs.base }}
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           # PRECI-LINT-JOBS: o executor declara o proprio grau; sem isto o preci usaria
           # nproc - 3, a regra da maquina do lider (L-11 global): 1 num executor de 4 nucleos.
           export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc)"
-          tools/preci.sh --lint-only
+          # EFIC-CI-SELETIVO (E3, D6): em subconjunto o lint roda so' nos arquivos que a mudanca
+          # toca, desde a base escolhida pelo trabalho mudancas. Fora dele, o lint inteiro, como antes.
+          if [ "$MODO" = "subconjunto" ]; then
+            if [ -z "$BASE" ]; then echo "FALHOU: subconjunto sem base de --since" >&2; exit 1; fi
+            tools/preci.sh --lint-only --since "$BASE"
+          else
+            tools/preci.sh --lint-only
+          fi
 
       # PARITY-LINT-INV (TODO.md, GODS_LAWS.md L-04/L-40, 09/09/2026):
       # `preci_selftest` (tests/CMakeLists.txt, if(UNIX)) so se registra
@@ -3401,7 +3613,8 @@ jobs:
     name: Sintaxe PowerShell (GATE-PS-SYNTAX, container pwsh)
     runs-on: ubuntu-24.04
     timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -3473,7 +3686,8 @@ jobs:
     name: Windows - Lint (clang-tidy sobre src/)
     runs-on: windows-2025-vs2026
     timeout-minutes: 65  # classe `estatica_windows` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -3596,6 +3810,14 @@ jobs:
           Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $destino 'bin')
           Write-Host "instalado: $binario"
 
+      # EFIC-CI-SELETIVO (E3, D5): a decisao de modo vem do trabalho `mudancas`, baixada antes
+      # do guarda (zona de preparo). Sem contentor: o caminho e' o do executor.
+      - name: Baixar a decisao de modo (mudancas)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mudancas
+          path: ${{ runner.temp }}/ci-mudancas
+
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
       # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
@@ -3658,6 +3880,13 @@ jobs:
           }
           Write-Host "ok: clang-tidy 23.1.6 do LLVM oficial, em $achado"
 
+      # EFIC-CI-SELETIVO (E3, D2): a consulta da File API existe ANTES do configure, para o resolver
+      # ler o codemodel depois de gerar as fontes. So' o resolver a usa, em subconjunto.
+      - name: Consulta da File API (E3)
+        run: |
+          New-Item -ItemType Directory -Force -Path build-lint/.cmake/api/v1/query | Out-Null
+          New-Item -ItemType File -Force -Path build-lint/.cmake/api/v1/query/codemodel-v2 | Out-Null
+
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real
       # dentro - o clang-tidy analisa a partir da base de compilacao, nao
@@ -3689,6 +3918,30 @@ jobs:
             exit 1
           }
           Write-Host "gerado: $gerado"
+
+      # EFIC-CI-SELETIVO (E3, D2, D6): so' em subconjunto. O resolver le o codemodel desta
+      # configuracao e grava a lista de lint. A lista de testes nao e' usada aqui: entra um
+      # inventario vazio, e os testes ficam para o clang. Em completo este passo nao roda.
+      - name: Selecao de lint (E3)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $raiz = $env:GITHUB_WORKSPACE
+          $mud = Join-Path $env:RUNNER_TEMP 'ci-mudancas\mudancas.json'
+          if (-not (Test-Path -LiteralPath $mud)) { Write-Error "FALHOU: mudancas.json ausente em $mud"; exit 1 }
+          $sel = Join-Path $env:RUNNER_TEMP 'ci-selecao'
+          New-Item -ItemType Directory -Force -Path $sel | Out-Null
+          $invVazio = Join-Path $sel 'inventario-vazio.json'
+          [System.IO.File]::WriteAllText($invVazio, '{"tests": []}')
+          & python tools/ci/seletor.py resolver --mudancas $mud --build build-lint --saida-testes (Join-Path $sel 'lista.txt') --saida-lint (Join-Path $sel 'lint.txt') --ctest-json $invVazio --raiz $raiz
+          $rc = $LASTEXITCODE
+          if ($rc -eq 1) {
+            New-Item -ItemType File -Force -Path (Join-Path $sel 'lint.txt') | Out-Null
+            Write-Host 'resolver: sem alvo de lint (rc 1, SemAlvo): lista vazia'
+          } elseif ($rc -ne 0) {
+            Write-Error "FALHOU: resolver rc=$rc"; exit 1
+          }
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- selecao de lint (E3): $((Get-Content -LiteralPath (Join-Path $sel 'lint.txt') | Measure-Object -Line).Lines) arquivo(s) na lista"
 
       # PROVA que o clang-tidy ENXERGA o codigo de Windows (piso de
       # varredura nao-vazia, GODS_LAWS.md L-40) - nao basta o passo
@@ -3762,6 +4015,8 @@ jobs:
       - name: clang-tidy - src/
         id: build
         shell: pwsh
+        env:
+          MODO_LINT: ${{ needs.mudancas.outputs.modo }}
         run: |
           $arquivos = @(git ls-files -- 'src/*.cpp')
           if ($arquivos.Count -eq 0) {
@@ -3939,7 +4194,26 @@ jobs:
           # forma thread-safe por construcao).
           $buildLintPath = (Resolve-Path "build-lint").Path
 
-          $resultados = @($noBanco | ForEach-Object -Parallel {
+          # EFIC-CI-SELETIVO (E3, D6): em subconjunto, o clang-tidy roda so' na interseccao do universo
+          # src/ com a lista de lint do resolver. O piso de varredura acima continua sobre o universo inteiro.
+          $aRodar = @($noBanco)
+          if ($env:MODO_LINT -eq 'subconjunto') {
+            $listaArq = Join-Path $env:RUNNER_TEMP 'ci-selecao\lint.txt'
+            if (-not (Test-Path -LiteralPath $listaArq)) { Write-Error "FALHOU: lista de lint ausente: $listaArq (o passo do resolver nao concluiu)"; exit 1 }
+            $lista = @(Get-Content -LiteralPath $listaArq | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+            foreach ($l in $lista) {
+              if ([System.IO.Path]::IsPathRooted($l) -or $l.Contains('\')) { Write-Error "FALHOU: lista de lint com caminho fora da forma relativa com barra: '$l' (nao se normaliza por palpite, D6)"; exit 1 }
+            }
+            $aRodar = @($noBanco | Where-Object { $lista -contains $_ })
+            $foraDeSrc = @($lista | Where-Object { $arquivos -notcontains $_ })
+            Write-Host "lint: lista $($lista.Count); universo src $($arquivos.Count); a rodar $($aRodar.Count); fora de src $($foraDeSrc.Count)"
+            if ($aRodar.Count -eq 0) {
+              Write-Host "clang-tidy PULADO neste passo: 0 de $($lista.Count) da lista de lint em src/"
+              exit 0
+            }
+          }
+
+          $resultados = @($aRodar | ForEach-Object -Parallel {
             $arquivo = $_
             $buildDir = $using:buildLintPath
             $saida = & clang-tidy -p $buildDir --quiet $arquivo 2>&1
@@ -3958,9 +4232,9 @@ jobs:
           $analisados = $resultados.Count
           $comFalha = @($resultados | Where-Object { $_.Rc -ne 0 } | ForEach-Object { $_.Arquivo })
 
-          Write-Host "Analisados $analisados de $($noBanco.Count) arquivo(s) no banco."
-          if ($analisados -ne $noBanco.Count) {
-            Write-Error "Cobertura perdida: no_banco $($noBanco.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."
+          Write-Host "Analisados $analisados de $($aRodar.Count) arquivo(s) no banco."
+          if ($analisados -ne $aRodar.Count) {
+            Write-Error "Cobertura perdida: no_banco $($aRodar.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."
             exit 1
           }
           if ($comFalha.Count -gt 0) {
@@ -3973,7 +4247,8 @@ jobs:
     name: Sanitizer (Fedora - ASan/UBSan)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
@@ -3987,10 +4262,23 @@ jobs:
       # este job num container fedora:44 isolado, GODS_LAWS.md L-14.
       # Isto e toolchain do ambiente de build, nao dependencia da
       # biblioteca (L-07): nao muda o que glintfx linka em producao.
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel libasan libubsan
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -4027,6 +4315,14 @@ jobs:
       - name: Preparo concluido
         id: prep
         run: echo "preparo concluido"
+
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: o ctest roda dentro do preci.sh, sem lista; a E2 da a lista ao --sanitizer-only)" >> "$GITHUB_STEP_SUMMARY"
 
       # GODS_LAWS.md L-23 portao 2 ("ASan e UBSan a cada fatia fechada").
       # `ctest -L unit` apenas (dentro de tools/preci.sh): os gates de
@@ -4079,14 +4375,28 @@ jobs:
     name: GL-CODEGEN-HOST-TOOL (Fedora - construcao cruzada MinGW, 4 vias)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain (nativo + cruzado MinGW)
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel mingw64-gcc-c++
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -4169,7 +4479,8 @@ jobs:
     name: Windows - Sanitizer (ASan)
     runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -4228,6 +4539,7 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+
       # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
       # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
       # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
@@ -4238,6 +4550,13 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- modo desta perna: completo, declarado (D6: gemeo do sanitizer)"
 
       # -DGLINTFX_SANITIZE=address: o par Windows de
       # -DGLINTFX_SANITIZE=address,undefined do job `sanitizer` (Fedora)
@@ -4353,7 +4672,8 @@ jobs:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
@@ -4370,6 +4690,16 @@ jobs:
       # NAO tem (LABELS consume/selftest) - por isso so este job dentre
       # os quatro "Fedora extra" precisou da linha nova. Mesma medicao
       # de pacote do bloco Fedora do job `linux` acima (dnf, "python3").
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
@@ -4379,11 +4709,13 @@ jobs:
       # 19/09/2026): este job roda `preci.sh --debug-only`, que executa
       # a suite ctest INTEIRA sem filtro `-L unit` (ver comentario logo
       # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
-
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
       # REST API (tarball sem `.git`) - o git deste job vem da lista de
@@ -4417,6 +4749,18 @@ jobs:
       - name: Preparo concluido
         id: prep
         run: echo "preparo concluido"
+
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+
+      # CI-PIN-PKG-B: portao de manifesto Fedora (versoes instaladas = lock da onda), depois do marco prep (G3).
+      - name: Portao de manifesto Fedora (CI-PIN-PKG-B)
+        run: python3 tests/tools/check_wave_manifest.py --slug fedora
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          echo "- modo desta perna: completo, declarado (D6: o ctest roda dentro do preci.sh, sem lista; a E2 da a lista ao --debug-only)" >> "$GITHUB_STEP_SUMMARY"
 
       # GODS_LAWS.md L-40 / TODO.md GATE-DEBUG / DECISOES_AUTONOMAS.md
       # D4: -DCMAKE_BUILD_TYPE=Release (todo OUTRO job desta matriz)
@@ -4475,7 +4819,8 @@ jobs:
     name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
     runs-on: windows-2025-vs2026
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     steps:
       # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
       # 19/09/2026): este job roda a suite ctest INTEIRA sem filtro de
@@ -4541,6 +4886,7 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+
       # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
       # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
       # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
@@ -4551,6 +4897,13 @@ jobs:
       - name: CMake pinado (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1 -VerifyCmake
+
+      # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
+      # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+      - name: Modo desta perna (E3, D6)
+        if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- modo desta perna: completo, declarado (D6: gemeo do debug)"
 
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40), mesma regra de
       # count_real_asserts_in_file/count_product_asserts de tools/
@@ -4755,11 +5108,12 @@ jobs:
     name: Clang (Fedora - segundo compilador, ${{ matrix.modo }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
-    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    if: github.ref_type != 'tag' && needs.mudancas.outputs.modo != 'texto-sem-leitor'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    needs: mudancas
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ci-completo') }}
       matrix:
         include:
           - modo: compartilhado
@@ -4771,10 +5125,23 @@ jobs:
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
     steps:
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain
         run: >-
           dnf -y install clang cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -4799,6 +5166,15 @@ jobs:
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
       # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # EFIC-CI-SELETIVO (E3, D5): a decisao de modo vem do trabalho `mudancas`. O download
+      # fica ANTES do guarda, na zona de preparo (falha de download e de infraestrutura).
+      # Caminho relativo ao workspace: dentro do contentor, ${{ runner.temp }} nao existe.
+      - name: Baixar a decisao de modo (mudancas)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mudancas
+          path: .ci-mudancas
+
       # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
       - name: Guarda de reexecucao (rerun_guard)
         env:
@@ -4815,6 +5191,13 @@ jobs:
       - name: Versao do Clang
         run: clang++ --version
 
+      # EFIC-CI-SELETIVO (E3, D2): a consulta da File API existe ANTES do configure, para o
+      # resolver ler o codemodel depois do build. Barata; so' o resolver a usa em subconjunto.
+      - name: Consulta da File API (E3, ${{ matrix.modo }})
+        run: |
+          mkdir -p "${{ matrix.builddir }}/.cmake/api/v1/query"
+          touch "${{ matrix.builddir }}/.cmake/api/v1/query/codemodel-v2"
+
       - name: Build (${{ matrix.modo }})
         id: build
         run: |
@@ -4822,6 +5205,36 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
+
+      # EFIC-CI-SELETIVO (E3, D2, D5, D6): so' em subconjunto. A lista vem do resolver
+      # (tools/ci/seletor.py) e e' conferida pelo conferir_lista.py antes do ctest. Em
+      # completo este passo nao roda e o ctest roda a suite inteira, como antes.
+      - name: Selecao de testes (E3, ${{ matrix.modo }})
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && needs.mudancas.outputs.modo == 'subconjunto' }}
+        env:
+          ORACULO: ${{ matrix.oracle_flag }}
+        run: |
+          set -eu
+          raiz="$GITHUB_WORKSPACE"
+          mud="$raiz/.ci-mudancas/mudancas.json"
+          sel="$RUNNER_TEMP/ci-selecao"
+          mkdir -p "$sel"
+          test -f "$mud" || { echo "FALHOU: mudancas.json ausente em $mud" >&2; exit 1; }
+          ctest --version | head -n 1
+          ctest --test-dir "${{ matrix.builddir }}" --show-only=json-v1 > "$sel/inventario.json"
+          rc=0
+          python3 tools/ci/seletor.py resolver --mudancas "$mud" --build "$raiz/${{ matrix.builddir }}" --saida-testes "$sel/lista.txt" --saida-lint "$sel/lint.txt" --ctest-json "$sel/inventario.json" --raiz "$raiz" || rc=$?
+          case "$rc" in
+            0) ;;
+            1) : > "$sel/lista.txt"; : > "$sel/lint.txt"; echo "resolver: sem alvo de teste nem de lint (rc 1, SemAlvo): lista vazia" ;;
+            *) echo "FALHOU: resolver rc=$rc" >&2; exit 1 ;;
+          esac
+          ctest --test-dir "${{ matrix.builddir }}" --show-only=json-v1 --tests-from-file "$sel/lista.txt" > "$sel/selecao.json"
+          python3 tools/ci/conferir_lista.py --lista "$sel/lista.txt" --inventario "$sel/inventario.json" --universo "$sel/inventario.json" --selecao "$sel/selecao.json" --saida-veredito "$sel/veredito.txt"
+          echo "- selecao de testes (E3, ${{ matrix.modo }}): veredito $(cat "$sel/veredito.txt")" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$ORACULO" ]; then
+            echo "- relatorio do oraculo de camadas: so' em completo neste envio (declarado, D6)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # REBAIXAMENTO REMOVIDO em 22/09/2026 (TODO.md CLANG-INSTALL-
       # LAYOUT-ARCH, CLANG-PKGCONFIG-PROBE, CLANG-PUBLIC-NAME-
@@ -4887,10 +5300,21 @@ jobs:
       # perdida por `set -e` abortando a linha.
       - name: ctest (${{ matrix.modo }})
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          MODO: ${{ needs.mudancas.outputs.modo }}
         run: |
           set -eux
           set +e
-          ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          if [ "$MODO" = "subconjunto" ]; then
+            veredito="$(cat "$RUNNER_TEMP/ci-selecao/veredito.txt" 2>/dev/null || echo ausente)"
+            case "$veredito" in
+              rodar) ctest --test-dir ${{ matrix.builddir }} --output-on-failure --tests-from-file "$RUNNER_TEMP/ci-selecao/lista.txt" --no-tests=error ;;
+              pular) echo "ctest PULADO neste passo (veredito pular: a linha de conferencia esta acima)"; exit 0 ;;
+              *) echo "FALHOU: veredito '$veredito' (o passo de selecao nao concluiu)" >&2; exit 1 ;;
+            esac
+          else
+            ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          fi
           ctest_ec=$?
           set -e
           cp "${{ matrix.builddir }}/Testing/Temporary/LastTest.log" "${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
@@ -4900,7 +5324,7 @@ jobs:
       # snapshot tirado pelo passo acima, nunca re-roda o oraculo. So'
       # roda na perna compartilhada (`oracle_flag` ligado).
       - name: Relatorio do oraculo de camadas (${{ matrix.modo }})
-        if: always() && matrix.oracle_flag != ''
+        if: always() && matrix.oracle_flag != '' && needs.mudancas.outputs.modo != 'subconjunto'
         run: |
           set -eu
           log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
@@ -4922,7 +5346,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
-        if: always() && matrix.oracle_flag != ''
+        if: always() && matrix.oracle_flag != '' && needs.mudancas.outputs.modo != 'subconjunto'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: layers-oracle-report-clang-${{ strategy.job-index }}
@@ -4944,8 +5368,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      # CI-PIN-PKG-A (D-W8-2091): release oficial com versao e sha256 fixos
+      # (tools/ci/wave-stamp.env), no lugar do `apt-get install gitleaks`.
+      # O apt do executor entregava a 8.16.0 (medido na run 46013948697);
+      # o pinado e' a 8.30.1, a mesma do binario local, para o scan ser da
+      # mesma ferramenta. `sha256sum -c` confere ANTES de instalar.
       - name: Instalar gitleaks
-        run: sudo apt-get update && sudo apt-get install -y gitleaks
+        run: |
+          set -eu
+          . tools/ci/wave-stamp.env
+          tmp="$RUNNER_TEMP/gitleaks"
+          mkdir -p "$tmp"
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL "$url" -o "$tmp/gitleaks.tar.gz"
+          echo "${GITLEAKS_SHA256}  $tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$tmp/gitleaks.tar.gz" -C "$tmp" gitleaks
+          sudo install -m 0755 "$tmp/gitleaks" /usr/local/bin/gitleaks
+          gitleaks version
 
       # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
       # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
@@ -5106,3 +5545,101 @@ jobs:
 
       - name: check_version_matches_tag.py
         run: python3 tests/tools/check_version_matches_tag.py .
+
+  # CI-PIN-PKG-B (D-W8-2090, ordem do CTO, item 3): gera o lock dos pacotes Fedora da onda. Roda SO no disparo
+  # manual (`workflow_dispatch`): instala numa imagem viva a UNIAO dos pontos de instalacao Fedora (lida de
+  # tools/ci/env/lock/uniao_fedora.py, nunca copiada a mao), trava cada pacote na versao instalada com o dnf5
+  # (`versionlock add`) e sobe o lock como artifact. NAO escreve no repositorio: quem baixa o artifact commita o
+  # lock. Fora do disparo o job sai `skipped`, e tools/ci/ci_verde_completo.py o aceita como excecao declarada
+  # (como o trabalho de etiqueta). Imagem: a MESMA fixada pelo digest nos outros jobs Fedora.
+  fedora-lock:
+    name: Gera o lock Fedora da onda (CI-PIN-PKG-B)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A4 (D-A4): rerun_guard antes do marco prep (G6), como nos demais trabalhos. Sem `needs:`.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
+      # Marco `id: prep` (G3): so' echo; o job nao tem preparo a separar, mas o portao exige o marco.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
+      - name: Uniao dos pacotes Fedora (dos pontos de instalacao)
+        run: |
+          set -eu
+          python3 tools/ci/env/lock/uniao_fedora.py > "$RUNNER_TEMP/uniao.txt"
+          echo "uniao: $(wc -l < "$RUNNER_TEMP/uniao.txt") pacote(s)"
+
+      - name: Instala a uniao numa imagem viva e trava as versoes
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/saida"
+          docker run --rm --pull=missing --network=default \
+            -v "$PWD/tools/ci/env/lock:/lock:ro,z" \
+            -v "$RUNNER_TEMP/uniao.txt:/entrada/uniao.txt:ro,z" \
+            -v "$RUNNER_TEMP/saida:/saida:z" \
+            fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c \
+            sh /lock/gerar_fedora_lock.sh /entrada/uniao.txt /saida
+
+      - name: Sobe o lock e o inventario como artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fedora-versionlock
+          path: ${{ runner.temp }}/saida/
+          if-no-files-found: error
+          retention-days: 30
+
+  # CI-PIN-PKG-C (D-W8-2094, opcao (d), ordem do CTO em .trabalho/cto-w8/decisao-ci-pin-pacotes.md, item 4): gera o
+  # repositorio local dos pacotes CachyOS da onda. Roda SO no disparo manual (`workflow_dispatch`): baixa, numa imagem
+  # CachyOS viva e com digest fixado, o fecho da lista de hoje para um cache limpo, monta o banco com repo-add e sobe
+  # um unico .tar como artifact com retention-days 90. NAO escreve no repositorio: quem baixa o artifact e commita o
+  # run-id em tools/ci/wave-stamp.env. Fora do disparo o job sai `skipped`, aceito como excecao declarada em
+  # tools/ci/ci_verde_completo.py (como os trabalhos de etiqueta e o fedora-lock).
+  cachyos-repo-gerar:
+    name: Gera o repositorio CachyOS da onda (CI-PIN-PKG-C)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A4 (D-A4): rerun_guard antes do marco prep (G6), como nos demais trabalhos. Sem `needs:`.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
+      # Marco `id: prep` (G3): so' echo; o job nao tem preparo a separar, mas o portao exige o marco.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
+      - name: Gera o repositorio CachyOS numa imagem viva
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/saida"
+          docker run --rm --pull=missing --network=default \
+            -v "$PWD/tools/ci/env:/env:ro,z" \
+            -v "$PWD/tools/ci/env/lock:/lock:ro,z" \
+            -v "$PWD/tests/tools:/testes:ro,z" \
+            -v "$RUNNER_TEMP/saida:/saida:z" \
+            cachyos/cachyos:latest@sha256:8d6a83bd74bb39298cbb4fc9de3151bc2870408f37e5ecd86569e2018b47a180 \
+            sh /lock/gerar_cachyos_repo.sh /env /saida /testes
+
+      - name: Sobe o repositorio CachyOS da onda como artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cachyos-repo-onda
+          # So a pasta publicar/ sobe: o cache do fecho (trabalho/) tem os 35 do Arch e nunca vai ao artifact.
+          path: ${{ runner.temp }}/saida/publicar/
+          if-no-files-found: error
+          retention-days: 90

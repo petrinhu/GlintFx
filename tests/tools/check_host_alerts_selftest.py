@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import types
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
@@ -160,7 +161,8 @@ PIPE = "|/usr/lib/systemd/systemd-coredump %P %u %g %s %t %c %h %d %F\n"
 def facts_of(enforce, pattern, run=READABLE, pidns=None):
     root = fake_root(enforce, pattern, pidns)
     try:
-        return quiet(lambda: gate.host_facts(root, run))
+        # declarado vazio: a variavel GLINTFX_CGROUP_EXCLUSIVO do espelho nao vaza para o hospedeiro de mentira
+        return quiet(lambda: gate.host_facts(root, run, ""))
     finally:
         shutil.rmtree(root)
 
@@ -228,7 +230,7 @@ OUR_AVC = {"MESSAGE": "avc:  denied { write } for pid=42 comm=\"sh\" "
 CEILING_FORMAT = "{{.HostConfig.PidsLimit}} {{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}"
 CEILING = "128 2147483648 2147483648"
 CEILING_ARGS = ["--pids-limit", "128", "--memory", "2147483648", "--memory-swap", "2147483648"]
-SCENE = {"host_rc": 0, "create_rc": 0, "label": "system_u:system_r:container_t:" + OURS,
+SCENE = {"leaf": "", "dump_ts": "", "host_rc": 0, "create_rc": 0, "label": "system_u:system_r:container_t:" + OURS,
          "ceiling": CEILING,
          "extra_mount": "", "raise": {}, "after": {}, "our_dump": False,
          "window": {"_TRANSPORT=audit": [AUDIT_BPF], "_TRANSPORT=kernel": [KERNEL_VETH]}}
@@ -287,8 +289,9 @@ class FakeHost:
         records = list(self.scene["window"].get(wanted, []))
         if wanted == f"MESSAGE_ID={gate.COREDUMP_MESSAGE_ID}" and self.scene["our_dump"]:
             records.append({"MESSAGE_ID": gate.COREDUMP_MESSAGE_ID, "COREDUMP_CMDLINE": "sh",
-                            "COREDUMP_CGROUP": APP + self.unit + ".scope",
-                            "COREDUMP_SIGNAL_NAME": "SIGSEGV"})
+                            "COREDUMP_CGROUP": APP + (self.scene["leaf"] or self.unit + ".scope"),
+                            "COREDUMP_SIGNAL_NAME": "SIGSEGV",
+                            "COREDUMP_TIMESTAMP": self.scene["dump_ts"]})
         return "".join(json.dumps(r) + "\n" for r in records)
 
 
@@ -333,7 +336,7 @@ def lived(enforce, pattern, pidns=None, **scene):
     host, out = FakeHost(repo, **scene), io.StringIO()
     try:
         with no_real_process(), redirect_stdout(out):
-            rc = gate.live(repo, "python3", host, lambda _seconds: None, root)
+            rc = gate.live(repo, "python3", host, lambda _seconds: None, root, "")
         return rc, host.calls, out.getvalue()
     finally:
         shutil.rmtree(repo)
@@ -485,7 +488,100 @@ def cells():
          printed_counts(avcs, dumps, OURS, OWN_SCOPE, "abc") == [
              "avc: lidos=3 nossos=1 alheios=1 nao_atribuiveis=1",
              "coredump: lidos=3 nossos=1 alheios=2"]),
-    ] + fix1_cells() + fix2_cells() + measure_cells() + live_cells() + container_cells()
+    ] + fix1_cells() + fix2_cells() + measure_cells() + live_cells() + container_cells() + heranca_cells()
+
+
+
+# --- HERDA (D-A da decisao do CTO, 26/11/2026): o portao herda o escopo da fila ---
+# Cada celula escreve o veredito da regra da ordem 2, nunca o le da saida do portao.
+PESADO_LEAF = "pesado-00000593-1901020.scope"
+PESADO = APP + PESADO_LEAF
+TAB_LEAF = "tab(912734).scope"
+TAB = APP + TAB_LEAF
+
+
+def fake_cgroup(root, caminho, pids, mem):
+    """Um /proc/self/cgroup e um /sys/fs/cgroup de mentira com o caminho e os tetos dados."""
+    (root / "proc/self").mkdir(parents=True, exist_ok=True)
+    (root / "proc/self/cgroup").write_text(f"0::{caminho}\n")
+    base = root / "sys/fs/cgroup" / caminho.lstrip("/")
+    base.mkdir(parents=True, exist_ok=True)
+    (base / "pids.max").write_text(f"{pids}\n")
+    (base / "memory.max").write_text(f"{mem}\n")
+    return root
+
+
+SEM_SCOPE = FakeRun({"journalctl": (0, ONE), "docker": (0, ""), "systemd-run": (1, "")})
+
+
+def heranca_facts(caminho, pids="400", mem="8589934592", declarado=None, run=READABLE):
+    """Fatos de um hospedeiro com core dump aplicavel (core_pattern do systemd) e o cgroup dado."""
+    root = fake_cgroup(Path(tempfile.mkdtemp(prefix="glintfx-heranca-")), caminho, pids, mem)
+    (root / "proc/sys/kernel").mkdir(parents=True)
+    (root / "proc/sys/kernel/core_pattern").write_text(PIPE)
+    try:
+        return quiet(lambda: gate.host_facts(root, run, declarado=(
+            caminho if declarado is None else declarado)))
+    finally:
+        shutil.rmtree(root)
+
+
+def measured_heranca(facts_obj, **scene):
+    repo, out = fake_repo(), io.StringIO()
+    host = FakeHost(repo, **scene)
+    try:
+        with no_real_process(), redirect_stdout(out):
+            rc = gate.measure(repo, "python3", facts_obj, host, lambda _seconds: None)
+        return rc, host, out.getvalue()
+    finally:
+        shutil.rmtree(repo)
+
+
+def heranca_facts_obj(folha=PESADO_LEAF):
+    return gate.HostFacts(selinux_enabled=False, core_pipe_to_systemd=True, docker_cli=False,
+                          docker_image=False, audit_readable=False, system_journal_readable=True,
+                          user_scope=False, initial_pid_namespace=True, heranca=folha,
+                          heranca_motivo="pids.max=400 memory.max=8589934592")
+
+
+def heranca_cells():
+    """Uma excecao vira celula vermelha com o motivo, nunca derruba a tabela inteira."""
+    try:
+        return _heranca_cells()
+    except Exception as error:  # noqa: BLE001 - a celula reprova e diz por que
+        print(f"check_host_alerts_selftest: excecao nas celulas de heranca: {type(error).__name__}: {error}")
+        return [("H0 heranca: a medicao nao rodou", False)]
+
+
+def _heranca_cells():
+    antes = str(int((time.time() - 100) * 1e6))  # COREDUMP_TIMESTAMP em microssegundos
+    dentro = str(int(time.time() * 1e6))
+    # (a) herda: sem systemd-run; o nosso e o da folha herdada (rc 1); o alheio da fila nao conta (rc 0)
+    rc_a, host_a, _ = measured_heranca(heranca_facts_obj(), our_dump=True, leaf=PESADO_LEAF, dump_ts=dentro)
+    rc_a_alheio, _, _ = measured_heranca(heranca_facts_obj(), our_dump=True,
+                                         leaf="pesado-00000071-1168302.scope", dump_ts=dentro)
+    # (e) herdado, morte antes da janela: rc 1, e a linha diz que morreu antes da janela
+    rc_e, _, out_e = measured_heranca(heranca_facts_obj(), our_dump=True, leaf=PESADO_LEAF, dump_ts=antes)
+    cells_out = [
+        ("H1 (a) herda: o selftest roda sem systemd-run", "systemd-run" not in host_a.calls),
+        ("H2 (a) core dump da folha herdada reprova (rc 1)", rc_a == 1),
+        ("H3 (a) core dump de outra pesado-*.scope e alheio (rc 0)", rc_a_alheio == 0),
+        ("H4 (e) morte antes da janela continua reprovando e a linha diz 'morto antes da janela'",
+         rc_e == 1 and "morto antes da janela" in out_e),
+    ]
+    # (b) declaracao diferente do caminho lido, sem systemd-run: plan reprova (1)
+    f_b = heranca_facts(PESADO, declarado=APP + "outro.scope", run=SEM_SCOPE)
+    cells_out.append(("H5 (b) declaracao diferente do cgroup lido: sem heranca, plan reprova",
+                      f_b.heranca == "" and gate.plan(f_b)[0] == "reprovar"))
+    # (c) folha tab(N).scope com max/max, declaracao igual: nao herda; sem systemd-run, reprova
+    f_c = heranca_facts(TAB, pids="max", mem="max", run=SEM_SCOPE)
+    cells_out.append(("H6 (c) teto max/max na folha tab(N).scope: nao herda, reprova",
+                      f_c.heranca == "" and gate.plan(f_c)[0] == "reprovar"))
+    # (d) variavel vazia: heranca nenhuma, e o caminho de hoje (systemd-run) segue valendo
+    f_d = heranca_facts(PESADO, declarado="")
+    cells_out.append(("H7 (d) variavel vazia: sem heranca, e com systemd-run o plano mede",
+                      f_d.heranca == "" and f_d.user_scope and gate.plan(f_d)[0] == "medir"))
+    return cells_out
 
 
 def main(argv: list[str]) -> int:
@@ -505,3 +601,4 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
+

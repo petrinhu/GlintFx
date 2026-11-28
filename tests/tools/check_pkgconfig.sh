@@ -999,6 +999,12 @@ main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
+    # E2c (TMPDIR-NA-ARVORE): se o rascunho cai dentro da fonte, a configuracao segue pela copia
+    # que source_snapshot.py faz dentro do rascunho. A falha do auxiliar reprova, nunca pula.
+    snapshot_dir="$(cd "$(dirname "$0")" && pwd)"
+    glintfx_src="$("${GLINTFX_PYTHON3:-python3}" "$snapshot_dir/source_snapshot.py" resolve "$glintfx_src" "$scratch")" \
+        || fail "fonte para o rascunho nao resolvida (source_snapshot.py recusou; ver a mensagem acima)"
+
     # PERF-PKGCONFIG: ONE shared build dir for the four scenarios that
     # only ever vary install-time layout with an EXPLICIT
     # CMAKE_INSTALL_LIBDIR, reused via reconfigure; ONE dedicated build

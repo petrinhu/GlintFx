@@ -1,0 +1,7582 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Lock dos pacotes Fedora da onda (CI-PIN-PKG-B). Gerado pelo job fedora-lock, run 46153216370; so o cabecalho SPDX foi acrescentado.
+version = "1.0"
+
+[[packages]]
+name = "7zip"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.06-1.fc45"
+
+[[packages]]
+name = "ModemManager-glib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.24.2-5.fc45"
+
+[[packages]]
+name = "R-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.7-3.fc45"
+
+[[packages]]
+name = "SDL3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.4.20-1.fc45"
+
+[[packages]]
+name = "abattis-cantarell-vf-fonts"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.301-18.fc45"
+
+[[packages]]
+name = "abseil-cpp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20260526.0-3.fc45"
+
+[[packages]]
+name = "add-determinism"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.3-3.fc45"
+
+[[packages]]
+name = "adwaita-cursor-theme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "51.0-1.fc45"
+
+[[packages]]
+name = "adwaita-icon-theme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "51.0-1.fc45"
+
+[[packages]]
+name = "adwaita-icon-theme-legacy"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "46.2-12.fc45"
+
+[[packages]]
+name = "adwaita-mono-fonts"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "51.0-1.fc45"
+
+[[packages]]
+name = "adwaita-sans-fonts"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "51.0-1.fc45"
+
+[[packages]]
+name = "alsa-lib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.16.1-2.fc45"
+
+[[packages]]
+name = "alternatives"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.33-6.fc45"
+
+[[packages]]
+name = "annobin-docs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "13.28-1.fc45"
+
+[[packages]]
+name = "annobin-plugin-gcc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "13.28-1.fc45"
+
+[[packages]]
+name = "ansible-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1-22.fc45"
+
+[[packages]]
+name = "aribb24"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.3^20160216git5e9be27-6.fc45"
+
+[[packages]]
+name = "assimp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.0.6-1.fc45"
+
+[[packages]]
+name = "at-spi2-atk"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.62.2-1.fc45"
+
+[[packages]]
+name = "at-spi2-core"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.62.2-1.fc45"
+
+[[packages]]
+name = "atk"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.62.2-1.fc45"
+
+[[packages]]
+name = "audit-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.2.1-2.fc45"
+
+[[packages]]
+name = "aurorae"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "authselect"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.0-1.fc45"
+
+[[packages]]
+name = "authselect-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.0-1.fc45"
+
+[[packages]]
+name = "avahi"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.9~rc2-9.fc45"
+
+[[packages]]
+name = "avahi-glib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.9~rc2-9.fc45"
+
+[[packages]]
+name = "avahi-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.9~rc2-9.fc45"
+
+[[packages]]
+name = "bash"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.3.15-2.fc45"
+
+[[packages]]
+name = "bat"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.26.1-4.fc45"
+
+[[packages]]
+name = "binutils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.47-1.fc45"
+
+[[packages]]
+name = "bluez-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.88-1.fc45"
+
+[[packages]]
+name = "breeze-icon-theme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "btrfs-progs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "7.1-1.fc45"
+
+[[packages]]
+name = "bubblewrap"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.13.1-1.fc45"
+
+[[packages]]
+name = "build-reproducibility-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.3-3.fc45"
+
+[[packages]]
+name = "bzip2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.8-24.fc45"
+
+[[packages]]
+name = "bzip2-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.8-24.fc45"
+
+[[packages]]
+name = "ca-certificates"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2026.2.92_v9.0.319-2.fc45"
+
+[[packages]]
+name = "cairo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.18.6-1.fc45"
+
+[[packages]]
+name = "cairo-gobject"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.18.6-1.fc45"
+
+[[packages]]
+name = "cdparanoia-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "10.2-51.fc45"
+
+[[packages]]
+name = "cjson"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.7.19-2.fc45"
+
+[[packages]]
+name = "clang"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "clang-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "clang-resource-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "clang-tools-extra"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "cmake"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3.0-7.fc45"
+
+[[packages]]
+name = "cmake-data"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3.0-7.fc45"
+
+[[packages]]
+name = "cmake-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3.0-7.fc45"
+
+[[packages]]
+name = "cmake-rpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3.0-7.fc45"
+
+[[packages]]
+name = "cmake-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3.0-7.fc45"
+
+[[packages]]
+name = "codec2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.0-10.fc45"
+
+[[packages]]
+name = "colord-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.8-5.fc45"
+
+[[packages]]
+name = "compiler-rt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "coreutils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.11-6.fc45"
+
+[[packages]]
+name = "coreutils-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.11-6.fc45"
+
+[[packages]]
+name = "cpp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "cppcheck"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.22.0-1.fc45"
+
+[[packages]]
+name = "cracklib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.10.3-2.fc45"
+
+[[packages]]
+name = "crypto-policies"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20260713-2.gitc42da77.fc45"
+
+[[packages]]
+name = "cryptsetup-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.8.9-1.fc45"
+
+[[packages]]
+name = "cups-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:2.4.19-4.fc45"
+
+[[packages]]
+name = "cups-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:2.4.19-4.fc45"
+
+[[packages]]
+name = "curl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "8.21.0-8.fc45"
+
+[[packages]]
+name = "cyrus-sasl-lib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.1.28-37.fc45"
+
+[[packages]]
+name = "dbus"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.16.4-2.fc45"
+
+[[packages]]
+name = "dbus-broker"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "37-9.fc45"
+
+[[packages]]
+name = "dbus-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.16.4-2.fc45"
+
+[[packages]]
+name = "dbus-daemon"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.16.4-2.fc45"
+
+[[packages]]
+name = "dbus-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.16.4-2.fc45"
+
+[[packages]]
+name = "dbus-tools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.16.4-2.fc45"
+
+[[packages]]
+name = "dconf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "51.0-1.fc45"
+
+[[packages]]
+name = "default-fonts-core-sans"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3-3.fc45"
+
+[[packages]]
+name = "device-mapper"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.02.217-2.fc45"
+
+[[packages]]
+name = "device-mapper-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.02.217-2.fc45"
+
+[[packages]]
+name = "diffutils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.12-6.fc45"
+
+[[packages]]
+name = "dnf5"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.4.6.0-3.fc45"
+
+[[packages]]
+name = "dnf5-plugins"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.4.6.0-3.fc45"
+
+[[packages]]
+name = "docbook-dtds"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0-93.fc45"
+
+[[packages]]
+name = "docbook-style-xsl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.79.2-29.fc45"
+
+[[packages]]
+name = "dosfstools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.2-19.fc45"
+
+[[packages]]
+name = "double-conversion"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.4.0-4.fc45"
+
+[[packages]]
+name = "duktape"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.7.0-12.fc45"
+
+[[packages]]
+name = "dwz"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.17-3.fc45"
+
+[[packages]]
+name = "e2fsprogs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.47.4-2.fc45"
+
+[[packages]]
+name = "e2fsprogs-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.47.4-2.fc45"
+
+[[packages]]
+name = "efi-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6-9.fc45"
+
+[[packages]]
+name = "elfutils-debuginfod-client"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.197-1.fc45"
+
+[[packages]]
+name = "elfutils-libelf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.197-1.fc45"
+
+[[packages]]
+name = "elfutils-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.197-1.fc45"
+
+[[packages]]
+name = "emacs-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:30.2-3.fc45"
+
+[[packages]]
+name = "erlang-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.2-1.fc45"
+
+[[packages]]
+name = "exempi"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.6.4-10.fc45"
+
+[[packages]]
+name = "exfatprogs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.5-1.fc45"
+
+[[packages]]
+name = "exiv2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.28.9-1.fc45"
+
+[[packages]]
+name = "exiv2-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.28.9-1.fc45"
+
+[[packages]]
+name = "expat"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.9.0-1.fc45"
+
+[[packages]]
+name = "f2fs-tools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.16.0-11.fc45"
+
+[[packages]]
+name = "fdk-aac-free"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.0.3-3.fc45"
+
+[[packages]]
+name = "fedora-gpg-keys"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "45-1"
+
+[[packages]]
+name = "fedora-logos"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "42.0.1-6.fc45"
+
+[[packages]]
+name = "fedora-release-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "45-14"
+
+[[packages]]
+name = "fedora-release-container"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "45-14"
+
+[[packages]]
+name = "fedora-release-identity-container"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "45-14"
+
+[[packages]]
+name = "fedora-repos"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "45-1"
+
+[[packages]]
+name = "fftw-libs-single"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.3.10-18.fc45"
+
+[[packages]]
+name = "file"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.48-3.fc45"
+
+[[packages]]
+name = "file-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.48-3.fc45"
+
+[[packages]]
+name = "filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.18-59.fc45"
+
+[[packages]]
+name = "filesystem-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.18-59.fc45"
+
+[[packages]]
+name = "findutils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:4.11.0-2.fc45"
+
+[[packages]]
+name = "fips-provider"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.3-2.fc45"
+
+[[packages]]
+name = "flac-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.0-9.fc45"
+
+[[packages]]
+name = "fmt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "12.1.0-3.fc45"
+
+[[packages]]
+name = "fontconfig"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.18.3-2.fc45"
+
+[[packages]]
+name = "fonts-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:5.0.0-4.fc45"
+
+[[packages]]
+name = "fonts-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:5.0.0-4.fc45"
+
+[[packages]]
+name = "forge-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.0-5.fc45"
+
+[[packages]]
+name = "fpc-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3-17.fc45"
+
+[[packages]]
+name = "freetype"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.14.3-3.fc45"
+
+[[packages]]
+name = "fribidi"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.18-1.fc45"
+
+[[packages]]
+name = "fuse-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.18.3-1.fc45"
+
+[[packages]]
+name = "fuse3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.18.3-1.fc45"
+
+[[packages]]
+name = "fuse3-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.18.3-1.fc45"
+
+[[packages]]
+name = "game-music-emu"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.6.5-2.fc45"
+
+[[packages]]
+name = "gap-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2-3.fc45"
+
+[[packages]]
+name = "gawk"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.4.1-1.fc45"
+
+[[packages]]
+name = "gcc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "gcc-c++"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "gcc-plugin-annobin"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "gcr-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.4.1-1.fc45"
+
+[[packages]]
+name = "gdbm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.23-12.fc45"
+
+[[packages]]
+name = "gdbm-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.23-12.fc45"
+
+[[packages]]
+name = "gdk-pixbuf2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.44.8-3.fc45"
+
+[[packages]]
+name = "geoclue2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.8.2-2.fc45"
+
+[[packages]]
+name = "ghc-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.10-2.fc45"
+
+[[packages]]
+name = "giflib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.1.3-3.fc45"
+
+[[packages]]
+name = "git"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.56.1-1.fc45"
+
+[[packages]]
+name = "git-core"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.56.1-1.fc45"
+
+[[packages]]
+name = "git-core-doc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.56.1-1.fc45"
+
+[[packages]]
+name = "glib-networking"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.90.1-1.fc45"
+
+[[packages]]
+name = "glib2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.90.1-1.fc45"
+
+[[packages]]
+name = "glibc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.44-2.fc45"
+
+[[packages]]
+name = "glibc-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.44-2.fc45"
+
+[[packages]]
+name = "glibc-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.44-2.fc45"
+
+[[packages]]
+name = "glibc-gconv-extra"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.44-2.fc45"
+
+[[packages]]
+name = "glibc-minimal-langpack"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.44-2.fc45"
+
+[[packages]]
+name = "glx-utils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.0.0-12.fc45"
+
+[[packages]]
+name = "glycin-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.2.6-1.fc45"
+
+[[packages]]
+name = "glycin-loaders"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.2.6-1.fc45"
+
+[[packages]]
+name = "gmp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:6.3.0-6.fc45"
+
+[[packages]]
+name = "gnat-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "7-3.fc45"
+
+[[packages]]
+name = "gnome-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0-2.fc45"
+
+[[packages]]
+name = "gnulib-l10n"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20241231-4.fc45"
+
+[[packages]]
+name = "gnupg2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.9-18.fc45"
+
+[[packages]]
+name = "gnupg2-dirmngr"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.9-18.fc45"
+
+[[packages]]
+name = "gnupg2-gpg-agent"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.9-18.fc45"
+
+[[packages]]
+name = "gnupg2-gpgconf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.9-18.fc45"
+
+[[packages]]
+name = "gnupg2-keyboxd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.9-18.fc45"
+
+[[packages]]
+name = "gnupg2-verify"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.9-18.fc45"
+
+[[packages]]
+name = "gnutls"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.8.13-3.fc45"
+
+[[packages]]
+name = "go-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.8.0-3.fc45"
+
+[[packages]]
+name = "gobject-introspection"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.86.0-11.fc45"
+
+[[packages]]
+name = "google-noto-fonts-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20260601-3.fc45"
+
+[[packages]]
+name = "google-noto-sans-vf-fonts"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20260601-3.fc45"
+
+[[packages]]
+name = "gpgme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.0.1-6.fc45"
+
+[[packages]]
+name = "gpgmepp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:2.0.0-2.fc45"
+
+[[packages]]
+name = "gpgverify"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.2-5.fc45"
+
+[[packages]]
+name = "graphene"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.10.8-6.fc45"
+
+[[packages]]
+name = "graphite2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.14-22.fc45"
+
+[[packages]]
+name = "grep"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.12-4.fc45"
+
+[[packages]]
+name = "groff-base"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.24.1-2.fc45"
+
+[[packages]]
+name = "gsettings-desktop-schemas"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "51.0-1.fc45"
+
+[[packages]]
+name = "gsm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.24-3.fc45"
+
+[[packages]]
+name = "gssdp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.6-3.fc45"
+
+[[packages]]
+name = "gstreamer1"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.28.9-1.fc45"
+
+[[packages]]
+name = "gstreamer1-plugins-bad-free-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.28.9-1.fc45"
+
+[[packages]]
+name = "gstreamer1-plugins-base"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.28.9-1.fc45"
+
+[[packages]]
+name = "gtk-update-icon-cache"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.24.52-6.fc45"
+
+[[packages]]
+name = "gtk3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.24.52-6.fc45"
+
+[[packages]]
+name = "gupnp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.10-4.fc45"
+
+[[packages]]
+name = "gupnp-igd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.0-15.fc45"
+
+[[packages]]
+name = "gzip"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.14-4.fc45"
+
+[[packages]]
+name = "harfbuzz"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "15.0.0-2.fc45"
+
+[[packages]]
+name = "hicolor-icon-theme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.18-6.fc45"
+
+[[packages]]
+name = "highway"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.0-3.fc45"
+
+[[packages]]
+name = "hwdata"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.413-1.fc45"
+
+[[packages]]
+name = "icu-tzdata"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2026f-1.fc45"
+
+[[packages]]
+name = "iio-sensor-proxy"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.9-3.fc45"
+
+[[packages]]
+name = "ilbc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.0.4-21.fc45"
+
+[[packages]]
+name = "ima-evm-utils-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.2-12.fc45"
+
+[[packages]]
+name = "imath"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.1.12-9.fc45"
+
+[[packages]]
+name = "inih"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "62-3.fc45"
+
+[[packages]]
+name = "inih-cpp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "62-3.fc45"
+
+[[packages]]
+name = "intel-mediasdk"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.2.2-12.fc45"
+
+[[packages]]
+name = "intel-vpl-gpu-rt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.3.4-1.fc45"
+
+[[packages]]
+name = "iproute"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "7.0.0-2.fc45"
+
+[[packages]]
+name = "iso-codes"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.20.1-4.fc45"
+
+[[packages]]
+name = "jansson"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.14-5.fc45"
+
+[[packages]]
+name = "java-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1-9.fc45"
+
+[[packages]]
+name = "jbigkit-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.1-34.fc45"
+
+[[packages]]
+name = "json-c"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.18-9.fc45"
+
+[[packages]]
+name = "json-glib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.10.8-11.fc45"
+
+[[packages]]
+name = "jsoncpp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.9.6-3.fc44"
+
+[[packages]]
+name = "kbd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.10.0-3.fc45"
+
+[[packages]]
+name = "kbd-legacy"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.10.0-3.fc45"
+
+[[packages]]
+name = "kbd-misc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.10.0-3.fc45"
+
+[[packages]]
+name = "kde-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5-8.fc45"
+
+[[packages]]
+name = "kdecoration"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "kdsoap-ws-discovery-client"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.0-7.fc45"
+
+[[packages]]
+name = "kdsoap6"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.2.0-10.fc45"
+
+[[packages]]
+name = "kernel-headers"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "7.3.3-300.fc45"
+
+[[packages]]
+name = "kernel-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0-30.fc45"
+
+[[packages]]
+name = "keyutils-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.3-8.fc45"
+
+[[packages]]
+name = "kf6-attica"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-breeze-icons"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-karchive"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kauth"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kbookmarks"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kcmutils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kcodecs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kcolorscheme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kcompletion"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kconfig"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kconfigwidgets"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kcoreaddons"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kcrash"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kdbusaddons"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kdeclarative"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kdnssd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kdoctools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kglobalaccel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kguiaddons"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kholidays"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-ki18n"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kiconthemes"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kidletime"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kidletime-x11"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kio-core"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kio-core-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kio-doc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kio-file-widgets"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kio-gui"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kio-widgets"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kio-widgets-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kirigami"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kitemmodels"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kitemviews"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kjobwidgets"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-knewstuff"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-knotifications"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kpackage"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-krunner"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kservice"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-ksvg"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kwallet"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kwallet-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kwidgetsaddons"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kwindowsystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-kxmlgui"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-solid"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-syndication"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kf6-syntax-highlighting"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.32.0-1.fc45"
+
+[[packages]]
+name = "kglobalacceld"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "kio-extras"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.08.3-1.fc45"
+
+[[packages]]
+name = "kmod"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "34.2-6.fc45"
+
+[[packages]]
+name = "kmod-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "34.2-6.fc45"
+
+[[packages]]
+name = "knighttime"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "krb5-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.22.2-11.fc45"
+
+[[packages]]
+name = "kscreenlocker"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "kwayland"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "kwin"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-2.fc45"
+
+[[packages]]
+name = "kwin-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-2.fc45"
+
+[[packages]]
+name = "kwin-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-2.fc45"
+
+[[packages]]
+name = "lame-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.0-1.fc45"
+
+[[packages]]
+name = "layer-shell-qt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "lcms2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.16-8.fc45"
+
+[[packages]]
+name = "less"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "710-2.fc45"
+
+[[packages]]
+name = "less-color"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "710-2.fc45"
+
+[[packages]]
+name = "libICE"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.2-5.fc45"
+
+[[packages]]
+name = "libSM"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.5-5.fc45"
+
+[[packages]]
+name = "libX11"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.13-3.fc45"
+
+[[packages]]
+name = "libX11-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.13-3.fc45"
+
+[[packages]]
+name = "libX11-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.13-3.fc45"
+
+[[packages]]
+name = "libX11-xcb"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.13-3.fc45"
+
+[[packages]]
+name = "libXScrnSaver"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.5-2.fc45"
+
+[[packages]]
+name = "libXau"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.12-5.fc45"
+
+[[packages]]
+name = "libXau-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.12-5.fc45"
+
+[[packages]]
+name = "libXcomposite"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.6-8.fc45"
+
+[[packages]]
+name = "libXcursor"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.3-5.fc45"
+
+[[packages]]
+name = "libXdamage"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.6-8.fc45"
+
+[[packages]]
+name = "libXdmcp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.5-6.fc45"
+
+[[packages]]
+name = "libXext"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.6-6.fc45"
+
+[[packages]]
+name = "libXfixes"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.0.1-8.fc45"
+
+[[packages]]
+name = "libXfont2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.0.10-1.fc45"
+
+[[packages]]
+name = "libXft"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3.8-11.fc45"
+
+[[packages]]
+name = "libXi"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.4-1.fc45"
+
+[[packages]]
+name = "libXinerama"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.5-11.fc45"
+
+[[packages]]
+name = "libXrandr"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.4-8.fc45"
+
+[[packages]]
+name = "libXrender"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.9.12-5.fc45"
+
+[[packages]]
+name = "libXtst"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.5-5.fc45"
+
+[[packages]]
+name = "libXv"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.13-5.fc45"
+
+[[packages]]
+name = "libXxf86vm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.6-5.fc45"
+
+[[packages]]
+name = "libacl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.0-2.fc45"
+
+[[packages]]
+name = "libaom"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.15.3-1.fc45"
+
+[[packages]]
+name = "libarchive"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.8.9-2.fc45"
+
+[[packages]]
+name = "libaribcaption"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.1-5.fc45"
+
+[[packages]]
+name = "libasan"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "libassuan"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.7-6.fc45"
+
+[[packages]]
+name = "libasyncns"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.8-35.fc45"
+
+[[packages]]
+name = "libatasmart"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.19-33.fc45"
+
+[[packages]]
+name = "libatomic"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "libattr"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.6.0-2.fc45"
+
+[[packages]]
+name = "libavcodec-free"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.0.2-4.fc45"
+
+[[packages]]
+name = "libavformat-free"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.0.2-4.fc45"
+
+[[packages]]
+name = "libavutil-free"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.0.2-4.fc45"
+
+[[packages]]
+name = "libb2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.98.1-16.fc45"
+
+[[packages]]
+name = "libblkid"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "libblockdev"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-crypto"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-fs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-loop"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-mdraid"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-nvme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-part"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-smart"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-swap"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libblockdev-utils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-1.fc45"
+
+[[packages]]
+name = "libbluray"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.0-5.fc45"
+
+[[packages]]
+name = "libbpf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:1.7.0-2.fc45"
+
+[[packages]]
+name = "libbrotli"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.1-1.fc45"
+
+[[packages]]
+name = "libbytesize"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.12-5.fc45"
+
+[[packages]]
+name = "libcamera"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.2-6.fc45"
+
+[[packages]]
+name = "libcamera-ipa"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.2-6.fc45"
+
+[[packages]]
+name = "libcanberra"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.30-52.fc45"
+
+[[packages]]
+name = "libcanberra-backend-alsa"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.30-52.fc45"
+
+[[packages]]
+name = "libcanberra-backend-gstreamer"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.30-52.fc45"
+
+[[packages]]
+name = "libcanberra-backend-pulse"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.30-52.fc45"
+
+[[packages]]
+name = "libcanberra-gtk3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.30-52.fc45"
+
+[[packages]]
+name = "libcap"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.78-2.fc45"
+
+[[packages]]
+name = "libcap-ng"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.9.6-1.fc45"
+
+[[packages]]
+name = "libcbor"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.14.0-3.fc45"
+
+[[packages]]
+name = "libchromaprint"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.1-2.fc45"
+
+[[packages]]
+name = "libcloudproviders"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.1-1.fc45"
+
+[[packages]]
+name = "libcom_err"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.47.4-2.fc45"
+
+[[packages]]
+name = "libcue"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.2-2.fc45"
+
+[[packages]]
+name = "libcurl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "8.21.0-8.fc45"
+
+[[packages]]
+name = "libdaemon"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.14-34.fc45"
+
+[[packages]]
+name = "libdatrie"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.2.14-3.fc45"
+
+[[packages]]
+name = "libdav1d"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.5-1.fc45"
+
+[[packages]]
+name = "libdecor"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.2.5-3.fc45"
+
+[[packages]]
+name = "libdeflate"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.26-1.fc45"
+
+[[packages]]
+name = "libdisplay-info"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.3.0-2.fc45"
+
+[[packages]]
+name = "libdnf5"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.4.6.0-3.fc45"
+
+[[packages]]
+name = "libdnf5-cli"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.4.6.0-3.fc45"
+
+[[packages]]
+name = "libdrm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.4.134-2.fc45"
+
+[[packages]]
+name = "libdvdnav"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "7.0.0-2.fc45"
+
+[[packages]]
+name = "libdvdread"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "7.1.1-1.fc45"
+
+[[packages]]
+name = "libebur128"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.6-16.fc45"
+
+[[packages]]
+name = "libeconf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.9-4.fc45"
+
+[[packages]]
+name = "libedit"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.1-60.20260512cvs.fc45"
+
+[[packages]]
+name = "libei"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.0-3.fc45"
+
+[[packages]]
+name = "libeis"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.0-3.fc45"
+
+[[packages]]
+name = "libepoxy"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.10-13.fc45"
+
+[[packages]]
+name = "libevdev"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.13.7-1.fc45"
+
+[[packages]]
+name = "libevent"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.1.13-1.fc45"
+
+[[packages]]
+name = "libfdisk"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "libffi"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.5.2-3.fc45"
+
+[[packages]]
+name = "libffi-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.5.2-3.fc45"
+
+[[packages]]
+name = "libfido2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.17.0-6.fc45"
+
+[[packages]]
+name = "libfontenc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.10-1.fc45"
+
+[[packages]]
+name = "libfsverity"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.7-4.fc45"
+
+[[packages]]
+name = "libgcc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "libgcrypt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.12.2-2.fc45"
+
+[[packages]]
+name = "libgexiv2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.16.2-1.fc45"
+
+[[packages]]
+name = "libgit2_1.9"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.9.7-3.fc45"
+
+[[packages]]
+name = "libglvnd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.7.0-10.fc45"
+
+[[packages]]
+name = "libglvnd-core-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.7.0-10.fc45"
+
+[[packages]]
+name = "libglvnd-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.7.0-10.fc45"
+
+[[packages]]
+name = "libglvnd-egl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.7.0-10.fc45"
+
+[[packages]]
+name = "libglvnd-gles"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.7.0-10.fc45"
+
+[[packages]]
+name = "libglvnd-glx"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.7.0-10.fc45"
+
+[[packages]]
+name = "libglvnd-opengl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.7.0-10.fc45"
+
+[[packages]]
+name = "libgomp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "libgpg-error"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.61-2.fc45"
+
+[[packages]]
+name = "libgsf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.14.60-1.fc45"
+
+[[packages]]
+name = "libgudev"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "238-10.fc45"
+
+[[packages]]
+name = "libgusb"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.9-6.fc45"
+
+[[packages]]
+name = "libgxps"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.3.2-13.fc45"
+
+[[packages]]
+name = "libheif"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.23.7-1.fc45"
+
+[[packages]]
+name = "libheif-ffmpeg"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.23.7-1.fc45"
+
+[[packages]]
+name = "libicu"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "78.3-9.fc45"
+
+[[packages]]
+name = "libidn2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3.8-4.fc45"
+
+[[packages]]
+name = "libimobiledevice"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.0-7.fc45"
+
+[[packages]]
+name = "libimobiledevice-glue"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.2-2.fc45"
+
+[[packages]]
+name = "libinput"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.32.0-1.fc45"
+
+[[packages]]
+name = "libjpeg-turbo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.1.4.1-2.fc45"
+
+[[packages]]
+name = "libjxl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:0.11.2-3.fc45"
+
+[[packages]]
+name = "libkexiv2-qt6"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.08.3-1.fc45"
+
+[[packages]]
+name = "libksba"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.0-3.fc45"
+
+[[packages]]
+name = "libkscreen"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "liblastlog2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "liblc3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.3-9.fc45"
+
+[[packages]]
+name = "libldac"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.0.2.6-1.fc45"
+
+[[packages]]
+name = "libldb"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.25.1-1.fc45"
+
+[[packages]]
+name = "liblerc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3.0-1.fc45"
+
+[[packages]]
+name = "libmediainfo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.05-2.fc45"
+
+[[packages]]
+name = "libmnl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.5-10.fc45"
+
+[[packages]]
+name = "libmodplug"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:0.8.9.0-30.fc45"
+
+[[packages]]
+name = "libmodulemd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.15.3-3.fc45"
+
+[[packages]]
+name = "libmount"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "libmpc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.1-2.fc45"
+
+[[packages]]
+name = "libmtp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.22-4.fc45"
+
+[[packages]]
+name = "libnghttp2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.69.0-6.fc45"
+
+[[packages]]
+name = "libnghttp3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.18.0-1.fc45"
+
+[[packages]]
+name = "libnice"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.23-3.fc45"
+
+[[packages]]
+name = "libnotify"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.8.9-1.fc45"
+
+[[packages]]
+name = "libnsl2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.0.1-6.fc45"
+
+[[packages]]
+name = "libnvme"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.16.2-1.fc45"
+
+[[packages]]
+name = "liboeffis"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.0-3.fc45"
+
+[[packages]]
+name = "libogg"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:1.3.6-4.fc45"
+
+[[packages]]
+name = "libomp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "libomp-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "libopenjph"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.31.0-1.fc45"
+
+[[packages]]
+name = "libopenmpt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.8.10-1.fc45"
+
+[[packages]]
+name = "libosinfo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.12.0-12.fc45"
+
+[[packages]]
+name = "libpciaccess"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.16-18.fc45"
+
+[[packages]]
+name = "libpkgconf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.1-2.fc45"
+
+[[packages]]
+name = "libplasma"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "libplist"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.7.0-4.fc45"
+
+[[packages]]
+name = "libpng"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:1.6.59-1.fc45"
+
+[[packages]]
+name = "libproxy"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.5.12-3.fc45"
+
+[[packages]]
+name = "libpsl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.23.1-1.fc45"
+
+[[packages]]
+name = "libpwquality"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.5-18.fc45"
+
+[[packages]]
+name = "librabbitmq"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.18.1-1.fc45"
+
+[[packages]]
+name = "librepo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.21.2-2.fc45"
+
+[[packages]]
+name = "libreport-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.17.15-14.fc45"
+
+[[packages]]
+name = "librist"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.2.11-2.fc45"
+
+[[packages]]
+name = "librsvg2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.63.4-1.fc45"
+
+[[packages]]
+name = "libsbc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.2-1.fc45"
+
+[[packages]]
+name = "libseccomp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.6.1-3.fc45"
+
+[[packages]]
+name = "libsecret"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.21.8.2-2.fc45"
+
+[[packages]]
+name = "libselinux"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.11-5.fc45"
+
+[[packages]]
+name = "libselinux-utils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.11-5.fc45"
+
+[[packages]]
+name = "libsemanage"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.11-4.fc45"
+
+[[packages]]
+name = "libsepol"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.11-2.fc45"
+
+[[packages]]
+name = "libsmartcols"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "libsmbclient"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.25.1-1.fc45"
+
+[[packages]]
+name = "libsndfile"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.2-12.fc45"
+
+[[packages]]
+name = "libsodium"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.22-2.fc45"
+
+[[packages]]
+name = "libsolv"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.41-1.fc45"
+
+[[packages]]
+name = "libsoup3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.8.1-1.fc45"
+
+[[packages]]
+name = "libss"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.47.4-2.fc45"
+
+[[packages]]
+name = "libssh"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.12.2-1.fc45"
+
+[[packages]]
+name = "libssh-config"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.12.2-1.fc45"
+
+[[packages]]
+name = "libssh2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.11.1-10.fc45"
+
+[[packages]]
+name = "libstdc++"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "libstdc++-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "libstemmer"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.1.1-2.fc45"
+
+[[packages]]
+name = "libswresample-free"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.0.2-4.fc45"
+
+[[packages]]
+name = "libswscale-free"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.0.2-4.fc45"
+
+[[packages]]
+name = "libtalloc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.0-2.fc45"
+
+[[packages]]
+name = "libtasn1"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.21.0-2.fc45"
+
+[[packages]]
+name = "libtdb"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.15-4.fc45"
+
+[[packages]]
+name = "libtevent"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.17.2-2.fc45"
+
+[[packages]]
+name = "libthai"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.30-3.fc45"
+
+[[packages]]
+name = "libtheora"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.1.1-42.fc45"
+
+[[packages]]
+name = "libtiff"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.7.2-3.fc45"
+
+[[packages]]
+name = "libtinysparql"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.12.0-2.fc45"
+
+[[packages]]
+name = "libtirpc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.8-0.fc45"
+
+[[packages]]
+name = "libtool-ltdl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.4-11.fc45"
+
+[[packages]]
+name = "libubsan"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-3.fc45"
+
+[[packages]]
+name = "libudfread"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.0-4.fc45"
+
+[[packages]]
+name = "libudisks2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.11.2-1.fc45"
+
+[[packages]]
+name = "libunistring"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1-12.fc45"
+
+[[packages]]
+name = "libunwind"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8.3-4.fc45"
+
+[[packages]]
+name = "libusb1"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.30-2.fc45"
+
+[[packages]]
+name = "libusbmuxd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.1.1-2.fc45"
+
+[[packages]]
+name = "libuuid"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "libuv"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.52.1-2.fc45"
+
+[[packages]]
+name = "libva"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.24.1-2.fc45"
+
+[[packages]]
+name = "libvdpau"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5-12.fc45"
+
+[[packages]]
+name = "libverto"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.3.2-13.fc45"
+
+[[packages]]
+name = "libvisual"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:0.4.2-4.fc44"
+
+[[packages]]
+name = "libvmaf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.2.1-1.fc45"
+
+[[packages]]
+name = "libvorbis"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.3.7-21.fc45"
+
+[[packages]]
+name = "libvpl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:2.17.0-2.fc45"
+
+[[packages]]
+name = "libvpx"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.17.0-1.fc45"
+
+[[packages]]
+name = "libwacom"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.19.0-2.fc45"
+
+[[packages]]
+name = "libwacom-data"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.19.0-2.fc45"
+
+[[packages]]
+name = "libwayland-client"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.26.0-3.fc45"
+
+[[packages]]
+name = "libwayland-cursor"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.26.0-3.fc45"
+
+[[packages]]
+name = "libwayland-egl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.26.0-3.fc45"
+
+[[packages]]
+name = "libwayland-server"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.26.0-3.fc45"
+
+[[packages]]
+name = "libwbclient"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.25.1-1.fc45"
+
+[[packages]]
+name = "libwebp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.0-4.fc45"
+
+[[packages]]
+name = "libxcb"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.17.0-8.fc45"
+
+[[packages]]
+name = "libxcb-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.17.0-8.fc45"
+
+[[packages]]
+name = "libxcrypt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.5.2-4.fc45"
+
+[[packages]]
+name = "libxcrypt-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.5.2-4.fc45"
+
+[[packages]]
+name = "libxcvt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.2-12.fc45"
+
+[[packages]]
+name = "libxkbcommon"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.13.1-4.fc45"
+
+[[packages]]
+name = "libxkbcommon-x11"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.13.1-4.fc45"
+
+[[packages]]
+name = "libxkbfile"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.3-6.fc45"
+
+[[packages]]
+name = "libxml2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.15.4-1.fc45"
+
+[[packages]]
+name = "libxshmfence"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.2-9.fc45"
+
+[[packages]]
+name = "libxslt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.43-10.fc45"
+
+[[packages]]
+name = "libyaml"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.2.5-19.fc45"
+
+[[packages]]
+name = "libyuv"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0-0.63.20260213git6067afd.fc45"
+
+[[packages]]
+name = "libzen"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.41-11.fc45"
+
+[[packages]]
+name = "libzip"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.12.1-1.fc45"
+
+[[packages]]
+name = "libzstd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.7-6.fc45"
+
+[[packages]]
+name = "linkdupes"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.3-3.fc45"
+
+[[packages]]
+name = "llhttp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.4.4-1.fc45"
+
+[[packages]]
+name = "llvm-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "llvm-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.1.6-1.fc45"
+
+[[packages]]
+name = "lm_sensors-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.6.0-25.fc45"
+
+[[packages]]
+name = "lmdb-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.9.34-3.fc45"
+
+[[packages]]
+name = "localsearch"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.12.0-2.fc45"
+
+[[packages]]
+name = "logrotate"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.22.0-6.fc45"
+
+[[packages]]
+name = "lpcnetfreedv"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.5-11.fc45"
+
+[[packages]]
+name = "lsof"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.99.6-2.fc45"
+
+[[packages]]
+name = "lttng-ust"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.15.1-4.fc45"
+
+[[packages]]
+name = "lua-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.5.1-2.fc45"
+
+[[packages]]
+name = "lua-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1-18.fc45"
+
+[[packages]]
+name = "lz4-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.10.0-5.fc45"
+
+[[packages]]
+name = "lzo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.10-17.fc45"
+
+[[packages]]
+name = "make"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:4.4.1-13.fc45"
+
+[[packages]]
+name = "mdadm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.6-3.fc45"
+
+[[packages]]
+name = "media-player-info"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23-21.fc45"
+
+[[packages]]
+name = "mesa-dri-drivers"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.2.7-1.fc45"
+
+[[packages]]
+name = "mesa-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.2.7-1.fc45"
+
+[[packages]]
+name = "mesa-libEGL"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.2.7-1.fc45"
+
+[[packages]]
+name = "mesa-libEGL-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.2.7-1.fc45"
+
+[[packages]]
+name = "mesa-libGL"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.2.7-1.fc45"
+
+[[packages]]
+name = "mesa-libgbm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.2.7-1.fc45"
+
+[[packages]]
+name = "mesa-vulkan-drivers"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.2.7-1.fc45"
+
+[[packages]]
+name = "meson-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.12.1-3.fc45"
+
+[[packages]]
+name = "mingw-binutils-generic"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.46.0-2.fc45"
+
+[[packages]]
+name = "mingw-filesystem-base"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "152-1.fc45"
+
+[[packages]]
+name = "mingw64-binutils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.46.0-2.fc45"
+
+[[packages]]
+name = "mingw64-cpp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-2.fc45"
+
+[[packages]]
+name = "mingw64-crt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "14.0.0-3.fc45"
+
+[[packages]]
+name = "mingw64-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "152-1.fc45"
+
+[[packages]]
+name = "mingw64-gcc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-2.fc45"
+
+[[packages]]
+name = "mingw64-gcc-c++"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-2.fc45"
+
+[[packages]]
+name = "mingw64-headers"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "14.0.0-2.fc45"
+
+[[packages]]
+name = "mingw64-libgcc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-2.fc45"
+
+[[packages]]
+name = "mingw64-libstdc++"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "16.2.1-2.fc45"
+
+[[packages]]
+name = "mingw64-winpthreads"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "14.0.0-3.fc45"
+
+[[packages]]
+name = "mingw64-winpthreads-static"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "14.0.0-3.fc45"
+
+[[packages]]
+name = "mpdecimal"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.0.1-4.fc45"
+
+[[packages]]
+name = "mpfr"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.2.2-4.fc45"
+
+[[packages]]
+name = "mpg123-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.33.6-3.fc45"
+
+[[packages]]
+name = "mtdev"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.6-13.fc45"
+
+[[packages]]
+name = "ncurses"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.6-3.fc45"
+
+[[packages]]
+name = "ncurses-base"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.6-3.fc45"
+
+[[packages]]
+name = "ncurses-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.6-3.fc45"
+
+[[packages]]
+name = "nettle"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.0-5.fc45"
+
+[[packages]]
+name = "nettle3.10"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.10.1-7.fc45"
+
+[[packages]]
+name = "ngtcp2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.22.1-3.fc45"
+
+[[packages]]
+name = "ngtcp2-crypto-gnutls"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.22.1-3.fc45"
+
+[[packages]]
+name = "ngtcp2-crypto-ossl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.22.1-3.fc45"
+
+[[packages]]
+name = "nilfs-utils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.2.11-9.fc45"
+
+[[packages]]
+name = "ninja-build"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.13.2-6.fc45"
+
+[[packages]]
+name = "npth"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.8-5.fc45"
+
+[[packages]]
+name = "nspr"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.41.0-1.fc45"
+
+[[packages]]
+name = "nss"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.134.0-1.fc45"
+
+[[packages]]
+name = "nss-mdns"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.15.1-29.fc45"
+
+[[packages]]
+name = "nss-softokn"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.134.0-1.fc45"
+
+[[packages]]
+name = "nss-softokn-freebl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.134.0-1.fc45"
+
+[[packages]]
+name = "nss-sysinit"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.134.0-1.fc45"
+
+[[packages]]
+name = "nss-util"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.134.0-1.fc45"
+
+[[packages]]
+name = "ntfs-3g"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:2026.2.25-3.fc45"
+
+[[packages]]
+name = "ntfs-3g-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:2026.2.25-3.fc45"
+
+[[packages]]
+name = "ntfs-3g-system-compression"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1-3.fc45"
+
+[[packages]]
+name = "ntfsprogs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:2026.2.25-3.fc45"
+
+[[packages]]
+name = "numactl-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.0.19-5.fc45"
+
+[[packages]]
+name = "ocaml-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "11-4.fc45"
+
+[[packages]]
+name = "oniguruma"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.9.10-5.fc45"
+
+[[packages]]
+name = "openapv-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.3.0-1.fc45"
+
+[[packages]]
+name = "openblas-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2-22.fc45"
+
+[[packages]]
+name = "opencore-amr"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.6-11.fc45"
+
+[[packages]]
+name = "openexr-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.4.13-2.fc45"
+
+[[packages]]
+name = "openh264"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.6.0-3.fc45"
+
+[[packages]]
+name = "openjpeg"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.4-5.fc45"
+
+[[packages]]
+name = "openldap"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.6.15-1.fc45"
+
+[[packages]]
+name = "openpgm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.3.128-7.fc45"
+
+[[packages]]
+name = "openssh"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "10.6p1-1.fc45"
+
+[[packages]]
+name = "openssh-clients"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "10.6p1-1.fc45"
+
+[[packages]]
+name = "openssl-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:4.0.3-1.fc45"
+
+[[packages]]
+name = "openxr-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.65-1.fc45"
+
+[[packages]]
+name = "opus"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6-3.fc45"
+
+[[packages]]
+name = "orc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.41-4.fc45"
+
+[[packages]]
+name = "osinfo-db"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20251212-2.fc45"
+
+[[packages]]
+name = "osinfo-db-tools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.12.0-10.fc45"
+
+[[packages]]
+name = "p11-kit"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.26.5-1.fc45"
+
+[[packages]]
+name = "p11-kit-trust"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.26.5-1.fc45"
+
+[[packages]]
+name = "package-notes-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.20-2.fc45"
+
+[[packages]]
+name = "pam"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.7.2-4.fc45"
+
+[[packages]]
+name = "pam-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.7.2-4.fc45"
+
+[[packages]]
+name = "pango"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.58.2-1.fc45"
+
+[[packages]]
+name = "pcre2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "10.49-1.fc45"
+
+[[packages]]
+name = "pcre2-syntax"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "10.49-1.fc45"
+
+[[packages]]
+name = "pcre2-utf16"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "10.49-1.fc45"
+
+[[packages]]
+name = "perl-AutoLoader"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.74-527.fc45"
+
+[[packages]]
+name = "perl-B"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.92-527.fc45"
+
+[[packages]]
+name = "perl-Carp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.54-527.fc45"
+
+[[packages]]
+name = "perl-Class-Struct"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.68-527.fc45"
+
+[[packages]]
+name = "perl-Data-Dumper"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.192-528.fc45"
+
+[[packages]]
+name = "perl-Digest"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.20-527.fc45"
+
+[[packages]]
+name = "perl-Digest-MD5"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.59-527.fc45"
+
+[[packages]]
+name = "perl-DynaLoader"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.57-527.fc45"
+
+[[packages]]
+name = "perl-Encode"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4:3.24-527.fc45"
+
+[[packages]]
+name = "perl-Errno"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.39-527.fc45"
+
+[[packages]]
+name = "perl-Error"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:0.17030-4.fc45"
+
+[[packages]]
+name = "perl-Exporter"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.79-527.fc45"
+
+[[packages]]
+name = "perl-Fcntl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.20-527.fc45"
+
+[[packages]]
+name = "perl-File-Basename"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.86-527.fc45"
+
+[[packages]]
+name = "perl-File-Path"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.18-527.fc45"
+
+[[packages]]
+name = "perl-File-Temp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:0.231.200-527.fc45"
+
+[[packages]]
+name = "perl-File-stat"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.15-527.fc45"
+
+[[packages]]
+name = "perl-FileHandle"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.05-527.fc45"
+
+[[packages]]
+name = "perl-Getopt-Long"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:2.58-527.fc45"
+
+[[packages]]
+name = "perl-Getopt-Std"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.15-527.fc45"
+
+[[packages]]
+name = "perl-Git"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.56.1-1.fc45"
+
+[[packages]]
+name = "perl-HTTP-Tiny"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.096-528.fc45"
+
+[[packages]]
+name = "perl-IO"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.56-527.fc45"
+
+[[packages]]
+name = "perl-IO-Socket-IP"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.44-527.fc45"
+
+[[packages]]
+name = "perl-IO-Socket-SSL"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.099-2.fc45"
+
+[[packages]]
+name = "perl-IPC-Open3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.24-527.fc45"
+
+[[packages]]
+name = "perl-MIME-Base32"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.303-26.fc45"
+
+[[packages]]
+name = "perl-MIME-Base64"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.16-527.fc45"
+
+[[packages]]
+name = "perl-NDBM_File"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.18-527.fc45"
+
+[[packages]]
+name = "perl-Net-SSLeay"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.96-5.fc45"
+
+[[packages]]
+name = "perl-POSIX"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.26-527.fc45"
+
+[[packages]]
+name = "perl-PathTools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.95-527.fc45"
+
+[[packages]]
+name = "perl-Pod-Escapes"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:1.07-527.fc45"
+
+[[packages]]
+name = "perl-Pod-Perldoc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.28.01-527.fc45"
+
+[[packages]]
+name = "perl-Pod-Simple"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:3.48-527.fc45"
+
+[[packages]]
+name = "perl-Pod-Usage"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4:2.05-527.fc45"
+
+[[packages]]
+name = "perl-Scalar-List-Utils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5:1.70-527.fc45"
+
+[[packages]]
+name = "perl-SelectSaver"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.03-527.fc45"
+
+[[packages]]
+name = "perl-Socket"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4:2.043-1.fc45"
+
+[[packages]]
+name = "perl-Storable"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:3.41-527.fc45"
+
+[[packages]]
+name = "perl-Symbol"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.09-527.fc45"
+
+[[packages]]
+name = "perl-Term-ANSIColor"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.01-527.fc45"
+
+[[packages]]
+name = "perl-Term-Cap"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.18-527.fc45"
+
+[[packages]]
+name = "perl-TermReadKey"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.38-29.fc45"
+
+[[packages]]
+name = "perl-Text-ParseWords"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.31-527.fc45"
+
+[[packages]]
+name = "perl-Text-Tabs+Wrap"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2024.001-527.fc45"
+
+[[packages]]
+name = "perl-Time-HiRes"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4:1.9780-527.fc45"
+
+[[packages]]
+name = "perl-Time-Local"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:1.350-527.fc45"
+
+[[packages]]
+name = "perl-URI"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.40-1.fc45"
+
+[[packages]]
+name = "perl-Unicode-Normalize"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.32-527.fc45"
+
+[[packages]]
+name = "perl-base"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.27-527.fc45"
+
+[[packages]]
+name = "perl-constant"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.33-528.fc45"
+
+[[packages]]
+name = "perl-if"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.61.000-527.fc45"
+
+[[packages]]
+name = "perl-interpreter"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4:5.44.0-527.fc45"
+
+[[packages]]
+name = "perl-lib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.65-527.fc45"
+
+[[packages]]
+name = "perl-libnet"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.17-1.fc45"
+
+[[packages]]
+name = "perl-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4:5.44.0-527.fc45"
+
+[[packages]]
+name = "perl-locale"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.13-527.fc45"
+
+[[packages]]
+name = "perl-mro"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.30-527.fc45"
+
+[[packages]]
+name = "perl-overload"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.40-527.fc45"
+
+[[packages]]
+name = "perl-overloading"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.03-527.fc45"
+
+[[packages]]
+name = "perl-parent"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:0.244-527.fc45"
+
+[[packages]]
+name = "perl-podlators"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:6.1.1-1.fc45"
+
+[[packages]]
+name = "perl-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1-65.fc45"
+
+[[packages]]
+name = "perl-vars"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.05-527.fc45"
+
+[[packages]]
+name = "pinentry"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.3-2.fc45"
+
+[[packages]]
+name = "pinentry-gnome3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.3-2.fc45"
+
+[[packages]]
+name = "pipewire"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.12-1.fc45"
+
+[[packages]]
+name = "pipewire-alsa"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.12-1.fc45"
+
+[[packages]]
+name = "pipewire-jack-audio-connection-kit"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.12-1.fc45"
+
+[[packages]]
+name = "pipewire-jack-audio-connection-kit-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.12-1.fc45"
+
+[[packages]]
+name = "pipewire-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.12-1.fc45"
+
+[[packages]]
+name = "pipewire-plugin-libcamera"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.12-1.fc45"
+
+[[packages]]
+name = "pipewire-pulseaudio"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.6.12-1.fc45"
+
+[[packages]]
+name = "pixman"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.46.2-4.fc45"
+
+[[packages]]
+name = "pkgconf"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.1-2.fc45"
+
+[[packages]]
+name = "pkgconf-m4"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.1-2.fc45"
+
+[[packages]]
+name = "pkgconf-pkg-config"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.1-2.fc45"
+
+[[packages]]
+name = "plasma-activities"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "plasma-activities-stats"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "plasma-milou"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.8.3-1.fc45"
+
+[[packages]]
+name = "policycoreutils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.11-2.fc45"
+
+[[packages]]
+name = "polkit"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "127-5.fc45"
+
+[[packages]]
+name = "polkit-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "127-5.fc45"
+
+[[packages]]
+name = "polkit-pkla-compat"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1-33.fc45"
+
+[[packages]]
+name = "polkit-qt6-1"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.201.1-2.fc45"
+
+[[packages]]
+name = "poly2tri"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.0^20130501hg26242d0aa7b8-8.fc45"
+
+[[packages]]
+name = "poppler"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.08.0-2.fc45"
+
+[[packages]]
+name = "poppler-data"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.11-12.fc45"
+
+[[packages]]
+name = "poppler-glib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.08.0-2.fc45"
+
+[[packages]]
+name = "popt"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.19-11.fc45"
+
+[[packages]]
+name = "procps-ng"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.0.6-2.fc45"
+
+[[packages]]
+name = "psmisc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "23.7-9.fc45"
+
+[[packages]]
+name = "publicsuffix-list-dafsa"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20260624-2.fc45"
+
+[[packages]]
+name = "pugixml"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.16-2.fc45"
+
+[[packages]]
+name = "pulseaudio-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "17.0-11.fc45"
+
+[[packages]]
+name = "pyproject-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.24.0-1.fc45"
+
+[[packages]]
+name = "python-pip-wheel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "26.1.2-5.fc45"
+
+[[packages]]
+name = "python-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.15-2.fc45"
+
+[[packages]]
+name = "python-unversioned-command"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.15.2-1.fc45"
+
+[[packages]]
+name = "python3"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.15.2-1.fc45"
+
+[[packages]]
+name = "python3-html2text"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2025.4.15-8.fc45"
+
+[[packages]]
+name = "python3-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.15.2-1.fc45"
+
+[[packages]]
+name = "qaccessibilityclient-qt6"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.6.0-6.fc45"
+
+[[packages]]
+name = "qca-qt6"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3.12-1.fc45"
+
+[[packages]]
+name = "qca-qt6-ossl"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3.12-1.fc45"
+
+[[packages]]
+name = "qt5-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.15.18-3.fc45"
+
+[[packages]]
+name = "qt6-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qt5compat"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qtbase"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-3.fc45"
+
+[[packages]]
+name = "qt6-qtbase-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-3.fc45"
+
+[[packages]]
+name = "qt6-qtbase-gui"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-3.fc45"
+
+[[packages]]
+name = "qt6-qtdeclarative"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-3.fc45"
+
+[[packages]]
+name = "qt6-qtmultimedia"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-2.fc45"
+
+[[packages]]
+name = "qt6-qtpositioning"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qtquick3d"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qtquicktimeline"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qtserialport"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qtshadertools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qtsvg"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-qttools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-2.fc45"
+
+[[packages]]
+name = "qt6-qttools-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-2.fc45"
+
+[[packages]]
+name = "qt6-qttranslations"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "qt6-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.11.2-1.fc45"
+
+[[packages]]
+name = "rav1e-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.8.1-4.fc45"
+
+[[packages]]
+name = "readline"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "8.3-6.fc45"
+
+[[packages]]
+name = "redhat-rpm-config"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "345-5.fc45"
+
+[[packages]]
+name = "redhat-systemd-presets"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "102-3.fc45"
+
+[[packages]]
+name = "redhat-systemd-presets-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "102-3.fc45"
+
+[[packages]]
+name = "rhash"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.5-5.fc45"
+
+[[packages]]
+name = "rootfiles"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "9.0-8.fc45"
+
+[[packages]]
+name = "rpm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.1.0-1.fc45"
+
+[[packages]]
+name = "rpm-build-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.1.0-1.fc45"
+
+[[packages]]
+name = "rpm-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.1.0-1.fc45"
+
+[[packages]]
+name = "rpm-plugin-selinux"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.1.0-1.fc45"
+
+[[packages]]
+name = "rpm-sequoia"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.10.3-1.fc45"
+
+[[packages]]
+name = "rpm-sign-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.1.0-1.fc45"
+
+[[packages]]
+name = "rtkit"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.14-2.fc45"
+
+[[packages]]
+name = "rust-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "28.5-2.fc45"
+
+[[packages]]
+name = "samba-client-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.25.1-1.fc45"
+
+[[packages]]
+name = "samba-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.25.1-1.fc45"
+
+[[packages]]
+name = "samba-core-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.25.1-1.fc45"
+
+[[packages]]
+name = "samba-ndr-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.25.1-1.fc45"
+
+[[packages]]
+name = "sdbus-cpp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3.1-3.fc45"
+
+[[packages]]
+name = "sdl2-compat"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.32.74-1.fc45"
+
+[[packages]]
+name = "sed"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.10-2.fc45"
+
+[[packages]]
+name = "selinux-policy"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "45.26-1.fc45"
+
+[[packages]]
+name = "selinux-policy-targeted"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "45.26-1.fc45"
+
+[[packages]]
+name = "setup"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.15.1-2.fc45"
+
+[[packages]]
+name = "sgml-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.6.3-70.fc45"
+
+[[packages]]
+name = "shadow-utils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:4.20.0-2.fc45"
+
+[[packages]]
+name = "shared-mime-info"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.5.1-3.fc45"
+
+[[packages]]
+name = "snappy"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.2-6.fc45"
+
+[[packages]]
+name = "sound-theme-freedesktop"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.8-34.fc45"
+
+[[packages]]
+name = "soxr"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.3-22.fc45"
+
+[[packages]]
+name = "spandsp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.0.6-23.fc45"
+
+[[packages]]
+name = "speex"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.0-22.fc45"
+
+[[packages]]
+name = "spirv-tools-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2026.2-3.fc45"
+
+[[packages]]
+name = "sqlite-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.53.4-1.fc45"
+
+[[packages]]
+name = "srt-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.7-1.fc45"
+
+[[packages]]
+name = "sudo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.9.17-18.p2.fc45"
+
+[[packages]]
+name = "svt-av1-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.1.2-3.fc45"
+
+[[packages]]
+name = "switcheroo-control"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.0-9.fc45"
+
+[[packages]]
+name = "systemd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "systemd-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "systemd-networkd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "systemd-pam"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "systemd-resolved"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "systemd-shared"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "systemd-standalone-sysusers"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "systemd-udev"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "262.1-1.fc45"
+
+[[packages]]
+name = "taglib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3.2-3.fc45"
+
+[[packages]]
+name = "tar"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:1.35-10.fc45"
+
+[[packages]]
+name = "tinysparql"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.12.0-2.fc45"
+
+[[packages]]
+name = "tinyxml2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "11.0.0-6.fc45"
+
+[[packages]]
+name = "totem-pl-parser"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.26.7-4.fc45"
+
+[[packages]]
+name = "tpm2-tss"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.2.0-1.fc45"
+
+[[packages]]
+name = "tree-sitter-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.6-2.fc45"
+
+[[packages]]
+name = "tslib"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.24-3.fc45"
+
+[[packages]]
+name = "twolame-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.0-10.fc45"
+
+[[packages]]
+name = "tzdata"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2026e-1.fc45"
+
+[[packages]]
+name = "uchardet"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.0.8-11.fc45"
+
+[[packages]]
+name = "udftools"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3-14.fc45"
+
+[[packages]]
+name = "udisks2"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.11.2-1.fc45"
+
+[[packages]]
+name = "unzip"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "6.0-71.fc45"
+
+[[packages]]
+name = "upower"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.91.5-1.fc45"
+
+[[packages]]
+name = "upower-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.91.5-1.fc45"
+
+[[packages]]
+name = "urw-base35-d050000l-fonts"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20200910-29.fc45"
+
+[[packages]]
+name = "urw-base35-fonts-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20200910-29.fc45"
+
+[[packages]]
+name = "urw-base35-standard-symbols-ps-fonts"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "20200910-29.fc45"
+
+[[packages]]
+name = "usbmuxd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.1.1^20251205git3ded00c-2.fc45"
+
+[[packages]]
+name = "userspace-rcu"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.15.6-2.fc45"
+
+[[packages]]
+name = "util-linux"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "util-linux-core"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.42.4-1.fc45"
+
+[[packages]]
+name = "vim-data"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:9.2.1202-1.fc45"
+
+[[packages]]
+name = "vim-filesystem"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:9.2.1302-3.fc45"
+
+[[packages]]
+name = "vim-minimal"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2:9.2.1202-1.fc45"
+
+[[packages]]
+name = "vo-amrwbenc"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.3-25.fc45"
+
+[[packages]]
+name = "volume_key-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.3.12-33.fc45"
+
+[[packages]]
+name = "vulkan-loader"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.4.350.0-2.fc45"
+
+[[packages]]
+name = "wayland-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.26.0-3.fc45"
+
+[[packages]]
+name = "wayland-protocols-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.50-1.fc45"
+
+[[packages]]
+name = "wayland-utils"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.0-4.fc45"
+
+[[packages]]
+name = "webrtc-audio-processing"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.1-11.fc45"
+
+[[packages]]
+name = "wireplumber"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.5.19-1.fc45"
+
+[[packages]]
+name = "wireplumber-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.5.19-1.fc45"
+
+[[packages]]
+name = "xcb-util"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.1-10.fc45"
+
+[[packages]]
+name = "xcb-util-cursor"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.6-3.fc45"
+
+[[packages]]
+name = "xcb-util-image"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.1-10.fc45"
+
+[[packages]]
+name = "xcb-util-keysyms"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.1-10.fc45"
+
+[[packages]]
+name = "xcb-util-renderutil"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.3.10-10.fc45"
+
+[[packages]]
+name = "xcb-util-wm"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.4.2-10.fc45"
+
+[[packages]]
+name = "xdg-desktop-portal"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.22.1-2.fc45"
+
+[[packages]]
+name = "xdg-desktop-portal-gtk"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.15.3-6.fc45"
+
+[[packages]]
+name = "xdriinfo"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.0.8-1.fc45"
+
+[[packages]]
+name = "xevd-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.0-2.fc45"
+
+[[packages]]
+name = "xeve-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.7.0-2.fc45"
+
+[[packages]]
+name = "xfsprogs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "7.1.1-1.fc45.1"
+
+[[packages]]
+name = "xkbcomp"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.0-3.fc45"
+
+[[packages]]
+name = "xkeyboard-config"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.48-4.fc45"
+
+[[packages]]
+name = "xml-common"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.6.3-70.fc45"
+
+[[packages]]
+name = "xorg-x11-proto-devel"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2025.1-3.fc45"
+
+[[packages]]
+name = "xorg-x11-server-Xwayland"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "24.1.15-1.fc45"
+
+[[packages]]
+name = "xprop"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.2.8-6.fc45"
+
+[[packages]]
+name = "xvidcore"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.3.7-20.fc45"
+
+[[packages]]
+name = "xz"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:5.8.3-2.fc45"
+
+[[packages]]
+name = "xz-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1:5.8.3-2.fc45"
+
+[[packages]]
+name = "zchunk-libs"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.5-1.fc45"
+
+[[packages]]
+name = "zeromq"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "4.3.5-24.fc45"
+
+[[packages]]
+name = "zig-srpm-macros"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1-9.fc45"
+
+[[packages]]
+name = "zip"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "3.0-46.fc45"
+
+[[packages]]
+name = "zlib-ng-compat"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "2.3.3-6.fc45"
+
+[[packages]]
+name = "zstd"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "1.5.7-6.fc45"
+
+[[packages]]
+name = "zvbi"
+comment = "Added by 'versionlock add' command on 2026-11-28 14:11:11"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.2.46-1.fc45"
+

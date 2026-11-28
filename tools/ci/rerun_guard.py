@@ -20,8 +20,9 @@
 #   Resposta vazia/404/ilegivel da API, job nao encontrado, job sem o marco
 #   ou falha sem passo identificavel: REPROVA, nunca "nao achei, entao pode".
 #
-# Job com `needs:` (RERUN_DERIVADO=1, o portao exige a env se e so' se o job
-# tem `needs:`): so' roda porque as pernas de que depende passaram. Se elas
+# Job com `needs:` alem de `mudancas` (RERUN_DERIVADO=1, o portao exige a env se
+# e so' se o job tem `needs:` fora de `mudancas`; I1 do D5, 26/11/2026): so' roda
+# porque as pernas de que depende passaram. Se elas
 # falharam em preparo, ele falha em "teste" na tentativa 1 sem culpa propria
 # (ex.: parity). Na tentativa 2 ele segue se pelo menos um OUTRO job falhou e
 # TODOS os outros falharam em preparo; qualquer outra falha de teste reprova.

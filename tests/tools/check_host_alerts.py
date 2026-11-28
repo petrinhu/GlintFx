@@ -112,6 +112,7 @@ class Coredump:
     cgroup: str
     cmdline: str
     signal: str
+    timestamp: str = ""  # COREDUMP_TIMESTAMP: a hora da morte, em microssegundos desde a epoca
 
 
 @dataclass(frozen=True)
@@ -125,6 +126,10 @@ class HostFacts:
     system_journal_readable: bool
     user_scope: bool
     initial_pid_namespace: bool  # fora de conteiner: o core dump vai a um diario que se le daqui
+    # HERDA (decisao do CTO, 26/11/2026): a folha do escopo da fila, quando o chamador a declara e
+    # /proc/self/cgroup confirma, com os dois tetos numericos. "" quando nao herda.
+    heranca: str = ""
+    heranca_motivo: str = ""
 
 
 def mcs_of(context: str) -> str:
@@ -145,7 +150,7 @@ def avcs_from(records: list[dict]) -> list[Avc]:
 
 def coredumps_from(records: list[dict]) -> list[Coredump]:
     return [Coredump(str(r.get("COREDUMP_CGROUP", "")), str(r.get("COREDUMP_CMDLINE", "")),
-                     str(r.get("COREDUMP_SIGNAL_NAME", "")))
+                     str(r.get("COREDUMP_SIGNAL_NAME", "")), str(r.get("COREDUMP_TIMESTAMP", "")))
             for r in records if r.get("MESSAGE_ID") == COREDUMP_MESSAGE_ID]
 
 
@@ -168,7 +173,7 @@ def ours_coredump(dump: Coredump, scope: str, container_id: str) -> bool:
 
 
 def verdict(avcs: list[Avc], dumps: list[Coredump], mcs: str, scope: str,
-            container_id: str) -> int:
+            container_id: str, janela: float | None = None) -> int:
     classes = [avc_class(a, mcs) for a in avcs]
     our_dumps = [d for d in dumps if ours_coredump(d, scope, container_id)]
     print(f"avc: lidos={len(avcs)} nossos={classes.count('nosso')} "
@@ -181,8 +186,18 @@ def verdict(avcs: list[Avc], dumps: list[Coredump], mcs: str, scope: str,
         elif kind == "nao_atribuivel":
             print(f"NAO ATRIBUIVEL (AVC sem categoria MCS, limite declarado): {avc.message}")
     for d in our_dumps:
-        print(f"REPROVADO, core dump nosso: {d.signal} {d.cmdline} ({d.cgroup})")
+        print(f"REPROVADO, core dump nosso: {d.signal} {d.cmdline} ({d.cgroup}){morte(d, janela)}")
     return 1 if "nosso" in classes or our_dumps else 0
+
+
+def morte(dump: Coredump, janela: float | None) -> str:
+    """A hora da morte, e se ela veio antes da janela da medicao (ainda reprova: alerta da casa)."""
+    if not dump.timestamp.isdigit():
+        return " (hora da morte ilegivel)"
+    quando = int(dump.timestamp) / 1e6
+    if janela is not None and quando < janela:
+        return " (morto antes da janela)"
+    return ""
 
 
 def avc_applies(facts: HostFacts) -> bool:
@@ -218,10 +233,14 @@ def plan(facts: HostFacts) -> tuple[str, list[str]]:
         missing.append("AVC: diario de auditoria ilegivel (nenhum registro lido)")
     if core_dump_applies(facts) and not facts.system_journal_readable:
         missing.append("core dump: diario do sistema ilegivel (nenhum registro do kernel lido)")
-    if core_dump_applies(facts) and not facts.user_scope:
-        missing.append("core dump: systemd-run --user --scope indisponivel (sem escopo proprio)")
+    if core_dump_applies(facts) and not (facts.heranca or facts.user_scope):
+        missing.append("core dump: sem escopo herdado (GLINTFX_CGROUP_EXCLUSIVO nao confere) nem "
+                       "systemd-run --user --scope indisponivel: sem escopo proprio")
     if missing:
         return "reprovar", notes + missing
+    if facts.heranca:
+        notes.append(f"core dump: escopo herdado {facts.heranca} (declarado pelo chamador e "
+                     f"conferido em /proc/self/cgroup; {facts.heranca_motivo})")
     if core_dump_applies(facts) and not facts.docker_cli:
         notes.append("LIMITE DECLARADO: sem docker, nao ha registro do kernel nosso na janela; "
                      "valem a leitura antes e a de depois")
@@ -229,13 +248,13 @@ def plan(facts: HostFacts) -> tuple[str, list[str]]:
 
 
 def judge(avc_records: list[dict] | None, dump_records: list[dict] | None, mcs: str,
-          scope: str, container_id: str) -> int:
+          scope: str, container_id: str, janela: float | None = None) -> int:
     """O veredito sobre o que foi lido; None e uma leitura que falhou: REPROVA (CRITICO-1)."""
     if avc_records is None or dump_records is None:
         print("REPROVADO: a leitura do diario falhou depois do sentinela (fonte ausente)")
         return 1
     return verdict(avcs_from(avc_records), coredumps_from(dump_records), mcs, scope,
-                   container_id)
+                   container_id, janela)
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -321,12 +340,54 @@ def in_initial_pid_namespace(root: Path) -> bool:
         return True
 
 
-def host_facts(root: Path = Path("/"), run=None) -> HostFacts:
-    """Os fatos deste hospedeiro; `root` e `run` existem para o selftest dar /sys, /proc e os
-    programas de mentira (alertas-fix2: host_facts nao tinha celula nenhuma)."""
+ENV_CGROUP_EXCLUSIVO = "GLINTFX_CGROUP_EXCLUSIVO"
+
+
+def _le(path: Path) -> str:
+    try:
+        return path.read_text().strip()
+    except OSError:
+        return ""
+
+
+def cgroup_heranca(root: Path, declarado: str) -> tuple[str, str]:
+    """(folha, motivo): a folha do escopo herdado, ou "" e o motivo da recusa. Herda so com as
+    quatro condicoes juntas: declarado, igual ao caminho de /proc/self/cgroup, folha .scope e os
+    dois tetos numericos. Um cgroup compartilhado (max/max, F6) nunca herda."""
+    if not declarado:
+        return "", ""
+    linha = next((l for l in _le_linhas(root / "proc/self/cgroup") if l.startswith("0::")), "")
+    caminho = linha[3:] if linha else ""
+    if not caminho:
+        return "", f"{ENV_CGROUP_EXCLUSIVO} declarado, mas /proc/self/cgroup ilegivel: nao herda"
+    if caminho != declarado:
+        return "", f"{ENV_CGROUP_EXCLUSIVO}={declarado} difere do cgroup lido ({caminho}): nao herda"
+    folha = caminho.rsplit("/", 1)[-1]
+    if not folha.endswith(".scope"):
+        return "", f"folha {folha} nao termina em .scope: nao herda"
+    base = root / "sys/fs/cgroup" / caminho.lstrip("/")
+    pids, mem = _le(base / "pids.max"), _le(base / "memory.max")
+    if not (pids.isdigit() and mem.isdigit()):
+        return "", f"teto nao numerico (pids.max={pids or 'ilegivel'} memory.max={mem or 'ilegivel'}): nao herda"
+    return folha, f"pids.max={pids} memory.max={mem}"
+
+
+def _le_linhas(path: Path) -> list[str]:
+    try:
+        return path.read_text().splitlines()
+    except OSError:
+        return []
+
+
+def host_facts(root: Path = Path("/"), run=None, declarado: str | None = None) -> HostFacts:
+    """Os fatos deste hospedeiro; `root`, `run` e `declarado` existem para o selftest dar /sys,
+    /proc, os programas de mentira e a declaracao do chamador (alertas-fix2; HERDA, 26/11/2026)."""
     enforce = root / "sys/fs/selinux/enforce"
     pattern_file = root / "proc/sys/kernel/core_pattern"
     pattern = pattern_file.read_text().strip() if pattern_file.exists() else ""
+    if declarado is None:
+        declarado = os.environ.get(ENV_CGROUP_EXCLUSIVO, "")
+    heranca, motivo = cgroup_heranca(root, declarado)
     return HostFacts(
         selinux_enabled=enforce.exists(),
         core_pipe_to_systemd=pattern.startswith("|") and "systemd-coredump" in pattern,
@@ -334,8 +395,10 @@ def host_facts(root: Path = Path("/"), run=None) -> HostFacts:
         docker_image=runs_ok(["docker", "image", "inspect", HOUSE_IMAGE], run),
         audit_readable=has_records(["_TRANSPORT=audit"], run),
         system_journal_readable=has_records(["_TRANSPORT=kernel"], run),
-        user_scope=runs_ok(["systemd-run", "--user", "--scope", "--quiet", "true"], run),
-        initial_pid_namespace=in_initial_pid_namespace(root))
+        # com a folha herdada, a sonda do escopo proprio nao roda (como a do contido.sh)
+        user_scope=(not heranca) and runs_ok(["systemd-run", "--user", "--scope", "--quiet", "true"], run),
+        initial_pid_namespace=in_initial_pid_namespace(root),
+        heranca=heranca, heranca_motivo=motivo)
 
 
 def window_gaps(facts: HostFacts, container_ran: bool, audit_records: list[dict],
@@ -432,8 +495,10 @@ def run_host_selftest(repo: Path, python: str, scope: str, in_scope: bool, run=N
 
 def measure(repo: Path, python: str, facts: HostFacts, run=None, sleep=None) -> int:
     since = time.time()
-    scope = f"glintfx-host-alert-gate-{os.getpid()}"
-    host_rc = run_host_selftest(repo, python, scope, core_dump_applies(facts), run)
+    own = f"glintfx-host-alert-gate-{os.getpid()}"
+    # o escopo de atribuicao: a folha herdada (ja com .scope) ou o escopo proprio do portao
+    leaf = facts.heranca if facts.heranca else f"{own}.scope"
+    host_rc = run_host_selftest(repo, python, own, core_dump_applies(facts) and not facts.heranca, run)
     try:
         cid, mcs, sources = (run_house_container(repo, run) if facts.docker_image
                              else ("", "", []))
@@ -458,18 +523,21 @@ def measure(repo: Path, python: str, facts: HostFacts, run=None, sleep=None) -> 
     gaps = window_gaps(facts, bool(cid), avc_records or [], kernel_records or [], run)
     for gap in gaps:
         print(f"REPROVADO: fonte ausente na janela: {gap}")
-    result = 1 if gaps else judge(avc_records, dump_records, mcs, f"{scope}.scope", cid)
+    result = 1 if gaps else judge(avc_records, dump_records, mcs, leaf, cid, since)
     if host_rc != 0 or foreign:
         print("REPROVADO: o selftest do hospedeiro falhou, ou o conteiner montou algo fora do repo")
         return 1
     return result
 
 
-def live(repo: Path, python: str, run=None, sleep=None, root: Path = Path("/")) -> int:
+def live(repo: Path, python: str, run=None, sleep=None, root: Path = Path("/"),
+         declarado: str | None = None) -> int:
     if not (repo / "tests/container/exec_fixture.sh").is_file():
         print(f"REPROVADO: repositorio sem tests/container/exec_fixture.sh: {repo}")
         return 1
-    facts = host_facts(root, run)
+    facts = host_facts(root, run, declarado)
+    if facts.heranca_motivo and not facts.heranca:
+        print(f"host_alert_gate: heranca recusada: {facts.heranca_motivo}")
     decision, reasons = plan(facts)
     for reason in reasons:
         print(f"host_alert_gate: {reason}")

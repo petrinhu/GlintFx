@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/ci/wave-manifest/arch.txt - manifesto da perna Arch (CI-PIN-PKG-A).
+# Formato: "<pacote> <versao>", no que pacman -Q <pacote> imprime.
+# ORIGEM: DERIVADO do indice congelado no carimbo ONDA_STAMP (Arch Linux Archive,
+# repos/2026/11/27, core.db e extra.db). O pacote gcc sai do core; cmake, ninja e
+# wayland saem do extra. g++ vem dentro do pacote gcc neste repositorio.
+# NAO e' medido instalado. A conferencia no servidor (o portao no CI) e' pendente.
+cmake 4.5.1-1
+gcc 16.2.1+r23+gd564253eb6c8-1
+ninja 1.13.2-3
+wayland 1.26.0-1

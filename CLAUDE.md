@@ -23,26 +23,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | procurar prior art, base de código ou "como era antes" | L-01 projeto do zero |
 | ⚖ | desenhar API, escopo ou entregável | L-02 é biblioteca, não aplicação |
 | ⚖ | criar build, escolher padrão de linguagem | L-03 C++23 + CMake |
-| ⚖ | escrever CI, declarar suporte de plataforma, **fechar qualquer fatia, escrever ramo condicional por sistema, ou trocar a imagem ou uma ferramenta do CI** | L-04 alvos suportados (cinco originais mais as distros do astrometrica), CachyOS próprio; **comportamento igual em todo sistema, provado em cada um**; **imagem e ferramentas do CI fixas durante a onda, as novas só na troca de onda** (20/11) |
+| ⚖ | escrever CI, declarar suporte de plataforma, **fechar qualquer fatia, escrever ramo condicional por sistema, ou trocar a imagem ou uma ferramenta do CI** | L-04 alvos suportados (cinco originais mais as distros do astrometrica), CachyOS próprio; **comportamento igual em todo sistema, provado em cada um**; **imagem e ferramentas do CI fixas durante a onda, as novas só na troca de onda** (20/11); no meio do ramo o CI para no primeiro erro e roda o mesmo subconjunto em todo sistema, no fechamento todos os sistemas vão até o fim (26/11) |
 | ⚖ | tocar janela, input, display, ou copiar exemplo de internet | L-05 Wayland puro, sem X11 |
 | ⚖ | implementar teclado, keymap ou texto digitado | L-06 parser XKB próprio |
 | ⚖ | adicionar dependência, `FetchContent`, vendorizar | L-07 dependência zero |
 | ⚖ | criar repo, `LICENSE`, cabeçalho, publicar qualquer coisa | L-08 público, AGPL-3.0 |
-| ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 container, nunca a sessão viva |
+| ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 janela, entrada, tela e compositor sempre em container, nunca a sessão viva; o teste sem janela roda no computador, pela fila `pesado` e com teto (26/11) |
 | ⚖ | escolher entre abordagens, decidir design ou arquitetura | L-10 opções via AskUserQuestion |
-| ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto | L-11 push por onda, ou onda com mais de 7 dias envia ao ramo dela só o revisado, e cópia privada diária; ao fim de onda com tudo verde, merge e marca só com o OK do líder ou com o modo autônomo do projeto ligado e dentro do prazo, número pela L-26; ramo da onda apagado ao mesclar; a cada push, apagar as imagens de teste de fatias fechadas |
-| ⚖ | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | L-12 agente especialista, papéis distintos; revisão com no máximo duas rodadas, só sobre o critério de pronto escrito antes da fatia, que pode ficar mais exigente e nunca mais frouxo (20/11) |
+| ⚖ | `git push`, merge em `main`, criar tag, publicar release, apagar ramo remoto; registro de decisão também vai ao ramo da onda, nunca direto ao `main` (26/11) | L-11 cada parte pronta é mesclada e marcada sozinha, com o OK do líder em cada versão ou com o modo autônomo do projeto ligado e dentro do prazo, número pela L-26 do projeto (26/11); onda com mais de 7 dias envia ao ramo dela só o revisado, e cópia privada diária; ramo apagado ao mesclar; a cada push, apagar as imagens de teste de fatias fechadas |
+| ⚖ | escrever ou revisar código de produto, ou abrir ou revisar qualquer fatia | L-12 agente especialista, papéis distintos; revisão com no máximo duas rodadas, só sobre o critério de pronto escrito antes da fatia, que pode ficar mais exigente e nunca mais frouxo (20/11); revisão pesada só no que lê dado de fora e no que congela promessa pública, o resto passa pelo CI e por conferência pontual (26/11) |
 | ⚖ | escrever qualquer mensagem ao líder | L-13 timestamp real |
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
 | ⚖ | fechar um marco ou notar a hora | L-15 nunca mandar descansar |
 | ⚖ | abrir sessão, precisar de algo de outro projeto, receber ideia do Gus | L-16 bus `gusworld_ia_autocomm` |
-| ⚖ | escrever função, arquivo, classe ou módulo novo do framework (`include/`, `src/`), ou revisar fatia que mexe nele | L-17 proibido monolito **e** proibida fragmentação no código do framework; números duros mais as cinco perguntas do revisor valem só ali; teste, ferramenta e documento se organizam como for melhor (20/11) |
-| ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; C-level audita e cria, agente operacional implementa, cada um no modelo de `/modelos_sessao` (20/11); prosa para leitor humano em opus com effort max; fable só advisor (02/10) |
+| ⚖ | escrever função, arquivo, classe ou módulo novo do framework (`include/`, `src/`), ou revisar fatia que mexe nele | L-17 proibido monolito **e** proibida fragmentação no código do framework; números duros valem só ali, e as cinco perguntas do revisor só na revisão pesada (26/11); teste, ferramenta e documento se organizam como for melhor (20/11) |
+| ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; C-level audita e cria, agente operacional implementa, cada um no modelo de `/modelos_sessao` (20/11); prosa para leitor humano em opus com effort max; fable só advisor (02/10); push ao `main` ao fim de cada parte, CI seletivo no meio do ramo e completo no fechamento e no merge (26/11) |
 | ⚖ | criar módulo, tocar a fronteira do SO, desenhar API pública | L-19 camadas, portas em compile-time, fronteira opaca |
 | ⚖ | escrever qualquer código com comportamento | L-20 TDD estrito, vermelho antes de verde |
 | ⚖ | nomear qualquer coisa, escrever comentário, commit **ou documento** | L-21 inglês e `snake_case` no código; **commit legível por quem não estava lá: texto explicativo em pt-br e em inglês, códigos internos só na linha de referências**; **documento se decide pelo LEITOR** |
 | ⚖ | projetar assinatura pública ou tratar erro | L-22 nenhuma exceção cruza a API pública |
-| ⚖ | commitar, fechar uma fatia, ou dar push | L-23 portões de qualidade e `preci.sh` |
+| ⚖ | commitar, fechar uma fatia, ou dar push | L-23 portões de qualidade; `preci.sh --changed` a cada fatia, `--fast` inteiro só antes do envio ao GitHub; o portão é o CI (26/11) |
 | ⚖ | pensar em cobertura, formatação ou auditoria | L-24 sem meta de cobertura, clang-format LLVM, dossiê na 1.0 |
 | ⚖ | iniciar build pesado, ASan, teste de janela ou demo | L-25 armar o `watchcode` na janela e desarmar ao fim |
 | ⚖ | criar tag, publicar release, ou mexer na versão | L-26 versão e tag `vA.B.C.D`, `SOVERSION` segue o `A` |
@@ -51,10 +51,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | não saber como implementar algo, ou querer ver prior art | L-29 pode ler e estudar qualquer biblioteca do tipo; ligar, clonar e copiar proibidos; licença conferida antes |
 | ⚖ | tocar mapa, grade, colisão, rota ou visibilidade | L-30 mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
 | ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |
-| ⚖ | escolher a próxima fatia, antes de a demo rodar, ou pôr item novo numa onda | L-32 caminho principal sempre, mais no máximo UMA trilha paralela; W9-I e W9 só produto, sem item novo de infraestrutura ou de processo (20/11) |
+| ⚖ | escolher a próxima fatia, antes de a demo rodar, ou pôr item novo numa onda | L-32 caminho principal sempre, mais no máximo UMA trilha paralela; W9-I e W9 só produto, sem item novo de infraestrutura ou de processo (20/11); exceções de processo, só na troca de onda: GL-RENAME, congelamento dos pacotes do CI e o lote de eficácia (26/11) |
 | ⚖ | tocar qualquer coisa de mapa | L-33 avisar o `mapeditor`; se fora do ar, pelo bus |
 | ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, C-level planeja, main verifica, agentes implementam, cada um no modelo de `/modelos_sessao` (20/11) |
-| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level, no modelo de `/modelos_sessao`, decide no lugar do líder e só pesquisa o que subiria a ele; escolha de rotina vira uma linha (20/11); o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
+| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level, no modelo de `/modelos_sessao`, decide no lugar do líder e só pesquisa o que subiria a ele; escolha de rotina vira uma linha (20/11); o main anota ao vivo num rascunho fora do repositório, e o agente da fatia leva ao `DECISOES_AUTONOMAS.md` no commit dela (26/11) |
 | ⚖ | tocar a superfície de entrada, ou a entrega de evento | L-35 entrega determinística, sem duplicar e sem reordenar; é promessa pública |
 | ⚖ | tocar cursor, áudio, gamepad ou compose | L-36 as quatro decisões de escopo de 23/08; nenhuma é mais pergunta |
 | ⚖ | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | L-37 avisar o Gus Dragon sem ele perguntar |
@@ -150,7 +150,7 @@ Os manuais na raiz são normativos e vencem qualquer preferência do agente, **e
 | `TESTES.md` | Antes de planejar ou executar teste, análise estática, fuzzing, sanitizer, auditoria de suíte |
 | `AUDITORIAS.md` | Auditoria técnica: 10 capítulos ancorados nas leis deste projeto (dependência zero, camadas, ABI, os três contratos de versão, Wayland, isolamento de teste, licença, entrada hostil, portões de qualidade, dossiê pré-1.0); classifica achado em CRÍTICO/IMPORTANTE/COSMÉTICO |
 | `AGILE.md` | Planejamento, cadência, ondas, priorização |
-| `DEPLOY_CHECKLIST.md` | Qualquer operação irreversível (tag, release pública, rotação de chave) |
+| `DEPLOY_CHECKLIST.md` | As sete classes irreversíveis da L-70 global: login, permissão, token, segredo, apagar dado, schema de banco e rotação de chave. A marca de versão da biblioteca não é uma delas e segue a publicação por parte da L-11 do projeto (26/11) |
 | `ORG.md`, `pipeline_release_1.0.md`, `lideranca_pipeline_release.md` | Quem lidera o quê, qual C-level ativar, as 12 fases |
 | `TOOLING.md` | Qual ferramenta FOSS canônica usar por domínio antes de improvisar em shell |
 | `docs/api-conventions.md` | Antes de fechar qualquer revisão de API dedicada (PMU) - as sete regras que CORE-ERROR estabeleceu (CE-8), cada uma com o teste que a prova |
@@ -221,6 +221,7 @@ Estado em 21/08/2026: `inbox/glintfx/` **vazia**, 28 mensagens no `archive/`. As
 Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e um framework 2D bate em todas elas.
 
 - **Build pesado, temporários e provas vão para `<projeto>/.trabalho/`, com `export TMPDIR=<projeto>/.trabalho/tmp`** (emenda de 22/10/2026 na L-09 do `GODS_LAWS.md`: tirar da partição `/`, que tem só ~21 GiB; a pasta do projeto fica na partição `home`). `/tmp` aqui é tmpfs (sai da RAM) e continua proibido. As pastas antigas de `/var/tmp` deste projeto são atalhos para `.trabalho/`, para as ordens congeladas seguirem válidas. O orquestrador limpa `.trabalho/` depois de cada uso.
+- **Trabalho pesado vai pela fila `~/.claude/bin/pesado -- <comando>`** (L-11 global, item 2), com o código de saída lido de variável. O teto padrão da fila vale para tudo, menos a rodada inteira `tools/preci.sh --fast`, que vai com `--teto 25`, porque foi medida em 17 minutos em 26/11/2026. O teste de um arquivo só, no ciclo curto de TDD, roda fora da fila com `taskset -c 2-$(( $(nproc) - 1 )) nice -n 19` (emenda de 26/11/2026 na L-09 do projeto).
 - **Espaço em disco se mede com `btrfs filesystem usage /`** (sem `sudo`), lendo `Device unallocated` e o `min` de `Free (estimated)`. O `df` mente em btrfs.
 - **Teste que toca teclado, mouse ou tela roda em container, com compositor Wayland aninhado dentro dele.** Ver a seção "Isolamento obrigatório de teste" acima; é regra, não preferência. Injetor de input X11 ou de kernel está fora.
 - **Verificação de entregável visual é do `qa-engineer`**, independente de quem implementou, e o orquestrador reconfere o relatório do QA.

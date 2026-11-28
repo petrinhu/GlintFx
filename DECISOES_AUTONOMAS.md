@@ -11954,3 +11954,280 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
     - os avisos vão ao bus `gusworld`, ao Gus Dragon e à manutenção;
     - a imagem `glintfx-wltest:g3` e os clones de `.trabalho/` saem pela L-53.
   - **Este registro vai direto no `main`,** como a L-11 permite para registro de decisão.
+
+- **D-W8-1220 (LÍDER, 26/11 08:23): a L-11 do projeto perde a exceção do registro direto no `main`.**
+  - **Pergunta:** a contradição entre a tabela "O que vai | Destino" da L-11 do projeto e a L-24 geral ("Mande o trabalho a um ramo próprio, nunca ao `main`").
+  - **Resposta verbatim:** *"Sem exceção: só vai no ramo da onda"*.
+  - **Origem:** levantada pelo CTO, com as opções e o argumento contra. O líder tinha lembrado antes: *"nao esqueça que as leis mudaram"*.
+  - **Efeito:**
+    - todo registro, de decisão ou de memória, vai no ramo da onda viva;
+    - entre uma onda e outra, ele fica no `main` LOCAL, protegido pela cópia diária, e sai com o ramo da onda seguinte;
+    - o `main` remoto só muda no fechamento de onda.
+  - **O que já estava publicado:** o `6cdfe621`, mandado direto ao `main` antes desta decisão, fica como está, sem reescrever o publicado. O `6c6f8335` fica local.
+  - **A quebra da L-10 geral pelo main nesta sessão** ("a sessão principal não escreve no repositório"): o main acrescentou linhas a este arquivo por heredoc, umas dez vezes, em 25 e 26/11. A quebra foi nomeada ao líder, e desde 26/11 08:18 o main redige fora do repositório e um agente aplica.
+- **D-W8-1221 (LÍDER, 26/11 08:3x): o compositor estrito vai ao CI (STRICT-COMPOSITOR-LAB).** Resposta verbatim: *"Weston no CI (Recomendado)"*.
+  - A linha entra ⏳ na INFRA-CI e vale na troca de onda (L-04).
+  - Ela liga com a WL-ACK-SMOKE-BLUNT.
+  - Instalar o Weston pede a L-51 na hora.
+- **D-W8-1222 (LÍDER, 26/11 08:3x): cortar o pico de memória ao abrir o atlas (T6B-OPEN-PEAK).** Resposta verbatim: *"Cortar o pico (Recomendado)"*.
+  - A linha entra ⏳ na W9-B.
+  - O texto público de `open()` troca o pico por um bloco fixo, e o que o atlas guarda depois não muda.
+  - Camada N1, com revisão de API do texto.
+- **D-W8-1223 (LÍDER, 26/11 08:3x): o contexto que não desenha (R2D-NULL-CONTEXT).** Resposta verbatim: *"Depois, com revisão de API (Recomendado)"*.
+  - A linha entra ⏳ na W9-B.
+  - Ele só liga por opção explícita, nunca como recuo automático.
+  - Pesquisa (L-34) e revisão de API antes do plano.
+- **D-W8-1224 (LÍDER, 26/11 08:3x): a suíte rodada por um caminho com atalho (SANDBOX-SYMLINK-CONSUMER).** Resposta verbatim: *"Corrigir a ferramenta (Recomendado)"*.
+  - A linha entra ⏳ na INFRA-CI, camada N3.
+  - A decisão C de outubro, de que as ordens usam caminho real, continua valendo.
+- **D-W8-1225 (LÍDER, 26/11 08:4x): o atlas, uma pergunta por vez.**
+  - **Na pergunta da família**, a resposta verbatim foi: *"opcao 2. Veja se pode atomizar"*. As três perguntas separadas vieram depois.
+  - **Desenho girado:** *"Onda de render, com revisão (Recomendado)"*. Ele foi atomizado em DUAS linhas na W9-B:
+    - `DRAW-ATLAS-QUAD`, o quadrilátero com o recibo conferido;
+    - `DRAW-ATLAS-TRIANGLES`, os triângulos com o recibo conferido.
+    Cada uma tem a sua função pública, a pesquisa e a revisão de API (D-W8-1059).
+  - **Ocupação:** *"Com o cache de letras (Recomendado)"*. A `ATLAS-USAGE-QUERY` entra na W12, antes da FONT-ATLAS (D-W8-927).
+  - **Crescer:** *"Com o cache de letras (Recomendado)"*. A `ATLAS-GROW` entra na W12, antes da FONT-ATLAS.
+  - As quatro escolhas de 20/11 (D-W8-1155) não mudam.
+- **D-W8-1226 (LÍDER, 26/11 08:4x): a tabela de sinais do conferidor de citações não entra (CITATION-SENTENCE-TABLE).** Resposta verbatim: *"Não entra (Recomendado)"*.
+  - A linha passa a 🚫 Cancelado, com o motivo: o que os controles de hoje não cobrem vira limite declarado (L-12 N3).
+- **D-W8-1227 (LÍDER, 26/11 08:4x): os pedidos sobre o guarda global contra travessão vão à configuração da máquina.** Resposta verbatim: *"Mandar à configuração (Recomendado)"*.
+  - Os bullets `NO-MDASH-PUBLIC-DOC-ZERO` e `HOOK-ZERO-VARREDURA` saem da INBOX.
+  - A `GLOBAL-NO-MDASH-SHELL-EDIT`, da WM20, passa a 🚫 Cancelado, com a nota "encaminhado à configuração global em 26/11".
+  - O main manda a sugestão à sessão `claude_configs`.
+- **D-W8-1228 (main, 26/11): o veredito do CTO sobre a `CI-VERDE-W7C`.** Ela é o portão vivo da onda INFRA-CI, porque a W7-C foi renomeada para INFRA-CI em 29/09. Fica como está.
+- **D-W8-1229 (main, 26/11): o que fica fora deste pedido do líder,** que abrangia as ondas de W1 até o fim da W8.
+  - 20 linhas de ondas futuras (W9-I, W9-D, W9-G, W9-H, W9-K, WM4, WM12, WM15, WM20, W11c e W17) ainda trazem "PERGUNTA AO LÍDER" no texto. As três da W9-I são as mais próximas. Sobem na abertura de cada onda (lista em `.trabalho/cto-w8/perguntas-inbox-pos-w8.md` §5).
+  - A seção "Decisões abertas" do topo do `TODO.md` está velha, pela leitura do CTO. A limpeza fica para a abertura da W-PNG-1.
+
+- **D-W8-1230 (main, 26/11 10:27): a wiki do GitHub foi publicada na versão 0.7.0.0.** Isso cumpre a decisão do líder registrada na linha 10010 deste arquivo, *"Sim, publique no fechamento (Recomendado)"*.
+  - **O que foi para a wiki:** uma cópia exata de `docs/wiki` da marca `v0.7.0.0`, com o SHA da wiki passando de `5c09dd36` para `23363d69`. Entraram 2 páginas novas, `API-Draw-2D-Shapes` e `API-Texture-Atlas`, e 5 atualizadas.
+  - **Conferência:** pelo site, a `API-Texture-Atlas` responde 200 e a `Pinning-a-Version` cita `v0.7.0.0`.
+- **D-W8-1231 a D-W8-1238 (LÍDER, 26/11 ~11:45): o projeto se ajusta às leis gerais de 23/11 e à L-35 de 26/11.** O plano do COO está em `.trabalho/cto-w8/auditoria-eficacia-leis-2311.md`, com o argumento contra cada recomendação. As respostas, verbatim:
+  - **D-W8-1231, B0, exceção ao "só produto":**
+    - na primeira formulação, o líder respondeu *"nao entendi"*;
+    - reformulada, a resposta foi *"Sim, agora, antes do PNG (Recomendado)"*;
+    - efeito: um lote fechado de ferramenta e CI, só com os itens aprovados hoje, entra antes da primeira fatia do PNG.
+  - **D-W8-1232, B1, teste sem janela:** *"Seguir a lei geral (Recomendado)"*. O que não abre janela roda no computador, com teto; janela, teclado e mouse continuam sempre em contêiner (L-09 do projeto).
+  - **D-W8-1233, B2, conferência local:** *"Só o que a fatia tocou (Recomendado)"*. A conferência inteira roda só antes do envio ao GitHub, e o portão é o CI (L-23 e L-18 do projeto).
+  - **D-W8-1234, B3, CI seletivo:** *"Os dois (Recomendado)"*.
+    - No meio do ramo, o CI compara com o último verde do ramo e roda o mesmo subconjunto em todos os sistemas.
+    - No fechamento e no merge, roda tudo.
+    - A busca de segredo e o portão das leis rodam sempre.
+    - O envio só de texto que nenhum teste lê pula os testes.
+  - **D-W8-1235, B4, publicação:** *"Cada parte, a sua versão (Recomendado)"*. Cada parte pronta é mesclada sozinha, com uma passagem só do CI, e o OK do líder vale para cada versão (L-11 e L-18 do projeto).
+  - **D-W8-1236, B5, revisão:** *"Pesada só onde importa (Recomendado)"*.
+    - A revisão pesada fica no que lê arquivo de fora (PNG, folha de estilo e mapa) e no que congela promessa pública.
+    - O resto passa pelo CI e por uma conferência pontual (L-12, L-17, L-34 e L-40 do projeto).
+  - **D-W8-1237, B6, o diário:** *"Rascunho fora, agente leva (Recomendado)"*. O main anota ao vivo no scratchpad, e o agente da fatia leva a anotação ao diário no commit dele (L-34 do projeto).
+  - **D-W8-1238, B7, parar no primeiro erro:** *"Parar no meio, completo no fim"*. Nos envios do meio do ramo, o CI para no primeiro erro; no fechamento, todos os sistemas rodam até o fim (L-04 do projeto).
+  - **A7 do plano, mecânico:** a falha de preparo se refaz com `gh run rerun --failed`, nunca com commit novo.
+- **D-W8-1239 (LÍDER, 26/11 12:08): os detalhes da publicação por partes** (`emendas-leis-2611.md` §10). As respostas, verbatim:
+  - **P1, o que é uma parte:** *"Um recurso público completo (Recomendado)"*. A parte é uma capacidade pública completa em todos os sistemas, listada no plano da onda; cada parte tem o seu ramo, que é apagado no merge;
+  - **P2, as rodadas:** *"Duas por parte (Recomendado)"*. Uma rodada completa antes do merge e outra no `main` depois dele;
+  - **P3, o checklist:** *"Marca sai da lista longa (Recomendado)"*. A marca de biblioteca deixa de passar pelo DEPLOY_CHECKLIST e fica com os portões do CI e o OK do líder. A regra de nunca apagar nem mover uma marca continua;
+  - **P4, o número:** *"Mesclar sem versão (Recomendado)"*. A troca de onda entra no `main` sem marca, e a primeira parte do PNG leva a próxima versão.
+- **D-W8-1240 (main, 26/11 12:08): a P5, que é do main.** A parada no primeiro erro vale só dentro das quatro matrizes, nos envios do meio. A rodada inteira NÃO é cancelada, para não cortar no meio a busca de segredo nem o portão das leis. É a recomendação do COO.
+- **D-W8-1241 (main, 26/11 12:08): ficam no lote as quatro peças que o COO acrescentou por conta própria** (`ordem-lote-eficacia.md` §7):
+  - a lista de varreduras de árvore;
+  - o isolamento do `XDG_RUNTIME_DIR`, que protege a sessão do líder;
+  - o `ci_verde_completo.py`, porque um verde com zero teste reprova (L-40 do projeto);
+  - a guarda de teto, porque o líder pediu o teste sem janela "com teto".
+  Cada uma protege uma condição que o líder pôs.
+- **D-W8-1242 (main, 26/11 13:30): o espelho da fatia roda num clone limpo.** O `tools/preci.sh --fast` da E1 rodou em `.trabalho/efic/clone-e1`, com `TMPDIR` em `.trabalho/tmp`, que fica fora da árvore do clone. É a prática da W8, e não abre exceção. Na árvore principal, cinco testes caem por causa do ambiente:
+  - o `vendor_purity`, que varre o `.trabalho/` não rastreado;
+  - o `pkgconfig`, o `pkgconfig_validate`, o `libdir_includedir_mix_rejected` e a `armadilha`, que recusam um `TMPDIR` dentro do repositório.
+
+  Isso fica como trabalho descoberto da E2.
+- **D-W8-1243 (main, 26/11 13:30): os commits da E1 foram feitos na árvore principal, e não em `$W/repo`.** A cópia `$W/repo` da ordem não existia. A ordem proibia commit na árvore principal (§4 E1, Proibições), e este é um desvio do main, não do implementador.
+- **D-W8-1244 (main, 26/11 14:00): a revisão 1 da E1 reprovou por dois achados bloqueantes, e o main aceitou os dois.**
+  - B1: o leitor compilado de um arquivo C5 não chegava aos testes.
+  - B2: `check_machine_paths.py` estava declarado com `-`, mas varre o `git ls-files`.
+
+  O main exigiu no mesmo conserto o caso do leitor por glob (A1) e a conferência da forma argv (A6, o gêmeo do B2).
+- **D-W8-1245 (main, 26/11 14:04): a regra "leitor C1 ou C4b dá completo", que o main pôs na rodada 2, ia além da ordem.** Aplicada também ao leitor por glob, ela levou o `completo` de 7 para 24 nos 30 commits medidos. O main a restringiu ao leitor por citação. Não foi afrouxamento do critério, porque o acréscimo tinha sido dele.
+- **D-W8-1246 (líder, 26/11 14:16): o modo autônomo foi ligado.** As palavras dele, verbatim: *"ligue modo autonomo"*. A flag vale até 27/11 14:16. Logo depois, também verbatim: *"autorizo tag/merge/push/rm"*. O `rm` segue a L-53 global: listar os caminhos absolutos antes de apagar.
+- **D-W8-1248 (CTO no lugar do líder, modo autônomo, 26/11 14:31): o efeito da citação de um arquivo C5 depende do papel de quem cita.** A tabela completa está em `.trabalho/efic/e1/decisao-cto-leitor-c1.md`.
+  - CMake: o comentário sai. A citação em `add_test` seleciona aquele teste; em `message` ou em texto de ajuda não conta; qualquer outra invocação dá `completo`.
+  - Orquestrador: a citação é leitor, mas não seleciona teste.
+  - Script: seleciona os testes que o citam, com piso de dois níveis.
+  - Compilado ou dado sem consumidor: dá `completo`.
+
+  A medida que sustenta a regra: das 23 citações do `tests/CMakeLists.txt`, 13 estão em comentário e 8 são argumento de `add_test`; nenhuma está em `configure_file`, `file()` ou `install`. O glob de `tools/win-vm-lab/check-sem-segredo.sh` passou a `tools/win-vm-lab/*`, porque o `DIR` padrão dele é a própria pasta, e nenhum CI ou teste o chama. Não é porta de mão única. Se o líder reverter, volta a regra de 24 de 30 em `completo`.
+- **D-W8-1249 (main, 26/11 14:45): o ganho da E1 ficou em 15 de 30 em `completo`, contra 10 previstos.** As causas da diferença vão todas para o lado seguro: `unset(v)`, o piso de `tools/bench_core_error.sh`, o `GODS_LAWS.md` em literal de `.cpp` e a colisão de nome `README.md`. O refinamento fica como melhoria futura, fora da E1.
+- **D-W8-1250 (main, 26/11 14:55): a revisão 2 da E1, que era a última, aprovou.** O main aplicou e conferiu pontualmente dois ajustes no `2c0dd901`, com o autoteste em 34 de 34 e `classificar --arvore` saindo com 0:
+  - N1: citação só em comentário de CMake não é leitor;
+  - N2: o glob de `tests/CMakeLists.txt` passou a `include/*`.
+
+  O `--fast` inteiro do ramo fica para antes do primeiro envio (L-23). A `EFIC-SELETOR` fica em 🔍 até o CI verde.
+- **D-W8-1251 (main, 26/11 14:19): limpeza de hora em hora (L-53 global), a pedido da sessão `manutencao` e com o OK do líder ("pode executar o que manutencao pedir").** Saíram 506 caminhos, ou 11,8 GiB, com a lista em `.trabalho/tmp/limpeza-1426-lista.txt`. Eram cópias de árvore e builds das fatias da W8, que já está fechada, e os clones já usados da E1. Ficaram os registros, os relatórios e o `r21`.
+- **D-W8-1252 (CTO no lugar do líder, modo autônomo, 26/11 15:53, a ratificar): o `host_alert_gate_test` herda o escopo da fila.** O portão passa a atribuir o core dump ao escopo `pesado-*.scope` que o espelho já ocupa, sem criar escopo próprio e sem usar o barramento da sessão.
+  - Opções recusadas: (1) exceção com o XDG da sessão, porque afrouxaria a L-09 do projeto; (2) passar só o DBUS, que não funciona, porque o systemd 262 ignora o DBUS quando o XDG está definido (medido, F1); (3) pular, que fere a L-40 do projeto; (4) estágio próprio, porque mexe na lei.
+  - Não é porta de mão única. Fontes e medições: `.trabalho/efic/e2/decisao-cto-e2.md`, seção D-A.
+- **D-W8-1253 (CTO, 26/11 15:53): o isolamento do espelho também retira o `DBUS_SESSION_BUS_ADDRESS`, como faz o `GTestDBus.unset()` da GLib.** Nenhum teste rastreado usa D-Bus.
+- **D-W8-1254 (CTO, 26/11 15:53): o lint da C3 é defeito da E1.** O `--changed` conferia menos que o `--fast`. A ordem E1-fix1 conserta isso e também o gêmeo: o modo `completo` só listava `src/`.
+- **D-W8-1255 (CTO, 26/11 15:53): a E2 não commita vermelha.** A ordem é a E1-fix1, depois a E2 rodada 2, a reprova dos itens 3 e 4 e um commit só, verde (L-12 do projeto). O patch está guardado e conferido por `cmp`.
+- **D-W8-1256 (CTO, 26/11 15:53): os cinco testes que caem com o `TMPDIR` dentro da árvore ficam fora da alçada do CTO.** Ampliar o lote é do líder (L-32 do projeto, emenda de 26/11), e a pergunta foi levada a ele. Até a resposta, o espelho do lote roda em cópia sob `.trabalho/`. Para a INBOX, fora do lote, vai `HOST-ALERT-SCOPE-CEILING`: fora da fila, o escopo do `systemd-run` do portão não tem `TasksMax` nem `MemoryMax`.
+- **D-W8-1257 (líder, 26/11 16:01, por AskUserQuestion): o lote de eficácia ganha a fatia E2c,** que consome os dois itens da INBOX de 13/11 (`VENDOR-PURITY-TRABALHO` e `TMPDIR-NA-ARVORE`), com o desenho da seção D-B de `.trabalho/efic/e2/decisao-cto-e2.md`. A resposta dele, verbatim: *"opcao 1 e fiz upgrade para github pro"*. A E2c entra depois do commit da E2, com um agente por vez na árvore. A troca do líder para o plano GitHub Pro fica registrada como fato. O efeito dela sobre o CI do lote vai ao CTO, para ser medido na E3 e na E4.
+- **D-W8-1258 (main, 26/11 16:29): a E1-fix1 (`f280892a`) foi aprovada na revisão 1.**
+  - O que mudou: a lista de lint do `resolver` passou a levar a unidade C3, e o modo `completo` passou a levar todo o codemodel, com 436 unidades.
+  - Provas: o autoteste passou 37 de 37; os dois mutantes e a sabotagem do revisor ficaram vermelhos; o `--fast` no clone saiu com rc=0, com 404 testes passando e 1 pulado.
+  - Limite declarado: o `_includers` segue um nível só. Um cabeçalho que só é incluído por outro cabeçalho não chega ao `.cpp`.
+- **D-W8-1259 (líder, 26/11 18:18): o modo autônomo foi ligado de novo.** As palavras dele, verbatim: *"ligue modo autonomo"*. A flag vale até 27/11 18:18. Antes disso, às 17:16, ele tinha pausado a sessão pela `manutencao` e, às 18:10, mandou retomar pela `gerencia`, com confirmação dele por AskUserQuestion: *"Sim, retome (Recomendado)"*.
+- **D-W8-1260 (líder, 26/11 18:19, por AskUserQuestion): o envio, a mescla e a versão estão liberados no modo autônomo.** Resposta dele, verbatim: *"Tudo liberado"*. Isso desfaz a restrição posta na pausa. Os três saem sem nova pergunta, mas só com tudo verde (L-11 e L-24 do projeto, e L-15 global, item 3).
+- **D-W8-1261 (main, 26/11 18:42): a revisão 1 da E2 (`7d6ee466`) reprovou por dois achados, e o main aceitou os dois.**
+  - B1: nenhum autoteste cobre a recusa do "zero caminhos". O revisor trocou a recusa por `exit 0`, e o `--selftest` continuou verde.
+  - B2: falta a prova de ponta a ponta de que o portão herda o escopo `pesado-*.scope`. A linha "escopo herdado" saiu de uma chamada direta, e não do `ctest` que passou.
+
+  A E2-fix1 entra depois do commit da E2c, para que haja um só escritor na árvore.
+  - Nota N1, que vai para a INBOX com decisão do CTO: `GITHUB_ACTIONS=1` definido na máquina local desliga a guarda e o isolamento.
+- **D-W8-1262 (CTO no lugar do líder, modo autônomo, 26/11 18:40): o GitHub Pro não muda o desenho da E3, da E4 nem da E5.** O ganho é a concorrência, que passa de 20 para 40 trabalhos ao mesmo tempo. Na última rodada completa, com 26 trabalhos, 6 esperavam na fila e deixam de esperar. Falta conferir o gasto da cópia privada diária contra a franquia de US$ 18 do Pro. A ordem da E2c está em `.trabalho/efic/e2c/ordem-e2c.md`.
+- **D-W8-1263 (main, 26/11 19:38): a E2 fechou.** A revisão 2, que era a última, aprovou a E2-fix1 (`531ed9b9`). Com a sabotagem da recusa, o `--selftest` sai com rc=1, e o `ctest -V` dentro do espelho mostra "escopo herdado". A `EFIC-PRECI` fica em 🔍 até o CI verde.
+- **D-W8-1264 (main, 26/11 19:38): a revisão 1 da E2c (`f7119c56`) reprovou.** Com o `TMPDIR` dentro de um clone, `_git_listing` sobe até o repositório de fora, e o `source_snapshot_selftest` cai. Na árvore principal o teste passa só porque o `.trabalho` é um subvolume btrfs próprio. A linha que a E2c acrescentou em `varreduras-de-arvore.txt` foi julgada necessária, e não um desvio.
+- **D-W8-1265 (CTO no lugar do líder, modo autônomo, 26/11 20:31): a armadilha leva 32 s na árvore principal porque o `find /` percorre 2,3 milhões de arquivos de `.trabalho/`.** A caixa de areia passa a cobrir `<raiz>/.trabalho` com um `tmpfs` vazio, só quando essa pasta é filha direta da raiz e o git confirma que ela é ignorada.
+  - Opções recusadas: podar o `find` e tirá-lo do caminho quente, porque afrouxam a prova; limpar a `.trabalho/`, porque não está ao alcance da fatia; refazer a base de tempo, porque esconderia o salto.
+  - O que ganha: o isolamento fica mais forte, a base de tempo continua a mesma e o `dentro_da_sandbox.sh` não muda.
+  - Ordem completa: `.trabalho/efic/e2c/decisao-tempo-armadilha.md`.
+- **D-W8-1266 (líder, 26/11 21:49): o modo autônomo foi renovado.** A ordem dele, verbatim: *"ligue modo autonomo"*. A flag agora vale até 27/11 21:49. A liberação de envio, mescla e versão, dada às 18:19 com as palavras *"Tudo liberado"*, continua valendo, sempre com tudo verde.
+- **D-W8-1267 (main, 26/11 21:57): a E2c fechou.** Ela é feita de três commits: `f7119c56`, `2b39bf59` e `92a969f3`.
+  - A revisão 2, que era a última, deixou uma lacuna: nenhum controle provava a condição de atalho. O ajuste pontual `92a969f3` fechou essa lacuna, e o main conferiu.
+  - O `armadilha_selftest --selftest` passou 15 de 15, com rc=0. O mutante sem o `-L` reprova o caso novo, ficando em 14 de 15.
+  - Na árvore principal, com o TMPDIR da lei, o `--fast` passa nos 406 testes, com o portão de tempo verde contra a base sem mudança.
+  - Os itens `VENDOR-PURITY-TRABALHO` e `TMPDIR-NA-ARVORE` estão consumidos e saem da INBOX no próximo commit que tocar o `TODO.md`.
+- **D-W8-1268 (main, 26/11 22:05): a E3 achou um defeito que veio da E2c.** O commit `92a969f3` pôs a palavra "find " num comentário de `run_com_armadilha.sh` sem a linha correspondente em `varreduras-de-arvore.txt`. Por isso o seletor sai com rc=2 em qualquer árvore.
+  - O main autorizou a E3 a acrescentar a linha `tests/tools/armadilha/run_com_armadilha.sh -` no commit dela, depois de conferir que a primitiva aparece só no comentário.
+  - Gêmeo (L-17 global): nenhum portão do `--fast` roda a conferência do seletor sobre a árvore real, e por isso a E2c passou verde. Só o `--changed` e o trabalho `mudancas` do CI rodam essa conferência. O caso vai para a INBOX com o nome `SELETOR-CONFERENCIA-NO-FAST`.
+- **D-W8-1269 (main, 26/11 22:05): quatro pontos de desenho da E3 foram ao CTO.**
+  - a lista de testes vazia por sistema;
+  - o nome ausente no `--tests-from-file`, que com o ctest 4.3 sai rc=0 sem rodar nada;
+  - o campo `raiz` gravado com caminho absoluto;
+  - o tipo `labeled` no `on:`.
+- **D-W8-1270 (CTO no lugar do líder, modo autônomo, 26/11 22:18): as quatro dúvidas da E3.** A decisão completa, com a sonda que a sustenta, está em `.trabalho/efic/e3/decisao-cto-e3.md`.
+  - D1: quando a lista de um sistema sai vazia, ele NÃO cai para `completo`, porque isso contrariaria o "mesmo subconjunto" da L-04 do projeto. O sistema pula, declara o pulo e conta. O piso de zero da L-40 do projeto fica no `parity`.
+  - D2: o arquivo da lista é a referência. Um `tools/ci/conferir_lista.py` novo confere os nomes um a um. O ctest roda com `--no-tests=error`, e o `ctest_aggregate` ganha `--lista`. Medido no ctest 4.3.0: um nome ausente ao lado de um válido some calado, mesmo com `--no-tests=error`.
+  - D3: o campo `raiz` é corrigido na E1-fix2, antes do commit da E3. O `resolver` ganha `--raiz` e passa a recusar raiz errada.
+  - D4: o `labeled` fica na E4. A E3 ganha duas regras na escolha da base: a cabeça não serve de base a si mesma, e uma falha da API dá `completo`.
+- **D-W8-1271 (main, 26/11 22:18): a sonda S6b, depois da S6, entra na E5.** Ela é a única que prova a regra (a) do D4 no servidor. O custo é um envio e uma rodada a mais.
+- **D-W8-1272 (main, 26/11 22:50): a E1-fix2 (`39b57c7f`) foi aprovada na revisão 1.**
+  - Provas: o autoteste passou 47 de 47; o mutante A e a sabotagem do revisor (a precedência do JSON sobre `--raiz`) ficaram vermelhos; na árvore real, a raiz errada sai com rc=2 e a mensagem pedida.
+  - Os dois desvios foram aceitos: a declaração em `_norma_caminho`, que o `env_sweep` exige, e o rc 1 sem as listas, que a E3 trata como "sem alvo".
+  - O `DECISOES_AUTONOMAS.md` entrou no commit da fatia por ordem do main. Isso segue a emenda de 26/11 da L-34 do projeto, a B6: "o agente da fatia leva ao diário no commit dela". Essa regra vale sobre a lista de "pode tocar" da ordem.
+- **D-W8-1273 (main, 26/11 22:51): a Ordem B da E3 se divide em dois commits.**
+  - Primeiro, as ferramentas: o `conferir_lista` e o `ctest_aggregate --lista`, que não mudam o comportamento do CI.
+  - Depois, o `ci.yml` inteiro numa rodada só, para nenhum sistema ficar em subconjunto enquanto outro roda completo, o que quebraria o critério (f).
+- **D-W8-1274 (líder, pela sessão `gerencia`, 26/11 22:56): janela de trabalho até 27/11 às 06:15.** Às 06:15, commit e pausa. Ficam autorizados push, merge, deploy, git e rm. As dúvidas vão ao C-level do domínio. Continuam só com o líder: dado sensível de paciente (LGPD), quebra de lei e uso de GPU ou Ollama. A limpeza é de hora em hora, e o trabalho pesado vai pela fila `pesado`.
+- **D-W8-1275 (main, 26/11 23:28): para a regra de "RAM livre", a medida é a coluna `available` do `free`, e não a coluna `free`.** A coluna `free` não conta o cache que o sistema devolve quando precisa: estava em 4 GiB, contra 24 GiB em `available`. A E3 parte 2 parou sem commit, com o patch em `.trabalho/efic/e3p2/e3p2-parcial.patch`, e duas dúvidas foram ao CTO: o `RERUN_DERIVADO` com `needs: mudancas` e o `parity` em subconjunto. O implementador declarou um desvio: escreveu por engano um arquivo em `/tmp` e apagou só esse arquivo.
+- **D-W8-1276 (CTO no lugar do líder, modo autônomo, 26/11 23:42, A RATIFICAR): as duas dúvidas da E3 parte 2.** A decisão completa, com a ordem C e a sonda, está em `.trabalho/efic/e3p2/decisao-cto-e3p2.md`.
+  - **O `RERUN_DERIVADO`:** fica só no `parity` e sai dos outros 12 trabalhos. Se o `mudancas` falha, os dependentes saem pulados, e um trabalho pulado já pode ser reexecutado. Afrouxar a regra "falha de teste não se reexecuta" foi recusado (L-04 do projeto).
+  - **O `parity` em subconjunto:** a premissa estava errada, e o CTO mediu. O que reprova é o piso de zero da L-40 na coleta MEASURED, e não uma chave que aparece só de um lado.
+  - **O que roda o quê neste commit:** `linux`, `windows`, `wayland-container`, `sanitizer`, `debug` e os dois gêmeos Windows ficam em `completo`, declarados. Só o `clang`, o lint `--since` e o `windows-lint` rodam o subconjunto.
+  - **O corte de escopo:** os itens 3 e 5 da §4 E3 (o ctest em subconjunto nas pernas de teste e a regra (e) do `parity`) saem desta fatia. A S1 da E5 perde a prova de "listas iguais entre sistemas". O que falta vai para a INBOX como `MEASURED-SUBCONJUNTO`. A recomendação do CTO é usar como referência a rodada base, sem mexer na lei.
+  - **Se o líder reverter:** o caminho é uma regra de MEASURED em subconjunto ou uma pergunta sobre a L-40. O custo é uma fatia a mais.
+- **D-W8-1277 (main, 27/11 00:06): a revisão 1 da E3 reprovou por dois motivos, e o main aceitou os dois.**
+  - **B1:** o `b3c96570` apagou da INBOX as linhas `VENDOR-PURITY-TRABALHO` e `TMPDIR-NA-ARVORE` sem deixar rastro de fechamento. O erro foi da instrução do main, que mandou tirá-las. Pela L-63 global, linha da INBOX nunca se descarta. As duas voltam marcadas como consumidas pela E2c, com os commits `f7119c56`, `2b39bf59` e `92a969f3`, as decisões D-W8-1257 e D-W8-1267 e o status 🔍 até o CI. A drenagem fica para o `--reorder`.
+  - **B2:** o item 8 da E3 (remedir a proteção do `main`) não deixou saída gravada. O implementador mediu (404 "Branch not protected" e rulesets vazios), mas não gravou nada. A chamada se refaz com a saída gravada.
+  - **Como entra:** a E3-fix vem depois do commit da E4, para que haja um só escritor na árvore.
+  - **O que passou:** o `mudancas` só por env, sem injeção; as regras D4 a e b; os 13 `needs` sem `paths`; o `RERUN_DERIVADO` só no `parity`; e as três sabotagens do revisor, que morderam.
+- **D-W8-1278 (main, 27/11 00:33): a E3 fechou.** O main conferiu de forma pontual os dois consertos da E3-fix (`38218b82`):
+  - as duas linhas da INBOX voltaram, com a marca "consumido pela E2c ... drenar no --reorder";
+  - a proteção do `main` foi gravada em `.trabalho/efic/e3/protecao-main.txt`: 404 "Branch not protected" e rulesets vazios.
+
+  A `EFIC-CI-SELETIVO` fica em 🔍 até o CI verde.
+- **D-W8-1279 (main, 27/11 00:33): a revisão 1 da E4 (`00dac1e7`) reprovou por dois motivos, e os dois se resolvem no passo do primeiro envio.**
+  - B1: o rótulo `ci-completo` ainda não existe. A ordem do main mandou criá-lo só no envio.
+  - B2: o `--fast` inteiro não rodou na fatia. A L-23 do projeto pede o `--changed` por fatia e o `--fast` só antes do envio ao GitHub.
+
+  O agente de envio roda o `--fast` no HEAD, cria o rótulo e envia o `onda-wpng1` com um PR em rascunho. Tudo isso fica autorizado pelo modo autônomo, pelo "Tudo liberado" (D-W8-1260) e pela janela D-W8-1274.
+  - Limite que o revisor declarou: nenhum portão do `ci.yml` pega a troca de uma das quatro expressões de `fail-fast` por `false`. Vai para a INBOX como `FAIL-FAST-PORTAO`.
+- **D-W8-1280 (CTO no lugar do líder, modo autônomo, 27/11 00:52): a sonda S2 sai da E5.** O CTO mediu que nenhum caminho da árvore cai em `texto-sem-leitor`: as 63 varreduras de glob `*` leem qualquer arquivo, até um novo. A prova está em `.trabalho/efic/e5/medicao-texto-sem-leitor.txt`.
+  - O limite fica declarado: o pulo desse modo nunca rodou no servidor.
+  - A alternativa recusada foi um alvo fabricado no fim, que custaria uma rodada completa a mais.
+  - A ordem da E5 está em `.trabalho/efic/e5/ordem-e5.md`, com 7 rodadas: S1, S3, S4, S5, S6, S6b e S7.
+  - Pela regra nova de reexecução, `gh run rerun --failed` só vale nas sondas verdes. Nas vermelhas de propósito, a reexecução sai por commit vazio ou por troca de rótulo.
+  - Nenhuma sonda começa depois das 05:30, e às 05:50 o fim roda de qualquer jeito.
+- **D-W8-1281 (main, 27/11 01:09): a primeira rodada do servidor com a receita nova (45936134734, `f31949cf`) saiu vermelha, com dois defeitos reais que o espelho local não pegava.**
+  - **No Arch:** o `conferir_lista_selftest` chama `cmake` sem gerador, e a imagem do Arch não tem `make`.
+  - **No Windows:** o `seletor_selftest` levou 60,4 s, acima da régua de pesados de 40 s, sem `PROCESSORS` nem `RESOURCE_LOCK`.
+  - **A parada no primeiro erro da E4 funcionou no servidor:** as outras 9 pernas da matriz saíram `cancelled`.
+  - **O conserto** segue a L-49 global: diagnóstico pelo log e correção por commit, sem reexecutar.
+- **D-W8-1282 (main, 27/11 01:50): a segunda rodada do servidor (45939975844, `0903ea11`) saiu vermelha só no `parity`.** O `source_snapshot_selftest`, criado na E2c, foi registrado dentro de um `if(UNIX)` sem motivo, então existe no Linux e falta no Windows. Pela L-04 do projeto, ele passa a rodar nos dois sistemas. O espelho local não acha esse defeito, porque o `parity` precisa do inventário do Windows. As duas correções da rodada 1 passaram no servidor.
+- **D-W8-1283 (main, 27/11 02:37): a terceira rodada do servidor (45944740328, `566a27aa`) saiu VERDE, com 26 trabalhos `success` e 1 `skipped`, o VERSION-TAG-SYNC, que só roda em marca.** É a primeira rodada verde do ramo com o CI seletivo, e vira a base das sondas da E5. A E5 começa às 02:3x pela ordem `.trabalho/efic/e5/ordem-e5.md`.
+- **D-W8-1284 (líder, por AskUserQuestion, 27/11): a resposta dele, verbatim: *"Autorizo o ramo separado (Recomendado)"*.** Ele autoriza o envio do ramo `sonda-efic` e um PR em rascunho contra o `onda-wpng1`, para as sondas da E5. Antes disso, o classificador do modo automático tinha negado esse envio, e o main não contornou a negação. A autorização chegou no fim da janela das 06:15, por isso a E5 não começou. Ela fica para a próxima janela.
+- **D-W8-1285 (líder, pela sessão `gerencia`, 27/11 manhã): o trabalho foi retomado, com o líder usando o computador.**
+  - O trabalho pesado fica nos núcleos 2-15.
+  - No máximo 12 GiB de RAM, somando todas as sessões.
+  - Nada sobe com menos de 8 GiB livres.
+  - A pausa é às 12:00 de 27/11. Na E5, nenhuma sonda começa depois das 11:00, e o fim roda às 11:30.
+- **D-W8-1286 (main, 27/11 07:53): a sonda S1 (45982523713) saiu vermelha, e a causa é defeito do lote, não da sonda.** O main diagnosticou pelo log.
+  - **O `lint` em subconjunto:** o estágio 5c do `preci --lint-only` chama o `gitleaks`, que não existe no contêiner de lint (rc 127). O gitleaks já tem trabalho próprio no CI.
+  - **O `clang`:** as listas do seletor ficam em `.ci-selecao/`, dentro do workspace, e o `spdx_test` reprova esses arquivos não rastreados.
+  - **O conserto** vai para o `onda-wpng1`: no `--lint-only`, o 5c é pulado e declarado; as listas passam a ficar em `runner.temp`. Esconder pelo `.gitignore` foi recusado, porque afrouxa o portão.
+  - **A E5** fica parada, e o `sonda-efic` recebe o conserto por merge, sem force.
+  - **O que a S1 já provou:** a seleção existe. O clang e o lint rodaram com a lista do seletor, com 2 unidades. A parada no primeiro erro cancelou o clang compartilhado.
+- **D-WP1-0001 (main, 27/11 08:10): ERRATA DE NUMERAÇÃO. As entradas D-W8-1242 a D-W8-1286, de 26/11 e 27/11, colidem com faixas antigas do diário.**
+  - **Onde está a colisão:** as linhas 10757 a 10792 citam "D-W8-1255" e as faixas "D-W8-1260 a 1279" e "D-W8-1280 a 1299", da W8 de 13/11 e 14/11.
+  - **A causa:** um erro do main. Ele conferiu só 1242 a 1252 antes de escolher os números e não buscou as faixas citadas.
+  - **Como desambiguar:** o arquivo é só de acréscimo, então nada se reescreve. Cada entrada de 26/11 e 27/11 se identifica pelo número junto com a data e a hora entre parênteses. Toda citação a elas, daqui em diante, leva a data: por exemplo, "D-W8-1276 (27/11)".
+  - **Daqui em diante:** as decisões novas usam a série `D-WP1-NNNN`, que começa em 0001 e nunca foi usada. Antes de cada número, o main confere a série com `grep`.
+- **D-WP1-0002 (líder, por AskUserQuestion, 27/11 09:40): quatro ratificações.**
+  - **O corte da E3** (D-W8-1276, 27/11), resposta verbatim *"Confirmo o corte (Recomendado)"*: os testes continuam completos em todo sistema, e a `MEASURED-SUBCONJUNTO` fica na INBOX para uma onda futura.
+  - **As quatro decisões técnicas do CTO**, resposta verbatim *"Ratifico as quatro (Recomendado)"*:
+    - os papéis dos leitores (D-W8-1248, 26/11);
+    - o `host_alert` herda o escopo da fila (D-W8-1252, 26/11);
+    - o DBUS sai do isolamento (D-W8-1253, 26/11);
+    - o tmpfs cobre a `.trabalho` (D-W8-1265, 26/11).
+  - **O corte da S2** (D-W8-1280, 27/11), resposta verbatim *"Confirmo, fica anotado (Recomendado)"*.
+  - **As imagens de teste**, resposta verbatim *"Apagar só a de construção (Recomendado)"*: o main apagou `glintfx-devbuild:verify` (2,27 GB) e manteve `glintfx-msvc:latest`, que serve ao laboratório Windows.
+- **D-WP1-0003 (líder, por AskUserQuestion, 27/11 09:58): ritmo de quadros no Wayland, inspirado no DXVK 3.2.** Resposta verbatim: *"Estudo do CTO agora (Recomendado)"*.
+  - O CTO estuda a viabilidade sem tocar no código, em `.trabalho/cto-w8/estudo-present-timing.md`.
+  - Os protocolos do estudo são `commit-timing-v1`, `fifo-v1` e `presentation-time`.
+  - O estudo cobre o EGL do Mesa, o suporte nos compositores, o equivalente no Windows e a API pública.
+  - O tema fica fora da W-PNG-1 (L-32 do projeto). Vai ao líder numa conversa na abertura de uma onda de janela.
+- **D-WP1-0004 (líder, por AskUserQuestion, 27/11 10:13): o ritmo de quadros fica só na metade segura.** A resposta do líder, verbatim: *"Só a metade segura (Recomendado)"*. O estudo do CTO está em `.trabalho/cto-w8/estudo-present-timing.md`.
+  - **O que entra:** o `wp_presentation`, que informa a hora em que cada quadro foi exibido, e um limitador que não dá trancos. Funciona com qualquer driver. São 3 fatias, mais 1 de API pública.
+  - **O Windows:** só há o relógio global do DWM. O alinhamento ainda precisa ser provado lá, e a hora de cada quadro fica declarada como ausente.
+  - **O que fica fora:** o `fifo-v1` e o `commit-timing-v1`, porque o `egl-wayland2` da NVIDIA já cria esses objetos, e um segundo objeto derruba a conexão do jogo. Isso foi lido no código da NVIDIA, não medido.
+  - **Onde entra:** na INBOX, como `PRESENT-TIMING`, que absorve o `LOOP-PRESENTATION-TIME`. A onda candidata é a de janela e laço, depois das ondas de PNG.
+  - **O que fica para a abertura da onda:** três portas de mão única (o texto do limitador, a estatística pública de quadro e o relógio da hora de exibição) e a primeira sonda, `wayland-info` no KWin do CI.
+- **D-WP1-0005 (main, 27/11 10:34): a imagem `glintfx-devbuild:verify` foi apagada por erro do main e depois recriada a partir do estágio final do `Containerfile`, do jeito que o CI constrói a `glintfx-wltest`.**
+  - **O que houve:** a imagem não tinha receita versionada, e a original, que tinha cmake e clang, não se reproduz.
+  - **Por que basta:** o `host_alert_gate_test` só precisa de `python3` e do `exec_fixture.sh`.
+  - **O que falta:** decidir uma receita durável. Fica na INBOX como `DEVBUILD-RECEITA`.
+  - **A lição** está na memória `imagem-apagada-usada-por-teste`: antes de `docker rmi`, rodar `git grep` pelo nome da imagem.
+- **D-WP1-0006 (main, 27/11 11:31): a E5 terminou, e as 7 sondas saíram conformes (relatório em `.trabalho/efic/e5/sondas.txt`).**
+  - **As rodadas:**
+    - S1: 45988253857, verde, subconjunto;
+    - S3: 45993173298, vermelha, parada no primeiro erro;
+    - S4: 45995724964, vermelha, parada no primeiro erro;
+    - S5: 45997792649, completo até o fim;
+    - S6: 46001049918, verde completo;
+    - S6b: 46004400137, a regra (a) provada;
+    - S7: 46008157732, completo por zero caminhos.
+  - **O fim:** o PR #19 foi fechado, e o `sonda-efic` foi apagado do remoto.
+  - **O defeito achado:** a sonda S1 achou dois defeitos do lote, corrigidos em `3bcb226e`.
+  - **Defeito de instrumento, ainda não corrigido:** o `ci_verde_completo.py` dá rc 1 na S6, porque procura o nome "version-tag", e o trabalho se chama "Versao == etiqueta (VERSION-TAG-SYNC)". Vai para a INBOX como `CI-VERDE-COMPLETO-NOME`.
+  - **Limites declarados:**
+    - o `texto-sem-leitor` nunca rodou;
+    - a parada no primeiro erro do `wayland-container` não foi provada;
+    - o `windows-lint` com lista vazia também não;
+    - nem o `check_run_id`;
+    - nem o `parity` com o `mudancas` vermelho.
+- **D-WP1-0007 (líder, por AskUserQuestion, 27/11 11:35): três ratificações.**
+  - **As decisões autônomas de rotina** de 26/11 e 27/11 (consertos, ordem das fatias, recursos de máquina, sondas desfeitas e a série D-WP1), ratificadas em bloco. Resposta verbatim: *"Ratifico em bloco (Recomendado)"*.
+  - **A imagem `glintfx-devbuild:verify`** fica como a do CI. Uma receita com ferramentas só se fará quando houver necessidade, e com os pacotes aprovados pelo líder. Resposta verbatim: *"Fica como está (Recomendado)"*. O `DEVBUILD-RECEITA` passa a esperar essa necessidade.
+  - **Os quatro limites da E5** ficam registrados, sem rodadas extras: o texto-sem-leitor, a parada no primeiro erro do `wayland-container`, o `windows-lint` com lista vazia e o `parity` com o `mudancas` vermelho. Resposta verbatim: *"Aceito, ficam anotados (Recomendado)"*.
+- **D-WP1-0008 (líder, por AskUserQuestion, 28/11 10:22): envio ao ramo da onda autorizado.** As palavras dele, verbatim: *"Autorizo enviar ao ramo da onda (Recomendado)"*.
+  - **O que cobre:** o envio ao `onda-wpng1` do `1a09c8b6` (o `ci_verde_completo` com o nome certo) e do `6f602f38` (CI-PIN-PKG-A), mais os envios seguintes do congelamento de pacotes.
+  - **O que não cobre:** mescla e versão continuam esperando ordem do líder.
+  - **Por que a ordem foi pedida:** o modo autônomo venceu em 27/11 às 21:49.
+- **D-WP1-0009 (líder, 28/11 10:23): o líder autorizou, verbatim, *"autorizo merge, push, rm, tag"*.**
+  - **O que vale:** a ordem cobre o fechamento do lote de eficácia, que é a mescla do `onda-wpng1` na `main`, com tudo verde e as duas rodadas completas (P2). O fechamento NÃO leva marca de versão (P4, D-W8-1229 de 26/11). A primeira marca vem com a primeira parte do PNG.
+  - **O `rm`:** segue a L-53, com a lista dos caminhos absolutos antes de apagar.
+- **D-WP1-0010 (líder, pela sessão `gerencia`, 28/11 10:25): as ordens permanentes da sessão, até o líder mudar.**
+  - **A máquina:** só os núcleos 2-15 e até ~24 GiB somando todas as sessões. Nada sobe com menos de 6 GiB livres. O GlintFx tem prioridade.
+  - **As dúvidas** vão ao C-level do domínio, sempre com pesquisa na web antes. A opção escolhida é a mais completa que atenda a comunidade. O main registra a decisão para ratificação.
+  - **Continuam só com o líder**, indo à lista de pendências com recomendação e sem bloquear o trabalho: commit barrado pelo classificador, permissão, regra ou lei, gasto, GPU, ação irreversível, e merge, marca ou deploy sem ordem explícita dele.
+- **D-WP1-0011 (líder, por AskUserQuestion, 28/11 13:31): uma exceção de caminho exato no portão `check_no_x11` para `tools/ci/env/lock/fedora.versionlock.toml`.** As palavras dele, verbatim: *"Exceção só para a lista (Recomendado)"*.
+  - **Por que:** o lock gerado traz `libxkbcommon` e `libxkbcommon-x11`, que vêm do fecho de dependências do KWin de teste. O compositor já instalava as duas peças antes; o lock só fixa a versão delas, e nada entra na biblioteca.
+  - **Como fica o portão:** ele continua varrendo todo o resto. O selftest prova que o mesmo termo em qualquer outro arquivo reprova.
+  - **Prova no servidor:** a rodada 46155568644, sobre o `45767855`, ficou vermelha exatamente por isso.

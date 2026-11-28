@@ -99,6 +99,21 @@
 #                                     it to a declared, printed skip -
 #                                     GODS_LAWS.md L-02, see stage_win32_
 #                                     link's own comment).
+#   tools/preci.sh --changed [--since <rev>]   EFIC-PRECI (E2): roda o que a
+#                                     mudanca toca. Sem --since, a arvore (indexado,
+#                                     nao indexado e nao rastreado); com --since, a
+#                                     base <rev>..HEAD somada a arvore. O modo vem do
+#                                     seletor (tools/ci/seletor.py): completo = o --fast
+#                                     inteiro; subconjunto = so' os estagios e os testes
+#                                     do seletor; texto-sem-leitor = so' a guarda e o
+#                                     gitleaks. Zero caminhos reprova. Todo estagio
+#                                     pulado imprime PULADO com o motivo.
+#   tools/preci.sh --lint-only --since <rev>   o lint so' na lista do seletor (usado pelo
+#                                     trabalho lint do CI, EFIC-CI).
+#   Fora do GitHub Actions (B1), todo modo, menos --selftest, exige teto de memoria no
+#   cgroup (memory.max numerico; rode por ~/.claude/bin/pesado -- tools/preci.sh ...), e
+#   todo ctest que executa teste roda sem WAYLAND_DISPLAY, WAYLAND_SOCKET e DISPLAY,
+#   com XDG_RUNTIME_DIR proprio (700, vazio, apagado no fim).
 #   tools/preci.sh --selftest        proves the format/clang-tidy/cppcheck
 #                                     stages against tests/preci_fixtures/
 #                                     instead of the real tree: positive
@@ -545,7 +560,11 @@ stage_ps_syntax() {
     enumerate_tracked_ps1
     require_nonempty "sintaxe PowerShell" \
         || fail "estagio sintaxe PowerShell recusado (varredura vazia de *.ps1 rastreado - GATE-PS-SYNTAX, GODS_LAWS.md L-40)"
+    ps_syntax_sobre_files
+}
 
+# Estagio 1b sobre FILES ja escolhido (o --changed passa so' os .ps1 tocados).
+ps_syntax_sobre_files() {
     command -v docker >/dev/null 2>&1 \
         || fail "estagio sintaxe PowerShell recusado (docker ausente - GATE-PS-SYNTAX nao degrada para aviso, ver comentario acima do estagio)"
 
@@ -762,7 +781,7 @@ stage_clang_ctest() {
         _ck_count="$(count_ctest_tests "$_ck_dir")"
         require_nonempty_tests "ctest sob Clang ($_ck_mode)" "$_ck_count" \
             || fail "estagio 11 recusado (varredura vazia de testes no build Clang $_ck_mode - o estagio 3b rodou?)"
-        ctest --test-dir "$_ck_dir" --output-on-failure || _ck_bad="$_ck_bad $_ck_mode"
+        ctest_executa --test-dir "$_ck_dir" --output-on-failure || _ck_bad="$_ck_bad $_ck_mode"
     done
     [ -z "$_ck_bad" ] || fail "estagio 11 recusado (modo(s):${_ck_bad}): a suite reprova sob Clang - ver acima (PRECI-CLANG-BUILD)"
 }
@@ -786,7 +805,11 @@ stage_clang_ctest() {
 stage_tidy() {
     enumerate_tracked_cpp
     require_nonempty "clang-tidy" || fail "estagio clang-tidy recusado (varredura vazia)"
+    tidy_sobre_files
+}
 
+# Estagio 4 sobre FILES ja escolhido (o --changed passa so' a lista do seletor).
+tidy_sobre_files() {
     compile_db="$BUILD_DIR/compile_commands.json"
     [ -f "$compile_db" ] || fail "estagio clang-tidy recusado: $compile_db ausente (configure nao rodou ainda)"
 
@@ -932,6 +955,11 @@ stage_cppcheck() {
 stage_nolint_justification() {
     enumerate_tracked_cpp_hpp
     require_nonempty "NOLINT-justification" || fail "estagio NOLINT recusado (varredura vazia)"
+    nolint_sobre_files
+}
+
+# Estagio 5b sobre FILES ja escolhido (o --changed passa so' a lista do seletor).
+nolint_sobre_files() {
     offenders=""
     directive_count=0
     inert_count=0
@@ -1295,9 +1323,9 @@ stage_ctest() {
     junit="$BUILD_DIR/ctest-results-junit.xml"
     ccache_before="$(ccache_counts)"
     if [ "$jobs" -gt 1 ]; then
-        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs" --output-junit "$junit"
+        ctest_executa --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs" --output-junit "$junit"
     else
-        ctest --test-dir "$BUILD_DIR" --output-on-failure --output-junit "$junit"
+        ctest_executa --test-dir "$BUILD_DIR" --output-on-failure --output-junit "$junit"
     fi
 
     # MEASURED-COLLECTOR, espelho local (achado do time-lead,
@@ -1620,7 +1648,7 @@ stage_sanitizer() {
     count="$(count_ctest_tests "$SANITIZE_BUILD_DIR" -L "$CTEST_UNIT_LABEL_FILTER")"
     require_nonempty_tests "ctest -L ${CTEST_UNIT_LABEL_FILTER} (sanitizer)" "$count" \
         || fail "estagio sanitizer recusado (varredura vazia de testes rotulados unit - o rotulo sumiu ou o build nao tem teste nenhum)"
-    ctest --test-dir "$SANITIZE_BUILD_DIR" -L "$CTEST_UNIT_LABEL_FILTER" --output-on-failure
+    ctest_executa --test-dir "$SANITIZE_BUILD_DIR" -L "$CTEST_UNIT_LABEL_FILTER" --output-on-failure
     run_sanitizer_bite_controls
 }
 
@@ -1749,7 +1777,7 @@ stage_debug() {
     test_count="$(count_ctest_tests "$DEBUG_BUILD_DIR")"
     require_nonempty_tests "ctest (debug)" "$test_count" \
         || fail "estagio debug recusado (varredura vazia de testes)"
-    ctest --test-dir "$DEBUG_BUILD_DIR" --output-on-failure
+    ctest_executa --test-dir "$DEBUG_BUILD_DIR" --output-on-failure
 }
 
 # GATE-WIN32-LINK (CORE-LOG-CI fatia 4, tests/tools/check_win32_test_
@@ -3126,6 +3154,202 @@ run_selftest_ps_launch_count_controls() {
     [ "$ruins" = 0 ] || fail "selftest ps_launch: $ruins caso(s) reprovado(s) (PRECI-TETO)"
 }
 
+# --- EFIC-PRECI (E2): controles do modo --changed, do isolamento e do teto ---
+#
+# Cada controle prova um comportamento sem rodar o pipeline: o isolamento
+# e' provado com as tres variaveis de janela PRESENTES no processo pai (um
+# ambiente ja' limpo passaria verde por acidente, por isso o controle as
+# exporta antes), a guarda de teto com dois cgroups de fixture (um sem
+# teto, um com teto numerico), a lista do ctest com um ctest-falso que so'
+# grava os argumentos, o zero com dois lados vazios, e o texto sem leitor
+# com a linha que diz que pulou.
+run_selftest_isolamento_control() {
+    (
+        unset GITHUB_ACTIONS
+        WAYLAND_DISPLAY=sentinela-wayland
+        WAYLAND_SOCKET=sentinela-socket
+        DISPLAY=sentinela-x
+        DBUS_SESSION_BUS_ADDRESS=sentinela-dbus
+        export WAYLAND_DISPLAY WAYLAND_SOCKET DISPLAY DBUS_SESSION_BUS_ADDRESS
+        isolamento_criar > /dev/null || fail "selftest: isolamento: preparo do diretorio XDG falhou"
+        saida="$(executa_isolado env)" || fail "selftest: isolamento: executa_isolado falhou"
+        if printf '%s\n' "$saida" | grep -Eq '^(WAYLAND_DISPLAY|WAYLAND_SOCKET|DISPLAY|DBUS_SESSION_BUS_ADDRESS)='; then
+            rm -rf "$ISO_XDG_DIR"
+            fail "selftest: isolamento: variavel de janela VAZOU para o ctest isolado"
+        fi
+        if ! printf '%s\n' "$saida" | grep -qxF "XDG_RUNTIME_DIR=$ISO_XDG_DIR"; then
+            rm -rf "$ISO_XDG_DIR"
+            fail "selftest: isolamento: XDG_RUNTIME_DIR do ctest nao aponta para o diretorio proprio"
+        fi
+        perm="$(stat -c %a "$ISO_XDG_DIR")"
+        if [ "$perm" != "700" ]; then
+            rm -rf "$ISO_XDG_DIR"
+            fail "selftest: isolamento: diretorio XDG com permissao $perm (esperado 700)"
+        fi
+        if [ -n "$(ls -A "$ISO_XDG_DIR")" ]; then
+            rm -rf "$ISO_XDG_DIR"
+            fail "selftest: isolamento: diretorio XDG nao esta vazio"
+        fi
+        rm -rf "$ISO_XDG_DIR"
+    ) || fail "selftest: controle de isolamento do ctest FALHOU"
+    echo "selftest: controle de isolamento do ctest OK (WAYLAND_DISPLAY, WAYLAND_SOCKET, DISPLAY e DBUS_SESSION_BUS_ADDRESS retirados; XDG_RUNTIME_DIR 700 e vazio)"
+}
+
+run_selftest_teto_control() {
+    # Os cgroups de fixture sao gerados em TMPDIR (nunca no repositorio: um memory.max com
+    # cabecalho SPDX deixaria de ser um numero que o cat le). Sysfs de mentira em $dir/sys/fs/cgroup.
+    (
+        dir="$(mktemp -d "${TMPDIR}/glintfx-teto-selftest.XXXXXX")" || fail "selftest: teto: mktemp falhou"
+        raiz="$dir/sys/fs/cgroup"
+        mkdir -p "$raiz/sem-teto" "$raiz/com-teto" || { rm -rf "$dir"; fail "selftest: teto: mkdir falhou"; }
+        printf 'max\n' > "$raiz/sem-teto/memory.max"
+        printf 'max\n' > "$raiz/sem-teto/pids.max"
+        printf '8589934592\n' > "$raiz/com-teto/memory.max"
+        printf '512\n' > "$raiz/com-teto/pids.max"
+        unset GLINTFX_CGROUP_EXCLUSIVO
+        rc=0
+        teto_checar "$raiz/sem-teto" > /dev/null || rc=$?
+        if [ "$rc" != "2" ]; then rm -rf "$dir"; fail "selftest: controle de teto: cgroup com memory.max=max devia sair com 2 (saiu $rc)"; fi
+        rc=0
+        teto_checar "$raiz/com-teto" > /dev/null || rc=$?
+        if [ "$rc" != "0" ]; then rm -rf "$dir"; fail "selftest: controle de teto: cgroup com teto numerico devia passar (saiu $rc)"; fi
+        # A guarda: sem teto recusa com 2 e NAO exporta; com teto aceita, exporta o caminho aceito.
+        rc=0
+        # O estado no EXIT da subshell: a recusa nao pode ter exportado a variavel.
+        ( trap 'echo "EXPORTADO=${GLINTFX_CGROUP_EXCLUSIVO:-}" > "$dir/sem.out"' EXIT; guarda_teto_de "/sem-teto" "$raiz" > /dev/null 2>&1 ) || rc=$?
+        if [ "$rc" != "2" ]; then rm -rf "$dir"; fail "selftest: controle de teto: a guarda devia recusar o cgroup sem teto com 2 (saiu $rc)"; fi
+        if ! grep -qxF "EXPORTADO=" "$dir/sem.out"; then rm -rf "$dir"; fail "selftest: controle de teto: a recusa exportou GLINTFX_CGROUP_EXCLUSIVO antes de sair"; fi
+        ( guarda_teto_de "/com-teto" "$raiz" > "$dir/com.out" 2>&1; echo "EXPORTADO=${GLINTFX_CGROUP_EXCLUSIVO:-}" >> "$dir/com.out" ) \
+            || { rm -rf "$dir"; fail "selftest: controle de teto: a guarda recusou o cgroup com teto numerico"; }
+        if ! grep -qxF "EXPORTADO=/com-teto" "$dir/com.out"; then
+            rm -rf "$dir"; fail "selftest: controle de teto: a guarda devia exportar GLINTFX_CGROUP_EXCLUSIVO=/com-teto so no cgroup aceito"
+        fi
+        if [ -n "${GLINTFX_CGROUP_EXCLUSIVO:-}" ]; then rm -rf "$dir"; fail "selftest: controle de teto: a exportacao vazou para o pai"; fi
+        rm -rf "$dir"
+    ) || fail "selftest: controle de teto FALHOU"
+    echo "selftest: controle de teto OK (sem teto recusa com 2 e nao exporta; com teto numerico aceita e exporta o caminho aceito)"
+}
+
+run_selftest_subconjunto_ctest_control() {
+    (
+        dir="$(mktemp -d "${TMPDIR}/glintfx-efic-selftest.XXXXXX")" || fail "selftest: subconjunto: mktemp falhou"
+        printf 'doc_test\n' > "$dir/lista.txt"
+        # ctest-falso: so' grava os argumentos. Redefinido so' nesta subshell.
+        ctest_executa() { printf '%s\n' "$@" > "$dir/args.txt"; }
+        executa_ctest_lista "$dir/build" "$dir/lista.txt" > /dev/null || { rm -rf "$dir"; fail "selftest: subconjunto: executa_ctest_lista saiu com erro"; }
+        if ! grep -qxF -- '--tests-from-file' "$dir/args.txt" || ! grep -qxF -- "$dir/lista.txt" "$dir/args.txt"; then
+            rm -rf "$dir"
+            fail "selftest: subconjunto: o ctest NAO recebeu a lista do resolver (--tests-from-file)"
+        fi
+        rm -rf "$dir"
+    ) || fail "selftest: controle de subconjunto (ctest com a lista) FALHOU"
+    echo "selftest: controle de subconjunto OK (o ctest recebe --tests-from-file com a lista do resolver)"
+}
+
+run_selftest_zero_caminhos_control() {
+    (
+        dir="$(mktemp -d "${TMPDIR}/glintfx-efic-selftest.XXXXXX")" || fail "selftest: zero: mktemp falhou"
+        printf '%s\n' '{"modo":"completo","motivo":"zero caminhos tocados","caminhos":[],"por_caminho":[]}' > "$dir/arvore.json"
+        printf '%s\n' '{"modo":"completo","motivo":"zero caminhos tocados","caminhos":[],"por_caminho":[]}' > "$dir/base.json"
+        resumo="$(mesclar_classificacoes "$dir/uniao.json" "$dir/base.json" "$dir/arvore.json")" \
+            || { rm -rf "$dir"; fail "selftest: zero: a mesclagem saiu com erro"; }
+        case "$resumo" in
+            *"zero=1"*) ;;
+            *) rm -rf "$dir"; fail "selftest: zero: dois lados vazios deviam dar zero=1 (saida: $resumo)" ;;
+        esac
+        printf '%s\n' '{"modo":"completo","motivo":"base ausente: v9 nao existe neste repositorio","caminhos":[],"por_caminho":[]}' > "$dir/base.json"
+        resumo="$(mesclar_classificacoes "$dir/uniao.json" "$dir/base.json" "$dir/arvore.json")" \
+            || { rm -rf "$dir"; fail "selftest: zero: a mesclagem (base ausente) saiu com erro"; }
+        case "$resumo" in
+            *"modo=completo zero=0"*) ;;
+            *) rm -rf "$dir"; fail "selftest: zero: base ausente deve dar completo com zero=0, nunca zero (saida: $resumo)" ;;
+        esac
+        rm -rf "$dir"
+    ) || fail "selftest: controle de zero caminhos FALHOU"
+    echo "selftest: controle de zero caminhos OK (zero reprova; base ausente segue completo, nunca zero)"
+}
+
+run_selftest_texto_sem_leitor_control() {
+    saida="$(changed_pula_texto 3)" || fail "selftest: texto sem leitor: a funcao saiu com erro"
+    case "$saida" in
+        *"seletor: texto sem leitor, testes pulados (3 caminhos)"*) ;;
+        *) fail "selftest: texto sem leitor: a linha que diz que pulou nao saiu (saida: $saida)" ;;
+    esac
+    case "$saida" in
+        *"PULADO (seletor: texto sem leitor)"*) ;;
+        *) fail "selftest: texto sem leitor: estagio pulado sem a linha PULADO (saida: $saida)" ;;
+    esac
+    echo "selftest: controle de texto sem leitor OK (pula, diz que pulou, e imprime PULADO por estagio)"
+}
+
+run_selftest_lint_sem_gitleaks_control() {
+    # EFIC-PRECI (sonda S1 da E5): o --lint-only nao chama o gitleaks. Um gitleaks falso que grava a
+    # chamada e sai 127 (o que a imagem do lint faz) prova que o seletor de lint nao o chama. O mesmo
+    # falso com CHG_LINT=nao prova que o --changed local continua chamando o 5c (controle negativo).
+    (
+        dir="$(mktemp -d "${TMPDIR}/glintfx-lint-gitleaks-selftest.XXXXXX")" || fail "selftest: lint sem gitleaks: mktemp falhou"
+        printf '#!/bin/sh\necho chamada >> "%s/calls.txt"\nexit 127\n' "$dir" > "$dir/gitleaks" \
+            || { rm -rf "$dir"; fail "selftest: lint sem gitleaks: nao gravei o gitleaks falso"; }
+        chmod +x "$dir/gitleaks" || { rm -rf "$dir"; fail "selftest: lint sem gitleaks: chmod do gitleaks falso falhou"; }
+        PATH="$dir:$PATH"
+        CHG_LINT="sim"
+        saida="$(changed_gitleaks 2>&1)" || { rm -rf "$dir"; fail "selftest: lint sem gitleaks: a funcao saiu com erro (saida: $saida)"; }
+        if [ -e "$dir/calls.txt" ]; then
+            rm -rf "$dir"
+            fail "selftest: lint sem gitleaks: o --lint-only CHAMOU o gitleaks (o 5c tinha de pular)"
+        fi
+        case "$saida" in
+            *"5c: gitleaks PULADO (seletor: gitleaks tem trabalho proprio no CI)"*) ;;
+            *) rm -rf "$dir"; fail "selftest: lint sem gitleaks: a linha PULADO nao saiu (saida: $saida)" ;;
+        esac
+        CHG_LINT="nao"
+        if changed_gitleaks > /dev/null 2>&1; then
+            rm -rf "$dir"
+            fail "selftest: --changed: o gitleaks falso saiu 127 e a funcao devia falhar"
+        fi
+        [ -e "$dir/calls.txt" ] || { rm -rf "$dir"; fail "selftest: --changed: o 5c nao chamou o gitleaks (o pulo vazou para o --changed)"; }
+        rm -rf "$dir"
+    ) || fail "selftest: controle lint sem gitleaks FALHOU"
+    echo "selftest: controle lint sem gitleaks OK (--lint-only pula o 5c e diz que pulou; --changed continua chamando o gitleaks)"
+}
+
+run_selftest_zero_recusa_control() {
+    # E2-fix1 (B1 da revisao N3 da E2): a RECUSA do zero, e nao so' a mesclagem. Uma fixture git com
+    # o preci e o seletor COMMITADOS (senao a propria copia conta como mudanca), sem mudanca nenhuma.
+    # O script e' carregado da fixture, para que a raiz seja ela (ROOT_DIR e' somente leitura aqui);
+    # run_mudancas tem de sair 1 e dizer "nada tocado". So' a classificacao roda: a recusa vem antes
+    # de qualquer estagio. A sabotagem que troca a recusa por "exit 0" tem de deixar este controle vermelho.
+    (
+        dir="$(mktemp -d "${TMPDIR}/glintfx-zero-selftest.XXXXXX")" || fail "selftest: zero recusa: mktemp falhou"
+        git init -q "$dir" || fail "selftest: zero recusa: git init falhou"
+        git -C "$dir" config user.email "selftest@preci.invalid"
+        git -C "$dir" config user.name "preci selftest"
+        mkdir -p "$dir/tools/ci"
+        cp "$ROOT_DIR/tools/preci.sh" "$dir/tools/preci.sh"
+        cp "$ROOT_DIR/tools/ci/seletor.py" "$dir/tools/ci/seletor.py"
+        grep -E "^(tools/ci/seletor\.py|tools/preci\.sh) " "$ROOT_DIR/tools/ci/varreduras-de-arvore.txt" > "$dir/tools/ci/varreduras-de-arvore.txt"
+        git -C "$dir" add -A && git -C "$dir" commit -q -m base || fail "selftest: zero recusa: commit da fixture falhou"
+        saida="$(bash -c 'source <(sed "\$d" "$0"); PRECI_OWNER="$BASHPID"; trap preci_limpa EXIT; run_mudancas HEAD nao' "$dir/tools/preci.sh" 2>&1)" && rc=0 || rc=$?
+        rm -rf "$dir"
+        if [ "$rc" != "1" ]; then fail "selftest: zero recusa: sem mudanca devia sair 1 (saiu $rc): $saida"; fi
+        case "$saida" in
+            *"nada tocado contra HEAD; use --since <rev>"*) ;;
+            *) fail "selftest: zero recusa: a recusa nao disse 'nada tocado' (saida: $saida)" ;;
+        esac
+    ) || fail "selftest: controle de zero recusa FALHOU"
+    echo "selftest: controle de zero recusa OK (sem mudanca, run_mudancas sai 1 com 'nada tocado')"
+}
+
+run_selftest_efic_preci_controls() {
+    run_selftest_isolamento_control
+    run_selftest_teto_control
+    run_selftest_subconjunto_ctest_control
+    run_selftest_zero_caminhos_control
+    run_selftest_texto_sem_leitor_control
+    run_selftest_lint_sem_gitleaks_control
+    run_selftest_zero_recusa_control
+}
+
 run_selftest() {
     # Variables that pin a repository whatever directory git runs in, and
     # that GIT_CEILING_DIRECTORIES does not reach (git(1), ENVIRONMENT).
@@ -3156,6 +3380,7 @@ run_selftest() {
     run_selftest_cache_state_controls
     run_selftest_ps_container_controls
     run_selftest_ps_launch_count_controls
+    run_selftest_efic_preci_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -3450,20 +3675,483 @@ setup_ccache() {
     echo "ccache: ligado (dir=$CCACHE_DIR, limite=$CCACHE_MAXSIZE, basedir=$CCACHE_BASEDIR)"
 }
 
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
+# --- EFIC-PRECI (E2, D-W8-1231): isolamento, teto e o modo --changed ---
+#
+# B1, isolamento da sessao: fora do GitHub Actions, todo ctest que EXECUTA
+# teste roda sem WAYLAND_DISPLAY, WAYLAND_SOCKET e DISPLAY, com
+# XDG_RUNTIME_DIR apontando para um diretorio proprio (mktemp -d sob TMPDIR,
+# 700, vazio). Um teste sem janela nao acha o compositor da sessao viva do
+# lider. -N e --show-only nao executam teste e ficam fora deste caminho.
+ISO_XDG_DIR=""
+PRECI_OWNER=""
+CHG_DIR=""
+CHG_JSON=""
+CHG_LINT="nao"
+CHG_MODO=""
+CHG_ZERO="0"
+CHG_MOTIVO=""
+CHG_N="0"
+CHG_RESUMO=""
+CHG_PRECISA_BUILD="nao"
+CHG_TESTES_N="0"
+
+isolamento_criar() {
+    ISO_XDG_DIR="$(mktemp -d "${TMPDIR}/preci-xdg.XXXXXX")" || fail "isolamento: mktemp -d falhou sob TMPDIR"
+    chmod 700 "$ISO_XDG_DIR" || fail "isolamento: chmod 700 falhou em $ISO_XDG_DIR"
+    echo "isolamento: WAYLAND_DISPLAY, WAYLAND_SOCKET, DISPLAY e DBUS_SESSION_BUS_ADDRESS retirados; XDG_RUNTIME_DIR=$ISO_XDG_DIR (700, vazio)"
+}
+
+# Limpeza so' pelo caminho que este script criou: so' o processo dono apaga.
+preci_limpa() {
+    if [ "${PRECI_OWNER:-}" = "$BASHPID" ]; then
+        if [ -n "$ISO_XDG_DIR" ]; then rm -rf "$ISO_XDG_DIR"; fi
+        if [ -n "$CHG_DIR" ]; then rm -rf "$CHG_DIR"; fi
+    fi
+    return 0
+}
+
+executa_isolado() {
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then
+        "$@"
+        return
+    fi
+    [ -n "$ISO_XDG_DIR" ] || fail "isolamento: diretorio XDG nao preparado (isolamento_criar nao rodou)"
+    env -u WAYLAND_DISPLAY -u WAYLAND_SOCKET -u DISPLAY -u DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR="$ISO_XDG_DIR" "$@"
+}
+
+# Todo ctest que executa teste passa por aqui (stage_ctest, clang, sanitizer, debug e --changed).
+ctest_executa() {
+    executa_isolado ctest "$@"
+}
+
+executa_ctest_lista() {
+    ctest_executa --test-dir "$1" --output-on-failure --tests-from-file "$2"
+}
+
+# B1, guarda de teto: fora do GitHub Actions, o espelho so' roda com teto de
+# memoria no cgroup. Sem teto (memory.max = max) ou sem leitura, recusa.
+teto_checar() {
+    _tc_dir="$1"
+    _tc_mem="$(cat "$_tc_dir/memory.max" 2> /dev/null)" || _tc_mem="ilegivel"
+    _tc_pids="$(cat "$_tc_dir/pids.max" 2> /dev/null)" || _tc_pids="ilegivel"
+    echo "teto: cgroup=$_tc_dir memory.max=$_tc_mem pids.max=$_tc_pids"
+    case "$_tc_mem" in
+        ""|*[!0-9]*) return 2 ;;
+    esac
+    return 0
+}
+
+# HERDA (D-A, decisao do CTO de 26/11/2026): o cgroup aceito vai ao portao de alertas por
+# GLINTFX_CGROUP_EXCLUSIVO, que o portao confere em /proc/self/cgroup antes de herdar o escopo.
+# Nunca exportado no GitHub Actions nem no --selftest (quem chama aqui e o espelho local).
+guarda_teto() {
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then
+        return 0
+    fi
+    _gt_rel="$(awk -F: '$1 == "0" { print $3; exit }' /proc/self/cgroup 2> /dev/null)" || _gt_rel=""
+    guarda_teto_de "$_gt_rel" "/sys/fs/cgroup"
+}
+
+# $1: caminho do cgroup como em /proc/self/cgroup (0::<caminho>); $2: raiz do sysfs de cgroup.
+guarda_teto_de() {
+    if ! teto_checar "$2$1"; then
+        echo "sem teto: rode por ~/.claude/bin/pesado -- tools/preci.sh ..." >&2
+        exit 2
+    fi
+    GLINTFX_CGROUP_EXCLUSIVO="$1"
+    export GLINTFX_CGROUP_EXCLUSIVO
+    echo "teto: GLINTFX_CGROUP_EXCLUSIVO=$1 (declarado pelo espelho; o portao de alertas confere em /proc/self/cgroup)"
+}
+
+# Une as classificacoes (base --since e arvore) com o proprio seletor: cada
+# caminho entra uma vez, e o modo sai da mesma regra do classificar. Uma base
+# ausente ou nao ancestral continua completo (desconhecido roda tudo); dois lados
+# vazios dao zero. Imprime "modo=... zero=0|1 caminhos=N".
+mesclar_classificacoes() {
+    _mc_out="$1"; shift
+    python3 - "$ROOT_DIR" "$_mc_out" "$@" <<'PY_MESCLA'
+import json
+import sys
+
+raiz, saida, arquivos = sys.argv[1], sys.argv[2], sys.argv[3:]
+sys.path.insert(0, raiz + "/tools/ci")
+import seletor  # noqa: E402  (a regra de classe e' a do seletor, nunca copiada)
+
+lados = []
+for arquivo in arquivos:
+    with open(arquivo, encoding="utf-8") as handle:
+        lados.append(json.load(handle))
+bases_ruins = []
+por_caminho = {}
+for lado in lados:
+    if lado["modo"] == "completo" and not lado["caminhos"] and not lado["motivo"].startswith("zero caminhos"):
+        bases_ruins.append(lado["motivo"])
+    for entrada in lado["por_caminho"]:
+        por_caminho.setdefault(entrada["caminho"], entrada)
+entradas = [por_caminho[c] for c in sorted(por_caminho)]
+contagem = {classe: 0 for classe, _n, _c in seletor.CLASSES}
+for entrada in entradas:
+    contagem[entrada["classe"]] += 1
+contagem["total"] = len(entradas)
+zero = 0
+if bases_ruins:
+    modo, motivo = "completo", "; ".join(bases_ruins)
+elif not entradas:
+    modo, motivo, zero = "completo", "zero caminhos tocados", 1
+else:
+    completos = [e for e in entradas if e["classe"] in seletor.COMPLETA or e["completo"]]
+    if completos:
+        modo = "completo"
+        partes = []
+        for e in completos:
+            if e["classe"] in seletor.COMPLETA:
+                partes.append(f"{e['caminho']} ({e['classe']})")
+            else:
+                partes.append(f"{e['caminho']} (C5): " + " | ".join(e["motivos"]))
+        motivo = "caminho completo: " + "; ".join(partes)
+    elif all(e["classe"] == "C5" and not e["leitores"] for e in entradas):
+        modo = "texto-sem-leitor"
+        motivo = f"todo caminho e texto sem leitor ({len(entradas)} caminhos)"
+    else:
+        modo = "subconjunto"
+        sem_leitor = sum(1 for e in entradas if e["classe"] == "C5" and not e["leitores"])
+        motivo = f"{len(entradas)} caminhos; {sem_leitor} de texto sem leitor (nao selecionam teste)"
+uniao = {
+    "modo": modo,
+    "motivo": motivo,
+    "base": "arvore" if len(lados) == 1 else "base+arvore",
+    "raiz": raiz,
+    "caminhos": [e["caminho"] for e in entradas],
+    "por_caminho": entradas,
+    "contagem": contagem,
+    "zero": zero,
+}
+with open(saida, "w", encoding="utf-8") as handle:
+    json.dump(uniao, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+print(f"modo={modo} zero={zero} caminhos={len(entradas)}")
+PY_MESCLA
+}
+
+# Classifica o que mudou: com --since, a base (rev..HEAD) somada a arvore; sem, so' a arvore.
+classificar_mudancas() {
+    _cm_since="$1"
+    CHG_DIR="$(mktemp -d "${TMPDIR}/preci-changed.XXXXXX")" || fail "mudancas: mktemp -d falhou sob TMPDIR"
+    CHG_JSON="$CHG_DIR/mudancas.json"
+    _cm_lados=()
+    if [ -n "$_cm_since" ]; then
+        python3 "$ROOT_DIR/tools/ci/seletor.py" classificar --raiz "$ROOT_DIR" --base "$_cm_since" --head HEAD \
+            --saida "$CHG_DIR/base.json" > /dev/null \
+            || fail "classificacao da base $_cm_since recusada (ver a mensagem do seletor acima)"
+        _cm_lados+=("$CHG_DIR/base.json")
+    fi
+    python3 "$ROOT_DIR/tools/ci/seletor.py" classificar --raiz "$ROOT_DIR" --arvore \
+        --saida "$CHG_DIR/arvore.json" > /dev/null \
+        || fail "classificacao da arvore recusada (ver a mensagem do seletor acima)"
+    _cm_lados+=("$CHG_DIR/arvore.json")
+    CHG_RESUMO="$(mesclar_classificacoes "$CHG_JSON" "${_cm_lados[@]}")" \
+        || fail "uniao das classificacoes recusada"
+    echo "seletor (uniao): $CHG_RESUMO"
+    CHG_MODO="$(printf '%s\n' "$CHG_RESUMO" | sed -n 's/^modo=\([^ ]*\).*/\1/p')"
+    CHG_ZERO="$(printf '%s\n' "$CHG_RESUMO" | sed -n 's/.* zero=\([01]\).*/\1/p')"
+    CHG_N="$(printf '%s\n' "$CHG_RESUMO" | sed -n 's/.*caminhos=\([0-9]*\).*/\1/p')"
+    CHG_MOTIVO="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["motivo"])' "$CHG_JSON")" \
+        || fail "leitura do motivo da uniao recusada"
+}
+
+# Lista de arquivos por filtro (cpp, ps1, cpp_mudou, c2), sempre do JSON da uniao; newline no nome recusa.
+lista_mudancas() {
+    _lm_filtro="$1"
+    python3 - "$CHG_JSON" "$_lm_filtro" "$ROOT_DIR" > "$CHG_DIR/lista-$_lm_filtro.txt" <<'PY_FILTRO' \
+        || fail "filtro de mudancas recusado ($_lm_filtro; caminho com quebra de linha ou JSON ilegivel)"
+import json
+import os
+import sys
+
+dados = json.load(open(sys.argv[1], encoding="utf-8"))
+filtro, raiz = sys.argv[2], sys.argv[3]
+for entrada in dados["por_caminho"]:
+    caminho, classe = entrada["caminho"], entrada["classe"]
+    if "\n" in caminho:
+        sys.exit("caminho com quebra de linha recusado: " + repr(caminho))
+    sufixo = os.path.splitext(caminho)[1]
+    existe = os.path.isfile(os.path.join(raiz, caminho))
+    if filtro == "cpp" and sufixo in (".cpp", ".hpp") and existe:
+        print(caminho)
+    elif filtro == "ps1" and sufixo == ".ps1" and existe:
+        print(caminho)
+    elif filtro == "cpp_mudou" and classe in ("C2", "C3") and sufixo in (".cpp", ".hpp", ".h"):
+        print(caminho)
+    elif filtro == "c2" and classe == "C2":
+        print(caminho)
+PY_FILTRO
+    mapfile -t FILES < "$CHG_DIR/lista-$_lm_filtro.txt"
+}
+
+# Estagios do --changed no modo subconjunto. Cada um imprime o que roda e, se pula, PULADO com o motivo.
+changed_format() {
+    lista_mudancas cpp
+    if [ "${#FILES[@]}" -eq 0 ]; then
+        echo "1: clang-format PULADO (seletor: nenhum .cpp/.hpp tocado)"
+        return 0
+    fi
+    echo "clang-format: ${#FILES[@]} arquivo(s) tocado(s) varrido(s)"
+    clang-format --dry-run -Werror "${FILES[@]}"
+}
+
+changed_ps() {
+    if [ "$CHG_LINT" = "sim" ]; then
+        echo "1b: sintaxe PowerShell PULADO (seletor: modo lint, --lint-only --since)"
+        return 0
+    fi
+    lista_mudancas ps1
+    if [ "${#FILES[@]}" -eq 0 ]; then
+        echo "1b: sintaxe PowerShell PULADO (seletor: nenhum .ps1 tocado)"
+        return 0
+    fi
+    ps_syntax_sobre_files
+}
+
+changed_configure() {
+    # A consulta da File API e' criada ANTES do configure: sem ela o resolver nao sabe os alvos.
+    mkdir -p "$BUILD_DIR/.cmake/api/v1/query" || fail "configure: nao foi possivel criar a consulta da File API"
+    : > "$BUILD_DIR/.cmake/api/v1/query/codemodel-v2" || fail "configure: nao foi possivel gravar a consulta codemodel-v2"
+    stage_configure
+    python3 "$ROOT_DIR/tools/ci/seletor.py" resolver --mudancas "$CHG_JSON" --build "$BUILD_DIR" \
+        --saida-testes "$CHG_DIR/testes.txt" --saida-lint "$CHG_DIR/lint.txt" > "$CHG_DIR/resolver.txt" 2>&1 \
+        || { cat "$CHG_DIR/resolver.txt" >&2; fail "seletor (resolver) recusou a selecao (ver a mensagem acima)"; }
+    cat "$CHG_DIR/resolver.txt"
+    if grep -q 'precisa de build: sim' "$CHG_DIR/resolver.txt"; then
+        CHG_PRECISA_BUILD="sim"
+    else
+        CHG_PRECISA_BUILD="nao"
+    fi
+    CHG_TESTES_N="$(wc -l < "$CHG_DIR/testes.txt")"
+    CHG_TESTES_N="${CHG_TESTES_N//[[:space:]]/}"
+}
+
+changed_pula_texto() {
+    echo "seletor: texto sem leitor, testes pulados ($1 caminhos)"
+    for _cp_nome in "1: clang-format" "1b: PowerShell" "2: configure" "2b: autotestes Python" \
+        "3: build" "3b: build com Clang" "4: clang-tidy" "5: cppcheck" "5b: NOLINT" "5d: noexcept-alloc" "6: ctest"; do
+        echo "$_cp_nome PULADO (seletor: texto sem leitor)"
+    done
+}
+
+changed_blob() {
+    if [ "$CHG_LINT" = "sim" ]; then
+        echo "2b: autotestes Python PULADO (seletor: modo lint, --lint-only --since)"
+        return 0
+    fi
+    ctest --test-dir "$BUILD_DIR" -L '^selftest$' --show-only=json-v1 > "$CHG_DIR/selftest.json" \
+        || fail "2b: ctest --show-only (autotestes) falhou"
+    python3 - "$CHG_DIR/selftest.json" "$CHG_DIR/testes.txt" > "$CHG_DIR/n-blob.txt" <<'PY_BLOB' \
+        || fail "2b: leitura da selecao de autotestes recusada"
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    dados = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    escolhidos = {linha.strip() for linha in handle if linha.strip()}
+print(sum(1 for teste in dados.get("tests", []) if teste["name"] in escolhidos))
+PY_BLOB
+    _cb_n="$(cat "$CHG_DIR/n-blob.txt")"
+    if [ "$_cb_n" = "0" ]; then
+        echo "2b: autotestes Python PULADO (seletor: nenhum autoteste entre os $CHG_TESTES_N testes selecionados)"
+        return 0
+    fi
+    echo "2b: $_cb_n autoteste(s) Python selecionado(s); o --blob cruza o universo inteiro do indice (desvio declarado)"
+    stage_blob
+}
+
+changed_build() {
+    if [ "$CHG_PRECISA_BUILD" != "sim" ]; then
+        echo "3: build PULADO (seletor: nenhum alvo compilado selecionado)"
+        return 0
+    fi
+    stage_build
+}
+
+changed_clang() {
+    if [ "$CHG_LINT" = "sim" ]; then
+        echo "3b: build com Clang PULADO (seletor: modo lint, --lint-only --since)"
+        return 0
+    fi
+    lista_mudancas cpp_mudou
+    if [ "${#FILES[@]}" -eq 0 ]; then
+        echo "3b: build com Clang PULADO (seletor: nenhum C++ tocado)"
+        return 0
+    fi
+    stage_clang_build
+}
+
+changed_tidy() {
+    mapfile -t FILES < "$CHG_DIR/lint.txt"
+    if [ "${#FILES[@]}" -eq 0 ]; then
+        echo "4: clang-tidy PULADO (seletor: nenhuma unidade de biblioteca tocada para lint)"
+        return 0
+    fi
+    echo "clang-tidy: lista do seletor, ${#FILES[@]} unidade(s):"
+    printf '  unidade: %s\n' "${FILES[@]}"
+    tidy_sobre_files
+}
+
+changed_cppcheck() {
+    mapfile -t FILES < "$CHG_DIR/lint.txt"
+    if [ "${#FILES[@]}" -eq 0 ]; then
+        echo "5: cppcheck PULADO (seletor: nenhuma unidade de biblioteca tocada para lint)"
+        return 0
+    fi
+    echo "cppcheck: ${#FILES[@]} unidade(s) do seletor:"
+    printf '  unidade: %s\n' "${FILES[@]}"
+    run_cppcheck_batch "$BUILD_DIR" "$PRECI_JOBS" "${FILES[@]}"
+}
+
+changed_nolint() {
+    mapfile -t FILES < "$CHG_DIR/lint.txt"
+    if [ "${#FILES[@]}" -eq 0 ]; then
+        echo "5b: NOLINT PULADO (seletor: nenhuma unidade de biblioteca tocada para lint)"
+        return 0
+    fi
+    nolint_sobre_files
+}
+
+changed_noexcept() {
+    lista_mudancas c2
+    if [ "${#FILES[@]}" -eq 0 ]; then
+        echo "5d: noexcept-alloc PULADO (seletor: nenhuma unidade de biblioteca tocada)"
+        return 0
+    fi
+    stage_noexcept_alloc
+}
+
+# EFIC-PRECI (sonda S1 da E5, rodada 45982523713): o 5c nao roda no --lint-only. A imagem do
+# job lint nao tem o binario gitleaks (sai 127); o gitleaks tem o job proprio `gitleaks` do CI,
+# que roda sempre. No --changed local (CHG_LINT=nao) o 5c continua rodando.
+changed_gitleaks() {
+    if [ "$CHG_LINT" = "sim" ]; then
+        echo "5c: gitleaks PULADO (seletor: gitleaks tem trabalho proprio no CI)"
+        return 0
+    fi
+    stage_gitleaks
+}
+
+changed_ctest() {
+    if [ "$CHG_LINT" = "sim" ]; then
+        echo "6: ctest PULADO (seletor: modo lint, --lint-only --since)"
+        return 0
+    fi
+    if [ "$CHG_TESTES_N" = "0" ]; then
+        echo "6: ctest PULADO (seletor: nenhum teste selecionado)"
+        return 0
+    fi
+    echo "ctest: $CHG_TESTES_N teste(s) da lista do seletor, com isolamento:"
+    sed 's/^/  teste: /' "$CHG_DIR/testes.txt"
+    executa_ctest_lista "$BUILD_DIR" "$CHG_DIR/testes.txt"
+    echo "base de tempos: NAO gravada (rodada parcial de $CHG_TESTES_N testes)"
+}
+
+run_lint_completo() {
+    timed_stage "1: clang-format" stage_format
+    timed_stage "2: configure (-Werror)" stage_configure
+    timed_stage "3: build" stage_build
+    timed_stage "4: clang-tidy" stage_tidy
+    timed_stage "5: cppcheck" stage_cppcheck
+    timed_stage "5b: justificativa de NOLINT" stage_nolint_justification
+    timed_stage "5c: gitleaks (sempre)" changed_gitleaks
+    timed_stage "5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)" stage_noexcept_alloc
+    report_stage_times
+    echo "preci.sh --lint-only --since: VERDE (modo completo)"
+}
+
+run_mudancas_subconjunto() {
+    timed_stage "1: clang-format (so os .cpp/.hpp tocados)" changed_format
+    timed_stage "1b: sintaxe PowerShell (so os .ps1 tocados)" changed_ps
+    timed_stage "2: configure (-Werror) com a File API, e seletor (resolver)" changed_configure
+    timed_stage "2b: autotestes Python do indice (so' se algum selecionado)" changed_blob
+    timed_stage "3: build (so' se o seletor disser que precisa)" changed_build
+    timed_stage "3b: build com Clang (so' se mudou C++)" changed_clang
+    timed_stage "4: clang-tidy (lista do seletor)" changed_tidy
+    timed_stage "5: cppcheck (lista do seletor)" changed_cppcheck
+    timed_stage "5b: justificativa de NOLINT (lista do seletor)" changed_nolint
+    timed_stage "5c: gitleaks (sempre)" changed_gitleaks
+    timed_stage "5d: noexcept-alloc (so' se mudou a biblioteca)" changed_noexcept
+    timed_stage "6: ctest (so' os testes selecionados, --tests-from-file)" changed_ctest
+    report_stage_times
+    echo "preci.sh --changed: VERDE (modo subconjunto, $CHG_TESTES_N teste(s))"
+}
+
+# Ponto de entrada do --changed e do --lint-only --since. Zero caminhos reprova; completo roda o --fast inteiro (ou o lint completo).
+run_mudancas() {
+    _rm_since="$1"
+    CHG_LINT="$2"
+    classificar_mudancas "$_rm_since"
+    if [ "$CHG_ZERO" = "1" ]; then
+        fail "nada tocado contra ${_rm_since:-a arvore}; use --since <rev>"
+    fi
+    case "$CHG_MODO" in
+        completo)
+            echo "seletor: completo: $CHG_MOTIVO"
+            if [ "$CHG_LINT" = "sim" ]; then
+                run_lint_completo
+            else
+                run_full_pipeline "yes"
+            fi
+            ;;
+        texto-sem-leitor)
+            changed_pula_texto "$CHG_N"
+            timed_stage "5c: gitleaks (sempre)" changed_gitleaks
+            report_stage_times
+            echo "preci.sh --changed: VERDE (texto sem leitor, $CHG_N caminhos)"
+            ;;
+        subconjunto)
+            echo "seletor: subconjunto: $CHG_MOTIVO"
+            run_mudancas_subconjunto
+            ;;
+        *)
+            fail "seletor: modo desconhecido '$CHG_MODO'"
+            ;;
+    esac
+}
+
+_USAGE="uso: preci.sh [--fast|--lint-only [--since <rev>]|--changed [--since <rev>]|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
+    since=""
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--clang-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--changed|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
+    # EFIC-PRECI: --since <rev> so' vale em --changed e em --lint-only, e so' como
+    # segundo e terceiro argumentos. Outra combinacao com argumento extra e' uso invalido.
+    if [ "$extra" = "--since" ]; then
+        case "$mode" in
+            --changed|--lint-only) ;;
+            *) fail "$_USAGE" ;;
+        esac
+        [ "$#" -eq 3 ] || fail "$_USAGE"
+        since="${3:-}"
+        case "$since" in
+            ""|-*) fail "$_USAGE" ;;
+        esac
+    elif [ -n "$extra" ] && { [ "$mode" != "--win32-link-only" ] || [ "$extra" != "--strict" ]; }; then
+        fail "$_USAGE"
+    fi
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
     # de --win32-link-only - qualquer outra combinacao com um segundo
     # argumento e uso invalido, nunca ignorada em silencio.
-    if [ -n "$extra" ] && { [ "$mode" != "--win32-link-only" ] || [ "$extra" != "--strict" ]; }; then
-        fail "$_USAGE"
+
+    # Os caminhos do git (ls-files e a lista do seletor) sao relativos a raiz.
+    cd "$ROOT_DIR"
+    PRECI_OWNER="$BASHPID"
+    if [ "$mode" != "--selftest" ]; then
+        # B1: fora do GitHub Actions, teto de memoria no cgroup e ctest isolado.
+        guarda_teto
+        isolamento_criar
+        trap preci_limpa EXIT
     fi
 
     setup_ccache "$ROOT_DIR"
@@ -3472,6 +4160,9 @@ main() {
     if [ "$mode" != "--selftest" ]; then
         case "$mode" in
             "") STAGE_TIMES_MODO="completo" ;;
+            --lint-only)
+                if [ -n "$since" ]; then STAGE_TIMES_MODO="lint-changed"; else STAGE_TIMES_MODO="lint-only"; fi
+                ;;
             *) STAGE_TIMES_MODO="${mode#--}" ;;
         esac
         stage_times_init "$STAGE_TIMES_MODO"
@@ -3485,8 +4176,15 @@ main() {
         --fast)
             run_full_pipeline "yes"
             ;;
+        --changed)
+            run_mudancas "$since" "nao"
+            ;;
         --lint-only)
-            run_lint_only
+            if [ -n "$since" ]; then
+                run_mudancas "$since" "sim"
+            else
+                run_lint_only
+            fi
             ;;
         --sanitizer-only)
             run_sanitizer_only

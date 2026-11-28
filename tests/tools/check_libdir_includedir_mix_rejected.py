@@ -187,6 +187,23 @@ def assert_configure_for_scenario(glintfx_src, build_dir, cxx_compiler, scenario
 # --- real mode -----------------------------------------------------------
 
 
+def resolve_glintfx_source(glintfx_src, scratch):
+    """E2c (TMPDIR-NA-ARVORE): se o rascunho cai DENTRO da fonte, a fonte vai para uma copia
+    dentro do rascunho, e a configuracao segue por ela. Fora disso, a fonte fica como esta."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import source_snapshot
+
+    try:
+        path, copied = source_snapshot.resolve_source(glintfx_src, scratch)
+    except source_snapshot.SnapshotError as error:
+        fail(f"fonte para o rascunho nao resolvida: {error}")
+    if copied:
+        print(f"fonte: copiada para {path} ({copied} arquivos; o rascunho esta dentro da arvore-fonte)", file=sys.stderr)
+    else:
+        print(f"fonte: original {path}", file=sys.stderr)
+    return path
+
+
 def real_main(args):
     if len(args) != 2:
         fail("usage: check_libdir_includedir_mix_rejected.py <glintfx-source-dir> <cxx-compiler>")
@@ -199,6 +216,7 @@ def real_main(args):
     scratch = make_scratch_workdir()
     analyzed = 0
     try:
+        glintfx_src = resolve_glintfx_source(glintfx_src, scratch)
         for index, (scenario_name, expect_reject, libdir_kind, includedir_kind) in enumerate(SCENARIOS):
             scenario_scratch = os.path.join(scratch, f"scenario-{index}")
             os.makedirs(scenario_scratch, exist_ok=True)

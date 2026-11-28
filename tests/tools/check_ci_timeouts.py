@@ -113,6 +113,7 @@ REUSABLE_MARK = "reutilizavel"
 # como "fora de escopo, ignorar".
 EXPECTED = {
     "ci.yml": {
+        "mudancas": "curta",
         "linux": "compilacao",
         "windows": "compilacao",
         "parity": "dependente",
@@ -129,6 +130,8 @@ EXPECTED = {
         "gitleaks": "curta",
         "leis": "curta",
         "version-tag": "curta",
+        "fedora-lock": "compilacao",
+        "cachyos-repo-gerar": "compilacao",
     },
 }
 
@@ -661,7 +664,7 @@ def selftest_arvore_real(dir_path):
     if rc != 0:
         print(f"selftest: ARVORE REAL FALHOU: rc={rc} saida={saida!r}", file=sys.stderr)
         return False
-    if "16 job(s), 16 com teto declarado" not in saida:
+    if "19 job(s), 19 com teto declarado" not in saida:
         print(f"selftest: ARVORE REAL FALHOU (contagem inesperada): {saida!r}", file=sys.stderr)
         return False
     print(f"selftest: ARVORE REAL OK: {saida.strip()}")

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/ci/wave-manifest/ubuntu.txt - manifesto da perna Ubuntu (CI-PIN-PKG-A).
+# Formato: "<pacote> <versao>", no que dpkg-query -W -f='${Version}' imprime.
+# ORIGEM: DERIVADO do indice congelado no carimbo ONDA_STAMP (snapshot.ubuntu.com,
+# Packages.xz de main e universe nas suites resolute, resolute-updates e
+# resolute-security); cada pacote tem um candidato so' nas tres suites.
+# NAO e' medido instalado. A conferencia no servidor (o portao no CI) e' pendente:
+# se a imagem trouxer versao diferente, o portao reprova e imprime as duas listas.
+cmake 4.2.3-2ubuntu2
+gcc-14 14.3.0-14ubuntu1
+g++-14 14.3.0-14ubuntu1
+ninja-build 1.13.2-1
+libwayland-client0 1.24.0-2

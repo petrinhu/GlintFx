@@ -208,7 +208,49 @@ def slack_offenders(testes, duracoes):
     return fora
 
 
-def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=None, paralelismo=None):
+# E3 Ordem B, item (d): nome de teste do `ctest -N` ("  Test  #n: nome").
+_NOME_TESTE_RE = re.compile(r"^\s*Test\s+#\d+:\s+(\S+)\s*$", re.MULTILINE)
+
+
+def junit_names(junit_path):
+    """Nomes de todo <testcase> do JUnit, em qualquer status (None se ilegivel)."""
+    text = read_text(junit_path)
+    if text is None:
+        return None
+    try:
+        root = ElementTree.fromstring(text)
+    except ElementTree.ParseError:
+        return None
+    return {case.get("name", "") for case in root.iter("testcase")}
+
+
+def verificar_lista(lista_path, inventory_path, junit_path, declared):
+    """--lista (E3 Ordem B, item d): o JUnit tem de reportar exatamente lista & inventario, e o rodape
+    'Total Tests' do inventario filtrado tem de ser o tamanho desse conjunto. Devolve as causas (vazia = ok)."""
+    lista_txt = read_text(lista_path)
+    inv_txt = read_text(inventory_path)
+    if lista_txt is None:
+        return [f"--lista ilegivel: {lista_path}"]
+    if inv_txt is None:
+        return [f"inventario ilegivel para --lista: {inventory_path}"]
+    lista = {linha.strip() for linha in lista_txt.splitlines() if linha.strip()}
+    inventario = set(_NOME_TESTE_RE.findall(inv_txt))
+    esperados = lista & inventario
+    reportados = junit_names(junit_path)
+    if reportados is None:
+        return [f"{junit_path} ausente ou ilegivel - --lista nao tem o que conferir"]
+    print(f"lista {len(lista)}; inventario {len(inventario)}; esperados {len(esperados)}; reportados {len(reportados)}")
+    problems = []
+    faltaram = sorted(esperados - reportados)
+    sobraram = sorted(reportados - esperados)
+    if faltaram or sobraram:
+        problems.append(f"JUnit diverge da lista: faltaram {faltaram or '-'}; sobraram {sobraram or '-'}")
+    if declared is not None and declared != len(esperados):
+        problems.append(f"Total Tests do filtrado ({declared}) != tamanho de lista & inventario ({len(esperados)})")
+    return problems
+
+
+def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=None, paralelismo=None, lista_path=None):
     junit_path = junit_path or os.path.join(builddir, JUNIT_NAME)
     declared, declared_error = parse_declared(inventory_path)
     counts, motivos, junit_error, duracoes = parse_junit(junit_path)
@@ -229,6 +271,8 @@ def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=
         print("duracoes (maiores primeiro, s): " + " ".join(f"{n}={t:.2f}" for n, t in maiores))
         print(f"soma dos tempos: {sum(t for _n, t in duracoes):.1f} s")
     problems = verdict(declared, counts, errors, motivos)
+    if lista_path is not None:
+        problems.extend(verificar_lista(lista_path, inventory_path, junit_path, declared))
     if tests_json is not None:
         testes, erro_json = _load_tests_json(tests_json)
         if erro_json:
@@ -276,7 +320,7 @@ def _capture(runner):
     return rc, buffer.getvalue()
 
 
-def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, tests_json=None, heavy_limit=None, proibido=(), paralelismo="1"):
+def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, tests_json=None, heavy_limit=None, proibido=(), paralelismo="1", lista=None):
     """Roda `run` contra fixtures reais. `junit_text` substitui o conteudo do
     JUnit (mutante feito sobre o arquivo REAL)."""
     import tempfile
@@ -287,7 +331,12 @@ def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, te
             with open(junit_path, "w", encoding="utf-8") as handle:
                 handle.write(junit_text if junit_text is not None else read_text(_fixture(junit)))
         json_path = _fixture(tests_json) if tests_json else None
-        rc, output = _capture(lambda: run(tmp, inventory if os.path.isabs(inventory) else _fixture(inventory), None, json_path, heavy_limit, paralelismo))
+        lista_path = None
+        if lista:
+            lista_path = os.path.join(tmp, "lista.txt")
+            with open(lista_path, "w", encoding="utf-8") as handle:
+                handle.write("".join(f"{nome}\n" for nome in lista))
+        rc, output = _capture(lambda: run(tmp, inventory if os.path.isabs(inventory) else _fixture(inventory), None, json_path, heavy_limit, paralelismo, lista_path=lista_path))
     faltando = [t for t in expect_text if t not in output]
     citados = [t for t in proibido if t in output.split("duracoes")[0] or f"teste {t}" in output]
     if rc != expect_rc or faltando or citados:
@@ -386,6 +435,14 @@ def selftest_main():
         _case("REGRA1: json ausente reprova (nao se cruza sem os dados)", 1, "junit_slow.xml", "inventory_slow.txt",
               ["ausente"], tests_json="nao_existe.json", heavy_limit=1.0),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),
+        # E3 Ordem B (d): --lista. Positivo: o JUnit real reporta exatamente lista & inventario.
+        _case("LISTA-POSITIVO (JUnit real, lista = inventario)", 0, "junit_allpass.xml", "inventory_allpass.txt",
+              ["esperados 3; reportados 3"], lista=("passa1", "passa2", "passa3")),
+        # Negativo isolado: mesmo numero de casos (3), mas passa2 virou passa9. So a comparacao por nome
+        # reprova (rc 1, com 'faltaram' e 'sobraram' na linha).
+        _case("LISTA-NEGATIVO (JUnit com um nome trocado, mesma contagem)", 1, None, "inventory_allpass.txt",
+              ["faltaram ['passa2']", "sobraram ['passa9']"],
+              junit_text=re.sub(r'testcase name="passa2"', 'testcase name="passa9"', real), lista=("passa1", "passa2", "passa3")),
         _case("JUNIT-ILEGIVEL", 1, None, "inventory_allpass.txt", ["ilegivel"], junit_text="<testsuite"),
         _case("RODAPE-AUSENTE", 1, "junit_allpass.xml", sem_rodape, ["Total Tests"]),
     ]
@@ -396,17 +453,22 @@ def selftest_main():
 
 
 def _parse_real_args(args):
-    """(builddir, inventory, tests_json|None)."""
-    if len(args) in (4, 6) and args[0] == "--builddir" and args[2] == "--inventory":
-        tests_json = None
-        if len(args) == 6:
-            if args[4] != "--tests-json":
-                print(f"usage: {SCRIPT_NAME} --builddir <dir> --inventory <arquivo> [--tests-json <json-v1>]  |  --selftest", file=sys.stderr)
-                sys.exit(2)
-            tests_json = args[5]
-        return args[1], args[3], tests_json
-    print(f"usage: {SCRIPT_NAME} --builddir <dir> --inventory <arquivo> [--tests-json <json-v1>]  |  --selftest", file=sys.stderr)
-    sys.exit(2)
+    """(builddir, inventory, tests_json|None, lista|None)."""
+    usage = f"usage: {SCRIPT_NAME} --builddir <dir> --inventory <arquivo> [--tests-json <json-v1>] [--lista <arquivo>]  |  --selftest"
+    if len(args) < 4 or len(args) % 2 != 0 or args[0] != "--builddir" or args[2] != "--inventory":
+        print(usage, file=sys.stderr)
+        sys.exit(2)
+    tests_json = None
+    lista = None
+    for flag, valor in zip(args[4::2], args[5::2]):
+        if flag == "--tests-json" and tests_json is None:
+            tests_json = valor
+        elif flag == "--lista" and lista is None:
+            lista = valor
+        else:
+            print(usage, file=sys.stderr)
+            sys.exit(2)
+    return args[1], args[3], tests_json, lista
 
 
 def main():
@@ -414,8 +476,8 @@ def main():
     if args and args[0] == "--selftest":
         selftest_main()
         return
-    builddir, inventory, tests_json = _parse_real_args(args)
-    sys.exit(run(builddir, inventory, None, tests_json))
+    builddir, inventory, tests_json, lista = _parse_real_args(args)
+    sys.exit(run(builddir, inventory, None, tests_json, lista_path=lista))
 
 
 if __name__ == "__main__":

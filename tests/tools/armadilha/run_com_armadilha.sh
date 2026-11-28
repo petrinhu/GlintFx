@@ -39,7 +39,26 @@ done
 vt="$(mktemp -d "${TMPDIR:-/var/tmp}/glintfx-armadilha-vt.XXXXXX")" || exit 1
 trap 'rm -rf -- "$vt"' EXIT
 args+=(--proc /proc --dev /dev --tmpfs /tmp --bind "$vt" /var/tmp --tmpfs /run --tmpfs /home)
-args+=(--ro-bind "$raiz" "$raiz" --chdir "$raiz")
+args+=(--ro-bind "$raiz" "$raiz")
+# E2c (TMPDIR-NA-ARVORE): um TMPDIR que mora DENTRO da raiz (o de L-09 do projeto, .trabalho/tmp)
+# fica visivel por baixo da raiz so' leitura: a sentinela de um teste la' dentro apareceria dentro
+# da caixa. Cobre-se o TMPDIR com um tmpfs vazio. A ordem importa: o --bind de /var/tmp vem antes
+# (ele mesmo nasce dentro do TMPDIR), e o tmpfs vem depois da raiz. Fora da raiz, nada muda.
+tmp_fisico="$(cd -- "${TMPDIR:-/var/tmp}" 2>/dev/null && pwd -P)" || tmp_fisico=""
+if [ -n "$tmp_fisico" ] && [ "$tmp_fisico" != "$raiz" ] && [ "${tmp_fisico#"$raiz"/}" != "$tmp_fisico" ]; then
+  args+=(--tmpfs "$tmp_fisico")
+  echo "run_com_armadilha.sh: TMPDIR dentro da raiz, coberto por tmpfs na caixa: $tmp_fisico" >&2
+fi
+# E2c, rodada 2 (CTO 26/11 20:30): a .trabalho/ da raiz, a area de trabalho da L-09 do projeto, e'
+# coberta por tmpfs vazio na caixa, mas SO' quando e' filha direta da raiz, nao e' um atalho e o git a
+# confirma como ignorada. O find da auto-prova (dentro_da_sandbox.sh) continua sem poda: so' deixa de
+# ver o que a caixa nao alcanca. Sem a condicao, nada se cobre.
+trab="$raiz/.trabalho"
+if [ -d "$trab" ] && [ ! -L "$trab" ] && git -C "$raiz" check-ignore -q -- .trabalho 2>/dev/null; then
+  args+=(--tmpfs "$trab")
+  echo "run_com_armadilha.sh: .trabalho/ da raiz (L-09 do projeto, ignorada pelo git) coberta por tmpfs na caixa" >&2
+fi
+args+=(--chdir "$raiz")
 args+=(--setenv TMPDIR /var/tmp --setenv HOME /tmp --unsetenv XDG_RUNTIME_DIR --unsetenv DBUS_SESSION_BUS_ADDRESS)
 bwrap "${args[@]}" bash "$aqui/dentro_da_sandbox.sh" "$raiz" "$@"
 exit $?

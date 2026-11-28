@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/ci/wave-manifest/fedora-container.txt - manifesto do contenedor Wayland (CI-PIN-PKG-B): o KWin do estagio
+# final da imagem tests/container/Containerfile e a biblioteca de cliente que ele usa.
+# ORIGEM: LIDO do lock tools/ci/env/lock/fedora.versionlock.toml (evr sem o epoch 0), run 46153216370.
+# A coleta roda no executor com `docker run --entrypoint rpm`, sem montar nada do host (GODS_LAWS.md L-09).
+kwin 6.8.3-2.fc45
+libwayland-client 1.26.0-3.fc45

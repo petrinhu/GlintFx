@@ -3798,6 +3798,19 @@ add_test(
 )
 set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
+# Seletor unico do espelho e do CI (EFIC-SELETOR, lote de eficacia, D-W8-1231): autoteste da classificacao
+# (tools/ci/seletor.py) sobre repositorios git temporarios sob TMPDIR. So biblioteca padrao (L-07 do projeto).
+# Sem PASS_REGULAR_EXPRESSION e sem expect_exit_and_line: o codigo de saida conta.
+#
+# glintfx-nested-build: heavy - o --selftest cria repositorios git e dezenas de subprocessos git (um por caso) e mediu 60,4 s no Windows compartilhado (rodada 45936134734, 27/11/2026), acima da regua de 40 s do ctest_aggregate.py; trinco por MEDICAO, na mesma forma do layers_selftest (custo de sistema de arquivos e de processos, nao build aninhado). O trinco serializa o seletor com os pesados, que e' a disputa de nucleos que a regua quer evitar.
+# TIMEOUT 210 = regra 4 (3 x 60,4 = 181,2, arredondado para cima em multiplos de 30 s; ctest_p1_compare.py). Com 120, a duracao medida ja passava de TIMEOUT/2: sem folga.
+add_test(
+    NAME seletor_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/seletor_selftest.py" --selftest
+)
+set_tests_properties(seletor_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build TIMEOUT 210)
+
 # W8 deep verification C7-1 (D-W8-2025; AUDITORIAS.md chapter 7; the leader's answer of 20/11/2026):
 # no tracked text file names the home folder of a person's machine. Rule A reads the home of whoever
 # runs the gate, rule B the shape /home/<name>/ and /Users/<name>/ outside a closed list of stand-ins;
@@ -5332,6 +5345,8 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(pkgconfig_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+    # E2c (TMPDIR-NA-ARVORE): o shell chama source_snapshot.py pelo interpretador que o configure achou.
+    set_tests_properties(pkgconfig_test PROPERTIES ENVIRONMENT "GLINTFX_PYTHON3=${GLINTFX_PYTHON3_EXECUTABLE}")
 
     # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44,
     # same precedent as public_name_collision_test's own TIMEOUT 300
@@ -5378,6 +5393,17 @@ if(UNIX)
     # 38665857294), above a third of 300 s; rule 4: 3 x 117.10 = 351.30 -> 360 s.
     set_tests_properties(pkgconfig_test PROPERTIES TIMEOUT 360)
 endif()
+
+# E2c: o autoteste do auxiliar que copia a fonte para o rascunho (tests/tools/source_snapshot.py).
+# D-W8-1282 (27/11/2026): saiu do if(UNIX), pois o autoteste e' Python puro e roda nos dois sistemas
+# (L-04: o mesmo comportamento em todo sistema, cada um provando). Ver source_snapshot.py para o
+# que e' portavel e o unico controle que pula no Windows, declarado na saida.
+add_test(
+    NAME source_snapshot_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/source_snapshot.py" --selftest
+)
+set_tests_properties(source_snapshot_selftest PROPERTIES LABELS selftest)
 
 # Post-install pkg-config VALIDATOR gate (PKG-VALIDATE): proves the
 # install(CODE) step in cmake/GlintfxPkgConfigValidate.cmake /
@@ -6426,6 +6452,68 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_system_uniformity.py" --selftest
 )
 set_tests_properties(ci_system_uniformity_selftest PROPERTIES LABELS selftest)
+
+# CI-PIN-PKG-A (D-W8-2091, ordem do CTO): portao de manifesto de pacote das
+# pernas Ubuntu e Arch. O autoteste roda em todo sistema (so' a comparacao
+# pura, com fixtures em memoria); o piso confere que nenhum manifesto ficou
+# vazio e que o carimbo da onda tem formato valido (GODS_LAWS.md L-40).
+add_test(
+    NAME wave_manifest_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wave_manifest.py" --selftest
+)
+set_tests_properties(wave_manifest_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME wave_manifest_piso_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wave_manifest.py" --piso
+)
+set_tests_properties(wave_manifest_piso_test PROPERTIES LABELS consume)
+
+# CI-PIN-PKG-C (D-WP1-0014, desenho 1a, parecer do CLO secao 7): o portao de
+# correspondencia do artifact cachyos-repo-onda (origem cachyos, fonte exato,
+# licenca, manifesto e a ressalva GPL) e a trava que impede qualquer passo do CI
+# de republicar os pacotes do Arch. O autoteste roda em todo sistema (fixtures
+# de texto); o teste real le o ci.yml da arvore. A conferencia real do tar roda
+# no contenedor do gerador (GODS_LAWS.md L-40: piso e sabotagem nos dois sentidos).
+add_test(
+    NAME cachyos_onda_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_cachyos_onda.py" --selftest
+)
+set_tests_properties(cachyos_onda_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME cachyos_nao_republica_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_cachyos_nao_republica.py" --selftest
+)
+set_tests_properties(cachyos_nao_republica_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME cachyos_nao_republica_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_cachyos_nao_republica.py"
+)
+set_tests_properties(cachyos_nao_republica_test PROPERTIES LABELS consume)
+
+# CI-PIN-PKG-B (D-W8-2090, ordem do CTO, item 3): a UNIAO dos pacotes Fedora sai dos proprios pontos de instalacao
+# (tools/ci/env/fedora.sh, ci.yml, Containerfile). O autoteste roda em todo sistema (texto puro); o teste real le o
+# repositorio e reprova se algum ponto sumir ou vier vazio (GODS_LAWS.md L-40: varredura vazia nunca e verde).
+add_test(
+    NAME fedora_lock_union_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/env/lock/uniao_fedora.py" --selftest
+)
+set_tests_properties(fedora_lock_union_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME fedora_lock_union_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/env/lock/uniao_fedora.py"
+)
+set_tests_properties(fedora_lock_union_test PROPERTIES LABELS consume)
 
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
@@ -7522,6 +7610,43 @@ add_test(
         "${CMAKE_SOURCE_DIR}/.github/workflows"
 )
 set_tests_properties(check_ci_timeouts_selftest PROPERTIES LABELS selftest)
+
+# EFIC-CI-SELETIVO (E3, D-W8-1231; GODS_LAWS.md L-40 do projeto): autoteste do instrumento
+# tools/ci/ci_verde_completo.py. Controles em memoria: nenhum gh, nenhum git, nenhum Docker. Sem
+# guarda de sistema, mesma forma que check_ci_timeouts_selftest acima.
+add_test(
+    NAME ci_verde_completo_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_verde_completo_selftest.py" --selftest
+)
+set_tests_properties(ci_verde_completo_selftest PROPERTIES LABELS selftest)
+
+# EFIC-CI-SELETIVO (CI-VERDE-COMPLETO-NOME): portao que confere, no ci.yml REAL, que o nome de exibicao
+# usado pelo instrumento ci_verde_completo.py existe como `name:` do job `version-tag`. Renomear o job
+# reprova aqui, no CI local, e nao so depois do servidor. Texto puro, sem guarda de sistema.
+add_test(
+    NAME ci_verde_completo_ci_yml_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_verde_completo_selftest.py"
+        --ci-yml "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(ci_verde_completo_ci_yml_test PROPERTIES LABELS consume)
+
+# EFIC-CI-SELETIVO (E3, Ordem B, decisao D2 do CTO): autoteste de tools/ci/conferir_lista.py. Os JSON
+# de inventario, universo e selecao saem do ctest real de um projeto descartavel em TMPDIR. Sem guarda
+# de sistema: exige cmake e ctest no PATH, e reprova sem eles (sem pulo para isso).
+#
+# GERADOR (defeito do CI do Arch, rodada 45936134734): o cmake aninhado nao herda o gerador deste build;
+# sem -G cai em "Unix Makefiles", e a imagem do Arch nao tem `make`. ENVIRONMENT passa o mesmo gerador
+# desta construcao (CMAKE_GENERATOR), e o autoteste usa Ninja se essa variavel faltar. Sem gerador
+# nenhum, o autoteste sai com 77: SKIP_RETURN_CODE, pulo declarado e contado pelo agregado.
+# Pesado? Nao: fora do top-25 do Windows (piso 5,01 s), sem propriedade de pesado.
+add_test(
+    NAME conferir_lista_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/conferir_lista_selftest.py" --selftest
+)
+set_tests_properties(conferir_lista_selftest PROPERTIES LABELS selftest ENVIRONMENT "CMAKE_GENERATOR=${CMAKE_GENERATOR}" SKIP_RETURN_CODE 77)
 
 # LAYERS-ORACLE-REPORT sub-fatia J2 (docs/plano-w7c-adendo-revalidacao.md
 # secao 3.J, achado N9, decisao D-A11, 24/09/2026): nenhum portao Python

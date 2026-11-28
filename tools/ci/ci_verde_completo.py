@@ -4,8 +4,14 @@
 # ci_verde_completo.py - instrumento da linha CI-VERDE-<parte> (EFIC-CI-SELETIVO, E3, D-W8-1231;
 # GODS_LAWS.md L-18 e L-40 do projeto, L-36 global). Diz se um run do CI foi COMPLETO de verdade: o modo
 # decidido pelo trabalho `mudancas` tem de ser `completo`, e todo trabalho tem de ter saido `success`,
-# com uma unica excecao: o `version-tag` pode sair `skipped` (ele so roda em etiqueta). Zero trabalhos
-# reprova (piso de varredura nao-vazia, L-40 do projeto). So biblioteca padrao (L-07 do projeto).
+# com uma unica excecao: o trabalho de etiqueta pode sair `skipped` (ele so roda em etiqueta). Zero
+# trabalhos reprova (piso de varredura nao-vazia, L-40 do projeto). So biblioteca padrao (L-07 do projeto).
+#
+# O trabalho de etiqueta e' identificado pelo NOME DE EXIBICAO exato (`name:` do job no ci.yml), que e' o
+# unico campo que `gh run view --json jobs` devolve: a chave do job (`version-tag`) nao vem no JSON. O
+# texto e' fixado aqui e conferido contra o ci.yml real pelo `ci_verde_completo_selftest.py --ci-yml`
+# (portao), entao renomear o job reprova no CI local, e nao so no servidor. Nome diferente nunca e'
+# excecao (L-40): igualdade exata, sem substring e sem caixa frouxa.
 #
 # Usage:
 #   ci_verde_completo.py <run-id> [--repo <dono/nome>] [--dir-mudancas <dir>]
@@ -23,7 +29,7 @@ import sys
 import tempfile
 
 SCRIPT_NAME = "ci_verde_completo.py"
-TRABALHO_SO_EM_TAG = "version-tag"
+TRABALHO_SO_EM_TAG = "Versao == etiqueta (VERSION-TAG-SYNC)"  # `name:` do job `version-tag` no ci.yml
 MODOS_ACEITOS = ("completo",)
 
 
@@ -60,7 +66,7 @@ def veredito(trabalhos, modo):
         if conclusao == "success":
             verdes += 1
         elif conclusao == "skipped":
-            motivos.append(f"{nome} pulado (skipped) fora do version-tag")
+            motivos.append(f"{nome} pulado (skipped) fora do trabalho de etiqueta")
         elif conclusao == "":
             motivos.append(f"{nome} sem conclusao (run em curso ou dado ausente)")
         else:

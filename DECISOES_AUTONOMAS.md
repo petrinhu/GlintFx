@@ -12189,3 +12189,30 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **O que fica fora:** o `fifo-v1` e o `commit-timing-v1`, porque o `egl-wayland2` da NVIDIA já cria esses objetos, e um segundo objeto derruba a conexão do jogo. Isso foi lido no código da NVIDIA, não medido.
   - **Onde entra:** na INBOX, como `PRESENT-TIMING`, que absorve o `LOOP-PRESENTATION-TIME`. A onda candidata é a de janela e laço, depois das ondas de PNG.
   - **O que fica para a abertura da onda:** três portas de mão única (o texto do limitador, a estatística pública de quadro e o relógio da hora de exibição) e a primeira sonda, `wayland-info` no KWin do CI.
+- **D-WP1-0005 (main, 27/11 10:34): a imagem `glintfx-devbuild:verify` foi apagada por erro do main e depois recriada a partir do estágio final do `Containerfile`, do jeito que o CI constrói a `glintfx-wltest`.**
+  - **O que houve:** a imagem não tinha receita versionada, e a original, que tinha cmake e clang, não se reproduz.
+  - **Por que basta:** o `host_alert_gate_test` só precisa de `python3` e do `exec_fixture.sh`.
+  - **O que falta:** decidir uma receita durável. Fica na INBOX como `DEVBUILD-RECEITA`.
+  - **A lição** está na memória `imagem-apagada-usada-por-teste`: antes de `docker rmi`, rodar `git grep` pelo nome da imagem.
+- **D-WP1-0006 (main, 27/11 11:31): a E5 terminou, e as 7 sondas saíram conformes (relatório em `.trabalho/efic/e5/sondas.txt`).**
+  - **As rodadas:**
+    - S1: 45988253857, verde, subconjunto;
+    - S3: 45993173298, vermelha, parada no primeiro erro;
+    - S4: 45995724964, vermelha, parada no primeiro erro;
+    - S5: 45997792649, completo até o fim;
+    - S6: 46001049918, verde completo;
+    - S6b: 46004400137, a regra (a) provada;
+    - S7: 46008157732, completo por zero caminhos.
+  - **O fim:** o PR #19 foi fechado, e o `sonda-efic` foi apagado do remoto.
+  - **O defeito achado:** a sonda S1 achou dois defeitos do lote, corrigidos em `3bcb226e`.
+  - **Defeito de instrumento, ainda não corrigido:** o `ci_verde_completo.py` dá rc 1 na S6, porque procura o nome "version-tag", e o trabalho se chama "Versao == etiqueta (VERSION-TAG-SYNC)". Vai para a INBOX como `CI-VERDE-COMPLETO-NOME`.
+  - **Limites declarados:**
+    - o `texto-sem-leitor` nunca rodou;
+    - a parada no primeiro erro do `wayland-container` não foi provada;
+    - o `windows-lint` com lista vazia também não;
+    - nem o `check_run_id`;
+    - nem o `parity` com o `mudancas` vermelho.
+- **D-WP1-0007 (líder, por AskUserQuestion, 27/11 11:35): três ratificações.**
+  - **As decisões autônomas de rotina** de 26/11 e 27/11 (consertos, ordem das fatias, recursos de máquina, sondas desfeitas e a série D-WP1), ratificadas em bloco. Resposta verbatim: *"Ratifico em bloco (Recomendado)"*.
+  - **A imagem `glintfx-devbuild:verify`** fica como a do CI. Uma receita com ferramentas só se fará quando houver necessidade, e com os pacotes aprovados pelo líder. Resposta verbatim: *"Fica como está (Recomendado)"*. O `DEVBUILD-RECEITA` passa a esperar essa necessidade.
+  - **Os quatro limites da E5** ficam registrados, sem rodadas extras: o texto-sem-leitor, a parada no primeiro erro do `wayland-container`, o `windows-lint` com lista vazia e o `parity` com o `mudancas` vermelho. Resposta verbatim: *"Aceito, ficam anotados (Recomendado)"*.

@@ -7559,6 +7559,17 @@ add_test(
 )
 set_tests_properties(ci_verde_completo_selftest PROPERTIES LABELS selftest)
 
+# EFIC-CI-SELETIVO (CI-VERDE-COMPLETO-NOME): portao que confere, no ci.yml REAL, que o nome de exibicao
+# usado pelo instrumento ci_verde_completo.py existe como `name:` do job `version-tag`. Renomear o job
+# reprova aqui, no CI local, e nao so depois do servidor. Texto puro, sem guarda de sistema.
+add_test(
+    NAME ci_verde_completo_ci_yml_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_verde_completo_selftest.py"
+        --ci-yml "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(ci_verde_completo_ci_yml_test PROPERTIES LABELS consume)
+
 # EFIC-CI-SELETIVO (E3, Ordem B, decisao D2 do CTO): autoteste de tools/ci/conferir_lista.py. Os JSON
 # de inventario, universo e selecao saem do ctest real de um projeto descartavel em TMPDIR. Sem guarda
 # de sistema: exige cmake e ctest no PATH, e reprova sem eles (sem pulo para isso).

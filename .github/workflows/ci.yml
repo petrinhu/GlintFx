@@ -5626,14 +5626,16 @@ jobs:
           docker run --rm --pull=missing --network=default \
             -v "$PWD/tools/ci/env:/env:ro,z" \
             -v "$PWD/tools/ci/env/lock:/lock:ro,z" \
+            -v "$PWD/tests/tools:/testes:ro,z" \
             -v "$RUNNER_TEMP/saida:/saida:z" \
             cachyos/cachyos:latest@sha256:8d6a83bd74bb39298cbb4fc9de3151bc2870408f37e5ecd86569e2018b47a180 \
-            sh /lock/gerar_cachyos_repo.sh /env /saida
+            sh /lock/gerar_cachyos_repo.sh /env /saida /testes
 
       - name: Sobe o repositorio CachyOS da onda como artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cachyos-repo-onda
-          path: ${{ runner.temp }}/saida/
+          # So a pasta publicar/ sobe: o cache do fecho (trabalho/) tem os 35 do Arch e nunca vai ao artifact.
+          path: ${{ runner.temp }}/saida/publicar/
           if-no-files-found: error
           retention-days: 90

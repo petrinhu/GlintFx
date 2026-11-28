@@ -6471,6 +6471,33 @@ add_test(
 )
 set_tests_properties(wave_manifest_piso_test PROPERTIES LABELS consume)
 
+# CI-PIN-PKG-C (D-WP1-0014, desenho 1a, parecer do CLO secao 7): o portao de
+# correspondencia do artifact cachyos-repo-onda (origem cachyos, fonte exato,
+# licenca, manifesto e a ressalva GPL) e a trava que impede qualquer passo do CI
+# de republicar os pacotes do Arch. O autoteste roda em todo sistema (fixtures
+# de texto); o teste real le o ci.yml da arvore. A conferencia real do tar roda
+# no contenedor do gerador (GODS_LAWS.md L-40: piso e sabotagem nos dois sentidos).
+add_test(
+    NAME cachyos_onda_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_cachyos_onda.py" --selftest
+)
+set_tests_properties(cachyos_onda_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME cachyos_nao_republica_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_cachyos_nao_republica.py" --selftest
+)
+set_tests_properties(cachyos_nao_republica_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME cachyos_nao_republica_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_cachyos_nao_republica.py"
+)
+set_tests_properties(cachyos_nao_republica_test PROPERTIES LABELS consume)
+
 # CI-PIN-PKG-B (D-W8-2090, ordem do CTO, item 3): a UNIAO dos pacotes Fedora sai dos proprios pontos de instalacao
 # (tools/ci/env/fedora.sh, ci.yml, Containerfile). O autoteste roda em todo sistema (texto puro); o teste real le o
 # repositorio e reprova se algum ponto sumir ou vier vazio (GODS_LAWS.md L-40: varredura vazia nunca e verde).

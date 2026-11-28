@@ -16,7 +16,7 @@
 # a coleta com dpkg-query/pacman so existe no servidor).
 #
 # Modos:
-#   --slug <ubuntu|arch> [--manifesto F] [--instalado-fixture F]
+#   --slug <ubuntu|arch|cachyos> [--manifesto F] [--instalado-fixture F]
 #       conferencia (o modo do CI). Sem --instalado-fixture, coleta com o
 #       gerenciador da distro. Sai 1 na divergencia.
 #   --gerar --slug <slug> [--instalado-fixture F]
@@ -39,7 +39,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 MANIFEST_DIR = REPO / "tools" / "ci" / "wave-manifest"
 STAMP_FILE = REPO / "tools" / "ci" / "wave-stamp.env"
-SLUGS = ("ubuntu", "arch", "fedora", "fedora-container")  # fedora*: CI-PIN-PKG-B (rpm, lock da onda)
+SLUGS = ("ubuntu", "arch", "fedora", "fedora-container", "cachyos")  # fedora*: CI-PIN-PKG-B; cachyos: CI-PIN-PKG-C (pacman, repositorio da onda)
 STAMP_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z$")
 
 
@@ -78,6 +78,12 @@ def comparar(esperado, instalado):
     return divergencias
 
 
+def _versao_do_pacman(saida):
+    """`pacman -Q <pacote>` imprime "<pacote> <versao>": devolve so a versao
+    (vazio se a saida nao tiver a segunda coluna)."""
+    return saida.split(maxsplit=1)[1] if " " in saida else ""
+
+
 def coletar(slug, pacotes, fixture=None):
     """Devolve {pacote: versao} do que esta instalado de fato. Pacote
     ausente fica fora do dicionario (a comparacao o reprova)."""
@@ -99,8 +105,8 @@ def coletar(slug, pacotes, fixture=None):
             saida = " ".join(sorted(set(proc.stdout.split())))
         else:
             saida = proc.stdout.strip()
-        if slug == "arch":
-            saida = saida.split(maxsplit=1)[1] if " " in saida else ""
+        if slug in ("arch", "cachyos"):
+            saida = _versao_do_pacman(saida)
         if saida:
             encontrado[pacote] = saida
     return encontrado
@@ -141,6 +147,18 @@ def _autoteste():
         print(f"selftest parser {nome}: {'ok' if ok else 'FALHOU'}")
         if not ok:
             falhas += 1
+    # CI-PIN-PKG-C: a divisao "pacote versao" do pacman (Arch e CachyOS) e' pura, e o autoteste a prova.
+    for nome, saida, esperado in [
+        ("pacman arch/cachyos", "cmake 4.5.1-1", "4.5.1-1"),
+        ("pacman sem versao", "", ""),
+    ]:
+        ok = _versao_do_pacman(saida) == esperado
+        print(f"selftest {nome}: {'ok' if ok else 'FALHOU'}")
+        if not ok:
+            falhas += 1
+    if "cachyos" not in SLUGS:
+        print("selftest slug cachyos: FALHOU (fora de SLUGS)")
+        falhas += 1
     if falhas:
         print(f"check_wave_manifest: {falhas} controle(s) falharam")
         return 1

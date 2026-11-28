@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/ci/wave-manifest/cachyos.txt - manifesto da perna CachyOS (CI-PIN-PKG-C).
+# Formato: "<pacote> <versao>", no que pacman -Q <pacote> imprime.
+#
+# PROVISORIO, NAO MEDIDO NO CACHYOS. O CachyOS nao tem indice datado no espelho oficial
+# (D-W8-2094), entao nenhum valor aqui foi lido do repositorio da onda. Os valores
+# abaixo sao COPIA do manifesto do Arch derivado do Arch Linux Archive de 27/11/2026
+# (tools/ci/wave-manifest/arch.txt), so' para o piso (L-40) ter entrada enquanto o
+# gerador nao roda. O CachyOS sobrepoe pacotes ao Arch (medido: mesa, python e
+# pacman), entao esta copia pode estar errada para qualquer pacote da lista.
+# Antes de qualquer disparo da perna CachyOS, o manifesto e' SUBSTITUIDO pelas versoes
+# gravadas pelo job cachyos-repo-gerar (cachyos-versoes.txt do artifact), e so' ai o
+# portao de manifesto vale. Enquanto este cabecalho disser PROVISORIO, o portao
+# reprova no servidor, de proposito.
+cmake 4.5.1-1
+gcc 16.2.1+r23+gd564253eb6c8-1
+ninja 1.13.2-3
+wayland 1.26.0-1

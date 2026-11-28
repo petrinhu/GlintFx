@@ -33,7 +33,9 @@ TRABALHO_SO_EM_TAG = "Versao == etiqueta (VERSION-TAG-SYNC)"  # `name:` do job `
 # CI-PIN-PKG-B: o job que gera o lock Fedora so roda no disparo manual; em qualquer outro run sai `skipped`.
 # Excecao declarada igual a do trabalho de etiqueta: pode sair skipped, nunca falhar.
 TRABALHO_SO_EM_DISPARO = "Gera o lock Fedora da onda (CI-PIN-PKG-B)"  # `name:` do job `fedora-lock` no ci.yml
-SO_EM_EVENTO_ESPECIAL = (TRABALHO_SO_EM_TAG, TRABALHO_SO_EM_DISPARO)
+# CI-PIN-PKG-C: o job que gera o repositorio CachyOS da onda tambem so' roda no disparo manual, pelo mesmo motivo.
+TRABALHO_SO_EM_DISPARO_CACHYOS = "Gera o repositorio CachyOS da onda (CI-PIN-PKG-C)"  # `name:` do job `cachyos-repo-gerar`
+SO_EM_EVENTO_ESPECIAL = (TRABALHO_SO_EM_TAG, TRABALHO_SO_EM_DISPARO, TRABALHO_SO_EM_DISPARO_CACHYOS)
 MODOS_ACEITOS = ("completo",)
 
 

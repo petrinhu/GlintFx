@@ -5592,3 +5592,48 @@ jobs:
           path: ${{ runner.temp }}/saida/
           if-no-files-found: error
           retention-days: 30
+
+  # CI-PIN-PKG-C (D-W8-2094, opcao (d), ordem do CTO em .trabalho/cto-w8/decisao-ci-pin-pacotes.md, item 4): gera o
+  # repositorio local dos pacotes CachyOS da onda. Roda SO no disparo manual (`workflow_dispatch`): baixa, numa imagem
+  # CachyOS viva e com digest fixado, o fecho da lista de hoje para um cache limpo, monta o banco com repo-add e sobe
+  # um unico .tar como artifact com retention-days 90. NAO escreve no repositorio: quem baixa o artifact e commita o
+  # run-id em tools/ci/wave-stamp.env. Fora do disparo o job sai `skipped`, aceito como excecao declarada em
+  # tools/ci/ci_verde_completo.py (como os trabalhos de etiqueta e o fedora-lock).
+  cachyos-repo-gerar:
+    name: Gera o repositorio CachyOS da onda (CI-PIN-PKG-C)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A4 (D-A4): rerun_guard antes do marco prep (G6), como nos demais trabalhos. Sem `needs:`.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
+      # Marco `id: prep` (G3): so' echo; o job nao tem preparo a separar, mas o portao exige o marco.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
+      - name: Gera o repositorio CachyOS numa imagem viva
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/saida"
+          docker run --rm --pull=missing --network=default \
+            -v "$PWD/tools/ci/env:/env:ro,z" \
+            -v "$PWD/tools/ci/env/lock:/lock:ro,z" \
+            -v "$RUNNER_TEMP/saida:/saida:z" \
+            cachyos/cachyos:latest@sha256:8d6a83bd74bb39298cbb4fc9de3151bc2870408f37e5ecd86569e2018b47a180 \
+            sh /lock/gerar_cachyos_repo.sh /env /saida
+
+      - name: Sobe o repositorio CachyOS da onda como artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cachyos-repo-onda
+          path: ${{ runner.temp }}/saida/
+          if-no-files-found: error
+          retention-days: 90

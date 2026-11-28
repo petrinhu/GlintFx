@@ -131,6 +131,7 @@ EXPECTED = {
         "leis": "curta",
         "version-tag": "curta",
         "fedora-lock": "compilacao",
+        "cachyos-repo-gerar": "compilacao",
     },
 }
 

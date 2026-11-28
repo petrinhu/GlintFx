@@ -29,6 +29,7 @@ ALVO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "too
 NOME_REAL_TRABALHO_SO_EM_TAG = "Versao == etiqueta (VERSION-TAG-SYNC)"
 CHAVE_JOB_SO_EM_TAG = "version-tag"
 CHAVE_JOB_DISPARO = "fedora-lock"  # chave do job de disparo manual (CI-PIN-PKG-B) no ci.yml
+CHAVE_JOB_DISPARO_CACHYOS = "cachyos-repo-gerar"  # chave do job de disparo manual (CI-PIN-PKG-C) no ci.yml
 
 
 def _carregar_alvo():
@@ -214,7 +215,14 @@ def selftest_main():
     rc_falhou, _ = alvo.veredito(base + [_job(alvo.TRABALHO_SO_EM_DISPARO, "failure")], "completo")
     if rc_falhou != 1:
         falhas.append(f"disparo_falhou_reprova: rc={rc_falhou}, esperado 1")
-    total = len(casos) + len(_casos_ci_yml()) + 2
+    # CI-PIN-PKG-C: o job do repositorio CachyOS segue a mesma regra (pulado passa, falhou reprova).
+    rc_cachyos_pulado, _ = alvo.veredito(base + [_job(alvo.TRABALHO_SO_EM_DISPARO_CACHYOS, "skipped")], "completo")
+    if rc_cachyos_pulado != 0:
+        falhas.append(f"disparo_cachyos_pulado_passa: rc={rc_cachyos_pulado}, esperado 0")
+    rc_cachyos_falhou, _ = alvo.veredito(base + [_job(alvo.TRABALHO_SO_EM_DISPARO_CACHYOS, "failure")], "completo")
+    if rc_cachyos_falhou != 1:
+        falhas.append(f"disparo_cachyos_falhou_reprova: rc={rc_cachyos_falhou}, esperado 1")
+    total = len(casos) + len(_casos_ci_yml()) + 4
     if falhas:
         for f in falhas:
             print(f"{SCRIPT_NAME}: FALHOU: {f}", file=sys.stderr)
@@ -232,7 +240,11 @@ def ci_yml_main(caminho):
     except OSError as exc:
         print(f"{SCRIPT_NAME}: GUARDA - nao leu {caminho}: {exc}", file=sys.stderr)
         return 2
-    for nome, chave in ((alvo.TRABALHO_SO_EM_TAG, CHAVE_JOB_SO_EM_TAG), (alvo.TRABALHO_SO_EM_DISPARO, CHAVE_JOB_DISPARO)):
+    for nome, chave in (
+        (alvo.TRABALHO_SO_EM_TAG, CHAVE_JOB_SO_EM_TAG),
+        (alvo.TRABALHO_SO_EM_DISPARO, CHAVE_JOB_DISPARO),
+        (alvo.TRABALHO_SO_EM_DISPARO_CACHYOS, CHAVE_JOB_DISPARO_CACHYOS),
+    ):
         problemas = _conferir_nome_no_yml(texto, nome, chave)
         if problemas:
             for p in problemas:

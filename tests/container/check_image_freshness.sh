@@ -1,19 +1,18 @@
 #!/usr/bin/env sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# check_image_freshness.sh - proves that a glintfx test image is "of the day" without a version written anywhere
-# (KWIN-68-SEM-PLACA; GODS_LAWS.md L-04: the primary target has to fail when the leader's machine would fail, so the
-# image follows fedora:latest and the compositor of the Fedora repository). Runs on the HOST, like
+# check_image_freshness.sh - proves that a glintfx test image is the one of its WAVE, without a version written anywhere
+# (KWIN-68-SEM-PLACA; GODS_LAWS.md L-04: the image is frozen for the whole wave, by the digest of its base and by the
+# lock of its packages, and it moves only at the change of wave). Runs on the HOST, like
 # check_isolation.sh: it drives `docker run` and `docker buildx imagetools`, which do not exist inside the image.
 #
-# Two things make an image old in silence, and each one has its own check here:
-#   STAMP: the dnf layer came out of a build cache (it happened on 06/11/2026: a local round came out green on a
-#     layer of 31/10). Whoever builds passes --build-arg GLINTFX_IMAGE_STAMP=<a value new for that build>, the layer
-#     writes it to /etc/glintfx-image-stamp (tests/container/Containerfile), and this script reads it back and
-#     compares it with the value its caller passed.
-#   BASE: the base reference of the Containerfile resolved to a local tag older than the registry's (measured on
-#     11/11/2026: the local fedora:latest was Fedora 44, the registry's was 45). The Fedora release inside the image
-#     is compared with the release the registry gives for that same reference at the time of the check.
+# Two things make an image leave its wave in silence, and each one has its own check here:
+#   STAMP: the dnf layer does not come from the lock of this wave (a stale cache, or a lock changed under a running
+#     wave). Whoever builds passes --build-arg GLINTFX_IMAGE_STAMP=<sha256 of tools/ci/env/lock/fedora.versionlock.toml>;
+#     the layer writes it to /etc/glintfx-image-stamp (tests/container/Containerfile), and this script reads it back
+#     and compares it with the value its caller passed.
+#   BASE: the Fedora release inside the image differs from the release the registry gives for the reference the
+#     Containerfile names. That reference carries a digest, which does not move, so the answer does not move either.
 # The kwin package of the image is printed for whoever reads the log, and has to be an installed package; it is
 # never compared with a version written in a file (a written version goes stale, a command does not).
 #
@@ -89,16 +88,16 @@ is_installed_kwin_package() {
 }
 
 # The three judges. Each one prints its line with both sides (GODS_LAWS.md L-40) and returns 1 when the image is
-# not of the day on its axis. An empty side never compares equal to another empty side: empty is a broken
+# not of the wave on its axis. An empty side never compares equal to another empty side: empty is a broken
 # measurement, never "nothing to compare".
 
-# judge_stamp <stamp-in-image> <stamp-wanted>: the dnf layer was built for THIS build.
+# judge_stamp <stamp-in-image> <stamp-wanted>: the dnf layer was built from the lock of THIS wave.
 judge_stamp() {
     echo "check_image_freshness.sh: carimbo: imagem='$1' esperado='$2'"
     [ -n "$2" ] && [ "$1" = "$2" ]
 }
 
-# judge_base <release-in-image> <release-of-registry> <base-reference>: the base is the registry's, not an old tag.
+# judge_base <release-in-image> <release-of-registry> <base-reference>: the base is the release of the digest named, nothing else.
 judge_base() {
     echo "check_image_freshness.sh: base: imagem='$1' registro='$2' ($3)"
     [ -n "$2" ] && [ "$1" = "$2" ]
@@ -130,8 +129,8 @@ main() {
     judge_base "$image_release" "$registry_release" "$reference" || diverged=$((diverged + 1))
     judge_kwin "$kwin_package" || diverged=$((diverged + 1))
     verdict_line 3 "$diverged" \
-        || fail "a imagem '$image' NAO e do dia: refaca com --pull e com um GLINTFX_IMAGE_STAMP novo (KWIN-68-SEM-PLACA, GODS_LAWS.md L-04)"
-    echo "check_image_freshness.sh: imagem do dia provada para '$image'"
+        || fail "a imagem '$image' NAO e da onda: refaca com --pull e com GLINTFX_IMAGE_STAMP igual ao sha256 do lock desta execucao; lock novo so na troca de onda (KWIN-68-SEM-PLACA, GODS_LAWS.md L-04)"
+    echo "check_image_freshness.sh: imagem da onda provada para '$image'"
 }
 
 # --selftest: the controls live beside this script (D-W8-137), load with `.`, and never touch docker or the network.

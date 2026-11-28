@@ -1998,6 +1998,13 @@ jobs:
       - name: Prepara a fixture ARCH-PORTS e confere includes (R4, L-40)
         run: tests/container/prepare_arch_ports_fixture.sh "$(pwd)"
 
+      # CI-PIN-PKG-B (D-W8-2090): o carimbo da imagem e' o sha256 do lock Fedora da onda. O conteudo do lock e'
+      # fixo durante a onda, entao a camada do dnf so' e' refeita quando o lock muda, e a prova de frescor compara
+      # esse mesmo hash com o que ficou gravado dentro da imagem.
+      - name: Carimbo do lock Fedora da onda (CI-PIN-PKG-B)
+        id: lock
+        run: echo "sha=$(sha256sum tools/ci/env/lock/fedora.versionlock.toml | cut -c1-64)" >> "$GITHUB_OUTPUT"
+
       - name: Marca o inicio do build da imagem
         id: build_image
         run: echo "inicio=$(date +%s)" >> "$GITHUB_OUTPUT"
@@ -2016,35 +2023,46 @@ jobs:
         with:
           context: tests/container
           file: tests/container/Containerfile
+          # CI-PIN-PKG-B: o contexto `lock` leva o lock e o updates-archive ao Containerfile (COPY --from=lock).
+          build-contexts: |
+            lock=tools/ci/env/lock
           tags: glintfx-wltest:ci-${{ matrix.perna }}
           # A perna `plain` passa a mesma string vazia que este build-arg
           # ja tinha por default no Containerfile (byte-a-byte o que a
           # imagem sempre foi); a perna `asan` passa as flags do bloco
           # `env:` acima do job - uma receita so, duas construcoes
           # (D-CAUDA-3).
-          # GLINTFX_IMAGE_STAMP (KWIN-68-SEM-PLACA): o cache `type=gha`
-          # abaixo guardaria a camada do dnf, e com ela o KWin, do dia em
-          # que o cache foi enchido. O carimbo e novo a cada execucao e a
-          # cada tentativa, e por isso essa camada e refeita sempre; o
-          # estagio que compila as fixtures continua no cache. `pull:
-          # true` deixa escrito que a base vem do registro.
+          # GLINTFX_IMAGE_STAMP (CI-PIN-PKG-B): o carimbo e' o sha256 do lock da onda. O cache `type=gha`
+          # guarda a camada do dnf; com o lock inalterado ela e' reaproveitada, e com lock novo ela e' refeita
+          # (o conteudo do carimbo muda). O estagio que compila as fixtures continua no cache. `pull:
+          # true` deixa escrito que a base vem do registro, pelo digest fixado.
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
-            GLINTFX_IMAGE_STAMP=${{ github.run_id }}-${{ github.run_attempt }}
+            GLINTFX_IMAGE_STAMP=${{ steps.lock.outputs.sha }}
           pull: true
           load: true
           push: false
           cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
           cache-to: type=gha,mode=max,scope=wayland-container-${{ matrix.perna }}
 
-      # KWIN-68-SEM-PLACA: a prova de que a imagem e do dia, sem pinar
-      # versao nenhuma. O carimbo lido de dentro da imagem tem de ser o
-      # desta execucao (a camada do dnf foi refeita agora), e a versao do
-      # Fedora da imagem tem de ser a que o registro chama de `latest`
-      # agora. O pacote do KWin e impresso para quem le o log.
-      - name: Imagem do dia - carimbo e base (KWIN-68-SEM-PLACA)
+      # CI-PIN-PKG-B: a prova de que a imagem e' a da onda. O carimbo lido de dentro da imagem tem de ser o sha256
+      # do lock desta execucao, e a base tem de ser a do digest fixado no Containerfile. O pacote do KWin e impresso
+      # para quem le o log. O portao de manifesto do KWin, logo abaixo, confere a versao contra o manifesto.
+      - name: Imagem da onda - carimbo e base (CI-PIN-PKG-B)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: tests/container/check_image_freshness.sh glintfx-wltest:ci-${{ matrix.perna }} "${{ github.run_id }}-${{ github.run_attempt }}"
+        run: tests/container/check_image_freshness.sh glintfx-wltest:ci-${{ matrix.perna }} "${{ steps.lock.outputs.sha }}"
+
+      # CI-PIN-PKG-B: portao de manifesto do KWin e da biblioteca Wayland DENTRO da imagem (tests/tools/
+      # check_wave_manifest.py, manifesto tools/ci/wave-manifest/fedora-container.txt). A coleta roda com `rpm` da
+      # propria imagem, sem montar nada do host (GODS_LAWS.md L-09). Pacote ausente vira linha malformada e reprova.
+      - name: Portao de manifesto do KWin no contenedor (CI-PIN-PKG-B)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -eu
+          docker run --rm --pull never --network none --cap-drop=ALL --entrypoint rpm \
+            glintfx-wltest:ci-${{ matrix.perna }} -q --qf '%{NAME} %{VERSION}-%{RELEASE}\n' kwin libwayland-client \
+            > "$RUNNER_TEMP/instalado-container.txt" || true
+          python3 tests/tools/check_wave_manifest.py --slug fedora-container --instalado-fixture "$RUNNER_TEMP/instalado-container.txt"
 
       - name: Tempo de build da imagem
         run: |
@@ -2073,9 +2091,13 @@ jobs:
           context: tests/container
           file: tests/container/Containerfile
           target: arch-ports-builder
+          # CI-PIN-PKG-B: mesmo contexto `lock` do build principal; o estagio builder aplica o lock antes do dnf.
+          build-contexts: |
+            lock=tools/ci/env/lock
           tags: glintfx-wltest:builder-${{ matrix.perna }}
           build-args: |
             GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
+            GLINTFX_IMAGE_STAMP=${{ steps.lock.outputs.sha }}
           pull: true
           load: true
           push: false
@@ -3403,10 +3425,23 @@ jobs:
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain e ferramentas de lint
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck clang
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -4223,10 +4258,23 @@ jobs:
       # este job num container fedora:44 isolado, GODS_LAWS.md L-14.
       # Isto e toolchain do ambiente de build, nao dependencia da
       # biblioteca (L-07): nao muda o que glintfx linka em producao.
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel libasan libubsan
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -4328,10 +4376,23 @@ jobs:
     # Imagem fixa por digest durante a onda, troca so na virada de onda (L-04, 20/11/2026).
     container: fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c
     steps:
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain (nativo + cruzado MinGW)
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel mingw64-gcc-c++
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -4625,6 +4686,16 @@ jobs:
       # NAO tem (LABELS consume/selftest) - por isso so este job dentre
       # os quatro "Fedora extra" precisou da linha nova. Mesma medicao
       # de pacote do bloco Fedora do job `linux` acima (dnf, "python3").
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
@@ -4634,11 +4705,13 @@ jobs:
       # 19/09/2026): este job roda `preci.sh --debug-only`, que executa
       # a suite ctest INTEIRA sem filtro `-L unit` (ver comentario logo
       # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
-
       # D-A14 (item 1, G2 estendida, L-17 gemeo do job `linux`): a prova
       # de que o checkout acima e' um clone git real, nunca o fallback
       # REST API (tarball sem `.git`) - o git deste job vem da lista de
@@ -4676,6 +4749,10 @@ jobs:
 
       # EFIC-CI-SELETIVO (E3, D6): perna declarada em completo neste envio. So' escreve no
       # resumo, e so' quando o modo e' subconjunto (a tabela da D6 esta no relatorio da E3).
+
+      # CI-PIN-PKG-B: portao de manifesto Fedora (versoes instaladas = lock da onda), depois do marco prep (G3).
+      - name: Portao de manifesto Fedora (CI-PIN-PKG-B)
+        run: python3 tests/tools/check_wave_manifest.py --slug fedora
       - name: Modo desta perna (E3, D6)
         if: ${{ !cancelled() && needs.mudancas.outputs.modo == 'subconjunto' }}
         run: |
@@ -5044,10 +5121,23 @@ jobs:
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
     steps:
+      # CI-PIN-PKG-B (D-W8-2090): o lock Fedora da onda e' lido do checkout de bootstrap, que roda antes
+      # do git do preparo (mesmo padrao da matriz linux; o checkout real vem depois do preparo).
+      - name: Checkout de bootstrap (so' o lock e o preparo)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: _bootstrap
+
+      - name: Aplica o lock Fedora da onda (CI-PIN-PKG-B)
+        run: sh _bootstrap/tools/ci/env/lock/aplicar_fedora_lock.sh _bootstrap/tools/ci/env/lock
+
       - name: Instalar toolchain
         run: >-
           dnf -y install clang cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel
+
+      - name: Remove o checkout de bootstrap (CI-PIN-PKG-B)
+        run: rm -rf _bootstrap
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -5454,7 +5544,7 @@ jobs:
 
   # CI-PIN-PKG-B (D-W8-2090, ordem do CTO, item 3): gera o lock dos pacotes Fedora da onda. Roda SO no disparo
   # manual (`workflow_dispatch`): instala numa imagem viva a UNIAO dos pontos de instalacao Fedora (lida de
-  # tools/ci/lock/uniao_fedora.py, nunca copiada a mao), trava cada pacote na versao instalada com o dnf5
+  # tools/ci/env/lock/uniao_fedora.py, nunca copiada a mao), trava cada pacote na versao instalada com o dnf5
   # (`versionlock add`) e sobe o lock como artifact. NAO escreve no repositorio: quem baixa o artifact commita o
   # lock. Fora do disparo o job sai `skipped`, e tools/ci/ci_verde_completo.py o aceita como excecao declarada
   # (como o trabalho de etiqueta). Imagem: a MESMA fixada pelo digest nos outros jobs Fedora.
@@ -5481,7 +5571,7 @@ jobs:
       - name: Uniao dos pacotes Fedora (dos pontos de instalacao)
         run: |
           set -eu
-          python3 tools/ci/lock/uniao_fedora.py > "$RUNNER_TEMP/uniao.txt"
+          python3 tools/ci/env/lock/uniao_fedora.py > "$RUNNER_TEMP/uniao.txt"
           echo "uniao: $(wc -l < "$RUNNER_TEMP/uniao.txt") pacote(s)"
 
       - name: Instala a uniao numa imagem viva e trava as versoes
@@ -5489,7 +5579,7 @@ jobs:
           set -eu
           mkdir -p "$RUNNER_TEMP/saida"
           docker run --rm --pull=missing --network=default \
-            -v "$PWD/tools/ci/lock:/lock:ro,z" \
+            -v "$PWD/tools/ci/env/lock:/lock:ro,z" \
             -v "$RUNNER_TEMP/uniao.txt:/entrada/uniao.txt:ro,z" \
             -v "$RUNNER_TEMP/saida:/saida:z" \
             fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c \

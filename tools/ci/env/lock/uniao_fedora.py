@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# tools/ci/lock/uniao_fedora.py - CI-PIN-PKG-B (ordem do CTO,
+# tools/ci/env/lock/uniao_fedora.py - CI-PIN-PKG-B (ordem do CTO,
 # .trabalho/cto-w8/decisao-ci-pin-pacotes.md, item 3): a UNIAO dos pacotes
 # Fedora que o CI instala, lida dos proprios pontos de instalacao e nunca
 # copiada a mao. Pontos lidos:
@@ -27,7 +27,7 @@ import re
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]
 FONTES = (
     ("fedora.sh", REPO / "tools" / "ci" / "env" / "fedora.sh", "script"),
     ("ci.yml", REPO / ".github" / "workflows" / "ci.yml", "yaml"),

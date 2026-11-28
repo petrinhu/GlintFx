@@ -13,10 +13,10 @@ FRESHNESS_SELFTEST_CHECKS=0
 
 # -- inputs ------------------------------------------------------------------------------------------------------------
 
-FRESH_STAMP="12345-1"
+FRESH_STAMP="dbd860388c4de0dddced252866c8c11db0710b0ed8a0a5f003f0e9e62d223d2b"
 FRESH_RELEASE="45"
 FRESH_KWIN="kwin-6.8.2-3.fc45.x86_64"
-FRESH_BASE="fedora:latest"
+FRESH_BASE="fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c"
 
 # An index of two architectures that agree on the release, in the shape `docker buildx imagetools inspect --raw` gives.
 index_of_release() {
@@ -55,9 +55,9 @@ selftest_stamp_of_this_build_passes() {
     accepted judge_stamp "$FRESH_STAMP" "$FRESH_STAMP"
 }
 
-# The dnf layer of another build: the stamp in the image is not the one this build passed.
-selftest_stamp_of_another_build_is_refused() {
-    refused judge_stamp "12000-1" "$FRESH_STAMP"
+# The dnf layer of another lock: the stamp in the image is not the sha256 of the lock this wave passed.
+selftest_stamp_of_another_lock_is_refused() {
+    refused judge_stamp "e81a1a8926b8d77c9371e09314d19c2c08d5aaf47b3333683af6567a56f4b0d3" "$FRESH_STAMP"
 }
 
 # The caller passed no stamp: nothing was proved, even when the image carries none either.
@@ -149,7 +149,7 @@ selftest_containerfile_without_from_is_refused() {
 
 selftest_main() {
     freshness_selftest_check selftest_stamp_of_this_build_passes
-    freshness_selftest_check selftest_stamp_of_another_build_is_refused
+    freshness_selftest_check selftest_stamp_of_another_lock_is_refused
     freshness_selftest_check selftest_empty_wanted_stamp_is_refused
     freshness_selftest_check selftest_image_without_stamp_is_refused
     freshness_selftest_check selftest_base_of_the_registry_passes

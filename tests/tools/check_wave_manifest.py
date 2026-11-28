@@ -39,7 +39,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 MANIFEST_DIR = REPO / "tools" / "ci" / "wave-manifest"
 STAMP_FILE = REPO / "tools" / "ci" / "wave-stamp.env"
-SLUGS = ("ubuntu", "arch")
+SLUGS = ("ubuntu", "arch", "fedora", "fedora-container")  # fedora*: CI-PIN-PKG-B (rpm, lock da onda)
 STAMP_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z$")
 
 
@@ -87,12 +87,18 @@ def coletar(slug, pacotes, fixture=None):
     for pacote in pacotes:
         if slug == "ubuntu":
             cmd = ["dpkg-query", "-W", "-f=${Version}", pacote]
+        elif slug.startswith("fedora"):
+            cmd = ["rpm", "-q", "--qf", "%{VERSION}-%{RELEASE}\n", pacote]
         else:
             cmd = ["pacman", "-Q", pacote]
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if proc.returncode != 0:
             continue
-        saida = proc.stdout.strip()
+        if slug.startswith("fedora"):
+            # Varias arquiteturas com a mesma versao colapsam num valor; versoes diferentes ficam juntas e reprovam.
+            saida = " ".join(sorted(set(proc.stdout.split())))
+        else:
+            saida = proc.stdout.strip()
         if slug == "arch":
             saida = saida.split(maxsplit=1)[1] if " " in saida else ""
         if saida:

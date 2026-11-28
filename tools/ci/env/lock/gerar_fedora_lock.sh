@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# tools/ci/lock/gerar_fedora_lock.sh - CI-PIN-PKG-B (ordem do CTO, D-W8-2090, item 3):
+# tools/ci/env/lock/gerar_fedora_lock.sh - CI-PIN-PKG-B (ordem do CTO, D-W8-2090, item 3):
 # roda DENTRO da imagem Fedora fixada pelo digest, no disparo manual do CI. Instala a
 # UNIAO dos pacotes dos pontos Fedora numa imagem viva, trava cada pacote instalado na
 # versao exata com o proprio dnf5 (`versionlock add`, que grava /etc/dnf/versionlock.toml)

@@ -6477,14 +6477,14 @@ set_tests_properties(wave_manifest_piso_test PROPERTIES LABELS consume)
 add_test(
     NAME fedora_lock_union_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/lock/uniao_fedora.py" --selftest
+        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/env/lock/uniao_fedora.py" --selftest
 )
 set_tests_properties(fedora_lock_union_selftest PROPERTIES LABELS selftest)
 
 add_test(
     NAME fedora_lock_union_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/lock/uniao_fedora.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/env/lock/uniao_fedora.py"
 )
 set_tests_properties(fedora_lock_union_test PROPERTIES LABELS consume)
 

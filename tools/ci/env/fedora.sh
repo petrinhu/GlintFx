@@ -36,8 +36,16 @@ set -eu
 CC_BIN="cc"
 CXX_BIN="c++"
 
+# CI-PIN-PKG-B (D-W8-2090, ordem do CTO): aplica o lock Fedora da onda ANTES do dnf: copia o lock para
+# /etc/dnf/versionlock.toml e grava o updates-archive oficial com enabled=1. A lista de pacotes abaixo continua a
+# mesma; o lock e' que trava a versao de cada um, e o portao de manifesto (check_wave_manifest.py) confere o resultado.
+sh "$(dirname "$0")/lock/aplicar_fedora_lock.sh" "$(dirname "$0")/lock"
+
 dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git \
     wayland-devel wayland-protocols-devel libglvnd-devel python3
+
+# Portao de manifesto (CI-PIN-PKG-B): divergencia do instalado para o lock reprova o preparo.
+python3 "$(dirname "$0")/../../../tests/tools/check_wave_manifest.py" --slug fedora
 
 {
     echo "CC=${CC_BIN}"

@@ -12216,3 +12216,18 @@ O líder lê este bloco na volta. Cada item já foi decidido no modo autônomo e
   - **As decisões autônomas de rotina** de 26/11 e 27/11 (consertos, ordem das fatias, recursos de máquina, sondas desfeitas e a série D-WP1), ratificadas em bloco. Resposta verbatim: *"Ratifico em bloco (Recomendado)"*.
   - **A imagem `glintfx-devbuild:verify`** fica como a do CI. Uma receita com ferramentas só se fará quando houver necessidade, e com os pacotes aprovados pelo líder. Resposta verbatim: *"Fica como está (Recomendado)"*. O `DEVBUILD-RECEITA` passa a esperar essa necessidade.
   - **Os quatro limites da E5** ficam registrados, sem rodadas extras: o texto-sem-leitor, a parada no primeiro erro do `wayland-container`, o `windows-lint` com lista vazia e o `parity` com o `mudancas` vermelho. Resposta verbatim: *"Aceito, ficam anotados (Recomendado)"*.
+- **D-WP1-0008 (líder, por AskUserQuestion, 28/11 10:22): envio ao ramo da onda autorizado.** As palavras dele, verbatim: *"Autorizo enviar ao ramo da onda (Recomendado)"*.
+  - **O que cobre:** o envio ao `onda-wpng1` do `1a09c8b6` (o `ci_verde_completo` com o nome certo) e do `6f602f38` (CI-PIN-PKG-A), mais os envios seguintes do congelamento de pacotes.
+  - **O que não cobre:** mescla e versão continuam esperando ordem do líder.
+  - **Por que a ordem foi pedida:** o modo autônomo venceu em 27/11 às 21:49.
+- **D-WP1-0009 (líder, 28/11 10:23): o líder autorizou, verbatim, *"autorizo merge, push, rm, tag"*.**
+  - **O que vale:** a ordem cobre o fechamento do lote de eficácia, que é a mescla do `onda-wpng1` na `main`, com tudo verde e as duas rodadas completas (P2). O fechamento NÃO leva marca de versão (P4, D-W8-1229 de 26/11). A primeira marca vem com a primeira parte do PNG.
+  - **O `rm`:** segue a L-53, com a lista dos caminhos absolutos antes de apagar.
+- **D-WP1-0010 (líder, pela sessão `gerencia`, 28/11 10:25): as ordens permanentes da sessão, até o líder mudar.**
+  - **A máquina:** só os núcleos 2-15 e até ~24 GiB somando todas as sessões. Nada sobe com menos de 6 GiB livres. O GlintFx tem prioridade.
+  - **As dúvidas** vão ao C-level do domínio, sempre com pesquisa na web antes. A opção escolhida é a mais completa que atenda a comunidade. O main registra a decisão para ratificação.
+  - **Continuam só com o líder**, indo à lista de pendências com recomendação e sem bloquear o trabalho: commit barrado pelo classificador, permissão, regra ou lei, gasto, GPU, ação irreversível, e merge, marca ou deploy sem ordem explícita dele.
+- **D-WP1-0011 (líder, por AskUserQuestion, 28/11 13:31): uma exceção de caminho exato no portão `check_no_x11` para `tools/ci/env/lock/fedora.versionlock.toml`.** As palavras dele, verbatim: *"Exceção só para a lista (Recomendado)"*.
+  - **Por que:** o lock gerado traz `libxkbcommon` e `libxkbcommon-x11`, que vêm do fecho de dependências do KWin de teste. O compositor já instalava as duas peças antes; o lock só fixa a versão delas, e nada entra na biblioteca.
+  - **Como fica o portão:** ele continua varrendo todo o resto. O selftest prova que o mesmo termo em qualquer outro arquivo reprova.
+  - **Prova no servidor:** a rodada 46155568644, sobre o `45767855`, ficou vermelha exatamente por isso.

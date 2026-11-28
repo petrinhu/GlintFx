@@ -36,12 +36,17 @@
 # arquivo (SELF_PATH_SUFFIX abaixo), nunca de um diretorio, nunca de
 # outro arquivo - ver selftest_self_exclusion_control.
 #
+# EXCECAO DE CAMINHO EXATO, decisao do lider D-WP1-0011 (28/11/2026, sob a L-05): o lock Fedora da onda,
+# tools/ci/env/lock/fedora.versionlock.toml, e a segunda e ultima excecao. Ele traz libxkbcommon porque e o fecho de
+# dependencias do KWin de teste; o lock so fixa a versao e nada entra na biblioteca. Nenhuma outra exclusao: nao e
+# por diretorio, por extensao nem por glob - ver selftest_lock_exclusion_control.
+#
 # Usage:
 #   check_no_x11.py <repo-root-directory>
 #   check_no_x11.py --selftest
 #
-# --selftest roda quatro controles (positivo, negativo, varredura
-# vazia, autoexclusao estreita) contra fixtures descartaveis sob
+# --selftest roda cinco controles (positivo, negativo, varredura
+# vazia, autoexclusao estreita, excecao de caminho do lock) contra fixtures descartaveis sob
 # tempfile.mkdtemp, nunca contra a arvore rastreada real.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -57,6 +62,15 @@ SCRIPT_NAME = "check_no_x11.py"
 # Caminho deste arquivo relativo a raiz do repo, em forma POSIX ('/'),
 # usado tanto no modo real quanto nas fixtures do --selftest.
 SELF_PATH_SUFFIX = "tests/tools/check_no_x11.py"
+
+# Excecao de CAMINHO EXATO, decisao do lider D-WP1-0011 (28/11/2026), sob a L-05: o lock Fedora da onda traz
+# libxkbcommon e libxkbcommon-x11 porque sao o fecho de dependencias do KWin de teste. O compositor ja os
+# instalava; o lock so fixa a versao, e nada entra na biblioteca (L-06 segue valendo). Nao e por diretorio, nao
+# e por extensao, nao e por glob: so este arquivo, e so neste caminho. O selftest prova o irmao e o homonimo.
+LOCK_PATH_SUFFIX = "tools/ci/env/lock/fedora.versionlock.toml"
+
+# As duas unicas excecoes, ambas de caminho exato e comparadas por igualdade (nunca por prefixo, glob ou extensao).
+EXACT_PATH_EXCLUSIONS = (SELF_PATH_SUFFIX, LOCK_PATH_SUFFIX)
 
 # Termos proibidos pela L-05 (Wayland puro, sem X11) e L-06 (parser de
 # keymap proprio, libxkbcommon fora) - ver o cabecalho acima para a
@@ -107,7 +121,7 @@ def scanned_files(root):
             for name in filenames:
                 full_path = os.path.join(dirpath, name)
                 rel_path = os.path.relpath(full_path, root).replace(os.sep, "/")
-                if rel_path == SELF_PATH_SUFFIX:
+                if rel_path in EXACT_PATH_EXCLUSIONS:
                     continue
                 files.append(full_path)
     return files
@@ -360,6 +374,64 @@ def selftest_self_exclusion_control(scratch, capture):
     return True
 
 
+# Exception of the exact path LOCK_PATH_SUFFIX (D-WP1-0011): the term inside the excluded lock PASSES; the same term
+# in a SIBLING of the same directory REPROVES and is cited; the same file name under the OLD path (tools/ci/lock/)
+# REPROVES too, which proves the exclusion is by full path and not by base name.
+def selftest_lock_exclusion_control(scratch, capture):
+    root = os.path.join(scratch, "lock_exclusion")
+    make_clean_fixture(root)
+    lock_dir = os.path.join(root, "tools", "ci", "env", "lock")
+    os.makedirs(lock_dir, exist_ok=True)
+    lock_file = os.path.join(lock_dir, "fedora.versionlock.toml")
+    with open(lock_file, "w", encoding="utf-8") as handle:
+        handle.write('[[packages]]\nname = "libxkbcommon"\n')
+
+    outcome = capture(lambda: check_no_x11(root))
+    if not outcome.result:
+        print(
+            "selftest: controle de EXCECAO DE LOCK FALHOU (o termo dentro do lock excluido foi pego - "
+            "o gate reprovaria o lock da onda)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    irmao = os.path.join(lock_dir, "outro.toml")
+    with open(irmao, "w", encoding="utf-8") as handle:
+        handle.write('name = "libxkbcommon"\n')
+    outcome = capture(lambda: check_no_x11(root))
+    os.remove(irmao)
+    if outcome.result or irmao not in outcome.text:
+        print(
+            "selftest: controle de EXCECAO DE LOCK FALHOU (o irmao no mesmo diretorio do lock escapou "
+            "ou nao foi citado - a excecao vazou para o diretorio)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    homonimo_dir = os.path.join(root, "tools", "ci", "lock")
+    os.makedirs(homonimo_dir, exist_ok=True)
+    homonimo = os.path.join(homonimo_dir, "fedora.versionlock.toml")
+    with open(homonimo, "w", encoding="utf-8") as handle:
+        handle.write('name = "libxkbcommon"\n')
+    outcome = capture(lambda: check_no_x11(root))
+    os.remove(homonimo)
+    if outcome.result or homonimo not in outcome.text:
+        print(
+            "selftest: controle de EXCECAO DE LOCK FALHOU (o homonimo no caminho antigo escapou - "
+            "a excecao vazou pelo nome do arquivo, nao pelo caminho)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    print(
+        "selftest: controle de EXCECAO DE LOCK OK (lock excluido passa; irmao e homonimo no caminho antigo reprovam e sao citados)"
+    )
+    return True
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -369,6 +441,7 @@ def selftest_main():
             selftest_negative_control(scratch, capture),
             selftest_empty_scan_control(scratch, capture),
             selftest_self_exclusion_control(scratch, capture),
+            selftest_lock_exclusion_control(scratch, capture),
         ]
         if not all(controls):
             print("check_no_x11.py --selftest: FALHOU (ver acima)", file=sys.stderr)

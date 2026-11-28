@@ -30,6 +30,10 @@ import tempfile
 
 SCRIPT_NAME = "ci_verde_completo.py"
 TRABALHO_SO_EM_TAG = "Versao == etiqueta (VERSION-TAG-SYNC)"  # `name:` do job `version-tag` no ci.yml
+# CI-PIN-PKG-B: o job que gera o lock Fedora so roda no disparo manual; em qualquer outro run sai `skipped`.
+# Excecao declarada igual a do trabalho de etiqueta: pode sair skipped, nunca falhar.
+TRABALHO_SO_EM_DISPARO = "Gera o lock Fedora da onda (CI-PIN-PKG-B)"  # `name:` do job `fedora-lock` no ci.yml
+SO_EM_EVENTO_ESPECIAL = (TRABALHO_SO_EM_TAG, TRABALHO_SO_EM_DISPARO)
 MODOS_ACEITOS = ("completo",)
 
 
@@ -55,9 +59,9 @@ def veredito(trabalhos, modo):
         conclusao = trabalho.get("conclusion", "")
         if conclusao == "skipped":
             pulados += 1
-        if nome != TRABALHO_SO_EM_TAG:
+        if nome not in SO_EM_EVENTO_ESPECIAL:
             de_ci += 1
-        if nome == TRABALHO_SO_EM_TAG:
+        if nome in SO_EM_EVENTO_ESPECIAL:
             if conclusao in ("success", "skipped"):
                 verdes += 1
             else:

@@ -6471,6 +6471,23 @@ add_test(
 )
 set_tests_properties(wave_manifest_piso_test PROPERTIES LABELS consume)
 
+# CI-PIN-PKG-B (D-W8-2090, ordem do CTO, item 3): a UNIAO dos pacotes Fedora sai dos proprios pontos de instalacao
+# (tools/ci/env/fedora.sh, ci.yml, Containerfile). O autoteste roda em todo sistema (texto puro); o teste real le o
+# repositorio e reprova se algum ponto sumir ou vier vazio (GODS_LAWS.md L-40: varredura vazia nunca e verde).
+add_test(
+    NAME fedora_lock_union_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/lock/uniao_fedora.py" --selftest
+)
+set_tests_properties(fedora_lock_union_selftest PROPERTIES LABELS selftest)
+
+add_test(
+    NAME fedora_lock_union_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../tools/ci/lock/uniao_fedora.py"
+)
+set_tests_properties(fedora_lock_union_test PROPERTIES LABELS consume)
+
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
 # spot the whole-tree rewrite of prepare_arch_ports_fixture.sh's own

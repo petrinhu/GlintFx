@@ -5451,3 +5451,54 @@ jobs:
 
       - name: check_version_matches_tag.py
         run: python3 tests/tools/check_version_matches_tag.py .
+
+  # CI-PIN-PKG-B (D-W8-2090, ordem do CTO, item 3): gera o lock dos pacotes Fedora da onda. Roda SO no disparo
+  # manual (`workflow_dispatch`): instala numa imagem viva a UNIAO dos pontos de instalacao Fedora (lida de
+  # tools/ci/lock/uniao_fedora.py, nunca copiada a mao), trava cada pacote na versao instalada com o dnf5
+  # (`versionlock add`) e sobe o lock como artifact. NAO escreve no repositorio: quem baixa o artifact commita o
+  # lock. Fora do disparo o job sai `skipped`, e tools/ci/ci_verde_completo.py o aceita como excecao declarada
+  # (como o trabalho de etiqueta). Imagem: a MESMA fixada pelo digest nos outros jobs Fedora.
+  fedora-lock:
+    name: Gera o lock Fedora da onda (CI-PIN-PKG-B)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A4 (D-A4): rerun_guard antes do marco prep (G6), como nos demais trabalhos. Sem `needs:`.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
+      # Marco `id: prep` (G3): so' echo; o job nao tem preparo a separar, mas o portao exige o marco.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
+      - name: Uniao dos pacotes Fedora (dos pontos de instalacao)
+        run: |
+          set -eu
+          python3 tools/ci/lock/uniao_fedora.py > "$RUNNER_TEMP/uniao.txt"
+          echo "uniao: $(wc -l < "$RUNNER_TEMP/uniao.txt") pacote(s)"
+
+      - name: Instala a uniao numa imagem viva e trava as versoes
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/saida"
+          docker run --rm --pull=missing --network=default \
+            -v "$PWD/tools/ci/lock:/lock:ro,z" \
+            -v "$RUNNER_TEMP/uniao.txt:/entrada/uniao.txt:ro,z" \
+            -v "$RUNNER_TEMP/saida:/saida:z" \
+            fedora:latest@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c \
+            sh /lock/gerar_fedora_lock.sh /entrada/uniao.txt /saida
+
+      - name: Sobe o lock e o inventario como artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fedora-versionlock
+          path: ${{ runner.temp }}/saida/
+          if-no-files-found: error
+          retention-days: 30

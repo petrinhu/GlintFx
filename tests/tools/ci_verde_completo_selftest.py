@@ -28,6 +28,7 @@ SCRIPT_NAME = "ci_verde_completo_selftest.py"
 ALVO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools", "ci", "ci_verde_completo.py")
 NOME_REAL_TRABALHO_SO_EM_TAG = "Versao == etiqueta (VERSION-TAG-SYNC)"
 CHAVE_JOB_SO_EM_TAG = "version-tag"
+CHAVE_JOB_DISPARO = "fedora-lock"  # chave do job de disparo manual (CI-PIN-PKG-B) no ci.yml
 
 
 def _carregar_alvo():
@@ -118,10 +119,10 @@ def _casos():
     ]
 
 
-def _conferir_nome_no_yml(texto, nome):
+def _conferir_nome_no_yml(texto, nome, chave=CHAVE_JOB_SO_EM_TAG):
     """Devolve a lista de problemas (vazia = ok). Funcao pura sobre o texto do ci.yml.
 
-    Regras: a chave `  <CHAVE_JOB_SO_EM_TAG>:` existe no bloco de jobs; dentro do bloco dela, a linha
+    Regras: a chave `  <chave>:` existe no bloco de jobs; dentro do bloco dela, a linha
     `    name:` tem o valor `nome` exato; e a linha `name: <nome>` aparece exatamente uma vez no
     arquivo inteiro (comentario com o nome nao conta; duplicata reprova).
     """
@@ -129,11 +130,11 @@ def _conferir_nome_no_yml(texto, nome):
     linhas = texto.splitlines()
     inicio = None
     for i, linha in enumerate(linhas):
-        if linha.rstrip() == f"  {CHAVE_JOB_SO_EM_TAG}:":
+        if linha.rstrip() == f"  {chave}:":
             inicio = i
             break
     if inicio is None:
-        return [f"chave do job {CHAVE_JOB_SO_EM_TAG!r} ausente (linha '  {CHAVE_JOB_SO_EM_TAG}:')"]
+        return [f"chave do job {chave!r} ausente (linha '  {chave}:')"]
     nomes_no_bloco = []
     for linha in linhas[inicio + 1:]:
         if linha.strip() == "" or linha.lstrip().startswith("#"):
@@ -145,11 +146,11 @@ def _conferir_nome_no_yml(texto, nome):
             nomes_no_bloco.append(linha[len("    name:"):].strip())
     if len(nomes_no_bloco) != 1:
         problemas.append(
-            f"bloco do job {CHAVE_JOB_SO_EM_TAG!r} tem {len(nomes_no_bloco)} linhas 'name:' (esperado 1)"
+            f"bloco do job {chave!r} tem {len(nomes_no_bloco)} linhas 'name:' (esperado 1)"
         )
     elif nomes_no_bloco[0] != nome:
         problemas.append(
-            f"name do job {CHAVE_JOB_SO_EM_TAG!r} e' {nomes_no_bloco[0]!r}, instrumento espera {nome!r}"
+            f"name do job {chave!r} e' {nomes_no_bloco[0]!r}, instrumento espera {nome!r}"
         )
     exatos = sum(1 for linha in linhas if linha.strip() == f"name: {nome}")
     if exatos != 1:
@@ -205,7 +206,15 @@ def selftest_main():
         problemas = _conferir_nome_no_yml(texto, esperado)
         if bool(problemas) != deve_reprovar:
             falhas.append(f"{nome}: problemas={problemas!r}, esperado reprovar={deve_reprovar}")
-    total = len(casos) + len(_casos_ci_yml())
+    # CI-PIN-PKG-B: o job de disparo manual pode sair skipped (excecao declarada); falhar reprova.
+    base = _verde_completo()[:-1]
+    rc_pulado, _ = alvo.veredito(base + [_job(alvo.TRABALHO_SO_EM_DISPARO, "skipped")], "completo")
+    if rc_pulado != 0:
+        falhas.append(f"disparo_pulado_passa: rc={rc_pulado}, esperado 0")
+    rc_falhou, _ = alvo.veredito(base + [_job(alvo.TRABALHO_SO_EM_DISPARO, "failure")], "completo")
+    if rc_falhou != 1:
+        falhas.append(f"disparo_falhou_reprova: rc={rc_falhou}, esperado 1")
+    total = len(casos) + len(_casos_ci_yml()) + 2
     if falhas:
         for f in falhas:
             print(f"{SCRIPT_NAME}: FALHOU: {f}", file=sys.stderr)
@@ -223,12 +232,13 @@ def ci_yml_main(caminho):
     except OSError as exc:
         print(f"{SCRIPT_NAME}: GUARDA - nao leu {caminho}: {exc}", file=sys.stderr)
         return 2
-    problemas = _conferir_nome_no_yml(texto, alvo.TRABALHO_SO_EM_TAG)
-    if problemas:
-        for p in problemas:
-            print(f"{SCRIPT_NAME} --ci-yml: REPROVADO: {p}", file=sys.stderr)
-        return 1
-    print(f"{SCRIPT_NAME} --ci-yml: nome {alvo.TRABALHO_SO_EM_TAG!r} existe como name do job {CHAVE_JOB_SO_EM_TAG!r}")
+    for nome, chave in ((alvo.TRABALHO_SO_EM_TAG, CHAVE_JOB_SO_EM_TAG), (alvo.TRABALHO_SO_EM_DISPARO, CHAVE_JOB_DISPARO)):
+        problemas = _conferir_nome_no_yml(texto, nome, chave)
+        if problemas:
+            for p in problemas:
+                print(f"{SCRIPT_NAME} --ci-yml: REPROVADO: {p}", file=sys.stderr)
+            return 1
+        print(f"{SCRIPT_NAME} --ci-yml: nome {nome!r} existe como name de job no ci.yml")
     return 0
 
 

@@ -130,6 +130,7 @@ EXPECTED = {
         "gitleaks": "curta",
         "leis": "curta",
         "version-tag": "curta",
+        "fedora-lock": "compilacao",
     },
 }
 
@@ -662,7 +663,7 @@ def selftest_arvore_real(dir_path):
     if rc != 0:
         print(f"selftest: ARVORE REAL FALHOU: rc={rc} saida={saida!r}", file=sys.stderr)
         return False
-    if "17 job(s), 17 com teto declarado" not in saida:
+    if "18 job(s), 18 com teto declarado" not in saida:
         print(f"selftest: ARVORE REAL FALHOU (contagem inesperada): {saida!r}", file=sys.stderr)
         return False
     print(f"selftest: ARVORE REAL OK: {saida.strip()}")
